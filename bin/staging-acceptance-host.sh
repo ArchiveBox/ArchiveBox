@@ -68,14 +68,15 @@ from archivebox.crawls.models import Crawl
 from archivebox.cli.archivebox_add import add
 from archivebox.config import VERSION
 from archivebox.core.routes_util import build_snapshot_detail_url
-from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
 from importlib.metadata import version
 
 sha = os.environ['ACCEPTANCE_SHA']
 tag = f'release-acceptance-{sha}'
 urls = ['https://docs.sweeting.me/s/cookie-dilemma', 'https://sweeting.me/']
 catalog = get_plugin_catalog()
-capture_plugins = [plugin for plugin in catalog.values() if any(hook.event == 'Snapshot' for hook in plugin.hooks)]
+enabled_plugins = get_enabled_plugins()
+capture_plugins = [plugin for plugin in catalog.values() if plugin.name in enabled_plugins and any(hook.event == 'Snapshot' for hook in plugin.hooks)]
 
 def accepted_limitation(plugin, status, output_str):
     # Keep this release waiver limited to the three observed, exact Claude
@@ -91,14 +92,15 @@ def accepted_limitation(plugin, status, output_str):
     )
 
 # PLUGINS is the persisted crawl selector; *_ENABLED flags are derived execution
-# config and are stripped when freezing a crawl. Select the entire catalog so
-# opt-in extractors run too. Every candidate must recapture these URLs even when
+# config and are stripped when freezing a crawl. Freeze the host's effective
+# selection so acceptance cannot re-enable explicitly disabled extractors.
+# Every candidate must recapture these URLs even when
 # an earlier acceptance crawl already saved them (the CLI's --update behavior).
-capture_config = {'PERMISSIONS': 'public', 'ONLY_NEW': False, 'PLUGINS': ','.join(sorted(catalog))}
+capture_config = {'PERMISSIONS': 'public', 'ONLY_NEW': False, 'PLUGINS': ','.join(sorted(enabled_plugins))}
 crawls = list(Crawl.objects.filter(tags_str=tag).order_by('created_at'))
 if not crawls:
-    # Normal add/runner flow with every snapshot extractor enabled, including
-    # opt-in TLSNotary. Never select a subset or steal the server runner's lease.
+    # Normal add/runner flow with every configured extractor enabled.
+    # Never steal the server runner's lease.
     crawl, _ = add(urls=urls, depth=0, tag=tag, bg=True, persona='ReleaseAcceptance', config=capture_config)
     crawls = [crawl]
 if len(crawls) != 1:
@@ -110,6 +112,7 @@ report = {
     'pins': {p: version(p) for p in ('abx-dl', 'abx-plugins', 'abxbus', 'abxpkg')},
     'status': 'pending', 'snapshots': [], 'errors': [], 'limitations': [],
     'enabled_capture_plugins': sorted(plugin.name for plugin in capture_plugins),
+    'disabled_plugins': sorted(set(catalog) - set(enabled_plugins)),
 }
 complete = crawl.status == 'sealed' and len(snapshots) == len(urls) and all(s.status == 'sealed' for s in snapshots)
 if crawl.status == 'sealed' and not complete:

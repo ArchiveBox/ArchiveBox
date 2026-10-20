@@ -531,7 +531,7 @@ def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
     assert not accepts("other-plugin", "failed", "Claude Code auth not set")
     assert not accepts("claudechrome", "succeeded", "ANTHROPIC_API_KEY not set")
     assert "'limitations': []" in embedded.group(1)
-    assert "'PLUGINS': ','.join(sorted(catalog))" in embedded.group(1)
+    assert "'PLUGINS': ','.join(sorted(enabled_plugins))" in embedded.group(1)
     assert "for plugin in capture_plugins:" in embedded.group(1)
     assert "missing or truncated" in embedded.group(1)
     assert "output.stat().st_size != metadata.get('size')" in embedded.group(1)
@@ -641,3 +641,40 @@ def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_pat
     assert int(written["CI_TEST_WORKERS"]) == (min(available, limit) if limit else available)
     assert written["DATA_DIR"] == str(tmp_path / "archivebox-test-data")
     assert written["PERSONAS_DIR"] == str(tmp_path / "abx-personas")
+
+
+@pytest.mark.django_db(transaction=True)
+def test_staging_capture_respects_host_disabled_plugins(initialized_archive):
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+
+    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
+    embedded = re.search(r"script=\"\$\(cat <<'PY'\n(.*?)\nPY\n\)\"", helper, re.S)
+    assert embedded is not None
+    setup = embedded.group(1).split("crawls = list(", 1)[0]
+    env = cli_env(ACCEPTANCE_SHA="a" * 40)
+    run_archivebox_cmd(
+        ["config", "--set", "TLSNOTARY_ENABLED=False", "CLAUDECHROME_ENABLED=False", "SCREENSHOT_ENABLED=True"],
+        cwd=initialized_archive,
+        env=env,
+        check=True,
+    )
+    result = run_archivebox_cmd(
+        [
+            "shell",
+            "-c",
+            setup
+            + "\nassert 'tlsnotary' not in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'claudechrome' not in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'screenshot' in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'tlsnotary' not in [plugin.name for plugin in capture_plugins]"
+            + "\nassert 'screenshot' in [plugin.name for plugin in capture_plugins]"
+            + "\ncrawl, _ = add(urls=['https://example.com/acceptance-policy'], bg=True, config=capture_config)"
+            + "\nfrom archivebox.config.common import get_config"
+            + "\nassert get_config(crawl=crawl).TLSNOTARY_ENABLED is False"
+            + "\nassert get_config(crawl=crawl).CLAUDECHROME_ENABLED is False"
+            + "\nassert get_config(crawl=crawl).SCREENSHOT_ENABLED is True",
+        ],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
