@@ -31,7 +31,8 @@ Only trusted release events use the private ugNAS runner route. Never expose
 these credentials to PR jobs or copy an operator's existing root key.
 
 Acceptance creates one tagged background crawl per source through the normal
-add/runner path, enabling every snapshot extractor, including TLSNotary. It
+add/runner path, retaining the host's effective plugin selection. Explicitly
+disabled extractors remain disabled and are listed in `disabled_plugins`. It
 checks installed pins, completed outputs and their files, unexpected/missing
 plugin results, host OOM kills, and real rendered snapshot pages. For this
 release, the explicitly accepted TLSNotary failures and exact missing-Claude-auth
