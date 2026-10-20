@@ -1716,11 +1716,26 @@ class AddView(UserPassesTestMixin, FormView):
         if schedule:
             from archivebox.crawls.models import CrawlSchedule
 
+            # Persist submitted policy, not crawl.config's frozen persona defaults.
+            schedule_config = {
+                key: value
+                for key, value in {
+                    "PLUGINS": plugins,
+                    "CRAWL_MAX_URLS": max_urls,
+                    "CRAWL_MAX_SIZE": crawl_max_size,
+                    "CRAWL_TIMEOUT": crawl_timeout,
+                    "SNAPSHOT_MAX_SIZE": snapshot_max_size,
+                    "CRAWL_MAX_CONCURRENT_SNAPSHOTS": crawl_max_concurrent_snapshots,
+                    "URL_ALLOWLIST": url_filters.get("allowlist"),
+                    "URL_DENYLIST": url_filters.get("denylist"),
+                }.items()
+                if value
+            }
             crawl_schedule = CrawlSchedule.objects.create(
                 template=crawl,
                 schedule=schedule,
                 is_enabled=True,
-                config=config,
+                config={**schedule_config, **config},
                 label=crawl.label,
                 notes=f"Auto-created from add page. {notes}".strip(),
                 created_by_id=created_by_id,

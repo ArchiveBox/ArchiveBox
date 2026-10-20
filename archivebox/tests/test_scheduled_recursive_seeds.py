@@ -74,14 +74,16 @@ def test_scheduled_only_new_refreshes_recursive_seed_only(initialized_archive, t
 
 
 @pytest.mark.django_db(transaction=True)
-def test_add_view_schedule_preserves_template_policy_and_explicit_overrides(client, api_admin_user):
+def test_add_view_schedule_preserves_explicit_policy_and_refreshes_defaults(client, api_admin_user):
     from django.urls import reverse
 
     from archivebox.crawls.models import CrawlSchedule
     from archivebox.personas.models import Persona
     from archivebox.tests.test_ui_add_view import ADD_FORM_DEFAULTS, ADMIN_HOST
 
-    Persona.get_or_create_default()
+    persona = Persona.get_or_create_default()
+    persona.config = {"USER_AGENT": "Initial scheduled persona"}
+    persona.save(update_fields=["config"])
     client.force_login(api_admin_user)
     response = client.post(
         reverse("add"),
@@ -105,18 +107,45 @@ def test_add_view_schedule_preserves_template_policy_and_explicit_overrides(clie
     assert template.config["PLUGINS"] == "wget"
     assert template.config["CRAWL_MAX_URLS"] == 60
     original_template_config = dict(template.config)
+    persona.config["USER_AGENT"] = "Current scheduled persona"
+    persona.save(update_fields=["config"])
     first = schedule.enqueue()
-    assert first.config == {**template.config, **schedule.config}
+    for key in ("PLUGINS", "CRAWL_MAX_URLS", "URL_DENYLIST"):
+        assert first.config[key] == template.config[key]
+    assert first.config["USER_AGENT"] == "Current scheduled persona"
     assert first.url_passes_filters("https://example.com/blocked/page", use_effective_config=False) is False
 
     # Explicit empty/false/zero schedule overrides must not inherit template values.
-    schedule.config = {"URL_DENYLIST": "", "ONLY_NEW": False, "CRAWL_MAX_URLS": 0, "SCHEDULE_KIND": "crawl"}
+    schedule.config.update(
+        {"URL_DENYLIST": "", "ONLY_NEW": False, "CRAWL_MAX_URLS": 0, "SCHEDULE_KIND": "crawl", "USER_AGENT": "Explicit scheduled UA"},
+    )
     schedule.save(update_fields=["config"])
     second = schedule.enqueue()
     assert second.config["PLUGINS"] == "wget"
+    assert second.config["USER_AGENT"] == "Explicit scheduled UA"
     assert second.config["URL_DENYLIST"] == ""
     assert second.config["ONLY_NEW"] is False
     assert second.config["CRAWL_MAX_URLS"] == 0
     assert "SCHEDULE_KIND" not in second.config
     template.refresh_from_db()
     assert template.config == original_template_config
+
+
+@pytest.mark.django_db(transaction=True)
+def test_cli_schedule_refreshes_defaults_without_losing_explicit_config(initialized_archive):
+    from archivebox.crawls.models import CrawlSchedule
+
+    env = cli_env(disable_extractors=True)
+    for args in (
+        ["config", "--set", "USER_AGENT=Initial scheduled CLI"],
+        ["schedule", "--every=daily", "--no-only-new", "https://example.com/scheduled"],
+        ["config", "--set", "USER_AGENT=Current scheduled CLI"],
+        ["schedule", "--run-all"],
+    ):
+        run_archivebox_cmd(args, cwd=initialized_archive, env=env, check=True)
+    with use_archivebox_db(initialized_archive):
+        schedule = CrawlSchedule.objects.select_related("template").get()
+        child = schedule.crawl_set.exclude(pk=schedule.template_id).get()
+        assert schedule.template.config["USER_AGENT"] == "Initial scheduled CLI"
+        assert child.config["USER_AGENT"] == "Current scheduled CLI"
+        assert child.config["ONLY_NEW"] is False

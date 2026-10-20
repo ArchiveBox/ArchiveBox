@@ -86,7 +86,11 @@ def schedule(
         crawl_schedule = CrawlSchedule.objects.create(
             template=template,
             schedule=schedule_str,
-            config={**template.config, "SCHEDULE_KIND": "update" if is_update_schedule else "crawl"},
+            config={
+                "DEPTH": 0 if is_update_schedule else depth,
+                **config_overrides,
+                "SCHEDULE_KIND": "update" if is_update_schedule else "crawl",
+            },
             is_enabled=True,
             label=template_label,
             notes=template_notes,

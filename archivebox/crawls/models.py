@@ -127,10 +127,8 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
-        # The add form stores filters, plugin selection, and limits on the template.
-        # Retain those policies unless the schedule explicitly overrides them.
-        crawl_config = {**(template.config or {}), **(self.config or {})}
-        crawl_config.pop("SCHEDULE_KIND", None)
+        # Template config is frozen; new runs must resolve current persona defaults.
+        crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
         return Crawl.objects.create(
             urls=template.urls,
