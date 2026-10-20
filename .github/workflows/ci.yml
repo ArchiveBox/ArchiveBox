@@ -134,7 +134,7 @@ jobs:
   # the tested image; requiring that deployment here would block promotion.
   required:
     name: All required CI lanes
-    if: ${{ always() && needs.prepare.outputs.run_jobs == 'true' }}
+    if: ${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}
     needs:
       - prepare
       - lint

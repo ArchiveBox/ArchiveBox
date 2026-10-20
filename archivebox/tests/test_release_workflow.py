@@ -387,6 +387,10 @@ def test_dev_promotion_does_not_wait_for_its_own_deployment():
 )
 def test_required_ci_gate_rejects_each_failed_lane(failed_lane):
     ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    # An explicit status function overrides the implicit success() filter, so
+    # failed predecessors still reach this strict shell gate. Cancellation alone
+    # must suppress it, allowing the next run to acquire the concurrency group.
+    assert ci["jobs"]["required"]["if"] == "${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}"
     gate = ci["jobs"]["required"]["steps"][0]
     env = {**os.environ, **dict.fromkeys(gate["env"], "success")}
     if failed_lane:
