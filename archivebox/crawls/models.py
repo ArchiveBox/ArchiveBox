@@ -127,7 +127,10 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
-        crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
+        # The add form stores filters, plugin selection, and limits on the template.
+        # Retain those policies unless the schedule explicitly overrides them.
+        crawl_config = {**(template.config or {}), **(self.config or {})}
+        crawl_config.pop("SCHEDULE_KIND", None)
 
         return Crawl.objects.create(
             urls=template.urls,
@@ -982,8 +985,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 continue
             if not self.url_passes_filters(url, use_effective_config=False):
                 continue
+            # Recurring discovery needs a fresh seed to find new links. ONLY_NEW
+            # still deduplicates discovered children and ordinary adds.
+            refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and depth == 0
             # /über and /%C3%BCber are one URL: dedupe across both spellings.
-            if only_new_urls and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
+            if only_new_urls and not refresh_scheduled_seed and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
                 continue
 
             # Skip if depth exceeds max_depth
@@ -1170,7 +1176,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 tag_ids = [Tag.get_or_create_by_name(tag_name)[0].pk for tag_name in tag_names]
                 snapshot.add_tag_ids(tag_ids)
 
-        existing_scope = Snapshot.objects if bool(self._config_value(config, "ONLY_NEW", True)) else self.snapshot_set
+        # The runner also enters through this batch path for explicit seeds.
+        # Child discoveries must retain global ONLY_NEW even in scheduled crawls.
+        refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and parent_snapshot is None and depth == 0
+        only_new_urls = bool(self._config_value(config, "ONLY_NEW", True)) and not refresh_scheduled_seed
+        existing_scope = Snapshot.objects if only_new_urls else self.snapshot_set
         existing_uris = {iri_to_uri(url) for url in existing_scope.filter(url__in=lookup_urls).values_list("url", flat=True)}
         urls = [url for url in deduped_records.keys() if iri_to_uri(url) not in existing_uris]
         remaining = self.remaining_snapshot_capacity()

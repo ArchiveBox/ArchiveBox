@@ -174,6 +174,7 @@ def schedule(
     "only_new",
     default=None,
     help="Skip URLs that already have a snapshot (default: inherit from ONLY_NEW config). "
+    "Recursive schedules always refresh their seed URLs to discover new links. "
     "Pass --no-only-new to force re-archive on each scheduled run.",
 )
 @click.option("--clear", is_flag=True, help="Disable all currently enabled schedules")

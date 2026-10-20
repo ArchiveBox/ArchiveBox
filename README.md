@@ -683,6 +683,8 @@ See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usa
 
 It also includes a built-in scheduled import feature with `archivebox schedule`, handled by the same orchestrator that powers `archivebox server`, so you can pull in URLs from RSS feeds and websites regularly without a separate cron container.
 
+Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Scheduled runs inherit the template's filters, plugin selection, and limits, with explicit schedule config taking precedence.
+
 <br/>
 
 
