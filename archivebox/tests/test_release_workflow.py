@@ -213,7 +213,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
-        if name not in {"prepare", "required", "dev-image", "staging-health"}:
+        if name not in {"prepare", "required", "dev-image"}:
             assert job["needs"] == "prepare"
             assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     early = ci["jobs"]["dev-image"]
@@ -224,11 +224,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert '[[ "${#digests[@]}" -eq 2 ]]' in publish
     assert publish.index('if [[ "$head" != "$GITHUB_SHA" ]]') < publish.index('--tag "$image:dev-unstable"')
     assert '--tag "$image:dev"' not in publish
-    health = ci["jobs"]["staging-health"]
-    assert health["needs"] == "dev-image"
-    assert health["if"] == "needs.dev-image.outputs.ready == 'true'"
-    assert health["with"] == {"sha": "${{ github.sha }}", "health_only": True}
-    assert {"dev-image", "staging-health"} <= set(ci["jobs"]["required"]["needs"])
+    assert "dev-image" in ci["jobs"]["required"]["needs"]
     gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
     assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
@@ -344,6 +340,59 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert 'inspection.get("health") != "healthy"' in verifier
     assert "expected_abx_dl_digest" in verifier
     assert 'run["conclusion"] != "success"' in verifier
+
+
+def test_dev_promotion_does_not_wait_for_its_own_deployment():
+    ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    # Cabbage follows :dev, so its exact-SHA check can run only after promotion.
+    # All pre-promotion test lanes still run against the candidate in CI.
+    assert set(ci["jobs"]["required"]["needs"]) == {
+        "prepare",
+        "lint",
+        "install-cli-platform",
+        "tests",
+        "codeql",
+        "python-artifacts",
+        "docker-digests",
+        "dev-image",
+    }
+    assert not any(job.get("uses", "").endswith("staging-acceptance.yml") for job in ci["jobs"].values())
+    docker = yaml.load(DOCKER_WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    assert docker["on"]["workflow_call"]["inputs"]["full_tests"]["default"] == "true"
+    assert ci["jobs"]["docker-digests"]["with"].get("full_tests", True) is True
+    validation = next(
+        step
+        for step in docker["jobs"]["build"]["steps"]
+        if step.get("name") == "Validate Docker mounts, ports, CLI and compose concurrently"
+    )
+    assert "steps.docker_build.outputs.digest" in validation["env"]["ARCHIVEBOX_IMAGE"]
+    staging = yaml.load((REPO_ROOT / ".github/workflows/staging-acceptance.yml").read_text(), Loader=yaml.BaseLoader)
+    assert staging["on"]["workflow_run"] == {"workflows": ["Release"], "types": ["completed"]}
+    assert staging["jobs"]["acceptance"]["needs"] == "published"
+    assert not staging["jobs"]["acceptance"].get("continue-on-error")
+
+
+@pytest.mark.parametrize(
+    "failed_lane",
+    [
+        None,
+        "LINT_RESULT",
+        "INSTALL_CLI_PLATFORM_RESULT",
+        "TESTS_RESULT",
+        "CODEQL_RESULT",
+        "PYTHON_ARTIFACTS_RESULT",
+        "DOCKER_DIGESTS_RESULT",
+        "DEV_IMAGE_RESULT",
+    ],
+)
+def test_required_ci_gate_rejects_each_failed_lane(failed_lane):
+    ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    gate = ci["jobs"]["required"]["steps"][0]
+    env = {**os.environ, **dict.fromkeys(gate["env"], "success")}
+    if failed_lane:
+        env[failed_lane] = "failure"
+    result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", gate["run"]], env=env, capture_output=True, text=True)
+    assert (result.returncode == 0) is (failed_lane is None), result.stdout + result.stderr
 
 
 def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
