@@ -26,6 +26,14 @@ def main() -> None:
     if set(environments.values()) - {"provider-capture"}:
         raise SystemExit("Unknown ci-environment requirement")
     hosted = {path for path in archivebox_tests if "# ci-runner: hosted" in path.read_text().splitlines()[:5]}
+    max_workers = {
+        path: int(line.removeprefix("# ci-workers: ").strip())
+        for path in archivebox_tests
+        for line in path.read_text().splitlines()[:5]
+        if line.startswith("# ci-workers: ")
+    }
+    if any(limit < 1 for limit in max_workers.values()):
+        raise SystemExit("ci-workers must be positive")
     requested = os.environ.get("TEST_FILE", "")
     batches: list[list[str]] = []
     batch: list[str] = []
@@ -35,7 +43,7 @@ def main() -> None:
             continue
         test_path = path.relative_to(root).as_posix()
         duration = durations.get(test_path, 60)
-        if duration >= 60 or path in hosted or path.stem == "test_auth_ldap" or test_path == requested:
+        if duration >= 60 or path in hosted or path in max_workers or path.stem == "test_auth_ldap" or test_path == requested:
             batches.append([test_path])
             continue
         if batch and (len(batch) == 8 or batch_seconds + duration > 180):
@@ -58,6 +66,7 @@ def main() -> None:
                 "count": len(paths),
                 "ugnas": False,
                 "environment": "",
+                "max_workers": min((max_workers[root / path] for path in paths if root / path in max_workers), default=0),
             },
         )
     for path, environment in environments.items():
@@ -71,6 +80,7 @@ def main() -> None:
                 "count": 1,
                 "ugnas": False,
                 "environment": environment,
+                "max_workers": max_workers.get(path, 0),
             },
         )
 

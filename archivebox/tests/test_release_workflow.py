@@ -608,3 +608,36 @@ def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edi
     assert next(item for item in discover() if "archivebox/tests/test_runner_renamed.py" in item["paths"])["ugnas"] is False
     (tests / "test_runner_renamed.py").unlink()
     assert all(item["ugnas"] for item in discover())
+
+    (tests / "test_core_config.py").write_text("# ci-workers: 1\n" + source.read_text())
+    limited = next(item for item in discover() if "archivebox/tests/test_core_config.py" in item["paths"])
+    assert limited["paths"] == ["archivebox/tests/test_core_config.py"]
+    assert limited["max_workers"] == 1
+    (tests / "test_core_config.py").rename(tests / "test_limited_renamed.py")
+    renamed = next(item for item in discover() if "archivebox/tests/test_limited_renamed.py" in item["paths"])
+    assert renamed["max_workers"] == 1
+
+
+@pytest.mark.parametrize("runner,limit", [("github-hosted", 0), ("github-hosted", 1), ("self-hosted", 0), ("self-hosted", 1)])
+def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_path, runner, limit):
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/test-parallel.yml").read_text())
+    step = next(
+        step for job in workflow["jobs"].values() for step in job.get("steps", []) if step.get("name") == "Set job-local runtime paths"
+    )
+    env_file = tmp_path / "github-env"
+    subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        env={
+            **os.environ,
+            "CI_RUNNER_ENVIRONMENT": runner,
+            "CI_TEST_MAX_WORKERS": str(limit),
+            "RUNNER_TEMP": str(tmp_path),
+            "GITHUB_ENV": str(env_file),
+        },
+        check=True,
+    )
+    written = dict(line.split("=", 1) for line in env_file.read_text().splitlines())
+    available = int(subprocess.check_output(["nproc"], text=True)) if runner == "github-hosted" else 2
+    assert int(written["CI_TEST_WORKERS"]) == (min(available, limit) if limit else available)
+    assert written["DATA_DIR"] == str(tmp_path / "archivebox-test-data")
+    assert written["PERSONAS_DIR"] == str(tmp_path / "abx-personas")

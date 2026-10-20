@@ -1,3 +1,6 @@
+# ci-workers: 1
+# These tests measure shared-browser reuse and admission within real captures;
+# concurrent independent collections can correctly force a resource deferral.
 """
 Tests for archivebox run CLI command.
 

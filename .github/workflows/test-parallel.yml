@@ -117,10 +117,14 @@ jobs:
       - name: Set job-local runtime paths
         env:
           CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          CI_TEST_MAX_WORKERS: ${{ matrix.test.max_workers }}
         run: |
           workers=2
           if [[ "$CI_RUNNER_ENVIRONMENT" == github-hosted ]]; then
             workers="$(nproc)"
+          fi
+          if (( CI_TEST_MAX_WORKERS > 0 && workers > CI_TEST_MAX_WORKERS )); then
+            workers="$CI_TEST_MAX_WORKERS"
           fi
           {
             echo "CI_TEST_WORKERS=$workers"
