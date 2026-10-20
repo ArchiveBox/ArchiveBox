@@ -567,3 +567,63 @@ def test_crawl_stop_reason_reports_paused_for_paused_crawl(admin_user):
     )
 
     assert crawl.stop_reason() == "paused"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawl_admin_resume_toolbar_browser(admin_user, crawl, live_server, browser_runtime, tmp_path):
+    import json
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    snapshots = crawl.create_snapshots_from_urls()
+    assert crawl.pause()
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    origin = f"http://admin.archivebox.localhost:{port}"
+    change_url = origin + reverse("admin:crawls_crawl_change", args=[crawl.pk])
+    timings = {}
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.goto(f"{origin}/admin/login/")
+            page.locator("#id_username").fill(admin_user.username)
+            page.locator("#id_password").fill("testpassword")
+            page.locator('input[type="submit"]').click()
+            page.wait_for_url(f"{origin}/admin/")
+            response = page.goto(change_url)
+            assert response is not None and response.status == 200
+            timings["paused_get"] = response.request.timing
+            resume = page.get_by_role("button", name="Resume", exact=False)
+            expect(resume).to_be_visible()
+            page.screenshot(path=str(tmp_path / "paused.png"))
+            with page.expect_response(lambda response: response.request.method == "POST") as resume_post:
+                with page.expect_navigation() as resumed_response:
+                    resume.click()
+            timings["resume_post"] = resume_post.value.request.timing
+            assert resume_post.value.status == 302
+            assert resumed_response.value is not None and resumed_response.value.status == 200
+            expect(page.locator(".messagelist")).to_contain_text("Resumed 1 crawl")
+            response = page.goto(change_url)
+            assert response is not None and response.status == 200
+            timings["resumed_get"] = response.request.timing
+            expect(page.get_by_role("button", name="Pause", exact=False)).to_be_visible()
+            expect(page.get_by_role("button", name="Resume", exact=False)).to_have_count(0)
+            page.screenshot(path=str(tmp_path / "resumed.png"))
+        finally:
+            browser.close()
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.QUEUED
+    assert set(Snapshot.objects.filter(pk__in=[snapshot.pk for snapshot in snapshots]).values_list("status", flat=True)) == {
+        Snapshot.StatusChoices.QUEUED,
+    }
+    (tmp_path / "timings.json").write_text(json.dumps(timings, indent=2))
+    print(f"Browser evidence: {tmp_path}")
