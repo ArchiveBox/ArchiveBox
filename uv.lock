@@ -27,7 +27,7 @@ uv = "2026-10-23T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.13.253"
+version = "1.13.254"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins" },
@@ -41,9 +41,9 @@ dependencies = [
     { name = "rich" },
     { name = "rich-click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/e1/a24d79e26da408ecb96e39b6ed7b5da5fb6990b1237e6a2692ea8e3b3183/abx_dl-1.13.253.tar.gz", hash = "sha256:8cae1ede7c0a1274bef717434f285932b11a6f81ebcbddd32a1dc5f2e2f60aae", size = 104021, upload-time = "2026-10-23T21:12:10.606Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/e0/a27fefe4d6065385b04adf7711a29db53cd40b2a72408a237aa766fa5302/abx_dl-1.13.254.tar.gz", hash = "sha256:4abb56392030d39a663c5189e58d1c6cd505897e55f8e7939c70a3aa0d95f35c", size = 103985, upload-time = "2026-10-23T21:39:46.018Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/72/f648ebcae2dbc406b00e964cd387f495858bd6b25b02e713b949ddfcea95/abx_dl-1.13.253-py3-none-any.whl", hash = "sha256:ceb5fa0ebb9fc72d0cea1f0b2dec1c6ecea5138d1f6fb24a5825e60625928378", size = 108647, upload-time = "2026-10-23T21:12:08.731Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/db/89b94c1b4721d7b627e88fe91a828765a2c79eff09a45ab8998d90174604/abx_dl-1.13.254-py3-none-any.whl", hash = "sha256:8c0297a70d8b126af7194fc45eec0cfc6c764740c0a32eed7c6c8fa33040c524", size = 108648, upload-time = "2026-10-23T21:39:44.295Z" },
 ]
 
 [[package]]
@@ -133,7 +133,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.74rc359"
+version = "0.9.74rc361"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl" },
@@ -236,7 +236,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.13.253" },
+    { name = "abx-dl", specifier = "==1.13.254" },
     { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.511" },
     { name = "abxbus", specifier = "==2.5.79" },
     { name = "abxpkg", specifier = "==1.13.67" },
