@@ -1,0 +1,23 @@
+archivebox/tests/test_health_responsiveness.py
+  s_10bc94d001be49::t_29892f2a8e58f2 3,40-55
+pyproject.toml
+  s_10bc94d001be49::t_898b8987638bb8 46,165-167
+uv.lock
+  s_10bc94d001be49::t_a2c6a070b546c7 25,173,281,2847,2858,2860
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7d0309b39d86601d4dd660f15af55ae89da4ca9",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
