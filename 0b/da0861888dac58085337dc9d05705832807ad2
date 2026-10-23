@@ -1,0 +1,21 @@
+.github/workflows/test-parallel.yml
+  s_10bc94d001be49::t_761c1d4b7e4129 142-150
+archivebox/tests/test_ui_live_progress.py
+  s_10bc94d001be49::t_ae5651dc9a1ae4 823,872,879-888,921-925
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0bda0861888dac58085337dc9d05705832807ad2",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
