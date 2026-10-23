@@ -6,7 +6,7 @@ Tests for archivebox persona command.
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
-def test_persona_open_background_returns_ready_and_reuses_browser(initialized_archive, tmp_path, httpserver):
+def test_persona_open_background_returns_ready_and_reuses_browser(initialized_archive, cached_abxpkg_lib_dir, httpserver):
     import json
     import subprocess
     from pathlib import Path
@@ -15,8 +15,8 @@ def test_persona_open_background_returns_ready_and_reuses_browser(initialized_ar
 
     from archivebox.tests.conftest import resolve_abxpkg_chrome_env
 
-    browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
-    browser_env.update(ABXPKG_LIB_DIR=str(tmp_path / "lib"), CHROME_SANDBOX="false")
+    browser_env = resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+    browser_env.update(ABXPKG_LIB_DIR=str(cached_abxpkg_lib_dir), CHROME_SANDBOX="false")
     httpserver.expect_request("/").respond_with_data("<title>Background persona ready</title>", content_type="text/html")
     launched = run_archivebox_cmd(
         ["persona", "open", "Background test", "--headless", "--background"],
@@ -46,7 +46,7 @@ def test_persona_open_background_returns_ready_and_reuses_browser(initialized_ar
     console.log(await page.title());
   } finally { await browser.disconnect(); }
 })().catch(error => { console.error(error); process.exit(1); });""",
-                str(tmp_path / "lib/pnpm/packages/chrome/node_modules/puppeteer"),
+                str(cached_abxpkg_lib_dir / "pnpm/packages/chrome/node_modules/puppeteer"),
                 endpoint,
                 httpserver.url_for("/"),
             ],
@@ -71,11 +71,11 @@ def test_persona_open_background_returns_ready_and_reuses_browser(initialized_ar
         browser.wait(timeout=15)
 
 
-def test_persona_open_background_reports_launch_failure(initialized_archive, tmp_path):
+def test_persona_open_background_reports_launch_failure(initialized_archive, cached_abxpkg_lib_dir):
     from archivebox.tests.conftest import resolve_abxpkg_chrome_env
 
-    browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
-    browser_env.update(ABXPKG_LIB_DIR=str(tmp_path / "lib"), CHROME_SANDBOX="false")
+    browser_env = resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+    browser_env.update(ABXPKG_LIB_DIR=str(cached_abxpkg_lib_dir), CHROME_SANDBOX="false")
     # A real filesystem conflict prevents the browser owner acquiring its lock.
     browser_dir = initialized_archive / "personas" / "Blocked" / ".browser"
     (browser_dir / "launch.lock").mkdir(parents=True)
