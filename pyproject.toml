@@ -236,6 +236,8 @@ exclude = ["*.pyi", "*.html", "**/*.html", "typings/", "migrations/", "archivebo
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
+# Keep the pre-0.16 Ruff policy explicit when upgrading the linter.
+select = ["E4", "E7", "E9", "F"]
 ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.codespell]
