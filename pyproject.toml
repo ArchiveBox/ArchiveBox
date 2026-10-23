@@ -161,7 +161,9 @@ dev = [
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
 exclude-newer = "5 days"
-exclude-newer-package = { abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
+# Security fixes for GHSA-6q48-6c7w-9gw2 and GHSA-hq85-5cpj-mr62
+# are newer than the default age window; allow only the published fixes.
+exclude-newer-package = { certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
 # compile-bytecode = true
 
 [build-system]
