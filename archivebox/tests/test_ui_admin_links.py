@@ -304,6 +304,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     )
     admin = SnapshotAdmin(Snapshot, AdminSite())
     admin.request = _admin_get_request()
+    admin.request.user = admin_user
     result_admin = ArchiveResultAdmin(ArchiveResult, AdminSite())
     result_admin.request = admin.request
     assert result_admin.get_output_files_url(root_result) == build_snapshot_files_url(
