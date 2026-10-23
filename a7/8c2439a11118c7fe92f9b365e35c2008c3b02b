@@ -1,0 +1,21 @@
+archivebox/core/permissions.py
+  s_3dfe58614cddf2::t_8f81459846ec03 66-67
+archivebox/tests/test_memento.py
+  s_3dfe58614cddf2::t_889b94aedc90f6 92,97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a78c2439a11118c7fe92f9b365e35c2008c3b02b",
+  "prompts": {},
+  "sessions": {
+    "s_3dfe58614cddf2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1673e-a369-70b2-9841-4f97b3ef2892",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
