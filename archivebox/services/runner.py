@@ -2184,6 +2184,11 @@ def _first_due_id(queryset, *, newest_first: bool = False):
 def _next_queued_crawl_snapshot_id(active_snapshots):
     from archivebox.crawls.models import Crawl
 
+    # Avoid paging the entire due snapshot backlog when no new submission
+    # exists. A queued parent's lease may be future while its children are due.
+    if not Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).exists():
+        return None
+
     # Newest-first chooses which submission goes next, not its URL order:
     # without crawl isolation the admitted snapshot runs alone, so taking it
     # newest-first would capture an imported list's last line first.
@@ -2198,6 +2203,9 @@ def _next_queued_crawl_snapshot_id(active_snapshots):
 def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]) -> bool:
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
+
+    if not Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).exists():
+        return False
 
     # Only new submissions preempt a running crawl (UI responsiveness). A crawl
     # exists to keep one browser open across a long run of URLs, and each
