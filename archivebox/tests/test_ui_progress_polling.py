@@ -1,10 +1,61 @@
 """Real browser polling against Django under slow and disconnected transport."""
 
+import re
 import time
 from urllib.parse import urlsplit
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
+
+
+@pytest.mark.django_db(transaction=True)
+def test_empty_snapshot_preserves_progress_details_preference(snapshot, live_server, browser_runtime, tmp_path):
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.status = "queued"
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["status", "permissions"])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
+        monitor = page.locator("#progress-monitor")
+        toggle = page.locator("#progress-collapse")
+        expect(page.get_by_role("heading", name="Queued for archiving")).to_be_visible()
+        expect(toggle).to_have_attribute("aria-expanded", "true")
+        expect(monitor).not_to_have_class(re.compile(r"\bcollapsed\b"))
+        expect(page.locator("#idle-message")).not_to_be_visible()
+        toggle.click()
+        expect(toggle).to_have_attribute("aria-expanded", "false")
+        page.reload()
+        expect(toggle).to_have_attribute("aria-expanded", "false")
+        assert "collapsed" in (monitor.get_attribute("class") or "").split()
+        with page.expect_response(
+            lambda response: urlsplit(response.url).path == "/progress.json" and "tree=0" in response.url,
+        ) as summary_info:
+            pass
+        assert summary_info.value.status == 200
+        assert "active_crawls" not in summary_info.value.json()
+        page.screenshot(path=str(tmp_path / "queued-collapsed.png"))
+        with page.expect_response(
+            lambda response: urlsplit(response.url).path == "/progress.json" and "tree=0" not in response.url,
+        ) as details_info:
+            toggle.click()
+        assert details_info.value.status == 200
+        assert "active_crawls" in details_info.value.json()
+        expect(toggle).to_have_attribute("aria-expanded", "true")
+        assert "collapsed" not in (monitor.get_attribute("class") or "").split()
+        expect(page.locator("#idle-message")).not_to_be_visible()
+        expect(monitor.locator(f'.snapshot-item[data-snapshot-id="{snapshot.pk}"]')).to_be_visible()
+        page.screenshot(path=str(tmp_path / "queued-expanded.png"))
+        browser.close()
 
 
 @pytest.mark.django_db(transaction=True)

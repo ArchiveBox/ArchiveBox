@@ -1147,11 +1147,6 @@
             (() => {
                 const refreshBtn = document.getElementById('snapshot-empty-refresh');
                 if (refreshBtn) refreshBtn.addEventListener('click', () => location.reload());
-                const monitor = document.getElementById('progress-monitor');
-                if (!monitor) return;
-                const wrapper = document.getElementById('main-frame-wrapper');
-                const hasOutputs = wrapper && wrapper.dataset.hasOutputs === '1';
-                if (!hasOutputs) monitor.classList.remove('collapsed');
             })();
         </script>
         <script>
