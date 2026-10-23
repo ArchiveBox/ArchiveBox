@@ -1,0 +1,26 @@
+archivebox/services/snapshot_service.py
+  s_10bc94d001be49::t_c4627cd7b513b3 27-28,30-33,37
+archivebox/tests/test_config_CRAWL_DISCOVERY_PLUGINS.py
+  s_10bc94d001be49::t_6cc2e66e9c94a9 1-100
+  s_10bc94d001be49::t_11c287b211aa30 101-102
+archivebox/config/common.py
+  s_10bc94d001be49::t_c4627cd7b513b3 491-497
+README.md
+  s_10bc94d001be49::t_6cc2e66e9c94a9 688-689
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ef3cc9c17ab34a7e4a17e96c6b06dc20b7be1c6",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
