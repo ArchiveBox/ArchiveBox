@@ -39,7 +39,7 @@ classifiers = [
 
 dependencies = [
     ### Django libraries
-    "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
+    "setuptools>=84.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.1.2",
     "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
     "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
@@ -162,9 +162,9 @@ dev = [
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
 exclude-newer = "5 days"
-# Published certifi, uv, and Twisted security fixes are newer than the
+# Published certifi, uv, setuptools, and Twisted security fixes are newer than the
 # default age window; allow only the published fixes.
-exclude-newer-package = { twisted = "2026-10-23T00:00:00Z", certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
+exclude-newer-package = { setuptools = "2026-10-23T00:00:00Z", twisted = "2026-10-23T00:00:00Z", certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
 # compile-bytecode = true
 
 [build-system]
