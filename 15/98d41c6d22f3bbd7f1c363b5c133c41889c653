@@ -1,0 +1,43 @@
+.github/configs/ci-tooling.json
+  s_10bc94d001be49::t_a8f4bb4ee59b81 103-104,313,317,321-322,328-329
+.github/workflows/deploy-publicsite.yml
+  s_10bc94d001be49::t_feddf7d3e5c6e4 45
+.github/workflows/docker.yml
+  s_10bc94d001be49::t_c5a3638074dd39 83
+.github/workflows/docs-build.yml
+  s_10bc94d001be49::t_26b205d004bfeb 26
+.github/workflows/docs-links.yml
+  s_10bc94d001be49::t_d05d7627352e5d 25
+.github/workflows/docs.yml
+  s_10bc94d001be49::t_65930cf5c75cda 49,105
+.github/workflows/lint.yml
+  s_10bc94d001be49::t_20142ef889f60a 27
+.github/workflows/pip.yml
+  s_10bc94d001be49::t_16ac0eda1787d8 18
+.github/workflows/release.yml
+  s_10bc94d001be49::t_445d7ee8ab9dc0 161,377
+.github/workflows/screenshots.yml
+  s_10bc94d001be49::t_ae5d0091e3a15f 56
+.github/workflows/staging-acceptance.yml
+  s_10bc94d001be49::t_2fda9be51dddba 90
+.github/workflows/test-parallel.yml
+  s_10bc94d001be49::t_ca37fe89bc507a 55,150,282
+.github/workflows/test.yml
+  s_10bc94d001be49::t_5a15ba9624acd1 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1598d41c6d22f3bbd7f1c363b5c133c41889c653",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
