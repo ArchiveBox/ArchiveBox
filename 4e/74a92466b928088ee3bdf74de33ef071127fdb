@@ -1,0 +1,21 @@
+archivebox/services/runner.py
+  s_10bc94d001be49::t_c752729fadf156 2187-2191,2207-2209
+archivebox/tests/test_scheduler_queued_crawl_lookup.py
+  s_10bc94d001be49::t_fb64d2538cf52d 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4e74a92466b928088ee3bdf74de33ef071127fdb",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
