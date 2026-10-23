@@ -488,6 +488,13 @@ class ArchivingConfig(BaseConfigSet):
         description="Comma-separated plugin selection for this run. Empty means use enabled plugin defaults.",
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
+    CRAWL_DISCOVERY_PLUGINS: str = Field(
+        default="",
+        description=(
+            "Comma-separated plugins whose discovered URLs may create child snapshots. "
+            "Empty accepts every plugin. Does not change explicit seeds, plugin execution, or saved outputs."
+        ),
+    )
 
     ONLY_NEW: bool = Field(default=True)
     INDEX_ONLY: bool = Field(default=False)

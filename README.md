@@ -685,6 +685,8 @@ It also includes a built-in scheduled import feature with `archivebox schedule`,
 
 Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Schedules preserve explicitly submitted filters, plugin selection, limits, and custom config; each new run resolves current defaults for settings left unspecified.
 
+`CRAWL_DISCOVERY_PLUGINS=parse_html_urls` restricts child URL discovery to the named plugin's saved `urls.jsonl`; comma-separated names select multiple sources, and the default empty value accepts every source. Other plugins still run and preserve their outputs. This setting leaves explicit seeds unchanged and combines with `URL_ALLOWLIST`, `URL_DENYLIST`, depth limits, and `ONLY_NEW` when admitting children.
+
 <br/>
 
 

@@ -24,11 +24,17 @@ def project_discovered_snapshots(snapshot_id: str) -> list:
     if crawl.status not in crawl.RUNNABLE_STATES or crawl.is_paused or snapshot.depth >= crawl.max_depth:
         return []
 
+    effective_config = get_config(crawl=crawl, snapshot=snapshot)
+    discovery_plugins = {name.strip() for name in effective_config.CRAWL_DISCOVERY_PLUGINS.split(",") if name.strip()}
     discovered_urls = collect_urls_from_plugins(Path(snapshot.output_dir))
+    if discovery_plugins:
+        # The reader assigns provenance from the containing plugin directory,
+        # independently of fields supplied by the archived JSONL records.
+        discovered_urls = [record for record in discovered_urls if record["plugin"] in discovery_plugins]
     if not discovered_urls:
         return []
 
-    config = get_config(crawl=crawl, snapshot=snapshot).for_crawl_runtime(
+    config = effective_config.for_crawl_runtime(
         crawl=crawl,
         snapshot=snapshot,
         persona=crawl.resolve_persona(),
