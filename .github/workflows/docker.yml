@@ -248,8 +248,8 @@ jobs:
           cache-to: |
             ${{ inputs.push_digests && 'type=inline' || '' }}
           outputs: |
-            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3', runner.temp) || '' }}
-            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=8', runner.temp) || '' }}
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=8', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
         id: docker_build_pr
