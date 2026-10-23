@@ -777,3 +777,109 @@ def test_binary_event_updates_existing_row_from_native_abxpkg_resolution():
     assert binary.version
     assert binary.binprovider == "env"
     assert binary.binproviders == "env,apt,brew"
+
+
+def test_result_consumer_timeout_surfaces_after_real_hook_completion(tmp_path, hermetic_lib_dir):
+    """A successful hook cannot hide a result consumer lost to real SQLite contention."""
+    import asyncio
+    import sqlite3
+
+    from asgiref.sync import sync_to_async
+    from django.db import close_old_connections, connection
+
+    from abx_dl.events import ArchiveResultEvent
+    from abx_dl.services.process_service import ProcessService as HookProcessService
+    from abx_dl.services.archive_result_service import ArchiveResultService as HookResultService
+    from abx_plugins.plugins.base.utils import _collect_required_schema_paths
+    from abxpkg import prepare_script_exec_plan
+    from archivebox.core.models import ArchiveResult
+    from archivebox.machine.models import Process
+    from archivebox.plugins.discovery import get_plugin_catalog
+    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+
+    snapshot = _create_snapshot()
+    snapshot_dir = Path(snapshot.output_dir)
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    source = snapshot_dir / "source.txt"
+    source.write_text("Actual native hash input.\n" * 10000)
+    hook = get_plugin_catalog()["hashes"].filter_hooks("Snapshot")[0]
+    binary_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=_collect_required_schema_paths(hook.path.parent / "config.json"))
+    assert prepare_script_exec_plan(hook.path, env=binary_env)
+    output_dir = snapshot_dir / "hashes"
+    output_dir.mkdir()
+    db_path = connection.settings_dict["NAME"]
+    assert Path(db_path).is_file(), "The contention regression requires the existing file-backed test DB"
+
+    async def run():
+        bus = create_bus(name="test_result_consumer_sqlite_contention")
+        HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+        HookResultService(bus, emit_jsonl=False)
+        ProcessService(bus)
+        ArchiveResultService(bus)
+        writer = await asyncio.to_thread(sqlite3.connect, db_path, check_same_thread=False)
+        try:
+            snapshot_event = SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot_dir))
+            await bus.emit(snapshot_event).now()
+            process_event = bus.emit(
+                ProcessEvent(
+                    plugin_name="hashes",
+                    hook_name=hook.name,
+                    hook_path=str(hook.path),
+                    hook_args=[f"--url={snapshot.url}"],
+                    env={
+                        **binary_env,
+                        "ABXPKG_LIB_DIR": str(hermetic_lib_dir),
+                        "SNAP_DIR": str(snapshot_dir),
+                        "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
+                    },
+                    output_dir=str(output_dir),
+                    timeout=60,
+                    is_background=False,
+                    url=snapshot.url,
+                    process_type="hook",
+                    worker_type="hook",
+                    event_parent_id=snapshot_event.event_id,
+                ),
+            )
+            task = asyncio.create_task(process_event.now())
+            started = await bus.find(ProcessStartedEvent, child_of=process_event, past=True, future=60)
+            assert started is not None
+            await started.wait()
+            await started.event_results_list()
+            # Hold a real independent writer only after the actual running row exists.
+            # No handler, process, event deadline, or SQLite timeout is substituted.
+            await asyncio.to_thread(writer.execute, "BEGIN IMMEDIATE")
+            try:
+                result_event = await bus.find(ArchiveResultEvent, child_of=started, past=True, future=60)
+                assert result_event is not None
+                await result_event.now()
+                # The timed-out async caller can leave its synchronous DB work running.
+                # Queue normal connection cleanup behind that work before releasing the
+                # writer, so the real backend reaches its existing bounded lock abort.
+                await sync_to_async(close_old_connections, thread_sensitive=True)()
+            finally:
+                await asyncio.to_thread(writer.rollback)
+            await task
+            await bus.wait_until_idle()
+            completed = await bus.find(ProcessCompletedEvent, child_of=started, past=True, future=False)
+            assert completed is not None and completed.exit_code == 0 and not completed.cancelled
+            with pytest.raises(RuntimeError, match="ArchiveResult consumers did not complete"):
+                await process_event.event_results_list()
+        finally:
+            await asyncio.to_thread(writer.rollback)
+            await asyncio.to_thread(writer.close)
+            await bus.destroy(clear=False)
+
+    asyncio.run(run())
+    process = Process.objects.filter(pwd=str(output_dir)).latest("created_at")
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="hashes", hook_name=hook.name)
+    assert process.exit_code == 0
+    assert result.status == ArchiveResult.StatusChoices.STARTED
+    assert result.output_size == 0
+    hashes = json.loads((output_dir / "hashes.json").read_text())
+    assert any(item["path"] == "source.txt" and item["hash"] == hashlib.sha256(source.read_bytes()).hexdigest() for item in hashes["files"])
+    records = [json.loads(line) for line in (snapshot_dir / "index.jsonl").read_text().splitlines() if line.strip()]
+    assert any(record.get("type") == "ArchiveResult" and record["status"] == "succeeded" for record in records)
+    assert any(record.get("type") == "Process" and record["exit_code"] == 0 for record in records)
+    _cleanup_machine_process_rows()
