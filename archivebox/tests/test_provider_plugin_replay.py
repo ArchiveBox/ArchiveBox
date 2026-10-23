@@ -251,6 +251,7 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                     "microsoft365": "The Child Welfare Research-to-Policy Network",
                     "iwork": "CoT-zuzalu-final",
                     "canva": 'Copy of Public Access - Certificate v1 (Bleed) - 8.5 x 11"',
+                    "figma": "Style Guide Starter (Copy) (Copy)",
                 }.get(plugin, relative.name)
                 expect(viewer.locator("viewer-toolbar")).to_contain_text(pdf_title)
 

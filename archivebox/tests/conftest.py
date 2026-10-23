@@ -395,6 +395,9 @@ def isolate_test_runtime(tmp_path):
     os.chdir(tmp_path)
     _sync_archivebox_test_data_dir(tmp_path)
     os.environ.pop("DATA_DIR", None)
+    # The config field's default was captured at import, before test isolation.
+    # Keep sampler files and other temporary output inside this test collection.
+    os.environ["TMP_DIR"] = str(tmp_path / "tmp")
 
     def reset_machine_model_caches() -> None:
         import archivebox.machine.models as machine_models
