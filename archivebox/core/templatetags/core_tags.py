@@ -598,7 +598,8 @@ def system_warnings_banner(context):
 @register.simple_tag(takes_context=True)
 def url_replace(context, **kwargs):
     dict_ = context["request"].GET.copy()
-    dict_.update(**kwargs)
+    for key, value in kwargs.items():
+        dict_[key] = value
     return dict_.urlencode()
 
 

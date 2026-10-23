@@ -381,6 +381,46 @@ class TestPublicIndex:
             stop_server(tmp_path)
 
     @override_settings(PUBLIC_INDEX=True)
+    def test_public_pagination_replaces_page_and_preserves_other_query_values(self, client, admin_user):
+        from html import unescape
+
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(urls="https://pagination.example", created_by=admin_user, config={"PERMISSIONS": "public"})
+        Snapshot.objects.bulk_create(
+            [
+                Snapshot(
+                    url=f"https://pagination.example/{index}",
+                    title=f"Pagination {index}",
+                    timestamp=str(1800000000 + index),
+                    crawl=crawl,
+                    config={"PERMISSIONS": "public"},
+                    status="sealed",
+                )
+                for index in range(101)
+            ],
+        )
+        url = "/public/?page=3&page=2&q=&search_mode=metadata&tag=first&tag=second"
+        # Follow rendered links repeatedly, including an already duplicated URL.
+        # Only page is replaced; repeated unrelated values and blanks survive.
+        for expected_page, direction in [(2, "next"), (3, "previous"), (2, "previous"), (1, "next")]:
+            response = client.get(url, HTTP_HOST=WEB_TEST_HOST)
+            assert response.status_code == 200
+            assert response.context["page_obj"].number == expected_page
+            pagination = response.content.decode().split('<div class="public-pagination">', 1)[1].split("</div>", 1)[0]
+            links = {unescape(label): unescape(href) for href, label in re.findall(r'<a href="([^"]+)">([^<]+)</a>', pagination)}
+            assert direction in links
+            for href in links.values():
+                params = parse_qs(urlsplit(href).query, keep_blank_values=True)
+                assert len(params["page"]) == 1, href
+                assert params["q"] == [""]
+                assert params["search_mode"] == ["metadata"]
+                assert params["tag"] == ["first", "second"]
+            url = "/public/" + links[direction]
+        assert parse_qs(urlsplit(url).query)["page"] == ["2"]
+
+    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_lists_only_public_snapshots(self, client, admin_user):
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
