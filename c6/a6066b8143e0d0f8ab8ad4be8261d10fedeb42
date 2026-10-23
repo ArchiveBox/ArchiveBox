@@ -1,0 +1,22 @@
+archivebox/tests/test_ui_progress_polling.py
+  s_10bc94d001be49::t_edf5a5d051ddcf 3,12,33-34,44,51,53
+  s_10bc94d001be49::t_fbb4dbf9f86221 8-11,13-32,35-43,45-50,54,57
+  s_10bc94d001be49::t_bda9f28712cc5f 52
+  s_10bc94d001be49::t_6ffa6c94778323 55-56,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6a6066b8143e0d0f8ab8ad4be8261d10fedeb42",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
