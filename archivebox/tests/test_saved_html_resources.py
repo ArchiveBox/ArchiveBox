@@ -1,6 +1,8 @@
 """Replay recorded HTML dependencies through the actual saved-response index."""
 
 import json
+import gzip
+import re
 import base64
 import hashlib
 import shutil
@@ -14,6 +16,7 @@ from playwright.sync_api import expect, sync_playwright
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 FIXTURE = Path(__file__).parent / "fixtures/crontab-resources"
+NEWLINE_METADATA = gzip.decompress((Path(__file__).parent / "fixtures/saved-html-newlines/metadata.html.gz").read_bytes())
 LAZY_FIXTURE = Path(__file__).parent / "fixtures/bablosoft-lazy-image"
 
 
@@ -136,12 +139,13 @@ def install_responses(root):
     return responses
 
 
+@pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
 @pytest.mark.parametrize("path", ["dom/output.html", "responses/all/page.html"])
-def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(tmp_path, path):
+def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(tmp_path, path, metadata):
     install_responses(tmp_path)
     output = tmp_path / path
     output.parent.mkdir(exist_ok=True)
-    original = (FIXTURE / "page.html").read_bytes()
+    original = (FIXTURE / "page.html").read_bytes().replace(b"<head>", b"<head>" + metadata, 1)
     output.write_bytes(original)
     request = RequestFactory().get("/" + path)
     # A responses document must use its own recorded URL, not the crawl URL.
@@ -151,6 +155,12 @@ def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(
     prefix = "../responses/all/" if path.startswith("dom/") else ""
     assert f"href='{prefix}styles.css'".encode() in body
     assert f'src="{prefix}index.js"'.encode() in body
+    assert metadata in body
+    assert re.findall(rb"<script\b[^>]*>(.*?)</script\s*>", body, re.I | re.S) == re.findall(
+        rb"<script\b[^>]*>(.*?)</script\s*>",
+        original,
+        re.I | re.S,
+    )
     assert b"archivebox-static-html-preview-style" not in body
     raw = serve_static_with_byterange_support(RequestFactory().get("/" + path + "?raw=1"), path, document_root=tmp_path)
     assert b"".join(raw.streaming_content) == original
@@ -158,8 +168,9 @@ def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
 @pytest.mark.parametrize("card", [False, True])
-def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, live_server, browser_runtime, card, tmp_path):
+def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, live_server, browser_runtime, card, tmp_path, metadata):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -183,6 +194,7 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
         .replace("<link href='./css/styles.css?cb=1'", f"<link integrity='{css_integrity}' href='./css/styles.css?cb=1'")
         .replace('<script src="/index.js">', f'<script integrity="{script_integrity}" src="/index.js">'),
     )
+    captured.write_bytes(captured.read_bytes().replace(b"<head>", b"<head>" + metadata, 1))
     path = "/responses/all/page.html#@daily"
     if card:
         from archivebox.core.models import ArchiveResult
@@ -190,7 +202,7 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
 
         output = snapshot.output_dir / "dom/output.html"
         output.parent.mkdir()
-        output.write_bytes((FIXTURE / "page.html").read_bytes())
+        output.write_bytes((FIXTURE / "page.html").read_bytes().replace(b"<head>", b"<head>" + metadata, 1))
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="dom",

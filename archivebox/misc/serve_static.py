@@ -878,9 +878,9 @@ def _rewrite_html_image_sources_to_responses(
     inserted_sources: set[int] = set()
     background_styles: dict[int, bool] = {}
     stylesheet_integrities: dict[int, tuple[int, int]] = {}
-    offsets = [0]
-    for line in html_text.splitlines(keepends=True):
-        offsets.append(offsets[-1] + len(line))
+    # HTMLParser advances its line number only on LF, not standalone CR or
+    # Unicode separators recognized by str.splitlines().
+    offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
     base_href = None
     attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
 
