@@ -1029,6 +1029,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             "is_admin": is_admin,
             "scope": {
                 "snapshot_id": str(scoped_snapshot.id) if scoped_snapshot is not None else "",
+                "snapshot_status": scoped_snapshot.status if scoped_snapshot is not None else "",
                 "crawl_id": crawl_id_filter,
             },
             "orchestrator_running": orchestrator_running,

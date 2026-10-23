@@ -2139,6 +2139,16 @@
                     return;
                 }
                 monitor.classList.toggle('is-guest', data.is_admin === false);
+                // An empty live snapshot has no cards to update. Load its final
+                // server-rendered results once, without interrupting opened files.
+                const emptySnapshot = document.getElementById('snapshot-empty-state');
+                if (emptySnapshot && ['queued', 'started', 'paused'].includes(emptySnapshot.dataset.snapshotState)
+                    && data.scope?.snapshot_status === 'sealed'
+                    && data.scope.snapshot_id.replace(/-/g, '') === progressEndpoint.searchParams.get('snapshot_id')?.replace(/-/g, '')) {
+                    stopPolling();
+                    window.location.reload();
+                    return;
+                }
                 updateProgress(data);
             })
             .catch(error => {
