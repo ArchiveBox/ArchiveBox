@@ -43,6 +43,7 @@ dependencies = [
     "django>=6.1.2",
     "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
     "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
+    "twisted>=26.10.0rc1",  # published security fixes for Daphne's HTTP runtime
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
@@ -161,9 +162,9 @@ dev = [
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
 exclude-newer = "5 days"
-# Security fixes for GHSA-6q48-6c7w-9gw2 and GHSA-hq85-5cpj-mr62
-# are newer than the default age window; allow only the published fixes.
-exclude-newer-package = { certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
+# Published certifi, uv, and Twisted security fixes are newer than the
+# default age window; allow only the published fixes.
+exclude-newer-package = { twisted = "2026-10-23T00:00:00Z", certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
 # compile-bytecode = true
 
 [build-system]

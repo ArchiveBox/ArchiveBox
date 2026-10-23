@@ -1,5 +1,6 @@
 """Liveness probes must not depend on collection queries or authentication."""
 
+import socket
 import time
 
 import pytest
@@ -36,3 +37,19 @@ def test_health_through_real_daphne(archivebox_daemon_server):
             assert response.headers["X-ArchiveBox-Health"] == "OK"
             assert "no-store" in response.headers["Cache-Control"]
     print(f"Real Daphne health request times (ms): {elapsed}")
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("header_value", [b"before\rafter", b"before\nafter"])
+def test_real_daphne_rejects_bare_cr_lf_in_header_values(archivebox_daemon_server, header_value):
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite")
+    server.wait_for_workers(("worker_daphne",))
+    with socket.create_connection(("127.0.0.1", server.port), timeout=5) as client:
+        client.sendall(
+            b"GET /health/ HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nX-Test: " + header_value + b"\r\n\r\n",
+        )
+        response = bytearray()
+        while chunk := client.recv(4096):
+            response.extend(chunk)
+    assert response.startswith(b"HTTP/1.1 400 "), bytes(response)
+    assert b"X-ArchiveBox-Health: OK" not in response
