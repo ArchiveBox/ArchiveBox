@@ -1,0 +1,23 @@
+archivebox/tests/conftest.py
+  s_10bc94d001be49::t_bf97c800232b2f 398-400
+archivebox/tests/test_provider_plugin_replay.py
+  s_10bc94d001be49::t_bfe93394cd5319 254
+archivebox/tests/test_test_harness.py
+  s_10bc94d001be49::t_1291fb5ec3bb35 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78806de8ab272d66e394fe91ca89eb2e9b137b6d",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
