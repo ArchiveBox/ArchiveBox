@@ -820,7 +820,7 @@ class TestLiveProgressView:
         import time
 
         from archivebox.config.common import get_config
-        from archivebox.machine.models import Machine
+        from archivebox.machine.models import Machine, Process
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.services.runner import run_due_snapshot
@@ -869,12 +869,23 @@ class TestLiveProgressView:
 
         runner = Thread(target=run_snapshot, name="archivebox-test-screencast-runner")
         runner.start()
+        writer = None
         try:
             assert painted_http_server.request_started.wait(timeout=60)
             deadline = time.monotonic() + 90
             while time.monotonic() < deadline:
                 assert errors == []
                 assert not list(durable_dir.glob("*.jpg")), "Live frames must not churn durable archive storage"
+                if writer is None and frame.is_file():
+                    assert frame.read_bytes().startswith(b"\xff\xd8\xff")
+                    process = Process.objects.get(pwd=str(durable_dir), status=Process.StatusChoices.RUNNING)
+                    assert process.pid and process.started_at
+                    # The producer now samples even static pages. Pause the real
+                    # writer to exercise serving an aged frame while it is alive.
+                    writer = process.proc
+                    assert writer is not None
+                    assert any("chrome_screencast" in arg for arg in writer.cmdline())
+                    writer.suspend()
                 if frame.is_file() and time.time() - frame.stat().st_mtime > 16:
                     break
                 time.sleep(0.1)
@@ -907,7 +918,11 @@ class TestLiveProgressView:
             assert image_response.status_code == 200
             assert b"".join(image_response.streaming_content) == frame.read_bytes()
         finally:
-            runner.join(timeout=120)
+            try:
+                if writer is not None and writer.is_running():
+                    writer.resume()
+            finally:
+                runner.join(timeout=120)
         assert not runner.is_alive()
         assert errors == []
         assert not frame.exists()
