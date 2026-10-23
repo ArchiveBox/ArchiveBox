@@ -602,7 +602,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
     assert mercury_path.resolve().is_file()
     assert os.access(mercury_path, os.X_OK)
 
-    hook_path = Path(str(files("abx_plugins.plugins.mercury").joinpath("on_Snapshot__57_mercury.py")))
+    hook_path = Path(str(files("abx_plugins.plugins.mercury").joinpath("on_Snapshot__66_mercury.py")))
     output_dir = tmp_path / "mercury"
     output_dir.mkdir()
 
@@ -614,7 +614,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
         await bus.emit(
             ProcessEvent(
                 plugin_name="mercury",
-                hook_name="on_Snapshot__57_mercury.py",
+                hook_name="on_Snapshot__66_mercury.py",
                 hook_path=str(hook_path),
                 hook_args=[f"--url={recursive_test_site['root_url']}"],
                 is_background=False,
@@ -632,7 +632,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
             ProcessStartedEvent,
             past=True,
             future=False,
-            hook_name="on_Snapshot__57_mercury.py",
+            hook_name="on_Snapshot__66_mercury.py",
             output_dir=str(output_dir),
         )
         assert started is not None
