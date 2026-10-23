@@ -1,3 +1,6 @@
+# ci-workers: 1
+# Each lifecycle test starts a real server and runner; competing collections
+# can correctly defer resumed captures under the shared host pressure guard.
 """
 Tests for archivebox server command.
 Verify server can start (basic smoke tests only, no full server testing).
