@@ -56,9 +56,14 @@ def main():
     while time.monotonic() < deadline:
         check = remote("inspect")
         (evidence / "inspection.log").write_text(f"exit_code={check.returncode}\n{check.stdout}{check.stderr}")
-        if check.returncode == 75 and inspection is None:
+        if inspection is None and (
+            check.returncode == 75
+            or (check.returncode == 1 and re.fullmatch(r"error: no such object: [\w.-]+\s*", check.stderr, re.IGNORECASE))
+        ):
             # Deployment is asynchronous; this is observation, not a test retry
             # or permission to pull/restart a container from CI.
+            # Watchtower briefly removes the old container before creating its
+            # replacement. After acceptance starts, any disappearance still fails.
             print(check.stderr.strip(), flush=True)
             time.sleep(30)
             continue
