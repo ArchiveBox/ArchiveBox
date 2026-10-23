@@ -89,12 +89,12 @@ def test_capture_discovery_permissions(client, captures, django_user_model, view
 
 
 @pytest.mark.django_db(transaction=True)
-def test_static_capture_discovery_permissions(captures, tmp_path):
+def test_static_capture_export_includes_all_permissions(captures, tmp_path):
     snapshot = captures[0]
     snapshot.write_html_details(out_dir=tmp_path)
     body = (tmp_path / "index.html").read_text()
     for capture in captures:
-        assert (str(capture.id) in body) == (capture in captures[:2])
+        assert str(capture.id) in body
 
 
 @pytest.fixture
