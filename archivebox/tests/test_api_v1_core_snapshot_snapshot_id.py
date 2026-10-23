@@ -89,6 +89,17 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+@pytest.mark.parametrize("snapshot_ref", ["ffffffff-ffff-4fff-8fff-ffffffffffff", "ffffffffffff4fff8fffffffffffffff", "ffffffff"])
+@pytest.mark.parametrize("method", ["get", "patch"])
+def test_missing_snapshot_returns_not_found(client, api_headers, snapshot_ref, method):
+    assert not Snapshot.objects.exists()
+    kwargs = {"data": "{}", "content_type": "application/json"} if method == "patch" else {}
+    response = getattr(client, method)(f"/api/v1/core/snapshot/{snapshot_ref}", **kwargs, **api_headers)
+    assert response.status_code == 404, response.content
+    assert response.json() == {"detail": "Snapshot not found"}
+    assert not Snapshot.objects.exists()
+
+
 @pytest.mark.parametrize("initial_status", ["queued", "started", "paused"])
 @pytest.mark.parametrize("explicit_retry", [False, True])
 def test_snapshot_status_patch_seals_persisted_state(client, api_headers, initial_status, explicit_retry):

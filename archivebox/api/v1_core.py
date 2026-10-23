@@ -369,15 +369,18 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 def _get_snapshot_by_ref(snapshot_id: str):
     queryset = Snapshot.objects.select_related("crawl__created_by")
     try:
-        full_id = UUID(snapshot_id)
-    except (TypeError, ValueError):
-        pass
-    else:
-        return queryset.get(pk=full_id)
-    try:
-        return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
-    except Snapshot.DoesNotExist:
-        return queryset.get(_uuid_ref_query("id", snapshot_id))
+        try:
+            full_id = UUID(snapshot_id)
+        except (TypeError, ValueError):
+            pass
+        else:
+            return queryset.get(pk=full_id)
+        try:
+            return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
+        except Snapshot.DoesNotExist:
+            return queryset.get(_uuid_ref_query("id", snapshot_id))
+    except Snapshot.DoesNotExist as err:
+        raise HttpError(404, "Snapshot not found") from err
 
 
 def _queue_archiveresult_snapshot_maintenance(snapshot: Snapshot) -> None:
