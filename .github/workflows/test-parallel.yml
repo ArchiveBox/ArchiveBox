@@ -52,7 +52,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          version: "0.11.3"
+          version: "0.13.5"
           enable-cache: false
           cache-dependency-glob: uv.lock
 
@@ -147,7 +147,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          version: "0.11.3"
+          version: "0.13.5"
           enable-cache: false
           cache-dependency-glob: uv.lock
 
@@ -279,7 +279,7 @@ jobs:
           python-version: ${{ env.CI_PYTHON_VERSION }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          version: "0.11.3"
+          version: "0.13.5"
           enable-cache: false
       - name: Install browser display and PDF inspection tools
         run: |

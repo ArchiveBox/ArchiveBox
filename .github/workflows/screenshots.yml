@@ -53,6 +53,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
+          version: "0.13.5"
           enable-cache: false
 
       - name: Install ArchiveBox and screenshot dependencies
