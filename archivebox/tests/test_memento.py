@@ -58,6 +58,45 @@ def capture_url(snapshot):
     return build_snapshot_detail_url(snapshot.archive_path_from_db)
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("viewer", ["anonymous", "member", "staff"])
+@pytest.mark.parametrize("current", [0, 2])
+def test_capture_discovery_permissions(client, captures, django_user_model, viewer, current):
+    hidden_owner = django_user_model.objects.create_user(username="hidden-capture-owner", password="testpassword")
+    for snapshot in captures[2:]:
+        snapshot.crawl.created_by = hidden_owner
+        snapshot.crawl.save(update_fields=["created_by"])
+    if viewer != "anonymous":
+        user = django_user_model.objects.create_user(username="capture-viewer", password="testpassword", is_staff=viewer == "staff")
+        assert client.login(username=user.username, password="testpassword")
+
+    path = urlsplit(capture_url(captures[current])).path
+    visible = captures if viewer == "staff" else captures[:2]
+    for suffix in ("", "?format=link"):
+        response = client.get(path + suffix, HTTP_HOST="admin.archivebox.localhost:5797")
+        assert response.status_code == 200
+        body = response.content.decode()
+        if suffix:
+            links = requests.utils.parse_header_links(body.replace("\n", ""))
+            discovered = {link["url"] for link in links if link["rel"] == "memento"}
+            assert discovered == {capture_url(snapshot) for snapshot in visible}
+        for snapshot in captures:
+            # Both formats link to the explicitly opened capture itself.
+            expected = snapshot in visible or snapshot == captures[current]
+            assert (str(snapshot.id) in body) == expected
+        if viewer != "staff" and current == 0:
+            assert hidden_owner.username not in body
+
+
+@pytest.mark.django_db(transaction=True)
+def test_static_capture_discovery_permissions(captures, tmp_path):
+    snapshot = captures[0]
+    snapshot.write_html_details(out_dir=tmp_path)
+    body = (tmp_path / "index.html").read_text()
+    for capture in captures:
+        assert (str(capture.id) in body) == (capture in captures[:2])
+
+
 @pytest.fixture
 def archive_files(captures):
     # Real Webrecorder capture: exercise ZIP and gzip bytes, not placeholder bundles.
@@ -279,6 +318,8 @@ def test_memento_live_http(live_server, captures, host):
     assert str(first.id) in target
     response = get(target)
     assert response.status_code == 200
+    for capture in captures:
+        assert (str(capture.id) in response.text) == (capture in captures[:2])
     assert response.headers["Memento-Datetime"] == http_date(first.downloaded_at.timestamp())
     assert response.content
     links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(response.headers["Link"])}

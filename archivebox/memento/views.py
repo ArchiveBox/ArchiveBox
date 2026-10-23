@@ -13,7 +13,7 @@ from django.utils.cache import patch_vary_headers
 from django.utils.http import http_date, parse_http_date_safe
 
 from archivebox.core.models import Snapshot
-from archivebox.core.permissions import is_admin_user, public_snapshots_queryset
+from archivebox.core.permissions import discoverable_snapshots_queryset
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, build_web_url
 from archivebox.misc.util import equivalent_urls, iri_to_uri
 
@@ -27,7 +27,7 @@ def _captures(request, url):
     snapshots = Snapshot.objects.filter(url__in=equivalent_urls(url), downloaded_at__isnull=False, output_size__gt=0).select_related(
         "crawl__created_by",
     )
-    return (snapshots if is_admin_user(request) else public_snapshots_queryset(snapshots)).order_by("downloaded_at", "id")
+    return discoverable_snapshots_queryset(request, snapshots).order_by("downloaded_at", "id")
 
 
 def _links(request, snapshot, relation="timemap"):

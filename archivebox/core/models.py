@@ -3752,7 +3752,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     ) -> dict[str, Any]:
         """Build the one context used by both served and on-disk snapshot pages."""
         from archivebox.config.common import get_request_config
-        from archivebox.core.permissions import get_snapshot_permissions
+        from archivebox.core.permissions import discoverable_snapshots_queryset, get_snapshot_permissions
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
@@ -3864,9 +3864,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             status_label, status_color = status_label_by_state.get(snapshot_status, ("not yet archived", "danger"))
 
         related_snapshots = list(
-            type(self)
-            .objects.filter(url=self.url)
-            .exclude(id=self.id)
+            discoverable_snapshots_queryset(request, type(self).objects.filter(url=self.url).exclude(id=self.id))
             .select_related("crawl__created_by")
             .only(
                 "id",
