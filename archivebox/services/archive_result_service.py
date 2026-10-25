@@ -8,7 +8,7 @@ import time
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -18,6 +18,9 @@ from abx_dl.output_files import OutputManifest
 from abx_dl.services.base import BaseService
 
 from .process_service import parse_event_datetime
+
+if TYPE_CHECKING:
+    from archivebox.core.models import Snapshot
 
 
 def _perf_trace(label):
@@ -123,15 +126,16 @@ def _should_update_snapshot_title(current_title: str, next_title: str, *, snapsh
 def _save_archiveresult_event_to_db(
     event: ArchiveResultEvent,
     process_started: ProcessStartedEvent | ProcessCompletedEvent | None,
-) -> None:
+) -> Snapshot | None:
     """Project one ArchiveResultEvent with a single thread-sensitive ORM hop.
 
     Django's async ORM still delegates each query to sync Django work. The hot
     search/index maintenance path was paying that handoff separately for
-    Snapshot lookup, Process lookup, ArchiveResult lookup, update, and title
-    checks. Keep the public ArchiveResultEvent path intact, but run the DB
+    Snapshot lookup, Process lookup, ArchiveResult lookup, and update.
+    Keep the public ArchiveResultEvent path intact, but run the DB
     projection as one short synchronous block so SQLite sees the same indexed
-    reads/writes without per-query asyncio/threadpool churn.
+    reads/writes without per-query asyncio/threadpool churn. Return the loaded
+    snapshot for subsequent output reads outside the shared DB executor.
     """
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
@@ -147,12 +151,6 @@ def _save_archiveresult_event_to_db(
         # according to the abx-plugins README contract. Process/logs record the stop.
         return
 
-    with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.plugin_dir"):
-        plugin_dir = (
-            Path(process_started.output_dir)
-            if process_started is not None and process_started.output_dir
-            else Path(snapshot.output_dir) / event.plugin
-        )
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.resolve_output_metadata"):
         output_files, output_size, output_mimetypes = _resolve_output_metadata(event.output_files)
 
@@ -213,25 +211,37 @@ def _save_archiveresult_event_to_db(
             result.save(update_fields=[*update_fields, "modified_at"])
 
     if result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS):
-        with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.title_update"):
-            title_output_str = result.output_str if result.status == ArchiveResult.StatusChoices.SUCCEEDED else ""
-            next_title = _extract_snapshot_title(str(plugin_dir.parent), event.plugin, title_output_str, snapshot_url=snapshot.url)
-            if next_title and _should_update_snapshot_title(snapshot.title or "", next_title, snapshot_url=snapshot.url):
-                snapshot.title = next_title
-                snapshot.save(update_fields=["title", "modified_at"])
+        return snapshot
+    return None
 
-    # Parser output becomes durable when its ArchiveResult reaches a final
-    # state. Project at that same lifecycle boundary so every completed parser
-    # can enrich an already-discovered URL before Snapshot/Crawl completion.
-    # create_discovered_snapshots() owns cross-parser dedupe and metadata merge.
-    if (
-        result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS)
-        and (plugin_dir / "urls.jsonl").exists()
-    ):
-        from .snapshot_service import project_discovered_snapshots
 
-        with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.project_discovered_snapshots"):
-            project_discovered_snapshots(str(snapshot.id))
+def _read_archiveresult_outputs(
+    snapshot: Snapshot,
+    event: ArchiveResultEvent,
+    process_started: ProcessStartedEvent | ProcessCompletedEvent | None,
+) -> tuple[str, bool]:
+    # Discovery already rejects roots at max_depth. Do not stat every hook's
+    # archive directory when this capture cannot admit any discovered children.
+    can_discover = snapshot.depth < snapshot.crawl.max_depth
+    if event.plugin != "title" and not can_discover:
+        return "", False
+    plugin_dir = (
+        Path(process_started.output_dir)
+        if process_started is not None and process_started.output_dir
+        else Path(snapshot.output_dir) / event.plugin
+    )
+    title_output_str = (event.output_str or event.error) if event.status == "succeeded" else ""
+    title = _extract_snapshot_title(str(plugin_dir.parent), event.plugin, title_output_str, snapshot_url=snapshot.url)
+    return title, can_discover and (plugin_dir / "urls.jsonl").exists()
+
+
+def _save_snapshot_title(snapshot_id: str, next_title: str) -> None:
+    from archivebox.core.models import Snapshot
+
+    snapshot = Snapshot.objects.filter(pk=snapshot_id).first()
+    if snapshot and _should_update_snapshot_title(snapshot.title or "", next_title, snapshot_url=snapshot.url):
+        snapshot.title = next_title
+        snapshot.save(update_fields=["title", "modified_at"])
 
 
 def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None:
@@ -305,4 +315,18 @@ class ArchiveResultService(BaseService):
         key = (str(event.snapshot_id), event.plugin, event.hook_name)
         lock = self._save_locks.setdefault(key, asyncio.Lock())
         async with lock:
-            await sync_to_async(_save_archiveresult_event_to_db, thread_sensitive=True)(event, process_started)
+            snapshot = await sync_to_async(_save_archiveresult_event_to_db, thread_sensitive=True)(event, process_started)
+            if snapshot is None:
+                return
+            # Archive storage may block on remote reads. Keep title/URL discovery
+            # outside Django's shared executor so one hook cannot prevent other
+            # hooks from persisting their result before the event deadline.
+            title, has_urls = await asyncio.to_thread(_read_archiveresult_outputs, snapshot, event, process_started)
+            if title:
+                await sync_to_async(_save_snapshot_title, thread_sensitive=True)(str(snapshot.id), title)
+            if has_urls:
+                from .snapshot_service import aproject_discovered_snapshots
+
+                # Keep discovery at the same durable result boundary: later
+                # parsers can still enrich URLs discovered by earlier hooks.
+                await aproject_discovered_snapshots(str(snapshot.id))

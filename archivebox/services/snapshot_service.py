@@ -10,39 +10,67 @@ from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.services.base import BaseService
 
 
-def project_discovered_snapshots(snapshot_id: str) -> list:
-    """Persist parser output before the parent Snapshot can enter a final state."""
+def _load_discovery_context(snapshot_id: str):
     from archivebox.config.common import get_config
     from archivebox.core.models import Snapshot
-    from archivebox.plugins.hooks import collect_urls_from_plugins
 
     snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").filter(id=snapshot_id).first()
     if snapshot is None:
-        return []
+        return None
     crawl = snapshot.crawl
     if crawl.status not in crawl.RUNNABLE_STATES or crawl.is_paused or snapshot.depth >= crawl.max_depth:
-        return []
+        return None
+    return snapshot, get_config(crawl=crawl, snapshot=snapshot)
 
-    effective_config = get_config(crawl=crawl, snapshot=snapshot)
+
+def _read_discovery_outputs(context):
+    from archivebox.plugins.hooks import collect_urls_from_plugins
+
+    snapshot, effective_config = context
+    crawl = snapshot.crawl
     discovery_plugins = {name.strip() for name in effective_config.CRAWL_DISCOVERY_PLUGINS.split(",") if name.strip()}
     discovered_urls = collect_urls_from_plugins(Path(snapshot.output_dir))
     if discovery_plugins:
-        # The reader assigns provenance from the containing plugin directory,
-        # independently of fields supplied by the archived JSONL records.
+        # Provenance comes from the containing plugin directory, independently
+        # of fields supplied by archived JSONL records.
         discovered_urls = [record for record in discovered_urls if record["plugin"] in discovery_plugins]
     if not discovered_urls:
-        return []
-
+        return [], {}
     config = effective_config.for_crawl_runtime(
         crawl=crawl,
         snapshot=snapshot,
-        persona=crawl.resolve_persona(),
+        persona=crawl.persona,
         crawl_output_dir=crawl.output_dir,
         snapshot_output_dir=snapshot.output_dir,
     )
+    return discovered_urls, config
+
+
+def _project_discovered_snapshots(context, output) -> list:
+    snapshot, _effective_config = context
+    discovered_urls, config = output
+    if not discovered_urls:
+        return []
+    crawl = snapshot.crawl
     if crawl.limit_stop_reason(config=config) in ("crawl_max_size", "crawl_timeout"):
         return []
     return crawl.create_discovered_snapshots(snapshot, discovered_urls, depth=snapshot.depth + 1)
+
+
+def project_discovered_snapshots(snapshot_id: str) -> list:
+    """Persist parser output before the parent Snapshot can enter a final state."""
+    context = _load_discovery_context(snapshot_id)
+    return _project_discovered_snapshots(context, _read_discovery_outputs(context)) if context else []
+
+
+async def aproject_discovered_snapshots(snapshot_id: str) -> list:
+    # Reading all parser files can wait on FUSE. Materialize ORM relations first,
+    # then release the shared Django executor until the records are ready to save.
+    context = await sync_to_async(_load_discovery_context, thread_sensitive=True)(snapshot_id)
+    if context is None:
+        return []
+    output = await asyncio.to_thread(_read_discovery_outputs, context)
+    return await sync_to_async(_project_discovered_snapshots, thread_sensitive=True)(context, output)
 
 
 def finalize_completed_snapshot(
