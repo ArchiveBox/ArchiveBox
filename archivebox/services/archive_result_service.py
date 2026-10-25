@@ -104,6 +104,13 @@ def _extract_snapshot_title(snapshot_output_dir: str, plugin: str, output_str: s
         return ""
 
     title_file = Path(snapshot_output_dir) / "title" / "title.txt"
+    # The shipped hook already reports the extracted title. Project that fact
+    # without waiting for a second read through remote archive storage (or
+    # accidentally reading a later attempt's file). Older records may report
+    # only the artifact filename; keep their existing saved-file fallback.
+    reported_title = _normalize_snapshot_title(output_str, snapshot_url=snapshot_url)
+    if reported_title and reported_title != title_file.name:
+        return reported_title
     if title_file.exists():
         try:
             file_title = _normalize_snapshot_title(title_file.read_text(encoding="utf-8"), snapshot_url=snapshot_url)

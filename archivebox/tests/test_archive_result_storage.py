@@ -23,7 +23,7 @@ from archivebox.tests.test_archive_result_service import (
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_blocked_title_read_does_not_block_another_hooks_result(recursive_test_site, cached_abxpkg_lib_dir):
+def test_reported_title_does_not_wait_for_storage_or_block_other_results(recursive_test_site, cached_abxpkg_lib_dir):
     title_snapshot = _run_real_title_crawl(recursive_test_site["root_url"], cached_abxpkg_lib_dir)
     title_dir = Path(title_snapshot.output_dir)
     title_file = title_dir / "title/title.txt"
@@ -44,15 +44,16 @@ def test_blocked_title_read_does_not_block_another_hooks_result(recursive_test_s
     async def run():
         bus = create_bus(name="test_result_storage_isolation")
         ArchiveResultService(bus)
-        writer = None
+        # Open both ends before replay so no thread is stranded opening the
+        # pipe when the projector correctly uses the already-reported title.
+        writer = os.open(title_file, os.O_RDWR | os.O_NONBLOCK)
+        os.write(writer, title)
         replay = asyncio.create_task(bus.emit(event).now())
         independent = None
         try:
             # Replay the real hook's durable record through its normal projector.
             # A real FIFO read cannot finish until EOF; keeping the writer open
             # models blocked storage without replacing a handler or filesystem API.
-            writer = await asyncio.wait_for(asyncio.to_thread(os.open, title_file, os.O_WRONLY), timeout=5)
-            os.write(writer, title)
             independent = asyncio.create_task(
                 asyncio.to_thread(
                     _run_shipped_snapshot_hook,
@@ -67,7 +68,10 @@ def test_blocked_title_read_does_not_block_another_hooks_result(recursive_test_s
             process, result = independent.result()
             assert process.exit_code == 0
             assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
-            assert not replay.done(), "The title read must still be waiting for the FIFO writer's EOF"
+            done, _pending = await asyncio.wait({replay}, timeout=1)
+            assert replay in done, "Persisting a reported title unnecessarily waited for archive storage"
+            await replay
+            await event.event_results_list()
         finally:
             if writer is not None:
                 os.close(writer)
