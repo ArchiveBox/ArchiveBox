@@ -146,9 +146,27 @@ def _save_archiveresult_event_to_db(
         return
 
     if event.status == "cancelled":
-        # Cancellation supplies no new capture outcome. Preserve the existing
-        # result and files; the hook's next execution overwrites its own row
-        # according to the abx-plugins README contract. Process/logs record the stop.
+        # User cancellation supplies no new capture outcome: preserve prior
+        # final results and every saved byte. It does end the interrupted
+        # attempt, however; retaining STARTED here would leave a running card
+        # under a sealed snapshot after Ctrl+C -> skip/abort. Retry starts the
+        # same row again through ProcessStarted, without a persisted pause.
+        if process_started is not None:
+            started_at = parse_event_datetime(process_started.start_ts)
+            if started_at is None:
+                raise ValueError("ProcessStartedEvent.start_ts is required")
+            # Match the actual attempt, not just the plugin: a late cancellation
+            # from an earlier hook must not stop its newer retry's projection.
+            snapshot.archiveresult_set.filter(
+                plugin=event.plugin,
+                hook_name=event.hook_name,
+                status=ArchiveResult.StatusChoices.STARTED,
+                start_ts=started_at,
+            ).update(
+                status=ArchiveResult.StatusChoices.SKIPPED,
+                end_ts=parse_event_datetime(event.end_ts) or timezone.now(),
+                modified_at=timezone.now(),
+            )
         return
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.resolve_output_metadata"):

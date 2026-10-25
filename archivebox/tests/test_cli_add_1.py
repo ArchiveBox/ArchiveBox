@@ -300,9 +300,14 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
             assert b"Choice [skip]:" not in output
         assert not psutil.pid_exists(hook.pid)
         assert b"Traceback" not in output
-        # Cancellation has no new capture outcome: preserve the entire same row,
-        # including its output metadata, instead of deleting or reconstructing it.
-        assert navigation_result() == before_interrupt
+        # Cancellation ends execution without deleting/reconstructing the row
+        # or inventing a capture outcome. Only its running projection becomes
+        # terminal; previously collected output and diagnostics stay intact.
+        after_interrupt = navigation_result()
+        assert after_interrupt["status"] == ArchiveResult.StatusChoices.SKIPPED
+        assert after_interrupt["end_ts"] is not None
+        for field in before_interrupt.keys() - {"status", "end_ts", "modified_at"}:
+            assert after_interrupt[field] == before_interrupt[field]
         with use_archivebox_db(initialized_archive):
             if plugins == "archivewebpage":
                 start = ArchiveResult.objects.get(hook_name="on_Snapshot__16_archivewebpage_start")

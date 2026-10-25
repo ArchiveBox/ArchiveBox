@@ -4555,7 +4555,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         # Running and cancelled attempts have no new capture outcome to hydrate.
         # Shared plugin directories may contain another hook's or an earlier
         # attempt's files; only a new result event may replace this row's output.
-        if self.status in {self.StatusChoices.QUEUED, self.StatusChoices.STARTED}:
+        if self.status in {self.StatusChoices.QUEUED, self.StatusChoices.STARTED, self.StatusChoices.SKIPPED}:
             return False
         if self.plugin == "title":
             return False

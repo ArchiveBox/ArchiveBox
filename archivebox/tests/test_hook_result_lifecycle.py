@@ -53,7 +53,8 @@ def test_cancelled_hook_preserves_result_and_partial_files_until_rerun(snapshot,
     assert process.status == "exited"
     assert process.exit_code == 130
     assert result is not None
-    assert result.status == "started"
+    assert result.status == "skipped"
+    assert result.end_ts is not None
     assert result.process_id == process.id
     assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="wget").count() == 1
     assert partial.read_text() == "partial capture from interrupted attempt"

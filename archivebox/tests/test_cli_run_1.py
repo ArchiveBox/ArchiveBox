@@ -155,6 +155,9 @@ def test_run_crawl_interrupts_active_hook(initialized_archive, choice, target):
             else:
                 assert crawl_after.status == Crawl.StatusChoices.SEALED
                 assert snapshot_after.status == Snapshot.StatusChoices.SEALED
+                # A live Ctrl+C choice can retry one hook, but after skip/abort
+                # settles there can be no running projection below a seal.
+                assert not snapshot_after.archiveresult_set.filter(status="started").exists()
             assert not Process.objects.filter(status="running", pid__isnull=False).exists()
         if choice in {"noninteractive", "daemon-tty", "daemon-noninteractive", "daemon-term"}:
             assert b"Choice [skip]:" not in output
