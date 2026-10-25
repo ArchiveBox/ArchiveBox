@@ -27,16 +27,13 @@ from rich.text import Text
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 from abx_dl.events import (
     CrawlAbortEvent,
-    CrawlCleanupEvent,
     CrawlCompletedEvent,
     CrawlEvent,
     CrawlPauseEvent,
-    CrawlSetupEvent,
     CrawlStartEvent,
     InstallEvent,
     MachineEvent,
-    ProcessCompletedEvent,
-    ProcessEvent,
+    SnapshotCleanupEvent,
     SnapshotCompletedEvent,
     SnapshotEvent,
     slow_warning_timeout,
@@ -54,6 +51,7 @@ from abx_dl.orchestrator import (
 from abx_dl.services.binary_service import PluginBinaryEnvService
 from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
 from abx_dl.services.crawl_service import CrawlService as HookCrawlService
+from abx_dl.services.crawl_lifecycle_service import CrawlLifecycleService
 from abx_dl.services import PluginBinariesService
 from abx_dl.services.process_service import ProcessService as HookProcessService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
@@ -84,7 +82,7 @@ from .binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cach
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService, project_discovered_snapshots
+from .snapshot_service import SnapshotService
 from .tag_service import TagService
 
 
@@ -144,10 +142,6 @@ def _enable_requested_plugins(config: dict[str, Any], plugins: PluginCatalog) ->
             config[plugin.enabled_key] = True
 
 
-def _is_nonfatal_setup_hook(plugin_name: str, hook_name: str) -> bool:
-    return plugin_name == "chrome" and hook_name.endswith("_chrome_kill_zombies")
-
-
 def _runner_task_context() -> contextvars.Context:
     context = contextvars.copy_context()
     context.run(EventBus.current_event_context.set, None)
@@ -195,10 +189,6 @@ def ensure_background_runner() -> bool:
         return False
 
     return False
-
-
-class SnapshotAttemptError(RuntimeError):
-    """A capture attempt failed and was finalized; remaining work is runnable."""
 
 
 class CrawlRunner:
@@ -254,7 +244,6 @@ class CrawlRunner:
         self.selected_plugins = selected_plugins
         self.initial_snapshot_ids = snapshot_ids
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
-        self._failed_snapshot_ids: list[str] = []
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
         self._warmup_snapshot_id: str | None = None
@@ -522,15 +511,6 @@ class CrawlRunner:
                 if self._user_aborted:
                     raise KeyboardInterrupt
 
-        # A normally completed capture can still contain failed hook attempts.
-        # Report failure only after those URLs and cleanup have finished: a
-        # drained queue must not turn a storage/execution error into CLI success.
-        if self._failed_snapshot_ids:
-            raise SnapshotAttemptError(
-                f"{len(self._failed_snapshot_ids)} snapshot attempt(s) failed: {', '.join(self._failed_snapshot_ids)}. "
-                "See logs/errors.log for the original errors.",
-            )
-
     async def wait_for_resource_admission(self) -> bool:
         # Foreground callers retain this bus and its observers while waiting.
         # Collection scheduling instead returns deferred work after cleanup so
@@ -699,7 +679,7 @@ class CrawlRunner:
         self._warmup_snapshot_id = None
 
     async def heartbeat_active_leases(self) -> None:
-        # These are resumable work-item leases, not orchestrator-election
+        # These are restartable work-item leases, not orchestrator-election
         # heartbeats. Each update is a short autocommit statement; network and
         # filesystem work continues outside a database transaction. A future
         # PostgreSQL multi-machine runner uses these Crawl/Snapshot claims as
@@ -957,7 +937,10 @@ class CrawlRunner:
             return
         if crawl.is_paused:
             return
-        if crawl.is_finished():
+        # An empty/deduplicated intake never started an execution lifecycle.
+        # Retire that queue row without preparing a browser. For actual captures,
+        # only the CrawlCompleted projector may seal, never this shutdown path.
+        if not crawl.snapshot_set.exists():
             if crawl.status != Crawl.StatusChoices.SEALED:
                 if crawl.status == Crawl.StatusChoices.STARTED:
                     crawl.seal()
@@ -1033,7 +1016,7 @@ class CrawlRunner:
         )
         return live_ui
 
-    async def load_snapshot_payload(self, snapshot_id: str) -> dict[str, Any]:
+    async def load_snapshot_payload(self, snapshot_id: str, *, prepare: bool = True) -> dict[str, Any]:
         from archivebox.config.common import get_config
         from archivebox.core.models import Snapshot
 
@@ -1054,14 +1037,15 @@ class CrawlRunner:
 
         snapshot, persona, base_config, tags, local_root = await sync_to_async(load_context, thread_sensitive=True)()
 
-        def prepare_payload():
+        def prepare_payload(*, create_outputs: bool = True):
             # Persona copies and remote archive metadata must not occupy the one
             # thread used by unrelated result writes. Keep ORM reads above and
             # use this snapshot's materialized context, not mutable runner state.
-            snapshot.crawl.migrate_legacy_output_dir()
+            if create_outputs:
+                snapshot.crawl.migrate_legacy_output_dir()
             runtime_chrome_overrides = {}
             if persona:
-                if str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
+                if create_outputs and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
                     runtime_chrome_overrides.update(
                         persona.prepare_runtime_for_snapshot(
                             snapshot,
@@ -1071,7 +1055,8 @@ class CrawlRunner:
                     )
                 else:
                     crawl_downloads_dir = persona.runtime_downloads_dir_for_crawl(snapshot.crawl)
-                    crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
+                    if create_outputs:
+                        crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
                     runtime_chrome_overrides.update(
                         {
                             "PERSONAS_DIR": str(persona.runtime_root_for_crawl(snapshot.crawl).parent),
@@ -1079,7 +1064,8 @@ class CrawlRunner:
                         },
                     )
             snapshot_output_dir = str(snapshot.output_dir)
-            Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
+            if create_outputs:
+                Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
             config = base_config.for_crawl_runtime(
                 crawl=snapshot.crawl,
                 snapshot=snapshot,
@@ -1113,15 +1099,14 @@ class CrawlRunner:
                 "_snapshot": snapshot,
             }
 
-        return await asyncio.to_thread(prepare_payload)
-
-    async def enqueue_discovered_snapshots_from_outputs(self, snapshot_payload: dict[str, Any]) -> None:
-        await sync_to_async(project_discovered_snapshots, thread_sensitive=True)(snapshot_payload["id"])
-        if self.process_discovered_snapshots_inline and isinstance(get_current_event(), CrawlStartEvent):
-            await self.enqueue_pending_snapshots_from_projection()
+        if prepare:
+            return await asyncio.to_thread(prepare_payload)
+        payload = await asyncio.to_thread(prepare_payload, create_outputs=False)
+        payload["_prepare"] = prepare_payload
+        return payload
 
     async def run_crawl(self, root_snapshot_id: str, snapshot_ids: list[str]) -> None:
-        snapshot = await self.load_snapshot_payload(root_snapshot_id)
+        snapshot = await self.load_snapshot_payload(root_snapshot_id, prepare=False)
         config = normalize_runtime_config(snapshot["config"])
         derived_config = normalize_runtime_config(self.derived_config)
         output_dir = Path(self.crawl_output_dir)
@@ -1187,12 +1172,43 @@ class CrawlRunner:
             abort_requested=self.crawl_is_cancelled,
         )
 
-        async def on_archivebox_CrawlStartEvent(event: CrawlStartEvent) -> None:
-            if event.event_id != self.root_crawl_start_event_id:
-                return
-            if self.initial_snapshot_ids is not None:
-                next_snapshot = 0
-                while True:
+        async def run_snapshots(event: CrawlStartEvent) -> None:
+            self.root_crawl_start_event_id = event.event_id
+            scheduling_error: BaseException | None = None
+            try:
+                if self.initial_snapshot_ids is not None:
+                    next_snapshot = 0
+                    while True:
+                        slots = resource_admission.additional_snapshot_slots(
+                            self.max_concurrent_snapshots,
+                            0,
+                            self._observed_snapshot_cost,
+                            crawl_id=str(self.crawl.id),
+                        )
+                        if self._initial_snapshot_admitted:
+                            # Startup and its first snapshot already passed the same
+                            # admission before allocating the crawl browser.
+                            slots = max(1, slots)
+                        if not slots and next_snapshot < len(snapshot_ids):
+                            if not await self.wait_for_resource_admission():
+                                return
+                            continue
+                        batch = snapshot_ids[next_snapshot : next_snapshot + slots]
+                        if not batch:
+                            return
+                        for snapshot_id in batch:
+                            if await self.crawl_is_cancelled():
+                                return
+                            if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
+                                return
+                            await self.enqueue_snapshot(snapshot_id)
+                            if self._resource_deferred:
+                                break
+                            next_snapshot += 1
+                        await self.wait_for_snapshot_tasks(enqueue_projected=False)
+                        if self._resource_deferred:
+                            return
+                else:
                     slots = resource_admission.additional_snapshot_slots(
                         self.max_concurrent_snapshots,
                         0,
@@ -1200,139 +1216,41 @@ class CrawlRunner:
                         crawl_id=str(self.crawl.id),
                     )
                     if self._initial_snapshot_admitted:
-                        # Startup and its first snapshot already passed the same
-                        # admission before allocating the crawl browser.
                         slots = max(1, slots)
-                    if not slots and next_snapshot < len(snapshot_ids):
-                        if not await self.wait_for_resource_admission():
-                            return
-                        continue
-                    batch = snapshot_ids[next_snapshot : next_snapshot + slots]
-                    if not batch:
-                        return
-                    for snapshot_id in batch:
+                    for snapshot_id in snapshot_ids[:slots]:
                         if await self.crawl_is_cancelled():
-                            return
-                        if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
-                            return
-                        await self.enqueue_snapshot(snapshot_id)
-                        if self._resource_deferred:
                             break
-                        next_snapshot += 1
-                    await self.wait_for_snapshot_tasks(enqueue_projected=False)
-                    if self._resource_deferred:
-                        return
-            else:
-                slots = resource_admission.additional_snapshot_slots(
-                    self.max_concurrent_snapshots,
-                    0,
-                    self._observed_snapshot_cost,
-                    crawl_id=str(self.crawl.id),
-                )
-                if self._initial_snapshot_admitted:
-                    slots = max(1, slots)
-                for snapshot_id in snapshot_ids[:slots]:
-                    if await self.crawl_is_cancelled():
-                        break
-                    if await self.crawl_is_paused():
-                        break
-                    await self.enqueue_snapshot(snapshot_id)
-                await self.wait_for_snapshot_tasks()
+                        if await self.crawl_is_paused():
+                            break
+                        await self.enqueue_snapshot(snapshot_id)
+                    await self.wait_for_snapshot_tasks()
 
-        async def on_archivebox_CrawlEvent(event: CrawlEvent) -> None:
-            if event.event_id != self.root_crawl_event_id:
-                return
-            cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(event))
-            phase_error: BaseException | None = None
-            try:
-                try:
-                    if not await self.crawl_is_cancelled() and (
-                        not await self.crawl_is_paused() or self.allow_maintenance_on_inactive_crawl
-                    ):
-                        await _run_event_now(
-                            event.emit(
-                                CrawlSetupEvent(
-                                    url=snapshot["url"],
-                                    snapshot_id=snapshot["id"],
-                                    output_dir=str(output_dir),
-                                    event_timeout=crawl_setup_phase_timeout,
-                                    event_handler_slow_timeout=slow_warning_timeout(crawl_setup_phase_timeout),
-                                ),
-                            ),
-                            crawl_setup_phase_timeout,
-                        )
-                    if not await self.crawl_is_cancelled() and (
-                        not await self.crawl_is_paused() or self.allow_maintenance_on_inactive_crawl
-                    ):
-                        crawl_start_event = CrawlStartEvent(
-                            url=snapshot["url"],
-                            snapshot_id=snapshot["id"],
-                            output_dir=str(output_dir),
-                            event_timeout=all_snapshots_phase_timeout,
-                            event_handler_timeout=all_snapshots_phase_timeout + 30.0,
-                            event_handler_slow_timeout=slow_warning_timeout(all_snapshots_phase_timeout),
-                        )
-                        self.root_crawl_start_event_id = crawl_start_event.event_id
-                        await _run_event_now(event.emit(crawl_start_event), None)
-                except BaseException as error:
-                    phase_error = error
-                finally:
-                    # A failed snapshot must not bypass crawl-scoped shutdown.
-                    # Drain admitted siblings before cleanup and retain the
-                    # original failure if either shutdown step also fails.
-                    try:
-                        if self.snapshot_tasks:
-                            await self.drain_snapshot_tasks()
-                    except BaseException as error:
-                        if phase_error is None:
-                            phase_error = error
-                        else:
-                            phase_error.add_note(f"Snapshot shutdown also failed: {error}")
-                    cleanup_event = event.emit(
-                        CrawlCleanupEvent(
-                            url=snapshot["url"],
-                            snapshot_id=snapshot["id"],
-                            output_dir=str(output_dir),
-                            event_timeout=crawl_setup_phase_timeout,
-                            event_handler_slow_timeout=slow_warning_timeout(crawl_setup_phase_timeout),
-                        ),
-                    )
-                    # Cleanup owns ProcessKillEvent emission for crawl-scoped
-                    # setup hooks. Even during OS-signal shutdown we must drive
-                    # it synchronously before bus teardown; otherwise daemon/bg
-                    # setup hooks can outlive the foreground runner that
-                    # launched them. _run_event_now() is already bounded by the
-                    # crawl setup timeout and cleanup handlers provide their own
-                    # hook-level grace periods.
-                    try:
-                        await _run_event_now(cleanup_event, crawl_setup_phase_timeout)
-                    except BaseException as error:
-                        if phase_error is None:
-                            phase_error = error
-                        else:
-                            phase_error.add_note(f"Crawl cleanup also failed: {error}")
+            except BaseException as error:
+                scheduling_error = error
+                raise
             finally:
-                cancel_watcher.cancel()
-                await asyncio.gather(cancel_watcher, return_exceptions=True)
-            if phase_error is not None:
-                raise phase_error
-            # emit() schedules handlers immediately; guarding only the await
-            # still lets completion projectors run during takeover. An aborted
-            # execution owner must leave durable work for its replacement.
-            if not self.execution_interrupted():
-                completed_event = event.emit(
-                    CrawlCompletedEvent(
-                        url=snapshot["url"],
-                        snapshot_id=snapshot["id"],
-                        output_dir=str(output_dir),
-                    ),
-                )
-                await _run_event_now(completed_event, CrawlCompletedEvent.model_fields["event_timeout"].default)
+                # Pausing admission must still settle already admitted tasks;
+                # this is a scheduler barrier, not a terminal-state decision.
+                try:
+                    await self.drain_snapshot_tasks()
+                except BaseException as drain_error:
+                    if scheduling_error is None:
+                        raise
+                    scheduling_error.add_note(f"Snapshot tasks also failed: {drain_error}")
 
-        on_archivebox_CrawlStartEvent.__name__ = "on_archivebox_CrawlStartEvent__run_snapshots"
-        on_archivebox_CrawlEvent.__name__ = "on_archivebox_CrawlEvent__run_recursive_crawl"
-        self.bus.on(CrawlStartEvent, on_archivebox_CrawlStartEvent)
-        self.bus.on(CrawlEvent, on_archivebox_CrawlEvent)
+        # abx-dl owns phase ordering and completion. ArchiveBox supplies only
+        # queue admission and waits for those admitted snapshots to settle.
+        CrawlLifecycleService(
+            self.bus,
+            url=snapshot["url"],
+            snapshot=abx_snapshot,
+            output_dir=output_dir,
+            crawl_setup_phase_timeout=crawl_setup_phase_timeout,
+            snapshot_phase_timeout=all_snapshots_phase_timeout,
+            crawl_cleanup_phase_timeout=crawl_cleanup_phase_timeout,
+            abort_requested=self.crawl_is_cancelled,
+            run_snapshots=run_snapshots,
+        )
 
         crawl_event = CrawlEvent(
             url=snapshot["url"],
@@ -1343,68 +1261,23 @@ class CrawlRunner:
             event_handler_slow_timeout=slow_warning_timeout(crawl_lifecycle_timeout),
         )
         self.root_crawl_event_id = crawl_event.event_id
-        await _run_event_now(self.bus.emit(crawl_event), None)
+        cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(crawl_event))
+        try:
+            await _run_event_now(self.bus.emit(crawl_event), None)
+        finally:
+            cancel_watcher.cancel()
+            await asyncio.gather(cancel_watcher, return_exceptions=True)
         if await self.crawl_is_cancelled():
             self._skip_wait_until_idle = True
             return
-        for plugin, hook in setup_hooks:
-            if hook.is_background:
-                continue
-            process_event = await self.bus.find(
-                ProcessEvent,
-                past=True,
-                future=crawl_setup_phase_timeout,
-                where=lambda candidate, plugin_name=plugin.name, hook_name=hook.name: (
-                    self.bus.event_is_child_of(candidate, crawl_event)
-                    and candidate.plugin_name == plugin_name
-                    and candidate.hook_name == hook_name
-                    and candidate.output_dir == str(output_dir / plugin_name)
-                ),
-            )
-            if process_event is None:
-                raise RuntimeError(f"Crawl setup hook {plugin.name}:{hook.name} did not start")
-            completed_process = await self.bus.find(
-                ProcessCompletedEvent,
-                child_of=process_event,
-                past=True,
-                future=crawl_setup_phase_timeout,
-            )
-            if completed_process is None:
-                raise RuntimeError(f"Crawl setup hook {plugin.name}:{hook.name} did not complete")
-            await completed_process.wait(timeout=crawl_setup_phase_timeout)
-            await completed_process.event_results_list()
-            if completed_process.status == "failed":
-                if _is_nonfatal_setup_hook(plugin.name, hook.name):
-                    continue
-                raise RuntimeError(f"Crawl setup hook {plugin.name}:{hook.name} failed")
 
     async def run_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
-        try:
-            await self._run_snapshot_attempt(snapshot_id, crawl_start_event)
-        except Exception:
-            # Losing this runner's ownership (takeover, shutdown) is not a
-            # capture failure: leave the lease for the next owner to resume.
-            if self.execution_interrupted():
-                raise
-            from archivebox.core.models import Snapshot
-
-            # Only the normal completion projector may seal a capture. An
-            # exception can mean cleanup or result persistence never finished;
-            # sealing here used to turn that failure into a sealed/STARTED tree.
-            # Let the scheduler drain admitted siblings and propagate the error
-            # instead of immediately selecting this unfinished attempt again.
-            if await Snapshot.objects.filter(id=snapshot_id, status__in=Snapshot.RUNNABLE_STATES).aexists():
-                raise
-            self._failed_snapshot_ids.append(str(snapshot_id))
-            logging.getLogger(__name__).exception("Snapshot %s failed; continuing with the rest of its crawl", snapshot_id)
-
-    async def _run_snapshot_attempt(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:
             parent_event = crawl_start_event or get_current_event()
             if not isinstance(parent_event, CrawlStartEvent):
                 raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
             crawl_start_event = parent_event
-            snapshot = await self.load_snapshot_payload(snapshot_id)
+            snapshot = await self.load_snapshot_payload(snapshot_id, prepare=False)
             try:
                 await sync_to_async(snapshot["_snapshot"].validate_url_for_archiving, thread_sensitive=True)()
             except ValidationError as err:
@@ -1429,9 +1302,6 @@ class CrawlRunner:
                 return
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
-            # Hooks read snapshot metadata from the manifest; EXTRA_CONTEXT is
-            # only an opaque record-correlation envelope, never a data input.
-            await sync_to_async(snapshot["_snapshot"].write_index_jsonl, thread_sensitive=True)(output_dir=output_dir)
             plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
             if self.requested_plugins is not None:
                 _enable_requested_plugins(config, plugins)
@@ -1451,6 +1321,35 @@ class CrawlRunner:
                 derived_config_event = MachineEvent(config=derived_config, config_type="derived")
                 derived_config_event.event_parent_id = crawl_start_event.event_id
                 await self.bus.emit(derived_config_event).now()
+
+            async def prepare_snapshot(event: SnapshotEvent) -> None:
+                if event.snapshot_id != snapshot_id:
+                    return
+                # Preparation is part of the attempt, not a preflight outside
+                # its failure boundary. abx-dl sees this consumer's exception
+                # and ends the attempt through its ordinary cleanup/completion.
+                prepared = await asyncio.to_thread(snapshot["_prepare"])
+                config.clear()
+                config.update(normalize_runtime_config(prepared["config"]))
+                config["ABX_RUNTIME"] = "archivebox"
+                if self.requested_plugins is not None:
+                    _enable_requested_plugins(config, plugins)
+                snapshot_service.config = RuntimeConfig(user=GlobalConfig(**config), derived=derived_config)
+                await self.bus.emit(MachineEvent(config=config, config_type="user")).now()
+
+                def publish_input():
+                    from django.db import close_old_connections
+
+                    try:
+                        prepared["_snapshot"].refresh_from_db()
+                        prepared["_snapshot"].reconcile_filesystem_links()
+                        prepared["_snapshot"].write_index_jsonl(output_dir=output_dir)
+                    finally:
+                        close_old_connections()
+
+                await asyncio.to_thread(publish_input)
+
+            preparation_handler = self.bus.on(SnapshotEvent, prepare_snapshot)
             snapshot_service = HookSnapshotService(
                 self.bus,
                 url=snapshot["url"],
@@ -1462,6 +1361,16 @@ class CrawlRunner:
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
             )
+
+            async def project_cleanup(event: SnapshotCleanupEvent) -> None:
+                if event.snapshot_id == snapshot_id:
+                    await self.snapshot_service.on_SnapshotCleanupEvent(event)
+
+            # This serial phase listener must follow the generic cleanup owner:
+            # first stop/flush producers, then publish their final metadata. An
+            # IO error remains inside abx-dl's handled-failure boundary, before
+            # the one terminal fact and its short DB projection.
+            cleanup_handler = self.bus.on(SnapshotCleanupEvent, project_cleanup)
             snapshot_event = None
             projected = False
             try:
@@ -1476,49 +1385,43 @@ class CrawlRunner:
                 )
                 snapshot_event.event_parent_id = crawl_start_event.event_id
                 emitted_snapshot_event = self.bus.emit(snapshot_event)
-                await _run_event_now(emitted_snapshot_event, snapshot_phase_timeout)
+                await emitted_snapshot_event.now(timeout=snapshot_phase_timeout)
+                await emitted_snapshot_event.wait(timeout=snapshot_phase_timeout)
+                # A takeover has no terminal fact: the replacement restarts
+                # the whole attempt. Waiting for completion here would turn
+                # an intentional interruption into a full phase-timeout stall.
+                if self.execution_interrupted():
+                    return
                 completed_snapshot = await self.bus.find(
                     SnapshotCompletedEvent,
                     child_of=emitted_snapshot_event,
                     past=True,
-                    future=snapshot_phase_timeout,
+                    future=False,
                 )
                 if completed_snapshot is None:
+                    await emitted_snapshot_event.event_results_list()
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
+                # A handled preparation failure remains on the phase event for
+                # diagnostics. Its awaited terminal error is authoritative; the
+                # generic crawl owner reports it after independent work settles.
+                if not completed_snapshot.error:
+                    await emitted_snapshot_event.event_results_list()
                 projected = True
                 if self.execution_interrupted():
                     return
-                if snapshot["status"] == "sealed":
-                    await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
-                else:
-                    await self.enqueue_discovered_snapshots_from_outputs(snapshot)
+                # Explicit plugin maintenance used the same cleanup phase and
+                # canonical write. Nothing may rewrite its outputs after the
+                # terminal projection has released its lease.
+                if snapshot["status"] != "sealed" and self.process_discovered_snapshots_inline:
+                    # Cleanup already projected discovery. Re-reading those
+                    # remote files here would duplicate work after completion.
+                    await self.enqueue_pending_snapshots_from_projection()
 
-                    def _seal_when_last_snapshot_finished() -> None:
-                        # Re-read immediately before the idempotent conditional
-                        # update so concurrent last-snapshot completions are safe.
-                        crawl = self.crawl
-                        crawl.refresh_from_db(fields=["status"])
-                        if crawl.status != crawl.StatusChoices.STARTED:
-                            return
-                        if crawl.snapshot_set.filter(
-                            Q(status__in=crawl.snapshot_set.model.OPEN_STATES) | Q(status="sealed", config__RETRY_PLUGINS__0__isnull=False),
-                        ).exists():
-                            return
-                        crawl.seal()
-
-                    await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
-                # A preparation failure has no started subprocess. Let every
-                # independent hook finish, then retain the capture/CLI failure.
-                preparation_failures = [
-                    completed.stderr
-                    for completed in await self.bus.filter(ProcessCompletedEvent, child_of=emitted_snapshot_event, past=True, future=False)
-                    if completed.status == "failed" and not completed.pid and not completed.cancelled
-                ]
-                if preparation_failures:
-                    raise SnapshotAttemptError("; ".join(preparation_failures))
             finally:
+                self.bus.off(SnapshotEvent, preparation_handler)
+                self.bus.off(SnapshotCleanupEvent, cleanup_handler)
                 snapshot_service.close()
                 # Projection and snapshot cleanup have finished. Historical
                 # capture results now live in the database; only active work
@@ -1810,6 +1713,10 @@ def _run_due_crawl_locked(
             )
         if snapshot_count and not due_active_snapshots:
             if crawl.is_finished():
+                # With no live crawl owner (the lifecycle lock is held here),
+                # this retires its aggregate queue row after an interrupted
+                # runner already finished every child. It does not reconstruct
+                # a lost CrawlCompleted fact or resume/re-execute sealed captures.
                 if not crawl.claim_processing_lock(lock_seconds=lock_seconds):
                     return False
                 crawl.refresh_from_db()

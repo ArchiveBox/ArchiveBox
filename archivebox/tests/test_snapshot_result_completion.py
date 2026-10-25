@@ -22,7 +22,7 @@ from archivebox.tests.test_archive_result_service import _cleanup_machine_proces
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_failed_result_consumer_cannot_seal_snapshot(hermetic_lib_dir):
+def test_failed_result_consumer_seals_with_failure_after_cleanup(hermetic_lib_dir):
     from abx_plugins.plugins.base.utils import _collect_required_schema_paths
     from abxpkg import prepare_script_exec_plan
     from archivebox.plugins.discovery import get_plugin_catalog
@@ -78,7 +78,8 @@ def test_failed_result_consumer_cannot_seal_snapshot(hermetic_lib_dir):
                 await task
             with pytest.raises(Exception, match="ArchiveResult"):
                 await result_event.event_results_list()
-            assert not completed_events
+            assert len(completed_events) == 1
+            assert "ArchiveResult" in completed_events[0].error
         finally:
             await asyncio.to_thread(writer.rollback)
             await asyncio.to_thread(writer.close)
@@ -89,7 +90,10 @@ def test_failed_result_consumer_cannot_seal_snapshot(hermetic_lib_dir):
     try:
         asyncio.run(run())
         snapshot.refresh_from_db()
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.retry_at is None
+        assert "ArchiveResult" in snapshot.notes
+        assert not snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED).exists()
         result = snapshot.archiveresult_set.get(plugin="hashes", hook_name=hook.name)
         assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert result.end_ts is not None

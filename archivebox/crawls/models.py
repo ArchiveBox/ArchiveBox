@@ -1274,13 +1274,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if not snapshots.exists():
             return True
 
-        # If snapshots exist, check if all are sealed
+        # A seal preserves captured content; it does not finish an explicitly
+        # requested plugin run. Match the live completion projector so startup
+        # queue retirement cannot hide that still-pending maintenance.
         if snapshots.filter(
-            status__in=[
-                Snapshot.StatusChoices.QUEUED,
-                Snapshot.StatusChoices.STARTED,
-                Snapshot.StatusChoices.PAUSED,
-            ],
+            Q(status__in=Snapshot.OPEN_STATES) | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
         ).exists():
             return False
 
@@ -1293,7 +1291,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         from archivebox.core.models import Snapshot
 
         snapshots = self.snapshot_set.all()
-        return snapshots.exists() and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
+        return (
+            snapshots.exists()
+            and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
+            and not snapshots.filter(config__RETRY_PLUGINS__0__isnull=False).exists()
+        )
 
     def mark_started(self) -> bool:
         now = timezone.now()

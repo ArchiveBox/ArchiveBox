@@ -72,7 +72,9 @@ def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_tes
     else:
         asyncio.run(runner.run())
 
-    assert len(completed) == 1, "Aborting must still finish the real snapshot cleanup phase"
+    # Explicit abort settles the live attempt. Takeover emits no terminal fact:
+    # the replacement starts a whole attempt, rather than resuming hook state.
+    assert len(completed) == int(user_initiated)
     assert not [event for event in started if event.hook_name.startswith("on_Snapshot")]
     snapshot = Snapshot.objects.get(crawl=crawl)
     crawl.refresh_from_db()

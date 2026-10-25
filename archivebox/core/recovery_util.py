@@ -33,9 +33,8 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         process_type=Process.TypeChoices.HOOK,
         status=Process.StatusChoices.RUNNING,
     )
-    active_child_snapshots = Snapshot.objects.filter(
-        crawl_id=OuterRef("pk"),
-        status__in=Snapshot.OPEN_STATES,
+    active_child_snapshots = Snapshot.objects.filter(crawl_id=OuterRef("pk")).filter(
+        Q(status__in=Snapshot.OPEN_STATES) | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
     )
     due_child_snapshots = active_child_snapshots.exclude(status=Snapshot.StatusChoices.PAUSED).filter(
         Q(retry_at__isnull=True) | Q(retry_at__lte=now),

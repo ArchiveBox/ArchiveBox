@@ -702,6 +702,10 @@ def test_crawl_runner_fails_one_snapshot_and_still_runs_the_next(tmp_path):
     # The failed attempt is finished, so the next crawl run cannot pick it first again.
     assert broken.status == Snapshot.StatusChoices.SEALED
     assert broken.retry_at is None
+    assert "FileExistsError" in broken.notes
+    assert broken_output_dir.is_file()
+    assert broken_output_dir.read_text() == "not a directory\n"
+    assert not broken.archiveresult_set.filter(status="started").exists()
     assert crawl.status == Crawl.StatusChoices.SEALED
 
 
@@ -718,9 +722,10 @@ def test_crawl_setup_failure_preserves_unattempted_snapshots(tmp_path):
         created_by_id=get_or_create_system_user_pk(),
     )
     snapshots = [Snapshot.objects.create(crawl=crawl, url=url, depth=0) for url in crawl.get_urls_list()]
-    # Crawl setup reads the first snapshot's payload before admitting any capture.
-    # A real filesystem obstruction must not turn that queued URL into a completion.
-    output_dir = Path(snapshots[0].output_dir)
+    # An unusable crawl root prevents setup before any snapshot attempt exists.
+    # A snapshot-local storage failure instead belongs to that attempt and must
+    # finish as a failure through abx-dl's normal lifecycle.
+    output_dir = Path(crawl.output_dir)
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     output_dir.write_text("not a directory\n")
 

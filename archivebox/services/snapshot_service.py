@@ -6,7 +6,7 @@ from pathlib import Path
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
-from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+from abx_dl.events import SnapshotCleanupEvent, SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.services.base import BaseService
 
 
@@ -73,31 +73,26 @@ async def aproject_discovered_snapshots(snapshot_id: str) -> list:
     return await sync_to_async(_project_discovered_snapshots, thread_sensitive=True)(context, output)
 
 
-def finalize_completed_snapshot(
+def prepare_completed_snapshot(
     snapshot_id: str,
     *,
     owned_retry_at,
     was_sealed: bool,
-    consumed_retry_plugins: list[str] | None = None,
-    output_dir=None,
-    crawl_limit_stop_reason: str | None = None,
-) -> None:
+    error: str = "",
+):
     from archivebox.core.models import Snapshot
 
     snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
-    if snapshot is None:
-        return
+    if snapshot is None or snapshot.retry_at != owned_retry_at:
+        return None
 
-    # urls.jsonl is durable hook output. Project it while the Snapshot/Crawl are
-    # still runnable so an interruption cannot seal a parser root after its
-    # ArchiveResults finish but before its discovered child rows are persisted.
-    project_discovered_snapshots(str(snapshot.id))
+    _project_snapshot_error(snapshot, error)
 
     if snapshot.downloaded_at is None:
         snapshot.downloaded_at = timezone.now()
         snapshot.save(update_fields=["downloaded_at", "modified_at"])
 
-    stop_reason = crawl_limit_stop_reason if crawl_limit_stop_reason is not None else _crawl_limit_stop_reason(snapshot.crawl)
+    stop_reason = _crawl_limit_stop_reason(snapshot.crawl)
     if snapshot.crawl_id and stop_reason in ("crawl_max_size", "crawl_timeout"):
         Snapshot.objects.filter(
             crawl_id=snapshot.crawl_id,
@@ -108,42 +103,88 @@ def finalize_completed_snapshot(
             modified_at=timezone.now(),
         )
 
-    # SnapshotCompletedEvent finishes an attempt, including abort cleanup. An
-    # explicit user abort deliberately seals that point-in-time capture; the
-    # runner's interrupted-owner guard below keeps takeover work resumable.
-    # ArchiveResult rows are projections of that work, never prerequisites used
-    # to decide whether the Snapshot may seal.
-    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at:
-        snapshot.seal()
-        snapshot.refresh_from_db()
+    # Materialize the intended final record while holding only the in-process
+    # ownership lock. Archive IO happens after releasing it, so even a slow
+    # mount cannot prevent the scheduler from renewing this attempt's lease.
+    should_seal = not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at
+    return snapshot, should_seal
 
+
+def _project_snapshot_error(snapshot, error: str) -> None:
+    if not error:
+        return
+    from archivebox.core.models import ArchiveResult
+    from django.db.models import Case, F, TextField, Value, When
+    from django.db.models.functions import Concat
+
+    # This is projection of the owner's terminal failure, not a scan that
+    # guesses completion from rows. Preserve final results/partial output and
+    # only end real attempts whose last projected state was still STARTED.
+    snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED).update(
+        status=ArchiveResult.StatusChoices.FAILED,
+        end_ts=timezone.now(),
+        notes=Case(
+            When(notes="", then=Value(error)),
+            When(notes=error, then=F("notes")),
+            default=Concat(F("notes"), Value("\n"), Value(error)),
+            output_field=TextField(),
+        ),
+        modified_at=timezone.now(),
+    )
+    if error not in snapshot.notes:
+        snapshot.notes = f"{snapshot.notes}\n{error}".strip()
+        snapshot.save(update_fields=["notes", "modified_at"])
+
+
+def finalize_completed_snapshot(
+    snapshot_id: str,
+    *,
+    owned_retry_at,
+    was_sealed: bool,
+    consumed_retry_plugins: list[str] | None = None,
+    error: str = "",
+) -> None:
+    from archivebox.core.models import Snapshot
+
+    snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
+    if snapshot is None or snapshot.retry_at != owned_retry_at:
+        return
+    # Completion means the attempt ended, including a handled failure. It is
+    # never a claim that every extractor succeeded. No filesystem work belongs
+    # after this boundary, and no shutdown/finally repair is needed to finish it.
+    _project_snapshot_error(snapshot, error)
     consumed_plugins = sorted({str(name).strip() for name in (consumed_retry_plugins or []) if str(name).strip()})
-    if consumed_plugins and snapshot.status == Snapshot.StatusChoices.SEALED:
+    if consumed_plugins:
+        # Consume explicit maintenance only at completion. Clearing this before
+        # the canonical write would lose the request if the process died during
+        # that write: the next owner would see a sealed row with nothing to run.
         for _attempt in range(3):
             current = Snapshot.objects.only("status", "retry_at", "config").get(pk=snapshot.pk)
-            pending_plugins = sorted(
-                {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()},
+            pending_plugins = sorted({str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()})
+            if pending_plugins != consumed_plugins or current.status != snapshot.status or current.retry_at != owned_retry_at:
+                # A request may add plugins without changing its scheduled
+                # time. Only consuming the exact request permits releasing
+                # its lease; otherwise the additional work becomes invisible.
+                return
+            updated = Snapshot.objects.filter(pk=current.pk, status=current.status, config=current.config, retry_at=owned_retry_at).update(
+                config={key: value for key, value in current.config.items() if key != "RETRY_PLUGINS"},
+                modified_at=timezone.now(),
             )
-            if pending_plugins != consumed_plugins:
-                break
-            owned_filter = {"retry_at": owned_retry_at} if was_sealed else {"retry_at__isnull": True}
-            updates: dict[str, object] = {
-                "config": {key: value for key, value in current.config.items() if key != "RETRY_PLUGINS"},
-                "modified_at": timezone.now(),
-            }
-            if was_sealed:
-                updates["retry_at"] = None
-            updated = Snapshot.objects.filter(
-                pk=current.pk,
-                status=Snapshot.StatusChoices.SEALED,
-                config=current.config,
-                **owned_filter,
-            ).update(**updates)
             if updated:
                 snapshot.refresh_from_db()
                 break
-
-    snapshot.write_index_jsonl(output_dir=output_dir)
+        else:
+            return
+    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED:
+        snapshot.seal()
+    elif was_sealed and snapshot.status == Snapshot.StatusChoices.SEALED:
+        # Explicit maintenance of a sealed snapshot still owns a lease until
+        # completion; releasing it earlier would discard a late storage error.
+        Snapshot.objects.filter(
+            pk=snapshot.pk,
+            retry_at=owned_retry_at,
+            config__RETRY_PLUGINS__0__isnull=True,
+        ).update(retry_at=None, modified_at=timezone.now())
 
 
 def _crawl_limit_stop_reason(crawl) -> str:
@@ -179,11 +220,59 @@ class SnapshotService(BaseService):
                 await sync_to_async(snapshot.refresh_from_db, thread_sensitive=True)()
             elif snapshot.status not in (Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED):
                 return
-            if snapshot.status == Snapshot.StatusChoices.STARTED:
-                await sync_to_async(snapshot.reconcile_filesystem_links, thread_sensitive=True)()
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
             async with self._ownership_lock:
                 self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
+
+    async def on_SnapshotCleanupEvent(self, event: SnapshotCleanupEvent) -> None:
+        if not event.finalize_snapshot or (self.interrupted is not None and self.interrupted()):
+            return
+        async with self._ownership_lock:
+            ownership = self._run_ownership.get(str(event.snapshot_id))
+        if ownership is None or ownership[0] != str(event.event_parent_id):
+            return
+        # Discovery/filesystem projection is inside the cleanup phase so any
+        # failure reaches its abx-dl owner before the terminal fact is emitted.
+        await aproject_discovered_snapshots(event.snapshot_id)
+
+        async with self._ownership_lock:
+            # Renewal may have changed the lease while discovery read remote
+            # files. Re-read our own current ownership under its existing lock;
+            # a stale event may not fail a new owner's ArchiveResult rows.
+            ownership = self._run_ownership.get(str(event.snapshot_id))
+            if ownership is None or ownership[0] != str(event.event_parent_id) or (self.interrupted is not None and self.interrupted()):
+                return
+            _, owned_retry_at, was_sealed, retry_plugins = ownership
+            prepared = await sync_to_async(prepare_completed_snapshot, thread_sensitive=True)(
+                event.snapshot_id,
+                owned_retry_at=owned_retry_at,
+                was_sealed=was_sealed,
+                error=event.error,
+            )
+        if prepared is None:
+            return
+
+        def publish():
+            from django.db import close_old_connections
+
+            try:
+                # Registered after abx-dl's cleanup consumer: producers have
+                # stopped. Publish before the DB seal. A power loss here leaves
+                # the entire attempt restartable; a handled IO failure reaches
+                # the owner's terminal error through this cleanup consumer.
+                snapshot, should_seal = prepared
+                snapshot.finalize_output_metadata()
+                snapshot.refresh_from_db()
+                record = snapshot.to_json()
+                if should_seal:
+                    record["status"] = snapshot.StatusChoices.SEALED
+                if sorted((snapshot.config or {}).get("RETRY_PLUGINS", [])) == sorted(retry_plugins):
+                    record["config"].pop("RETRY_PLUGINS", None)
+                snapshot.write_index_jsonl(snapshot_record=record)
+            finally:
+                close_old_connections()
+
+        await asyncio.to_thread(publish)
 
     async def renew_lease(self, snapshot_id: str, lease_until) -> bool | None:
         from archivebox.core.models import Snapshot
@@ -218,7 +307,8 @@ class SnapshotService(BaseService):
         # is a separate user action. Takeover only replaces its execution owner.
         # Consult the runner's synchronous signal state: an exiting owner cannot
         # rely on another bus event arriving before this completion projector runs.
-        # Leave its durable lease for the next elected runner's startup recovery.
+        # Leave its durable lease so the next elected runner restarts the entire
+        # attempt; there is no persisted hook-level resume state.
         if self.interrupted is not None and self.interrupted():
             return
         _, owned_retry_at, was_sealed, retry_plugins = ownership
@@ -227,4 +317,5 @@ class SnapshotService(BaseService):
             owned_retry_at=owned_retry_at,
             was_sealed=was_sealed,
             consumed_retry_plugins=retry_plugins,
+            error=event.error,
         )

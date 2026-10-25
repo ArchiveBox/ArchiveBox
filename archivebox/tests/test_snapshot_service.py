@@ -48,7 +48,7 @@ def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_pat
     from django.utils import timezone
 
     from archivebox.crawls.models import Crawl
-    from archivebox.services.snapshot_service import finalize_completed_snapshot
+    from archivebox.services.snapshot_service import finalize_completed_snapshot, prepare_completed_snapshot
 
     crawl = Crawl.objects.create(urls="https://example.com/retry-race", created_by=admin_user)
     owned_retry_at = timezone.now() + timedelta(minutes=10)
@@ -59,14 +59,30 @@ def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_pat
         retry_at=owned_retry_at,
         config={"RETRY_PLUGINS": ["title"]},
     )
+    running = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="title",
+        hook_name="on_Snapshot__10_title.py",
+        status=ArchiveResult.StatusChoices.STARTED,
+        notes="New attempt diagnostics",
+    )
 
     snapshot.schedule_plugin_run(["title"])
+    assert (
+        prepare_completed_snapshot(
+            str(snapshot.id),
+            owned_retry_at=owned_retry_at,
+            was_sealed=False,
+            error="Old attempt failed",
+        )
+        is None
+    )
     finalize_completed_snapshot(
         str(snapshot.id),
         owned_retry_at=owned_retry_at,
         was_sealed=False,
         consumed_retry_plugins=["title"],
-        output_dir=tmp_path,
+        error="Old attempt failed",
     )
 
     snapshot.refresh_from_db()
@@ -74,6 +90,43 @@ def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_pat
     assert snapshot.retry_at is not None
     assert snapshot.retry_at < owned_retry_at
     assert snapshot.config["RETRY_PLUGINS"] == ["title"]
+    assert "Old attempt failed" not in snapshot.notes
+    running.refresh_from_db()
+    assert running.status == ArchiveResult.StatusChoices.STARTED
+    assert running.notes == "New attempt diagnostics"
+
+
+def test_sealed_completion_preserves_added_request_with_same_lease(admin_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.snapshot_service import finalize_completed_snapshot
+
+    crawl = Crawl.objects.create(urls="https://example.com/sealed-retry-race", created_by=admin_user)
+    owned_retry_at = timezone.now() + timedelta(minutes=10)
+    snapshot = Snapshot.objects.create(
+        url=crawl.urls,
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=owned_retry_at,
+        config={"RETRY_PLUGINS": ["title"]},
+    )
+    # The public scheduler permits preserving a future schedule while adding
+    # work. Lease equality alone cannot prove the old request is still current.
+    assert snapshot.schedule_plugin_run(["hashes"], when=owned_retry_at)
+    finalize_completed_snapshot(
+        str(snapshot.id),
+        owned_retry_at=owned_retry_at,
+        was_sealed=True,
+        consumed_retry_plugins=["title"],
+    )
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert snapshot.config["RETRY_PLUGINS"] == ["hashes", "title"]
+    assert snapshot.retry_at == owned_retry_at
 
 
 def test_concurrent_plugin_scheduling_durably_merges_every_request(admin_user):

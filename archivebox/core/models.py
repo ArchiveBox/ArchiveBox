@@ -782,7 +782,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             self.refresh_from_db()
             parent_status = Crawl.objects.filter(id=self.crawl_id).values_list("status", flat=True).first()
             if parent_status == Crawl.StatusChoices.SEALED and self.status != self.StatusChoices.SEALED:
-                self.seal()
+                self.cancel()
             return True
 
         if parent_status == Crawl.StatusChoices.PAUSED and self.status not in (self.StatusChoices.PAUSED, self.StatusChoices.SEALED):
@@ -846,40 +846,26 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return updated == 1
 
     def seal(self) -> bool:
-        """Atomically finalize this Snapshot and reconcile its output metadata."""
+        """Project a terminal snapshot state after its lifecycle has settled.
+
+        This method does not run cleanup. abx-dl owns that phase, including
+        failed attempts; its completion projector must remain a short DB write.
+        Putting filesystem work here either seals before that work finishes or
+        blocks unrelated hook result writes behind a slow archive mount.
+        """
         if self.status == self.StatusChoices.SEALED:
             return True
-        never_started = (
-            self.status == self.StatusChoices.QUEUED
-            and self.downloaded_at is None
-            and not self.output_size
-            and not self.archiveresult_set.exists()
-        )
         now = timezone.now()
         updated = (
             type(self)
-            .objects.filter(
-                pk=self.pk,
-                retry_at=self.retry_at,
-                status__in=self.OPEN_STATES,
-            )
-            .update(
-                status=self.StatusChoices.SEALED,
-                retry_at=None,
-                modified_at=now,
-            )
+            .objects.filter(pk=self.pk, retry_at=self.retry_at, status__in=self.OPEN_STATES)
+            .update(status=self.StatusChoices.SEALED, retry_at=None, modified_at=now)
         )
         self.refresh_from_db()
         if updated == 1:
-            # Canceling untouched queue rows has no capture files to reconcile.
-            # Avoid a remote archive stat/glob for every canceled bulk child.
-            if not never_started:
-                self.finalize_output_metadata()
-            # The atomic state transition bypasses Model.save()/post_save.
-            # Notify integrations only after final output metadata is persisted.
+            # The atomic state projection bypasses Model.save()/post_save.
             from signal_webhooks.handlers import webhook_handler
 
-            self.refresh_from_db()
             webhook_handler(instance=self, method="UPDATE")
         return updated == 1
 
@@ -896,6 +882,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def cancel(self) -> None:
         if self.status != self.StatusChoices.SEALED:
+            # Explicit cancellation also accepts old, partially captured rows
+            # with no live downloader. Preserve their existing metadata cleanup
+            # before the seal; normal execution instead does this in abx-dl's
+            # cleanup phase. This removes stale archive metadata, not processes:
+            # only the downloader owns stopping its running hooks.
+            never_started = (
+                self.status == self.StatusChoices.QUEUED
+                and self.downloaded_at is None
+                and not self.output_size
+                and not self.archiveresult_set.exists()
+            )
+            # Untouched bulk queue entries have nothing to reconcile. In
+            # particular, cancellation must not stat/glob remote archive paths.
+            if not never_started:
+                self.finalize_output_metadata()
             self.seal()
 
     def get_delete_after_config_value(self):
@@ -2019,7 +2020,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         with open(index_path, "w") as f:
             json.dump(data, f, indent=2, sort_keys=True)
 
-    def write_index_jsonl(self, output_dir: Path | None = None):
+    def write_index_jsonl(self, output_dir: Path | None = None, *, snapshot_record: dict | None = None):
         """
         Write index.jsonl in flat JSONL format.
 
@@ -2041,7 +2042,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # without a corresponding DB row can be retained byte-for-byte.
         binaries_seen = set()
         processes_seen = set()
-        records = [self.to_json(), self.crawl.to_json()]
+        # Sealing publishes its intended terminal record before committing that
+        # status to the DB. The DB lease remains authoritative until that commit.
+        records = [snapshot_record if snapshot_record is not None else self.to_json(), self.crawl.to_json()]
         for ar in archive_results:
             process = ar.process_record
             if process and process.binary and process.binary_id not in binaries_seen:
@@ -3061,7 +3064,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         Clean up background ArchiveResult hooks and empty results.
 
-        Called after entering the sealed state.
+        Called before entering the sealed state.
         Reconcile late background outputs and hydrate result metadata.
         """
         # Clean up .pid files from output directory.

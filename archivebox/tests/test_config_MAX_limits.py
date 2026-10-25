@@ -4,8 +4,6 @@ import asyncio
 from importlib.resources import files
 from pathlib import Path
 
-from asgiref.sync import async_to_sync
-
 import pytest
 
 from archivebox.core.models import Snapshot
@@ -64,12 +62,12 @@ def test_crawl_stop_reason_keeps_specific_limit_reason_over_lifecycle_fallback(a
     assert crawl.stop_reason() == "crawl_max_urls"
 
 
-def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
+def test_project_discovered_snapshots_refreshes_crawl_limits(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.tests.conftest import run_test_hook
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.services.snapshot_service import aproject_discovered_snapshots
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -104,11 +102,10 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
     process.refresh_from_db()
     assert process.exit_code == 0, process.stderr
 
-    runner = CrawlRunner(crawl)
     Crawl.objects.filter(id=crawl.id).update(max_depth=1)
-    payload = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))
-
-    asyncio.run(runner.enqueue_discovered_snapshots_from_outputs(payload))
+    # This is the same projector used by result and cleanup consumers. Discovery
+    # is settled there, before completion; the runner only admits its DB rows.
+    asyncio.run(aproject_discovered_snapshots(str(snapshot.id)))
 
     child_snapshots = list(crawl.snapshot_set.filter(depth=1).order_by("url").values_list("url", "status"))
     assert child_snapshots == [
@@ -182,7 +179,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+    from abx_dl.events import SnapshotCleanupEvent, SnapshotCompletedEvent, SnapshotEvent
     from abx_dl.orchestrator import create_bus
 
     crawl = Crawl.objects.create(
@@ -207,7 +204,8 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
 
     root_output_dir = str(root.output_dir)
     bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
-    SnapshotService(bus, crawl_id=str(crawl.id))
+    service = SnapshotService(bus, crawl_id=str(crawl.id))
+    bus.on(SnapshotCleanupEvent, service.on_SnapshotCleanupEvent)
     try:
 
         async def emit_event() -> None:
@@ -219,6 +217,12 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
                 ),
             )
             await snapshot_event.now()
+            # Final file/discovery projection belongs to cleanup, before the
+            # short terminal DB projection. Exercise both actual consumers.
+            cleanup = SnapshotCleanupEvent(url=root.url, snapshot_id=str(root.id), output_dir=root_output_dir)
+            cleanup.event_parent_id = snapshot_event.event_id
+            await bus.emit(cleanup).now()
+            await cleanup.event_results_list()
             completed_event = SnapshotCompletedEvent(
                 url=root.url,
                 snapshot_id=str(root.id),

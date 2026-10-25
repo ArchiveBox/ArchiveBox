@@ -250,7 +250,8 @@ def run_runner(
     from archivebox.machine.models import Machine, Process
     from archivebox.core.takeover_util import enter_single_runner_gate, standby_until_foreground_runner_needed
     from archivebox.core.recovery_util import recover_orchestrator_state
-    from archivebox.services.runner import SnapshotAttemptError, run_pending_crawls
+    from abx_dl.services.crawl_lifecycle_service import SnapshotAttemptError
+    from archivebox.services.runner import run_pending_crawls
 
     Machine.current()
     current = Process.current()
