@@ -14,6 +14,9 @@ import pytest
 from abx_plugins import get_plugins_dir
 from playwright.sync_api import Error as PlaywrightError, expect, sync_playwright
 
+from archivebox.config.common import is_sensitive_config_key
+from archivebox.misc.monkey_patches import SENSITIVE_QUERY_PARAM_RE
+
 from .conftest import cli_env, get_free_port, run_archivebox_cmd, start_archivebox_server, stop_archivebox_process
 
 
@@ -64,7 +67,27 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
     snapshot = snapshots[0]
     output = Path(snapshot["output_dir"]) / plugin
     manifest_path = output / "downloads.json"
-    assert manifest_path.is_file(), f"{plugin} did not produce {manifest_path}\n{captured.stdout}{captured.stderr}"
+    if not manifest_path.is_file():
+        # The CLI summary omits hook stderr and CI removes authenticated test
+        # collections. Keep bounded failure diagnostics before that cleanup so
+        # a timeout identifies its actual export phase without retaining profiles.
+        diagnostics = []
+        for log in sorted(output.glob("*.stderr.log"))[-4:]:
+            with log.open("rb") as stream:
+                stream.seek(max(0, log.stat().st_size - 16_384))
+                diagnostics.append(f"{log.name}:\n{stream.read().decode(errors='replace')}")
+        message = f"{plugin} did not produce {manifest_path}\n{captured.stdout}{captured.stderr}\n" + "\n".join(diagnostics)
+        message = SENSITIVE_QUERY_PARAM_RE.sub(r"\1[REDACTED]", message)
+        secrets = [value for key, value in env.items() if value and is_sensitive_config_key(key)]
+        if auth_file := env.get("AUTH_STORAGE_FILE"):
+            # Browser errors may contain session material; redact the actual
+            # supplied cookie/storage values as well as named config secrets.
+            auth = json.loads(Path(auth_file).read_text())
+            secrets.extend(cookie.get("value", "") for cookie in auth.get("cookies", []))
+            secrets.extend(item.get("value", "") for origin in auth.get("origins", []) for item in origin.get("localStorage", []))
+        for secret in sorted({str(value) for value in secrets if value}, key=len, reverse=True):
+            message = message.replace(secret, "[REDACTED]")
+        pytest.fail(message)
     manifest = json.loads(manifest_path.read_text())
     assert manifest["files"], captured.stdout
     for item in manifest["files"]:
