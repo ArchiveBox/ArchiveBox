@@ -166,7 +166,7 @@ def test_live_update_index_only_does_not_take_over_server_runtime(tmp_path, init
         server = start_archivebox_server(tmp_path, port=port, log_name="server-update-owner.log", env=env)
         server_log = server.log_path
         supervisor_pid_before = supervisor_pid_from_log(server_log)
-        daphne_pid_before = worker_pid_from_log(server_log, "worker_daphne")
+        uvicorn_pid_before = worker_pid_from_log(server_log, "worker_uvicorn")
 
         result = run_archivebox_cmd(
             ["update", "--index-only", "--before=0"],
@@ -178,9 +178,9 @@ def test_live_update_index_only_does_not_take_over_server_runtime(tmp_path, init
         assert result.returncode == 0, result.stderr or result.stdout
         assert pid_is_alive(server.pid)
         assert pid_is_alive(supervisor_pid_before)
-        assert pid_is_alive(daphne_pid_before)
+        assert pid_is_alive(uvicorn_pid_before)
         assert supervisor_pid_from_log(server_log) == supervisor_pid_before
-        assert worker_pid_from_log(server_log, "worker_daphne") == daphne_pid_before
+        assert worker_pid_from_log(server_log, "worker_uvicorn") == uvicorn_pid_before
         assert "A newer archivebox process took over the orchestrator, server" not in server_log.read_text(
             encoding="utf-8",
             errors="replace",
@@ -226,7 +226,7 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
         assert pid_is_alive(update_supervisor_pid_before)
         assert pid_is_alive(update_sonic_pid_before)
         assert "worker_runner_update_" not in update_log.read_text(encoding="utf-8", errors="replace")
-        assert "worker_daphne" not in update_log.read_text(encoding="utf-8", errors="replace")
+        assert "worker_uvicorn" not in update_log.read_text(encoding="utf-8", errors="replace")
 
         server = start_archivebox_server(tmp_path, port=port, log_name="server-takes-real-sqlite-update.log", env=env)
         server_log = server.log_path
@@ -240,12 +240,12 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
             "Taking over orchestrator, sonic from older existing archivebox process" in server_text
             or "Taking over sonic from older existing archivebox process" in server_text
         )
-        assert "worker_daphne" in server_text
+        assert "worker_uvicorn" in server_text
         assert "worker_sonic" in server_text
-        server_daphne_pid = worker_pid_from_log(server_log, "worker_daphne")
+        server_uvicorn_pid = worker_pid_from_log(server_log, "worker_uvicorn")
         server_runner_pid = worker_pid_from_log(server_log, "worker_runner")
         server_sonic_pid = worker_pid_from_log(server_log, "worker_sonic")
-        assert pid_is_alive(server_daphne_pid)
+        assert pid_is_alive(server_uvicorn_pid)
         assert pid_is_alive(server_runner_pid)
         assert pid_is_alive(server_sonic_pid)
         wait_for_pid_to_disappear(update_supervisor_pid_before, timeout=30)
@@ -256,7 +256,7 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
         update_proc.wait(timeout=180)
         update_text = update_log.read_text(encoding="utf-8", errors="replace")
         assert update_proc.returncode == 0, update_text
-        wait_for_pid_to_disappear(server_daphne_pid, timeout=20)
+        wait_for_pid_to_disappear(server_uvicorn_pid, timeout=20)
         wait_for_pid_to_disappear(server_runner_pid, timeout=20)
         wait_for_pid_to_disappear(server_sonic_pid, timeout=20)
 

@@ -797,7 +797,7 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <li>Language: Python <code>&gt;=3.13</code></li>
 <li>Backend: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://django-ninja.dev/">Django-Ninja</a> for REST API</li>
 <li>Frontend: <a href="https://docs.djangoproject.com/en/6.0/ref/contrib/admin/">Django Admin</a> + Vanilla HTML, CSS, JS</li>
-<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://github.com/django/daphne/"><code>daphne</code></a> (ASGI)</li>
+<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://uvicorn.dev/"><code>uvicorn</code></a> (ASGI; Daphne for <code>--debug</code>)</li>
 <li>Database: <a href="https://docs.djangoproject.com/en/6.0/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite3</code></li>
 <li>Job Queue: Custom orchestrator using <code>supervisord</code> for worker management</li>
 <li>Build/test/lint: <a href="https://github.com/astral-sh/uv"><code>uv</code></a> / <code>pyright</code>+<code>ty</code>+<code>pytest</code> / <code>ruff</code></li>

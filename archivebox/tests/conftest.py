@@ -1095,7 +1095,7 @@ def start_archivebox_server(
             output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
             raise AssertionError(f"ArchiveBox server exited before opening port {port}:\n{output}")
         output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
-        if not re.search(r"Worker worker_daphne: started RUNNING \(pid \d+,", output):
+        if not re.search(r"Worker worker_uvicorn: started RUNNING \(pid \d+,", output):
             time.sleep(0.1)
             continue
         try:
@@ -1160,7 +1160,7 @@ from archivebox.workers.supervisord_util import get_existing_supervisord_process
 supervisor = get_existing_supervisord_process(quiet=True)
 workers = {}
 if supervisor:
-    for name in ("worker_daphne", "worker_sonic", "worker_runner"):
+    for name in ("worker_uvicorn", "worker_sonic", "worker_runner"):
         workers[name] = get_worker(supervisor, name)
 print(json.dumps(workers, default=str))
 """,

@@ -363,19 +363,28 @@ def SUPERVISORD_PARENT_WATCHDOG_WORKER(
 
 
 def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
+    # Uvicorn pauses ASGI sends when the client stops reading. Daphne buffered
+    # complete archive downloads in RAM despite our async file iterator.
     # The shared binary projection may belong to another ArchiveBox install.
-    # Its Daphne shebang would load that install's plugins/templates even when
+    # Its server shebang would load that install's plugins/templates even when
     # the CLI and crawl workers use this runtime, so retain the caller's Python.
+    # Our ASGI app handles HTTP/WebSockets, not lifespan events. Retain Daphne's
+    # 1 MiB WebSocket message bound when choosing the production transport.
     command = [
         sys.executable,
         "-m",
-        "daphne",
-        f"--bind={host}",
+        "uvicorn",
+        f"--host={host}",
         f"--port={port}",
+        "--lifespan=off",
+        "--ws-max-size=1048576",
+        # Django owns proxy trust; preserve the socket peer for its whitelist
+        # instead of trusting localhost Forwarded headers a second time here.
+        "--no-proxy-headers",
         "archivebox.core.asgi:application",
     ]
     return {
-        "name": "worker_daphne",
+        "name": "worker_uvicorn",
         "command": _shell_join(command),
         "environment": _archivebox_worker_environment(command),
         "autostart": "false",
@@ -383,7 +392,7 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
         "stopasgroup": "true",
         "killasgroup": "true",
         "stopwaitsecs": "1",
-        "stdout_logfile": "logs/worker_daphne.log",
+        "stdout_logfile": "logs/worker_uvicorn.log",
         "redirect_stderr": "true",
     }
 
@@ -1307,7 +1316,7 @@ def format_runtime_components(components: list[str] | tuple[str, ...]) -> str:
 def worker_runtime_component(worker_name: str) -> str | None:
     if worker_name in {"worker_runner", "worker_runner_watch"} or worker_name.startswith("worker_runner_"):
         return "orchestrator"
-    if worker_name in {"worker_daphne", "worker_runserver", "worker_runserver_compatibility"}:
+    if worker_name in {"worker_uvicorn", "worker_daphne", "worker_runserver", "worker_runserver_compatibility"}:
         return "server"
     if worker_name == "worker_sonic":
         return "sonic"
@@ -1344,7 +1353,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
     else:
         server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER(), False)]
-        log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
+        log_files = ["logs/worker_uvicorn.log", "logs/worker_runner.log"]
 
     sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
     if sonic_worker is not None:

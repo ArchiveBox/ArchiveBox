@@ -23,9 +23,9 @@ def test_health_does_not_query_collection(client, django_assert_num_queries, met
 
 
 @pytest.mark.django_db(transaction=True)
-def test_health_through_real_daphne(archivebox_daemon_server):
+def test_health_through_real_uvicorn(archivebox_daemon_server):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite")
-    server.wait_for_workers(("worker_daphne",))
+    server.wait_for_workers(("worker_uvicorn",))
     elapsed = []
     with requests.Session() as client:
         for method in ("GET", "HEAD") * 5:
@@ -36,14 +36,14 @@ def test_health_through_real_daphne(archivebox_daemon_server):
             assert response.content == (b"OK" if method == "GET" else b"")
             assert response.headers["X-ArchiveBox-Health"] == "OK"
             assert "no-store" in response.headers["Cache-Control"]
-    print(f"Real Daphne health request times (ms): {elapsed}")
+    print(f"Real Uvicorn health request times (ms): {elapsed}")
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("header_value", [b"before\rafter", b"before\nafter"])
-def test_real_daphne_rejects_bare_cr_lf_in_header_values(archivebox_daemon_server, header_value):
+def test_real_uvicorn_rejects_bare_cr_lf_in_header_values(archivebox_daemon_server, header_value):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite")
-    server.wait_for_workers(("worker_daphne",))
+    server.wait_for_workers(("worker_uvicorn",))
     with socket.create_connection(("127.0.0.1", server.port), timeout=5) as client:
         client.sendall(
             b"GET /health/ HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nX-Test: " + header_value + b"\r\n\r\n",

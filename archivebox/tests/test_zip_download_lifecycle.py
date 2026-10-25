@@ -17,10 +17,10 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
 @pytest.mark.django_db(transaction=True)
-def test_daphne_zip_disconnect_releases_source_file(archivebox_daemon_server):
+def test_uvicorn_zip_disconnect_releases_source_file(archivebox_daemon_server):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
-    state = server.wait_for_workers(("worker_daphne",))
-    daphne = psutil.Process(state["worker_daphne"]["pid"])
+    state = server.wait_for_workers(("worker_uvicorn",))
+    uvicorn = psutil.Process(state["worker_uvicorn"]["pid"])
     with use_archivebox_db(server.data_dir):
         crawl = Crawl.objects.create(urls="https://example.com/zip-download", status="sealed", retry_at=None)
         snapshot = Snapshot.objects.create(
@@ -48,10 +48,10 @@ def test_daphne_zip_disconnect_releases_source_file(archivebox_daemon_server):
             chunks = response.iter_content(64 * 1024)
             assert next(chunks).startswith(b"PK")
             assert not response.raw.closed, "ZIP connection closed before the deliberate disconnect"
-            assert str(payload) in {entry.path for entry in daphne.open_files()}
+            assert str(payload) in {entry.path for entry in uvicorn.open_files()}
         chunks.close()
         deadline = time.monotonic() + 5
-        while str(payload) in {entry.path for entry in daphne.open_files()}:
+        while str(payload) in {entry.path for entry in uvicorn.open_files()}:
             assert time.monotonic() < deadline, "Disconnected ZIP download kept its source file open"
             time.sleep(0.05)
     assert requests.get(f"http://127.0.0.1:{server.port}/health/", timeout=5).status_code == 200

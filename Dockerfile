@@ -248,6 +248,7 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
     && printf 'export PATH="/venv/bin:/opt/node/bin:$PATH"\n' > /etc/profile.d/archivebox-path.sh \
     && ln -sf /venv/bin/archivebox /usr/local/bin/archivebox \
     && ln -sf /venv/bin/daphne /usr/local/bin/daphne \
+    && ln -sf /venv/bin/uvicorn /usr/local/bin/uvicorn \
     && ln -sf /venv/bin/supervisord /usr/local/bin/supervisord \
     && ln -sf /venv/bin/supervisorctl /usr/local/bin/supervisorctl \
     && getent group "$ARCHIVEBOX_USER" >/dev/null || groupadd --system "$ARCHIVEBOX_USER" \

@@ -116,7 +116,7 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
         server = start_archivebox_server(tmp_path, port=port, log_name="server-real-sqlite-update.log", env=env)
         server_log = server.log_path
         supervisor_pid_before = supervisor_pid_from_log(server_log)
-        daphne_pid_before = worker_pid_from_log(server_log, "worker_daphne")
+        uvicorn_pid_before = worker_pid_from_log(server_log, "worker_uvicorn")
         runner_pid_before = worker_pid_from_log(server_log, "worker_runner")
         sonic_pid_before = worker_pid_from_log(server_log, "worker_sonic")
         supervisord_log = tmp_path / "logs" / "supervisord.log"
@@ -133,9 +133,9 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
         assert result.returncode == 0, result.stderr or result.stdout
         assert pid_is_alive(server.pid)
         assert supervisor_pid_from_log(server_log) == supervisor_pid_before
-        assert pid_is_alive(daphne_pid_before)
+        assert pid_is_alive(uvicorn_pid_before)
         assert pid_is_alive(sonic_pid_before)
-        assert worker_pid_from_log(server_log, "worker_daphne") == daphne_pid_before
+        assert worker_pid_from_log(server_log, "worker_uvicorn") == uvicorn_pid_before
         assert worker_pid_from_log(server_log, "worker_sonic") == sonic_pid_before
         assert "A newer archivebox process took over the orchestrator, server" not in server_log.read_text(
             encoding="utf-8",
@@ -155,7 +155,7 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
 
         stop_archivebox_process(server, signal.SIGTERM)
         server = None
-        wait_for_pid_to_disappear(daphne_pid_before, timeout=20)
+        wait_for_pid_to_disappear(uvicorn_pid_before, timeout=20)
         wait_for_pid_to_disappear(sonic_pid_before, timeout=20)
         wait_for_pid_to_disappear(runner_pid_before, timeout=20)
         assert_no_processes_for_data_dir(tmp_path, timeout=12)
@@ -173,7 +173,7 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
     port = get_free_port()
     servers: list[subprocess.Popen[str]] = []
     server_pids: list[int] = []
-    daphne_pids: list[int] = []
+    uvicorn_pids: list[int] = []
     runner_pids: list[int] = []
     try:
         for index in range(5):
@@ -181,7 +181,7 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
             log_path = server.log_path
             servers.append(server)
             server_pids.append(server.pid)
-            daphne_pids.append(worker_pid_from_log(log_path, "worker_daphne"))
+            uvicorn_pids.append(worker_pid_from_log(log_path, "worker_uvicorn"))
             runner_pids.append(worker_pid_from_log(log_path, "worker_runner"))
 
             if index > 0:
@@ -192,7 +192,7 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
                 assert pid_is_alive(server_pids[index - 1])
                 assert "A newer archivebox process took over the orchestrator, server" in previous_log
                 assert "Starting orchestrator, server" in current_log
-                wait_for_pid_to_disappear(daphne_pids[index - 1], timeout=15)
+                wait_for_pid_to_disappear(uvicorn_pids[index - 1], timeout=15)
                 wait_for_pid_to_disappear(runner_pids[index - 1], timeout=15)
 
             result = run_archivebox_cmd(
@@ -208,10 +208,10 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
         # Inspect the actual server worker rather than requiring a host lsof
         # installation. Previous workers must be gone, and the newest worker
         # must own exactly one listening socket on our assigned port.
-        assert all(not pid_is_alive(pid) for pid in daphne_pids[:-1])
+        assert all(not pid_is_alive(pid) for pid in uvicorn_pids[:-1])
         listeners = [
             connection
-            for connection in psutil.Process(daphne_pids[-1]).net_connections(kind="tcp")
+            for connection in psutil.Process(uvicorn_pids[-1]).net_connections(kind="tcp")
             if connection.status == psutil.CONN_LISTEN and connection.laddr.port == port
         ]
         assert len(listeners) == 1, listeners

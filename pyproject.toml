@@ -42,7 +42,8 @@ dependencies = [
     "setuptools>=84.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.1.2",
     "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
-    "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
+    "uvicorn[standard]>=0.54.0",  # production ASGI transport with bounded send buffers
+    "daphne>=4.2.1",  # retain ASGI runserver/WebSockets for --debug; removing its app makes runserver WSGI
     "twisted>=26.10.0rc1",  # published security fixes for Daphne's HTTP runtime
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
@@ -57,7 +58,7 @@ dependencies = [
     "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
     "toml>=0.10.2",          # for: archivebox config output and TOML migration helpers
     ### Host OS / System
-    "supervisor>=4.2.5",     # for: archivebox server starting daphne and workers
+    "supervisor>=4.2.5",     # for: archivebox server starting the ASGI server and workers
     "psutil>=6.0.0",         # for: monitoring orchestractor,actors,workers,etc. and machine.models.Process
     "platformdirs>=4.3.6",   # for: finding a xdg-config dir to store tmp/lib files in
     "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid

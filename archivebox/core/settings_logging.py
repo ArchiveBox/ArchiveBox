@@ -9,6 +9,7 @@ import logging
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.logging import STDERR
+from archivebox.misc.monkey_patches import SENSITIVE_QUERY_PARAM_RE
 
 
 IGNORABLE_URL_PATTERNS = [
@@ -19,12 +20,24 @@ IGNORABLE_URL_PATTERNS = [
     re.compile(r"/.*/?.*\.(css|js)\.map"),
     re.compile(r"/static/.*"),
     re.compile(r"/admin/jsi18n/"),
+    re.compile(r"/health/"),
+    re.compile(r"/progress\.json(?:\?.*)?"),
+    re.compile(r"/api/v1/core/snapshot/.*/screencast\.jpg(?:\?.*)?"),
+    re.compile(r"/api/v1/crawls/crawl/.*/files/chrome_screencast/latest\.jpg(?:\?.*)?"),
 ]
 
 
 class NoisyRequestsFilter(logging.Filter):
     def filter(self, record) -> bool:
-        logline = record.getMessage()
+        if record.name == "uvicorn.access" and isinstance(record.args, tuple) and len(record.args) == 5:
+            # Apply the existing secret redaction and quiet-route policy to
+            # Uvicorn's structured access records before any handler emits them.
+            client, method, path, version, status = record.args
+            path = SENSITIVE_QUERY_PARAM_RE.sub(r"\1[REDACTED]", path)
+            record.args = (client, method, path, version, status)
+            logline = f'"{method} {path} HTTP/{version}" {status} 0'
+        else:
+            logline = record.getMessage()
         # '"GET /api/v1/docs HTTP/1.1" 200 1023'
         # '"GET /static/admin/js/SelectFilter2.js HTTP/1.1" 200 15502'
         # '"GET /static/admin/js/SelectBox.js HTTP/1.1" 304 0'
@@ -229,6 +242,16 @@ SETTINGS_LOGGING = {
         "formatter": "rich",
     },
     "loggers": {
+        "uvicorn": {
+            "handlers": ["default", "logfile"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "uvicorn.access": {
+            "handlers": ["default", "logfile"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "api": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",

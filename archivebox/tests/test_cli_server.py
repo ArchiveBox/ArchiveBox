@@ -367,21 +367,22 @@ def test_runtime_binary_wins_over_ambient_system_path(tmp_path):
     assert Path(result.stdout.strip().splitlines()[-1]) == Path(sys.executable).resolve()
 
 
-def test_daphne_worker_uses_default_application_close_timeout():
+def test_uvicorn_worker_preserves_websocket_message_limit():
     from archivebox.workers.supervisord_util import SERVER_WORKER
 
     command = SERVER_WORKER("127.0.0.1", "5797")["command"]
 
-    assert "daphne" in command
-    assert "--application-close-timeout=0" not in command
+    assert "uvicorn" in command
+    assert "--ws-max-size=1048576" in command
+    assert "--lifespan=off" in command
 
 
-def test_daphne_worker_uses_callers_python_runtime(tmp_path):
+def test_uvicorn_worker_uses_callers_python_runtime(tmp_path):
     from archivebox.workers.supervisord_util import SERVER_WORKER, _worker_environment_value
 
     worker = SERVER_WORKER("127.0.0.1", "5797")
     command = shlex.split(worker["command"])
-    assert command[:3] == [sys.executable, "-m", "daphne"]
+    assert command[:3] == [sys.executable, "-m", "uvicorn"]
 
     stale_venv = tmp_path / "stale-venv"
     subprocess.run(["uv", "venv", "--python", sys.executable, str(stale_venv)], check=True, capture_output=True, text=True)
@@ -395,7 +396,7 @@ def test_daphne_worker_uses_callers_python_runtime(tmp_path):
 
     result = subprocess.run([*command, "--help"], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "usage:" in result.stdout
+    assert "Usage: python -m uvicorn [OPTIONS] APP" in result.stdout
 
 
 @pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "5797"), (True, "9579")])
@@ -423,7 +424,7 @@ def test_port_compatibility_does_not_add_listeners_outside_docker_defaults(tmp_p
     )
     workers = json.loads(result.stdout)
     assert [worker["name"] for worker in workers] == [
-        "worker_runserver" if debug else "worker_daphne",
+        "worker_runserver" if debug else "worker_uvicorn",
         "worker_runner",
     ]
     command = shlex.split(workers[0]["command"])
@@ -494,9 +495,9 @@ def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive
         SEARCH_BACKEND_ENGINE="sonic",
         **sonic_env,
     )
-    state = server.wait_for_workers(("worker_daphne", "worker_sonic", "worker_runner"))
+    state = server.wait_for_workers(("worker_uvicorn", "worker_sonic", "worker_runner"))
 
-    assert state["worker_daphne"]["statename"] == "RUNNING", state
+    assert state["worker_uvicorn"]["statename"] == "RUNNING", state
     assert state["worker_runner"]["statename"] == "RUNNING", state
     assert state["worker_sonic"]["statename"] == "RUNNING", state
     assert "sonic" in state["worker_sonic"]["name"]
@@ -534,7 +535,7 @@ def test_server_daemon_restarts_runner_killed_by_signal(archivebox_daemon_server
     server = archivebox_daemon_server(
         SEARCH_BACKEND_ENGINE="sqlite",
     )
-    state = server.wait_for_workers(("worker_daphne", "worker_runner"))
+    state = server.wait_for_workers(("worker_uvicorn", "worker_runner"))
     old_runner_pid = state["worker_runner"]["pid"]
     supervisord_log = server.data_dir / "logs" / "supervisord.log"
     spawn_text = "spawned: 'worker_runner' with pid"
@@ -548,7 +549,7 @@ def test_server_daemon_restarts_runner_killed_by_signal(archivebox_daemon_server
     assert runner["statename"] == "RUNNING", state
     assert runner["pid"] != old_runner_pid, state
 
-    assert state["worker_daphne"]["statename"] == "RUNNING", state
+    assert state["worker_uvicorn"]["statename"] == "RUNNING", state
 
 
 @pytest.mark.django_db(transaction=True)
@@ -560,7 +561,7 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", PLUGINS="wget", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
-    state = server.wait_for_workers(("worker_daphne", "worker_runner"))
+    state = server.wait_for_workers(("worker_uvicorn", "worker_runner"))
     old_runner_pid = state["worker_runner"]["pid"]
     urls = [blocking_http_server.url + "first", blocking_http_server.url + "second"]
     added = run_archivebox_cmd(["add", "--bg", "--plugins=wget", *urls], cwd=server.data_dir, env=server.env)
@@ -584,7 +585,7 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
         blocking_http_server.request_started.clear()
         os.kill(old_runner_pid, signal.SIGKILL)
         wait_for_log_count(supervisord_log, spawn_text, spawn_count + 1, timeout=30)
-        replacement = server.wait_for_workers(("worker_daphne", "worker_runner"))
+        replacement = server.wait_for_workers(("worker_uvicorn", "worker_runner"))
         assert replacement["worker_runner"]["pid"] != old_runner_pid
         assert blocking_http_server.request_started.wait(30), "The replacement worker did not resume the interrupted request"
         for old_process in [interrupted_process, *interrupted_children]:
@@ -625,7 +626,7 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
 
 def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_runtime(archivebox_daemon_server):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep")
-    server.wait_for_workers(("worker_daphne", "worker_runner"))
+    server.wait_for_workers(("worker_uvicorn", "worker_runner"))
 
     setup_result = subprocess.run(
         [
@@ -911,7 +912,7 @@ def test_live_daemonized_server_keeps_supervisord_owned_by_archivebox_parent(ini
             timeout=90,
         )
         assert result.returncode == 0, result.stderr or result.stdout
-        _wait_for_archivebox_workers(initialized_archive, env, ("worker_daphne", "worker_runner"), timeout=30)
+        _wait_for_archivebox_workers(initialized_archive, env, ("worker_uvicorn", "worker_runner"), timeout=30)
         assert_port_open("127.0.0.1", port, timeout=30)
 
         server_process = find_process(
