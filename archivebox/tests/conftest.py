@@ -2049,7 +2049,9 @@ def browser_runtime(cached_abxpkg_lib_dir):
         "node_path": resolved_env["NODE_PATH"],
         "node_binary": Path(resolved_env["NODE_BINARY"]),
         "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
-        "chrome_args": [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA],
+        # UI clients keep native lazy loading. Capture's eager-loading flag
+        # otherwise starts every hidden stack card and duplicates its cover.
+        "chrome_args": [arg for arg in [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA] if arg != "--disable-lazy-loading"],
     }
 
 

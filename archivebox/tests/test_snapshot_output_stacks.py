@@ -708,9 +708,11 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),
-            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
         )
         page = browser.new_page(viewport={"width": width, "height": 844})
+        card_requests = []
+        page.on("request", lambda request: card_requests.append(request.url) if "/_card/" in request.url else None)
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html")
         assert "{#" not in page.locator("body").inner_text()
         cover = page.locator(".output-stack-article_text .stack-cover .thumbnail-wrapper > iframe")
@@ -724,6 +726,8 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
         assert cover.get_attribute("loading") == "lazy"
         assert cover.get_attribute("fetchpriority") == "low"
         source = cover.get_attribute("src")
+        # The parked original must not duplicate its visible cover's work.
+        assert card_requests.count(source) == 1
         page.locator(".output-stack-article_text").click()
         expanded = page.locator('.stack-tray .thumb-card[data-plugin-name="defuddle"] .thumbnail-wrapper > iframe')
         expanded_viewer = expanded.content_frame.locator("iframe")
@@ -736,6 +740,7 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
         assert expanded.get_attribute("loading") == "lazy"
         assert expanded.get_attribute("fetchpriority") == "low"
         assert expanded.get_attribute("src") == source
+        assert card_requests.count(source) == 2
         assert cover_viewer.get_attribute("src") == expanded_viewer.get_attribute("src")
         assert cover_viewer.content_frame.locator("body > header").is_hidden()
         assert expanded_viewer.content_frame.locator("body > header").is_hidden()
