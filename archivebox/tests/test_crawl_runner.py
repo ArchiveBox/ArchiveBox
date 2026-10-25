@@ -593,7 +593,8 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
 
 
 @pytest.mark.django_db(transaction=True)
-def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp_path):
+@pytest.mark.parametrize("snapshot_id_format", ["queued", "compact", "dashed", "uuid"])
+def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp_path, snapshot_id_format):
     from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlEvent, CrawlSetupEvent, CrawlStartEvent, MachineEvent
     from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
     from archivebox.base_models.models import get_or_create_system_user_pk
@@ -610,7 +611,14 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
         },
         created_by_id=get_or_create_system_user_pk(),
     )
-    runner = CrawlRunner(crawl)
+    snapshot_ids = None
+    if snapshot_id_format != "queued":
+        from uuid import UUID
+
+        snapshot = Snapshot.objects.create(crawl=crawl, url=crawl.urls)
+        uuid = UUID(int=snapshot.id.int)
+        snapshot_ids = [{"compact": uuid.hex, "dashed": str(uuid), "uuid": uuid}[snapshot_id_format]]
+    runner = CrawlRunner(crawl, snapshot_ids=snapshot_ids)
 
     seen_events = {
         CrawlEvent: [],
@@ -657,6 +665,13 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
     assert crawl.retry_at is None
     assert snapshot.status == Snapshot.StatusChoices.SEALED
     assert snapshot.retry_at is None
+    # Every input representation must reach both preparation and cleanup, not
+    # just a terminal event that leaves an empty timestamp or stale manifest.
+    assert snapshot.downloaded_at is not None
+    record = snapshot.read_index_jsonl()["snapshot"]
+    assert record["id"] == str(snapshot.id)
+    assert record["status"] == "sealed"
+    assert record["downloaded_at"] == snapshot.downloaded_at.isoformat()
     assert snapshot.archiveresult_set.count() == 0
 
 

@@ -75,6 +75,7 @@ from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_
 from archivebox.plugins.discovery import get_plugin_catalog
 from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
+from archivebox.uuid_compat import compact_uuid
 from archivebox.crawls.locks import crawl_lifecycle_lock
 
 from .archive_result_service import ArchiveResultService
@@ -529,6 +530,10 @@ class CrawlRunner:
             await asyncio.sleep(RESOURCE_RECHECK_SECONDS)
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
+        # ORM queue reads return UUIDs; event records carry compact strings.
+        # Use the shared UUID representation before task/lease lookup and the
+        # preparation/cleanup guards, or later snapshots skip those projections.
+        snapshot_id = str(compact_uuid(snapshot_id))
         if self._resource_deferred or self._scheduler_yielded:
             return
         if not self._initial_snapshot_admitted and await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
