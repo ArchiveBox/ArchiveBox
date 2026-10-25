@@ -829,14 +829,22 @@ def _index_responses_paths_for_html_images(
             records = _saved_response_records(index)
         for record in records:
             try:
-                encoded = _encoded_responses_image_url(record.get("url", ""), None)
-                if encoded not in encoded_urls or record.get("method") != "GET" or record.get("status") != 200:
+                if record.get("method") != "GET" or record.get("status") != 200:
+                    continue
+                urls = {_encoded_responses_image_url(record.get("url", ""), None)}
+                # Saved HTML still references the original request after a CDN
+                # redirect. Its recorded GET alias must resolve to the same body.
+                if (record.get("requestMethod") or record.get("method")) == "GET":
+                    urls.add(_encoded_responses_image_url(record.get("requestUrl", ""), None))
+                matches = encoded_urls & urls
+                if not matches:
                     continue
                 candidate = (responses_root / record.get("path", "")).resolve()
                 if not candidate.is_relative_to(resolved_root) or not candidate.is_file():
                     continue
-                best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
-                image_matches.add(encoded)
+                for encoded in matches:
+                    best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
+                    image_matches.add(encoded)
             except (ValueError, TypeError, AttributeError):
                 continue
         # The index lists every saved response, so walking responses/ (thousands

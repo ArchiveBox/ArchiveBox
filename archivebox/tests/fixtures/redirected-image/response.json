@@ -1,0 +1,14 @@
+{
+  "ts": "20261024T054605",
+  "method": "GET",
+  "requestUrl": "https://github.com/baidu/Unlimited-OCR/raw/main/assets/baidu.png",
+  "requestMethod": "GET",
+  "url": "https://raw.githubusercontent.com/baidu/Unlimited-OCR/main/assets/baidu.png",
+  "urlSha256": "9d2da4ab349b0675b8984681026b87449c888a811b460b8a6b0fc7a97d29dea1",
+  "status": 200,
+  "resourceType": "image",
+  "mimeType": "image/png",
+  "responseSha256": "3342dd06c42f0abc227adf8e3a3602eda301adfb9af1371f22b9f40c6b5f3339",
+  "path": "./all/20261024T054605__GET__d23ae8a8-5031-4319-a747-6f86fd9208fb__https_3A_2F_2Fraw.githubusercontent.com_2Fbaidu_2FUnlimited-OCR_.png",
+  "extension": "png"
+}
