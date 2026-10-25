@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -54,7 +53,6 @@ def finalize_completed_snapshot(
     consumed_retry_plugins: list[str] | None = None,
     output_dir=None,
     crawl_limit_stop_reason: str | None = None,
-    attempt_failed: bool = False,
 ) -> None:
     from archivebox.core.models import Snapshot
 
@@ -65,16 +63,7 @@ def finalize_completed_snapshot(
     # urls.jsonl is durable hook output. Project it while the Snapshot/Crawl are
     # still runnable so an interruption cannot seal a parser root after its
     # ArchiveResults finish but before its discovered child rows are persisted.
-    if attempt_failed:
-        # A failed attempt keeps the URLs its hooks did discover, but the
-        # failure may have been this very ingestion. Raising it again here
-        # would leave the attempt open, and an open attempt is run again.
-        try:
-            project_discovered_snapshots(str(snapshot.id))
-        except Exception:
-            logging.getLogger(__name__).exception("Could not add URLs discovered by failed Snapshot %s", snapshot.id)
-    else:
-        project_discovered_snapshots(str(snapshot.id))
+    project_discovered_snapshots(str(snapshot.id))
 
     if snapshot.downloaded_at is None:
         snapshot.downloaded_at = timezone.now()
@@ -96,10 +85,7 @@ def finalize_completed_snapshot(
     # runner's interrupted-owner guard below keeps takeover work resumable.
     # ArchiveResult rows are projections of that work, never prerequisites used
     # to decide whether the Snapshot may seal.
-    # A failed attempt may end before its projector moved it out of QUEUED
-    # (e.g. its output dir could not be prepared); it is finished all the same.
-    sealable_statuses = Snapshot.RUNNABLE_STATES if attempt_failed else (Snapshot.StatusChoices.STARTED,)
-    if not was_sealed and snapshot.status in sealable_statuses and snapshot.retry_at == owned_retry_at:
+    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at:
         snapshot.seal()
         snapshot.refresh_from_db()
 
@@ -213,40 +199,4 @@ class SnapshotService(BaseService):
             owned_retry_at=owned_retry_at,
             was_sealed=was_sealed,
             consumed_retry_plugins=retry_plugins,
-        )
-
-    async def finalize_failed_attempt(self, snapshot_id: str) -> None:
-        """Finish an attempt that raised instead of completing.
-
-        Left open, the snapshot kept its place at the head of the crawl: each
-        crawl run failed on it again before reaching any other snapshot, so one
-        snapshot that fails deterministically stalled its whole crawl. Finish
-        it like a completed attempt instead; its ArchiveResults and outputs
-        record what ran, and running it again is a user action (Redo or a new
-        Snapshot), never automatic. Only an interrupted owner (takeover, process
-        death) leaves its attempt open for recovery to start over.
-        """
-        from archivebox.core.models import Snapshot
-
-        async with self._ownership_lock:
-            ownership = self._run_ownership.pop(str(snapshot_id), None)
-        if ownership is None:
-            # The attempt failed before (or after) this projector owned it. The
-            # caller holds the crawl lifecycle lock, so the row as it is now is
-            # this attempt's, including Redo plugins a sealed Snapshot still owes:
-            # those are consumed too, or the scheduler would rerun them forever.
-            snapshot = await Snapshot.objects.filter(id=snapshot_id, crawl_id=self.crawl_id).afirst()
-            if snapshot is None or snapshot.is_paused:
-                return
-            retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
-            if snapshot.status == Snapshot.StatusChoices.SEALED and not retry_plugins:
-                return
-            ownership = ("", snapshot.retry_at, snapshot.status == Snapshot.StatusChoices.SEALED, retry_plugins)
-        _, owned_retry_at, was_sealed, retry_plugins = ownership
-        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-            snapshot_id,
-            owned_retry_at=owned_retry_at,
-            was_sealed=was_sealed,
-            consumed_retry_plugins=retry_plugins,
-            attempt_failed=True,
         )

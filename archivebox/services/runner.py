@@ -522,7 +522,7 @@ class CrawlRunner:
                 if self._user_aborted:
                     raise KeyboardInterrupt
 
-        # Failed attempts are sealed so they cannot starve the remaining URLs.
+        # A normally completed capture can still contain failed hook attempts.
         # Report failure only after those URLs and cleanup have finished: a
         # drained queue must not turn a storage/execution error into CLI success.
         if self._failed_snapshot_ids:
@@ -1225,6 +1225,7 @@ class CrawlRunner:
             if event.event_id != self.root_crawl_event_id:
                 return
             cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(event))
+            phase_error: BaseException | None = None
             try:
                 try:
                     if not await self.crawl_is_cancelled() and (
@@ -1255,9 +1256,20 @@ class CrawlRunner:
                         )
                         self.root_crawl_start_event_id = crawl_start_event.event_id
                         await _run_event_now(event.emit(crawl_start_event), None)
+                except BaseException as error:
+                    phase_error = error
                 finally:
-                    if self.snapshot_tasks:
-                        await self.drain_snapshot_tasks()
+                    # A failed snapshot must not bypass crawl-scoped shutdown.
+                    # Drain admitted siblings before cleanup and retain the
+                    # original failure if either shutdown step also fails.
+                    try:
+                        if self.snapshot_tasks:
+                            await self.drain_snapshot_tasks()
+                    except BaseException as error:
+                        if phase_error is None:
+                            phase_error = error
+                        else:
+                            phase_error.add_note(f"Snapshot shutdown also failed: {error}")
                     cleanup_event = event.emit(
                         CrawlCleanupEvent(
                             url=snapshot["url"],
@@ -1274,10 +1286,18 @@ class CrawlRunner:
                     # launched them. _run_event_now() is already bounded by the
                     # crawl setup timeout and cleanup handlers provide their own
                     # hook-level grace periods.
-                    await _run_event_now(cleanup_event, crawl_setup_phase_timeout)
+                    try:
+                        await _run_event_now(cleanup_event, crawl_setup_phase_timeout)
+                    except BaseException as error:
+                        if phase_error is None:
+                            phase_error = error
+                        else:
+                            phase_error.add_note(f"Crawl cleanup also failed: {error}")
             finally:
                 cancel_watcher.cancel()
                 await asyncio.gather(cancel_watcher, return_exceptions=True)
+            if phase_error is not None:
+                raise phase_error
             # emit() schedules handlers immediately; guarding only the await
             # still lets completion projectors run during takeover. An aborted
             # execution owner must leave durable work for its replacement.
@@ -1348,22 +1368,17 @@ class CrawlRunner:
             # capture failure: leave the lease for the next owner to resume.
             if self.execution_interrupted():
                 raise
-            self._failed_snapshot_ids.append(str(snapshot_id))
-            # One snapshot's failure is that snapshot's alone. Raising here
-            # failed the whole crawl, and every rerun picked this snapshot first
-            # and failed again, so none of the crawl's other snapshots ran.
-            logging.getLogger(__name__).exception("Snapshot %s failed; continuing with the rest of its crawl", snapshot_id)
-            try:
-                await self.snapshot_service.finalize_failed_attempt(snapshot_id)
-            except Exception:
-                # Recording the failure must not become the crawl's failure.
-                logging.getLogger(__name__).exception("Could not finish failed Snapshot %s", snapshot_id)
-                from archivebox.core.models import Snapshot
+            from archivebox.core.models import Snapshot
 
-                if await Snapshot.objects.filter(id=snapshot_id, status__in=Snapshot.RUNNABLE_STATES).aexists():
-                    # The foreground scheduler may continue only after this
-                    # attempt is final; otherwise it would retry the same fault.
-                    raise
+            # Only the normal completion projector may seal a capture. An
+            # exception can mean cleanup or result persistence never finished;
+            # sealing here used to turn that failure into a sealed/STARTED tree.
+            # Let the scheduler drain admitted siblings and propagate the error
+            # instead of immediately selecting this unfinished attempt again.
+            if await Snapshot.objects.filter(id=snapshot_id, status__in=Snapshot.RUNNABLE_STATES).aexists():
+                raise
+            self._failed_snapshot_ids.append(str(snapshot_id))
+            logging.getLogger(__name__).exception("Snapshot %s failed; continuing with the rest of its crawl", snapshot_id)
 
     async def _run_snapshot_attempt(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:
