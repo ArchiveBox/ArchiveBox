@@ -136,7 +136,10 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                             {"browser": browser.version, "frames": [{"name": frame.name, "url": frame.url} for frame in page.frames]},
                         )
                         (root / "replay-browser.log").write_text(json.dumps(replay_events, indent=2))
-                        frame = page.frame(name="preview")
+                        # Archived card viewers can have nested frames named
+                        # preview too; retain the frame used by this assertion.
+                        element = page.locator("#main-frame").element_handle()
+                        frame = element.content_frame() if element else None
                         if frame:
                             try:
                                 viewer_html = frame.content()
