@@ -62,7 +62,7 @@ def public_snapshots_queryset(queryset: QuerySet) -> QuerySet:
 
 
 def discoverable_snapshots_queryset(request: HttpRequest | None, queryset: QuerySet) -> QuerySet:
-    # Knowing one capture must not reveal private or unlisted captures of its URL.
+    # Incomplete references and URL lookups must not reveal unlisted/private captures.
     # Local exports have no request and retain captures of every permission level.
     return queryset if request is None or is_admin_user(request) else public_snapshots_queryset(queryset)
 

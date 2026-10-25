@@ -58,6 +58,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_UNLISTED,
     can_view_snapshot,
     direct_snapshots_queryset,
+    discoverable_snapshots_queryset,
     filter_personas_by_permissions,
     is_admin_user,
     public_snapshots_queryset,
@@ -130,7 +131,7 @@ _SNAPSHOT_SUFFIX_PKS: dict[str, object] = {}
 _SNAPSHOT_SUFFIX_PKS_MAX = 4096
 
 
-def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
+def _find_snapshot_by_ref(snapshot_ref: str, *, request: HttpRequest | None = None) -> Snapshot | None:
     lookup = get_snapshot_lookup_key(snapshot_ref)
     if not lookup:
         return None
@@ -157,7 +158,7 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
         return snapshots.get(pk=lookup)
     except (Snapshot.DoesNotExist, ValidationError):
         # Short references are valid route inputs but not complete UUIDs.
-        snapshot = snapshots.filter(id__startswith=lookup).first()
+        snapshot = discoverable_snapshots_queryset(request, snapshots.filter(id__startswith=lookup)).first()
         if snapshot is not None:
             snapshot.matched_by_prefix = True  # UUIDv7 prefixes are guessable timestamps: not an unlisted link
         return snapshot
@@ -283,7 +284,7 @@ class SnapshotReplayAuthView(View):
         if not is_admin_user(request):
             return redirect(f"{build_admin_url('/admin/login/', request=request)}?next={quote(request.get_full_path(), safe='')}")
 
-        snapshot = _find_snapshot_by_ref(str(request.GET.get("snapshot") or ""))
+        snapshot = _find_snapshot_by_ref(str(request.GET.get("snapshot") or ""), request=request)
         if not snapshot:
             raise Http404
 
@@ -380,14 +381,22 @@ class SnapshotView(View):
         return Snapshot.objects.filter(Q(url__startswith="http://" + base) | Q(url__startswith="https://" + base))
 
     @staticmethod
-    def find_snapshots_for_id(slug: str):
+    def find_snapshots_for_id(slug: str, *, request: HttpRequest | None = None):
         """Return a queryset of snapshots matching a (possibly truncated) UUID via prefix or suffix.
 
         Strips non-hex characters from ``slug`` (so input with or without hyphens both work).
         Requires at least 8 hex chars — shorter inputs return an empty queryset to avoid
         scanning the entire snapshots table on too-broad matches.
         """
-        return filter_queryset_by_uuid_substring(Snapshot.objects.all(), slug)
+        snapshots = filter_queryset_by_uuid_substring(Snapshot.objects.all(), slug)
+        if request is None:
+            return snapshots
+        try:
+            UUID(slug)
+        except ValueError:
+            # Incomplete IDs discover captures; they are not unlisted links.
+            return discoverable_snapshots_queryset(request, snapshots)
+        return direct_snapshots_queryset(request, snapshots)
 
     @staticmethod
     def render_live_index(request, snapshot):
@@ -428,7 +437,11 @@ class SnapshotView(View):
         if slug.replace(".", "").isdigit():
             try:
                 try:
-                    snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
+                    try:
+                        snapshot = Snapshot.objects.get(timestamp=slug)
+                    except Snapshot.DoesNotExist:
+                        snapshots = self.find_snapshots_for_id(slug, request=request)
+                        snapshot = snapshots.get()
                     request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
                     if not can_view_snapshot(request, snapshot):
                         return _private_snapshot_auth_redirect(request, snapshot, archivefile or "index.html")
@@ -466,7 +479,8 @@ class SnapshotView(View):
                     response["Link"] = ", ".join(filter(None, [response.get("Link"), f'<{snapshot.url}>; rel="canonical"']))
                     return response
                 except Snapshot.DoesNotExist:
-                    if Snapshot.objects.filter(timestamp__startswith=slug).exists():
+                    snapshots = discoverable_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
+                    if snapshots.exists():
                         raise Snapshot.MultipleObjectsReturned
                     else:
                         raise
@@ -496,9 +510,7 @@ class SnapshotView(View):
                         snap.url,
                         snap.title_stripped[:64] or "",
                     )
-                    for snap in direct_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
-                    .select_related("crawl__created_by")
-                    .order_by("-bookmarked_at")
+                    for snap in snapshots.select_related("crawl__created_by").order_by("-bookmarked_at")
                 )
                 return HttpResponse(
                     format_html(
@@ -562,14 +574,14 @@ class SnapshotView(View):
         def _resolve_snapshots_for_slug(slug: str):
             # full URLs go straight to the url-only path (fast, indexed)
             if "://" in slug:
-                return SnapshotView.find_snapshots_for_url(slug, allow_fallback=False)
+                return discoverable_snapshots_queryset(request, SnapshotView.find_snapshots_for_url(slug, allow_fallback=False))
             # short uuid-shaped slugs (>=8 hex chars after stripping non-hex) try id matching first
-            id_qs = SnapshotView.find_snapshots_for_id(slug)
+            id_qs = SnapshotView.find_snapshots_for_id(slug, request=request)
             if id_qs.exists():
                 return id_qs
-            return SnapshotView.find_snapshots_for_url(slug)
+            return discoverable_snapshots_queryset(request, SnapshotView.find_snapshots_for_url(slug))
 
-        snapshots = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path)).select_related("crawl__created_by")
+        snapshots = _resolve_snapshots_for_slug(path).select_related("crawl__created_by")
         try:
             if "://" in path:
                 snapshot = snapshots.order_by("-bookmarked_at").first()
@@ -577,7 +589,9 @@ class SnapshotView(View):
                     # Fetch the exact match once before trying legacy URL
                     # fallbacks; an exists() probe followed by the same lookup
                     # needlessly doubled reads on every normal redirect.
-                    snapshots = direct_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related("crawl__created_by")
+                    snapshots = discoverable_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related(
+                        "crawl__created_by",
+                    )
                     snapshot = snapshots.order_by("-bookmarked_at").first()
                 if snapshot is None:
                     raise Snapshot.DoesNotExist
@@ -655,16 +669,16 @@ class SnapshotPathView(View):
             requested_url = domain
 
         snapshot = None
-        snapshots_qs = direct_snapshots_queryset(request, Snapshot.objects.select_related("crawl", "crawl__created_by"))
+        snapshots_qs = discoverable_snapshots_queryset(request, Snapshot.objects.select_related("crawl", "crawl__created_by"))
         if snapshot_id:
-            snapshot = _find_snapshot_by_ref(snapshot_id)
+            snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
             if snapshot and not can_view_snapshot(request, snapshot):
                 return _private_snapshot_auth_redirect(request, snapshot, path or "index.html")
         else:
             # fuzzy lookup by date + domain/url (most recent)
             username_lookup = "system" if username == "web" else username
             if requested_url:
-                qs = direct_snapshots_queryset(
+                qs = discoverable_snapshots_queryset(
                     request,
                     SnapshotView.find_snapshots_for_url(requested_url)
                     .select_related("crawl", "crawl__created_by")
@@ -1260,7 +1274,7 @@ class SnapshotHostView(View):
 
     def get(self, request, snapshot_id: str, path: str = ""):
         request_config = get_request_config(request)
-        snapshot = _find_snapshot_by_ref(snapshot_id)
+        snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
 
         if not snapshot:
             raise Http404
@@ -1283,7 +1297,7 @@ class SnapshotReplayView(View):
     """Serve snapshot directory contents on a one-domain replay path."""
 
     def get(self, request, snapshot_id: str, path: str = ""):
-        snapshot = _find_snapshot_by_ref(snapshot_id)
+        snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
         if not snapshot:
             raise Http404
         if path == "_auth":
