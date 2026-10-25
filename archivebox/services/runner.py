@@ -1033,69 +1033,87 @@ class CrawlRunner:
         )
         return live_ui
 
-    def load_snapshot_payload(self, snapshot_id: str) -> dict[str, Any]:
+    async def load_snapshot_payload(self, snapshot_id: str) -> dict[str, Any]:
         from archivebox.config.common import get_config
         from archivebox.core.models import Snapshot
 
-        snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").get(id=snapshot_id)
-        self.crawl = snapshot.crawl
-        self.persona = snapshot.crawl.resolve_persona()
-        self.base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=self.persona, overrides=self.config_overrides)
-        snapshot.crawl.migrate_legacy_output_dir()
-        self.crawl_output_dir = str(snapshot.crawl.output_dir)
-        runtime_chrome_overrides = {}
-        if self.persona:
-            if str(self.base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
-                runtime_chrome_overrides.update(
-                    self.persona.prepare_runtime_for_snapshot(
-                        snapshot,
-                        chrome_binary=self.base_config["CHROME_BINARY"],
-                    ),
+        def load_context():
+            snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
+            persona = snapshot.crawl.persona
+            base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=persona, overrides=self.config_overrides)
+            local_root = None
+            if persona and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
+                local_root = (
+                    persona.local_runtime_root_for_crawl(snapshot.crawl).parent.parent
+                    / "snapshots"
+                    / str(snapshot.id)
+                    / ".persona"
+                    / persona.name
                 )
-            else:
-                crawl_downloads_dir = self.persona.runtime_downloads_dir_for_crawl(snapshot.crawl)
-                crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
-                runtime_chrome_overrides.update(
-                    {
-                        "PERSONAS_DIR": str(self.persona.runtime_root_for_crawl(snapshot.crawl).parent),
-                        "ACTIVE_PERSONA": self.persona.name,
-                    },
-                )
-        snapshot_output_dir = str(snapshot.output_dir)
-        Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
-        tags = snapshot.tags_str()
-        config = self.base_config.for_crawl_runtime(
-            crawl=snapshot.crawl,
-            snapshot=snapshot,
-            persona=self.persona,
-            runtime_overrides=runtime_chrome_overrides,
-            extra_context={
-                "snapshot_id": str(snapshot.id),
-            },
-        )
-        normalized_config = normalize_runtime_config(config)
-        configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
-        if configured_plugins:
-            selected_plugin_names = set(self.catalog.select(configured_plugins))
-            for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
-                normalized_config.setdefault(enabled_key, plugin_name in selected_plugin_names)
-        return {
-            "id": str(snapshot.id),
-            "url": snapshot.url,
-            "title": snapshot.title,
-            "timestamp": snapshot.timestamp,
-            "bookmarked_at": snapshot.bookmarked_at.isoformat() if snapshot.bookmarked_at else "",
-            "created_at": snapshot.created_at.isoformat() if snapshot.created_at else "",
-            "tags": tags,
-            "depth": snapshot.depth,
-            "status": snapshot.status,
-            "retry_at": snapshot.retry_at,
-            "output_dir": snapshot_output_dir,
-            "config": normalized_config,
-            "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
-            "retry_plugins": list((snapshot.config or {}).get("RETRY_PLUGINS") or []),
-            "_snapshot": snapshot,
-        }
+            return snapshot, persona, base_config, snapshot.tags_str(), local_root
+
+        snapshot, persona, base_config, tags, local_root = await sync_to_async(load_context, thread_sensitive=True)()
+
+        def prepare_payload():
+            # Persona copies and remote archive metadata must not occupy the one
+            # thread used by unrelated result writes. Keep ORM reads above and
+            # use this snapshot's materialized context, not mutable runner state.
+            snapshot.crawl.migrate_legacy_output_dir()
+            runtime_chrome_overrides = {}
+            if persona:
+                if str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
+                    runtime_chrome_overrides.update(
+                        persona.prepare_runtime_for_snapshot(
+                            snapshot,
+                            chrome_binary=base_config["CHROME_BINARY"],
+                            local_root=local_root,
+                        ),
+                    )
+                else:
+                    crawl_downloads_dir = persona.runtime_downloads_dir_for_crawl(snapshot.crawl)
+                    crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
+                    runtime_chrome_overrides.update(
+                        {
+                            "PERSONAS_DIR": str(persona.runtime_root_for_crawl(snapshot.crawl).parent),
+                            "ACTIVE_PERSONA": persona.name,
+                        },
+                    )
+            snapshot_output_dir = str(snapshot.output_dir)
+            Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
+            config = base_config.for_crawl_runtime(
+                crawl=snapshot.crawl,
+                snapshot=snapshot,
+                persona=persona,
+                runtime_overrides=runtime_chrome_overrides,
+                extra_context={
+                    "snapshot_id": str(snapshot.id),
+                },
+            )
+            normalized_config = normalize_runtime_config(config)
+            configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
+            if configured_plugins:
+                selected_plugin_names = set(self.catalog.select(configured_plugins))
+                for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
+                    normalized_config.setdefault(enabled_key, plugin_name in selected_plugin_names)
+            return {
+                "id": str(snapshot.id),
+                "url": snapshot.url,
+                "title": snapshot.title,
+                "timestamp": snapshot.timestamp,
+                "bookmarked_at": snapshot.bookmarked_at.isoformat() if snapshot.bookmarked_at else "",
+                "created_at": snapshot.created_at.isoformat() if snapshot.created_at else "",
+                "tags": tags,
+                "depth": snapshot.depth,
+                "status": snapshot.status,
+                "retry_at": snapshot.retry_at,
+                "output_dir": snapshot_output_dir,
+                "config": normalized_config,
+                "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
+                "retry_plugins": list((snapshot.config or {}).get("RETRY_PLUGINS") or []),
+                "_snapshot": snapshot,
+            }
+
+        return await asyncio.to_thread(prepare_payload)
 
     async def enqueue_discovered_snapshots_from_outputs(self, snapshot_payload: dict[str, Any]) -> None:
         await sync_to_async(project_discovered_snapshots, thread_sensitive=True)(snapshot_payload["id"])
@@ -1103,7 +1121,7 @@ class CrawlRunner:
             await self.enqueue_pending_snapshots_from_projection()
 
     async def run_crawl(self, root_snapshot_id: str, snapshot_ids: list[str]) -> None:
-        snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(root_snapshot_id)
+        snapshot = await self.load_snapshot_payload(root_snapshot_id)
         config = normalize_runtime_config(snapshot["config"])
         derived_config = normalize_runtime_config(self.derived_config)
         output_dir = Path(self.crawl_output_dir)
@@ -1386,7 +1404,7 @@ class CrawlRunner:
             if not isinstance(parent_event, CrawlStartEvent):
                 raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
             crawl_start_event = parent_event
-            snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
+            snapshot = await self.load_snapshot_payload(snapshot_id)
             try:
                 await sync_to_async(snapshot["_snapshot"].validate_url_for_archiving, thread_sensitive=True)()
             except ValidationError as err:

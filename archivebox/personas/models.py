@@ -416,16 +416,19 @@ class Persona(ModelWithConfig):
         # Use the same optional auth discovery as the template persona.
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
-    def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "") -> dict[str, str]:
+    def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "", *, local_root: Path | None = None) -> dict[str, str]:
         crawl_runtime_profile_dir = self.runtime_profile_dir_for_crawl(snapshot.crawl)
         template_dir = crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else Path(self.CHROME_USER_DATA_DIR)
         runtime_root = self.runtime_root_for_snapshot(snapshot)
         runtime_profile_dir = self.runtime_profile_dir_for_snapshot(snapshot)
         runtime_downloads_dir = self.runtime_downloads_dir_for_snapshot(snapshot)
 
-        local_root = (
-            self.local_runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
-        )
+        # The async runner resolves config/ORM paths before entering its filesystem
+        # worker; other callers retain the existing local-runtime path resolution.
+        if local_root is None:
+            local_root = (
+                self.local_runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
+            )
         local_root.parent.mkdir(parents=True, exist_ok=True)
         self.link_runtime_for_output(snapshot.output_dir, local_root)
         if runtime_root.exists():

@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 import pytest
-from asgiref.sync import sync_to_async
+from asgiref.sync import async_to_sync, sync_to_async
 
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
@@ -28,7 +28,7 @@ def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
     runner = CrawlRunner(crawl)
     try:
         runner.load_run_state()
-        payload = runner.load_snapshot_payload(str(snapshot.id))
+        payload = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))
         context = json.loads(payload["config"]["EXTRA_CONTEXT"])
         assert context == {"snapshot_id": str(snapshot.id)}
         assert payload["title"] == title
@@ -127,8 +127,8 @@ def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
     runner.load_run_state()
     crawl_downloads_sentinel = persona.runtime_downloads_dir_for_crawl(crawl) / "keep.txt"
     crawl_downloads_sentinel.write_text("keep")
-    payload = runner.load_snapshot_payload(str(snapshot.id))
-    other_payload = runner.load_snapshot_payload(str(other_snapshot.id))
+    payload = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))
+    other_payload = async_to_sync(runner.load_snapshot_payload)(str(other_snapshot.id))
     config = payload["config"]
     other_config = other_payload["config"]
 
@@ -172,8 +172,8 @@ def test_snapshot_payload_uses_snapshot_chrome_dirs_when_snapshot_isolated():
 
     runner = CrawlRunner(crawl)
     runner.load_run_state()
-    payload = runner.load_snapshot_payload(str(snapshot.id))
-    other_payload = runner.load_snapshot_payload(str(other_snapshot.id))
+    payload = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))
+    other_payload = async_to_sync(runner.load_snapshot_payload)(str(other_snapshot.id))
     config = payload["config"]
     other_config = other_payload["config"]
 

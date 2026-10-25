@@ -354,7 +354,8 @@ def test_get_config_resolves_parent_scopes_for_snapshot_runtime(initialized_arch
         override_config = get_config(snapshot=snapshot, overrides={'TIMEOUT': 77, 'CHROME_BINARY': 'override-chrome'})
         runner = CrawlRunner(crawl, selected_plugins=['title'], show_progress=False)
         runner.load_run_state()
-        runtime_config = runner.load_snapshot_payload(str(snapshot.id))['config']
+        from asgiref.sync import async_to_sync
+        runtime_config = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))['config']
 
         print(json.dumps({
             'env': [env_config.TIMEOUT, env_config.CHROME_BINARY],

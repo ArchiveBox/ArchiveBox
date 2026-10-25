@@ -4,6 +4,8 @@ import asyncio
 from importlib.resources import files
 from pathlib import Path
 
+from asgiref.sync import async_to_sync
+
 import pytest
 
 from archivebox.core.models import Snapshot
@@ -104,7 +106,7 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
 
     runner = CrawlRunner(crawl)
     Crawl.objects.filter(id=crawl.id).update(max_depth=1)
-    payload = runner.load_snapshot_payload(str(snapshot.id))
+    payload = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))
 
     asyncio.run(runner.enqueue_discovered_snapshots_from_outputs(payload))
 

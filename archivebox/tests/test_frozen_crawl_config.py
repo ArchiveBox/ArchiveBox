@@ -1,6 +1,8 @@
 import time
 from types import SimpleNamespace
 
+from asgiref.sync import async_to_sync
+
 import pytest
 from django.utils import timezone
 
@@ -175,7 +177,7 @@ def test_server_config_stays_available_without_entering_crawl_or_snapshot_runtim
     runner = CrawlRunner(crawl)
     try:
         runner.load_run_state()
-        runtime = runner.load_snapshot_payload(str(snapshot.id))["config"]
+        runtime = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))["config"]
         assert runtime["TIMEOUT"] == 22
         assert {key: runtime[key] for key in retained} == retained
         assert not server_config.keys() & runtime.keys()

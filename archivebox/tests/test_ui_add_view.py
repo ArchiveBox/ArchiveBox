@@ -5,6 +5,8 @@ from abx_plugins.plugins.opencode.archivebox.host_cases import (
 )
 
 
+from asgiref.sync import async_to_sync
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
@@ -528,7 +530,7 @@ def test_add_view_selected_persona_wins_over_stale_config_override(client, admin
     runner = CrawlRunner(crawl, selected_plugins=["title"], show_progress=False)
     snapshot_ids = runner.load_run_state()
     snapshot = crawl.snapshot_set.get(id=snapshot_ids[0], url="https://example.com/private")
-    runtime_config = runner.load_snapshot_payload(str(snapshot.id))["config"]
+    runtime_config = async_to_sync(runner.load_snapshot_payload)(str(snapshot.id))["config"]
     assert runtime_config["ACTIVE_PERSONA"] == "Private"
     assert runtime_config["COOKIES_FILE"] == str(private_cookies_file)
 
