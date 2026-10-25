@@ -8,6 +8,139 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
+@pytest.mark.parametrize("byte_range", [None, "bytes=0-5"])
+@pytest.mark.parametrize("target_kind", ["captured", "outside", "persona"])
+def test_original_resource_alias_preserves_snapshot_containment(snapshot, tmp_path, mode, byte_range, target_kind):
+    import os
+    from urllib.parse import urlsplit
+
+    from django.test import Client
+
+    from archivebox.core.routes_util import build_snapshot_url
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": "http://archivebox.localhost:5797", "SERVER_SECURITY_MODE": mode}
+    machine.save(update_fields=["config"])
+    snapshot.url = "https://example.com/article"
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["url", "permissions"])
+    root = snapshot.output_dir
+    content = b"window.capturedResource = true;\n"
+    target = {"captured": root / "responses/all/chunk.js", "outside": tmp_path / "private.js", "persona": root / ".persona/private.js"}[
+        target_kind
+    ]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+    alias = root / "responses/example.com/assets/chunk.js"
+    alias.parent.mkdir(parents=True)
+    alias.symlink_to(os.path.relpath(target, alias.parent))
+    # Dynamic loaders request the original URL, rather than a rewritten HTML
+    # attribute. Exercise the real route's responses/<host> fallback.
+    url = urlsplit(build_snapshot_url(str(snapshot.id), "assets/chunk.js"))
+    response = Client().get(url.path, HTTP_HOST=url.netloc, **({"HTTP_RANGE": byte_range} if byte_range else {}))
+    try:
+        if target_kind == "captured":
+            assert response.status_code == (206 if byte_range else 200)
+            body = b"".join(response.streaming_content) if response.streaming else response.content
+            assert body == (content[:6] if byte_range else content)
+        else:
+            assert response.status_code == 404
+            assert content not in response.content
+    finally:
+        response.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_dynamic_resource_alias_renders_in_full_replay(snapshot, live_server, browser_runtime, tmp_path):
+    import json
+    import os
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.core.models import ArchiveResult
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.url = "https://example.com/article"
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["url", "permissions"])
+    root = snapshot.output_dir
+    document = root / "wget/index.html"
+    document.parent.mkdir(parents=True)
+    document.write_text(
+        "<!doctype html><html><head><title>Captured article</title></head><body>"
+        '<h1>Captured article</h1><p id="content">Saved article preview</p>'
+        '<script>import("/assets/chunk.js").then(({content}) => {'
+        'document.querySelector("#content").textContent = content;});</script></body></html>',
+    )
+    captured = root / "responses/all/chunk.js"
+    captured.parent.mkdir(parents=True)
+    captured.write_text('export const content = "Captured chapter loaded from the archive";\n')
+    alias = root / "responses/example.com/assets/chunk.js"
+    alias.parent.mkdir(parents=True)
+    alias.symlink_to(os.path.relpath(captured, alias.parent))
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__50_wget.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="index.html",
+        output_files={"index.html": {"size": document.stat().st_size, "mimetype": "text/html"}},
+        output_size=document.stat().st_size,
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page(viewport={"width": 1600, "height": 1000})
+            page.goto(
+                f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html#wget/index.html",
+                wait_until="domcontentloaded",
+            )
+            full = page.frame_locator("#main-frame")
+            full.get_by_text("Captured chapter loaded from the archive", exact=True).wait_for()
+            # Cards intentionally disable scripts; the saved static preview
+            # remains readable without granting scripts access to the UI.
+            card = page.locator('iframe[title="wget card"]').first.content_frame.frame_locator("iframe")
+            card.get_by_text("Saved article preview", exact=True).wait_for()
+            assert card.locator("#content").inner_text() == "Saved article preview"
+            content_frame = next(
+                frame
+                for frame in page.frames
+                if frame.locator("#content").count() and frame.locator("#content").inner_text().startswith("Captured chapter")
+            )
+            resource = page.request.get(f"{urlsplit(content_frame.url).scheme}://{urlsplit(content_frame.url).netloc}/assets/chunk.js")
+            assert resource.status == 200
+            assert resource.body() == captured.read_bytes()
+            (tmp_path / "dynamic-resource-timing.json").write_text(
+                json.dumps(
+                    content_frame.evaluate("""() => {
+                    const n = performance.getEntriesByType('navigation')[0];
+                    return {ttfb_ms: n.responseStart - n.requestStart,
+                        resources: performance.getEntriesByType('resource').map(r => ({name: r.name, duration_ms: r.duration}))};
+                }"""),
+                ),
+            )
+            page.screenshot(path=str(tmp_path / "dynamic-resource-replay.png"))
+            page.locator("#main-frame").scroll_into_view_if_needed()
+            page.screenshot(path=str(tmp_path / "dynamic-resource-full.png"))
+        finally:
+            browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
 @pytest.mark.parametrize("query,headers", [("", {}), ("?raw=1", {"HTTP_RANGE": "bytes=0-5"}), ("?preview=1", {})])
 @pytest.mark.parametrize("link_kind", ["absolute", "relative", "directory", "casefold"])
 def test_public_replay_rejects_escaping_symlinks(snapshot, tmp_path, mode, query, headers, link_kind):

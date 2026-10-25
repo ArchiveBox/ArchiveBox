@@ -1060,6 +1060,11 @@ def _original_request_url(domain: str, path: str = "", query_string: str = "") -
 
 
 def _serve_responses_path(request, responses_root: Path, rel_path: str, show_indexes: bool):
+    # URL aliases under responses/<host> point into responses/all. The security
+    # boundary is the authorized snapshot, not that host directory: otherwise
+    # dynamic resource requests reject valid captured files as escaping links.
+    snapshot_root = responses_root.parent.parent
+    response_prefix = responses_root.relative_to(snapshot_root)
     candidates: list[str] = []
     rel_path = rel_path or ""
     if rel_path.endswith("/"):
@@ -1072,8 +1077,8 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
         try:
             return serve_static_with_byterange_support(
                 request,
-                candidate,
-                document_root=str(responses_root),
+                str(response_prefix / candidate),
+                document_root=str(snapshot_root),
                 show_indexes=show_indexes,
                 is_archive_replay=True,
             )
@@ -1085,8 +1090,8 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
         try:
             return serve_static_with_byterange_support(
                 request,
-                rel_dir,
-                document_root=str(responses_root),
+                str(response_prefix / rel_dir),
+                document_root=str(snapshot_root),
                 show_indexes=True,
                 is_archive_replay=True,
             )
