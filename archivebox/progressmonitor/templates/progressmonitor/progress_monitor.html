@@ -2002,7 +2002,7 @@
             : `${Math.ceil(archiveBytes / 1024 ** 3)} GB`;
         const freeSpace = `(${gb(system.disk_free_bytes, true)} free)`;
         metricBadge('storage', `${archiveSize || '—'} ${freeSpace}`,
-            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} Remote upload completion is not measured by these filesystem counters.`, systemStale);
+            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)}`, systemStale);
         const freeSpaceLabel = document.createElement('small');
         freeSpaceLabel.textContent = freeSpace;
         document.querySelector('#metric-storage .metric-text').replaceChildren(`${archiveSize || '—'} `, freeSpaceLabel);
