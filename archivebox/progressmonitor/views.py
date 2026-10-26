@@ -1058,12 +1058,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
         if is_admin and request.GET.get("metrics") == "1":
             from archivebox.progressmonitor.metrics import progress_metrics
 
-            payload["metrics"] = progress_metrics(
-                request.user,
-                crawl_id=None,
-                snapshot_id=None,
-                rclone_stats_file=request_config.PROGRESS_RCLONE_STATS_FILE,
-            )
+            payload["metrics"] = progress_metrics(request.user)
         try:
             import ujson
 

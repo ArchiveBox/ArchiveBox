@@ -56,7 +56,7 @@ def test_metrics_scope_finished_attempts_and_cached_read_only_access(admin_user,
     assert len(system["load_avg"]) == 3
     assert 0 <= system["memory_available_bytes"] <= system["memory_total_bytes"]
     assert system["disk_free_bytes"] > 0
-    assert summary["storage"] is None
+    assert "storage" not in summary
     from archivebox.progressmonitor.metrics import system_metrics_path
 
     assert json.loads(system_metrics_path().read_text()) == system

@@ -27,44 +27,12 @@ def system_metrics_path():
     return Path(get_config(resolve_plugins=False).TMP_DIR) / "progress-system-metrics.json"
 
 
-def _storage_stats(filename):
-    if not filename:
-        return None
-    try:
-        path = Path(filename)
-        with path.open() as stream:
-            # Operator-provided raw `rclone rc vfs/stats` output, on local disk.
-            # Never read an arbitrarily large file or return paths/remote names.
-            raw = stream.read(65537)
-        if len(raw) > 65536:
-            return None
-        data = json.loads(raw)
-        disk = data["diskCache"]
-        result = {"sampled_at": path.stat().st_mtime}
-        for source, target in (
-            ("uploadsQueued", "uploads_queued"),
-            ("uploadsInProgress", "uploads_in_progress"),
-            ("erroredFiles", "errored_files"),
-            ("bytesUsed", "bytes_used"),
-        ):
-            value = disk[source]
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                return None
-            result[target] = value
-        if not isinstance(disk.get("outOfSpace"), bool):
-            return None
-        result["out_of_space"] = disk["outOfSpace"]
-        return result
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
-
-
-def progress_metrics(user, *, crawl_id=None, snapshot_id=None, rclone_stats_file=None):
+def progress_metrics(user, *, crawl_id=None, snapshot_id=None):
     """Keep authorization scope in the cache key; never disclose host stats to guests."""
     if not (user.is_staff or user.is_superuser):
         return None
     owner_id = None if user.is_superuser else user.pk
-    key = f"progress-metrics:{owner_id}:{crawl_id}:{snapshot_id}:{rclone_stats_file}"
+    key = f"progress-metrics:{owner_id}:{crawl_id}:{snapshot_id}"
     try:
         summary = cache.get(key)
     except Exception:
@@ -113,7 +81,7 @@ def progress_metrics(user, *, crawl_id=None, snapshot_id=None, rclone_stats_file
                         logging.getLogger(__name__).warning("Could not publish system metrics", exc_info=True)
                 cache.set(
                     key,
-                    {"sampled_at": time(), "throughput": throughput, "system": system, "storage": _storage_stats(rclone_stats_file)},
+                    {"sampled_at": time(), "throughput": throughput, "system": system},
                     timeout=3600,
                 )
             except Exception:

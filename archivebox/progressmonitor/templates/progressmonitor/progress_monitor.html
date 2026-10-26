@@ -1996,15 +1996,13 @@
         const io = system.io;
         metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${shortNumber(io.mean_io_ms)}ms`}` : 'I/O —',
             io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
-        const storage = metrics?.storage;
-        const storageStale = storage && age(storage.sampled_at) > 300;
         const archiveBytes = data.collection?.bytes;
         const archiveSize = archiveBytes == null ? '' : archiveBytes >= 1024 ** 4
             ? `${(Math.ceil(archiveBytes * 10 / 1024 ** 4) / 10).toFixed(1)} TB`
             : `${Math.ceil(archiveBytes / 1024 ** 3)} GB`;
         const freeSpace = `(${gb(system.disk_free_bytes, true)} free)`;
         metricBadge('storage', `${archiveSize || '—'} ${freeSpace}`,
-            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} ${storage ? `Last upload sample: ${storage.uploads_queued} queued, ${storage.uploads_in_progress} active, ${storage.errored_files} errored files; ${gb(storage.bytes_used)} in the VFS cache, recorded ${age(storage.sampled_at)} seconds ago. ${storageStale ? 'Counters have not refreshed in over 5 minutes; uploads may still be running. Check the mount monitoring job that updates PROGRESS_RCLONE_STATS_FILE from rclone rc vfs/stats.' : storage.out_of_space ? 'Storage is out of space: check free disk space on the VFS cache filesystem.' : storage.errored_files ? 'Check rclone logs for the affected files and resolve their upload errors.' : 'Queue size alone does not prove uploads are keeping up.'}` : 'Upload counters unavailable. For remote mounts, configure PROGRESS_RCLONE_STATS_FILE and have the mount monitoring job refresh it from rclone rc vfs/stats.'}`, systemStale || (!storageStale && (storage?.errored_files > 0 || storage?.out_of_space)));
+            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} Remote upload completion is not measured by these filesystem counters.`, systemStale);
         const freeSpaceLabel = document.createElement('small');
         freeSpaceLabel.textContent = freeSpace;
         document.querySelector('#metric-storage .metric-text').replaceChildren(`${archiveSize || '—'} `, freeSpaceLabel);
