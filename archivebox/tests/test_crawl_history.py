@@ -14,6 +14,7 @@ from werkzeug import Response
 from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
+from archivebox.services.archive_result_service import ArchiveResultService
 from archivebox.services.runner import CrawlRunner, run_install
 
 
@@ -59,17 +60,26 @@ def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserv
         created_by_id=get_or_create_system_user_pk(),
     )
     runner = CrawlRunner(crawl, selected_plugins=["title"], show_progress=False)
+    result_projectors = {
+        projector
+        for handler in runner.bus.handlers.values()
+        if isinstance(projector := getattr(handler.handler, "__self__", None), ArchiveResultService)
+    }
+    assert len(result_projectors) == 1
+    result_projector = result_projectors.pop()
     runner.bus.event_history.max_history_size = 120
     sizes = []
     references = []
     counts = Counter()
     retired_ids = set()
     retained_completed = []
+    retained_result_locks = []
 
     def count_event(event):
         counts[event.event_type] += 1
 
     def observe_snapshot(event: SnapshotEvent):
+        retained_result_locks.append(len(result_projector._save_locks))
         sizes.append(sum(isinstance(previous, SnapshotEvent) for previous in runner.bus.event_history.values()))
         retained_completed.append(len(retired_ids.intersection(runner.bus.event_history)))
         references.append(weakref.ref(event))
@@ -92,7 +102,9 @@ def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserv
         asyncio.run(runner.run())
     finally:
         release_response.set()
-    (tmp_path / "event-counts.json").write_text(json.dumps({"events": counts, "snapshots_in_history": sizes}))
+    (tmp_path / "event-counts.json").write_text(
+        json.dumps({"events": counts, "snapshots_in_history": sizes, "retained_result_locks": retained_result_locks}),
+    )
     snapshots = list(Snapshot.objects.filter(crawl=crawl).order_by("url"))
     assert len(snapshots) == len(urls)
     assert all(snapshot.status == "sealed" for snapshot in snapshots)
@@ -107,5 +119,7 @@ def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserv
         assert (snapshot.output_dir / "title" / "title.txt").read_text().strip() == f"Saved page {index}"
     assert sizes == [1] * len(urls), sizes
     assert retained_completed == [0] * len(urls), retained_completed
+    assert retained_result_locks == [0] * len(urls), retained_result_locks
+    assert len(result_projector._save_locks) == 0
     gc.collect()
     assert all(reference() is None for reference in references)

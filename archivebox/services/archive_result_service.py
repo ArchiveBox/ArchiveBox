@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from weakref import WeakValueDictionary
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -314,7 +315,10 @@ class ArchiveResultService(BaseService):
     EMITS = []
 
     def __init__(self, bus):
-        self._save_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
+        # A crawl can project hundreds of thousands of hook results. Completed
+        # keys must not retain one lock forever; holders and waiters keep their
+        # local strong reference until projection ends, preserving serialization.
+        self._save_locks: WeakValueDictionary[tuple[str, str, str], asyncio.Lock] = WeakValueDictionary()
         super().__init__(bus)
         self.bus.on(ArchiveResultEvent, self.on_ArchiveResultEvent__save_to_db)
 
