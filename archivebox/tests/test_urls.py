@@ -799,7 +799,9 @@ class TestUrlRouting:
 
                 resp = client.get(f"/original/{snapshot.domain}/index.html", HTTP_HOST=control_host)
                 assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/index.html"
+                assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/index.html", (
+                    control_host, resp["Location"], str(snapshot.id), snapshot.url,
+                )
 
             resp = client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
