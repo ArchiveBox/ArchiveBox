@@ -366,11 +366,11 @@ class CrawlRunner:
             self._interrupt_choice.set_result(choice)
 
     def _request_abort_from_signal(self, sig: signal.Signals) -> None:
-        # Daemons also need cooperative cleanup. os._exit used to leave hook
-        # process groups orphaned and Process rows running forever. A daemon's
-        # nonzero exit still lets supervisord restart it, AFTER finally blocks
-        # stop descendants and finalize the ledger. SIGINT uses the same shared
-        # controller as other runners, with interactive_tty=False (whole abort).
+        # TERM cooperatively stops this owner; abx-dl drains its processes while
+        # their bus is still available. This is best effort, not the correctness
+        # boundary: SIGKILL/power loss may interrupt any await, so startup retires
+        # stale Process rows and the next owner restarts the whole snapshot.
+        # SIGINT instead uses the shared interactive/whole-abort controller.
         # Takeover/parent loss stops this execution owner, not the user's crawl
         # intent. Do not set _user_aborted or emit ARCHIVEBOX_CRAWL_ABORTED here:
         # the outer add may need to wait for the new owner and reclaim afterward.
@@ -484,22 +484,32 @@ class CrawlRunner:
                             await self.run_crawl(root_snapshot_id, snapshot_ids)
                     finally:
                         self._run_task = None
-                        await self.stop_snapshot_tasks()
                         try:
-                            await self.process_service.stop_background_hooks()
+                            # Cancelling scheduler wrappers does not await the
+                            # bus-owned foreground hooks. Keep their bus alive
+                            # until abx-dl has emitted and projected completion;
+                            # an idle timeout cannot establish that ownership
+                            # boundary. Abrupt loss still restarts on next claim.
+                            # Stop before cancelling snapshot wrappers: their
+                            # finally blocks unregister cleanup/control consumers
+                            # that the still-running owners must retain.
+                            await self.process_service.stop()
                             await self.bus.wait_until_idle(timeout=1.0 if self._skip_wait_until_idle else 30.0)
                             await self.binary_process_service.flush_missing_finalizers()
                         except TimeoutError:
                             pass
                         finally:
+                            await self.stop_snapshot_tasks()
                             await self.bus.destroy(clear=False)
                             bus_destroyed = True
             finally:
                 if not bus_destroyed:
                     self._run_task = None
-                    await self.stop_snapshot_tasks()
-                    await self.process_service.stop_background_hooks()
-                    await self.bus.destroy(clear=False)
+                    try:
+                        await self.process_service.stop()
+                    finally:
+                        await self.stop_snapshot_tasks()
+                        await self.bus.destroy(clear=False)
                 if self._live_stream is not None:
                     try:
                         self._live_stream.close()
