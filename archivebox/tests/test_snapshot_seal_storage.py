@@ -161,4 +161,5 @@ def test_killed_manifest_writer_restarts_entire_snapshot(initialized_archive, ca
         record = next(record for record in records if record["type"] == "Snapshot")
         assert record["status"] == "sealed"
         assert record["notes"] == snapshot.notes
+        assert record == snapshot.to_json()
         assert any("<title>Root</title>" in path.read_text() for path in (output_dir / "wget").rglob("*.html"))

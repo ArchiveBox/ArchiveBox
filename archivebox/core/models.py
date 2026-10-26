@@ -16,7 +16,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Greatest
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -845,21 +845,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.refresh_from_db()
         return updated == 1
 
-    def seal(self) -> bool:
+    def seal(self, *, modified_at: datetime | None = None) -> bool:
         """Project a terminal snapshot state after its lifecycle has settled.
 
         This method does not run cleanup. abx-dl owns that phase, including
         failed attempts; its completion projector must remain a short DB write.
         Putting filesystem work here either seals before that work finishes or
         blocks unrelated hook result writes behind a slow archive mount.
+        A publisher supplies the date already written in its canonical record;
+        direct terminal transitions otherwise use the current time.
         """
         if self.status == self.StatusChoices.SEALED:
             return True
-        now = timezone.now()
+        now = modified_at or timezone.now()
         updated = (
             type(self)
             .objects.filter(pk=self.pk, retry_at=self.retry_at, status__in=self.OPEN_STATES)
-            .update(status=self.StatusChoices.SEALED, retry_at=None, modified_at=now)
+            .update(status=self.StatusChoices.SEALED, retry_at=None, modified_at=Greatest("modified_at", now))
         )
         self.refresh_from_db()
         if updated == 1:

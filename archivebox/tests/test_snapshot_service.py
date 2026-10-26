@@ -129,6 +129,51 @@ def test_sealed_completion_preserves_added_request_with_same_lease(admin_user):
     assert snapshot.retry_at == owned_retry_at
 
 
+@pytest.mark.parametrize("maintenance", [False, True])
+@pytest.mark.parametrize("change", ["edit", "published-error", "new-error"])
+def test_completion_preserves_published_date_without_backdating_new_metadata(admin_user, maintenance, change):
+    from django.utils import timezone
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.snapshot_service import finalize_completed_snapshot
+
+    crawl = Crawl.objects.create(urls="https://example.com/metadata-date", created_by=admin_user)
+    snapshot = Snapshot.objects.create(
+        url=crawl.urls,
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED if maintenance else Snapshot.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+        config={"RETRY_PLUGINS": ["title"]} if maintenance else {},
+        notes="Capture failed" if change == "published-error" else "",
+    )
+    published_modified_at = snapshot.modified_at
+    if change == "edit":
+        # Publication cannot overwrite a newer user edit's revision date.
+        snapshot.title = "Edited title"
+        snapshot.save(update_fields=["title", "modified_at"])
+    current_modified_at = snapshot.modified_at
+    finalize_completed_snapshot(
+        str(snapshot.id),
+        owned_retry_at=snapshot.retry_at,
+        was_sealed=maintenance,
+        consumed_retry_plugins=["title"] if maintenance else [],
+        published_modified_at=published_modified_at,
+        error="Capture failed" if change != "edit" else "",
+    )
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert snapshot.retry_at is None
+    assert "RETRY_PLUGINS" not in snapshot.config
+    if change == "published-error":
+        assert snapshot.modified_at == published_modified_at
+    elif change == "edit":
+        assert snapshot.title == "Edited title"
+        assert snapshot.modified_at == current_modified_at > published_modified_at
+    else:
+        assert snapshot.notes == "Capture failed"
+        assert snapshot.modified_at > published_modified_at
+
+
 def test_concurrent_plugin_scheduling_durably_merges_every_request(admin_user):
     from archivebox.crawls.models import Crawl
     from django.db import connection
@@ -245,6 +290,8 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
     records = [json.loads(line) for line in index_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert records[0]["type"] == "Snapshot"
     assert records[0]["id"] == state["id"]
+    with use_archivebox_db(tmp_path):
+        assert records[0] == Snapshot.objects.get(pk=state["id"]).to_json()
     assert any(record.get("type") == "ArchiveResult" and record.get("plugin") == "wget" for record in records)
 
     wget_files = [path for path in (snapshot_dir / "wget").rglob("*") if path.is_file()]

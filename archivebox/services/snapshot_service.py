@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
@@ -142,9 +143,11 @@ def finalize_completed_snapshot(
     owned_retry_at,
     was_sealed: bool,
     consumed_retry_plugins: list[str] | None = None,
+    published_modified_at: datetime | None = None,
     error: str = "",
 ) -> None:
     from archivebox.core.models import Snapshot
+    from django.db.models.functions import Greatest
 
     snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
     if snapshot is None or snapshot.retry_at != owned_retry_at:
@@ -152,7 +155,15 @@ def finalize_completed_snapshot(
     # Completion means the attempt ended, including a handled failure. It is
     # never a claim that every extractor succeeded. No filesystem work belongs
     # after this boundary, and no shutdown/finally repair is needed to finish it.
+    new_error = bool(error and error not in snapshot.notes)
     _project_snapshot_error(snapshot, error)
+    # The canonical record was published before this terminal DB transition.
+    # Reuse its date so a copied capture round-trips exactly; a new terminal
+    # error instead changes the metadata and must receive its own timestamp.
+    completed_modified_at = None if new_error else published_modified_at
+    # A user may edit metadata while publication is in flight. Never move that
+    # newer DB revision backward to the older published record.
+    completion_date = Greatest("modified_at", completed_modified_at or timezone.now())
     consumed_plugins = sorted({str(name).strip() for name in (consumed_retry_plugins or []) if str(name).strip()})
     if consumed_plugins:
         # Consume explicit maintenance only at completion. Clearing this before
@@ -168,7 +179,7 @@ def finalize_completed_snapshot(
                 return
             updated = Snapshot.objects.filter(pk=current.pk, status=current.status, config=current.config, retry_at=owned_retry_at).update(
                 config={key: value for key, value in current.config.items() if key != "RETRY_PLUGINS"},
-                modified_at=timezone.now(),
+                modified_at=completion_date,
             )
             if updated:
                 snapshot.refresh_from_db()
@@ -176,7 +187,7 @@ def finalize_completed_snapshot(
         else:
             return
     if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED:
-        snapshot.seal()
+        snapshot.seal(modified_at=completed_modified_at)
     elif was_sealed and snapshot.status == Snapshot.StatusChoices.SEALED:
         # Explicit maintenance of a sealed snapshot still owns a lease until
         # completion; releasing it earlier would discard a late storage error.
@@ -184,7 +195,7 @@ def finalize_completed_snapshot(
             pk=snapshot.pk,
             retry_at=owned_retry_at,
             config__RETRY_PLUGINS__0__isnull=True,
-        ).update(retry_at=None, modified_at=timezone.now())
+        ).update(retry_at=None, modified_at=completion_date)
 
 
 def _crawl_limit_stop_reason(crawl) -> str:
@@ -200,7 +211,7 @@ class SnapshotService(BaseService):
     def __init__(self, bus, *, crawl_id: str, interrupted: Callable[[], bool] | None = None):
         self.crawl_id = crawl_id
         self.interrupted = interrupted
-        self._run_ownership: dict[str, tuple[str, object, bool, list[str]]] = {}
+        self._run_ownership: dict[str, tuple[str, object, bool, list[str], datetime | None]] = {}
         self._ownership_lock = asyncio.Lock()
         super().__init__(bus)
         self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
@@ -222,7 +233,7 @@ class SnapshotService(BaseService):
                 return
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
             async with self._ownership_lock:
-                self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
+                self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins, None)
 
     async def on_SnapshotCleanupEvent(self, event: SnapshotCleanupEvent) -> None:
         if not event.finalize_snapshot or (self.interrupted is not None and self.interrupted()):
@@ -242,7 +253,7 @@ class SnapshotService(BaseService):
             ownership = self._run_ownership.get(str(event.snapshot_id))
             if ownership is None or ownership[0] != str(event.event_parent_id) or (self.interrupted is not None and self.interrupted()):
                 return
-            _, owned_retry_at, was_sealed, retry_plugins = ownership
+            _, owned_retry_at, was_sealed, retry_plugins, published_modified_at = ownership
             prepared = await sync_to_async(prepare_completed_snapshot, thread_sensitive=True)(
                 event.snapshot_id,
                 owned_retry_at=owned_retry_at,
@@ -269,10 +280,18 @@ class SnapshotService(BaseService):
                 if sorted((snapshot.config or {}).get("RETRY_PLUGINS", [])) == sorted(retry_plugins):
                     record["config"].pop("RETRY_PLUGINS", None)
                 snapshot.write_index_jsonl(snapshot_record=record)
+                return snapshot.modified_at
             finally:
                 close_old_connections()
 
-        await asyncio.to_thread(publish)
+        published_modified_at = await asyncio.to_thread(publish)
+        async with self._ownership_lock:
+            ownership = self._run_ownership.get(str(event.snapshot_id))
+            if ownership is not None and ownership[0] == str(event.event_parent_id):
+                # Keep the receipt with this attempt, not on disk or in a new
+                # lifecycle state. Renewal may have advanced the DB lease while
+                # publication waited on storage; it must not change this date.
+                self._run_ownership[str(event.snapshot_id)] = (*ownership[:4], published_modified_at)
 
     async def renew_lease(self, snapshot_id: str, lease_until) -> bool | None:
         from archivebox.core.models import Snapshot
@@ -281,17 +300,17 @@ class SnapshotService(BaseService):
             ownership = self._run_ownership.get(str(snapshot_id))
             if ownership is None or ownership[2]:
                 return None
-            event_id, owned_retry_at, was_sealed, retry_plugins = ownership
+            event_id, owned_retry_at, was_sealed, retry_plugins, published_modified_at = ownership
             updated = await Snapshot.objects.filter(
                 id=snapshot_id,
                 status=Snapshot.StatusChoices.STARTED,
                 retry_at=owned_retry_at,
-            ).aupdate(
-                retry_at=lease_until,
-                modified_at=timezone.now(),
-            )
+            ).aupdate(retry_at=lease_until)
+            # A lease heartbeat is execution bookkeeping, not changed capture
+            # metadata. Advancing modified_at here would invalidate a canonical
+            # record while its remote filesystem write was still in flight.
             if updated:
-                self._run_ownership[str(snapshot_id)] = (event_id, lease_until, was_sealed, retry_plugins)
+                self._run_ownership[str(snapshot_id)] = (event_id, lease_until, was_sealed, retry_plugins, published_modified_at)
             return bool(updated)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
@@ -311,11 +330,12 @@ class SnapshotService(BaseService):
         # attempt; there is no persisted hook-level resume state.
         if self.interrupted is not None and self.interrupted():
             return
-        _, owned_retry_at, was_sealed, retry_plugins = ownership
+        _, owned_retry_at, was_sealed, retry_plugins, published_modified_at = ownership
         await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
             event.snapshot_id,
             owned_retry_at=owned_retry_at,
             was_sealed=was_sealed,
             consumed_retry_plugins=retry_plugins,
+            published_modified_at=published_modified_at,
             error=event.error,
         )
