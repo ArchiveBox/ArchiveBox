@@ -109,9 +109,16 @@ def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpser
         for cmd, env, exit_code in hook_rows:
             hook_env = json.loads(env)
             assert not hook_env.get("AUTH_STORAGE_FILE")
-            expected_cookies = cookies_file if isolation == "crawl" else Path(hook_env["PERSONAS_DIR"]) / "Default" / "cookies.txt"
-            assert hook_env["COOKIES_FILE"] == str(expected_cookies)
             hook_name = Path(json.loads(cmd)[0]).name
+            # CrawlSetup runs before the snapshot persona is prepared. Only
+            # snapshot hooks receive the isolated copy; setup uses the template.
+            if isolation == "snapshot" and hook_name.startswith("on_Snapshot__"):
+                expected_personas = Path(hook_env["SNAP_DIR"]) / ".persona"
+                assert hook_env["PERSONAS_DIR"] == str(expected_personas)
+                expected_cookies = expected_personas / "Default" / "cookies.txt"
+            else:
+                expected_cookies = cookies_file
+            assert hook_env["COOKIES_FILE"] == str(expected_cookies)
             # The crawl wait hook explicitly skips when each snapshot owns Chrome.
             assert exit_code == (10 if isolation == "snapshot" and hook_name == "on_CrawlSetup__91_chrome_wait.js" else 0)
 
@@ -150,8 +157,14 @@ def test_add_with_collection_relative_cookies(initialized_archive, httpserver, c
     assert len(outputs) == 1, result.stdout + result.stderr
     html = outputs[0].read_text()
     assert ("issue1896=imported" in html) == cookie_file_exists
-    launch_logs = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/*.stderr.log"))
-    logs = "\n".join(log.read_text() for log in launch_logs)
+    # Successful hooks remove temporary log files; their full diagnostics are
+    # persisted on Process. Verify the actual launch record, not an obsolete
+    # archive log path (failed hooks still retain those files).
+    with closing(sqlite3.connect(initialized_archive / "index.sqlite3")) as db:
+        launch_rows = db.execute("SELECT cmd, stderr FROM machine_process WHERE process_type='hook'").fetchall()
+    launch_logs = [stderr for cmd, stderr in launch_rows if Path(json.loads(cmd)[0]).name == "on_CrawlSetup__90_chrome_launch.daemon.bg.js"]
+    assert len(launch_logs) == 1
+    logs = launch_logs[0]
     if cookie_file_exists:
         assert f"from {cookies_file}" in logs
     else:
