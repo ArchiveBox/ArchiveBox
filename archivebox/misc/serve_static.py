@@ -873,74 +873,85 @@ def _index_responses_paths_for_html_images(
     return best_matches
 
 
+class Resources(HTMLParser):
+    # A request-local class closes over every offset and URL span; its class/MRO
+    # cycle keeps that large state alive until cyclic GC. Instances instead own
+    # only this document and release it when the request finishes.
+    def __init__(self, html_text: str):
+        super().__init__()
+        self.spans: list[tuple[int, int, str]] = []
+        self.inserted_sources: set[int] = set()
+        self.background_styles: dict[int, bool] = {}
+        self.stylesheet_integrities: dict[int, tuple[int, int]] = {}
+        # HTMLParser advances lines only on LF, not CR or Unicode separators.
+        self.offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
+        self.base_href = None
+
+    attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if tag == "base" and self.base_href is None:
+            self.base_href = values.get("href")
+        lazy_names = ("data-src", "data-lazy-src", "data-echo")
+        lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
+        names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
+        if values.get("data-echo-background"):
+            names.add("data-echo-background")
+        if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
+            names = {"href"}
+        if not names:
+            return
+        line, column = self.getpos()
+        offset = self.offsets[line - 1] + column
+        if lazy_src and "src" not in values:
+            start = offset + len(tag) + 1
+            self.spans.append((start, start, lazy_src))
+            self.inserted_sources.add(start)
+        attributes = list(self.attribute.finditer(self.get_starttag_text()))
+        if values.get("data-echo-background"):
+            style = next((match for match in attributes if match.group(1).lower() == "style"), None)
+            if style:
+                group = next(i for i in (2, 3, 4) if style.group(i) is not None)
+                start = offset + style.end(group)
+            else:
+                tag_text = self.get_starttag_text()
+                start = offset + len(tag_text) - (2 if tag_text.endswith("/>") else 1)
+            self.spans.append((start, start, values["data-echo-background"]))
+            self.background_styles[start] = style is None
+        integrity = next((match for match in attributes if match.group(1).lower() == "integrity"), None)
+        for match in attributes:
+            if match.group(1).lower() in names:
+                group = next(i for i in (2, 3, 4) if match.group(i) is not None)
+                start = offset + match.start(group)
+                resource_url = html.unescape(match.group(group))
+                if lazy_src and match.group(1).lower() == "src" and (not resource_url or resource_url.startswith(("data:", "about:"))):
+                    # Cards intentionally disable scripts. Resolve an explicit
+                    # lazy image from saved bytes instead of its placeholder.
+                    resource_url = lazy_src
+                self.spans.append((start, offset + match.end(group), resource_url))
+                if tag == "link" and integrity:
+                    self.stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
+
+    handle_startendtag = handle_starttag
+
+
 def _rewrite_html_image_sources_to_responses(
     html_text: str,
     snapshot_root: Path,
     html_rel_path: str,
     page_url: str | None,
     replay_url: str | None = None,
+    source_html: str | None = None,
 ) -> tuple[str, int]:
-    # Parse real start tags: strings containing markup in scripts/comments must
-    # stay untouched. Preserve all bytes outside the selected attribute values.
-    spans: list[tuple[int, int, str]] = []
-    inserted_sources: set[int] = set()
-    background_styles: dict[int, bool] = {}
-    stylesheet_integrities: dict[int, tuple[int, int]] = {}
-    # HTMLParser advances its line number only on LF, not standalone CR or
-    # Unicode separators recognized by str.splitlines().
-    offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
-    base_href = None
-    attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
-
-    class Resources(HTMLParser):
-        def handle_starttag(self, tag, attrs):
-            nonlocal base_href
-            values = dict(attrs)
-            if tag == "base" and base_href is None:
-                base_href = values.get("href")
-            lazy_names = ("data-src", "data-lazy-src", "data-echo")
-            lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
-            names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
-            if values.get("data-echo-background"):
-                names.add("data-echo-background")
-            if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
-                names = {"href"}
-            if not names:
-                return
-            line, column = self.getpos()
-            offset = offsets[line - 1] + column
-            if lazy_src and "src" not in values:
-                start = offset + len(tag) + 1
-                spans.append((start, start, lazy_src))
-                inserted_sources.add(start)
-            attributes = list(attribute.finditer(self.get_starttag_text()))
-            if values.get("data-echo-background"):
-                style = next((match for match in attributes if match.group(1).lower() == "style"), None)
-                if style:
-                    group = next(i for i in (2, 3, 4) if style.group(i) is not None)
-                    start = offset + style.end(group)
-                else:
-                    tag_text = self.get_starttag_text()
-                    start = offset + len(tag_text) - (2 if tag_text.endswith("/>") else 1)
-                spans.append((start, start, values["data-echo-background"]))
-                background_styles[start] = style is None
-            integrity = next((match for match in attributes if match.group(1).lower() == "integrity"), None)
-            for match in attributes:
-                if match.group(1).lower() in names:
-                    group = next(i for i in (2, 3, 4) if match.group(i) is not None)
-                    start = offset + match.start(group)
-                    resource_url = html.unescape(match.group(group))
-                    if lazy_src and match.group(1).lower() == "src" and (not resource_url or resource_url.startswith(("data:", "about:"))):
-                        # Cards intentionally disable scripts. Resolve an explicit
-                        # lazy image from saved bytes instead of its placeholder.
-                        resource_url = lazy_src
-                    spans.append((start, offset + match.end(group), resource_url))
-                    if tag == "link" and integrity:
-                        stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
-
-        handle_startendtag = handle_starttag
-
-    Resources().feed(html_text)
+    # Parse real start tags, preserving script/comment data and untouched bytes.
+    resources = Resources(html_text)
+    resources.feed(html_text)
+    spans = resources.spans
+    inserted_sources = resources.inserted_sources
+    background_styles = resources.background_styles
+    stylesheet_integrities = resources.stylesheet_integrities
+    base_href = resources.base_href
     if not any(src and not src.startswith(("#", "data:", "blob:", "about:", "javascript:")) for _, _, src in spans):
         return html_text, 0
 
@@ -976,7 +987,11 @@ def _rewrite_html_image_sources_to_responses(
 
     dom = snapshot_root / "dom" / "output.html"
     if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
-        ImageAliases().feed(dom.read_text(errors="replace"))
+        # Reuse the original decoded DOM when serving that very file. Large DOMs
+        # otherwise get read/decoded twice per request. Display text may already
+        # be HTML-unescaped or rendered Markdown, so it is not an alias source.
+        dom_html = source_html if html_rel_path == "dom/output.html" and source_html is not None else dom.read_text(errors="replace")
+        ImageAliases().feed(dom_html)
     response_paths = _index_responses_paths_for_html_images(
         snapshot_root,
         html_rel_path,
@@ -1077,6 +1092,7 @@ def _rewrite_html_image_sources_for_request(
     html_text: str,
     document_root: Path | None,
     html_rel_path: str,
+    source_html: str | None = None,
 ) -> tuple[str, int]:
     if not document_root:
         return html_text, 0
@@ -1087,6 +1103,7 @@ def _rewrite_html_image_sources_for_request(
             html_rel_path,
             request.__dict__.get("archivebox_snapshot_url"),
             request.build_absolute_uri(),
+            source_html=source_html,
         )
     except (OSError, ValueError, TypeError, RecursionError):
         # Saved plugin artifacts are optional and may be incomplete, malformed,
@@ -1464,13 +1481,20 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if statobj.st_size <= max_unescape_size:
                 raw = fullpath.read_bytes()
                 decoded = raw.decode("utf-8", errors="replace")
+                source_html = decoded if content_type.startswith("text/html") and rel_path == "dom/output.html" else None
                 escaped_count = decoded.count("&lt;") + decoded.count("&gt;")
                 tag_count = decoded.count("<")
                 if escaped_count and escaped_count > tag_count * 2:
                     decoded = html.unescape(decoded)
                 rewritten_html, rewritten_count = ("", 0)
                 if content_type.startswith("text/html") and document_root:
-                    rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(request, decoded, document_root, rel_path)
+                    rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(
+                        request,
+                        decoded,
+                        document_root,
+                        rel_path,
+                        source_html=source_html,
+                    )
                 markdown_candidate = _extract_markdown_candidate(decoded)
                 if content_type.startswith("text/markdown") or _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)

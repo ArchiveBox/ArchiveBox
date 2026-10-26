@@ -415,3 +415,81 @@ def test_response_css_revalidates_new_captured_assets_without_source_change(tmp_
         document_root=tmp_path,
     )
     assert raw.status_code == 304
+
+
+@pytest.mark.parametrize("escaped", [False, True])
+@pytest.mark.parametrize("path", ["dom/output.html", "readability/content.html"])
+def test_dom_aliases_use_original_source_before_display_transform(tmp_path, escaped, path):
+    import html
+
+    responses = tmp_path / "responses"
+    responses.mkdir()
+    shutil.copyfile(LAZY_FIXTURE / "work-1.png", responses / "image.png")
+    (responses / "index.jsonl").write_text(
+        json.dumps({"method": "GET", "status": 200, "url": "https://proxy.example/image", "path": "image.png"}) + "\n",
+    )
+    source = (
+        '<!doctype html><html><body><img src="https://original.example/image">'
+        '<img src="https://proxy.example/image" data-canonical-src="https://original.example/image">'
+        "</body></html>"
+    )
+    original = html.escape(source) if escaped else source
+    dom = tmp_path / "dom/output.html"
+    dom.parent.mkdir()
+    dom.write_text(original)
+    output = tmp_path / path
+    output.parent.mkdir(exist_ok=True)
+    output.write_text(original)
+    response = serve_static_with_byterange_support(RequestFactory().get("/" + path), path, document_root=tmp_path)
+    body = response.content.decode()
+    expected = source.replace('src="https://proxy.example/image"', 'src="../responses/image.png"')
+    if not escaped:
+        expected = expected.replace('src="https://original.example/image"', 'src="../responses/image.png"', 1)
+    # Escaped markup is displayable HTML, but cannot invent aliases absent from
+    # the original DOM. Raw serving and both saved files remain byte-identical.
+    assert body == expected
+    raw = serve_static_with_byterange_support(RequestFactory().get("/" + path + "?raw=1"), path, document_root=tmp_path)
+    assert b"".join(raw.streaming_content) == original.encode()
+    assert dom.read_bytes() == output.read_bytes() == original.encode()
+
+
+def test_concurrent_html_resource_parsers_keep_document_state_isolated(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    inputs = []
+    for number in range(16):
+        root = tmp_path / str(number)
+        responses = root / "responses"
+        responses.mkdir(parents=True)
+        shutil.copyfile(LAZY_FIXTURE / "work-1.png", responses / f"image-{number}.png")
+        url = f"https://example.com/{number}/image.png"
+        (responses / "index.jsonl").write_text(
+            json.dumps({"method": "GET", "status": 200, "url": url, "path": f"image-{number}.png"}) + "\n",
+        )
+        source = (
+            "<!doctype html><html><body>"
+            + ("🌍\r\n\r\u2028é\n" * (number + 1))
+            + f'''<!-- <img src="{url}"> --><script>const data = '<img src="{url}">';</script>'''
+            + f'<img data-src="{url}" src="data:image/png;base64,AA==" srcset="{url} 2x"/>'
+            + "</body></html>"
+        )
+        output = root / "dom/output.html"
+        output.parent.mkdir()
+        output.write_text(source)
+        inputs.append((root, source, url, number))
+    barrier = Barrier(len(inputs))
+
+    def read(item):
+        root, source, url, number = item
+        barrier.wait(timeout=10)
+        response = serve_static_with_byterange_support(RequestFactory().get("/dom/output.html"), "dom/output.html", document_root=root)
+        expected = source.replace(f'data-src="{url}"', f'data-src="../responses/image-{number}.png"').replace(
+            'src="data:image/png;base64,AA=="',
+            f'src="../responses/image-{number}.png"',
+        )
+        assert response.content.decode() == expected
+        assert (root / "dom/output.html").read_bytes() == source.encode()
+
+    with ThreadPoolExecutor(max_workers=len(inputs)) as executor:
+        list(executor.map(read, inputs))
