@@ -196,14 +196,19 @@ class TestRequiredBinaryConfigHandling:
         assert Path(resolved["WGET_BINARY"]).is_file()
         runtime_env = {**os.environ, **resolved}
         assert set(os.environ["PATH"].split(os.pathsep)).issubset(runtime_env["PATH"].split(os.pathsep))
+        # This guards PATH preservation, not the unrelated installer inventory
+        # that abxpkg --version probes across every selected provider.
         result = subprocess.run(
-            ["/usr/bin/env", "abxpkg", "--version"],
+            ["/usr/bin/env", "abxpkg", "--help"],
             env=runtime_env,
             capture_output=True,
             text=True,
             timeout=30,
         )
         assert result.returncode == 0, result.stderr
+        assert "Usage: abxpkg" in result.stdout
+        assert "Manage binaries via abxpkg binproviders." in result.stdout
+        assert "Emit env vars for the selected binaries or providers." in result.stdout
 
     @pytest.mark.django_db(transaction=True)
     def test_binary_env_var_name_only_handling(self, hermetic_lib_dir):
