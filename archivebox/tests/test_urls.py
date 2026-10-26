@@ -1971,7 +1971,7 @@ class TestUrlRouting:
             assert f"http://{snapshot_host}/" in live_html
             assert f"http://{web_host}/static/archive.png" in live_html
             assert "?preview=1" in live_html
-            assert "function createMainFrame(previousFrame)" in live_html
+            assert "function createMainFrame()" in live_html
             assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in live_html
             assert "const reloadPreview = updateHash || currentSrc !== nextSrcAbs" in live_html
             assert "existingFrame.hasAttribute('sandbox') !== sandboxRequired" in live_html
@@ -2009,7 +2009,7 @@ class TestUrlRouting:
             assert "data:image/svg+xml" in static_html
             assert 'href="./' in static_html
             assert "?preview=1" in static_html
-            assert "function createMainFrame(previousFrame)" in static_html
+            assert "function createMainFrame()" in static_html
             assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in static_html
             assert "const reloadPreview = updateHash || currentSrc !== nextSrcAbs" in static_html
             assert "existingFrame.hasAttribute('sandbox') !== sandboxRequired" in static_html
