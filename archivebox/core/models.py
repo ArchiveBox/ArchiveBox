@@ -3851,6 +3851,24 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         )
         ordered_outputs = order_snapshot_outputs(list(outputs_by_name.values()))
         best_result = ordered_outputs[0] if ordered_outputs else {"path": "about:blank", "result": None}
+        # Start with a responsive saved document, not a screenshot covering a
+        # replay that may never work in an embedded browser. Card ordering stays
+        # unchanged; the browser can promote WACZ only after it actually loads.
+        best_result = next(
+            (
+                outputs_by_name[name]
+                for name in (
+                    "singlefile",
+                    "chrome_extension_singlefile",
+                    "chrome_mhtml",
+                    "screenshot",
+                    "chrome_extension_screenshot",
+                    "chrome_extension_viewport",
+                )
+                if name in outputs_by_name
+            ),
+            best_result,
+        )
 
         archive_dates = [result.start_ts for result in archive_results if result.start_ts]
         output_size = sum(int(output.get("size") or 0) for output in ordered_outputs)

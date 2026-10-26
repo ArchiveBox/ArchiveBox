@@ -1427,43 +1427,6 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             )
             if plugin_replay is not None:
                 body, replay_content_type, headers = plugin_replay
-                if fullpath.suffix.lower() == ".wacz" and "text/html" in replay_content_type:
-                    # The outer snapshot shell is cross-origin. Signal actual archived
-                    # content paint, not the viewer's early/timeout loading events.
-                    body = body.replace(
-                        "</body>",
-                        """<script>
-(() => {
-    function painted(root) {
-        for (const element of root.querySelectorAll('*')) {
-            if (element.shadowRoot && painted(element.shadowRoot)) return true;
-            if (element.tagName !== 'IFRAME') continue;
-            try {
-                const child = element.contentWindow;
-                const doc = element.contentDocument;
-                if (!doc) continue;
-                // Not paint timing: the parent covers this frame with the
-                // screenshot until we signal, and Chrome records no
-                // first-contentful-paint for a fully covered frame (deadlock).
-                // Text-only and empty bodies are valid loaded documents too.
-                if (child.location.pathname.includes('/replay/w/') &&
-                    doc.readyState !== 'loading' && doc.body) return true;
-                if (painted(doc)) return true;
-            } catch (error) {}
-        }
-        return false;
-    }
-    const poll = setInterval(() => {
-        if (!painted(document) && !window.archiveboxReplayError) return;
-        clearInterval(poll);
-        // No requestAnimationFrame here: Chrome stops animation frames in a
-        // frame the screenshot cover fully hides, so the signal never fired.
-        parent.postMessage({type: 'archivebox-replay-painted'}, '*');
-    }, 50);
-    window.addEventListener('pagehide', () => clearInterval(poll), {once: true});
-})();
-</script></body>""",
-                    )
                 response = HttpResponse(body, content_type=replay_content_type)
                 for key, value in headers.items():
                     response.headers[key] = value

@@ -1175,11 +1175,10 @@
                         frame.removeAttribute('sandbox')
                     }
                     frame.src = target
-                    frame.dataset.initialSrc = target
-                    // A warm replay can paint before the card script below
-                    // registers its listener; remember it so no cover sticks.
+                    // Remember readiness if a warm viewer finishes before the
+                    // main card listener is registered.
                     window.addEventListener('message', (event) => {
-                        if (event.source === frame.contentWindow && event.data?.type === 'archivebox-replay-painted') frame.dataset.replayPainted = '1'
+                        if (event.source === frame.contentWindow && event.origin === new URL(frame.src).origin && event.data?.type === 'archivebox-replay-painted') frame.dataset.replayPainted = '1'
                     })
                 }
             })()
@@ -1546,7 +1545,7 @@
                 }
             }
 
-            function createMainFrame(previousFrame) {
+            function createMainFrame() {
                 const frame = document.createElement('iframe')
                 frame.id = 'main-frame'
                 frame.name = 'preview'
@@ -1558,37 +1557,79 @@
                 return frame
             }
 
-            function showReplayScreenshot(target) {
-                document.getElementById('replay-screenshot-cover')?.remove()
-                if (!new URL(target, window.location.href).pathname.toLowerCase().endsWith('.wacz')) return
-                const card = document.querySelector('.thumb-card[data-plugin-name="screenshot"] iframe, .thumb-card[data-plugin-name="chrome_extension_screenshot"] iframe')
-                if (!card) return
-                // Reuse the screenshot card itself: it owns file selection and fallbacks.
-                const cover = document.createElement('div')
-                cover.id = 'replay-screenshot-cover'
-                cover.style.cssText = 'position:absolute;inset:0;z-index:2;background:white;overflow:hidden;pointer-events:none'
-                const screenshot = card.cloneNode(true)
-                screenshot.loading = 'eager'
-                screenshot.setAttribute('fetchpriority', 'high')
-                screenshot.setAttribute('aria-hidden', 'true')
-                screenshot.tabIndex = -1
-                cover.appendChild(screenshot)
-                document.getElementById('main-frame-wrapper').appendChild(cover)
+            let replayPreload = null
+            let replayPreloadCard = null
+
+            function cancelReplayPreload() {
+                replayPreload?.remove()
+                replayPreload = null
+                replayPreloadCard = null
+            }
+
+            function preloadReplay() {
+                // Explicit links always win. Capability detection avoids sending
+                // in-app browsers without service workers to an unusable viewer.
+                if (window.location.hash || !('serviceWorker' in navigator)) return
+                const frame = document.getElementById('main-frame')
+                const card = [...document.querySelectorAll('.thumb-card[data-output-path]')].find(card =>
+                    card.dataset.outputPath.toLowerCase().endsWith('.wacz'))
+                if (!frame || !card || card.classList.contains('selected-card')) return
+                const target = resolvePreviewUrl(card.dataset.previewUrl || card.querySelector('a[target=preview]')?.getAttribute('href') || '')
+                if (!target) return
+                const candidate = createMainFrame()
+                candidate.id = 'replay-preload'
+                candidate.name = 'replay-preload'
+                candidate.setAttribute('aria-hidden', 'true')
+                candidate.tabIndex = -1
+                // Keep the replay at the real viewport size behind useful HTML.
+                // display:none/animation-frame readiness deadlocks in browsers
+                // that suspend rendering of covered or hidden frames.
+                candidate.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none'
+                frame.style.cssText = 'position:relative;z-index:1;background:white'
+                if (isIsolatedPluginPreview(target)) candidate.removeAttribute('sandbox')
+                candidate.src = versionSnapshotPreviewUrl(target, card.dataset.outputRevision)
+                replayPreload = candidate
+                replayPreloadCard = card
+                frame.parentNode.appendChild(candidate)
             }
 
             window.addEventListener('message', (event) => {
                 const frame = document.getElementById('main-frame')
-                if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-replay-painted') return
-                if (event.origin !== new URL(frame.src, window.location.href).origin) return
-                document.getElementById('replay-screenshot-cover')?.remove()
+                const candidate = replayPreload
+                if (event.source === frame?.contentWindow && event.origin === new URL(frame.src, window.location.href).origin
+                    && event.data?.type === 'archivebox-replay-painted') frame.dataset.replayPainted = '1'
+                if (!candidate || event.source !== candidate.contentWindow
+                    || event.origin !== new URL(candidate.src, window.location.href).origin) return
+                if (event.data?.type === 'archivebox-replay-error') {
+                    cancelReplayPreload()
+                    return
+                }
+                if (event.data?.type !== 'archivebox-replay-painted') return
+                // Promote the already-loaded browsing context, not a fresh iframe
+                // navigation. Only the plugin knows whether archived content is
+                // actually ready; bootstrap/error pages must never replace HTML.
+                const card = replayPreloadCard
+                frame.remove()
+                candidate.id = 'main-frame'
+                candidate.name = 'preview'
+                candidate.removeAttribute('style')
+                candidate.removeAttribute('aria-hidden')
+                candidate.removeAttribute('tabindex')
+                candidate.dataset.replayPainted = '1'
+                replayPreload = null
+                replayPreloadCard = null
+                document.querySelectorAll('.selected-card').forEach(selected => selected.classList.remove('selected-card'))
+                card.classList.add('selected-card')
+                document.dispatchEvent(new CustomEvent('snapshot-preview-selected', {detail: {card, revealStack: false}}))
             })
+            window.addEventListener('pagehide', cancelReplayPreload)
 
             function ensureMainFrame(forceReplace=false) {
                 let frame = document.getElementById('main-frame')
                 const wrapper = document.getElementById('main-frame-wrapper')
                 if (!frame || forceReplace) {
                     const previousFrame = frame
-                    frame = createMainFrame(previousFrame)
+                    frame = createMainFrame()
                     if (previousFrame && previousFrame.parentNode) {
                         try {
                             previousFrame.src = 'about:blank'
@@ -1612,6 +1653,7 @@
                 if (!card && !explicitTarget) {
                     return false
                 }
+                cancelReplayPreload()
                 prioritizeCardThumbnail(card)
                 const previewUrl = card?.dataset.previewUrl
                 const rawTarget = explicitTarget || (link ? link.getAttribute('href') : '') || previewUrl || ''
@@ -1654,14 +1696,8 @@
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                 }
                 if (reloadPreview) {
-                    showReplayScreenshot(nextSrc)
                     iframe_elem.src = nextSrc
-                } else if (iframe_elem.dataset.initialSrc && !iframe_elem.dataset.replayPainted) {
-                    // The early inline loader starts the default WACZ before any
-                    // cards exist, so first load never takes the reload branch.
-                    showReplayScreenshot(nextSrc)
                 }
-                delete iframe_elem.dataset.initialSrc
                 // Updating the hash can synchronously dispatch popstate. Publish
                 // the selected frame URL first so that handler reuses this frame.
                 if (rawTarget && updateHash) {
@@ -1848,6 +1884,7 @@
             // check URL for hash e.g. #git and load relevant preview
             loadSnapshotHeaderState()
             selectInitialPreview()
+            preloadReplay()
             prepareThumbnailPriorities()
 
             

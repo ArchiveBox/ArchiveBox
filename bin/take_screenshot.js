@@ -87,7 +87,7 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
     const expectedUrl = await cardHandle.evaluate((iframe) => iframe.src);
     const frame = await cardHandle.contentFrame();
     if (!frame) {
-      // A real WACZ paint removes its temporary screenshot cover during capture.
+      // Live card refreshes can detach an owner while its document is loading.
       // Only detached owners cease to be required; a connected blank card is an error.
       if (!await cardHandle.evaluate((iframe) => iframe.isConnected)) continue;
       throw new Error(`Visible snapshot card iframe has no loaded document: ${new URL(expectedUrl).pathname}`);

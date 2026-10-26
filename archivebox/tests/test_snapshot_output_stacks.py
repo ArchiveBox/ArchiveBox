@@ -280,7 +280,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
     assert "liteparse" in names("embedded_media")
     assert "papersdl" in names("embedded_media")
     assert names("other") == ["custom_output"]
-    assert context["best_result"]["name"] == "archivewebpage"
+    assert context["best_result"]["name"] == "singlefile"
 
 
 @pytest.mark.parametrize(
@@ -1402,3 +1402,26 @@ def test_refreshed_metadata_card_replaces_warm_saved_output(snapshot, live_serve
 
         finally:
             browser.close()
+
+
+@pytest.mark.parametrize(
+    ("plugins", "expected"),
+    [
+        (("archivewebpage", "singlefile", "chrome_mhtml", "screenshot"), "singlefile"),
+        (("archivewebpage", "chrome_extension_singlefile", "chrome_mhtml", "screenshot"), "chrome_extension_singlefile"),
+        (("archivewebpage", "chrome_mhtml", "screenshot"), "chrome_mhtml"),
+        (("archivewebpage", "screenshot"), "screenshot"),
+        (("archivewebpage", "chrome_extension_screenshot"), "chrome_extension_screenshot"),
+        (("archivewebpage", "chrome_extension_viewport"), "chrome_extension_viewport"),
+        (("pdf",), "pdf"),
+        (("archivewebpage",), "archivewebpage"),
+    ],
+)
+def test_initial_preview_prefers_portable_outputs(snapshot, plugins, expected):
+    # Initial content must remain useful when the browser cannot start a replay
+    # worker. This selection is independent of the existing output-card ordering.
+    for plugin in plugins:
+        save_output(snapshot, plugin)
+    context = snapshot.get_html_details_context()
+    assert context["best_result"]["name"] == expected
+    assert {output["name"] for output in context["archiveresults"]} == set(plugins)

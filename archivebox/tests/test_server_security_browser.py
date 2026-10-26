@@ -327,7 +327,7 @@ async function main() {
   });
 
   await page.evaluateOnNewDocument(() => {
-    window.replayCoverObserved = false;
+    window.replayPreloadObserved = false;
     window.replayPaintedObserved = false;
     window.addEventListener('message', (event) => {
       if (event.source === document.getElementById('main-frame')?.contentWindow && event.data?.type === 'archivebox-replay-painted') {
@@ -335,8 +335,8 @@ async function main() {
       }
     });
     new MutationObserver((records) => {
-      if (records.some((record) => Array.from(record.addedNodes).some((node) => node.id === 'replay-screenshot-cover'))) {
-        window.replayCoverObserved = true;
+      if (records.some((record) => Array.from(record.addedNodes).some((node) => node.id === 'replay-preload'))) {
+        window.replayPreloadObserved = true;
       }
     }).observe(document, {childList: true, subtree: true});
   });
@@ -350,13 +350,14 @@ async function main() {
     const url = frame.url();
     return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
   });
-  probeStage = "screenshot cover dismissal";
+  probeStage = "explicit replay painted";
   await page.waitForFunction(() =>
-    window.replayPaintedObserved && !document.getElementById('replay-screenshot-cover'),
+    window.replayPaintedObserved,
     {polling: 50, timeout: 10000});
-  const coverState = await page.evaluate(() => ({
-    observed: window.replayCoverObserved,
-    dismissed: !document.getElementById('replay-screenshot-cover'),
+  const selectionState = await page.evaluate(() => ({
+    preloadObserved: window.replayPreloadObserved,
+    coverPresent: !!document.getElementById('replay-screenshot-cover'),
+    selectedPlugin: document.querySelector('.selected-card[data-plugin-name]')?.dataset.pluginName,
     screenshot: !!document.querySelector('.thumb-card[data-plugin-name="screenshot"] iframe'),
   }));
   probeStage = "captured page content";
@@ -367,7 +368,7 @@ async function main() {
     status: response ? response.status() : null,
     finalUrl: page.url(),
     previewResult,
-    coverState,
+    selectionState,
     downloads: probeDownloads,
     consoleMessages: probeConsoleMessages,
     requestFailures: probeRequestFailures,
@@ -391,7 +392,7 @@ main().catch(async (error) => {
       diagnostics.document = await Promise.race([
         page.evaluate(() => ({
           title: document.title,
-          coverObserved: window.replayCoverObserved,
+          preloadObserved: window.replayPreloadObserved,
           replayObserved: window.replayPaintedObserved,
           coverPresent: !!document.getElementById('replay-screenshot-cover'),
           bodyText: document.body?.innerText.slice(0, 1000),
@@ -1073,7 +1074,12 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(
 
     assert result["status"] == 200
     assert result["downloads"] == [], json.dumps(result, indent=2)
-    assert result["coverState"] == {"observed": True, "dismissed": True, "screenshot": True}, json.dumps(result, indent=2)
+    assert result["selectionState"] == {
+        "preloadObserved": False,
+        "coverPresent": False,
+        "selectedPlugin": "archivewebpage",
+        "screenshot": True,
+    }, json.dumps(result, indent=2)
     assert result["previewResult"]["matched"], json.dumps(result, indent=2)
     assert "/archivewebpage/archivewebpage.wacz" in result["previewResult"]["previewUrl"]
     assert result["previewResult"]["matchedFrameUrl"] != result["finalUrl"]
