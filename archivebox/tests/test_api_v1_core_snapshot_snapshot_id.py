@@ -89,6 +89,26 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+@pytest.mark.parametrize("cmd", ['fetch_page_title("https://example.com/a path")', ["title", "https://example.com/a path"]])
+def test_snapshot_detail_preserves_legacy_command_descriptions(client, api_admin_user, api_headers, cmd):
+    from archivebox.machine.models import Machine, Process
+
+    crawl = Crawl.objects.create(urls="https://example.com/legacy-command", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/legacy-command", crawl=crawl)
+    process = Process.objects.create(machine=Machine.current(), cmd=cmd, status=Process.StatusChoices.EXITED)
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="title", process=process, status="succeeded")
+    expected = [cmd] if isinstance(cmd, str) else cmd
+
+    response = client.get(f"/api/v1/core/snapshot/{snapshot.id}", **api_headers)
+    assert response.status_code == 200, response.content
+    assert response.json()["archiveresults"][0]["cmd"] == expected
+    response = client.get(f"/api/v1/core/archiveresult/{result.id}", **api_headers)
+    assert response.status_code == 200, response.content
+    assert response.json()["cmd"] == expected
+    process.refresh_from_db()
+    assert process.cmd == cmd, "Reading historical command metadata must not rewrite it"
+
+
 @pytest.mark.parametrize("snapshot_ref", ["ffffffff-ffff-4fff-8fff-ffffffffffff", "ffffffffffff4fff8fffffffffffffff", "ffffffff"])
 @pytest.mark.parametrize("method", ["get", "patch"])
 def test_missing_snapshot_returns_not_found(client, api_headers, snapshot_ref, method):

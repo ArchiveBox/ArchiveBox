@@ -518,7 +518,8 @@ def test_reconcile_with_index_json_tolerates_null_title(tmp_path):
 
 
 @pytest.mark.django_db
-def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tmp_path):
+@pytest.mark.parametrize("legacy_cmd", [None, 'fetch_page_title("https://example.com/a path")'])
+def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tmp_path, legacy_cmd):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
@@ -549,7 +550,7 @@ def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tm
                         "output_size": 3,
                         "start_ts": "2024-01-01T00:00:00+00:00",
                         "end_ts": "2024-01-01T00:00:01+00:00",
-                        "cmd": ["screenshot", snapshot.url],
+                        "cmd": legacy_cmd if legacy_cmd is not None else ["screenshot", snapshot.url],
                         "pwd": str(output_dir / "screenshot"),
                     },
                 ],
@@ -564,7 +565,9 @@ def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tm
     assert result.output_str == "screenshot.png"
     assert result.output_files == {"screenshot.png": {"extension": "png", "mimetype": "image/png", "size": 3}}
     assert result.process is not None
-    assert result.cmd == ["screenshot", snapshot.url]
+    expected_cmd = [legacy_cmd] if legacy_cmd is not None else ["screenshot", snapshot.url]
+    assert result.cmd == expected_cmd
+    assert result.process.cmd == expected_cmd
     assert result.pwd == str(output_dir / "screenshot")
     assert (output_dir / "index.json").exists()
     jsonl_text = (output_dir / "index.jsonl").read_text()

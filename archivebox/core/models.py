@@ -1900,6 +1900,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         status = ArchiveResult.normalize_status(result_data.get("status") or ArchiveResult.StatusChoices.FAILED)
         process = None
         cmd = result_data.get("cmd") or []
+        # Old extractors recorded descriptions such as fetch_page_title(...) as
+        # strings. Preserve them verbatim: they are not shell command lines.
+        if isinstance(cmd, str):
+            cmd = [cmd]
         pwd = result_data.get("pwd") or ""
         output_files = ArchiveResult._normalize_output_files(result_data.get("output_files"))
         output_size = ArchiveResult._coerce_output_file_size(result_data.get("output_size"))
@@ -4886,7 +4890,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def cmd(self) -> list:
         """Command array (from Process)."""
         process = self.process_record
-        return process.cmd if process else []
+        cmd = process.cmd if process else []
+        # Already-imported legacy descriptions must satisfy the same array
+        # contract without rewriting historical rows during an API read.
+        return [cmd] if isinstance(cmd, str) and cmd else cmd or []
 
     @property
     def cmd_version(self) -> str:
