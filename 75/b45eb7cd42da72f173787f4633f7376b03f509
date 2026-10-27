@@ -1,0 +1,24 @@
+bin/collect_ui_screenshots.sh
+  s_10bc94d001be49::t_8257d0cafd8da3 122-123,126-127
+  s_10bc94d001be49::t_2438d71d8ce93a 133-134,137-140,144-151,158
+  s_10bc94d001be49::t_413bc42a2827a1 118-121,128-129,131-132,135-136,161-163
+  s_10bc94d001be49::t_48a0b5410fc9f4 45,124-125,141-143,152-157,159-160
+  s_10bc94d001be49::t_dcb8195f2b9fc7 130
+  s_10bc94d001be49::t_490666b99bbbdc 164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75b45eb7cd42da72f173787f4633f7376b03f509",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
