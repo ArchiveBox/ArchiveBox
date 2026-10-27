@@ -4,6 +4,8 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from archivebox.core.models import ArchiveResult, Snapshot
@@ -87,6 +89,58 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     response = client.get(f"/api/v1/core/snapshot/{snapshot.id}", **api_headers)
 
     assert response.status_code == 200, response.content
+
+
+@pytest.mark.parametrize("endpoint", ["snapshot", "snapshots", "archiveresult", "archiveresults"])
+def test_capture_metadata_does_not_load_crawl_intake(client, api_admin_user, api_headers, endpoint):
+    from archivebox.core.models import Tag
+    from archivebox.personas.models import Persona
+
+    persona = Persona.objects.create(name="Metadata Owner", created_by=api_admin_user)
+    # A historical import can contain megabytes of URLs. None of that intake is
+    # part of an individual capture's metadata, even when it has many results.
+    urls = "https://example.com/large-intake\n" * 40000
+    crawl = Crawl.objects.create(urls=urls, created_by=api_admin_user, persona=persona)
+    tag = Tag.objects.create(name="metadata", created_by=api_admin_user)
+    snapshots = [Snapshot.objects.create(url=f"https://example.com/metadata/{index}", crawl=crawl) for index in range(3)]
+    results = []
+    for snapshot in snapshots:
+        snapshot.tags.add(tag)
+        for plugin in ("title", "dom", "singlefile"):
+            results.append(ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin, status="succeeded"))
+    path = f"/api/v1/core/{endpoint}"
+    if endpoint == "snapshot":
+        path += f"/{snapshots[0].id}"
+    elif endpoint == "archiveresult":
+        path += f"/{results[0].id}"
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(path, {"with_archiveresults": "true"}, **api_headers)
+
+    assert response.status_code == 200, response.content
+    payload = response.json()
+    items = payload["items"] if endpoint.endswith("s") else [payload]
+    assert len(items) == {"snapshot": 1, "snapshots": 3, "archiveresult": 1, "archiveresults": 9}[endpoint]
+    for item in items:
+        assert item["created_by_id"] == str(api_admin_user.pk)
+        assert item["created_by_username"] == api_admin_user.username
+        if endpoint.startswith("snapshot"):
+            assert item["persona"] == persona.name
+            assert item["tags"] == [tag.name]
+            assert item["num_archiveresults"] == 3
+            assert {result["plugin"] for result in item["archiveresults"]} == {"title", "dom", "singlefile"}
+            for result in item["archiveresults"]:
+                assert result["created_by_username"] == api_admin_user.username
+        else:
+            assert item["snapshot_tags"] == [tag.name]
+    selected = [query["sql"] for query in queries if query["sql"].lstrip().upper().startswith("SELECT")]
+    assert not any('"urls"' in sql.split(" FROM ", 1)[0] for sql in selected), selected
+    # Owner resolution must reuse joined rows, not reload the same full crawl
+    # once per snapshot/result while serializing the response.
+    assert not any(f'FROM "{Crawl._meta.db_table}"' in sql for sql in selected), selected
+    assert sum('FROM "auth_user"' in sql for sql in selected) <= 1, selected
+    crawl.refresh_from_db()
+    assert crawl.urls == urls
 
 
 @pytest.mark.parametrize("cmd", ['fetch_page_title("https://example.com/a path")', ["title", "https://example.com/a path"]])

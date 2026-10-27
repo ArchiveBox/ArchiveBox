@@ -219,7 +219,15 @@ def _with_archiveresult_processes(queryset):
     # (roughly 100 queries), despite the initial Snapshot UUID lookup being fast.
     # Logs and the hydrated hook environment are not response fields; loading
     # those potentially large values would replace round trips with excess I/O.
-    return queryset.select_related("process__binary").defer("process__stdout", "process__stderr", "process__env")
+    # Ownership delegates through snapshot.crawl, including nested results in
+    # SnapshotSchema. Join it here too, but never hydrate the crawl's entire
+    # intake URL list just to serialize one capture's owner.
+    return queryset.select_related("process__binary", "snapshot__crawl__created_by").defer(
+        "process__stdout",
+        "process__stderr",
+        "process__env",
+        "snapshot__crawl__urls",
+    )
 
 
 @router.get("/archiveresults", response=list[ArchiveResultSchema], url_name="get_archiveresult")
@@ -227,7 +235,7 @@ def _with_archiveresult_processes(queryset):
 def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterSchema]):
     """List all ArchiveResult entries matching these filters."""
     queryset = filters.filter(
-        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__crawl__created_by", "snapshot__tags"),
+        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__tags"),
     )
     if filters.search or filters.snapshot_tag:
         return queryset.distinct()
@@ -257,7 +265,6 @@ def get_archiveresult(request: HttpRequest, archiveresult_id: str):
     """Get a specific ArchiveResult by id."""
     return (
         _with_archiveresult_processes(ArchiveResult.objects.all())
-        .select_related("snapshot__crawl__created_by")
         .prefetch_related("snapshot__tags")
         .get(_uuid_ref_query("id", archiveresult_id))
     )
@@ -367,7 +374,9 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 
 
 def _get_snapshot_by_ref(snapshot_id: str):
-    queryset = Snapshot.objects.select_related("crawl__created_by")
+    # Snapshot metadata needs the owner/persona, not a potentially multi-MB
+    # crawl intake. Keep polling an individual snapshot independent of its size.
+    queryset = Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls")
     try:
         try:
             full_id = UUID(snapshot_id)
@@ -685,7 +694,7 @@ class SnapshotSchema(Schema):
     def resolve_persona(obj):
         # A deduplicated submission can reuse a capture from a different
         # persona. Report its actual DB-backed owner, not the new request's choice.
-        persona = obj.crawl.resolve_persona()
+        persona = obj.crawl.persona
         return persona.name if persona else None
 
     @staticmethod
@@ -899,7 +908,10 @@ def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], wi
     """List all Snapshot entries matching these filters."""
     setattr(request, "with_archiveresults", with_archiveresults)
     try:
-        queryset = filter_snapshots_by_status(Snapshot.objects.all(), filters.status)
+        queryset = filter_snapshots_by_status(
+            Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls"),
+            filters.status,
+        )
     except ValueError as err:
         raise HttpError(400, str(err)) from err
     queryset = filters.filter(queryset).distinct()
