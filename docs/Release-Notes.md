@@ -1,12 +1,11 @@
-# Release Notes
+## Changes since v0.9.73
 
-## Security
+**Automatic social media archiving with AI-powered importers, chat bots, smoother mobile replay, and more reliable large archives.**
 
-- Snapshot replay now rejects symbolic links that resolve outside the snapshot,
-  including while captures are still running. This prevents disclosure of files
-  readable by the ArchiveBox process through archived symlinks. Links to files
-  within the snapshot continue to work.
-- Replay and directory downloads also reject symlink aliases to private browser
-  runtime files.
-
-Discovered by Yves Soete of Blacksight LLC.
+- 🤖 **NEW AI-powered automatic social media importing!** Back up posts, bookmarks, likes, photos, and more from X, Facebook, Instagram, Reddit, and other sites, alongside RSS feeds and spreadsheets. The new autoresearch-based engine uses AI to create an importer for your source and automatically heal it when the site changes. Everyday imports run the saved script without AI. Connect your logged-in browser through a Persona, preview what will be saved, and schedule automatic imports.
+- 💬 **Save links straight from your chats.** The optional [ArchiveBox Chat Bot](https://github.com/ArchiveBox/ArchiveBox/wiki/Integrating-with-Slack) brings archiving to Slack, Telegram, WhatsApp, Zulip, and more. Send links in a DM, mention the bot in a thread, or ask ArchiveBox AI Bot to organize and archive a collection for you.
+- 📱 **Smoother replay on phones and in-app browsers.** Saved pages stay readable while interactive replay loads, without jumping from a screenshot to an unsupported-browser message. ArchiveWeb.page cards now show screenshot thumbnails, and saved documents have native previews and format controls.
+- 🖼️ **More complete saved pages.** Fixes restore missing styles, images, backgrounds, and redirected resources during replay. Improved file browsing makes it easier to explore and download everything saved with a page.
+- ⚡ **More responsive large archives and steadier long crawls.** Browsing, searching, and checking progress avoid slow archive-storage reads. Captures adapt to available memory, with fixes for stalled downloads and interrupted captures. Live progress makes it easier to see what's running and how much is left.
+- 🕰️ **Browse your archive through time.** New Memento support lets compatible tools find the saved version closest to a date and discover other captures of the same URL.
+- 🔐 **Privacy and security fixes.** Stronger protections keep private captures, browser cookies, and server files out of public replay and downloads. Thanks to Yves Soete of Blacksight LLC for reporting security issues.
