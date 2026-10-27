@@ -231,6 +231,7 @@ class CrawlRunner:
         self.interactive_interrupts = interactive_interrupts
         self._interrupt_choice: asyncio.Future[Literal["abort", "retry", "skip"]] | None = None
         self._user_aborted = False
+        self._execution_interrupted = False
         self.bus.on(CrawlAbortEvent, self.on_CrawlAbortEvent)
         self.config_overrides = dict(config_overrides or {})
 
@@ -273,11 +274,15 @@ class CrawlRunner:
         self._last_lease_heartbeat_at = 0.0
 
     def execution_interrupted(self) -> bool:
-        """Owner loss preserves work; explicit user abort keeps its sealing policy."""
-        return self._signal_abort_requested and not self._user_aborted
+        """Owner loss preserves work; handled stops retain the owner's terminal facts."""
+        return self._execution_interrupted
 
     async def on_CrawlAbortEvent(self, event: CrawlAbortEvent) -> None:
         self._signal_abort_requested = True
+        # abx-dl decides whether a required resource failed and settles that
+        # attempt. Do not mistake its handled failure for a displaced worker:
+        # that would discard the terminal fact and leave a dangling STARTED row.
+        self._execution_interrupted = self._execution_interrupted or (not event.user_initiated and not event.error)
         # An abort can arrive while the prompt transport is being established,
         # before another SIGINT sees _interrupt_choice. Release that waiter too;
         # shutdown must never depend on a subsequent keypress or IPC response.
@@ -377,6 +382,7 @@ class CrawlRunner:
         # Cancellation intentionally bypasses the interactive pause gate; a
         # waiting prompt must never keep a displaced worker or its hooks alive.
         self._signal_abort_requested = True
+        self._execution_interrupted = True
         self._skip_wait_until_idle = True
         if not self._run_started and os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
             # A signal before run() starts has no async task or hooks to drain.
@@ -412,6 +418,11 @@ class CrawlRunner:
     async def watch_for_cancelled_crawl(self, parent_event: BaseEvent, *, poll_interval: float = 1.0) -> None:
         while True:
             await asyncio.sleep(poll_interval)
+            # A received control event already stopped admission. Echoing that
+            # local flag as a new takeover would suppress abx-dl's terminal
+            # facts during cleanup. This watcher only translates DB changes.
+            if self._signal_abort_requested:
+                return
             if not await self.crawl_is_cancelled():
                 continue
             abort_event = parent_event.emit(CrawlAbortEvent(user_initiated=False))

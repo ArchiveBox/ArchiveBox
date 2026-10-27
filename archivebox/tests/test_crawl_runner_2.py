@@ -38,8 +38,12 @@ def test_pending_snapshots_keep_creation_order_when_timestamps_tie(crawl):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("user_initiated", [False, True], ids=["takeover", "user-abort"])
-def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_test_site, user_initiated):
+@pytest.mark.parametrize(
+    ("user_initiated", "error"),
+    [(False, ""), (True, ""), (False, "Required crawl resource failed")],
+    ids=["takeover", "user-abort", "resource-failure"],
+)
+def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_test_site, user_initiated, error):
     from abx_dl.events import CrawlAbortEvent, CrawlCompletedEvent, ProcessStartedEvent, SnapshotCompletedEvent, SnapshotEvent
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
@@ -55,38 +59,55 @@ def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_tes
     completed = []
     started = []
     completed_crawls = []
+    aborts = []
 
     async def abort_on_snapshot(event: SnapshotEvent) -> None:
         # Observe the real snapshot command after its DB owner is recorded but
         # before the hook service consumes it. This is the takeover window that
         # used to turn shutdown cleanup into a successful, empty capture.
-        await event.emit(CrawlAbortEvent(user_initiated=user_initiated)).now()
+        await event.emit(CrawlAbortEvent(user_initiated=user_initiated, error=error)).now()
+        # The persisted-cancellation watcher can wake while cleanup is still
+        # running. It must not echo a handled stop as an ownership takeover.
+        await runner.watch_for_cancelled_crawl(event, poll_interval=0)
+        assert len(aborts) == 1
 
     runner.bus.on(SnapshotEvent, abort_on_snapshot)
     runner.bus.on(SnapshotCompletedEvent, lambda event: completed.append(event))
     runner.bus.on(ProcessStartedEvent, lambda event: started.append(event))
     runner.bus.on(CrawlCompletedEvent, lambda event: completed_crawls.append(event))
+    runner.bus.on(CrawlAbortEvent, lambda event: aborts.append(event))
     if user_initiated:
         with pytest.raises(KeyboardInterrupt):
+            asyncio.run(runner.run())
+    elif error:
+        with pytest.raises(RuntimeError, match=error):
             asyncio.run(runner.run())
     else:
         asyncio.run(runner.run())
 
     # Explicit abort settles the live attempt. Takeover emits no terminal fact:
     # the replacement starts a whole attempt, rather than resuming hook state.
-    assert len(completed) == int(user_initiated)
+    terminal = bool(user_initiated or error)
+    assert len(completed) == int(terminal)
     assert not [event for event in started if event.hook_name.startswith("on_Snapshot")]
     snapshot = Snapshot.objects.get(crawl=crawl)
     crawl.refresh_from_db()
-    assert len(completed_crawls) == int(user_initiated)
+    assert len(completed_crawls) == int(terminal)
     assert snapshot.archiveresult_set.count() == 0
-    if user_initiated:
+    if terminal:
         # Preserve the historical point-in-time boundary for an explicit abort.
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
         assert snapshot.downloaded_at is not None
         assert crawl.status == Crawl.StatusChoices.SEALED
         assert crawl.retry_at is None
+        if error:
+            # The downloader owns this handled failure. Projection must retain
+            # its seal and error, without reporting user intent or owner loss.
+            assert error in completed[0].error
+            assert error in completed_crawls[0].error
+            assert error in crawl.notes
+            assert not runner._user_aborted
     else:
         assert snapshot.status in Snapshot.RUNNABLE_STATES, "Takeover must leave the capture resumable"
         assert snapshot.retry_at is not None
