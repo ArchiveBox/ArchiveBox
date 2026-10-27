@@ -1,0 +1,24 @@
+archivebox/tests/test_crawl_runner_2.py
+  s_10bc94d001be49::t_75e7600c4423dd 62,69-71,78
+  s_10bc94d001be49::t_f75e1dfbda1f19 41-46,68,82-84,90-91,95,97,104-110
+  s_10bc94d001be49::t_031f1b1e5e92ee 72
+archivebox/services/runner.py
+  s_10bc94d001be49::t_78b2d3e9d03648 234,278,285,385,421-425
+  s_10bc94d001be49::t_c39ab1365fcdf8 277,282-284
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f2cd6a49e082690282fef12e5348032a47c33f1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
