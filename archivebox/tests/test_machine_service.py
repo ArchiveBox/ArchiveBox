@@ -21,6 +21,71 @@ def _runtime_env(data_dir: Path, **extra: str) -> dict[str, str]:
     }
 
 
+@pytest.mark.parametrize("method", ["config", "update", "unset"])
+def test_machine_events_preserve_config_saved_by_another_process(initialized_archive, method):
+    # Keep the event projector alive while the actual config CLI commits user
+    # settings in another process, like the runner and setup admin do in prod.
+    script = textwrap.dedent(
+        f"""
+        import asyncio
+        import subprocess
+        import sys
+
+        from abx_dl.events import MachineEvent
+        from abx_dl.orchestrator import create_bus
+        from archivebox.config.common import get_config
+        from archivebox.config.configset import read_ini_config
+        from archivebox.machine.models import Machine
+        from archivebox.services.machine_service import MachineService
+
+        machine = Machine.current()
+        machine.config['ABX_INSTALL_CACHE'] = {{'before': 'event'}}
+        machine.save(update_fields=['config'])
+        base_url = 'http://archivebox.localhost:59276'
+        edited = subprocess.run(
+            [sys.executable, '-m', 'archivebox', 'config', '--set',
+             'BASE_URL=' + base_url, 'PUBLIC_INDEX=False'],
+            capture_output=True, text=True, check=True,
+        )
+        assert machine.config.get('BASE_URL') != base_url
+        edited_config = Machine.objects.get(pk=machine.pk).config
+        assert edited_config['BASE_URL'] == base_url
+        assert get_config().PUBLIC_INDEX is False
+
+        async def main():
+            bus = create_bus(name='machine_config_concurrent_editor')
+            try:
+                MachineService(bus)
+                if {method!r} == 'config':
+                    event = MachineEvent(config={{'ABX_INSTALL_CACHE': {{'after': 'event'}}}}, config_type='derived')
+                else:
+                    event = MachineEvent(method={method!r}, key='config/ABX_INSTALL_CACHE',
+                                         value={{'after': 'event'}}, config_type='derived')
+                await bus.emit(event).now()
+                await bus.wait_until_idle()
+            finally:
+                await bus.destroy()
+
+        asyncio.run(main())
+        machine.refresh_from_db()
+        assert machine.config['BASE_URL'] == base_url, machine.config.keys()
+        assert machine.config['PUBLIC_INDEX'] == edited_config['PUBLIC_INDEX']
+        assert get_config().PUBLIC_INDEX is False
+        if {method!r} == 'unset':
+            assert 'ABX_INSTALL_CACHE' not in machine.config
+        else:
+            assert machine.config['ABX_INSTALL_CACHE'] == {{'after': 'event'}}
+        stored = read_ini_config('ArchiveBox.conf')
+        assert stored['BASE_URL'] == base_url, stored.keys()
+        assert stored['PUBLIC_INDEX'] == 'False'
+        print('MACHINE_CONFIG_PRESERVED')
+        """,
+    )
+    result = run_archivebox_cmd(["shell", "-c", script], cwd=initialized_archive, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "MACHINE_CONFIG_PRESERVED" in result.stdout
+
+
 def test_install_persists_machine_binary_config_and_recovers_stale_path(initialized_archive, tmp_path):
     _cmd_result = run_archivebox_cmd(
         ["install", "liteparse"],

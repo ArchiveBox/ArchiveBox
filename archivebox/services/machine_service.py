@@ -44,6 +44,11 @@ class MachineService(BaseService):
             return
 
         machine = await sync_to_async(Machine.current, thread_sensitive=True)()
+        # Machine.current caches process identity, but the admin/CLI can commit
+        # new settings while this runner stays alive. Binary events are patches:
+        # merging into startup config would erase those edits (including BASE_URL
+        # just saved by first-run setup) and mirror the stale values to disk.
+        await machine.arefresh_from_db(fields=["config"])
         old_config = dict(machine.config or {})
         config = dict(old_config)
 
