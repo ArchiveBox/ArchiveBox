@@ -5,7 +5,8 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.django_db(transaction=True)
-def test_process_completed_persists_with_uncached_network_interface(tmp_path, recursive_test_site):
+@pytest.mark.parametrize("historical_interface", [False, True])
+def test_process_completed_persists_with_uncached_network_interface(tmp_path, recursive_test_site, historical_interface):
     import archivebox.machine.models as machine_models
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -14,6 +15,12 @@ def test_process_completed_persists_with_uncached_network_interface(tmp_path, re
 
     machine = Machine.current()
     iface = NetworkInterface.current()
+    if historical_interface:
+        # A collection can retain an interface from an earlier network. Use a
+        # real persisted row, while leaving live network detection untouched.
+        iface.ip_public = "192.0.2.1"
+        iface.save(update_fields=["ip_public"])
+    prior_interface = NetworkInterface.objects.filter(pk=iface.pk).values().get()
     crawl = Crawl.objects.create(
         urls=recursive_test_site["root_url"],
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "PLUGINS": "headers"},
@@ -30,8 +37,19 @@ def test_process_completed_persists_with_uncached_network_interface(tmp_path, re
         for process in Process.objects.filter(process_type=Process.TypeChoices.HOOK)
         if process.cmd and "on_Snapshot__27_headers.daemon.bg.js" in str(process.cmd[0])
     )
+    # Foreground admission refreshes the live network after the cache is
+    # cleared. Attribution must match that selected interface, not a row
+    # registered before the refresh (public IP or DNS can have changed).
+    current_iface = NetworkInterface.current()
+    owner = Process.current()
+    owner.refresh_from_db()
     assert process.machine_id == machine.id
-    assert process.iface_id == iface.id
+    assert process.iface_id == owner.iface_id == current_iface.id
+    assert process.parent_id == owner.id
+    assert current_iface.machine_id == machine.id
+    if historical_interface:
+        assert current_iface.id != iface.id
+        assert NetworkInterface.objects.filter(pk=iface.pk).values().get() == prior_interface
     assert process.process_type == Process.TypeChoices.HOOK
     assert process.status == Process.StatusChoices.EXITED
     assert process.started_at is not None
