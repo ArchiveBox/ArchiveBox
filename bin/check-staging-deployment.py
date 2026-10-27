@@ -112,7 +112,10 @@ def main():
                 # replay. Exercise the default viewer and its real captured page,
                 # using the same readiness contract as the WACZ browser tests.
                 expect(page.locator(".header-title-text")).to_contain_text(re.compile(r"\S"))
-                preview = page.locator("#main-frame")
+                # The default viewer keeps useful saved HTML in front while WACZ
+                # loads. Observe the same replay context before/after promotion;
+                # requiring it in main-frame first bypassed the readiness wait.
+                preview = page.locator('#main-frame[src*="/archivewebpage/"], #replay-preload[src*="/archivewebpage/"]')
                 expect(preview).to_have_attribute("src", re.compile(r"/archivewebpage/archivewebpage\.wacz\?preview=1"))
                 replay_root = preview.content_frame.locator("#replay-root")
                 expect(replay_root).to_have_attribute("data-url", snapshot["url"])
@@ -124,6 +127,8 @@ def main():
                         return Boolean(window.archiveboxReplayReady);
                     }""",
                 )
+                expect(page.locator("#main-frame")).to_have_attribute("data-replay-painted", "1")
+                expect(page.locator("#main-frame")).to_have_attribute("src", re.compile(r"/archivewebpage/archivewebpage\.wacz\?preview=1"))
                 # Extracted display titles need not match the captured document's
                 # <title>: HedgeDoc's note heading and HTML title differ. Identify
                 # the archived document by its replay origin/path and original URL,
