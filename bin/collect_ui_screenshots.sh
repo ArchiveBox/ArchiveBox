@@ -42,6 +42,7 @@ stop_background_runner() {
 }
 
 cleanup() {
+    local cleanup_status=$?
     if [[ -n "$SETUP_SERVER_PID" ]]; then
         setup_server_children="$(pgrep -P "$SETUP_SERVER_PID" 2>/dev/null || true)"
         for child_pid in $setup_server_children; do
@@ -113,6 +114,53 @@ cleanup() {
             UI_SCREENSHOT_USERNAME="$USERNAME" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import os; from django.contrib.auth import get_user_model; get_user_model().objects.filter(username=os.environ["UI_SCREENSHOT_USERNAME"]).delete()'
         ) >/dev/null 2>&1 || true
+    fi
+
+    # Keep bounded text capture logs when a gallery run fails. Do not copy the
+    # browser profiles, auth storage, screenshots, or other capture data.
+    if [[ "$cleanup_status" != "0" && -n "${SCREENSHOT_FAILURE_DIR:-}" && "$SCREENSHOT_FAILURE_DIR" == /* ]]; then
+        local diagnostics_dir
+        diagnostics_dir="$SCREENSHOT_FAILURE_DIR/$(basename "$CAPTURE_ROOT")"
+        if (
+            umask 077
+            mkdir -p "$diagnostics_dir" || exit 1
+            chmod 700 "$diagnostics_dir" || exit 1
+            for diagnostic_log in \
+                "$CAPTURE_ROOT"/*-supplementary-capture.log \
+                "$CAPTURE_ROOT"/article-live-capture.log; do
+                [[ -f "$diagnostic_log" && ! -L "$diagnostic_log" ]] || continue
+                diagnostic_name="$(basename "$diagnostic_log")"
+                if ! tail -c 1048576 "$diagnostic_log" >"$diagnostics_dir/$diagnostic_name"; then
+                    echo "[!] Could not retain screenshot capture log $diagnostic_name" >&2
+                fi
+            done
+
+            if [[ -d "$DATA_DIR/archive" ]]; then
+                retained_hook_logs=0
+                while IFS= read -r -d '' hook_stderr_log; do
+                    if (( retained_hook_logs >= 24 )); then
+                        break
+                    fi
+                    relative_log_path="${hook_stderr_log#"$DATA_DIR"/}"
+                    destination_log="$diagnostics_dir/hooks/$relative_log_path"
+                    mkdir -p "$(dirname "$destination_log")" || continue
+                    if tail -c 1048576 "$hook_stderr_log" >"$destination_log"; then
+                        retained_hook_logs=$((retained_hook_logs + 1))
+                    else
+                        echo "[!] Could not retain per-hook stderr log" >&2
+                    fi
+                done < <(find "$DATA_DIR/archive" -type f \
+                    \( -path '*/chrome/*.stderr.log' \
+                    -o -path '*/singlefile/*.stderr.log' \
+                    -o -path '*/screenshot/*.stderr.log' \
+                    -o -path '*/pdf/*.stderr.log' \
+                    -o -path '*/archivewebpage/*.stderr.log' \) -print0)
+            fi
+        ); then
+            :
+        else
+            echo "[!] Could not retain bounded screenshot diagnostics in $SCREENSHOT_FAILURE_DIR" >&2
+        fi
     fi
 }
 trap cleanup EXIT INT TERM
