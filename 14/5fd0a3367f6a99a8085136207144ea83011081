@@ -1,0 +1,19 @@
+bin/check-staging-deployment.py
+  s_10bc94d001be49::t_4130dced032b15 13,104-108,110,112-114,162-164,171,173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "145fd0a3367f6a99a8085136207144ea83011081",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
