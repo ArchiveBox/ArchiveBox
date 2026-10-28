@@ -300,3 +300,16 @@ def test_idle_admission_defers_a_capture_larger_than_real_headroom():
     cost = psutil.virtual_memory().total + psutil.swap_memory().total + 1
     assert admission.additional_snapshot_slots(3, active=0, observed_cost=cost) == 0
     assert "memory headroom" in admission.resource_pressure(required_memory=cost)
+
+
+def test_snapshot_admission_preserves_the_real_hook_memory_reserve():
+    import psutil
+
+    admission = ResourceAdmission()
+    reserve = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    # The same configured reserve must reject warmup and measured parallel
+    # work. No allocation or synthetic memory readings are needed to prove it.
+    assert admission.memory_headroom(minimum_free=reserve) == 0
+    assert admission.additional_snapshot_slots(2, active=0, observed_cost=None, minimum_free=reserve) == 0
+    assert admission.additional_snapshot_slots(2, active=1, observed_cost=1, minimum_free=reserve) == 0
+    assert "memory headroom" in admission.resource_pressure(required_memory=0, minimum_free=reserve)

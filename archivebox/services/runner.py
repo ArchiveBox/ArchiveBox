@@ -543,6 +543,7 @@ class CrawlRunner:
             self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
                 self.crawl,
                 required_memory=self._observed_snapshot_cost,
+                config_overrides=self.config_overrides,
             )
             if not self._resource_deferred:
                 return True
@@ -560,6 +561,7 @@ class CrawlRunner:
         if not self._initial_snapshot_admitted and await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
             self.crawl,
             excluded_snapshot_ids=list(self.snapshot_tasks),
+            config_overrides=self.config_overrides,
         ):
             self._resource_deferred = True
             return
@@ -767,7 +769,7 @@ class CrawlRunner:
             return
 
         await sync_to_async(self.crawl.refresh_from_db, thread_sensitive=True)()
-        config = await sync_to_async(lambda: get_config(crawl=self.crawl), thread_sensitive=True)()
+        config = await sync_to_async(lambda: get_config(crawl=self.crawl, overrides=self.config_overrides), thread_sensitive=True)()
         self.max_concurrent_snapshots = resource_admission.snapshot_limit(int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
 
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
@@ -776,12 +778,14 @@ class CrawlRunner:
             len(active_snapshot_ids),
             self._observed_snapshot_cost,
             crawl_id=str(self.crawl.id),
+            minimum_free=int(config["MEMORY_MIN_FREE"]),
         )
         if available_slots <= 0:
             if not active_snapshot_ids:
                 self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
                     self.crawl,
                     required_memory=self._observed_snapshot_cost,
+                    config_overrides=self.config_overrides,
                 )
             return
         if self.schedule_all_crawls and await sync_to_async(_higher_priority_crawl_waiting, thread_sensitive=True)(
@@ -1210,6 +1214,7 @@ class CrawlRunner:
                             0,
                             self._observed_snapshot_cost,
                             crawl_id=str(self.crawl.id),
+                            minimum_free=int(self.base_config["MEMORY_MIN_FREE"]),
                         )
                         if self._initial_snapshot_admitted:
                             # Startup and its first snapshot already passed the same
@@ -1240,6 +1245,7 @@ class CrawlRunner:
                         0,
                         self._observed_snapshot_cost,
                         crawl_id=str(self.crawl.id),
+                        minimum_free=int(self.base_config["MEMORY_MIN_FREE"]),
                     )
                     if self._initial_snapshot_admitted:
                         slots = max(1, slots)
@@ -1651,14 +1657,16 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     return True
 
 
-def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None) -> bool:
+def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None, config_overrides=None) -> bool:
     """Leave extraction durable; never delay cancellation or final cleanup."""
     from archivebox.core.models import Snapshot
+    from archivebox.config.common import get_config
 
     if crawl.status not in (crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED):
         return False
     reason = resource_admission.resource_pressure(
         required_memory=(resource_admission.observed_snapshot_cost or 0) if required_memory is None else required_memory,
+        minimum_free=int(get_config(crawl=crawl, overrides=config_overrides)["MEMORY_MIN_FREE"]),
     )
     if reason is None:
         return False

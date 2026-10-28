@@ -114,7 +114,8 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("explicit_snapshots", [False, True], ids=["projected", "explicit"])
-def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
+@pytest.mark.parametrize("requirement", ["capture", "reserve"])
+def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots, requirement):
     import psutil
     from django.utils import timezone
     from archivebox.services.runner import defer_crawl_for_resources
@@ -131,13 +132,23 @@ def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
     source.write_text("https://archivebox.io/tests/retained-memory-output\n")
     before = timezone.now()
     impossible_cost = psutil.virtual_memory().total + psutil.swap_memory().total + 1
-    assert defer_crawl_for_resources(crawl, required_memory=impossible_cost)
+    if requirement == "reserve":
+        # Set the real hook guard's reserve above this host's capacity without
+        # allocating RAM. Admission must defer before a hook can be killed for
+        # entering that same reserve, including the first unmeasured capture.
+        crawl.config["MEMORY_MIN_FREE"] = impossible_cost
+        crawl.save(update_fields=["config"])
+    assert defer_crawl_for_resources(crawl, required_memory=impossible_cost if requirement == "capture" else 0)
     snapshot.refresh_from_db()
     crawl.refresh_from_db()
     assert snapshot.status == "queued" and snapshot.downloaded_at is None
     assert snapshot.retry_at > before and crawl.retry_at > before
     assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
     assert source.read_text() == "https://archivebox.io/tests/retained-memory-output\n"
+
+    if requirement == "reserve":
+        crawl.config["MEMORY_MIN_FREE"] = 0
+        crawl.save(update_fields=["config"])
 
     # The memory requirement fits again, but real host CPU/IO pressure can
     # still defer admission. Let the foreground runner exercise its normal

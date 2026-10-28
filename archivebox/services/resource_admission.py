@@ -131,9 +131,17 @@ class ResourceAdmission:
             self._last_growth = now
         return min(ceiling, self._concurrency)
 
-    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None, *, crawl_id: str | None = None) -> int:
+    def additional_snapshot_slots(
+        self,
+        configured: int,
+        active: int,
+        observed_cost: int | None,
+        *,
+        crawl_id: str | None = None,
+        minimum_free: int = 0,
+    ) -> int:
         pressure = self.resource_pressure()
-        headroom = self.memory_headroom()
+        headroom = self.memory_headroom(minimum_free=minimum_free)
         if pressure or headroom <= 0:
             self.concurrency_limit(configured, pressure=True, now=time.monotonic())
             # Active captures also reset recovery; idle-only runner logging
@@ -178,18 +186,25 @@ class ResourceAdmission:
             slots = min(slots, unpromised // observed_cost)
         return slots
 
-    def memory_headroom(self) -> int:
-        """Return effective available RAM plus independently backed swap."""
+    def memory_headroom(self, *, minimum_free: int = 0) -> int:
+        """Return effective available memory outside the hook guard's reserve."""
         try:
             meminfo = {
                 name: int(value.split()[0]) * 1024
                 for name, value in (line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
             }
             host_swap_free = host_swap_free_bytes(meminfo.get("SwapFree", 0))
-            host_available = meminfo["MemAvailable"] + host_swap_free
+            host_ram_available = meminfo["MemAvailable"]
         except (OSError, ValueError, KeyError):
             host_swap_free = 0 if sys.platform.startswith("linux") else psutil.swap_memory().free
-            host_available = psutil.virtual_memory().available + host_swap_free
+            host_ram_available = psutil.virtual_memory().available
+
+        # The hook guard stops substantial process trees below MEMORY_MIN_FREE.
+        # Spending that reserve at admission approves work the guard will kill.
+        # Swap cannot excuse RAM already below the guard's RAM-only threshold.
+        if host_ram_available <= minimum_free:
+            return 0
+        host_available = host_ram_available + host_swap_free
 
         available = host_available
         for path in self.cgroup_paths():
@@ -210,7 +225,7 @@ class ResourceAdmission:
                 available = min(available, max(0, int(memory_max) - current) + swap_room)
             except (OSError, ValueError, KeyError):
                 continue
-        return available
+        return max(0, available - minimum_free)
 
     def process_tree_memory(self) -> int | None:
         """Measure RAM and swap attributable to this runner and its children."""
@@ -260,12 +275,12 @@ class ResourceAdmission:
         # must not indefinitely prevent new captures.
         return previous is not None and total > previous
 
-    def resource_pressure(self, *, required_memory: int | None = None) -> str | None:
+    def resource_pressure(self, *, required_memory: int | None = None, minimum_free: int = 0) -> str | None:
         # Check capacity on every admission, independently of cached PSI. An
         # idle runner still needs room for its last measured capture; allowing
         # one unconditionally can restart work into an already exhausted host.
         if required_memory is not None:
-            available = self.memory_headroom()
+            available = self.memory_headroom(minimum_free=minimum_free)
             if available <= 0 or available < required_memory:
                 return f"memory headroom {available} bytes below capture requirement {required_memory} bytes"
         now = time.monotonic()
