@@ -9,14 +9,22 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="snapshot",
-            name="fs_version",
-            field=models.CharField(
-                db_index=True,
-                default="0.9.5",
-                help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
-                max_length=10,
-            ),
+        # This is an ORM default, not db_default: the SQL column is unchanged.
+        # SQLite's ordinary AlterField would needlessly copy the entire table
+        # and rebuild its indexes just to change future Python-created rows.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="snapshot",
+                    name="fs_version",
+                    field=models.CharField(
+                        db_index=True,
+                        default="0.9.5",
+                        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
+                        max_length=10,
+                    ),
+                ),
+            ],
         ),
     ]
