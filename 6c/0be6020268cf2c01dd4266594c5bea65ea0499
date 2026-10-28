@@ -1,0 +1,27 @@
+archivebox/tests/test_crawl_memory_admission.py
+  s_10bc94d001be49::t_55be4affc70b11 159,165-170,172-177,200-201,204,207-208
+  s_10bc94d001be49::t_3c85251bf4d425 158
+  s_10bc94d001be49::t_026bcc4657845f 199
+  s_10bc94d001be49::t_cbef322fb3296d 157,161-164,171,178-184,187,190-193,198,202-203,205-206
+  s_10bc94d001be49::t_4d01ada267df0c 160,185-186,188-189,194-197
+  s_10bc94d001be49::t_afcb221a6d1bfa 156
+archivebox/services/runner.py
+  s_10bc94d001be49::t_09046f3580f7ec 697
+  s_10bc94d001be49::t_0be07c17b5697e 696,698,700,705
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c0be6020268cf2c01dd4266594c5bea65ea0499",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
