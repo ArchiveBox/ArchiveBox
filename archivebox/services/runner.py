@@ -2375,10 +2375,13 @@ def run_pending_crawls(
 
         if maintenance_only:
             # Filesystem migration is independent of lifecycle status; do not
-            # tick queued snapshots or start their extraction work here.
+            # tick current-layout queued snapshots or start extraction here.
+            # Sealed rows can also have index/metadata ticks without a layout
+            # migration. Let the same maintenance path settle those ticks;
+            # filtering only stale versions leaves them due forever.
             filesystem_snapshot = (
                 Snapshot.objects.filter(retry_at__lte=timezone.now())
-                .exclude(fs_version=Snapshot._fs_current_version())
+                .filter(Q(status=Snapshot.StatusChoices.SEALED) | ~Q(fs_version=Snapshot._fs_current_version()))
                 .order_by("retry_at", "created_at")
                 .first()
             )

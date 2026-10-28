@@ -573,6 +573,7 @@ class TestRunDueCrawlState:
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.services.runner import run_pending_crawls
 
@@ -583,13 +584,19 @@ class TestRunDueCrawlState:
             status=Crawl.StatusChoices.QUEUED,
             retry_at=now,
         )
+        snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, retry_at=now)
+        assert snapshot.fs_version == Snapshot._fs_current_version()
 
         assert run_pending_crawls(daemon=False, maintenance_only=True) == 0
 
         crawl.refresh_from_db()
         assert crawl.status == Crawl.StatusChoices.QUEUED
         assert crawl.retry_at == now
-        assert crawl.snapshot_set.count() == 0
+        assert crawl.snapshot_set.count() == 1
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at == now
+        assert snapshot.archiveresult_set.count() == 0
 
     def test_maintenance_only_runner_clears_snapshot_tick_without_scheduling_archive_results(self):
         from django.utils import timezone
