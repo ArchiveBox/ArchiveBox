@@ -213,10 +213,39 @@ def update(
         owner = runtime_stack_owner(data_dir=CONSTANTS.DATA_DIR)
         runners = live_runner_processes(data_dir=CONSTANTS.DATA_DIR)
         if owner is not None or runners:
-            raise click.ClickException(
-                "Stop the local ArchiveBox server and runners before filesystem migration/rescan. "
-                "Run archivebox update --rescan --migrate-only in a stopped collection, not docker exec against a serving container.",
+            from archivebox.core.models import Snapshot
+
+            # A filtered --migrate-only request against current rows performs
+            # no filesystem work (the API uses it to inspect matches without
+            # recapturing). Guard the actual migration, not that flag alone.
+            # Rescan always needs an offline collection: even current DB rows
+            # cannot tell us whether discovery will find legacy directories.
+            needs_migration = (
+                rescan
+                or _build_filtered_snapshots_queryset(
+                    filter_patterns=filter_patterns,
+                    filter_type=filter_type,
+                    status=status,
+                    url__icontains=url__icontains,
+                    url__istartswith=url__istartswith,
+                    tag=tag,
+                    crawl_id=crawl_id,
+                    limit=limit,
+                    sort=sort,
+                    search=search,
+                    before=before,
+                    after=after,
+                    resume=resume,
+                    reverse=reverse,
+                )
+                .exclude(fs_version=Snapshot._fs_current_version())
+                .exists()
             )
+            if needs_migration:
+                raise click.ClickException(
+                    "Stop the local ArchiveBox server and runners before filesystem migration/rescan. "
+                    "Run archivebox update --rescan --migrate-only in a stopped collection, not docker exec against a serving container.",
+                )
 
     command = current_command(Process.TypeChoices.UPDATE, data_dir=CONSTANTS.DATA_DIR)
 

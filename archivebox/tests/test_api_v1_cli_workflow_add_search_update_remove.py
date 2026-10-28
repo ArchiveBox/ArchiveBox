@@ -66,6 +66,7 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
             snapshot = Snapshot.objects.get(crawl_id=crawl_id, url=target_url)
             assert snapshot.status == Snapshot.StatusChoices.SEALED
             assert snapshot.retry_at is None
+            assert snapshot.fs_version == Snapshot._fs_current_version()
         start_archivebox_server(tmp_path, env=env, port=port)
         wait_for_live_api(port)
 

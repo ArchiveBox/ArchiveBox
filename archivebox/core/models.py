@@ -497,7 +497,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     depth = models.PositiveSmallIntegerField(default=0, db_index=True)  # 0 for root snapshot, 1+ for discovered URLs
     fs_version = models.CharField(
         max_length=10,
-        default="0.9.0",
+        # New captures write the current layout directly. Legacy imports pass
+        # their saved version explicitly; an old default makes fresh captures
+        # look unmigrated and adds remote filesystem probes to every read.
+        default="0.9.5",
         db_index=True,
         help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
     )

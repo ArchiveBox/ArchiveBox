@@ -14,12 +14,32 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def test_filesystem_migration_refuses_a_live_server(archivebox_daemon_server):
+    from archivebox.crawls.models import Crawl
+
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", PLUGINS="")
     server.wait_for_workers(("worker_uvicorn", "worker_runner"))
+    with use_archivebox_db(server.data_dir):
+        crawl = Crawl.objects.create(urls="https://example.com/legacy", status="sealed", retry_at=None)
+        stale = Snapshot.objects.create(crawl=crawl, url=crawl.urls, status="sealed", retry_at=None)
+        current = Snapshot.objects.create(crawl=crawl, url="https://example.com/current", status="sealed", retry_at=None)
+        Snapshot.objects.filter(pk=stale.pk).update(fs_version="0.8.0")
     for args in (["update", "--migrate-only"], ["update", "--rescan"]):
         result = run_archivebox_cmd(args, cwd=server.data_dir, env=server.env)
         assert result.returncode != 0, result.stdout + result.stderr
         assert "Stop the local ArchiveBox server" in result.stdout + result.stderr
+    result = run_archivebox_cmd(
+        ["update", "--migrate-only", "--filter-type", "exact", current.url],
+        cwd=server.data_dir,
+        env=server.env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(server.data_dir):
+        stale.refresh_from_db()
+        current.refresh_from_db()
+        assert stale.fs_version == "0.8.0"
+        assert current.fs_version == Snapshot._fs_current_version()
+        assert stale.status == current.status == "sealed"
+        assert stale.retry_at is current.retry_at is None
     server.wait_for_workers(("worker_uvicorn", "worker_runner"))
 
 
