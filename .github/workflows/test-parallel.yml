@@ -262,7 +262,12 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: runtime-logs-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/pytest/**/*.log
+          # OpenCode's pnpm postinstall invokes npm; retain its download-stage
+          # logs when the outer installer times out without emitting output.
+          path: |
+            ${{ runner.temp }}/pytest/**/*.log
+            ~/.npm/_logs/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
 
