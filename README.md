@@ -1506,6 +1506,8 @@ Treat released migration names and dependencies as durable history. Keep new cha
 
 Migration regression coverage lives in `archivebox/tests/test_migrations_*`, `test_sqlite_backend.py`, and `test_cli_update_unattributed_outputs.py`, and runs in the regular test suite. Changes must preserve users, credentials, tags, results, execution evidence, and captured bytes through upgrades, reruns, real process interruption, and destination conflicts. Include indexed query-plan and bounded-memory checks for collection-wide operations; a fresh empty database alone is not an upgrade test.
 
+Run the seeded randomized legacy-database tests at large-collection scale with `ABX_FUZZ_SNAPSHOTS=49000 ABX_FUZZ_RESULTS=349000 uv run pytest -s archivebox/tests/test_migrations_fuzz.py`. Three reproducible seeds exercise varied metadata, WAL/DELETE journals, SIGKILL during three migration stages, refusal and rollback of invalid metadata, full row comparisons, and repeated initialization. The ordinary CI run uses 300 snapshots and 20,000 results per seed; the environment variables raise the size without changing assertions. Temporary directories retain generated databases, expected results, CLI logs, and sampled process-memory/timing metrics. This tests database migration, not a collection's captured-file payloads or storage hardware.
+
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash
