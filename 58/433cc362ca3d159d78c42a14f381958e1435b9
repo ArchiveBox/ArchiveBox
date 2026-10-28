@@ -1,0 +1,21 @@
+README.md
+  s_3bdde661ee87a4::t_011e6f170a2314 1509-1510
+archivebox/tests/test_migrations_fuzz.py
+  s_3bdde661ee87a4::t_f5db13d9e11f17 1-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58433cc362ca3d159d78c42a14f381958e1435b9",
+  "prompts": {},
+  "sessions": {
+    "s_3bdde661ee87a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18102-dc8b-7810-8a01-b336d01b9e58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
