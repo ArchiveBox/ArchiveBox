@@ -154,6 +154,59 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_zero_net_growth_warmup_uses_measured_process_tree_baseline(crawl):
+    from archivebox.services.resource_admission import resource_admission
+
+    snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/measured-warmup")
+    runner = CrawlRunner(crawl, show_progress=False)
+    previous_cost = resource_admission.observed_snapshot_cost
+    before = resource_admission.process_tree_memory()
+    assert before is not None
+    child = subprocess.Popen(
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            "import sys; data=bytearray(64 * 1024 * 1024); print(len(data), flush=True); sys.stdin.read()",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert child.stdout is not None
+        assert child.stdout.readline().strip() == str(64 * 1024 * 1024)
+        baseline = resource_admission.process_tree_memory()
+        assert baseline is not None and baseline > before + 32 * 1024 * 1024
+        assert child.stdin is not None
+        child.stdin.close()
+        assert child.wait(timeout=10) == 0
+        after = resource_admission.process_tree_memory()
+        assert after is not None and after < baseline
+
+        # Exercise finish with a real isolated baseline and zero sampled peak;
+        # the separate real CLI test covers the full capture lifecycle.
+        runner._memory_baseline = baseline
+        runner._memory_peak_cost = 0
+        runner._observed_snapshot_cost = None
+        runner.max_concurrent_snapshots = 3
+        resource_admission.observed_snapshot_cost = None
+        runner._finish_warmup_snapshot(str(snapshot.id))
+        assert runner._observed_snapshot_cost == baseline
+        assert resource_admission.observed_snapshot_cost == baseline
+        assert resource_admission.slots_for_headroom(3, active=0, observed_cost=baseline, available=baseline) == 1
+        assert resource_admission.slots_for_headroom(3, active=0, observed_cost=baseline, available=baseline * 2) == 2
+    finally:
+        if child.poll() is None:
+            assert child.stdin is not None
+            child.stdin.close()
+            assert child.wait(timeout=10) == 0
+        resource_admission.observed_snapshot_cost = previous_cost
+        asyncio.run(runner.bus.destroy(clear=False))
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("explicit_snapshots", [False, True], ids=["projected", "explicit"])
 @pytest.mark.parametrize("requirement", ["capture", "reserve"])
 def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots, requirement):

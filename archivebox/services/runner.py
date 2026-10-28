@@ -693,14 +693,16 @@ class CrawlRunner:
         self._observe_snapshot_memory()
         # Only isolated captures teach a per-snapshot cost. Reuse it across
         # crawls, with slow decay so one expensive capture is not a lifetime cap.
-        if self._memory_baseline is not None and self._memory_peak_cost > 0:
+        if self._memory_baseline is not None and self._memory_baseline > 0:
+            # A short child between 2s samples or shared Chrome heap shrinkage can hide growth; reserve the measured whole-tree baseline.
+            observed_cost = self._memory_peak_cost or self._memory_baseline
             resource_admission.observed_snapshot_cost = max(
-                self._memory_peak_cost,
+                observed_cost,
                 int((resource_admission.observed_snapshot_cost or 0) * 0.9),
             )
             self._observed_snapshot_cost = resource_admission.observed_snapshot_cost
             logging.getLogger(__name__).info(
-                "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes",
+                "Snapshot admission: concurrency limit=%s, observed memory cost=%s bytes",
                 self.max_concurrent_snapshots,
                 self._observed_snapshot_cost,
             )
