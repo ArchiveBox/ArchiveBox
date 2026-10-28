@@ -101,45 +101,26 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     col_names = [col[1] for col in columns]
     has_uuid_column = "uuid" in col_names
 
-    used_uuids = set()
-
-    def fresh_uuid():
-        while True:
-            candidate = uuid7().hex
-            if candidate not in used_uuids:
-                used_uuids.add(candidate)
-                return candidate
-
     def unique_uuid(existing_uuid):
         try:
-            candidate = UUID(str(existing_uuid)).hex if existing_uuid else None
+            candidate = UUID(str(existing_uuid)).hex if existing_uuid else uuid7().hex
         except (TypeError, ValueError, AttributeError):
-            candidate = None
+            candidate = uuid7().hex
+        while True:
+            cursor.execute("SELECT 1 FROM core_archiveresult_new WHERE id = %s", [candidate])
+            if cursor.fetchone() is None:
+                return candidate
+            candidate = uuid7().hex
 
-        if candidate and candidate not in used_uuids:
-            used_uuids.add(candidate)
-            return candidate
-        return fresh_uuid()
-
-    if has_uuid_column:
-        cursor.execute("SELECT id, uuid FROM core_archiveresult")
-        records = cursor.fetchall()
-        id_to_uuid = {old_id: unique_uuid(existing_uuid) for old_id, existing_uuid in records}
-    else:
-        # 0.7.x path: no uuid column, generate new UUIDs for all records
-        cursor.execute("SELECT id FROM core_archiveresult")
-        records = cursor.fetchall()
-        id_to_uuid = {old_id: fresh_uuid() for (old_id,) in records}
-
-    # Step 3: Copy data with UUIDs as new primary key
-    cursor.execute("SELECT * FROM core_archiveresult")
-    old_records = cursor.fetchall()
-
-    # col_names already fetched in Step 2
+    # The source table is unchanged until every row is copied and verified.
+    # Stream it through a separate cursor; uniqueness belongs to SQLite's PK
+    # index, not a collection-sized Python mapping plus two copies of the rows.
+    source_cursor = schema_editor.connection.cursor()
+    source_cursor.execute("SELECT * FROM core_archiveresult ORDER BY id")
     inserted_count = 0
-    for record in old_records:
-        old_id = record[col_names.index("id")]
-        new_uuid = id_to_uuid[old_id]
+    for record in source_cursor:
+        existing_uuid = record[col_names.index("uuid")] if has_uuid_column else None
+        new_uuid = unique_uuid(existing_uuid)
 
         # Build insert with new structure
         values = {col_names[i]: record[i] for i in range(len(col_names))}
@@ -181,10 +162,11 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
         )
         inserted_count += 1
         if inserted_count % PROGRESS_EVERY == 0:
-            print(f"      copied {inserted_count}/{len(old_records)} ArchiveResults...")
+            print(f"      copied {inserted_count}/{row_count} ArchiveResults...")
 
-    if old_records:
-        print(f"      copied {inserted_count}/{len(old_records)} ArchiveResults")
+    source_cursor.close()
+    if row_count:
+        print(f"      copied {inserted_count}/{row_count} ArchiveResults")
 
     cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
     source_count = cursor.fetchone()[0]
@@ -233,7 +215,7 @@ class Migration(migrations.Migration):
             database_operations=[
                 migrations.RunPython(
                     migrate_archiveresult_id_to_uuid,
-                    reverse_code=migrations.RunPython.noop,
+                    # No inverse exists: do not erase migration history while retaining the new schema.
                 ),
             ],
             state_operations=[

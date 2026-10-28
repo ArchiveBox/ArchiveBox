@@ -176,14 +176,14 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(
             create_default_crawl_and_assign_snapshots,
-            reverse_code=migrations.RunPython.noop,
+            # No inverse exists: do not erase migration history while retaining the new schema.
         ),
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 # Now make crawl_id NOT NULL (sqlite-only table rebuild)
                 migrations.RunPython(
                     _make_crawl_id_not_null,
-                    reverse_code=migrations.RunPython.noop,
+                    # No inverse exists: do not erase migration history while retaining the new schema.
                 ),
             ],
             state_operations=[

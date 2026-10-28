@@ -21,7 +21,13 @@ def manage(args: list[str] | None = None) -> None:
 
     from django.core.management import execute_from_command_line
 
-    execute_from_command_line(["manage.py", *(args or ["help"])])
+    if args and args[0] == "migrate" and not any(arg in args for arg in ("--plan", "--check", "--help", "-h")):
+        from archivebox.misc.db import checked_database_migration, migration_lock
+
+        with migration_lock(), checked_database_migration():
+            execute_from_command_line(["manage.py", *args])
+    else:
+        execute_from_command_line(["manage.py", *(args or ["help"])])
 
 
 @click.command(add_help_option=False, context_settings=dict(ignore_unknown_options=True))

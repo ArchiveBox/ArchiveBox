@@ -236,6 +236,60 @@ def truncate_overlong_charfields(instance=None, **kwargs) -> None:
 # --- migration helpers ------------------------------------------------------
 
 
+def check_sqlite_database(db_path: Path) -> dict[str, int]:
+    """Read a consistent SQLite snapshot, including every table's actual rows.
+
+    Counts and index probes alone can miss unreadable table pages. Never use
+    immutable=1 here: a live database may have committed rows in its WAL.
+    This opens no Django models and also works on old or partially migrated DBs.
+    """
+    import sqlite3
+    from contextlib import closing
+
+    with closing(sqlite3.connect(f"{db_path.absolute().as_uri()}?mode=ro", uri=True)) as db:
+        db.execute("BEGIN")
+        for (result,) in db.execute("PRAGMA integrity_check"):
+            if result != "ok":
+                raise RuntimeError(f"SQLite integrity_check failed: {result}")
+        for table, rowid, parent, constraint in db.execute("PRAGMA foreign_key_check"):
+            raise RuntimeError(f"SQLite foreign_key_check failed: {table} row {rowid} references {parent} (constraint {constraint})")
+        counts = {}
+        tables = db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        for (table,) in tables:
+            quoted_table = '"' + table.replace('"', '""') + '"'
+            rows = db.execute(f"SELECT * FROM {quoted_table} NOT INDEXED")
+            count = 0
+            while batch := rows.fetchmany(256):
+                count += len(batch)
+            counts[table] = count
+        return counts
+
+
+@contextmanager
+def checked_database_migration(stdout: TextIO | None = None):
+    """Fail before changing an invalid SQLite DB, and validate the result."""
+    from django.db import connection
+    from rich.console import Console
+
+    if connection.vendor != "sqlite" or connection.settings_dict["NAME"] == ":memory:":
+        yield
+        return
+    db_path = Path(connection.settings_dict["NAME"])
+    console = Console(file=stdout or None, stderr=stdout is None)
+    console.print("[*] Checking database integrity, foreign keys, and table readability before migration...")
+    if db_path.exists():
+        check_sqlite_database(db_path)
+    try:
+        yield
+        check_sqlite_database(db_path)
+    except BaseException:
+        console.print(
+            "[red]Migration did not complete successfully. Stop here; inspect the error and run archivebox check before retrying.[/red]",
+        )
+        raise
+    console.print("[*] Database integrity, foreign keys, and table reads verified after migration.")
+
+
 def rebuild_models_from_migration_state(apps, schema_editor, app_label: str, model_names: list[str]) -> None:
     """(non-sqlite only) Drop and recreate the given models' tables from the
     current migration state.
@@ -641,20 +695,11 @@ def apply_migrations(
         if not pending_migrations():
             return []
 
-        if stdout is not None:
-            retry_sqlite_locks(
-                lambda: call_command("migrate", interactive=False, database="default", stdout=stdout, stderr=stderr, verbosity=verbosity),
-                label="applying migrations",
-                stderr=stderr,
-            )
+        with checked_database_migration(stdout=stderr or stdout):
+            output = stdout if stdout is not None else StringIO()
+            # Do not replay a whole migration run on an arbitrary lock error.
+            # Django records completed migrations; the next explicit run resumes.
+            call_command("migrate", interactive=False, database="default", stdout=output, stderr=stderr, verbosity=verbosity)
+            if isinstance(output, StringIO):
+                return [line.strip() for line in output.getvalue().splitlines() if line.strip()]
             return []
-
-        def migrate() -> StringIO:
-            out1 = StringIO()
-            call_command("migrate", interactive=False, database="default", stdout=out1, verbosity=verbosity)
-            out1.seek(0)
-            return out1
-
-        out1 = retry_sqlite_locks(migrate, label="applying migrations")
-
-        return [line.strip() for line in out1.readlines() if line.strip()]

@@ -173,7 +173,8 @@ def test_init_refuses_database_migrated_by_newer_code(tmp_path):
     assert result.returncode == 3
     assert "migrated by a newer version of ArchiveBox" in result.stderr
     assert "crawls.9999_future_test" in result.stderr
-    assert "archivebox manage migrate crawls " in result.stderr
+    assert "Use the version that last migrated this collection" in result.stderr
+    assert "archivebox manage migrate crawls " not in result.stderr
 
 
 def test_init_recovers_from_pre_squash_dev_history(tmp_path):

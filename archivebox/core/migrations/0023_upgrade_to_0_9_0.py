@@ -150,9 +150,9 @@ def upgrade_core_tables(apps, schema_editor):
                 select_cols.append("modified_at")
             if "notes" in archiveresult_cols:
                 select_cols.append("notes")
-            cursor.execute(f"SELECT {', '.join(select_cols)} FROM core_archiveresult")
-            old_records = cursor.fetchall()
-            for i, record in enumerate(old_records, start=1):
+            source_cursor = connection.cursor()
+            source_cursor.execute(f"SELECT {', '.join(select_cols)} FROM core_archiveresult")
+            for i, record in enumerate(source_cursor, start=1):
                 values = dict(zip(select_cols, record))
                 try:
                     new_uuid = UUID(str(values["uuid"])).hex
@@ -162,7 +162,7 @@ def upgrade_core_tables(apps, schema_editor):
                 end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
-                    INSERT OR IGNORE INTO core_archiveresult_new (
+                    INSERT INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
@@ -186,13 +186,13 @@ def upgrade_core_tables(apps, schema_editor):
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
-                    print(f"        copied {i}/{len(old_records)} ArchiveResults...")
+                    print(f"        copied {i}/{row_count} ArchiveResults...")
         elif has_abid and not has_uuid:
             # Migrating from v0.8.6rc0 (has abid instead of uuid)
             print(f"      copying {row_count} ArchiveResults...")
-            cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
-            old_records = cursor.fetchall()
-            for i, record in enumerate(old_records, start=1):
+            source_cursor = connection.cursor()
+            source_cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
+            for i, record in enumerate(source_cursor, start=1):
                 values = dict(zip(archiveresult_select_cols, record))
                 try:
                     new_uuid = UUID(str(values["id"])).hex
@@ -202,7 +202,7 @@ def upgrade_core_tables(apps, schema_editor):
                 end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
-                    INSERT OR IGNORE INTO core_archiveresult_new (
+                    INSERT INTO core_archiveresult_new (
                         uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
@@ -225,20 +225,20 @@ def upgrade_core_tables(apps, schema_editor):
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
-                    print(f"        copied {i}/{len(old_records)} ArchiveResults...")
+                    print(f"        copied {i}/{row_count} ArchiveResults...")
         else:
             # Migrating from v0.7.2 (no uuid or abid column - generate fresh UUIDs)
             print(f"      copying {row_count} ArchiveResults...")
-            cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
-            old_records = cursor.fetchall()
-            for i, record in enumerate(old_records, start=1):
+            source_cursor = connection.cursor()
+            source_cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
+            for i, record in enumerate(source_cursor, start=1):
                 values = dict(zip(archiveresult_select_cols, record))
                 new_uuid = uuid7().hex
                 start_ts = values["start_ts"] or datetime.now().isoformat()
                 end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
-                    INSERT OR IGNORE INTO core_archiveresult_new (
+                    INSERT INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
@@ -262,14 +262,17 @@ def upgrade_core_tables(apps, schema_editor):
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
-                    print(f"        copied {i}/{len(old_records)} ArchiveResults...")
-        print(f"      copied {len(old_records)} ArchiveResults")
+                    print(f"        copied {i}/{row_count} ArchiveResults...")
+        source_cursor.close()
+        print(f"      copied {row_count} ArchiveResults")
 
     assert_rebuild_row_count(cursor, "core_archiveresult", "core_archiveresult_new", row_count)
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")
 
-    # Don't create indexes - migration 0025 will handle them
+    # Snapshot status inference below probes this table for every snapshot.
+    # Rebuilding dropped its old indexes; waiting until 0025 makes this O(S*R).
+    cursor.execute("CREATE INDEX core_archiveresult_snapshot_status_upgrade_idx ON core_archiveresult(snapshot_id, status)")
 
     # ============================================================================
     # PART 2: Upgrade core_snapshot table
@@ -341,7 +344,7 @@ def upgrade_core_tables(apps, schema_editor):
                 # timestamp is the legacy bookmark/import timestamp and archive/{timestamp} identity.
                 # added is the DB row creation/import time, and updated was renamed to downloaded_at in 0.8.x.
                 cursor.execute(f"""
-                    INSERT OR IGNORE INTO core_snapshot_new (
+                    INSERT INTO core_snapshot_new (
                         id, url, timestamp, title,
                         bookmarked_at, created_at, modified_at, downloaded_at,
                         status
@@ -421,7 +424,7 @@ def upgrade_core_tables(apps, schema_editor):
                         select_cols.append(field_name)
 
                 cursor.execute(f"""
-                    INSERT OR IGNORE INTO core_snapshot_new ({", ".join(insert_cols)})
+                    INSERT INTO core_snapshot_new ({", ".join(insert_cols)})
                     SELECT {", ".join(select_cols)}
                     FROM core_snapshot;
                 """)
@@ -495,7 +498,7 @@ def upgrade_core_tables(apps, schema_editor):
                     # Insert with new INTEGER ID
                     insert_values = {"id": i, **values}
                     cursor.execute(
-                        f"INSERT OR IGNORE INTO core_tag_new ({', '.join(insert_values)}) VALUES ({', '.join('%s' for _ in insert_values)})",
+                        f"INSERT INTO core_tag_new ({', '.join(insert_values)}) VALUES ({', '.join('%s' for _ in insert_values)})",
                         tuple(insert_values.values()),
                     )
                     if i % PROGRESS_EVERY == 0:
@@ -516,7 +519,7 @@ def upgrade_core_tables(apps, schema_editor):
                         if new_tag_id:
                             cursor.execute(
                                 """
-                                INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
+                                INSERT INTO core_snapshot_tags (id, snapshot_id, tag_id)
                                 VALUES (%s, %s, %s)
                             """,
                                 (st_id, snapshot_id, new_tag_id),
@@ -537,7 +540,7 @@ def upgrade_core_tables(apps, schema_editor):
                 copy_cols = ["id", "name", "slug"]
                 copy_cols.extend(field for field in ("created_at", "modified_at", "created_by_id") if field in tag_cols)
                 cursor.execute(f"""
-                    INSERT OR IGNORE INTO core_tag_new ({", ".join(copy_cols)})
+                    INSERT INTO core_tag_new ({", ".join(copy_cols)})
                     SELECT {", ".join(copy_cols)}
                     FROM core_tag;
                 """)
@@ -576,7 +579,7 @@ class Migration(migrations.Migration):
             database_operations=[
                 migrations.RunPython(
                     upgrade_core_tables,
-                    reverse_code=migrations.RunPython.noop,
+                    # No inverse exists: do not erase migration history while retaining the new schema.
                 ),
             ],
             state_operations=[

@@ -1107,9 +1107,18 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the <code>data/archive/</code> folder.
 </li>
 <li><strong>Keep the <code>data/index.sqlite3</code> file on a reliable local drive (not a network mount)</strong> or SSD when using SQLite; the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
+<li>Do not synchronize a live SQLite database or its <code>-wal</code>, <code>-shm</code>, or <code>-journal</code> files with Syncthing or similar file-sync tools. SQLite coordinates its own readers and writers; copying or replacing those files externally bypasses that coordination.</li>
 <li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, configure the server-side UID/GID mapping or ACL so ArchiveBox's non-root user can create and remove files. <code>root_squash</code> is compatible when the selected non-root identity has write access; do not rely on container root to override server-side permissions.
 </li>
 </ul>
+
+For an upgrade from 0.7.x or 0.8.x, stop the server and runners, run `archivebox init`, then run `archivebox update --rescan --migrate-only` from the collection directory. With Compose, use `docker compose stop archivebox` followed by `docker compose run --rm archivebox init` and `docker compose run --rm archivebox update --rescan --migrate-only`, then restart with `docker compose up -d`. Explicit filesystem migration refuses an already-running local server or runner. This check covers processes visible on this machine, not other hosts sharing storage.
+
+`archivebox check` reads SQLite's integrity and foreign-key checks **and every table row**, without migrating or repairing the database. It also works on older schemas; `archivebox check --database /path/to/index.sqlite3` checks a specific file. Schema migrations validate the database before and after changing it. A failed check or migration exits nonzero; inspect the error before retrying. These commands do not create backups.
+
+Filesystem migration preserves conflicting source and destination files and reports failure instead of overwriting them. Rerunning resumes completed work. Known unfinished snapshots are reported as `Skipped`, not migration errors, and `--migrate-only` does not start captures. For metadata rehydration of a specific existing snapshot, use `archivebox update --rescan --filter-type timestamp TIMESTAMP`; an unfiltered rescan discovers orphan directories too. Do not manually change every snapshot's `fs_version`: each row must agree with its verified filesystem layout.
+
+SQLite connections use durable `synchronous=EXTRA` commits (equivalent to `FULL` in WAL mode), and collection configuration rejects `OFF` and `MEMORY` journals. Keep filesystem sync enabled. These guarantees require storage that correctly implements locking and flushes; weakening them to speed up an upgrade can lose acknowledged writes. See [SQLite's durability documentation](https://www.sqlite.org/pragma.html#pragma_synchronous) and [Sonarr's database storage guidance](https://wiki.servarr.com/sonarr/faq).
 
 <h4>Learn More</h4>
 
@@ -1492,6 +1501,10 @@ archivebox install
 
 
 #### Make DB migrations, enter Django shell, other dev helper commands
+
+Treat released migration names and dependencies as durable history. Keep new changes additive; legacy forward-path repairs must retain the same resulting schema and preserve every existing row. Never mark a destructive data transformation reversible with a no-op. Rebuild tables inside Django's migration transaction, fail on copy conflicts, and verify row counts before dropping the source. Do not recover a failed transaction by rolling it back and replaying only its last statement or batch.
+
+Migration regression coverage lives in `archivebox/tests/test_migrations_*`, `test_sqlite_backend.py`, and `test_cli_update_unattributed_outputs.py`, and runs in the regular test suite. Changes must preserve users, credentials, tags, results, execution evidence, and captured bytes through upgrades, reruns, real process interruption, and destination conflicts. Include indexed query-plan and bounded-memory checks for collection-wide operations; a fresh empty database alone is not an upgrade test.
 
 <details><summary><i>Click to expand...</i></summary>
 

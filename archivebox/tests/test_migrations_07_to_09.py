@@ -65,6 +65,115 @@ def test_migration_preserves_snapshot_count(archive_07):
     assert ok, msg
 
 
+def test_legacy_status_derivation_uses_snapshot_index(archive_07):
+    work_dir, db_path, original_data = archive_07
+    result = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", "0023", "--noinput"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    with sqlite3.connect(db_path) as db:
+        plan = db.execute(
+            "EXPLAIN QUERY PLAN SELECT CASE WHEN EXISTS "
+            "(SELECT 1 FROM core_archiveresult WHERE snapshot_id = core_snapshot.id "
+            "AND status IN ('queued', 'started', 'backoff')) THEN 'queued' ELSE 'sealed' END FROM core_snapshot",
+        ).fetchall()
+        assert any("SEARCH core_archiveresult USING" in row[3] for row in plan), plan
+        assert db.execute("SELECT COUNT(*) FROM core_archiveresult").fetchone()[0] == len(original_data["archiveresults"])
+
+
+@pytest.mark.parametrize("applied,target", [("0023", "0022"), ("0024", "0023"), ("0027", "0026"), ("0029", "0028")])
+def test_legacy_rebuild_cannot_be_falsely_unapplied(archive_07, applied, target):
+    work_dir, db_path, _ = archive_07
+    result = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", applied, "--noinput"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    with sqlite3.connect(db_path) as db:
+        before = "\n".join(db.iterdump())
+    result = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", target, "--noinput"])
+    assert result.returncode != 0
+    assert re.search(r"not reversible|cannot reverse", result.stdout + result.stderr)
+    with sqlite3.connect(db_path) as db:
+        assert "\n".join(db.iterdump()) == before
+
+
+@pytest.mark.timeout(90)
+def test_killed_table_rebuild_preserves_every_row_and_resumes(archive_07):
+    import hashlib
+    import signal
+    from archivebox.tests.conftest import run_archivebox_cmd
+
+    work_dir, db_path, _ = archive_07
+    with sqlite3.connect(db_path) as db:
+        # Real legacy rows, large enough to interrupt inside the copy instead
+        # of relying on a mocked migration or a sleep in production code.
+        db.execute("""
+            WITH RECURSIVE sequence(n) AS (VALUES(1000) UNION ALL SELECT n+1 FROM sequence WHERE n<100999)
+            INSERT INTO core_archiveresult (id, uuid, snapshot_id, extractor, cmd, pwd, cmd_version, output, start_ts, end_ts, status)
+            SELECT n, printf('%032x', n), sample.snapshot_id, sample.extractor, sample.cmd, sample.pwd,
+                   sample.cmd_version, sample.output, sample.start_ts, sample.end_ts, sample.status
+            FROM sequence CROSS JOIN (SELECT * FROM core_archiveresult ORDER BY id LIMIT 1) AS sample
+        """)
+
+    def source_digest():
+        digest = hashlib.sha256()
+        with sqlite3.connect(db_path) as db:
+            for row in db.execute("SELECT * FROM core_archiveresult ORDER BY id"):
+                digest.update(json.dumps(row).encode())
+        return digest.digest()
+
+    original_digest = source_digest()
+    process = run_archivebox_cmd(
+        ["manage", "migrate", "core", "0023", "--noinput"],
+        cwd=work_dir,
+        env=cli_env(disable_extractors=True, PYTHONUNBUFFERED="1"),
+        wait=False,
+    )
+    try:
+        for line in process.stdout:
+            if "copied 10000/" in line:
+                process.send_signal(signal.SIGKILL)
+                break
+        stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == -signal.SIGKILL, stdout + stderr
+    finally:
+        if process.poll() is None:
+            process.send_signal(signal.SIGKILL)
+            process.wait(timeout=10)
+    assert source_digest() == original_digest
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert db.execute("SELECT 1 FROM django_migrations WHERE app='core' AND name LIKE '0023%'").fetchall() == []
+        assert db.execute("SELECT name FROM sqlite_master WHERE name='core_archiveresult_new'").fetchall() == []
+        source_count = db.execute("SELECT COUNT(*) FROM core_archiveresult").fetchone()[0]
+
+    result = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", "0023", "--noinput"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM core_archiveresult").fetchone()[0] == source_count
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_check_legacy_database_is_read_only_and_reports_broken_references(archive_07):
+    work_dir, db_path, _ = archive_07
+    before = db_path.read_bytes()
+    result = run_archivebox_migration_cmd(work_dir, ["check"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "foreign_key_check" in result.stdout
+    assert "core_archiveresult" in result.stdout
+    assert db_path.read_bytes() == before
+
+    with sqlite3.connect(db_path) as db:
+        db.execute("UPDATE core_archiveresult SET snapshot_id = 'missing' WHERE id = (SELECT MIN(id) FROM core_archiveresult)")
+        before_migrations = db.execute("SELECT app, name FROM django_migrations ORDER BY app, name").fetchall()
+    result = run_archivebox_migration_cmd(work_dir, ["check"])
+    assert result.returncode != 0
+    assert "foreign_key_check" in result.stdout + result.stderr
+    before = db_path.read_bytes()
+    result = run_archivebox_migration_cmd(work_dir, ["init"])
+    assert result.returncode != 0
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("SELECT app, name FROM django_migrations ORDER BY app, name").fetchall() == before_migrations
+        assert db.execute("SELECT COUNT(*) FROM core_archiveresult WHERE snapshot_id = 'missing'").fetchone()[0] == 1
+
+
 def test_migration_preserves_snapshot_urls(archive_07):
     """Migration should preserve all snapshot URLs."""
     work_dir, db_path, original_data = archive_07

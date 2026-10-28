@@ -6,7 +6,6 @@ import sqlite3
 import threading
 import time
 from collections.abc import Mapping
-from itertools import tee
 import re
 
 from django.db.backends.sqlite3.base import DatabaseWrapper as DjangoSQLiteDatabaseWrapper
@@ -65,24 +64,11 @@ def _connection_in_transaction(connection) -> bool:
         return False
 
 
-def _recover_non_atomic_connection(db_wrapper, query: str) -> None:
-    if db_wrapper is None or getattr(db_wrapper, "in_atomic_block", False):
-        return
-    connection = getattr(db_wrapper, "connection", None)
-    if not _connection_in_transaction(connection):
-        return
-    try:
-        connection.rollback()
-    except sqlite3.Error:
-        return
-
-
 def _is_inside_atomic(db_wrapper) -> bool:
     return bool(db_wrapper is not None and getattr(db_wrapper, "in_atomic_block", False))
 
 
 def _abort_locked_database(query: str, params=None, *, elapsed: float, db_wrapper=None) -> None:
-    _recover_non_atomic_connection(db_wrapper, query)
     raise sqlite3.OperationalError(
         f"SQLite database remained locked for {elapsed:.0f}s while running {_format_sql(query, params)}; "
         "aborting instead of retrying indefinitely",
@@ -95,22 +81,21 @@ def _retry_locked_database(action, query: str, params=None, *, db_wrapper=None):
     while True:
         try:
             return action()
-        except (sqlite3.OperationalError, Exception) as err:
+        except Exception as err:
             from archivebox.misc.db import sqlite_lock_error
 
             if not sqlite_lock_error(err):
+                raise
+            # A caller-owned transaction must remain intact on failure. Django
+            # clears in_atomic_block before COMMIT; SQLite's transaction flag
+            # also covers explicit BEGIN and set_autocommit(False) callers.
+            if _is_inside_atomic(db_wrapper) or _connection_in_transaction(getattr(db_wrapper, "connection", None)):
                 raise
             attempt += 1
             elapsed = time.monotonic() - started_at
             retry_timeout = _sqlite_lock_retry_timeout()
             retry_interval = _sqlite_lock_retry_interval()
             _log_locked_database(query, params, attempt=attempt, elapsed=elapsed, retry_interval=retry_interval)
-            # If SQLite raised while Django is in autocommit mode, do not keep a
-            # partially-open sqlite transaction around while waiting. Explicit
-            # transaction.atomic() callers keep their normal transaction boundary.
-            _recover_non_atomic_connection(db_wrapper, query)
-            if _is_inside_atomic(db_wrapper):
-                raise
             if retry_timeout and elapsed >= retry_timeout:
                 _abort_locked_database(query, params, elapsed=elapsed, db_wrapper=db_wrapper)
             time.sleep(retry_interval)
@@ -134,19 +119,10 @@ class SQLiteCursorWrapper(DjangoSQLiteCursorWrapper):
         )
 
     def executemany(self, query, param_list):
-        peekable, param_list = tee(iter(param_list))
-        if (params := next(peekable, None)) and isinstance(params, Mapping):
-            param_names = list(params)
-        else:
-            param_names = None
-        converted_query = self.convert_query(query, param_names=param_names)
-        param_list = tuple(param_list)
-        return _retry_locked_database(
-            lambda: super(DjangoSQLiteCursorWrapper, self).executemany(converted_query, param_list),
-            converted_query,
-            f"{len(param_list)} parameter sets",
-            db_wrapper=getattr(self, "db_wrapper", None),
-        )
+        # In autocommit, earlier rows may already be durable when a later row
+        # fails. Replaying the batch can duplicate writes. Preserve Django's
+        # error and transaction semantics, without materializing the iterator.
+        return super().executemany(query, param_list)
 
 
 # WHY: Django's ASGI handler runs each request's sync code in a brand-new
@@ -241,9 +217,3 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
         cursor = self.connection.cursor(factory=SQLiteCursorWrapper)
         cursor.db_wrapper = self
         return cursor
-
-    def _commit(self):
-        return _retry_locked_database(lambda: super(DatabaseWrapper, self)._commit(), "COMMIT", db_wrapper=self)
-
-    def _rollback(self):
-        return _retry_locked_database(lambda: super(DatabaseWrapper, self)._rollback(), "ROLLBACK", db_wrapper=self)

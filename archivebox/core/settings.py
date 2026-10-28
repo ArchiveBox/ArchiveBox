@@ -244,7 +244,9 @@ SQLITE_CONNECTION_OPTIONS = {
             "PRAGMA foreign_keys=ON;"
             f"PRAGMA busy_timeout = {CONFIG.SQLITE_BUSY_TIMEOUT};"
             f"PRAGMA journal_mode = {SQLITE_JOURNAL_MODE};"
-            "PRAGMA synchronous = NORMAL;"
+            # Preserve acknowledged commits across power loss. EXTRA is FULL
+            # in WAL mode and also syncs journal deletion in rollback mode.
+            "PRAGMA synchronous = EXTRA;"
             "PRAGMA temp_store = MEMORY;"
             f"PRAGMA mmap_size = {SQLITE_MMAP_SIZE};"
             "PRAGMA journal_size_limit = 67108864;"

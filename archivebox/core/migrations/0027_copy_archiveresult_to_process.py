@@ -300,25 +300,29 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
     # Get or create Machine.current()
     machine_id = get_or_create_current_machine(cursor)
 
-    # Get every ArchiveResult without a Process. Rows with empty execution
-    # metadata still need a Process before the legacy columns can be removed.
-    # Use plugin (extractor was renamed to plugin in migration 0025)
-    cursor.execute("""
-        SELECT id, snapshot_id, plugin, cmd, pwd, cmd_version,
-               status, start_ts, end_ts, created_at
-        FROM core_archiveresult
-        WHERE process_id IS NULL
-    """)
+    cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
+    result_count = cursor.fetchone()[0]
+    print(f"    - Migrating {result_count} ArchiveResults to Process rows...")
 
-    results = cursor.fetchall()
-
-    if not results:
-        print("    ✓ No ArchiveResults need Process migration")
-    else:
-        print(f"    - Migrating {len(results)} ArchiveResults to Process rows...")
+    def pending_rows():
+        # Complete each bounded read before updating process_id. A streaming
+        # cursor over a table being modified has undefined visitation semantics.
+        last_id = None
+        while True:
+            boundary = " AND id > %s" if last_id is not None else ""
+            cursor.execute(
+                "SELECT id, snapshot_id, plugin, cmd, pwd, cmd_version, status, start_ts, end_ts, created_at "
+                f"FROM core_archiveresult WHERE process_id IS NULL{boundary} ORDER BY id LIMIT 500",
+                [last_id] if last_id is not None else [],
+            )
+            batch = cursor.fetchall()
+            if not batch:
+                return
+            last_id = batch[-1][0]
+            yield from batch
 
     migrated_count = 0
-    for i, row in enumerate(results):
+    for row in pending_rows():
         ar_id, snapshot_id, plugin, cmd_raw, pwd, cmd_version, status, start_ts, end_ts, created_at = row
 
         # Parse cmd field
@@ -372,7 +376,7 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
 
         migrated_count += 1
         if migrated_count % PROGRESS_EVERY == 0:
-            print(f"      migrated {migrated_count}/{len(results)} ArchiveResults...")
+            print(f"      migrated {migrated_count}/{result_count} ArchiveResults...")
 
     cursor.execute("""
         SELECT ar.id, ar.cmd, ar.pwd, ar.cmd_version, ar.process_id,
@@ -381,7 +385,7 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
         LEFT JOIN machine_process AS process ON process.id = ar.process_id
         LEFT JOIN machine_binary AS binary ON binary.id = process.binary_id
     """)
-    for ar_id, cmd_raw, pwd, cmd_version, process_id, process_cmd_raw, process_pwd, binary_version in cursor.fetchall():
+    for ar_id, cmd_raw, pwd, cmd_version, process_id, process_cmd_raw, process_pwd, binary_version in cursor:
         if not process_id:
             raise RuntimeError(f"ArchiveResult {ar_id} is not linked to a Process")
         if parse_cmd_field(process_cmd_raw) != parse_cmd_field(cmd_raw) or process_pwd != (pwd or ""):
@@ -402,7 +406,7 @@ class Migration(migrations.Migration):
         # First, copy data from old fields to Process
         migrations.RunPython(
             copy_archiveresult_data_to_process,
-            reverse_code=migrations.RunPython.noop,
+            # No inverse exists: do not erase migration history while retaining the new schema.
         ),
         # Now safe to remove old fields (moved from 0025)
         migrations.RemoveField(

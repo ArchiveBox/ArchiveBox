@@ -449,7 +449,7 @@ class DatabaseConfig(BaseConfigSet):
     SQLITE_JOURNAL_MODE: str = Field(
         default_factory=lambda data: _default_sqlite_journal_mode(str(data["DATABASE_NAME"])),
         alias="ARCHIVEBOX_SQLITE_JOURNAL_MODE",
-        pattern=r"(?i)^(DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF)$",
+        pattern=r"(?i)^(DELETE|TRUNCATE|PERSIST|WAL)$",
     )
     SQLITE_MMAP_SIZE: int = Field(
         default=0 if CONSTANTS.IN_DOCKER else 134217728,

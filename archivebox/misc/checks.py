@@ -103,7 +103,7 @@ def check_migrations(*, blocking: bool = True, auto_apply: bool = False, cancel_
     from archivebox import DATA_DIR
     from archivebox.misc.db import apply_migrations, migration_state, pending_migrations
 
-    pending, missing_from_code, rollback_targets = migration_state()
+    pending, missing_from_code, _rollback_targets = migration_state()
     is_migrating = any(arg in sys.argv for arg in ["makemigrations", "migrate", "init"]) or os.environ.get("ARCHIVEBOX_WANTS_INIT") == "1"
 
     if missing_from_code:
@@ -122,16 +122,11 @@ def check_migrations(*, blocking: bool = True, auto_apply: bool = False, cancel_
         if len(missing_from_code) > 10:
             print(f"        ... and {len(missing_from_code) - 10} more", file=sys.stderr)
         print(file=sys.stderr)
+        print("    Use the version that last migrated this collection, or a newer release.", file=sys.stderr)
         print(
-            "    If you are intentionally trying to downgrade, switch back to the newer version temporarily",
+            "    Schema changes are not necessarily reversible; do not delete or fake migration records to bypass this check.",
             file=sys.stderr,
         )
-        print(
-            "    and run this to downgrade the DB version (back up your DB first!):",
-            file=sys.stderr,
-        )
-        for app, target in sorted(rollback_targets.items()):
-            print(f"        archivebox manage migrate {app} {target}", file=sys.stderr)
         raise SystemExit(3)
 
     if pending and not is_migrating:

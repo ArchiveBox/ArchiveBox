@@ -63,7 +63,9 @@ def _build_filtered_snapshots_queryset(
         snapshots = snapshots.reverse()
     if kwargs.get("resume"):
         snapshots = snapshots.filter(**{"timestamp__gte" if reverse else "timestamp__lte": kwargs["resume"]})
-    snapshots = snapshots.select_related("crawl")
+    # Share each Crawl object within the page instead of duplicating its
+    # potentially collection-sized URL list for every matching snapshot.
+    snapshots = snapshots.prefetch_related("crawl__created_by")
     if limit is not None and limit > 0:
         snapshot_ids = list(snapshots.values_list("id", flat=True)[:limit])
         snapshots = snapshots.filter(id__in=snapshot_ids)
@@ -205,6 +207,17 @@ def update(
     )
     from archivebox.workers.supervisord_util import run_runner_worker, stop_own_supervisord_process
 
+    if rescan or migrate_only:
+        from archivebox.core.takeover_util import runtime_stack_owner, live_runner_processes
+
+        owner = runtime_stack_owner(data_dir=CONSTANTS.DATA_DIR)
+        runners = live_runner_processes(data_dir=CONSTANTS.DATA_DIR)
+        if owner is not None or runners:
+            raise click.ClickException(
+                "Stop the local ArchiveBox server and runners before filesystem migration/rescan. "
+                "Run archivebox update --rescan --migrate-only in a stopped collection, not docker exec against a serving container.",
+            )
+
     command = current_command(Process.TypeChoices.UPDATE, data_dir=CONSTANTS.DATA_DIR)
 
     def still_owns_foreground_runner() -> bool:
@@ -331,6 +344,8 @@ def update(
                             wait_for_turn=wait_for_turn,
                         )
                         print_stats(stats)
+                        if stats.get("errors"):
+                            raise SystemExit(1)
                         touched_snapshot_ids.update(stats.get("snapshot_ids", []))
                     else:
                         stats_combined = {"phase1": {}, "phase2": {}}
@@ -344,17 +359,16 @@ def update(
                             migrate=True,
                         )
                         print_combined_stats(stats_combined)
-                    # The due selectors are indexed and cheap when empty, so
-                    # always drain them instead of preceding the runner with
-                    # whole-table counts merely to decide whether to call it.
-                    print("[*] Phase 3: Running filesystem maintenance until idle...")
-                    if is_filtered_update:
-                        for snapshot_id in sorted(touched_snapshot_ids, reverse=not reverse):
-                            run_scoped_runner("--snapshot-id", snapshot_id)
-                    elif migrate_only:
-                        run_scoped_runner("--maintenance-only")
-                    else:
-                        run_scoped_runner()
+                    # migrate-only already processed its selected rows above.
+                    # Starting a runner also performs recovery, waking unrelated
+                    # queued captures; a scoped runner can even execute them.
+                    if not migrate_only:
+                        print("[*] Phase 3: Running selected captures...")
+                        if is_filtered_update:
+                            for snapshot_id in sorted(touched_snapshot_ids, reverse=not reverse):
+                                run_scoped_runner("--snapshot-id", snapshot_id)
+                        else:
+                            run_scoped_runner()
 
                 if do_index:
                     from archivebox.cli.rescan import reconcile_known_snapshots
@@ -681,7 +695,11 @@ def process_all_db_snapshots(
     initial_now = timezone.now()
     rows_to_wake = queryset if migrate else queryset.filter(Q(retry_at__isnull=True) | Q(retry_at__gt=initial_now))
     ordered = rows_to_wake.order_by("created_at", "id") if reverse else rows_to_wake.order_by("-created_at", "-id")
-    remaining = ordered.select_related("crawl__created_by").paged_iterator(chunk_size=batch_size)
+    # A legacy collection can share one Crawl containing tens of thousands of
+    # URLs. Joining that text once per snapshot inflates a 500-row page to GBs.
+    # The maintenance worker loads one full snapshot at a time; queue-only
+    # updates need only the CAS version and ordering keys.
+    remaining = ordered.only("id", "created_at", "fs_version").paged_iterator(chunk_size=batch_size)
     while True:
         if wait_for_turn:
             wait_for_turn()
@@ -736,7 +754,9 @@ def process_filtered_snapshots(
     from archivebox.core.models import Snapshot
     from django.utils import timezone
 
-    stats: dict[str, Any] = {"processed": 0, "updated_json": 0, "updated_db": 0, "queued": 0, "snapshot_ids": []}
+    from django.db import DatabaseError
+
+    stats: dict[str, Any] = {"processed": 0, "updated_json": 0, "updated_db": 0, "queued": 0, "errors": 0, "snapshot_ids": []}
 
     snapshots = _build_filtered_snapshots_queryset(
         filter_patterns=filter_patterns,
@@ -758,13 +778,15 @@ def process_filtered_snapshots(
     total = snapshots.count()
     print(f"[*] Found {total} matching snapshots")
 
-    for snapshot in snapshots.select_related("crawl").paged_iterator(chunk_size=batch_size):
+    for snapshot in snapshots.paged_iterator(chunk_size=batch_size):
         if wait_for_turn and stats["processed"] % batch_size == 0:
             wait_for_turn()
         stats["processed"] += 1
 
         # Skip snapshots with missing crawl references
         if _get_snapshot_crawl(snapshot) is None:
+            stats["errors"] += 1
+            print(f"    [!] Snapshot {snapshot.id} has a missing crawl reference")
             continue
 
         try:
@@ -806,8 +828,11 @@ def process_filtered_snapshots(
         except KeyboardInterrupt as err:
             err.archivebox_resume = snapshot.timestamp
             raise
+        except DatabaseError:
+            # A damaged database is not a per-snapshot repair failure.
+            raise
         except Exception as e:
-            # Skip snapshots that can't be processed
+            stats["errors"] += 1
             print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
             continue
 
@@ -822,11 +847,12 @@ def print_stats(stats: dict):
     from rich import print
 
     print(f"""
-[green]Update Complete[/green]
+[green]{"Update finished with errors" if stats.get("errors") else "Update Complete"}[/green]
   Scanned rows:     {stats["processed"]}
   Updated JSON:     {stats.get("updated_json", 0)}
   Updated DB rows:  {stats.get("updated_db", 0)}
   Queued snapshots: {stats["queued"]}
+  Errors:           {stats.get("errors", 0)}
 """)
 
 
@@ -868,7 +894,7 @@ def print_index_stats(stats: dict[str, Any]) -> None:
 
 @click.command()
 @click.option("--resume", type=str, help="Resume from timestamp")
-@click.option("--batch-size", type=int, default=500, help="Commit every N records")
+@click.option("--batch-size", type=click.IntRange(min=1), default=500, help="Read at most N database rows per maintenance page")
 @click.option("--continuous", is_flag=True, help="Run continuously as background worker")
 @click.option("--index-only", is_flag=True, help="Backfill available search indexes from existing archived content")
 @click.option("--migrate-only", is_flag=True, help="Only migrate filesystem and update database/index state")

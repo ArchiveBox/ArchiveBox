@@ -84,6 +84,10 @@ def _reconcile_unattributed_output_size(snapshot: Snapshot, directory: Path) -> 
 def _reconcile_directory(directory: Path, *, repair_unattributed_size: bool = False) -> str:
     snapshot_id = uuid.UUID(directory.name)
     snapshot = Snapshot.objects.select_related("crawl__created_by").filter(pk=snapshot_id).first()
+    if snapshot is not None and snapshot.status != "sealed" and Path(snapshot.output_dir) == directory:
+        # Known unfinished captures are valid collection members. Never import
+        # an export over them, hydrate partial outputs, or call them corrupt.
+        return "Skipped"
     index = directory / CONSTANTS.JSONL_INDEX_FILENAME
     if index.is_symlink():
         raise ValueError("metadata must not be a symlink")
@@ -242,7 +246,7 @@ def reconcile_known_snapshots(snapshots, wait_for_turn=None, *, repair_unattribu
 
 
 def rescan_snapshots(wait_for_turn=None, reverse=False, scan_legacy=None):
-    stats = dict.fromkeys(("Imported", "Repaired", "Unchanged", "Errors"), 0)
+    stats = dict.fromkeys(("Imported", "Repaired", "Unchanged", "Skipped", "Errors"), 0)
     print("[*] Rescanning snapshot directories (O(N), orphans first; completed records are reused)...")
     known = {str(pk) for pk in Snapshot.objects.values_list("pk", flat=True)}
     # Two streaming passes avoid enumerating the entire archive before the
@@ -264,11 +268,11 @@ def rescan_snapshots(wait_for_turn=None, reverse=False, scan_legacy=None):
                 wait_for_turn()
             try:
                 outcome = _reconcile_directory(directory, repair_unattributed_size=True)
-                if directory.name.replace("-", "") in known:
+                if outcome != "Skipped" and directory.name.replace("-", "") in known:
                     for result in ArchiveResult.objects.filter(snapshot_id=uuid.UUID(directory.name)):
                         result.update_output_metadata_from_filesystem(snapshot_dir=directory, full_scan=True)
                 stats[outcome] += 1
-                if outcome != "Unchanged":
+                if outcome not in {"Unchanged", "Skipped"}:
                     print(f"    {outcome}: {directory}")
             except (OSError, ValueError, KeyError, TypeError, ValidationError, IntegrityError) as err:
                 stats["Errors"] += 1
