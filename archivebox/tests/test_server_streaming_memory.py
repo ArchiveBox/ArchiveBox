@@ -203,3 +203,65 @@ def test_slow_archive_download_has_bounded_memory_and_releases_file(archivebox_d
         with payload.open("rb") as source:
             source.seek(-65536, 2)
             assert tail.content == source.read()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_slow_crawl_file_download_has_bounded_memory_and_releases_file(archivebox_daemon_server):
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
+    state = server.wait_for_workers(("worker_uvicorn",))
+    process = psutil.Process(state["worker_uvicorn"]["pid"])
+    with use_archivebox_db(server.data_dir):
+        crawl = Crawl.objects.create(
+            urls="https://example.com/crawl-download",
+            status="sealed",
+            retry_at=None,
+            config={"PERMISSIONS": "public"},
+        )
+        crawl_id = str(crawl.id)
+        payload = crawl.output_dir / "payload.bin"
+        warm_file = crawl.output_dir / "warm.txt"
+    payload.parent.mkdir(parents=True)
+    digest = hashlib.sha256()
+    with warm_file.open("wb") as output:
+        output.write(b"warm")
+    with payload.open("wb") as output:
+        for _ in range(64):
+            chunk = os.urandom(1024 * 1024)
+            output.write(chunk)
+            digest.update(chunk)
+    url = f"http://127.0.0.1:{server.port}/api/v1/crawls/crawl/{crawl_id}/files/"
+    headers = {"Host": f"api.archivebox.localhost:{server.port}"}
+    with requests.Session() as client:
+        client.trust_env = False
+        warm = client.get(url + "warm.txt", headers=headers, timeout=15)
+        assert warm.status_code == 200
+        assert warm.content == b"warm"
+        for _ in range(2):
+            baseline = process.memory_info().rss
+            with client.get(url + "payload.bin", headers=headers, stream=True, timeout=15) as response:
+                assert response.status_code == 200
+                assert int(response.headers["Content-Length"]) == payload.stat().st_size
+                assert response.headers["Content-Type"] == "application/octet-stream"
+                assert response.headers["Content-Disposition"] == 'inline; filename="payload.bin"'
+                assert response.headers["Cache-Control"] == "no-store, no-cache, max-age=0, must-revalidate"
+                assert response.headers["Pragma"] == "no-cache"
+                assert response.headers["Expires"] == "0"
+                assert response.headers["X-Content-Type-Options"] == "nosniff"
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    assert process.memory_info().rss - baseline < 16 * 1024 * 1024
+                    time.sleep(0.05)
+                assert str(payload) in {entry.path for entry in process.open_files()}
+                health = client.get(f"http://127.0.0.1:{server.port}/health/", timeout=5)
+                assert health.status_code == 200
+                assert health.content == b"OK"
+            deadline = time.monotonic() + 5
+            while str(payload) in {entry.path for entry in process.open_files()}:
+                assert time.monotonic() < deadline, "Disconnected reader retained the source file"
+                time.sleep(0.05)
+        actual = hashlib.sha256()
+        with client.get(url + "payload.bin", headers=headers, stream=True, timeout=15) as response:
+            assert response.status_code == 200
+            for chunk in response.iter_content(64 * 1024):
+                actual.update(chunk)
+        assert actual.digest() == digest.digest()

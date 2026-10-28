@@ -24,6 +24,7 @@ from archivebox.core.permissions import (
 )
 from archivebox.config.common import get_config
 from archivebox.crawls.models import Crawl
+from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url
 
 from .auth import API_AUTH_METHODS, authenticated_user_from_request
@@ -224,6 +225,10 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
         raise HttpError(404, "No frame for this capture yet")
 
     response = FileResponse(file)
+    # WHY: Django materializes synchronous FileResponse iterators under ASGI.
+    # Reuse the static-file adapter so large crawl outputs remain backpressured.
+    if _is_asgi_request(request):
+        response.streaming_content = _stream_ranged_file_async(RangedFileReader(file))
     response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
