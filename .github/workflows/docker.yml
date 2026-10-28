@@ -196,6 +196,9 @@ jobs:
           username: archivebox
         env:
           DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+          # BuildKit pushes only after the build/export finishes. The default
+          # five-minute token expires during cold builds before that first push.
+          DOCKERHUB_OIDC_EXPIREIN: 3600
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
