@@ -16,7 +16,7 @@ from archivebox.services.runner import CrawlRunner
 @pytest.mark.django_db(transaction=True)
 def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
     crawl = Crawl.objects.create(
-        urls="\n".join(f"https://example.com/admission/{index}" for index in range(4)),
+        urls="\n".join(f"https://example.com/admission/{index}" for index in range(3)),
         config={"PLUGINS": "parse_txt_urls", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2},
         created_by_id=get_or_create_system_user_pk(),
     )
@@ -28,12 +28,13 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
         source.write_text(f"https://example.com/saved/{index}\n")
         snapshots.append(snapshot)
     snapshot_ids = [str(snapshot.id) for snapshot in snapshots]
-    runner = CrawlRunner(crawl, snapshot_ids=snapshot_ids, selected_plugins=["parse_txt_urls"], show_progress=False)
+    runner = CrawlRunner(crawl, selected_plugins=["parse_txt_urls"], show_progress=False)
     children = {}
     measurements = []
     size = 96 * 1024 * 1024
+    overlap_started = asyncio.Event()
 
-    def observe(event: SnapshotEvent) -> None:
+    async def observe(event: SnapshotEvent) -> None:
         index = snapshot_ids.index(event.snapshot_id)
         previous_cost = runner._observed_snapshot_cost
         # Real allocations expose the accounting error independently of how
@@ -59,6 +60,17 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
         measurements.append(
             {"index": index, "active_allocations": len(children), "previous_cost": previous_cost, "cost": runner._observed_snapshot_cost},
         )
+        # The parser is too fast to guarantee overlap: real CI pressure can
+        # temporarily reduce admission to one slot. Keep both pair allocations
+        # alive until the projected scheduler admits both captures.
+        # Each SnapshotEvent has its own serial handler chain, so awaiting
+        # here leaves the scheduler and the other capture free to proceed.
+        # Never hold the first capture: it must finish to establish warmup cost.
+        # DB preparation can reorder their events; either member may arrive first.
+        if index in (1, 2):
+            if all(snapshot_id in children for snapshot_id in snapshot_ids[1:3]):
+                overlap_started.set()
+            await overlap_started.wait()
 
     def release(event: SnapshotCompletedEvent) -> None:
         runner._observe_snapshot_memory()
@@ -76,23 +88,52 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
             assert child.stdin is not None
             child.stdin.close()
             assert child.wait(timeout=10) == 0
+    assert Snapshot.objects.filter(crawl=crawl, status="sealed").count() == 3
+    assert ArchiveResult.objects.filter(snapshot__crawl=crawl, plugin="parse_txt_urls", status="succeeded").count() == 3
+
+    # A separate one-snapshot crawl guarantees an isolated heavier sample.
+    # Depending on a fourth fast parser to fall into its own batch races the
+    # same adaptive admission that this integration test must keep enabled.
+    from archivebox.services.resource_admission import resource_admission
+
+    learned_before_heavy = resource_admission.observed_snapshot_cost
+    heavy_crawl = Crawl.objects.create(
+        urls="https://example.com/admission/3",
+        config={"PLUGINS": "parse_txt_urls", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2},
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    heavy_snapshot = Snapshot.objects.create(crawl=heavy_crawl, url=heavy_crawl.urls)
+    source = heavy_snapshot.output_dir / "staticfile" / "links.txt"
+    source.parent.mkdir(parents=True)
+    source.write_text("https://example.com/saved/3\n")
+    snapshot_ids.append(str(heavy_snapshot.id))
+    runner = CrawlRunner(heavy_crawl, selected_plugins=["parse_txt_urls"], show_progress=False)
+    runner.bus.on(SnapshotEvent, observe)
+    runner.bus.on(SnapshotCompletedEvent, release)
+    try:
+        asyncio.run(runner.run())
+    finally:
+        for child in children.values():
+            assert child.stdin is not None
+            child.stdin.close()
+            assert child.wait(timeout=10) == 0
     (tmp_path / "memory-observations.json").write_text(json.dumps(measurements, indent=2))
-    assert [item["index"] for item in measurements] == [0, 1, 2, 3]
+    assert len(measurements) == 4, measurements
+    assert measurements[0]["index"] == 0 and measurements[3]["index"] == 3, measurements
+    assert {item["index"] for item in measurements[1:3]} == {1, 2}, measurements
     assert measurements[2]["active_allocations"] == 2, measurements
     isolated_cost = measurements[1]["cost"]
     assert isolated_cost > size // 2, measurements
     assert measurements[2]["cost"] == measurements[2]["previous_cost"], measurements
-    assert measurements[3]["previous_cost"] == measurements[2]["cost"], measurements
-    # The final batch contains just one heavier capture; it must still teach
+    assert measurements[3]["previous_cost"] == learned_before_heavy, measurements
+    # The final crawl contains just one heavier capture; it must still teach
     # admission a larger cost rather than freezing the initial warmup forever.
     assert measurements[3]["active_allocations"] == 1
     assert runner._observed_snapshot_cost > isolated_cost + size, measurements
-    assert Snapshot.objects.filter(crawl=crawl, status="sealed").count() == 4
-    assert ArchiveResult.objects.filter(snapshot__crawl=crawl, plugin="parse_txt_urls", status="succeeded").count() == 4
+    assert Snapshot.objects.filter(crawl=heavy_crawl, status="sealed").count() == 1
+    assert ArchiveResult.objects.filter(snapshot__crawl=heavy_crawl, plugin="parse_txt_urls", status="succeeded").count() == 1
 
     # A subsequent automatic crawl reuses the real allocation measurement.
-    from archivebox.services.resource_admission import resource_admission
-
     learned = resource_admission.observed_snapshot_cost
     assert learned is not None and learned > size
     next_crawl = Crawl.objects.create(
