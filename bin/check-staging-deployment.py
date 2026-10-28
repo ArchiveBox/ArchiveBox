@@ -10,7 +10,7 @@ import sys
 import time
 import tomllib
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -102,7 +102,34 @@ def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=os.environ["CHROME_BINARY"])
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        browser_messages = []
+
+        def record_browser_message(message, source):
+            if len(browser_messages) >= 20:
+                return
+            text = message.text if hasattr(message, "text") else str(message)
+            text = re.sub(r"https?://[^\s\"'<>]+", lambda match: safe_url(match.group(0)), text)
+            browser_messages.append({"source": source, "message": text[:300]})
+
+        def record_console(message):
+            if message.type == "error":
+                record_browser_message(message, "console")
+
+        def record_page_error(error):
+            record_browser_message(error, "pageerror")
+
+        def safe_url(value):
+            parts = urlsplit(value)
+            if parts.scheme and not parts.netloc:
+                return f"{parts.scheme}:<opaque>"
+            if not parts.netloc:
+                return urlunsplit(("", "", parts.path[:300], "", ""))
+            return urlunsplit((parts.scheme, parts.netloc, parts.path[:300], "", ""))
+
+        page.on("console", record_console)
+        page.on("pageerror", record_page_error)
         for snapshot in report["snapshots"]:
+            browser_messages.clear()
             response = page.goto(snapshot["replay_url"], wait_until="domcontentloaded")
             assert response and response.ok, snapshot["replay_url"]
             page.locator('.thumb-card[data-plugin-name="screenshot"]').wait_for(state="attached")
@@ -152,7 +179,52 @@ def main():
                     frames.extend(replay.child_frames)
                 else:
                     raise AssertionError(f"Captured URL {snapshot['url']!r} not found in replay frames: {frame_titles}")
-            finally:
+            except BaseException:
+                # Keep failure evidence bounded and avoid recording URL query
+                # values, which may contain private capture parameters.
+                try:
+                    diagnostics = page.evaluate(
+                        """() => ({
+                            iframes: [...document.querySelectorAll('iframe')].slice(0, 10).map(frame => ({
+                                id: frame.id.slice(0, 100),
+                                src: frame.getAttribute('src') || '',
+                                replayPainted: frame.dataset.replayPainted || '',
+                            })),
+                        })""",
+                    )
+                    diagnostics["iframes"] = [{**frame, "src": safe_url(frame["src"])} for frame in diagnostics["iframes"]]
+                    diagnostics["frames"] = []
+                    for frame in page.frames[:10]:
+                        entry = {"name": frame.name[:100], "url": safe_url(frame.url)}
+                        try:
+                            entry.update(
+                                frame.evaluate(
+                                    """() => ({
+                                        readyState: document.readyState,
+                                        replayRoot: (() => {
+                                            const root = document.querySelector('#replay-root');
+                                            return root ? {present: true, dataUrl: root.dataset.url || '', dataReplaybase: root.dataset.replaybase || ''} : {present: false};
+                                        })(),
+                                    })""",
+                                ),
+                            )
+                            entry["replayRoot"]["dataUrl"] = safe_url(entry["replayRoot"].get("dataUrl", ""))
+                            entry["replayRoot"]["dataReplaybase"] = entry["replayRoot"].get("dataReplaybase", "")[:200]
+                        except BaseException as error:
+                            entry["inspectionError"] = str(error)[:200]
+                        diagnostics["frames"].append(entry)
+                    diagnostics["browserErrors"] = browser_messages
+                    (evidence / f"{snapshot['id']}-browser-diagnostic.json").write_text(
+                        json.dumps(diagnostics, indent=2),
+                    )
+                except BaseException as error:
+                    print(f"Could not collect bounded browser diagnostics: {str(error)[:200]}", file=sys.stderr)
+                try:
+                    page.screenshot(path=str(evidence / f"{snapshot['id']}.png"), full_page=True)
+                except BaseException:
+                    pass
+                raise
+            else:
                 page.screenshot(path=str(evidence / f"{snapshot['id']}.png"), full_page=True)
         browser.close()
     # Recheck identity and host OOM history after the browser flow too.
