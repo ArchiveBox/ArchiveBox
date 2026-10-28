@@ -1,0 +1,28 @@
+archivebox/tests/test_cli_update_unattributed_outputs.py
+  s_10bc94d001be49::t_dbbd67400aad29 17-18,21-25,30-42
+archivebox/cli/archivebox_update.py
+  s_10bc94d001be49::t_dbbd67400aad29 216-242
+  s_10bc94d001be49::t_efa8667410b780 244-248
+archivebox/core/models.py
+  s_10bc94d001be49::t_de6a1461050619 500-503
+archivebox/tests/test_api_v1_cli_workflow_add_search_update_remove.py
+  s_10bc94d001be49::t_de6a1461050619 69
+archivebox/core/migrations/0061_snapshot_current_fs_version.py
+  s_10bc94d001be49::t_544010f62a3216 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9abf4746d227cfbb863e25e72819594ccf11ac1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
