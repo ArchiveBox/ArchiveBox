@@ -31,15 +31,34 @@ def test_cpu_admission_respects_process_affinity():
 
 def test_cpu_quota_admission_uses_fresh_throttling_without_sticky_history():
     admission = ResourceAdmission()
-    assert not admission.observe_cpu_throttling("capture", 200)
-    assert admission.observe_cpu_throttling("capture", 201)
-    assert not admission.observe_cpu_throttling("capture", 201)
-    assert not admission.observe_cpu_throttling("capture", 0)
-    assert admission.observe_cpu_throttling("capture", 1)
-    # Each ancestor has an independent quota/counter.
-    assert not admission.observe_cpu_throttling("parent", 50)
-    assert admission.observe_cpu_throttling("parent", 51)
-    assert not admission.observe_cpu_throttling("capture", 1)
+    assert not admission.observe_cpu_throttling("capture", 50, 0, 100_000)
+    assert admission.observe_cpu_throttling("capture", 70, 2, 100_000)
+    assert not admission.observe_cpu_throttling("capture", 70, 4, 100_000)
+    assert not admission.observe_cpu_throttling("capture", 0, 6, 100_000)
+    assert admission.observe_cpu_throttling("capture", 10, 8, 100_000)
+    # Each ancestor has an independent quota/counter, including idle intervals.
+    assert not admission.observe_cpu_throttling("parent", 10, 8, 100_000)
+    assert admission.observe_cpu_throttling("parent", 30, 10, 100_000)
+    assert not admission.observe_cpu_throttling("capture", 10, 10, 100_000)
+    assert not admission.observe_cpu_throttling("capture", 10, 10, 100_000)
+    # Non-default bandwidth periods must use their actual configured duration.
+    assert not admission.observe_cpu_throttling("short-period", 0, 0, 10_000)
+    assert admission.observe_cpu_throttling("short-period", 200, 2, 10_000)
+
+
+def test_brief_cpu_quota_bursts_do_not_starve_admission():
+    admission = ResourceAdmission()
+    # Cabbage, Oct 28 12:52 UTC: two throttled periods consumed only 12,936us
+    # over 2.00049s (0.65%), while CPU usage averaged 1.93 of its 3.5 cores.
+    # Counting any throttled period as saturation repeatedly serialized work.
+    assert not admission.observe_cpu_throttling("capture", 1738, 546560.26710106, 100_000)
+    assert not admission.observe_cpu_throttling("capture", 1740, 546562.267593801, 100_000)
+    # Real Linux burst reproduction: sixteen workers use 80ms CPU every two
+    # seconds. The kernel reports 3/5 active periods throttled despite average
+    # usage of only 0.64 cores of 3.5. Idle time must count toward available CPU.
+    assert not admission.observe_cpu_throttling("bursts", 0, 0, 100_000)
+    for index in range(1, 11):
+        assert not admission.observe_cpu_throttling("bursts", index * 3, index * 2, 100_000)
 
 
 def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():

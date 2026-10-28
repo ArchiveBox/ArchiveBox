@@ -87,7 +87,7 @@ def host_swap_free_bytes(meminfo_swap_free: int) -> int:
 class ResourceAdmission:
     def __init__(self):
         self._stalls: dict[str, tuple[int, float]] = {}
-        self._cpu_throttled: dict[str, int] = {}
+        self._cpu_throttled: dict[str, tuple[int, float]] = {}
         self._checked_at = float("-inf")
         self._reason: str | None = None
         self.observed_snapshot_cost: int | None = None
@@ -268,12 +268,27 @@ class ResourceAdmission:
         stalled_percent = (total - previous_total) / (elapsed * 1_000_000) * 100
         return avg10 >= threshold and stalled_percent >= threshold
 
-    def observe_cpu_throttling(self, source: str, total: int) -> bool:
+    def observe_cpu_throttling(self, source: str, throttled: int, sampled_at: float, period_usec: int) -> bool:
         previous = self._cpu_throttled.get(source)
-        self._cpu_throttled[source] = total
-        # Counters are cumulative: historical throttling or a recreated cgroup
-        # must not indefinitely prevent new captures.
-        return previous is not None and total > previous
+        self._cpu_throttled[source] = (throttled, sampled_at)
+        if previous is None:
+            return False
+        elapsed = sampled_at - previous[1]
+        throttled_periods = throttled - previous[0]
+        # A brief parallel burst can exhaust one period while leaving most
+        # CPU capacity unused. Require sustained quota exhaustion, just as
+        # CPU PSI requires substantial contention. Count each exhausted period
+        # conservatively as entirely lost: throttled_usec sums per-CPU queues
+        # and a fractional quota can saturate with little wall-time throttling.
+        # Normalize by elapsed time, since nr_periods stops counting while idle
+        # and would otherwise label sparse bursts as sustained exhaustion.
+        # Historical/reset counters and idle intervals are not fresh pressure.
+        return (
+            elapsed > 0
+            and period_usec > 0
+            and throttled_periods >= 0
+            and throttled_periods * period_usec / (elapsed * 1_000_000) * 100 >= CPU_SOME_STALL_PERCENT
+        )
 
     def resource_pressure(self, *, required_memory: int | None = None, minimum_free: int = 0) -> str | None:
         # Check capacity on every admission, independently of cached PSI. An
@@ -294,7 +309,8 @@ class ResourceAdmission:
                 cpu_stat = dict(line.split() for line in (path / "cpu.stat").read_text().splitlines())
                 # PSI measures waiting, not remaining CPU quota. One runnable
                 # task can exhaust a fractional quota with almost no PSI.
-                if self.observe_cpu_throttling(str(path), int(cpu_stat["nr_throttled"])):
+                _, period_usec = (path / "cpu.max").read_text().split()
+                if self.observe_cpu_throttling(str(path), int(cpu_stat["nr_throttled"]), now, int(period_usec)):
                     reasons.append("cpu quota throttling")
             except (OSError, ValueError, KeyError):
                 pass
