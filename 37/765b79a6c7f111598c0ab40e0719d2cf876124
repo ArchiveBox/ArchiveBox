@@ -1,0 +1,14 @@
+.github/workflows/test-parallel.yml
+  h_923c208e183a7b 265-270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "37765b79a6c7f111598c0ab40e0719d2cf876124",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
