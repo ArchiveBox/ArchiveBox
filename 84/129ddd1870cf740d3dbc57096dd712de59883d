@@ -1,0 +1,21 @@
+archivebox/tests/test_server_streaming_memory.py
+  s_10bc94d001be49::t_440add6418fcc1 206-267
+archivebox/api/v1_crawls.py
+  s_10bc94d001be49::t_8d804663d2da83 27,228-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "84129ddd1870cf740d3dbc57096dd712de59883d",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
