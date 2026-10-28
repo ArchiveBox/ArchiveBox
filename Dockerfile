@@ -284,7 +284,8 @@ RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=
     # the complete catalog still works without the disposable package payloads.
     # Remove all disposable downloads in the layer that created them. Cleaning
     # these in a later RUN leaves their bytes in the published image history.
-    && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm" "$ABXPKG_LIB_DIR/cache/uv" \
+    # npm subprocesses also cache downloaded archives under root's home.
+    && rm -rf /root/.npm "$ABXPKG_LIB_DIR/cache/pnpm" "$ABXPKG_LIB_DIR/cache/uv" \
         /var/cache/apt/* /var/lib/apt/lists/*
 RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
