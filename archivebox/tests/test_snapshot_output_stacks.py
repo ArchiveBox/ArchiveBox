@@ -539,6 +539,27 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
                     "path": f"./{name}",
                 },
             )
+        font_name = "all/20261012T124800__GET__svg-font.svg"
+        font_body = (
+            b'<svg xmlns="http://www.w3.org/2000/svg"><defs><font id="icons">'
+            b'<font-face font-family="Icons"/><glyph unicode="A" d="M0 0"/>'
+            b"</font></defs></svg>" + b" " * 16384
+        )
+        (responses_dir / font_name).write_bytes(font_body)
+        output_files[font_name] = {
+            "size": len(font_body),
+            "mimetype": "image/svg+xml",
+            "extension": "svg",
+        }
+        index.append(
+            {
+                "url": "https://example.com/icons.svg",
+                "responseSha256": hashlib.sha256(font_body).hexdigest(),
+                "mimeType": "image/svg+xml",
+                "resourceType": "Font",
+                "path": f"./{font_name}",
+            },
+        )
         browser.close()
     (responses_dir / "index.jsonl").write_text("".join(json.dumps(entry) + "\n" for entry in index))
     output_files["index.jsonl"] = {"size": (responses_dir / "index.jsonl").stat().st_size, "mimetype": "application/x-ndjson"}
@@ -573,7 +594,7 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
         output_str=f"liteparse/{next(iter(liteparse_files))}",
         output_files=liteparse_files,
     )
-    expected = [*parsed, *by_size[:7]]
+    expected = [*parsed, *[name for name in by_size if name != font_name][:7]]
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -608,6 +629,8 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
             assert len(first_layout) == 9
             assert min(first_layout) > 36
             assert [tile["name"] for tile in tiles] == expected
+            assert font_name not in [tile["name"] for tile in tiles]
+            assert (responses_dir / font_name).read_bytes() == font_body
             # Hidden captures are never fetched: on large snapshots they would
             # queue ahead of every other card on the snapshot origin.
             assert {urlsplit(url).path.removeprefix("/responses/") for url in image_requests} <= {*by_size[:9], *parsed}
