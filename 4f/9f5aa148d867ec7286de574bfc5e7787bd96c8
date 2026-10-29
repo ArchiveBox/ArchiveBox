@@ -1,0 +1,35 @@
+archivebox/core/models.py
+  s_3bdde661ee87a4::t_7343501145e089 1262,1304-1315,1317-1322
+  s_3bdde661ee87a4::t_4a13d3b774e2f7 1263,1316
+bin/test_nfs_migrations.py
+  s_3bdde661ee87a4::t_678719f64b2b2e 9,15,62-67,73,84,100-101
+  s_3bdde661ee87a4::t_a6e60e2051792c 32-33,45,207
+  s_3bdde661ee87a4::t_e7e0490f66fc28 1-8,10-14,16-19,21-31,34-44,46-58,60-61,68-72,86-90,92-99,102-167,173,175-206,208-238
+  s_3bdde661ee87a4::t_7343501145e089 59,85,91,168-170,172,174
+  s_3bdde661ee87a4::t_4a13d3b774e2f7 20,74-83,171
+  s_3bdde661ee87a4::t_e925144ef43075 239-240
+archivebox/tests/test_cli_update_unattributed_outputs.py
+  s_3bdde661ee87a4::t_cd38f75dfdc95b 42-85,87
+  s_3bdde661ee87a4::t_49d5504a8bf2dd 16-41
+  s_3bdde661ee87a4::t_716ef0bf6a19e2 86,88-90
+README.md
+  s_3bdde661ee87a4::t_a6e60e2051792c 1511-1512
+archivebox/cli/rescan.py
+  s_3bdde661ee87a4::t_49d5504a8bf2dd 87-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f9f5aa148d867ec7286de574bfc5e7787bd96c8",
+  "prompts": {},
+  "sessions": {
+    "s_3bdde661ee87a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18102-dc8b-7810-8a01-b336d01b9e58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
