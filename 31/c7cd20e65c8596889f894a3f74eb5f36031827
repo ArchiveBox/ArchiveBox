@@ -1,0 +1,21 @@
+pyproject.toml
+  s_10bc94d001be49::t_ad68141243c54f 44-48,51
+uv.lock
+  s_10bc94d001be49::t_adce693f756b6a 5-12,149,168-169,253,277-278,379,382-383,392,394-403,483-507,512-517
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31c7cd20e65c8596889f894a3f74eb5f36031827",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
