@@ -1508,6 +1508,8 @@ Migration regression coverage lives in `archivebox/tests/test_migrations_*`, `te
 
 Run the seeded randomized legacy-database tests at large-collection scale with `ABX_FUZZ_SNAPSHOTS=49000 ABX_FUZZ_RESULTS=349000 uv run pytest -s archivebox/tests/test_migrations_fuzz.py`. Three reproducible seeds exercise varied metadata, WAL/DELETE journals, SIGKILL during three migration stages, refusal and rollback of invalid metadata, full row comparisons, and repeated initialization. The ordinary CI run uses 300 snapshots and 20,000 results per seed; the environment variables raise the size without changing assertions. Temporary directories retain generated databases, expected results, CLI logs, and sampled process-memory/timing metrics. This tests database migration, not a collection's captured-file payloads or storage hardware.
 
+For real NFS filesystem testing, run `uv run python bin/test_nfs_migrations.py --local-root /tmp/new-test-run --archive-root /mnt/nfs/new-test-run --seed 1932` as an unprivileged user on Linux. Both directories must be new; the archive root must be on an already-mounted NFS export and the local root must be on a local filesystem. The probe creates 24 synthetic snapshots, varied payloads and symlinks, and a 64 MiB file; exercises actual process interruption, destination conflicts and permission failures; then verifies hashes, modes, database metadata and repeated rescans. It retains test data and logs for inspection and does not provision or change the NFS server. Migration file copies are flushed before atomic publication without overwriting; interrupted staging files remain outside snapshot directories and are not captured outputs.
+
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash

@@ -13,6 +13,81 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_rescan_resumes_known_partial_migration_destination(initialized_archive):
+    from archivebox.crawls.models import Crawl
+
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.create(urls="https://example.com/partial-migration", status="sealed", retry_at=None)
+        snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, status="sealed", retry_at=None)
+        Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.8.0")
+        old = snapshot.get_storage_path_for_version("0.8.0")
+        new = snapshot.get_storage_path_for_version(Snapshot._fs_current_version())
+        old.mkdir(parents=True)
+        new.mkdir(parents=True, exist_ok=True)
+        (old / "original.bin").write_bytes(b"original source evidence")
+        (new / "retained.bin").write_bytes(b"pre-existing destination evidence")
+        snapshot_id = snapshot.pk
+
+    for _ in range(2):
+        result = run_archivebox_cmd(["update", "--rescan", "--migrate-only"], cwd=initialized_archive, env=cli_env(disable_extractors=True))
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert not old.exists()
+        assert (new / "original.bin").read_bytes() == b"original source evidence"
+        assert (new / "retained.bin").read_bytes() == b"pre-existing destination evidence"
+        with use_archivebox_db(initialized_archive):
+            assert Snapshot.objects.get(pk=snapshot_id).fs_version == Snapshot._fs_current_version()
+            assert not ArchiveResult.objects.filter(snapshot_id=snapshot_id).exists()
+
+
+def test_failed_file_copy_never_publishes_partial_output(initialized_archive):
+    import resource
+    import stat
+    import subprocess
+    from archivebox.crawls.models import Crawl
+
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.create(urls="https://example.com/interrupted-copy", status="sealed", retry_at=None)
+        snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, status="sealed", retry_at=None)
+        Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.8.0")
+        old = snapshot.get_storage_path_for_version("0.8.0")
+        new = snapshot.get_storage_path_for_version(Snapshot._fs_current_version())
+        old.mkdir(parents=True)
+        new.mkdir(parents=True, exist_ok=True)
+        snapshot_id, timestamp = snapshot.pk, snapshot.timestamp
+    # A maximal filename also exercises bounded staging names. A real kernel
+    # file-size limit forces a mid-copy write failure without replacing any IO.
+    name = "x" * 255
+    payload = b"preserved evidence\x00" * (2 * 1024 * 1024)
+    (old / name).write_bytes(payload)
+    (old / name).chmod(0o444)
+    args = ["update", "--migrate-only", "--filter-type", "timestamp", timestamp]
+    env = cli_env(disable_extractors=True)
+
+    def limit_file_size():
+        resource.setrlimit(resource.RLIMIT_FSIZE, (16 * 1024 * 1024, 16 * 1024 * 1024))
+
+    result = subprocess.run(
+        ["archivebox", *args],
+        cwd=initialized_archive,
+        env=env,
+        preexec_fn=limit_file_size,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "File too large" in result.stdout + result.stderr
+    assert not (new / name).exists()
+    assert (old / name).read_bytes() == payload
+    with use_archivebox_db(initialized_archive):
+        assert Snapshot.objects.get(pk=snapshot_id).fs_version == "0.8.0"
+    result = run_archivebox_cmd(args, cwd=initialized_archive, env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (new / name).read_bytes() == payload
+    assert stat.S_IMODE((new / name).stat().st_mode) == 0o444
+    assert not old.exists()
+
+
 def test_filesystem_migration_refuses_a_live_server(archivebox_daemon_server):
     from archivebox.crawls.models import Crawl
 

@@ -1259,6 +1259,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         import filecmp
         import shutil
+        from atomicwrites import atomic_write as atomic_output
+        from hashlib import sha256
 
         old_dir = Path(source_dir) if source_dir else self.get_storage_path_for_version("0.8.0")
         new_dir = Path(target_dir) if target_dir else self.get_storage_path_for_version("0.9.0")
@@ -1299,7 +1301,25 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if not destination_path.is_symlink() and destination_path.is_file() and filecmp.cmp(source, destination, shallow=False):
                     return destination
                 raise SnapshotMigrationError(f"Migration would overwrite a different output: {destination_path}")
-            return shutil.copy2(source, destination)
+            # Publishing a partially copied file makes an interrupted migration
+            # indistinguishable from a genuine destination conflict on retry.
+            # Stage outside the snapshot so killed copies cannot become captured
+            # outputs, then fsync and atomically link without overwriting a file
+            # that appeared concurrently. Source cleanup still verifies all bytes.
+            with (
+                open(source, "rb") as source_file,
+                atomic_output(
+                    destination,
+                    mode="wb",
+                    overwrite=False,
+                    dir=new_dir.parent,
+                    prefix=f".{self.pk.hex}.migration-{sha256(os.fsencode(destination)).hexdigest()[:16]}-",
+                ) as staged,
+            ):
+                shutil.copyfileobj(source_file, staged, length=1024 * 1024)
+                staged.flush()
+                shutil.copystat(source, staged.name)
+            return destination
 
         # copytree preserves unknown directories and symlinks. Remove only
         # already-copied identical symlinks so interrupted migrations can retry.

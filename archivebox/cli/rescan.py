@@ -84,6 +84,15 @@ def _reconcile_unattributed_output_size(snapshot: Snapshot, directory: Path) -> 
 def _reconcile_directory(directory: Path, *, repair_unattributed_size: bool = False) -> str:
     snapshot_id = uuid.UUID(directory.name)
     snapshot = Snapshot.objects.select_related("crawl__created_by").filter(pk=snapshot_id).first()
+    if (
+        snapshot is not None
+        and snapshot.fs_migration_needed
+        and directory == snapshot.get_storage_path_for_version(snapshot._fs_current_version())
+    ):
+        # A failed/interrupted merge can leave this destination alongside the
+        # legacy source. Finish the verified migration before requiring its
+        # new index or comparing it with the still-legacy DB storage path.
+        snapshot.migrate_filesystem_to_current_version()
     if snapshot is not None and snapshot.status != "sealed" and Path(snapshot.output_dir) == directory:
         # Known unfinished captures are valid collection members. Never import
         # an export over them, hydrate partial outputs, or call them corrupt.
