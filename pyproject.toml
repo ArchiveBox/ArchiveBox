@@ -41,9 +41,14 @@ dependencies = [
     ### Django libraries
     "setuptools>=84.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.1.2",
-    "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
+    # Psycopg's binary extra already excludes PyPy. Express that split with the
+    # same marker as Autobahn/cbor2 so uv does not combine incompatible PyPy and
+    # CPython branches when resolving the universal lock (uv 0.13.5/0.13.6).
+    "psycopg[binary]>=3.2; platform_python_implementation != 'PyPy'",
+    "psycopg>=3.2; platform_python_implementation == 'PyPy'",  # PostgreSQL backend
     "uvicorn[standard]>=0.54.0",  # production ASGI transport with bounded send buffers
     "daphne>=4.2.1",  # retain ASGI runserver/WebSockets for --debug; removing its app makes runserver WSGI
+    "autobahn>=26.10.1",  # Daphne WebSocket security floor: GHSA-pjh6-c8mg-3x7m
     "twisted>=26.10.0rc1",  # published security fixes for Daphne's HTTP runtime
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
