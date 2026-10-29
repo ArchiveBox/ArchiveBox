@@ -534,7 +534,11 @@ async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
                 break
             yield chunk
     finally:
-        ranged_file.close()
+        # Cancelling to_thread does not interrupt its filesystem read. Closing
+        # a BufferedReader waits for that read's lock (potentially remote FUSE
+        # I/O), so cleanup must also stay off the event loop. Otherwise one
+        # disconnected download can freeze every request, including health.
+        await asyncio.to_thread(ranged_file.close)
 
 
 def _render_directory_index(request, path: str, fullpath: Path, document_root: Path) -> HttpResponse:

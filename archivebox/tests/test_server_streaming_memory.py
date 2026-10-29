@@ -2,7 +2,9 @@
 
 import hashlib
 import asyncio
+import io
 import os
+import threading
 import time
 
 import psutil
@@ -13,6 +15,61 @@ from archivebox.core.models import Snapshot
 from archivebox.core.routes_util import get_snapshot_host
 from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+
+def test_async_file_stream_close_does_not_block_event_loop_during_pending_read():
+    from archivebox.misc.serve_static import _stream_ranged_file_async
+
+    read_fd, write_fd = os.pipe()
+    # A real buffered pipe exercises the helper's iterable/close protocol while
+    # the kernel blocks next(); the timer bounds the regression on old code.
+    source = io.BufferedReader(os.fdopen(read_fd, "rb", buffering=0))
+    iterator = _stream_ranged_file_async(source)
+    release = threading.Event()
+    release_at = []
+    timer_started = False
+
+    def release_read():
+        release_at.append(time.monotonic())
+        os.write(write_fd, b"second\n")
+        os.close(write_fd)
+        release.set()
+
+    timer = threading.Timer(2, release_read)
+
+    async def check_cancellation():
+        nonlocal timer_started
+        os.write(write_fd, b"first\n")
+        assert await anext(iterator) == b"first\n"
+        pending_read = asyncio.create_task(anext(iterator))
+        # Let the real executor thread enter BufferedReader's blocking pipe read.
+        await asyncio.sleep(0.1)
+        timer.start()
+        timer_started = True
+
+        heartbeat_at = []
+
+        async def heartbeat():
+            await asyncio.sleep(0.1)
+            heartbeat_at.append(time.monotonic())
+
+        heartbeat_task = asyncio.create_task(heartbeat())
+        pending_read.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await pending_read
+        await heartbeat_task
+        assert heartbeat_at[0] < release_at[0]
+        assert source.closed
+
+    try:
+        asyncio.run(check_cancellation())
+    finally:
+        if timer_started:
+            timer.join(timeout=3)
+        if not source.closed:
+            source.close()
+        if not release.is_set():
+            os.close(write_fd)
 
 
 def test_server_accepts_authenticated_chunked_output_upload(archivebox_daemon_server):
