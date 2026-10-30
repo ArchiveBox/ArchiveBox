@@ -105,7 +105,19 @@ def _parse_and_validate_bind_spec(spec: str) -> tuple[str, str]:
             # so their reverse-proxy trust rules retain the same meaning.
             host = str(address.ipv4_mapped)
         else:
-            host = f"[{address.compressed}]"
+            scope = address.scope_id
+            if scope and not scope.isdecimal():
+                # Linux getaddrinfo rejects interface names on loopback and
+                # global addresses. Normalize once before port probes,
+                # Uvicorn, and Django's reloader so every path binds the same
+                # interface, including scoped loopback/global literals.
+                try:
+                    scope = str(socket.if_nametoindex(scope))
+                except OSError as error:
+                    print(f"[red][X] Invalid BIND_ADDR interface {scope!r}: {error}[/red]")
+                    sys.exit(1)
+            literal = address.compressed.split("%", 1)[0]
+            host = f"[{literal}%{scope}]" if scope else f"[{literal}]"
     elif _is_ipv4_literal(host):
         pass
     else:

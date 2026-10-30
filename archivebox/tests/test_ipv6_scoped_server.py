@@ -16,6 +16,15 @@ from archivebox.tests.conftest import (
 )
 
 
+def test_named_scope_is_normalized_to_local_interface_index():
+    from archivebox.cli.archivebox_server import _parse_and_validate_bind_spec
+
+    index, name = socket.if_nameindex()[0]
+    # Linux getaddrinfo rejects named zones on loopback/global addresses;
+    # numeric scope IDs work consistently for all scoped IPv6 literals.
+    assert _parse_and_validate_bind_spec(f"[::1%{name}]:5797") == (f"[::1%{index}]", "5797")
+
+
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize("flags", [[], ["--debug"], ["--reload"]])
 @pytest.mark.parametrize("numeric_scope", [False, True])
@@ -47,7 +56,7 @@ def test_server_binds_scoped_ipv6(initialized_archive, flags, numeric_scope):
         if flags:
             worker_log = initialized_archive / "logs/worker_runserver.log"
             wait_for_log(worker_log, "Listening on TCP", timeout=30)
-            assert f"[::1%{scope}]:{port}" in worker_log.read_text()
+            assert f"[::1%{interface_index}]:{port}" in worker_log.read_text()
             if "--reload" in flags:
                 reloaded_workers = [
                     child
@@ -55,7 +64,7 @@ def test_server_binds_scoped_ipv6(initialized_archive, flags, numeric_scope):
                     if "runserver" in child.cmdline() and child.environ().get("RUN_MAIN") == "true"
                 ]
                 assert len(reloaded_workers) == 1
-                assert reloaded_workers[0].environ()["ARCHIVEBOX_RUNSERVER_BIND_URL"] == f"http://{bind_addr}"
+                assert reloaded_workers[0].environ()["ARCHIVEBOX_RUNSERVER_BIND_URL"] == f"http://[::1%{interface_index}]:{port}"
         else:
             wait_for_log(initialized_archive / "logs/worker_uvicorn.log", "Uvicorn running on", timeout=30)
         with requests.Session() as session:
