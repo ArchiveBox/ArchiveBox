@@ -1,0 +1,71 @@
+archivebox/tests/test_ipv6_scoped_server.py
+  s_3bdde661ee87a4::t_85a6045ded6d81 1-51,59-71
+  s_3bdde661ee87a4::t_b099669c607f76 52-58
+bin/validate_docker_ipv6.sh
+  s_3bdde661ee87a4::t_075ecc1a18de4f 117-118,124
+  s_3bdde661ee87a4::t_3f3315e46c4bf2 78,119-123,125
+  s_3bdde661ee87a4::t_b3add612d07566 20-21,25,40
+  s_3bdde661ee87a4::t_0ec53d7cf21f70 19,22-24,26
+  s_3bdde661ee87a4::t_6c3a39f7e1822c 28-30,36,44-72,74-76,83-87,91,96
+  s_3bdde661ee87a4::t_05150563810b03 73
+  s_3bdde661ee87a4::t_9b9684f74aaf99 132-133,136,139-141
+  s_3bdde661ee87a4::t_2a74c5410bef06 1-18,27,31-35,37-39,41-43,77,79-82,88-90,92-95,97-116,126-131,134-135,137-138,142-146
+README.md
+  s_3bdde661ee87a4::t_3fb906daffea82 192-193
+archivebox/core/settings.py
+  s_3bdde661ee87a4::t_33650a2f4f0dd8 71
+  s_3bdde661ee87a4::t_236a591888c446 58
+archivebox/workers/management/commands/runserver.py
+  s_3bdde661ee87a4::t_236a591888c446 1-28
+archivebox/workers/http_server.py
+  s_3bdde661ee87a4::t_a3673645c2578f 7,19-24,43-48
+  s_3bdde661ee87a4::t_8a11443cc194b9 16-17,29-30
+  s_3bdde661ee87a4::t_099533a1e0b603 1-6,8-15,18,25-28,31-33,37-42,49-56
+  s_3bdde661ee87a4::t_2a2c4c54f2db55 34-36
+archivebox/tests/test_ipv6_mapped_server.py
+  s_3bdde661ee87a4::t_4d92fca9945258 1-48
+bin/docker_healthcheck.py
+  s_3bdde661ee87a4::t_95878d48eb1ef3 1-12,14-40,49-57,65-66,68-81
+  s_3bdde661ee87a4::t_cec57f99b95edf 13,41-48,58-64,67
+archivebox/tests/test_cli_server.py
+  s_3bdde661ee87a4::t_786d5d268e16a4 19,299-301,330,337
+  s_3bdde661ee87a4::t_4d92fca9945258 354-356,366-369
+  s_3bdde661ee87a4::t_8a11443cc194b9 17,277-298,302-329,331-336,338-353,357-365,370-377,478,488,502
+archivebox/tests/test_ipv6_runtime.py
+  s_3bdde661ee87a4::t_ae6373928c49bd 1-199
+  s_3bdde661ee87a4::t_7e27054953d2f9 200-205
+archivebox/workers/supervisord_util.py
+  s_3bdde661ee87a4::t_a6f56314d3e87b 583-585
+  s_3bdde661ee87a4::t_099533a1e0b603 4,377-378,423-435
+.github/workflows/docker.yml
+  s_3bdde661ee87a4::t_3f3315e46c4bf2 508,534,539-541
+archivebox/cli/archivebox_server.py
+  s_3bdde661ee87a4::t_cec57f99b95edf 99-108
+  s_3bdde661ee87a4::t_f50ac9cfacbe11 10,26-30,34-40,44,68-69,71-73,88,98,109,116,332
+Dockerfile
+  s_3bdde661ee87a4::t_fd985b5824d517 81,333,336
+archivebox/cli/archivebox_init.py
+  s_3bdde661ee87a4::t_791b5286e76a1d 10-11,196-198
+archivebox/core/routes_util.py
+  s_3bdde661ee87a4::t_01a7eb12c25391 95-96,167
+archivebox/tests/test_urls.py
+  s_3bdde661ee87a4::t_1aa1d471c29f26 18-32
+bin/docker_entrypoint.sh
+  s_3bdde661ee87a4::t_0b8db6c3921c37 219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a574b516c908590f2383ba79a40ce219293aa709",
+  "prompts": {},
+  "sessions": {
+    "s_3bdde661ee87a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18102-dc8b-7810-8a01-b336d01b9e58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
