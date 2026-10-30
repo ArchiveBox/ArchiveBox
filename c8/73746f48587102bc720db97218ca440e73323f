@@ -1,0 +1,38 @@
+archivebox/crawls/admin.py
+  s_3bdde661ee87a4::t_7796cc87886f8d 11,897-913
+  s_3bdde661ee87a4::t_2c068adb1f9e15 880
+archivebox/core/models.py
+  s_3bdde661ee87a4::t_6f07a21aa50955 756-760
+archivebox/tests/test_ui_public_snapshot.py
+  s_3bdde661ee87a4::t_0f7fba36b00ab0 228-249
+  s_3bdde661ee87a4::t_52130d859af402 227
+archivebox/api/v1_core.py
+  s_3bdde661ee87a4::t_6f07a21aa50955 1089-1093
+archivebox/templates/core/snapshot.html
+  s_3bdde661ee87a4::t_6f07a21aa50955 1119-1121
+archivebox/tests/test_ui_admin_crawl_resume.py
+  s_3bdde661ee87a4::t_e25245c9a5c1b6 1-2,5,11-19,28-130,141-190,239-267
+  s_3bdde661ee87a4::t_375ad7a80088f9 131-140
+  s_3bdde661ee87a4::t_bdd30ad0a926bd 204-210
+  s_3bdde661ee87a4::t_058495f0228421 191-203,211-238,306-310,316-318
+  s_3bdde661ee87a4::t_e3bee4a77226d3 3-4,6-10,20-27,268-305,311-315,319-398
+  s_3bdde661ee87a4::t_0280504b7ceb15 399-403
+archivebox/crawls/models.py
+  s_3bdde661ee87a4::t_ae4ab8f5367da3 237-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c873746f48587102bc720db97218ca440e73323f",
+  "prompts": {},
+  "sessions": {
+    "s_3bdde661ee87a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18102-dc8b-7810-8a01-b336d01b9e58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
