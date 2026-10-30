@@ -1111,6 +1111,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             config.update(parent_snapshot.config)
         allowlist = self.split_filter_patterns(config.get("URL_ALLOWLIST", ""))
         denylist = self.split_filter_patterns(config.get("URL_DENYLIST", ""))
+        tag_pattern = self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]")
 
         def metadata_score(record: Mapping[str, Any]) -> int:
             # Multiple parsers can discover the same URL from one import root.
@@ -1121,6 +1122,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         # Parser records and explicit seeds already have URL boundaries. Prose
         # cleanup here corrupts literal fragments, queries and trailing dots.
         deduped_records: dict[str, Mapping[str, Any]] = {}
+        metadata_scores: dict[str, int] = {}
         # HTML parsers emit hrefs as written (/über) while Chrome reports them
         # encoded (/%C3%BCber); key by URI so both dedupe to the first spelling.
         url_for_uri: dict[str, str] = {}
@@ -1139,8 +1141,24 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if self.url_passes_compiled_filters(url, allowlist=allowlist, denylist=denylist):
                 url = url_for_uri.setdefault(iri_to_uri(url), url)
                 existing_record = deduped_records.get(url)
-                if existing_record is None or metadata_score(record) > metadata_score(existing_record):
-                    deduped_records[url] = record
+                score = metadata_score(record)
+                if existing_record is not None:
+                    preferred, other = (record, existing_record) if score > metadata_scores[url] else (existing_record, record)
+                    merged = dict(preferred)
+                    for field in ("title", "bookmarked_at", "timestamp"):
+                        if not merged.get(field) and other.get(field):
+                            merged[field] = other[field]
+                    # Keep the richer record's conflicting fields, and retain
+                    # complementary tags/metadata from the duplicate as well.
+                    merged["tags"] = self.parse_tag_names(
+                        self.parse_tag_names(preferred.get("tags") or [], pattern=tag_pattern)
+                        + self.parse_tag_names(other.get("tags") or [], pattern=tag_pattern),
+                    )
+                    record = merged
+                deduped_records[url] = record
+                # Filling missing fields must not inflate an earlier record's
+                # rank above a later, genuinely richer original parser record.
+                metadata_scores[url] = max(score, metadata_scores.get(url, 0))
 
         if not deduped_records:
             return []
@@ -1170,7 +1188,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 snapshot.save(update_fields=[*update_fields, "modified_at"])
             tag_names = {
                 *self.parse_tag_names(
-                    str(record.get("tags") or ""),
+                    record.get("tags") or [],
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),
                 ),
             }
@@ -1239,7 +1257,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         for snapshot in created_snapshots:
             tag_names = {
                 *self.parse_tag_names(
-                    str(deduped_records[snapshot.url].get("tags") or ""),
+                    deduped_records[snapshot.url].get("tags") or [],
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),
                 ),
             }

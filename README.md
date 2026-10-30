@@ -684,6 +684,8 @@ echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox a
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage) page for documentation and examples.
 
+Use `archivebox add --parser=jsonl --plugins=wget < bookmarks.jsonl` for structured imports, or set `"parser": "jsonl"` in a `POST /api/v1/cli/add` request whose `urls` list contains the import text. `json` also accepts a JSON object or array. These modes take each record's URL field as a complete URL, preserving its metadata without extracting additional URLs from its path or query. `parser` selects how the input is read; `plugins` independently selects how each resulting page is captured. Text/auto parsing still discovers embedded URLs in ambiguous input. Duplicate records for the same URL retain the richest supplied metadata and combine complementary tags.
+
 It also includes a built-in scheduled import feature with `archivebox schedule`, handled by the same orchestrator that powers `archivebox server`, so you can pull in URLs from RSS feeds and websites regularly without a separate cron container.
 
 Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Schedules preserve explicitly submitted filters, plugin selection, limits, and custom config; each new run resolves current defaults for settings left unspecified.

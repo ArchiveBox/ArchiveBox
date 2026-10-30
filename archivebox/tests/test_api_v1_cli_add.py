@@ -346,6 +346,36 @@ def test_api_cli_add_concurrent_first_time_default_persona_creation(tmp_path):
     assert crawls == sorted(submitted_urls)
 
 
+@pytest.mark.parametrize("parser", ["auto", "txt"])
+def test_text_import_keeps_embedded_url_discovery(tmp_path, httpserver, parser):
+    """Ambiguous text still contributes outer and inner URLs; rich duplicate facts win."""
+    init_archive(tmp_path)
+    inner = httpserver.url_for("/article")
+    outer = httpserver.url_for("/wrapper") + "?url=" + inner
+    for path in ("/wrapper", "/article"):
+        httpserver.expect_request(path).respond_with_data("<html><body>Saved article</body></html>", content_type="text/html")
+    record = {"url": outer, "title": "Imported wrapper", "bookmarked_at": "2020-03-04T05:06:07+00:00", "tags": ["reader"]}
+    source = json.dumps(record) if parser == "auto" else f"Read this page: {outer}\n"
+    env = cli_env(PLUGINS="parse_jsonl_urls,parse_txt_urls", URL_ALLOWLIST=r"localhost[:/].*", USE_CHROME="False")
+    result = run_archivebox_cmd(
+        ["add", f"--parser={parser}", "--plugins=parse_jsonl_urls,parse_txt_urls"],
+        input=source,
+        cwd=tmp_path,
+        env=env,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(tmp_path):
+        snapshots = list(Snapshot.objects.all())
+        assert {snapshot.url for snapshot in snapshots} == {outer, inner}
+        assert len(snapshots) == 2
+        if parser == "auto":
+            snapshot = next(snapshot for snapshot in snapshots if snapshot.url == outer)
+            assert snapshot.title == record["title"]
+            assert snapshot.bookmarked_at.isoformat() == record["bookmarked_at"]
+            assert set(snapshot.tags.values_list("name", flat=True)) == {"reader"}
+
+
 @pytest.mark.timeout(360)
 def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(tmp_path):
     """REST API add should accept rich import text and queue real inner URLs with metadata preserved."""
@@ -431,6 +461,87 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
             assert snapshot.bookmarked_at.date().isoformat() == expected["date"]
         if expected.get("tags"):
             assert expected["tags"] | {"api-import"} <= tags_by_url[snapshot.url]
+
+
+@pytest.mark.parametrize("selection", ["plugins", "plugins_reversed", "parser", "parser_full_name", "persona", "json"])
+def test_api_jsonl_parser_preserves_embedded_urls_and_metadata(tmp_path, httpserver, selection):
+    """An explicitly selected input parser must not discover URLs inside JSON values."""
+    from archivebox.personas.models import Persona
+
+    init_archive(tmp_path)
+    inner_urls = [httpserver.url_for("/inner-query"), httpserver.url_for("/inner-path")]
+    outer_urls = [httpserver.url_for("/wrapper") + "?url=" + inner_urls[0], httpserver.url_for("/2026.09.18-104122/") + inner_urls[1]]
+    for path in ("/wrapper", "/inner-query", "/inner-path", "/2026.09.18-104122/" + inner_urls[1]):
+        httpserver.expect_request(path).respond_with_data("<html><body>Archived page</body></html>", content_type="text/html")
+    records = [
+        {
+            "url": url,
+            "title": f"Imported article {index}",
+            "bookmarked_at": f"2020-01-0{index + 1}T12:34:56+00:00",
+            "tags": ["reader", f"item-{index}"],
+        }
+        for index, url in enumerate(outer_urls)
+    ]
+    sparse_records = [
+        sparse
+        for record in records
+        for sparse in (
+            {"url": record["url"], "title": "Less descriptive title"},
+            {"url": record["url"], "bookmarked_at": record["bookmarked_at"], "tags": ["supplemental"]},
+        )
+    ]
+    source_records = [*records, *sparse_records] if selection == "plugins_reversed" else [*sparse_records, *records]
+    source = (
+        json.dumps(source_records, indent=2) if selection == "json" else "\n".join(json.dumps(record) for record in source_records) + "\n"
+    )
+    payload = {"urls": [source], "plugins": "parse_jsonl_urls" if selection.startswith("plugins") else "hashes", "only_new": True}
+    if selection == "parser":
+        payload["parser"] = "jsonl"
+    elif selection == "parser_full_name":
+        payload["parser"] = "parse_jsonl_urls"
+    elif selection == "json":
+        payload["parser"] = "json"
+    elif selection == "persona":
+        with use_archivebox_db(tmp_path):
+            Persona.objects.create(name="JSONL imports", config={"PARSER": "jsonl"})
+        payload["persona"] = "JSONL imports"
+    port = get_free_port()
+    env = cli_env(port=port, server=True, PLUGINS=payload["plugins"], URL_ALLOWLIST=r"localhost[:/].*")
+    api_token = create_admin_and_token(tmp_path)
+    api_server = start_api_server_without_runner(tmp_path, env, port)
+    try:
+        first_ids = None
+        for attempt in range(2):
+            response = live_api_request(port, "post", "/api/v1/cli/add", api_token=api_token, json=payload)
+            assert response.status_code == 200, response.text
+            crawl_id = response.json()["result"]["crawl_id"]
+            result = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=tmp_path, env=env, timeout=120)
+            assert result.returncode == 0, result.stdout + result.stderr
+            with use_archivebox_db(tmp_path):
+                crawl = Crawl.objects.get(id=crawl_id)
+                assert crawl.urls == source
+                snapshots = list(Snapshot.objects.order_by("url"))
+                assert {snapshot.url for snapshot in snapshots} == set(outer_urls)
+                assert len(snapshots) == len(records)
+                for record in records:
+                    snapshot = next(snapshot for snapshot in snapshots if snapshot.url == record["url"])
+                    assert snapshot.title == record["title"]
+                    assert snapshot.bookmarked_at.isoformat() == record["bookmarked_at"]
+                    assert set(snapshot.tags.values_list("name", flat=True)) == set(record["tags"]) | {"supplemental"}
+                    assert snapshot.depth == 0
+                    assert snapshot.status == Snapshot.StatusChoices.SEALED
+                ids = {snapshot.id for snapshot in snapshots}
+                if attempt:
+                    assert ids == first_ids
+                    assert not crawl.snapshot_set.exists()
+                else:
+                    first_ids = ids
+                input_dir = crawl.output_dir / "input"
+                assert (input_dir / "parse_jsonl_urls/urls.jsonl").is_file()
+                assert not (input_dir / "parse_txt_urls").exists()
+                assert not (input_dir / "parse_html_urls").exists()
+    finally:
+        stop_archivebox_process(api_server)
 
 
 @pytest.mark.timeout(240)

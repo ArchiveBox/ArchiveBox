@@ -931,6 +931,8 @@ class CrawlRunner:
 
         parser_catalog = self.catalog
         if parser_name not in {"auto", "url_list"}:
+            if parser_name == "json":
+                parser_name = "jsonl"
             requested = parser_name if parser_name.startswith("parse_") else f"parse_{parser_name}_urls"
             parser_catalog = self.catalog.select([requested])
         assert isinstance(self.base_config, ArchiveBoxBaseConfig)
@@ -939,6 +941,10 @@ class CrawlRunner:
             persona=self.persona,
             crawl_output_dir=self.crawl.output_dir,
         )
+        if parser_name not in {"auto", "url_list"}:
+            # PARSER selects input interpretation independently of the capture
+            # PLUGINS selector, which may have disabled every parser hook.
+            _enable_requested_plugins(runtime_config, parser_catalog)
         discovered = asyncio.run(
             parse_input(
                 self.crawl.urls,
