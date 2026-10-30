@@ -7,6 +7,7 @@ import os
 import socket
 import subprocess
 import time
+from ipaddress import IPv4Address, IPv6Address
 from collections.abc import Iterable
 
 import rich_click as click
@@ -18,25 +19,29 @@ from archivebox.config import CONSTANTS
 from archivebox.misc.util import docstring, enforce_types
 
 
-import re as _re
-
-_IPV4_RE = _re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
-_IPV6_CHARS_RE = _re.compile(r"^[0-9a-fA-F:.]+$")
 _LOCAL_BIND_HOSTS = frozenset({"0.0.0.0", "::", "::0", "127.0.0.1", "::1"})
 
 
 def _is_ipv4_literal(host: str) -> bool:
-    return bool(_IPV4_RE.match(host))
+    try:
+        IPv4Address(host)
+    except ValueError:
+        return False
+    return True
 
 
 def _is_ipv6_literal(host: str) -> bool:
-    # Bracketed (e.g. ``[2001:db8::1]``) or bare form. Require at least two
-    # colons so we don't catch random strings with one ``:``.
-    stripped = host.strip("[]")
-    return stripped.count(":") >= 2 and bool(_IPV6_CHARS_RE.match(stripped))
+    if host.startswith("[") != host.endswith("]"):
+        return False
+    try:
+        IPv6Address(host.removeprefix("[").removesuffix("]"))
+    except ValueError:
+        return False
+    return True
 
 
 def _bind_host_looks_like_ip(host: str) -> bool:
+    host = host.strip("[]")
     if not host or host in _LOCAL_BIND_HOSTS:
         return False
     return _is_ipv4_literal(host) or _is_ipv6_literal(host)
@@ -60,7 +65,12 @@ def _split_bind_spec(spec: str) -> tuple[str, str]:
         rest = spec[end + 1 :]
         if rest.startswith(":"):
             return host, rest[1:]
+        if rest:
+            return spec, ""  # reject trailing text after a bracketed literal
         return host, ""
+    if _is_ipv6_literal(spec):
+        # A bare IPv6 literal has no port. Ports require [address]:port.
+        return f"[{spec}]", ""
     if ":" in spec:
         host, _, port = spec.rpartition(":")
         return host, port
@@ -75,7 +85,7 @@ def _parse_and_validate_bind_spec(spec: str) -> tuple[str, str]:
 
     Accepts only IP literals (v4 or v6) or the special string ``localhost``
     (normalized to ``127.0.0.1``). Bare hostnames are rejected because the
-    bind address feeds Daphne, which has to listen on a numeric address;
+    bind address feeds the HTTP worker, which listens on a numeric address;
     public hostnames belong in ``BASE_URL`` instead. Empty values fall back
     to ``127.0.0.1`` / ``5797``.
     """
@@ -85,14 +95,25 @@ def _parse_and_validate_bind_spec(spec: str) -> tuple[str, str]:
 
     if host == "" or host.lower() == "localhost":
         host = "127.0.0.1"
-    elif _is_ipv4_literal(host) or _is_ipv6_literal(host):
+    elif _is_ipv6_literal(host):
+        address = IPv6Address(host.strip("[]"))
+        if address.ipv4_mapped:
+            if address.scope_id:
+                print("[red][X] IPv4-mapped BIND_ADDR addresses cannot have a zone identifier; use the IPv4 address.[/red]")
+                sys.exit(1)
+            # Mapped literals denote an IPv4 listener. Keep IPv4 peers native
+            # so their reverse-proxy trust rules retain the same meaning.
+            host = str(address.ipv4_mapped)
+        else:
+            host = f"[{address.compressed}]"
+    elif _is_ipv4_literal(host):
         pass
     else:
         print(
             f"[red][X] Invalid BIND_ADDR host {host!r}: must be an IP literal or 'localhost'.[/red]",
         )
         print(
-            "[red]    Hostnames like archive.example.com are not valid bind addresses — Daphne[/red]",
+            "[red]    Hostnames like archive.example.com are not valid bind addresses. The server[/red]",
         )
         print(
             "[red]    listens on numeric addresses only. Bind to 0.0.0.0 and set BASE_URL instead:[/red]",
@@ -308,7 +329,7 @@ def server(
                 print(f"[red][X] ArchiveBox daemon server exited early with code {proc.returncode}. See {log_path}[/red]")
                 sys.exit(proc.returncode or 1)
             try:
-                with socket.create_connection((host, int(port)), timeout=0.25):
+                with socket.create_connection((host.strip("[]"), int(port)), timeout=0.25):
                     break
             except OSError:
                 time.sleep(0.1)

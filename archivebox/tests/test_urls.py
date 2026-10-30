@@ -15,6 +15,21 @@ from archivebox.tests.conftest import run_archivebox_cmd
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize("host", ["[::1]", "[::1]:5797", "[2001:db8::1]", "[2001:db8::1]:8000"])
+def test_ipv6_hosts_retain_brackets_in_generated_urls(host):
+    from archivebox.config.common import ServerConfig
+    from archivebox.core.routes_util import build_admin_url, build_web_url, canonical_base_host_for_request, strip_role_subdomain
+
+    config = ServerConfig(BASE_URL=f"http://{host}", SERVER_SECURITY_MODE="auto")
+    assert strip_role_subdomain(host) == host
+    assert build_admin_url("/admin/", config=config) == f"http://{host}/admin/"
+    assert build_web_url("/", config=config) == f"http://{host}/"
+    if host.startswith("[2001:"):
+        assert canonical_base_host_for_request(host) == host
+    else:
+        assert canonical_base_host_for_request(host) == host.replace("[::1]", "archivebox.localhost")
+
+
 def test_private_snapshot_image_response_is_not_publicly_cacheable(tmp_path):
     from django.test import RequestFactory
 

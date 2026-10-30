@@ -14,7 +14,9 @@ import signal
 import socket
 import subprocess
 import sys
+import requests
 from datetime import datetime
+from ipaddress import IPv6Address
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -272,6 +274,107 @@ def test_server_help_lists_runtime_options(initialized_archive):
     assert "--reload" in result.stdout
 
 
+@pytest.mark.parametrize("host,family", [("127.0.0.1", socket.AF_INET), ("::1", socket.AF_INET6)])
+def test_server_port_probe_uses_address_family(host, family):
+    from archivebox.workers.supervisord_util import is_port_in_use
+
+    with socket.socket(family, socket.SOCK_STREAM) as listener:
+        listener.bind((host, 0))
+        port = listener.getsockname()[1]
+        listener.listen()
+        assert is_port_in_use(host, port)
+    assert not is_port_in_use(host, port)
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.parametrize(
+    "bind_source,flags,bind_host",
+    [
+        ("environment", [], "::1"),
+        ("argument", [], "::1"),
+        ("environment", ["--daemonize"], "::1"),
+        ("argument", ["--debug"], "::1"),
+        ("environment", ["--reload"], "::1"),
+        ("environment", [], "::"),
+        ("environment", [], "::0"),
+        ("argument", [], "0:0:0:0:0:0:0:0"),
+        ("argument", ["--debug"], "::"),
+    ],
+)
+def test_server_serves_http_over_ipv6(initialized_archive, bind_source, flags, bind_host):
+    with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as listener:
+        listener.bind(("::1", 0))
+        port = listener.getsockname()[1]
+    bind_addr = f"[{bind_host}]:{port}"
+    env = cli_env(live=True, BASE_URL="", BIND_ADDR=bind_addr if bind_source == "environment" else "127.0.0.1:5797")
+    args = ["server", *flags] + ([bind_addr] if bind_source == "argument" else [])
+    log_path = initialized_archive / "server-ipv6.log"
+    with log_path.open("w") as log:
+        process = run_archivebox_cmd(
+            args,
+            cwd=initialized_archive,
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            wait=False,
+            start_new_session=True,
+        )
+    try:
+        if "--debug" in flags or "--reload" in flags:
+            wait_for_log(initialized_archive / "logs/worker_runserver.log", "Listening on TCP", timeout=30)
+        else:
+            wait_for_log(initialized_archive / "logs/worker_uvicorn.log", "Uvicorn running on", timeout=30)
+        with requests.Session() as session:
+            session.trust_env = False
+            response = session.get(f"http://[::1]:{port}/health/", timeout=5)
+            if IPv6Address(bind_host).is_unspecified:
+                ipv4_response = session.get(f"http://127.0.0.1:{port}/health/", timeout=5)
+                assert ipv4_response.status_code == 200, ipv4_response.text
+                assert ipv4_response.headers["X-ArchiveBox-Health"] == "OK"
+        assert response.status_code == 200, response.text
+        assert response.headers["X-ArchiveBox-Health"] == "OK"
+        server_log = initialized_archive / "logs/server.log" if "--daemonize" in flags else log_path
+        assert f"http://[{IPv6Address(bind_host).compressed}]:{port}" in server_log.read_text()
+        if "--daemonize" in flags:
+            assert process.wait(timeout=10) == 0
+        else:
+            assert process.poll() is None
+    finally:
+        stop_archivebox_process(process)
+        kill_processes_for_data_dir(initialized_archive)
+
+
+@pytest.mark.parametrize(
+    "spec,expected",
+    [
+        ("[::]:5797", ("[::]", "5797")),
+        ("::1", ("[::1]", "5797")),
+        ("2001:db8::1", ("[2001:db8::1]", "5797")),
+        ("[2001:db8::1]:8000", ("[2001:db8::1]", "8000")),
+        ("[::ffff:127.0.0.1]:8000", ("127.0.0.1", "8000")),
+        ("[::ffff:7f00:1]:8000", ("127.0.0.1", "8000")),
+        ("::ffff:127.0.0.1", ("127.0.0.1", "5797")),
+        ("localhost:8000", ("127.0.0.1", "8000")),
+    ],
+)
+def test_server_parses_ipv6_bind_addresses(spec, expected):
+    from archivebox.cli.archivebox_server import _parse_and_validate_bind_spec
+
+    assert _parse_and_validate_bind_spec(spec) == expected
+
+
+@pytest.mark.parametrize(
+    "spec",
+    ["[::1]garbage", "[::1", "[1:2:3]:5797", "999.1.1.1:5797", "[::1]:0", "[::1]:65536", "[::ffff:127.0.0.1%lo0]:5797"],
+)
+def test_server_rejects_invalid_bind_addresses(spec):
+    from archivebox.cli.archivebox_server import _parse_and_validate_bind_spec
+
+    with pytest.raises(SystemExit) as error:
+        _parse_and_validate_bind_spec(spec)
+    assert error.value.code == 1
+
+
 @pytest.mark.timeout(120)
 def test_server_starts_with_legacy_ipv6_listen_host(initialized_archive):
     """IPv6 brackets in a legacy LISTEN_HOST must not break the startup banner."""
@@ -372,7 +475,7 @@ def test_uvicorn_worker_preserves_websocket_message_limit():
 
     command = SERVER_WORKER("127.0.0.1", "5797")["command"]
 
-    assert "uvicorn" in command
+    assert "archivebox.workers.http_server" in command
     assert "--ws-max-size=1048576" in command
     assert "--lifespan=off" in command
 
@@ -382,7 +485,7 @@ def test_uvicorn_worker_uses_callers_python_runtime(tmp_path):
 
     worker = SERVER_WORKER("127.0.0.1", "5797")
     command = shlex.split(worker["command"])
-    assert command[:3] == [sys.executable, "-m", "uvicorn"]
+    assert command[:3] == [sys.executable, "-m", "archivebox.workers.http_server"]
 
     stale_venv = tmp_path / "stale-venv"
     subprocess.run(["uv", "venv", "--python", sys.executable, str(stale_venv)], check=True, capture_output=True, text=True)
@@ -396,7 +499,7 @@ def test_uvicorn_worker_uses_callers_python_runtime(tmp_path):
 
     result = subprocess.run([*command, "--help"], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "Usage: python -m uvicorn [OPTIONS] APP" in result.stdout
+    assert "Run Uvicorn with explicit listeners" in result.stdout
 
 
 @pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "5797"), (True, "9579")])

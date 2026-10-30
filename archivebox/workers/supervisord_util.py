@@ -1,6 +1,7 @@
 __package__ = "archivebox.workers"
 
 import csv
+import errno
 import json
 import os
 import shlex
@@ -373,15 +374,11 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
     command = [
         sys.executable,
         "-m",
-        "uvicorn",
-        f"--host={host}",
+        "archivebox.workers.http_server",
+        f"--host={host.strip('[]')}",
         f"--port={port}",
         "--lifespan=off",
         "--ws-max-size=1048576",
-        # Django owns proxy trust; preserve the socket peer for its whitelist
-        # instead of trusting localhost Forwarded headers a second time here.
-        "--no-proxy-headers",
-        "archivebox.core.asgi:application",
     ]
     return {
         "name": "worker_uvicorn",
@@ -423,14 +420,19 @@ def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = 
 
 
 def is_port_in_use(host: str, port: int) -> bool:
-    """Check if a port is already in use."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind((host, port))
-            return False
-    except OSError:
-        return True
+    """Probe the actual address family; report only bind conflicts as busy."""
+    for family, socktype, proto, _, address in socket.getaddrinfo(host.strip("[]"), port, type=socket.SOCK_STREAM):
+        try:
+            with socket.socket(family, socktype, proto) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if family == socket.AF_INET6 and address[0] == "::":
+                    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+                sock.bind(address)
+        except OSError as error:
+            if error.errno == errno.EADDRINUSE:
+                return True
+            raise
+    return False
 
 
 def _sonic_worker_bind_target(worker: dict[str, str]) -> tuple[str, int] | None:
@@ -578,7 +580,9 @@ def create_worker_config(daemon):
             logfile_path = Path(value)
             if not logfile_path.is_absolute():
                 value = str(log_base_dir / logfile_path)
-        worker_str += f"{key}={value}\n"
+        # Worker values are literals, not Supervisor interpolation templates.
+        # In particular IPv6 interface scopes contain a literal percent sign.
+        worker_str += f"{key}={str(value).replace('%', '%%')}\n"
     worker_str += "\n"
 
     worker_conf.write_text(worker_str)

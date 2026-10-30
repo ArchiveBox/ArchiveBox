@@ -189,6 +189,8 @@ docker compose exec archivebox archivebox help
 
 Docker image channels: `archivebox/archivebox:dev` advances only after full CI passes. Development servers can opt into `:dev-unstable`, which follows the newest clean `dev` image after both architectures finish the Docker build and checks, without waiting for the rest of CI. The existing universal `:sha-<12-character-commit>` tag is published at the same time. Both channels include amd64 and arm64, and are also available at `ghcr.io/archivebox/archivebox`. The early `dev-unstable` and SHA images can contain changes that fail later checks; ordinary installations should keep using the fully tested release channels.
 
+For IPv6, set `BIND_ADDR=[::]:5797` in the container environment, or run `archivebox server '[::]:5797'` with a CLI install. The wildcard listener accepts both IPv6 and IPv4; `[::1]:5797` listens only on IPv6 loopback. Use brackets around IPv6 addresses when specifying a port. Docker still requires published ports or an IPv6-enabled network for clients to reach the container. `BASE_URL` controls public links independently of the listening address: use a DNS name with an AAAA record, or a bracketed address such as `http://[2001:db8::1]:5797`. Docker health checks follow the actual listener, including custom ports and command-line overrides.
+
 See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>

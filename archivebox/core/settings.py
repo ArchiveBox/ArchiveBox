@@ -55,6 +55,7 @@ DEBUG = CONFIG.DEBUG or ("--debug" in sys.argv)
 
 
 INSTALLED_APPS = [
+    "archivebox.workers",  # override Daphne's runserver address parsing while retaining its lifecycle
     "daphne",
     # Django default apps
     "django.contrib.auth",
@@ -67,12 +68,11 @@ INSTALLED_APPS = [
     "signal_webhooks",  # handles REST API outbound webhooks
     "django_object_actions",  # provides easy Django Admin action buttons on change views
     # Our ArchiveBox-provided apps (use fully qualified names)
-    # NOTE: Order matters! Apps with migrations that depend on other apps must come AFTER their dependencies
+    # Migration files declare their dependencies; app order controls command-discovery precedence.
     # "archivebox.config",  # ArchiveBox config settings (no models, not a real Django app)
     "archivebox.plugins",  # plugin discovery, hook helpers, config UI, and plugin metadata views
     "archivebox.search",  # search backend query helpers, admin search UI, and daemon integrations
     "archivebox.machine",  # handles collecting and storing information about the host machine, network interfaces, binaries, etc.
-    "archivebox.workers",  # handles starting and managing background workers and processes (orchestrators and actors)
     "archivebox.personas",  # handles Persona and session management
     "archivebox.core",  # core django model with Snapshot, ArchiveResult, etc. (crawls depends on this)
     "archivebox.crawls",  # handles Crawl and CrawlSchedule models and management (depends on core)

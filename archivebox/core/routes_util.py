@@ -92,6 +92,8 @@ def get_listen_host(config: ArchiveBoxBaseConfig | None = None, **config_kwargs:
 
 
 def _with_port(host: str, port: str | None) -> str:
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
     return f"{host}:{port}" if port else host
 
 
@@ -162,7 +164,7 @@ def get_base_url(request=None, config: ArchiveBoxBaseConfig | None = None, **con
         req_host, req_port = split_host_port(request.get_host())
         if req_host.endswith(".archivebox.localhost"):
             return f"{scheme}://{_with_port('archivebox.localhost', req_port)}"
-        if _is_local_bind_host(req_host):
+        if _is_local_bind_host(req_host) and config.USES_SUBDOMAIN_ROUTING:
             return f"{scheme}://{_with_port('archivebox.localhost', req_port)}"
         # C) Per-request fallback: when ``BASE_URL`` is unset and CSRF didn't
         # give us a single origin, trust the request's Host header — but first

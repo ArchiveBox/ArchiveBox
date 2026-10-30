@@ -505,6 +505,7 @@ jobs:
           )
           validate_ports() (
             IMAGE="$ARCHIVEBOX_IMAGE" "$BASH_BINARY" bin/validate_docker_ports.sh
+            IMAGE="$ARCHIVEBOX_IMAGE" "$BASH_BINARY" bin/validate_docker_ipv6.sh
           )
 
           checks=(mounts ports cli)
@@ -530,12 +531,14 @@ jobs:
           done
           exit "$status"
 
-      - name: Validate Docker port compatibility
+      - name: Validate Docker IPv4 and IPv6 port compatibility
         if: ${{ !(inputs.full_tests && matrix.platform == 'linux/amd64') }}
         shell: bash
         env:
           IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
-        run: '"$BASH_BINARY" bin/validate_docker_ports.sh'
+        run: |
+          "$BASH_BINARY" bin/validate_docker_ports.sh
+          "$BASH_BINARY" bin/validate_docker_ipv6.sh
 
       - name: Validate compressed image size
         if: inputs.full_tests && !inputs.push_digests

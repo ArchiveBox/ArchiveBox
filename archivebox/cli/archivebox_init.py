@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 
 from rich import print
+from rich.style import Style
+from rich.text import Text
 import rich_click as click
 
 from archivebox.misc.util import docstring, enforce_types
@@ -191,9 +193,9 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
         admin_url = build_admin_url("/admin/", config=config)
         print()
         print("    [violet]Hint:[/violet] To finish web setup, run:")
-        print(
-            f"        archivebox server  # then visit [deep_sky_blue4][link={admin_url}]{admin_url}[/link][/deep_sky_blue4]",
-        )
+        setup_hint = Text("        archivebox server  # then visit ")
+        setup_hint.append(admin_url, style=Style(color="deep_sky_blue4", link=admin_url))
+        print(setup_hint)
         print()
         print("    To add new links, you can run:")
         print("        archivebox add < ~/some/path/to/list_of_links.txt")
