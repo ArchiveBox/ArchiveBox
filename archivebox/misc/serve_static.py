@@ -1550,6 +1550,14 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             content_type=content_type,
         )
     )
+    if ranged_file is not None and response.is_async:
+        # Django registers close() for synchronous streaming iterators, but an
+        # async generator only exposes aclose(). A disconnect before its first
+        # iteration (or after its last chunk) need not run the generator's
+        # finally block, so the response must also own the already-open file.
+        # ASGI calls response.close() in a worker thread, preserving the rule
+        # that a slow FUSE close must never block the event loop.
+        response._resource_closers.append(ranged_file.close)
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     if etag:
         response.headers["ETag"] = etag
