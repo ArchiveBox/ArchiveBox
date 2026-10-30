@@ -2,7 +2,7 @@
 
 Copy snapshot directories into the destination collection, then explicitly rescan them. Ordinary `archivebox init` and `archivebox update` intentionally avoid discovering current-layout orphan directories: that would make every startup/update scan the entire collection.
 
-1. Back up both collections and finish active captures before copying. Upgrade legacy collections using the normal [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading) instructions.
+1. Finish active captures and stop the ArchiveBox server and runners in both collections before backing up and copying. Keep the destination stopped until the rescan finishes. Upgrade legacy collections using the normal [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading) instructions.
 2. Initialize the destination collection with `archivebox init`.
 3. Copy or drag the contents of each source `archive/` into the destination `archive/`, preserving the `users/<username>/snapshots/<date>/<domain>/<uuid>/` hierarchy and every snapshot's `index.jsonl`. Inspect collisions; do not overwrite different files at the same path. Do not replace the destination SQLite database.
 4. From the destination data directory, run:
@@ -16,9 +16,11 @@ archivebox status
 With Docker Compose:
 
 ```bash
+docker compose stop archivebox
 docker compose run --rm archivebox init
 docker compose run --rm archivebox update --rescan --migrate-only --index-only
 docker compose run --rm archivebox status
+docker compose up -d
 ```
 
 `--rescan` deliberately performs an O(N) scan of snapshot directories. It imports sealed orphan snapshots, restores missing archive-result records and tags, and repairs missing metadata files and crawl links for known snapshots. It does not recover missing payload bytes or guess the identity of malformed metadata. Unresolved directories are reported, retained in place, and cause a nonzero exit status. Real legacy `archive/<timestamp>/` directories still use the existing filesystem migration flow.
