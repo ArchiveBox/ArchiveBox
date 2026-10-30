@@ -753,6 +753,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return super().pause(save=save)
 
     def resume(self, *, when: datetime | None = None, save: bool = True) -> bool:
+        """Compatibility action: queue a fresh capture, rerunning all selected hooks.
+
+        Previous ArchiveResults remain history until overwritten by the new
+        attempt; they never act as checkpoints for continuing an interrupted one.
+        """
         return super().resume(when=when, save=save)
 
     def restore_paused_scheduler_marker(self) -> None:

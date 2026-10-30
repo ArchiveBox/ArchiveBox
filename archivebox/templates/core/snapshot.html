@@ -1116,9 +1116,9 @@
                 <div class="snapshot-empty-state-inner">
                     {% if snapshot_state == 'paused' %}
                         <div class="snapshot-empty-icon">⏸️</div>
-                        <h2>Crawl paused</h2>
-                        <p>This snapshot's crawl is paused — no extractors have run yet.</p>
-                        <p>Resume the crawl to start archiving content.</p>
+                        <h2>Archiving paused</h2>
+                        <p>This snapshot has no archived content to display.</p>
+                        <p>When archiving restarts, all extractors will run from the beginning.</p>
                     {% elif snapshot_state == 'started' %}
                         <div class="snapshot-empty-icon">⏳</div>
                         <h2>Archiving in progress…</h2>

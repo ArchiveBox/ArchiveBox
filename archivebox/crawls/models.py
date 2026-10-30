@@ -234,19 +234,21 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return paused
 
     def resume(self, *, when=None, save: bool = True) -> bool:
-        resumed = super().resume(when=when, save=save)
-        if resumed and self.pk:
-            from archivebox.core.models import Snapshot
+        if not save:
+            return super().resume(when=when, save=False)
+        resume_at = when or timezone.now()
+        # Parent eligibility and interrupted-child restarts form one scheduling
+        # transition. No hooks or filesystem work belongs in this transaction.
+        with transaction.atomic():
+            resumed = super().resume(when=resume_at)
+            if resumed and self.pk:
+                from archivebox.core.models import Snapshot
 
-            resume_at = when or timezone.now()
-            active_snapshots = self.snapshot_set.filter(
-                status=Snapshot.StatusChoices.PAUSED,
-            )
-            active_snapshots.update(
-                status=Snapshot.StatusChoices.QUEUED,
-                retry_at=resume_at,
-                modified_at=timezone.now(),
-            )
+                self.snapshot_set.filter(status=Snapshot.StatusChoices.PAUSED).update(
+                    status=Snapshot.StatusChoices.QUEUED,
+                    retry_at=resume_at,
+                    modified_at=timezone.now(),
+                )
         return resumed
 
     def cancel(self) -> None:

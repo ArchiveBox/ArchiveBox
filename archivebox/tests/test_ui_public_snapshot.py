@@ -225,6 +225,29 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
 
 
 @override_settings(PUBLIC_INDEX=True)
+def test_paused_snapshot_explains_restart_after_an_earlier_attempt(client, admin_user):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    url = "https://paused-capture.example/page"
+    crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
+    snapshot = Snapshot.objects.create(url=url, crawl=crawl)
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__35_wget.finite.bg.py",
+        status=ArchiveResult.StatusChoices.FAILED,
+        output_str="Interrupted before an output was saved",
+    )
+    assert crawl.pause()
+    response = client.get(snapshot.get_absolute_url(), HTTP_HOST=WEB_TEST_HOST, follow=True)
+    assert response.status_code == 200
+    assert b"Archiving paused" in response.content
+    assert b"When archiving restarts, all extractors will run from the beginning." in response.content
+    assert b"no extractors have run yet" not in response.content
+
+
+@override_settings(PUBLIC_INDEX=True)
 def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client, admin_user):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext

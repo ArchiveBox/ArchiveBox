@@ -8,6 +8,7 @@ from urllib.parse import urlencode, urlparse
 from django import forms
 from django.contrib import admin, messages
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -876,7 +877,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     @admin.action(description="Pause")
     def pause_selected_crawls(self, request, queryset):
         # Admin changelist actions must stay set-based. Calling crawl.pause()
-        # here fans out into per-crawl Snapshot/ArchiveResult writes and can
+        # here fans out into per-crawl and per-snapshot writes and can
         # hold SQLite behind the request for minutes on large archives. The
         # Crawl row is the scheduler signal; the runner observes PAUSED and
         # owns child-row lifecycle work.
@@ -893,16 +894,23 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     @admin.action(description="Resume")
     def resume_selected_crawls(self, request, queryset):
         now = timezone.now()
-        # The model resumes paused children with one set-based update per crawl;
-        # queuing only their parent leaves those snapshots permanently paused.
-        resumed = 0
-        for crawl in queryset.filter(status=Crawl.StatusChoices.PAUSED).order_by("pk").paged_iterator():
-            resumed += bool(crawl.resume(when=now))
-        resumed += queryset.filter(status=Crawl.StatusChoices.SEALED).update(
-            status=Crawl.StatusChoices.QUEUED,
-            retry_at=now,
-            modified_at=now,
-        )
+        # Requeue paused children before changing their parents' eligibility.
+        # Keep both writes atomic and the selected IDs in SQL: select-all may
+        # span more crawls than SQLite permits bound parameters. Scheduling
+        # preserves capture history; the runner restarts each interrupted
+        # snapshot's hooks, which may overwrite their previous output.
+        with transaction.atomic():
+            paused_crawls = queryset.filter(status=Crawl.StatusChoices.PAUSED).order_by().values("pk")
+            Snapshot.objects.filter(crawl_id__in=paused_crawls, status=Snapshot.StatusChoices.PAUSED).update(
+                status=Snapshot.StatusChoices.QUEUED,
+                retry_at=now,
+                modified_at=now,
+            )
+            resumed = queryset.filter(status__in=Crawl.INACTIVE_STATES).update(
+                status=Crawl.StatusChoices.QUEUED,
+                retry_at=now,
+                modified_at=now,
+            )
         if resumed:
             messages.success(request, f"Resumed {resumed} crawl(s). The runner will pick them up on the next sweep.")
         else:

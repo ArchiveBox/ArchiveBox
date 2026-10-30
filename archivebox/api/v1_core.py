@@ -1086,7 +1086,11 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
 
 @router.patch("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="patch_snapshot")
 def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateSchema):
-    """Update a snapshot (e.g., set status=sealed to cancel queued work)."""
+    """Update snapshot metadata or scheduling.
+
+    The legacy resume/unpause actions queue a full capture restart; they do not
+    continue an interrupted attempt from its previous hook results.
+    """
     snapshot = _get_snapshot_by_ref(snapshot_id)
     crawl_id = str(snapshot.crawl_id)
 
