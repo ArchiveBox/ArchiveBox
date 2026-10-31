@@ -407,10 +407,9 @@ def server(
         # reconnecting here repeatedly rereads the process table while idle.
         return command_owns_runtime_stack(command, data_dir=CONSTANTS.DATA_DIR)
 
-    shutdown_state = None
     try:
         with (
-            foreground_shutdown_signals() as shutdown_state,
+            foreground_shutdown_signals(),
             foreground_parent_watchdog(enabled=os.environ.get("ARCHIVEBOX_SERVER_DAEMON_CHILD") != "1"),
         ):
             while True:
@@ -456,8 +455,12 @@ def server(
         from django.db import connections
 
         try:
-            if not shutdown_state or not shutdown_state.signal_name:
-                command.mark_exited()
+            # A handled shutdown signal has already unwound worker cleanup.
+            # Persist our own exit: a later Compose container cannot validate
+            # this PID namespace and must not mistake this row for a live owner.
+            # Abrupt death still requires independent startup liveness checks;
+            # this only records cleanup that actually finished in this process.
+            command.mark_exited()
         finally:
             connections.close_all()
     print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")

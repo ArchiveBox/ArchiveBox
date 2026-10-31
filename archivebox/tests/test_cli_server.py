@@ -12,6 +12,7 @@ import os
 import shlex
 import signal
 import socket
+import sqlite3
 import subprocess
 import sys
 import requests
@@ -979,6 +980,21 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
             assert server.returncode == 0, log_text
             assert expected_notice in log_text, log_text
             assert "ArchiveBox server shut down gracefully" in log_text, log_text
+            # Read the completed command before another CLI can reap local
+            # stale rows; a new Compose container cannot validate this PID.
+            connection = sqlite3.connect(f"file:{initialized_archive / 'index.sqlite3'}?mode=ro", uri=True)
+            try:
+                command = connection.execute(
+                    "SELECT status, exit_code, ended_at, retry_at FROM machine_process WHERE pid = ? AND process_type = 'server'",
+                    (server.pid,),
+                ).fetchone()
+            finally:
+                connection.close()
+            assert command is not None
+            assert command[0] == "exited"
+            assert command[1] == 0
+            assert command[2] is not None
+            assert command[3] is None
             assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
         resumed = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}-resumed.log", env=env)
