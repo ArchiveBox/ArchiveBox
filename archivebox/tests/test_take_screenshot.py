@@ -8,16 +8,23 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from abx_plugins import get_plugins_dir
 
 from archivebox.core.models import ArchiveResult
 from archivebox.machine.models import Machine
-from archivebox.tests.conftest import REPO_ROOT
+from archivebox.tests.conftest import REPO_ROOT, resolve_abxpkg_binary_env
 from archivebox.tests.test_snapshot_output_stacks import save_output, save_response_image
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("selection", ["automatic", "manual", "unsupported", "explicit"])
 def test_gallery_keeps_static_preview_until_real_replay_is_ready(snapshot, live_server, browser_runtime, tmp_path, selection):
+    # Copying a WACZ does not install its viewer. A cold browser-only runtime
+    # must not depend on another test having captured with ArchiveWeb.page.
+    resolve_abxpkg_binary_env(
+        browser_runtime["lib_dir"],
+        deps_from=Path(get_plugins_dir()) / "archivewebpage" / "config.json",
+    )
     port = urlsplit(live_server.url).port
     hostname = "archivebox.test" if selection == "unsupported" else "archivebox.localhost"
     machine = Machine.current()
