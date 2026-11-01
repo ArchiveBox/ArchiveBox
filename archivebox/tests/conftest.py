@@ -33,6 +33,8 @@ from abx_plugins.plugins.opencode.archivebox.conftest import (
 import psutil
 import pytest
 import requests
+from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Response
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
@@ -374,8 +376,15 @@ def django_db_modify_db_settings(
         database.setdefault("TEST", {})["NAME"] = str(SESSION_DATA_DIR / filename)
 
 
+@pytest.fixture(scope="session")
+def wayback_server():
+    """Keep test submissions local without sharing another fixture's request log."""
+    with HTTPServer(host="127.0.0.1", port=0) as server:
+        yield server
+
+
 @pytest.fixture(autouse=True)
-def isolate_test_runtime(tmp_path):
+def isolate_test_runtime(tmp_path, wayback_server):
     """
     Run each pytest test from an isolated temp cwd and restore env mutations.
 
@@ -398,6 +407,13 @@ def isolate_test_runtime(tmp_path):
     # The config field's default was captured at import, before test isolation.
     # Keep sampler files and other temporary output inside this test collection.
     os.environ["TMP_DIR"] = str(tmp_path / "tmp")
+    wayback_server.clear()
+    wayback_server.expect_request(re.compile(r"^/save/")).respond_with_handler(
+        lambda request: Response(
+            headers={"Content-Location": "/web/20200101000000/" + request.environ["REQUEST_URI"].removeprefix("/save/")},
+        ),
+    )
+    os.environ["ARCHIVEDOTORG_SAVE_URL"] = wayback_server.url_for("/save/")
 
     def reset_machine_model_caches() -> None:
         import archivebox.machine.models as machine_models

@@ -39,6 +39,11 @@ jobs:
     if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-24.04
     environment: provider-capture
+    services:
+      wayback:
+        image: nginx:alpine
+        ports:
+          - 80/tcp
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -147,6 +152,15 @@ jobs:
           PYAUTH
           sudo apt-get update
           sudo apt-get install -y xvfb xauth poppler-utils
+
+      - name: Configure local Wayback submission service
+        run: |
+          set -Eeuo pipefail
+          docker cp .github/fixtures/wayback.conf '${{ job.services.wayback.id }}:/etc/nginx/conf.d/default.conf'
+          docker exec '${{ job.services.wayback.id }}' nginx -t
+          docker restart '${{ job.services.wayback.id }}'
+          save_url='http://127.0.0.1:${{ job.services.wayback.ports['80'] }}/save/'
+          echo "ARCHIVEDOTORG_SAVE_URL=$save_url" >> "$GITHUB_ENV"
 
       - name: Build UI screenshot gallery
         run: xvfb-run -a bin/collect_ui_screenshots.sh

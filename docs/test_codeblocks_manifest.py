@@ -351,6 +351,9 @@ def run_group(snippet_ids: str) -> None:
 
 
 def run_snippets(snippet_ids: tuple[str, ...]) -> None:
+    from pytest_httpserver import HTTPServer
+    from werkzeug.wrappers import Response
+
     snippets = {snippet.id: snippet for snippet in check_inventory()}
     records = load_manifest()
     assert len(set(snippet_ids)) == len(snippet_ids), "Each documentation snippet must run exactly once"
@@ -358,7 +361,17 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
         assert snippet_id in snippets, f"Unknown snippet ID: {snippet_id}"
         assert records[snippet_id]["disposition"] == "run", f"{snippet_id} is classified as {records[snippet_id]['disposition']}"
 
-    with DocumentationTemporaryDirectory(prefix="archivebox-docs-") as temp:
+    scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
+    docker_scenarios = scenarios.intersection({"docker", "docker-data"})
+    with (
+        DocumentationTemporaryDirectory(prefix="archivebox-docs-") as temp,
+        HTTPServer(host="0.0.0.0" if docker_scenarios else "127.0.0.1", port=0) as wayback,
+    ):
+        wayback.expect_request(re.compile(r"^/save/")).respond_with_handler(
+            lambda request: Response(
+                headers={"Content-Location": "/web/20200101000000/" + request.environ["REQUEST_URI"].removeprefix("/save/")},
+            ),
+        )
         temp_dir = Path(temp)
         temp_dir.chmod(0o755)
         env = os.environ.copy()
@@ -371,6 +384,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 "UV_TOOL_BIN_DIR": str(temp_dir / "home" / ".local" / "bin"),
                 "ABXPKG_LIB_DIR": str(temp_dir / "lib"),
                 "PATH": f"{Path(sys.executable).parent}:{env['PATH']}",
+                "ARCHIVEDOTORG_SAVE_URL": f"http://127.0.0.1:{wayback.port}/save/",
             },
         )
         # A runnable Python alias can still select an interpreter without the
@@ -384,7 +398,6 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 flush=True,
             )
         Path(env["HOME"]).mkdir()
-        scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
         workdirs = {
             "project": ROOT,
             "collection": Path(env["HOME"]) / "archivebox" / "data",
@@ -402,10 +415,23 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 env=env,
                 check=True,
             )
-        if scenarios.intersection({"docker", "docker-data"}):
+        if docker_scenarios:
             env["ARCHIVEBOX_IMAGE"] = "archivebox/archivebox:dev"
             docker = Path(env["DOCKER_BINARY"])
             assert docker.is_file() and os.access(docker, os.X_OK)
+            if sys.platform == "darwin":
+                docker_host = "host.docker.internal"
+            else:
+                network = subprocess.run(
+                    [docker, "network", "inspect", "bridge"],
+                    env=env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                gateway = next(config["Gateway"] for config in json.loads(network.stdout)[0]["IPAM"]["Config"] if config.get("Gateway"))
+                docker_host = f"[{gateway}]" if ":" in gateway else gateway
+            docker_save_url = f"http://{docker_host}:{wayback.port}/save/"
         if "docker" in scenarios:
             workdirs["docker"].mkdir(parents=True)
             (workdirs["docker"] / "docker-compose.yml").write_text((ROOT / "docker-compose.yml").read_text())
@@ -415,10 +441,31 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 env=env,
                 check=True,
             )
+            subprocess.run(
+                [docker, "compose", "run", "--rm", "archivebox", "config", "--set", f"ARCHIVEDOTORG_SAVE_URL={docker_save_url}"],
+                cwd=workdirs["docker"],
+                env=env,
+                check=True,
+            )
         if "docker-data" in scenarios:
             workdirs["docker-data"].mkdir()
             subprocess.run(
                 [docker, "run", "--rm", "-v", f"{workdirs['docker-data']}:/data", "archivebox/archivebox:dev", "init"],
+                env=env,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    docker,
+                    "run",
+                    "--rm",
+                    "-v",
+                    f"{workdirs['docker-data']}:/data",
+                    "archivebox/archivebox:dev",
+                    "config",
+                    "--set",
+                    f"ARCHIVEDOTORG_SAVE_URL={docker_save_url}",
+                ],
                 env=env,
                 check=True,
             )
@@ -490,6 +537,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                         "fi\n"
                         f'export PYTHONPATH="{root_checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
                         f'export PATH="{root_checkout_python.parent}:$PATH"\n'
+                        f'export ARCHIVEDOTORG_SAVE_URL="{env["ARCHIVEDOTORG_SAVE_URL"]}"\n'
                         f'exec {root_checkout_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)

@@ -179,7 +179,7 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             "output_str": output_str,
         }
         for _snapshot_id, url, depth, plugin, hook_name, status, _files, _size, output_str in archive_results
-        if not (status in allowed_statuses or (plugin == "archivedotorg" and status == ArchiveResult.StatusChoices.FAILED))
+        if status not in allowed_statuses
     ]
     # This fixture serves HTTP. TLSNotary must reject every plaintext document;
     # a setup, timeout, or verifier error must not count as that expected refusal.
