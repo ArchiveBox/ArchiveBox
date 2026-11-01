@@ -14,6 +14,7 @@ import requests
 from archivebox.core.models import Snapshot
 from archivebox.core.routes_util import get_snapshot_host
 from archivebox.crawls.models import Crawl
+from archivebox.tests.conftest import wait_for_log
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
@@ -192,7 +193,9 @@ def test_uvicorn_access_log_preserves_query_redaction(archivebox_daemon_server):
         timeout=15,
     )
     assert response.status_code == 200
-    output = (server.data_dir / "logs" / "worker_uvicorn.log").read_text()
+    # Supervisord drains worker stdout asynchronously: receiving HTTP 200 does
+    # not mean its separate log writer has published the access record yet.
+    output = wait_for_log(server.data_dir / "logs" / "worker_uvicorn.log", "/api/v1/docs?", timeout=15)
     assert "transport-log-secret" not in output
     assert "/api/v1/docs?token=[REDACTED]&limit=1" in output
 
