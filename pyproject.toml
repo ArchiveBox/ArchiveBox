@@ -147,14 +147,14 @@ dev = [
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest-django>=4.11.1",
-    "pytest>=9.0.3,<9.1",
+    "pytest>=9.0.3,<9.3",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
     "pytest-sugar>=1.0.0",
     "pytest-timeout>=2.3.1",
     "pytest-xdist>=3.5.0",
-    "playwright==1.63.0",
+    "playwright==1.64.1",
     "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
     ### LINTING
