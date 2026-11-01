@@ -1,0 +1,29 @@
+.github/workflows/screenshots.yml
+  s_3bdde661ee87a4::t_e998dc98aa7734 42-46,156-160
+  s_3bdde661ee87a4::t_12ea4b5e53fbfa 161-164
+archivebox/tests/test_recursive_crawl_1.py
+  s_3bdde661ee87a4::t_577a212a8cebd7 182
+.github/fixtures/wayback.conf
+  s_3bdde661ee87a4::t_e998dc98aa7734 1-13
+docs/test_codeblocks_manifest.py
+  s_3bdde661ee87a4::t_a4c5cd06c2ff64 364-374,387,418,422-425,431-434,444-445,449,457-458,468,471,540
+  s_3bdde661ee87a4::t_e36f30353aae8a 354-356,426-430,446-448,459-467,469-470
+archivebox/tests/conftest.py
+  s_3bdde661ee87a4::t_577a212a8cebd7 36-37,379-385,387,410-416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f8803836a73a5f62f8fba47d19b5325ab2aa698d",
+  "prompts": {},
+  "sessions": {
+    "s_3bdde661ee87a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18102-dc8b-7810-8a01-b336d01b9e58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
