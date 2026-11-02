@@ -971,6 +971,33 @@ def snapshot_results(snapshot, plugins: str):
     return snapshot.archiveresult_set.filter(plugin__in=names).only("snapshot_id", "plugin", "output_files")
 
 
+@register.simple_tag
+def manifest_file_count(captures, plugin: str, exclude_parts: str = "", exclude_prefixes: str = "", exclude_names: str = "") -> int:
+    """Count distinct valid plugin-relative paths from already-loaded manifests."""
+    excluded_parts = set(filter(None, exclude_parts.split(",")))
+    excluded_prefixes = tuple(filter(None, exclude_prefixes.split(",")))
+    excluded_names = set(filter(None, exclude_names.split(",")))
+    paths = set()
+    for capture in captures:
+        if capture.plugin != plugin or not isinstance(capture.output_files, dict):
+            continue
+        for path, info in capture.output_files.items():
+            # Preserve literal manifest path semantics, including root-relative
+            # references. Filesystem normalization would hide invalid ./ or //
+            # components; rebuilding OutputManifest would copy/sort every row.
+            relative = path if isinstance(info, dict) and info.get("root_relative") else f"{plugin}/{path}"
+            relative = relative.removeprefix(f"{plugin}/")
+            parts = relative.split("/")
+            if any(part in {"", ".", ".."} for part in parts):
+                continue
+            if excluded_parts.intersection(parts) or relative.startswith(excluded_prefixes) or relative in excluded_names:
+                continue
+            paths.add(relative)
+    # Cards need this scalar, not thousands of serialized paths. Exclusions
+    # belong to the calling plugin; the full file-browser manifest is untouched.
+    return len(paths)
+
+
 def render_plugin_card_document(context, result) -> str:
     """Render one plugin card template for the trusted snapshot-origin frame."""
     plugin = get_plugin_name(result.plugin)
