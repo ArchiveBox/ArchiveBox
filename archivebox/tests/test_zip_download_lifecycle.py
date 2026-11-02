@@ -1,7 +1,9 @@
 """Directory ZIPs release their real file handles when HTTP clients leave."""
 
+import hashlib
 import os
 import time
+import zipfile
 from pathlib import Path
 
 import psutil
@@ -17,7 +19,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
 @pytest.mark.django_db(transaction=True)
-def test_uvicorn_zip_disconnect_releases_source_file(archivebox_daemon_server):
+def test_uvicorn_zip_has_bounded_memory_and_releases_source_file(archivebox_daemon_server, tmp_path):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
     state = server.wait_for_workers(("worker_uvicorn",))
     uvicorn = psutil.Process(state["worker_uvicorn"]["pid"])
@@ -33,28 +35,70 @@ def test_uvicorn_zip_disconnect_releases_source_file(archivebox_daemon_server):
         snapshot_id = str(snapshot.id)
         payload = snapshot.output_dir / "staticfile" / "payload.bin"
     payload.parent.mkdir(parents=True)
-    # Exceed socket buffers so the server is still compressing when we close.
+    # Incompressible bytes exceed both socket buffers and the memory allowance;
+    # compressible input would hide whole-ZIP buffering under ASGI.
+    digest = hashlib.sha256()
     with payload.open("wb") as output:
-        for _ in range(32):
-            output.write(os.urandom(1024 * 1024))
+        for _ in range(64):
+            chunk = os.urandom(1024 * 1024)
+            output.write(chunk)
+            digest.update(chunk)
     host = get_snapshot_host(snapshot_id, overrides={"BASE_URL": "http://archivebox.localhost"})
     url = f"http://127.0.0.1:{server.port}/staticfile/?download=zip"
-    for _ in range(3):
-        with requests.get(url, headers={"Host": host}, stream=True, timeout=15) as response:
+    with requests.Session() as client:
+        client.trust_env = False
+        warm = client.get(
+            f"{url.removesuffix('?download=zip')}payload.bin?raw=1",
+            headers={"Host": host, "Range": "bytes=0-65535"},
+            timeout=15,
+        )
+        assert warm.status_code == 206
+        with payload.open("rb") as source:
+            assert warm.content == source.read(65536)
+        baseline = uvicorn.memory_info().rss
+        peak_growth = 0
+        for _ in range(3):
+            with client.get(url, headers={"Host": host}, stream=True, timeout=15) as response:
+                assert response.status_code == 200
+                assert response.headers["Content-Type"] == "application/zip"
+                # Keep the generator alive: discarding it closes urllib3's socket
+                # immediately, before we can observe the server's open source file.
+                chunks = response.iter_content(64 * 1024)
+                assert next(chunks).startswith(b"PK")
+                assert not response.raw.closed, "ZIP connection closed before the deliberate disconnect"
+                # A stalled real TCP reader must not make Django consume the
+                # entire synchronous ZIP iterator. Use the raw-download test's
+                # 16 MiB fixed-overhead allowance for this 64 MiB payload.
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    peak_growth = max(peak_growth, uvicorn.memory_info().rss - baseline)
+                    assert peak_growth < 16 * 1024 * 1024
+                    time.sleep(0.05)
+                assert str(payload) in {entry.path for entry in uvicorn.open_files()}
+                health = client.get(f"http://127.0.0.1:{server.port}/health/", timeout=5)
+                assert health.status_code == 200
+                assert health.content == b"OK"
+            chunks.close()
+            deadline = time.monotonic() + 5
+            while str(payload) in {entry.path for entry in uvicorn.open_files()}:
+                assert time.monotonic() < deadline, "Disconnected ZIP download kept its source file open"
+                time.sleep(0.05)
+
+        saved_zip = tmp_path / "download.zip"
+        with client.get(url, headers={"Host": host}, stream=True, timeout=15) as response, saved_zip.open("wb") as output:
             assert response.status_code == 200
             assert response.headers["Content-Type"] == "application/zip"
-            # Keep the generator alive: discarding it closes urllib3's socket
-            # immediately, before we can observe the server's open source file.
-            chunks = response.iter_content(64 * 1024)
-            assert next(chunks).startswith(b"PK")
-            assert not response.raw.closed, "ZIP connection closed before the deliberate disconnect"
-            assert str(payload) in {entry.path for entry in uvicorn.open_files()}
-        chunks.close()
-        deadline = time.monotonic() + 5
-        while str(payload) in {entry.path for entry in uvicorn.open_files()}:
-            assert time.monotonic() < deadline, "Disconnected ZIP download kept its source file open"
-            time.sleep(0.05)
-    assert requests.get(f"http://127.0.0.1:{server.port}/health/", timeout=5).status_code == 200
+            for chunk in response.iter_content(64 * 1024):
+                output.write(chunk)
+                peak_growth = max(peak_growth, uvicorn.memory_info().rss - baseline)
+                assert peak_growth < 16 * 1024 * 1024
+        with zipfile.ZipFile(saved_zip) as archive:
+            assert archive.namelist() == ["staticfile/payload.bin"]
+            assert archive.getinfo("staticfile/payload.bin").file_size == payload.stat().st_size
+            with archive.open("staticfile/payload.bin") as source:
+                assert hashlib.file_digest(source, "sha256").digest() == digest.digest()
+            assert archive.testzip() is None
+        print(f"ZIP payload={payload.stat().st_size} bytes; peak worker RSS growth={peak_growth} bytes")
 
 
 @pytest.mark.parametrize("use_async_stream", [False, True])
