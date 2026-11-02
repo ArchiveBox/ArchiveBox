@@ -36,6 +36,7 @@ from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
 from archivebox.misc.util import equivalent_urls, filter_queryset_by_uuid_substring, validate_url_length
+from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.core.tag_util import (
     add_snapshot_counts,
     build_tag_cards,
@@ -990,6 +991,9 @@ def snapshot_screencast(request: HttpRequest, snapshot_id: str):
             frame.close()
             continue
         response = FileResponse(frame, content_type="image/jpeg")
+        # Match crawl-file streaming: ASGI must not buffer a sync file iterator.
+        if _is_asgi_request(request):
+            response.streaming_content = _stream_ranged_file_async(RangedFileReader(frame))
         response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
         response["Pragma"] = "no-cache"
         response["Expires"] = "0"

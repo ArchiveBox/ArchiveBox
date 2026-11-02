@@ -18,6 +18,7 @@ from archivebox.config.common import get_request_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.crawls.schedule_util import next_run_for_schedule
+from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .catalog import get_importer, get_importers
@@ -220,6 +221,10 @@ def run_artifact(request, run_id, name, screenshot=False):
     except (ValueError, OSError) as error:
         raise Http404 from error
     response = FileResponse(stream, content_type="image/png" if screenshot else "text/plain; charset=utf-8")
+    # Django otherwise consumes the entire sync FileResponse under ASGI;
+    # private run logs can be large even when their activity preview is bounded.
+    if _is_asgi_request(request):
+        response.streaming_content = _stream_ranged_file_async(RangedFileReader(stream))
     response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
@@ -238,17 +243,20 @@ def run_json(request, run_id):
 def guide_image(request, plugin, feed, step):
     try:
         definition = get_importer(plugin, feed)
-        return plugin_image(plugin, definition.setup[step]["image"])
+        return plugin_image(request, plugin, definition.setup[step]["image"])
     except (ValueError, KeyError, IndexError, OSError) as error:
         raise Http404 from error
 
 
-def plugin_image(plugin, filename):
+def plugin_image(request, plugin, filename):
     root = get_plugin_catalog()[plugin].path.resolve()
     image = (root / Path(filename)).resolve()
     if not image.is_relative_to(root) or image.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
         raise Http404
-    response = FileResponse(image.open("rb"))
+    stream = image.open("rb")
+    response = FileResponse(stream)
+    if _is_asgi_request(request):
+        response.streaming_content = _stream_ranged_file_async(RangedFileReader(stream))
     response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
     return response
 
@@ -257,7 +265,7 @@ def plugin_image(plugin, filename):
 @require_GET
 def brand_icon(request, plugin, feed):
     try:
-        return plugin_image(plugin, get_importer(plugin, feed).icon)
+        return plugin_image(request, plugin, get_importer(plugin, feed).icon)
     except (ValueError, KeyError, OSError) as error:
         raise Http404 from error
 
