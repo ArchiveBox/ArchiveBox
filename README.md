@@ -66,48 +66,10 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 **📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `uv` / `brew` / `apt` / etc. ([see full Quickstart below](#quickstart)).**
 
 
-<details>
-&nbsp; <summary><i>Expand for quick copy-pastable install commands...</i> &nbsp; ⤵️</summary>
-<br/>
-<pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
-mkdir -p ~/archivebox/data && cd ~/archivebox
-curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
-docker compose pull
-docker compose up -d --wait                                                # initializes new collections automatically
-# open http://admin.archivebox.localhost:5797 to finish setup
-# docker compose run --rm archivebox add 'https://example.com'
-# docker compose run --rm archivebox help
-<br/>
-<br/>
-# Option B: Or use it as a plain Docker container:
-mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -d --name archivebox -v "$PWD:/data" -p 5797:5797 archivebox/archivebox:dev
-# open http://admin.archivebox.localhost:5797 to finish setup
-# docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
-# docker run -it -v $PWD:/data archivebox/archivebox:dev help
-<br/>
-<br/>
-# Option C: Or install it with uv (see Quickstart below for apt, brew, and more)
-uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
-mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init
-archivebox install
-# archivebox add 'https://example.com'
-# archivebox help
-# archivebox server 0.0.0.0:5797
-<br/>
-<br/>
-# Option D: Or use the uv install shortcut for Option C
-curl -fsSL 'https://get.archivebox.io' | bash
-</code></pre>
-<br/>
-<sub>Open <a href="http://web.archivebox.localhost:5797"><code>http://web.archivebox.localhost:5797</code></a> for the public UI and <a href="http://admin.archivebox.localhost:5797"><code>http://admin.archivebox.localhost:5797</code></a> for the admin UI ➡️</sub><br/>
-<sub>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sub>
-</details>
-<br/>
 
 <div align="center" style="text-align: center">
-<br/><br/>
+<br/><br/><a href="https://trendshift.io/repositories/6883?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-6883" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/6883" alt="ArchiveBox%2FArchiveBox Stats" width="250" height="55"/></a>
+<br/>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
 <br/><br/>
 <small><a href="https://demo.archivebox.io">Demo</a> | <a href="https://archivebox.io/screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
@@ -119,7 +81,6 @@ curl -fsSL 'https://get.archivebox.io' | bash
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" width="22%" alt="server snapshot admin screenshot" align="top">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/><br/>
-<a href="https://trendshift.io/repositories/6883?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-6883" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/6883" alt="ArchiveBox%2FArchiveBox Stats" width="250" height="55"/></a>
 </div>
 
 ## Key Features
@@ -187,10 +148,6 @@ docker compose exec archivebox archivebox help
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
 </li>
 </ol>
-
-Docker image channels: `archivebox/archivebox:dev` advances only after full CI passes. Development servers can opt into `:dev-unstable`, which follows the newest clean `dev` image after both architectures finish the Docker build and checks, without waiting for the rest of CI. The existing universal `:sha-<12-character-commit>` tag is published at the same time. Both channels include amd64 and arm64, and are also available at `ghcr.io/archivebox/archivebox`. The early `dev-unstable` and SHA images can contain changes that fail later checks; ordinary installations should keep using the fully tested release channels.
-
-For IPv6, set `BIND_ADDR=[::]:5797` in the container environment, or run `archivebox server '[::]:5797'` with a CLI install. The wildcard listener accepts both IPv6 and IPv4; `[::1]:5797` listens only on IPv6 loopback. Use brackets around IPv6 addresses when specifying a port. Docker still requires published ports or an IPv6-enabled network for clients to reach the container. `BASE_URL` controls public links independently of the listening address: use a DNS name with an AAAA record, or a bracketed address such as `http://[2001:db8::1]:5797`. Docker health checks follow the actual listener, including custom ports and command-line overrides.
 
 See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
