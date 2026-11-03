@@ -4,7 +4,7 @@
 
 <br/>
 
-▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
+▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/rewiki/Web-Archiving-Community">Community</a>
 
 <br/>
 
@@ -514,9 +514,7 @@ docker compose up                              # start the server
 docker run -v $PWD:/data -it -p 5797:5797 archivebox/archivebox:dev
 </code></pre>
 
-<sup>Open <a href="http://admin.archivebox.localhost:5797/admin/"><code>http://admin.archivebox.localhost:5797/admin/</code></a> to create the first admin and finish web setup. Use <a href="http://web.archivebox.localhost:5797"><code>http://web.archivebox.localhost:5797</code></a> for the public UI. ➡️</sup><br/>
-<sup>Advanced: <code>archivebox manage createsuperuser</code> remains available for creating accounts from the CLI.</sup><br/>
-<sup>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sup>
+<sup>Open <a href="http://admin.archivebox.localhost:5797/admin/"><code>http://admin.archivebox.localhost:5797/admin/</code></a> to create the first admin user.</sup><br/>
 <br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
 <br/><br/>
@@ -532,7 +530,6 @@ docker compose run --rm archivebox config --set PERMISSIONS=public
 # restart the server to apply any config changes
 </code></pre>
 
-Snapshot caching follows each snapshot's saved `PERMISSIONS`, including inherited defaults and snapshot overrides. Public content can be cached by browsers and shared proxies/CDNs; private and unlisted content uses `Cache-Control: private` so only the user's browser can cache it. Both retain normal artifact cache lifetimes and validators for fast repeat viewing. Authentication handoffs are not stored. Changing permissions does not revoke copies already cached under the previous policy; purge any affected shared cache when needed.
 </details>
 
 <br/>
@@ -711,15 +708,6 @@ env CHROME_BINARY=chromium archivebox version   # run with a one-off config
 
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded from: [`archivebox/config/`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/).
 
-Title extraction prefers Open Graph or Twitter title metadata, then falls back
-to the rendered page title, including JavaScript changes. This preserves post
-captions on sites such as Instagram that use a generic document title.
-By default, HTTP downloads reuse Chrome's detected identity after browser setup.
-yt-dlp keeps its native identity and its own argument overrides.
-Set <code>USER_AGENT</code> to override the shared request identity, or
-<code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
-new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
-configure browser title extraction. Existing crawls retain their frozen config.
 
 <a name="most-common-options-to-tweak"></a>
 <details>
@@ -847,28 +835,6 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 </code></pre>
 
 Each snapshot subfolder includes static metadata and plain extractor output files. Current releases do not create top-level <code>data/archive/TIMESTAMP</code> projections; legacy timestamp directories are migrated into the user-scoped tree by <code>archivebox update --migrate-only</code>.
-
-To import saved captures into another collection, initialize the destination with
-<code>archivebox init</code>, then copy completed snapshot directories into its
-<code>archive/</code> tree, preserving their relative paths and
-<code>index.jsonl</code> (or legacy <code>index.json</code>) files. From the
-destination collection, run <code>archivebox update --rescan --migrate-only</code>.
-The explicit rescan discovers directories absent from the database, restores
-snapshot/crawl identities and saved results, and can be restarted. Normal
-<code>init</code> and <code>update</code> do not scan the entire archive tree.
-Conflicting identities are reported rather than overwritten. Copying captures
-does not require importing the old database or its machine/process records.
-
-To repair only known captures, add snapshot filters, for example
-<code>archivebox update --rescan --migrate-only --filter-type timestamp TIMESTAMP</code>.
-Filtered rescans do not search other directories for orphans or recapture URLs.
-Retained files without recoverable extractor history contribute to the cached
-snapshot size without creating successful extractor results.
-
-Tags are restored on the first import. Later rescans preserve tag removals and
-renames made in the destination database and update the on-disk metadata.
-Crawl tags are copied to new snapshots at creation time. Changing crawl tags
-does not change earlier snapshots; use the admin bulk tag actions to edit those.
 
 <h4>Learn More</h4>
 <ul>
@@ -1073,14 +1039,6 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, configure the server-side UID/GID mapping or ACL so ArchiveBox's non-root user can create and remove files. <code>root_squash</code> is compatible when the selected non-root identity has write access; do not rely on container root to override server-side permissions.
 </li>
 </ul>
-
-For an upgrade from 0.7.x or 0.8.x, stop the server and runners, run `archivebox init`, then run `archivebox update --rescan --migrate-only` from the collection directory. With Compose, use `docker compose stop archivebox` followed by `docker compose run --rm archivebox init` and `docker compose run --rm archivebox update --rescan --migrate-only`, then restart with `docker compose up -d`. Explicit filesystem migration refuses an already-running local server or runner. This check covers processes visible on this machine, not other hosts sharing storage.
-
-`archivebox check` reads SQLite's integrity and foreign-key checks **and every table row**, without migrating or repairing the database. It also works on older schemas; `archivebox check --database /path/to/index.sqlite3` checks a specific file. Schema migrations validate the database before and after changing it. A failed check or migration exits nonzero; inspect the error before retrying. These commands do not create backups.
-
-Filesystem migration preserves conflicting source and destination files and reports failure instead of overwriting them. Rerunning resumes completed work. Known unfinished snapshots are reported as `Skipped`, not migration errors, and `--migrate-only` does not start captures. For metadata rehydration of a specific existing snapshot, use `archivebox update --rescan --filter-type timestamp TIMESTAMP`; an unfiltered rescan discovers orphan directories too. Do not manually change every snapshot's `fs_version`: each row must agree with its verified filesystem layout.
-
-SQLite connections use durable `synchronous=EXTRA` commits (equivalent to `FULL` in WAL mode), and collection configuration rejects `OFF` and `MEMORY` journals. Keep filesystem sync enabled. These guarantees require storage that correctly implements locking and flushes; weakening them to speed up an upgrade can lose acknowledged writes. See [SQLite's durability documentation](https://www.sqlite.org/pragma.html#pragma_synchronous) and [Sonarr's database storage guidance](https://wiki.servarr.com/sonarr/faq).
 
 <h4>Learn More</h4>
 
@@ -1464,13 +1422,6 @@ archivebox install
 
 #### Make DB migrations, enter Django shell, other dev helper commands
 
-Treat released migration names and dependencies as durable history. Keep new changes additive; legacy forward-path repairs must retain the same resulting schema and preserve every existing row. Never mark a destructive data transformation reversible with a no-op. Rebuild tables inside Django's migration transaction, fail on copy conflicts, and verify row counts before dropping the source. Do not recover a failed transaction by rolling it back and replaying only its last statement or batch.
-
-Migration regression coverage lives in `archivebox/tests/test_migrations_*`, `test_sqlite_backend.py`, and `test_cli_update_unattributed_outputs.py`, and runs in the regular test suite. Changes must preserve users, credentials, tags, results, execution evidence, and captured bytes through upgrades, reruns, real process interruption, and destination conflicts. Include indexed query-plan and bounded-memory checks for collection-wide operations; a fresh empty database alone is not an upgrade test.
-
-Run the seeded randomized legacy-database tests at large-collection scale with `ABX_FUZZ_SNAPSHOTS=49000 ABX_FUZZ_RESULTS=349000 uv run pytest -s archivebox/tests/test_migrations_fuzz.py`. Three reproducible seeds exercise varied metadata, WAL/DELETE journals, SIGKILL during three migration stages, refusal and rollback of invalid metadata, full row comparisons, and repeated initialization. The ordinary CI run uses 300 snapshots and 20,000 results per seed; the environment variables raise the size without changing assertions. Temporary directories retain generated databases, expected results, CLI logs, and sampled process-memory/timing metrics. This tests database migration, not a collection's captured-file payloads or storage hardware.
-
-For real NFS filesystem testing, run `uv run python bin/test_nfs_migrations.py --local-root /tmp/new-test-run --archive-root /mnt/nfs/new-test-run --seed 1932` as an unprivileged user on Linux. Both directories must be new; the archive root must be on an already-mounted NFS export and the local root must be on a local filesystem. The probe creates 24 synthetic snapshots, varied payloads and symlinks, and a 64 MiB file; exercises actual process interruption, destination conflicts and permission failures; then verifies hashes, modes, database metadata and repeated rescans. It retains test data and logs for inspection and does not provision or change the NFS server. Migration file copies are flushed before atomic publication without overwriting; interrupted staging files remain outside snapshot directories and are not captured outputs.
 
 <details><summary><i>Click to expand...</i></summary>
 
