@@ -6,6 +6,7 @@ import io
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import psutil
 import pytest
@@ -18,7 +19,7 @@ from archivebox.tests.conftest import wait_for_log
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
-def test_async_file_stream_close_does_not_block_event_loop_during_pending_read():
+def test_async_file_stream_close_does_not_block_event_loop_during_pending_read(tmp_path):
     from archivebox.misc.serve_static import _stream_ranged_file_async
 
     read_fd, write_fd = os.pipe()
@@ -37,9 +38,16 @@ def test_async_file_stream_close_does_not_block_event_loop_during_pending_read()
         release.set()
 
     timer = threading.Timer(2, release_read)
+    cached_file = tmp_path / "cached.txt"
+    cached_file.write_bytes(b"cached file remains readable during a remote stall")
 
     async def check_cancellation():
         nonlocal timer_started
+        # One stalled read must occupy only one worker. If cancellation queues
+        # close() behind BufferedReader's lock in the other worker, even a cached
+        # file cannot be served until the remote read finishes. Two workers are
+        # the smallest real executor that exposes this capacity loss.
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
         os.write(write_fd, b"first\n")
         assert await anext(iterator) == b"first\n"
         pending_read = asyncio.create_task(anext(iterator))
@@ -55,11 +63,22 @@ def test_async_file_stream_close_does_not_block_event_loop_during_pending_read()
             heartbeat_at.append(time.monotonic())
 
         heartbeat_task = asyncio.create_task(heartbeat())
+        cached_read_at = []
+
+        async def read_cached_file():
+            await asyncio.sleep(0.1)
+            payload = await asyncio.to_thread(cached_file.read_bytes)
+            cached_read_at.append(time.monotonic())
+            return payload
+
+        cached_read = asyncio.create_task(read_cached_file())
         pending_read.cancel()
         with pytest.raises(asyncio.CancelledError):
             await pending_read
         await heartbeat_task
+        assert await cached_read == cached_file.read_bytes()
         assert heartbeat_at[0] < release_at[0]
+        assert cached_read_at[0] < release_at[0]
         assert source.closed
 
     try:

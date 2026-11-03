@@ -529,15 +529,23 @@ async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
     iterator = iter(ranged_file)
     try:
         while True:
-            chunk = await asyncio.to_thread(next, iterator, None)
+            read = asyncio.create_task(asyncio.to_thread(next, iterator, None))
+            try:
+                chunk = await asyncio.shield(read)
+            except asyncio.CancelledError:
+                # Cancellation cannot stop the kernel read. Keep its task alive
+                # until it releases BufferedReader's lock before scheduling close:
+                # otherwise every disconnected slow reader consumes TWO executor
+                # workers and can starve unrelated cached-file responses. A read
+                # error after disconnect has no recipient; normal errors propagate.
+                await asyncio.gather(read, return_exceptions=True)
+                raise
             if chunk is None:
                 break
             yield chunk
     finally:
-        # Cancelling to_thread does not interrupt its filesystem read. Closing
-        # a BufferedReader waits for that read's lock (potentially remote FUSE
-        # I/O), so cleanup must also stay off the event loop. Otherwise one
-        # disconnected download can freeze every request, including health.
+        # Closing the file can itself perform filesystem work. Keep cleanup
+        # off the event loop too, after the pending read has released its lock.
         await asyncio.to_thread(ranged_file.close)
 
 
