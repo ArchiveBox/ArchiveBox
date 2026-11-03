@@ -119,6 +119,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" width="22%" alt="server snapshot admin screenshot" align="top">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/><br/>
+<a href="https://trendshift.io/repositories/6883?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-6883" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/6883" alt="ArchiveBox%2FArchiveBox Stats" width="250" height="55"/></a>
 </div>
 
 ## Key Features
