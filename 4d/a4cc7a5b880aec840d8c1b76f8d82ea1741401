@@ -1,0 +1,16 @@
+archivebox/personas/importers.py
+  h_923c208e183a7b 108-138
+archivebox/tests/test_persona_runtime.py
+  h_923c208e183a7b 149-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4da4cc7a5b880aec840d8c1b76f8d82ea1741401",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
