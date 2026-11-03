@@ -264,9 +264,12 @@ jobs:
           name: runtime-logs-${{ strategy.job-index }}
           # OpenCode's pnpm postinstall invokes npm; retain its download-stage
           # logs when the outer installer times out without emitting output.
+          # Managed pnpm bootstrap uses a separate npm cache. Without its logs,
+          # later ENOTEMPTY errors hide the initial installation stall.
           path: |
             ${{ runner.temp }}/pytest/**/*.log
             ~/.npm/_logs/*.log
+            ${{ runner.temp }}/archivebox-lib/cache/npm/_logs/*.log
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
