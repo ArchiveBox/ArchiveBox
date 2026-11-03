@@ -159,7 +159,10 @@ jobs:
           docker cp .github/fixtures/wayback.conf '${{ job.services.wayback.id }}:/etc/nginx/conf.d/default.conf'
           docker exec '${{ job.services.wayback.id }}' nginx -t
           docker restart '${{ job.services.wayback.id }}'
-          save_url='http://127.0.0.1:${{ job.services.wayback.ports['80'] }}/save/'
+          # Docker can reassign an ephemeral host port on restart. GitHub's
+          # service context retains the original port, so resolve the live mapping.
+          wayback_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' '${{ job.services.wayback.id }}')"
+          save_url="http://127.0.0.1:$wayback_port/save/"
           echo "ARCHIVEDOTORG_SAVE_URL=$save_url" >> "$GITHUB_ENV"
 
       - name: Build UI screenshot gallery
