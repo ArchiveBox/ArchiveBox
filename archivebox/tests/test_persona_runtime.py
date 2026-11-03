@@ -146,6 +146,70 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
     assert payload["chrome_binary_recorded"] == "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
 
+@pytest.mark.parametrize("preferences_state", ["valid", "secure", "missing", "malformed"])
+def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialized_archive, preferences_state):
+    script = textwrap.dedent(
+        """
+        import json
+        import os
+        from pathlib import Path
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.objects.create(name='ExtensionStorage')
+        persona.ensure_dirs()
+        profile = Path(persona.CHROME_USER_DATA_DIR) / 'Default'
+        profile.mkdir(parents=True, exist_ok=True)
+        installed_id, removed_id = 'a' * 32, 'b' * 32
+        files = [
+            f'IndexedDB/chrome-extension_{installed_id}_0.indexeddb.leveldb/000001.log',
+            f'IndexedDB/chrome-extension_{removed_id}_0.indexeddb.leveldb/000001.log',
+            f'IndexedDB/chrome-extension_{removed_id}_0.indexeddb.blob/1/1',
+            'IndexedDB/https_example.com_0.indexeddb.leveldb/000001.log',
+            'Service Worker/ScriptCache/script',
+        ]
+        for name in files:
+            path = profile / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'preserve source contents')
+        preferences = profile / 'Preferences'
+        state = PREFERENCES_STATE
+        if state in ('valid', 'secure'):
+            if state == 'secure':
+                preferences.write_text('{"extensions": {"settings": {}}}')
+                preferences = profile / 'Secure Preferences'
+            preferences.write_text(json.dumps({'extensions': {'settings': {
+                installed_id: {'path': '/installed/extension', 'state': 0},
+                removed_id: {},
+            }}}))
+        elif state == 'malformed':
+            preferences.write_text('{incomplete')
+        else:
+            preferences.unlink(missing_ok=True)
+        crawl = Crawl.objects.create(urls='https://example.com', persona=persona)
+        persona.prepare_runtime_for_crawl(crawl)
+        runtime = persona.runtime_profile_dir_for_crawl(crawl) / 'Default'
+        print(json.dumps({
+            'copied': [(runtime / name).exists() for name in files],
+            'source_preserved': all((profile / name).read_bytes() == b'preserve source contents' for name in files),
+            'retained_contents': all((runtime / name).read_bytes() == b'preserve source contents'
+                for name in files if (runtime / name).exists()),
+        }))
+        """,
+    ).replace("PREFERENCES_STATE", repr(preferences_state))
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    keep_unknown_extension = preferences_state not in ("valid", "secure")
+    assert payload["copied"] == [True, keep_unknown_extension, keep_unknown_extension, True, True]
+    assert payload["source_preserved"] is True
+    assert payload["retained_contents"] is True
+
+
 def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized_archive):
     script = textwrap.dedent(
         """

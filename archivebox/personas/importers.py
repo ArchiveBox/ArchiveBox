@@ -105,6 +105,37 @@ def _is_copyable_profile_entry(path: Path) -> bool:
 def profile_copy_ignore(src: str, names: list[str]) -> set[str]:
     ignored = set(shutil.ignore_patterns(*VOLATILE_PROFILE_COPY_PATTERNS)(src, names))
     src_path = Path(src)
+    if src_path.name == "IndexedDB":
+        # Uninstalled extensions leave their databases behind. In particular,
+        # old unpacked recorder IDs can retain entire captures that no installed
+        # extension can access. Cloning those stores can exhaust the disk
+        # before the first hook starts. Never delete the source, and preserve
+        # website databases and installed (including disabled) extension state.
+        # Service Worker/ScriptCache is deliberately retained: its script bytes
+        # back registrations in the copied profile, including offline sites.
+        settings = None
+        # Chromium can move protected extension settings into Secure Preferences.
+        # Both files belong to the same profile; ignoring either can misidentify
+        # an installed extension as an orphan and omit its authentication state.
+        for filename in ("Preferences", "Secure Preferences"):
+            try:
+                preferences = json.loads((src_path.parent / filename).read_text())
+                entries = preferences.get("extensions", {}).get("settings")
+                if isinstance(entries, dict):
+                    settings = {**(settings or {}), **entries}
+            except FileNotFoundError:
+                continue
+            except (OSError, ValueError, AttributeError, TypeError):
+                settings = None
+                break
+        # Missing/malformed preferences cannot establish that an origin is
+        # orphaned. Preserve unknown state rather than guess from directory size.
+        if isinstance(settings, dict):
+            for name in names:
+                if name.startswith("chrome-extension_"):
+                    extension = settings.get(name.split("_", 2)[1], {})
+                    if isinstance(extension, dict) and not extension.get("path"):
+                        ignored.add(name)
     for name in names:
         if name in ignored:
             continue
