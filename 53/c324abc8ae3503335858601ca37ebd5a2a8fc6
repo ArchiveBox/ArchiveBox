@@ -1,0 +1,22 @@
+.github/diagnostics/singlefile/AGPL-3.0.txt
+  h_923c208e183a7b 1-661
+.github/diagnostics/singlefile/README.md
+  h_923c208e183a7b 1-60
+.github/diagnostics/singlefile/font-serialization.patch
+  h_923c208e183a7b 1-57
+.github/workflows/diagnose-canva.yml
+  h_923c208e183a7b 1-15,133-135,151,155-157,176-178,183,227,242-243,245,254-280,348,361-367,370-374,386,389,408
+archivebox/tests/test_canva_diagnostic_workflow.py
+  h_923c208e183a7b 116-127,169,178,182-185,187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "53c324abc8ae3503335858601ca37ebd5a2a8fc6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
