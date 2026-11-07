@@ -513,6 +513,15 @@
                 flex: 0 0 auto;
                 width: 100%;
             }
+            #main-frame-wrapper[data-has-outputs="1"] > #snapshot-progress-wrapper {
+                /* Active capture details must not squeeze the preview to zero
+                   when the output tray is expanded on a small screen. */
+                flex: 0 1 auto;
+                min-height: 0;
+                max-height: 50%;
+                overflow: auto;
+                overscroll-behavior: contain;
+            }
             #main-frame-wrapper > #main-frame,
             #main-frame-wrapper > #snapshot-empty-state {
                 flex: 1 1 auto;

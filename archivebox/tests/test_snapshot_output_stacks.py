@@ -1010,7 +1010,30 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snaps
             for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
                 assert any(f"/{plugin}/" in name for name in archive.namelist())
             assert archive.testzip() is None
-        for width, height in ((1440, 1000), (1024, 900), (768, 1024), (600, 900), (390, 844), (320, 700)):
+        # Exercise both sides of the header/container and output-shelf breakpoints.
+        for width, height in (
+            (1920, 1080),
+            (1440, 1000),
+            (1201, 768),
+            (1200, 768),
+            (1199, 768),
+            (1101, 768),
+            (1100, 768),
+            (1099, 768),
+            (1024, 900),
+            (1001, 768),
+            (1000, 768),
+            (999, 768),
+            (768, 1024),
+            (601, 900),
+            (600, 900),
+            (599, 900),
+            (390, 844),
+            (361, 700),
+            (360, 700),
+            (359, 700),
+            (320, 700),
+        ):
             page.set_viewport_size({"width": width, "height": height})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             logo = page.locator(".header-archivebox img").bounding_box()
@@ -1100,6 +1123,40 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snaps
             assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
             assert page.locator(".header-top").bounding_box()["y"] == 0
             page.get_by_role("button", name="Collapse stack", exact=True).click()
+
+        # Keep the populated tray open while rotating a phone and resizing into
+        # a short window. Its lower cards must remain selectable, while the
+        # persistent header and preview remain separate from its scrolling.
+        page.set_viewport_size({"width": 390, "height": 844})
+        group = page.locator(".output-stack-article_text")
+        group.click()
+        stack = page.locator(".header-bottom")
+        bottom_card = page.locator("#stack-tray .thumb-card").last
+        for width, height in ((390, 844), (844, 390), (640, 240), (390, 844), (1920, 1080)):
+            page.set_viewport_size({"width": width, "height": height})
+            assert group.get_attribute("aria-expanded") == "true"
+            bottom_card.scroll_into_view_if_needed()
+            if height <= 844:
+                assert stack.evaluate("e => e.scrollTop") > 0
+            link = bottom_card.locator('a[target="preview"]').first
+            link.click()
+            assert "selected-card" in bottom_card.get_attribute("class")
+            selected_path = bottom_card.get_attribute("data-output-path")
+            assert selected_path in page.locator("#main-frame").get_attribute("src")
+            assert page.evaluate("scrollY") == 0
+            assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert page.locator(".header-top").bounding_box()["y"] == 0
+            preview_box = page.locator("#main-frame").bounding_box()
+            wrapper_box = page.locator("#main-frame-wrapper").bounding_box()
+            assert preview_box["height"] >= (wrapper_box["height"] - 3) / 2 - 1, (width, height, preview_box)
+            progress = page.locator("#snapshot-progress-wrapper")
+            assert progress.bounding_box()["height"] <= wrapper_box["height"] / 2
+            assert progress.evaluate("e => e.scrollHeight > e.clientHeight")
+            assert preview_box["y"] + preview_box["height"] <= height + 1
+        page.get_by_role("button", name="Collapse stack", exact=True).click()
+        assert group.get_attribute("aria-expanded") == "false"
+        assert page.locator(".header-top").bounding_box()["y"] == 0
         browser.close()
 
 
