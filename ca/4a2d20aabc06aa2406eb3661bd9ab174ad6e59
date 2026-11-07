@@ -1,0 +1,18 @@
+archivebox/tests/test_screenshot_workflow_diagnostics.py
+  h_923c208e183a7b 4-5,9,45-127
+bin/collect_ui_screenshots.sh
+  h_923c208e183a7b 128-141
+bin/generate_ui_screenshot_gallery.py
+  h_923c208e183a7b 64-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca4a2d20aabc06aa2406eb3661bd9ab174ad6e59",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
