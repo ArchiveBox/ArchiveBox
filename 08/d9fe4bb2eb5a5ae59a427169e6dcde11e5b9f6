@@ -1,0 +1,22 @@
+.github/diagnostics/singlefile/README.md
+  h_923c208e183a7b 11-12,15,62-71
+.github/diagnostics/singlefile/font-serialization.patch
+  h_923c208e183a7b 3-11,22,25-71,74,92-95,110-143
+.github/workflows/diagnose-canva.yml
+  h_923c208e183a7b 135-136,152,160-169,171-173,192-201,205,249,273,320,330,335
+archivebox/tests/test_canva_diagnostic_workflow.py
+  h_923c208e183a7b 122,188,261
+pyproject.toml
+  h_923c208e183a7b 252-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "08d9fe4bb2eb5a5ae59a427169e6dcde11e5b9f6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
