@@ -270,15 +270,39 @@ jobs:
         metadata = json.loads((Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json").read_text())
         root = Path(metadata["unpacked_path"]).resolve()
         assert root.is_relative_to((Path(config.PERSONAS_DIR) / ".singlefile").resolve()), "Diagnostic requires private prepared copy"
-        assert hashlib.sha256((root / "lib/single-file.js").read_bytes()).hexdigest() == "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
+        # Diagnostic-only changes to the pure candidate. Never accepted by the production guard.
+        # Core source and license: ../diagnostics/singlefile/README.md and AGPL-3.0.txt.
+        core = root / "lib/single-file.js"
+        core_source = core.read_text()
+        pure_sha = "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
+        diagnostic_core_sha = "ae70947bc6adb5a4d6e4d5b02fe39f4a01e7c86f92a629afab02e1d1416abee7"
+        core_changes = [
+            ('class bP{constructor(', 'const abxBoundaryCounts=new Uint32Array(32);function abxBoundary(e){const n=++abxBoundaryCounts[e];if(n<=16||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail "+e+" "+n)}function abxBoundaryFlush(){abxBoundaryCounts.forEach((e,n)=>{if(e)console.log("ABX_PUBLIC_PHASE detail "+n+" "+e)})}function abxBoundaryFlight(e){const n=abxBoundaryCounts[31]+=e;if(n<=1||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail 31 "+n)}class bP{constructor('),
+            ('for(const n of wP[e].sequential)this.cancelled||this.executeTask(n);', 'for(const n of wP[e].sequential)if(!this.cancelled){if(e===2)abxBoundary(0);this.executeTask(n);if(e===2)abxBoundary(1)}'),
+            ('async removeAlternativeFonts(){await this.processorHelper.removeAlternativeFonts(this.doc,this.stylesheets,this.resources.fonts,this.options.fontTests)}', 'async removeAlternativeFonts(){abxBoundary(this.options.rootDocument?2:4);await this.processorHelper.removeAlternativeFonts(this.doc,this.stylesheets,this.resources.fonts,this.options.fontTests);abxBoundary(this.options.rootDocument?3:5);abxBoundaryFlush()}'),
+            ('const abxSourceLists=new Map,o=this.createFontsDetailsInfo()', 'abxBoundary(6);const abxSourceLists=new Map,o=this.createFontsDetailsInfo()'),
+            ('DN(o,t),this.markRepeatedFontFaceRules(o,r,new Map),await Promise.all', 'abxBoundary(7),abxBoundary(8),DN(o,t),abxBoundary(9),abxBoundary(10),this.markRepeatedFontFaceRules(o,r,new Map),abxBoundary(11),await Promise.all'),
+            ('async processFrames(){if(this.options.frames){', 'async processFrames(){abxBoundary(this.options.rootDocument?12:14);if(this.options.frames){'),
+            ('await t.runner.run();const a=await t.runner.getPageData();', 'abxBoundary(16),await t.runner.run();abxBoundary(17),abxBoundary(18);const a=await t.runner.getPageData();abxBoundary(19);'),
+            ('this.processorHelper.processFrame(n,t,this.options,this.resources,a,o),this.stats.addAll(t)', 'abxBoundary(20),this.processorHelper.processFrame(n,t,this.options,this.resources,a,o),abxBoundary(21),this.stats.addAll(t)'),
+            ('this.frameManifests.push(...t.manifest.frames)}})}}replaceStylesheets()', 'this.frameManifests.push(...t.manifest.frames)}})}abxBoundary(this.options.rootDocument?13:15)}replaceStylesheets()'),
+            ('async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{if(a.has(e.src))e.valid=a.get(e.src);else{if(sU&&e.fontUrl){const n=new sU("test-font",e.src);try{let t;await Promise.race([n.load().then(()=>n.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{e.valid=!0,n()},5e3))])}catch(n){if("NetworkError"==n.name)e.valid=!0;else{const n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);if(a&&a[1].length){const n=a[1][0];if(n){const t=new sU("test-font","url("+n+")");try{let n;await Promise.race([t.load().then(()=>t.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{e.valid=!0,t()},5e3))])}catch(e){}}}else e.valid=!0}}}else e.valid=!0;a.set(e.src,e.valid)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{r.data.value=ST(n.map(e=>e.src).join(","),{context:"value",parseCustomProperty:!0})}catch(e){}}return!0}}}', 'async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{if(a.has(e.src))abxBoundary(22),e.valid=a.get(e.src);else{if(sU&&e.fontUrl){abxBoundary(23);abxBoundaryFlight(1);const n=new sU("test-font",e.src);abxBoundary(24);try{let t;await Promise.race([n.load().then(()=>n.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{abxBoundary(25),e.valid=!0,n()},5e3))])}catch(n){if("NetworkError"==n.name)e.valid=!0;else{const n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);if(a&&a[1].length){const n=a[1][0];if(n){abxBoundary(26);const t=new sU("test-font","url("+n+")");try{let n;await Promise.race([t.load().then(()=>t.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{abxBoundary(27),e.valid=!0,t()},5e3))])}catch(e){}}}else e.valid=!0}}abxBoundaryFlight(-1)}else e.valid=!0;abxBoundary(28),a.set(e.src,e.valid)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{abxBoundary(29),r.data.value=ST(n.map(e=>e.src).join(","),{context:"value",parseCustomProperty:!0}),abxBoundary(30)}catch(e){}}return!0}}}'),
+        ]
+        if hashlib.sha256(core_source.encode()).hexdigest() != diagnostic_core_sha:
+            assert hashlib.sha256(core_source.encode()).hexdigest() == pure_sha, "Diagnostic requires exact pure candidate"
+            for before, after in core_changes:
+                assert core_source.count(before) == 1, "Core diagnostic anchor changed"
+                core_source = core_source.replace(before, after)
+            assert hashlib.sha256(core_source.encode()).hexdigest() == diagnostic_core_sha, "Core diagnostic output SHA mismatch"
+            core.write_text(core_source)
         bundle = root / "lib/single-file-extension.js"
         original = bundle.read_bytes()
         original_sha = "f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3"
-        patched_sha = "0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b"
+        patched_sha = "97a37688f42f6aaf8080b0ec125e8082924a5ca0d85dd20328a8abbd1e6c4cf8"
         if hashlib.sha256(original).hexdigest() != patched_sha:
             assert hashlib.sha256(original).hexdigest() == original_sha, "Stage diagnostic extension SHA mismatch"
             anchor = 't.onprogress=async t=>{const{options:e}=t.detail;'
-            addition = 'if(!t.detail.frame&&Number.isSafeInteger(t.detail.step)&&t.detail.step>=0&&t.detail.step<=5&&(t.type===t.STAGE_STARTED||t.type===t.STAGE_ENDED))console.log("ABX_PUBLIC_PHASE "+(t.type===t.STAGE_STARTED?"stage_start":"stage_end")+" "+t.detail.step+" 0");'
+            addition = 'if(Number.isSafeInteger(t.detail.step)&&t.detail.step>=0&&t.detail.step<=5&&(t.type===t.STAGE_STARTED||t.type===t.STAGE_ENDED))console.log("ABX_PUBLIC_PHASE "+(t.type===t.STAGE_STARTED?"stage_start":"stage_end")+" "+t.detail.step+" "+Number(Boolean(t.detail.frame)));'
             source = original.decode()
             assert source.count(anchor) == 1, "Stage diagnostic anchor changed"
             patched = source.replace(anchor, anchor + addition).encode()
@@ -317,7 +341,7 @@ jobs:
             throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
           }
           const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
-          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2") {
+          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "ae70947bc6adb5a4d6e4d5b02fe39f4a01e7c86f92a629afab02e1d1416abee7") {
             throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
           }
         }
@@ -327,14 +351,14 @@ jobs:
         replace_once('    const extension = { ...sessionEntry };', r"""
             const extension = { ...sessionEntry };
             const liveBundleHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file.js'))).digest('hex');
-            const liveHashClass = liveBundleHash === 'f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const liveHashClass = liveBundleHash === 'ae70947bc6adb5a4d6e4d5b02fe39f4a01e7c86f92a629afab02e1d1416abee7' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const preparedMetadataPath = path.join(require('../base/utils.js').getCrawlDir(), 'chrome/extensions/singlefile.extension.json');
             const preparedMetadata = fs.existsSync(preparedMetadataPath) ? JSON.parse(fs.readFileSync(preparedMetadataPath, 'utf8')) : {};
             const preparedBundlePath = preparedMetadata.unpacked_path && path.join(preparedMetadata.unpacked_path, 'lib/single-file.js');
             const preparedHash = preparedBundlePath && fs.existsSync(preparedBundlePath) ? createHash('sha256').update(fs.readFileSync(preparedBundlePath)).digest('hex') : '';
-            const preparedHashClass = preparedHash === 'f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const preparedHashClass = preparedHash === 'ae70947bc6adb5a4d6e4d5b02fe39f4a01e7c86f92a629afab02e1d1416abee7' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const diagnosticHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file-extension.js'))).digest('hex');
-            const diagnosticHashClass = diagnosticHash === '0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b' ? 2 : diagnosticHash === 'f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3' ? 1 : 0;
+            const diagnosticHashClass = diagnosticHash === '97a37688f42f6aaf8080b0ec125e8082924a5ca0d85dd20328a8abbd1e6c4cf8' ? 2 : diagnosticHash === 'f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3' ? 1 : 0;
             fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass, diagnostic_hash_class: diagnosticHashClass}), {mode: 0o600});
             validatePreparedSinglefile(extension);
         """)
@@ -348,14 +372,24 @@ jobs:
             const traceState = {session_created: 0, started: 0, data_batches: 0, completed: 0, stop_requested: 0, detached: 0, drain_error: 0, disconnected: 0};
             const writeTraceState = () => fs.writeFileSync(traceStatePath, JSON.stringify(traceState), {mode: 0o600});
             writeTraceState();
-            const recordPhase = message => {
-              const match = /^ABX_PUBLIC_PHASE (progress|blob|chunk|chunk_end|stage_start|stage_end) (-?\d+) (-?\d+)$/.exec(message.text());
+            const recordPhaseText = text => {
+              const match = /^ABX_PUBLIC_PHASE (progress|blob|chunk|chunk_end|stage_start|stage_end|detail) (-?\d+) (-?\d+)$/.exec(text);
               if (match) {
-                phases.push({phase: match[1], a: Number(match[2]), b: Number(match[3]), elapsed_ms: Date.now() - saveStartedAt});
+                const a = Number(match[2]), b = Number(match[3]);
+                if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b)) return;
+                if (match[1] === 'detail') {
+                  if (a < 0 || a > 31 || b < 0 || b > 1048576) return;
+                  const previous = phases.findIndex(event => event.phase === 'detail' && event.a === a);
+                  if (previous >= 0 && phases[previous].b === b) return;
+                  if (previous >= 0) phases.splice(previous, 1);
+                }
+                if (match[1].startsWith('stage_') && (a < 0 || a > 5 || (b !== 0 && b !== 1))) return;
+                phases.push({phase: match[1], a, b, elapsed_ms: Date.now() - saveStartedAt});
                 if (phases.length > 512) phases.shift();
                 fs.writeFileSync(diagnosticPath, JSON.stringify(phases), {mode: 0o600});
               }
             };
+            const recordPhase = message => recordPhaseText(message.text());
             helperPage.on('console', recordPhase);
             page.on('console', recordPhase);
             const trace = await page.browser().target().createCDPSession();

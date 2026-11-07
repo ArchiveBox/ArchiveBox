@@ -119,7 +119,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     guard_end = patched.index("async function getExactChromeTab", guard_start)
     assert (
         hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
-        == "b7fd14b665986c267c2415ac3a3681e888b24fc702f76d3ef1821945f76aba79"
+        == "f70b7a9d22c78e141af8ec77ebc8eca70dfb6beb327350bcc0c21ce3b45294b7"
     )
     assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
         "const manifest =",
@@ -246,11 +246,11 @@ def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
     assert "root.is_relative_to" in source and 'Path(config.PERSONAS_DIR) / ".singlefile"' in source
     assert 'root / "lib/single-file-extension.js"' in source
     assert "f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3" in source
-    assert "0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b" in source
+    assert "97a37688f42f6aaf8080b0ec125e8082924a5ca0d85dd20328a8abbd1e6c4cf8" in source
     addition = next(line for line in source.splitlines() if line.strip().startswith("addition ="))
     assert "Number.isSafeInteger(t.detail.step)" in addition
     assert "t.detail.step>=0&&t.detail.step<=5" in addition
-    assert "!t.detail.frame" in addition
+    assert "Number(Boolean(t.detail.frame))" in addition
     assert "await" not in addition and "sendMessage" not in addition and "pageURL" not in addition
     assert "page.on('console', recordPhase)" in capture
     assert "progress|blob|chunk|chunk_end|stage_start|stage_end" in capture
@@ -259,3 +259,101 @@ def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
     assert capture.index("STAGE_HOOK\n") < capture.index("archivebox init --quick")
     candidate = capture.split("<<'CANDIDATE_HOOK'", 1)[1].split("CANDIDATE_HOOK\n", 1)[0].lstrip()
     assert hashlib.sha256(candidate.encode()).hexdigest() == "c4f564574c50bc77256993549baf41a534c51839f83da5c0d85d71c081759de7"
+
+
+def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
+    import ast
+    import hashlib
+    import json
+    import abx_plugins
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    candidate = capture.split("<<'CANDIDATE_HOOK'", 1)[1].split("CANDIDATE_HOOK\n", 1)[0].lstrip()
+    stage = capture.split("<<'STAGE_HOOK'", 1)[1].split("STAGE_HOOK\n", 1)[0].lstrip()
+    literals = {}
+    for statement in ast.parse(stage).body:
+        if isinstance(statement, ast.Assign) and isinstance(statement.targets[0], ast.Name):
+            try:
+                literals[statement.targets[0].id] = ast.literal_eval(statement.value)
+            except (ValueError, TypeError):
+                pass
+    plugin = Path(abx_plugins.__file__).parent / "plugins/singlefile"
+    config = json.loads((plugin / "config.json").read_text())
+    config["required_binaries"][0]["min_version"] = "1.36.0"
+    install_plugin = tmp_path / "singlefile"
+    install_plugin.mkdir()
+    (install_plugin / "config.json").write_text(json.dumps(config))
+    extensions = tmp_path / "lib/chromewebstore/extensions"
+    env = {"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home"), "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
+    (tmp_path / "home").mkdir()
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions)
+    install_required_binary_from_config(install_plugin, "singlefile", env=env)
+    original_root = Path(json.loads((extensions / "singlefile.extension.json").read_text())["unpacked_path"])
+    original = (original_root / "lib/single-file.js").read_text()
+    constants = {}
+    for statement in ast.parse(candidate).body:
+        if isinstance(statement, ast.Assign) and isinstance(statement.targets[0], ast.Name):
+            try:
+                constants[statement.targets[0].id] = ast.literal_eval(statement.value)
+            except (ValueError, TypeError):
+                pass
+    assert hashlib.sha256(original.encode()).hexdigest() == constants["ORIGINAL_SHA256"]
+    pure = original
+    for name, before in constants.items():
+        if name.endswith("BEFORE"):
+            after = constants[name.removesuffix("BEFORE") + "AFTER"]
+            assert pure.count(before) == 1
+            pure = pure.replace(before, after)
+    assert hashlib.sha256(pure.encode()).hexdigest() == literals["pure_sha"]
+    diagnostic = pure
+    for before, after in literals["core_changes"]:
+        assert diagnostic.count(before) == 1
+        assert before.count("await ") == after.count("await ")
+        assert before.count("Promise.") == after.count("Promise.")
+        assert before.count("setTimeout(") == after.count("setTimeout(")
+        diagnostic = diagnostic.replace(before, after)
+    assert hashlib.sha256(diagnostic.encode()).hexdigest() == literals["diagnostic_core_sha"]
+    assert literals["pure_sha"] != literals["diagnostic_core_sha"]
+    restored = diagnostic
+    for before, after in reversed(literals["core_changes"]):
+        assert restored.count(after) == 1
+        restored = restored.replace(after, before)
+    assert restored == pure
+    output = tmp_path / "diagnostic.js"
+    output.write_text(diagnostic)
+    checked = subprocess.run(["node", "--check", str(output)], text=True, capture_output=True)
+    assert checked.returncode == 0, checked.stderr
+    assert (original_root / "lib/single-file.js").read_text() == original
+    assert "abxBoundary" not in candidate
+    assert "a > 31 || b < 0 || b > 1048576" in capture
+    assert "event.phase === 'detail' && event.a === a" in capture
+
+
+def test_stage2_projection_rejects_arbitrary_content_and_bounds_records(tmp_path):
+    import json
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    instrument = capture.split("<<'INSTRUMENT'", 1)[1].split("INSTRUMENT\n", 1)[0]
+    projection = instrument.split("const recordPhaseText = ", 1)[1].split("const recordPhase =", 1)[0].strip()
+    output = tmp_path / "phases.json"
+    script = "const fs = require('fs'); const phases=[]; const saveStartedAt=Date.now();"
+    script += f"const diagnosticPath={json.dumps(str(output))}; const record={projection}"
+    script += "for(let i=0;i<2000;i++)record('ABX_PUBLIC_PHASE detail 22 '+i);"
+    script += "for(let i=0;i<32;i++)record('ABX_PUBLIC_PHASE detail '+i+' 1');"
+    script += "record('ABX_PUBLIC_PHASE stage_start 2 1');"
+    script += "record('ABX_PUBLIC_PHASE detail 32 1');record('ABX_PUBLIC_PHASE detail 1 1048577');"
+    script += "record('ABX_PUBLIC_PHASE detail 1 -1');record('ABX_PUBLIC_PHASE stage_start 2 99');"
+    script += "record('ABX_PUBLIC_PHASE private-cookie-url-sentinel 0 1');"
+    script += "record('ABX_PUBLIC_PHASE detail 1 1 private-cookie-url-sentinel');"
+    result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    records = json.loads(output.read_text())
+    assert len(records) == 33
+    assert {record["a"] for record in records if record["phase"] == "detail"} == set(range(32))
+    assert all(set(record) == {"phase", "a", "b", "elapsed_ms"} for record in records)
+    assert all(record["b"] == 1 for record in records)
+    assert "private-cookie-url-sentinel" not in output.read_text()
+    assert output.stat().st_mode & 0o077 == 0

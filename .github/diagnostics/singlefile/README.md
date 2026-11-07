@@ -69,3 +69,55 @@ font bytes are unchanged. These caches are released at the end of the pass.
 The corresponding-source diff uses zero-context unified hunks to preserve
 upstream tab indentation without whitespace-tool ambiguity. Apply it to the
 exact upstream commit with `git apply --unidiff-zero font-serialization.patch`.
+
+## Temporary stage2 diagnostic overlay (not a production fix)
+
+The workflow's separate diagnostic81 hook starts from the unchanged pure
+candidate hash and applies the explicit `core_changes` before/after source
+pairs. Its distinct final hash is accepted only by the temporary workflow's
+capture guard and verifier. The plugin's production guard remains unchanged.
+These modified excerpts are also AGPL-3.0-or-later under the original notice
+above. Corresponding source is the auditable `core_changes` list in
+`../../workflows/diagnose-canva.yml`, based on the same core commit's
+`core/index.js`, `core/lib/processor-helper-common.js`, and
+`core/lib/processor-helper-inline.js`. Original bundled notices remain intact.
+Remove this overlay with the diagnostic workflow; do not ship it in the plugin.
+
+The fixed phase schema remains `{phase, a, b, elapsed_ms}`. `stage_start` and
+`stage_end` use `a` for step0–5 and `b` for the child-frame boolean. They never
+include frame identifiers, URLs, options or content. `detail` uses `a` for the
+following fixed counter and `b` for its numeric value:
+
+- 0/1: synchronous stage2 task entry/exit (three tasks in source order).
+- 2/3 and4/5: root and child font-alternative branch entry/exit.
+- 6/7: font metadata traversal entry/exit.
+- 8/9: source metadata parsing entry/exit.
+- 10/11: repeated-rule marking entry/exit.
+- 12/13 and14/15: root and child frame branch entry/exit.
+- 16/17: child runner run entry/exit.
+- 18/19: child getPageData serialization entry/exit.
+- 20/21: child embedding entry/exit.
+- 22: completed font validation cache hit.
+- 23/24: primary FontFace constructor entry/exit.
+- 25: primary existing load timer fired.
+- 26: fallback FontFace constructor entry.
+- 27: fallback existing load timer fired.
+- 28: uncached source validation completed (including non-FontFace sources).
+- 29/30: retained CSS source reparsing entry/success.
+- 31: outstanding primary validation count, including fallback work.
+
+Counters are local to the content realm and aggregate root/child work except
+where explicitly distinguished. First16 counts and subsequent powers of two
+are emitted, then all counters are flushed at a completed font branch. The
+outstanding gauge emits at0/1 and powers of two. Thus a timed-out run's latest
+counter can be a lower bound, not the exact final total. Gauge snapshots can
+also be stale between checkpoints. No new await, promise handler, timer,
+network request, option or deadline is introduced. Observation has finite
+CPU/console overhead and is not a timing-neutral benchmark.
+
+The collector retains at most one latest entry per detail code (32 total),
+within the existing512-record cap. Codes outside0–31, noninteger values,
+negative counts, counts over1048576 and nonboolean stage frame values are
+rejected. Only the existing three JSON filenames are upload-eligible.
+GC tracing is unchanged: CDP delivers collected events after tracing ends;
+an externally terminated helper can legitimately leave no GC JSON.
