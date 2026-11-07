@@ -1025,7 +1025,27 @@ def pgrep_data_dir(data_dir: Path) -> list[str]:
                 continue
             try:
                 process = psutil.Process(pid)
-                lines.append(f"{pid} {process.ppid()} {' '.join(process.cmdline())}")
+                cmdline = process.cmdline()
+                # Persistent runners retain PID files after their supervisor
+                # exits. A reused PID is not evidence of collection ownership.
+                if not any(Path(arg).name == "supervisord" for arg in cmdline[:2]):
+                    continue
+                config_arg = None
+                for index, arg in enumerate(cmdline):
+                    if arg.startswith("--configuration="):
+                        config_arg = arg.partition("=")[2]
+                    elif arg in ("-c", "--configuration") and index + 1 < len(cmdline):
+                        config_arg = cmdline[index + 1]
+                    elif arg.startswith("-c") and len(arg) > 2:
+                        config_arg = arg[2:]
+                if config_arg is None:
+                    continue
+                active_config = Path(config_arg)
+                if not active_config.is_absolute():
+                    active_config = Path(process.cwd()) / active_config
+                if active_config.resolve() != config_path.resolve() or not process.is_running():
+                    continue
+                lines.append(f"{pid} {process.ppid()} {' '.join(cmdline)}")
                 seen_pids.add(pid)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
