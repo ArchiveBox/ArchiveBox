@@ -1,0 +1,26 @@
+archivebox/core/middleware.py
+  h_923c208e183a7b 12,35,140-146,309-315,438
+archivebox/core/routes_util.py
+  h_923c208e183a7b 7,282-326
+archivebox/core/settings.py
+  h_923c208e183a7b 12,362-363,365-367
+archivebox/core/views.py
+  h_923c208e183a7b 932-934
+archivebox/misc/serve_static.py
+  h_923c208e183a7b 1211-1213,1223
+archivebox/tests/test_allowed_public_hosts.py
+  h_923c208e183a7b 1-226
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 292,2236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9e471128679efc121b41256f5a03a666ad4d597",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
