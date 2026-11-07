@@ -1,0 +1,18 @@
+archivebox/core/middleware.py
+  h_923c208e183a7b 438-442
+archivebox/tests/test_allowed_public_hosts.py
+  h_923c208e183a7b 24-26,44,52-57,222-227
+archivebox/tests/test_migrations_07_to_09.py
+  h_923c208e183a7b 293,334,367-369
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a8b58ea5badc6cde589d4bbc4e4f37e978a1df7c",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
