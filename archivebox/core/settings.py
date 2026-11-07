@@ -9,6 +9,7 @@ import os
 import sys
 from importlib.util import find_spec
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from django.conf.locale.en import formats as en_formats  # type: ignore
 
@@ -358,10 +359,12 @@ if not _secret_persisted and not _secret_in_db:
         logger.warning("Unable to persist SECRET_KEY; retaining in-memory key (%s)", type(err).__name__)
 
 ALLOWED_HOSTS = [host.strip() for host in CONFIG.ALLOWED_HOSTS.split(",") if host.strip()]
+if CONFIG.BASE_URL and (base_hostname := urlsplit(normalize_base_url(CONFIG.BASE_URL)).hostname):
+    ALLOWED_HOSTS.append(f"[{base_hostname}]" if ":" in base_hostname else base_hostname)
 if (CONFIG.SERVER_SECURITY_MODE == "auto" or CONFIG.USES_SUBDOMAIN_ROUTING) and "*" not in ALLOWED_HOSTS:
-    # ArchiveBox owns the effective host policy at request time in auto and
-    # subdomain modes: canonical hosts keep the normal app surface, while
-    # alternate hosts are downgraded/rejected by get_request_config()/middleware.
+    # Built-in replay subdomains are dynamic, and Machine config can change
+    # without restarting Django. HostRoutingMiddleware enforces the
+    # current public allowlist without changing built-in role/replay routing.
     # Django has to admit the Host header first for that existing boundary to run.
     ALLOWED_HOSTS.append("*")
 CSRF_TRUSTED_ORIGINS = list({origin.strip() for origin in CONFIG.CSRF_TRUSTED_ORIGINS.split(",") if origin.strip()})

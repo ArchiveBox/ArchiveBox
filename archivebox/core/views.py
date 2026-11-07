@@ -929,7 +929,9 @@ def _trusted_snapshot_frame_csp(request: HttpRequest) -> str:
     # neither this CSP nor the frame grants it admin cookies or cross-snapshot
     # reads. In one-domain no-JS mode the hosts coincide, but raw replay scripts
     # remain blocked by the separate replay response policy.
-    viewer_origins = " ".join(dict.fromkeys((build_web_url(request=request), build_admin_url(request=request))))
+    from archivebox.core.routes_util import get_public_viewer_origins
+
+    viewer_origins = " ".join(get_public_viewer_origins(request=request))
     return (
         "default-src 'self' data: blob:; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "

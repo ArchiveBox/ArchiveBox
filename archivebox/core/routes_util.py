@@ -4,6 +4,7 @@ import re
 from typing import Any, TYPE_CHECKING
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
+from django.http.request import split_domain_port, validate_host
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from archivebox.config.common import get_config, get_request_config
@@ -276,6 +277,51 @@ def host_matches(request_host: str, target_host: str) -> bool:
     if req_host != target_host_only:
         return False
     return not (target_port and req_port and target_port != req_port)
+
+
+def get_public_host_patterns(config: ArchiveBoxBaseConfig) -> list[str]:
+    """Public UI hosts explicitly configured by the operator, plus BASE_URL."""
+    hosts = [host.strip().lower() for host in config.ALLOWED_HOSTS.split(",") if host.strip()]
+    # Do not derive admission from request Host: that would bless every caller.
+    # The implicit CSRF base keeps older single-domain collections working.
+    if config.BASE_URL or derive_base_url_from_csrf(config):
+        for host in (get_base_host(config=config), get_web_host(config=config)):
+            hostname, _port = split_host_port(host)
+            if hostname and hostname not in hosts:
+                hosts.append(hostname)
+    return hosts
+
+
+def is_public_host(request_host: str, config: ArchiveBoxBaseConfig, *, explicit: bool = False) -> bool:
+    hostname, _port = split_host_port(request_host)
+    patterns = get_public_host_patterns(config)
+    # '*' admits public requests, but does not turn original-domain replay
+    # hosts into UI aliases or allow every website to embed archive viewers.
+    if explicit:
+        patterns = [host for host in patterns if host != "*"]
+    return validate_host(hostname.rstrip("."), patterns)
+
+
+def get_public_viewer_origins(request=None, config: ArchiveBoxBaseConfig | None = None) -> list[str]:
+    """Exact configured UI origins for trusted snapshot frame ancestors."""
+    config = config or (get_request_config(request) if request is not None else get_config())
+    origins = [
+        build_web_url(request=request, config=config),
+        build_admin_url(request=request, config=config),
+        get_base_url(request=request, config=config),
+    ]
+    base = urlsplit(get_base_url(request=request, config=config))
+    port = str(base.port) if base.port else None
+    for host in get_public_host_patterns(config):
+        if host == "*":
+            continue
+        # Django's leading dot means the named domain and its subdomains.
+        hostname, configured_port = split_domain_port(host.lstrip("."))
+        if not hostname:
+            continue
+        names = (hostname, f"*.{hostname}") if host.startswith(".") else (hostname,)
+        origins.extend(f"{base.scheme}://{_with_port(name, configured_port or port)}" for name in names)
+    return list(dict.fromkeys(origin for origin in origins if origin))
 
 
 def is_allowed_archivebox_redirect_url(url: str | None, request=None, config: ArchiveBoxBaseConfig | None = None) -> bool:

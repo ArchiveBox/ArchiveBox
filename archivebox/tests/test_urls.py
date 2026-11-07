@@ -289,6 +289,7 @@ def _build_script(body: str) -> str:
         get_admin_host,
         get_admin_base_url,
         get_base_host,
+        get_base_url,
         get_api_host,
         get_web_host,
         get_web_base_url,
@@ -2232,7 +2233,7 @@ class TestUrlRouting:
                     assert response.status_code == 200, (target, response.status_code)
                     csp = response['Content-Security-Policy']
                     config = get_request_config(response.wsgi_request)
-                    origins = tuple(dict.fromkeys((get_web_base_url(config=config), get_admin_base_url(config=config))))
+                    origins = tuple(dict.fromkeys((get_web_base_url(config=config), get_admin_base_url(config=config), get_base_url(config=config))))
                     ancestors = next(d.strip() for d in csp.split(';') if d.strip().startswith('frame-ancestors'))
                     assert ancestors == "frame-ancestors 'self' " + ' '.join(origins), ancestors
                     assert '*' not in ancestors  # no unrelated snapshots/sites

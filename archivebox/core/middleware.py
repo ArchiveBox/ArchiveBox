@@ -9,7 +9,7 @@ from django.conf import settings
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.staticfiles import finders
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import DisallowedHost, ImproperlyConfigured
 from django.http import HttpResponseForbidden, HttpResponseNotModified
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -32,6 +32,7 @@ from archivebox.core.routes_util import (
     get_web_host,
     host_matches,
     is_snapshot_subdomain,
+    is_public_host,
     split_host_port,
 )
 from archivebox.core.views import HealthCheckView, OriginalDomainHostView, SnapshotHostView
@@ -136,7 +137,13 @@ def AdminCookieIsolationMiddleware(get_response):
         if host_matches(request_hostname, get_admin_host(config=config)):
             return response
 
-        if host_matches(request_hostname, get_web_host(config=config)):
+        subdomain = get_listen_subdomain(request_host, config=config)
+        public_alias = (
+            is_public_host(request_host, config, explicit=True)
+            and subdomain not in {"admin", "api"}
+            and not is_snapshot_subdomain(subdomain)
+        )
+        if host_matches(request_hostname, get_web_host(config=config)) or public_alias:
             for cookie_name in tuple(response.cookies.keys()):
                 if cookie_name != ADMIN_LOGIN_HINT_COOKIE:
                     response.cookies.pop(cookie_name, None)
@@ -299,6 +306,13 @@ def HostRoutingMiddleware(get_response):
         listen_host = get_listen_host(config=config)
         subdomain = get_listen_subdomain(request_host, config=config, request=request)
 
+        # Built-in admin/API/snapshot/original replay routing stays unchanged.
+        # Do not infer permission from request Host when BASE_URL is unset.
+        configured_subdomain = get_listen_subdomain(request_host, config=config)
+        builtin_replay_host = config.USES_SUBDOMAIN_ROUTING and configured_subdomain and configured_subdomain != "web"
+        if not builtin_replay_host and not is_public_host(request_host, config):
+            raise DisallowedHost(f"Public ArchiveBox host {request_host!r} is not in ALLOWED_HOSTS or BASE_URL.")
+
         # Framework-owned assets must bypass snapshot/original-domain replay routing.
         # Otherwise pages on snapshot subdomains can receive HTML for JS/CSS requests.
         if request.path.startswith("/static/") or request.path in {"/favicon.ico", "/robots.txt"}:
@@ -421,7 +435,7 @@ def HostRoutingMiddleware(get_response):
                 return redirect(target_path)
             return get_response(request)
 
-        if host_matches(request_host, web_host):
+        if host_matches(request_host, web_host) or is_public_host(request_host, config, explicit=True):
             if request.COOKIES.get(ADMIN_LOGIN_HINT_COOKIE) == "1" and (request.path == "/public" or request.path.startswith("/public/")):
                 target = build_admin_url("/admin/core/snapshot/", request=request)
                 return redirect(target)

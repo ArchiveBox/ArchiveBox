@@ -1208,6 +1208,9 @@ def _apply_archive_replay_headers(
         and "Content-Security-Policy" not in response.headers
         and _is_risky_replay_document(fullpath, content_type)
     ):
+        from archivebox.core.routes_util import get_public_viewer_origins
+
+        viewer_origins = " ".join(get_public_viewer_origins(config=config))
         response.headers["Content-Security-Policy"] = (
             "sandbox; "
             "default-src 'self' data: blob:; "
@@ -1217,7 +1220,7 @@ def _apply_archive_replay_headers(
             "form-action 'none'; "
             "connect-src 'none'; "
             "worker-src 'none'; "
-            "frame-ancestors 'self'; "
+            f"frame-ancestors 'self' {viewer_origins}; "
             "style-src 'self' 'unsafe-inline' data: blob:; "
             "img-src 'self' data: blob:; "
             "media-src 'self' data: blob:; "
