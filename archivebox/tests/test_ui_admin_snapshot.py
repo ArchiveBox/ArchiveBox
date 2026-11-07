@@ -1108,7 +1108,9 @@ class TestSnapshotProgressStats:
 
         assert core_tags.plugin_full({"request": None}, None) == ""
 
-    def test_write_html_details_succeeds_with_index_only_fallback_output(self, snapshot):
+    def test_write_html_details_succeeds_with_index_only_fallback_output(self, snapshot, browser_runtime):
+        from playwright.sync_api import expect, sync_playwright
+
         output_dir = Path(snapshot.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         snapshot.write_index_jsonl()
@@ -1122,12 +1124,37 @@ class TestSnapshotProgressStats:
         assert "index.jsonl?preview=1" in rendered
         assert "height: calc(100vh - 210px)" not in rendered
         assert "iframe-large" not in rendered
-        assert "fitPreviewFrameToContent" in rendered
-        assert "wrapper.style.height = `${contentHeight}px`" in rendered
         assert 'class="header-toggle header-toggle-trigger"' not in rendered
         assert "event.preventDefault()" in rendered
         assert rendered.count("document.querySelector('.header-top').addEventListener('click', (event) => {") == 1
         assert "handleSnapshotHeaderToggle(event)" in rendered
+
+        # Portable exports must retain a working index-only preview and the
+        # same bounded shell as the live view, without external stylesheets.
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                executable_path=str(browser_runtime["chrome_binary"]),
+                args=browser_runtime["chrome_args"],
+            )
+            page = browser.new_page()
+            page.goto((output_dir / "index.html").as_uri())
+            frame = page.locator("#main-frame")
+            expect(frame).to_have_attribute("src", re.compile(r"index\.jsonl\?preview=1"))
+            toggle = page.get_by_role("button", name="Toggle saved outputs", exact=True)
+            for width, height in ((1440, 1000), (390, 844), (640, 360)):
+                page.set_viewport_size({"width": width, "height": height})
+                for expanded in (True, False, True):
+                    if toggle.get_attribute("aria-expanded") != str(expanded).lower():
+                        toggle.click()
+                    expect(toggle).to_have_attribute("aria-expanded", str(expanded).lower())
+                    assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                    assert page.locator(".header-top").bounding_box()["y"] == 0
+                    box = frame.bounding_box()
+                    assert box["height"] > 0
+                    assert box["y"] + box["height"] <= height + 1
+                    expect(toggle).to_be_in_viewport()
+            browser.close()
 
     def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(
         self,
