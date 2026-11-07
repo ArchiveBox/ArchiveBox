@@ -1,0 +1,16 @@
+archivebox/services/runner.py
+  h_923c208e183a7b 1681-1686
+archivebox/tests/test_crawl_memory_admission.py
+  h_923c208e183a7b 272-325
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "004abb4e1643289f2eb17403480212e934de536f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
