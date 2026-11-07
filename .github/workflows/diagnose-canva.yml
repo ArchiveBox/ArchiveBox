@@ -108,70 +108,137 @@ jobs:
         mapfile -t enabled < <(python -c 'import json,sys; print("\n".join(f"{p.upper()}_ENABLED=True" for p in json.load(open(sys.argv[1]))["enabled"]))' "$PUBLIC_ROOT/plan.json")
         archivebox config --set "${enabled[@]}"
         archivebox install
+        python - "$(python -c 'from pathlib import Path; import abx_plugins; print(Path(abx_plugins.__file__).parent / "plugins/singlefile/singlefile_extension_save.js")')" <<'INSTRUMENT'
+        from pathlib import Path
+        import sys
+        import os
+        import json
+
+        helper = Path(sys.argv[1])
+        source = helper.read_text()
+        assert "ABX_PUBLIC_PHASE" not in source, "SingleFile diagnostic anchor changed"
+
+        def replace_once(old, new):
+            global source
+            assert source.count(old) == 1, "SingleFile diagnostic anchor changed"
+            source = source.replace(old, new)
+
+        replace_once('    const downloadTimeoutMs = deadline - Date.now();', r"""
+            // Public diagnostic only: no options, URLs, bodies or arbitrary trace strings.
+            const diagnosticPath = path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'singlefile-phases.json');
+            const tracePath = path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'v8-gc.json');
+            const phases = [];
+            helperPage.on('console', message => {
+              const match = /^ABX_PUBLIC_PHASE (progress|blob|chunk|chunk_end) (-?\d+) (-?\d+)$/.exec(message.text());
+              if (match) {
+                phases.push({phase: match[1], a: Number(match[2]), b: Number(match[3]), elapsed_ms: Date.now() - saveStartedAt});
+                if (phases.length > 512) phases.shift();
+                fs.writeFileSync(diagnosticPath, JSON.stringify(phases), {mode: 0o600});
+              }
+            });
+            const trace = await page.browser().target().createCDPSession();
+            const events = [];
+            let omitted = 0;
+            const names = new Set(['MajorGC', 'MinorGC', 'V8.GC_SCAVENGER', 'V8.GC_MARK_COMPACTOR', 'V8.GCFinalizeMC', 'V8.GCIncrementalMarking']);
+            trace.on('Tracing.dataCollected', ({value}) => {
+              for (const event of value) {
+                if (!names.has(event.name)) continue;
+                const clean = {name: event.name};
+                for (const key of ['ts', 'dur', 'pid', 'tid']) if (Number.isFinite(event[key])) clean[key] = event[key];
+                for (const key of ['usedHeapSizeBefore', 'usedHeapSizeAfter', 'heap_size', 'allocated']) {
+                  if (Number.isFinite(event.args?.[key])) clean[key] = event.args[key];
+                }
+                events.push(clean);
+                if (events.length > 2048) { events.shift(); omitted++; }
+              }
+              fs.writeFileSync(tracePath, JSON.stringify({events, omitted}), {mode: 0o600});
+            });
+            await trace.send('Tracing.start', {transferMode: 'ReportEvents', traceConfig: {
+              recordMode: 'recordContinuously', includedCategories: ['v8', 'disabled-by-default-v8.gc'],
+              excludedCategories: ['*'], traceBufferSizeInKb: 1024,
+            }});
+            const stopTrace = async () => {
+              const completed = new Promise(resolve => trace.once('Tracing.tracingComplete', resolve));
+              await trace.send('Tracing.end');
+              // Diagnostic drain only, after capture ends; the capture deadline is unchanged.
+              await chromeUtils.withTimeout(() => completed, 5000, 'Public trace drain exceeded 5s');
+              await trace.detach();
+            };
+            publicDiagnosticStop = stopTrace;
+            const downloadTimeoutMs = deadline - Date.now();""")
+        replace_once('  let downloadedPath', '  let publicDiagnosticStop = null;\n  let downloadedPath')
+        replace_once('          const onMessage = (message, sender) => {', r"""          const onMessage = (message, sender) => {
+                    if (sender.tab?.id === exactTab.id) {
+                      if (message.method === 'ui.processProgress' && Number.isSafeInteger(message.index) && Number.isSafeInteger(message.maxIndex)) {
+                        console.log('ABX_PUBLIC_PHASE progress ' + message.index + ' ' + message.maxIndex);
+                      } else if (message.method === 'downloads.download') {
+                        if (message.blobURL) console.log('ABX_PUBLIC_PHASE blob 0 0');
+                        else if (typeof message.content === 'string') console.log('ABX_PUBLIC_PHASE ' + (message.finished ? 'chunk_end' : 'chunk') + ' ' + message.content.length + ' 0');
+                      }
+                    }""")
+        replace_once('      releaseSinglefileLock?.();', "      if (publicDiagnosticStop) await publicDiagnosticStop().catch(() => console.error('Public trace drain failed'));\n      releaseSinglefileLock?.();")
+        source = source.replace("__PUBLIC_DIAGNOSTIC_DIRECTORY__", json.dumps(str(Path(os.environ["PUBLIC_ROOT"]) / "diagnostics")))
+        helper.write_text(source)
+        INSTRUMENT
         url="$(python -c 'import json,sys; print(next(e["url"] for e in json.load(open(sys.argv[1]))["examples"] if "canva" in e["plugins"]))' "$PUBLIC_ROOT/plan.json")"
         capture_status=0
         archivebox add --depth=0 --overwrite "$url" || capture_status=$?
-        # Read persisted stderr even when a successful daemon deleted its sidecar.
-        archivebox manage shell --no-imports -c '
-        import os
-        from pathlib import Path
-        from django.db.models.functions import Right
-        from archivebox.machine.models import Process
-        out = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics"
-        for i, p in enumerate(Process.objects.filter(process_type="hook", pwd__endswith="/chrome").order_by("-created_at").annotate(tail=Right("stderr", 65536))[:16]):
-            (out / f"chrome-{i}.log").write_text(p.tail)
-        '
         exit "$capture_status"
         PUBLIC
-    - name: Retain bounded public capture log
-      if: always()
-      run: |-
-        if [[ -n "${CANVA_PUBLIC_ROOT:-}" && -f "$CANVA_PUBLIC_ROOT/capture.log" ]]; then
-          tail -c 131072 "$CANVA_PUBLIC_ROOT/capture.log" > "$CANVA_PUBLIC_ROOT/diagnostics/capture.log"
-        fi
     - name: Record failed capture resource diagnostics
       if: always()
       run: |
-        # Resource evidence only: never collect environment variables,
-        # process arguments, browser profiles, or provider persona contents.
         umask 077
         [[ -n "${CANVA_PUBLIC_ROOT:-}" ]] || exit 0
-        diagnostics="$CANVA_PUBLIC_ROOT/diagnostics"
-        mkdir -p "$diagnostics"
-        {
-          echo 'Memory totals (kB)'
-          if [[ -r /proc/meminfo ]]; then
-            awk '/^(MemTotal|MemAvailable|SwapTotal|SwapFree):/' /proc/meminfo
-          else
-            echo 'Memory totals unavailable'
-          fi
-          echo 'Cgroup memory'
-          cgroup_path=''
-          if [[ -r /proc/self/cgroup ]]; then
-            cgroup_path="$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup)"
-          fi
-          cgroup_path="${cgroup_path%/}"
-          for cgroup_dir in "/sys/fs/cgroup$cgroup_path" /sys/fs/cgroup; do
-            for metric in memory.max memory.peak memory.events memory.swap.max memory.swap.peak; do
-              if [[ -r "$cgroup_dir/$metric" ]]; then
-                printf '%s: ' "$cgroup_dir/$metric"
-                head -c 4096 "$cgroup_dir/$metric"
-                echo
-              fi
-            done
-            [[ "$cgroup_dir" != /sys/fs/cgroup ]] || break
-          done
-          echo 'Kernel memory/process failures (last 50 matching lines)'
-          if ! sudo -n dmesg --color=never 2>/dev/null | grep -Ei 'out of memory|oom-kill|killed process|segfault' | tail -50 | tail -c 16384; then
-            echo 'No matching kernel failures, or kernel log unavailable'
-          fi
-        } > "$diagnostics/system-memory.log"
+        uv run --no-sync python - <<'METRICS'
+        import json
+        import os
+        from pathlib import Path
+
+        report = {}
+        meminfo = Path("/proc/meminfo")
+        if meminfo.exists():
+            for line in meminfo.read_text().splitlines():
+                fields = line.split()
+                if fields[0] in {"MemTotal:", "MemAvailable:", "SwapTotal:", "SwapFree:"} and fields[1].isdigit():
+                    report[fields[0][:-1] + "_kB"] = int(fields[1])
+        cgroup = Path("/sys/fs/cgroup")
+        proc = Path("/proc/self/cgroup")
+        if proc.exists():
+            for line in proc.read_text().splitlines():
+                if line.startswith("0::"):
+                    candidate = cgroup / line[3:].lstrip("/")
+                    if (candidate / "memory.events").is_file():
+                        cgroup = candidate
+        for metric in ("memory.max", "memory.peak", "memory.swap.max", "memory.swap.peak"):
+            file = cgroup / metric
+            if file.is_file():
+                value = file.read_text().strip()
+                if value.isdigit():
+                    report[metric] = int(value)
+                elif value == "max":
+                    report[metric] = "max"
+        file = cgroup / "memory.events"
+        if file.is_file():
+            for line in file.read_text().splitlines():
+                key, value = line.split()
+                if key in {"low", "high", "max", "oom", "oom_kill", "oom_group_kill"} and value.isdigit():
+                    report["memory.events." + key] = int(value)
+        output = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "diagnostics" / "system-memory.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            json.dump(report, stream, sort_keys=True)
+        METRICS
     - name: Upload public diagnostics only
       if: always() && env.CANVA_PUBLIC_ROOT != ''
       uses: actions/upload-artifact@v4
       with:
         name: canva-public-native-diagnostics
-        path: ${{ env.CANVA_PUBLIC_ROOT }}/diagnostics
+        path: |-
+          ${{ env.CANVA_PUBLIC_ROOT }}/diagnostics/singlefile-phases.json
+          ${{ env.CANVA_PUBLIC_ROOT }}/diagnostics/v8-gc.json
+          ${{ env.CANVA_PUBLIC_ROOT }}/diagnostics/system-memory.json
         retention-days: 3
         if-no-files-found: error
     - name: Remove disposable public collection
