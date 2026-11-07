@@ -21,8 +21,9 @@ def configure_hosts(mode="safe-subdomains-fullreplay", allowed="demo.archivebox.
 
 
 @pytest.mark.parametrize("host", ["demo.archivebox.localhost", "archive.example.test", "web.archivebox.localhost"])
-def test_allowed_public_alias_serves_index(client, host):
-    configure_hosts()
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "auto"])
+def test_allowed_public_alias_serves_index(client, host, mode):
+    configure_hosts(mode=mode)
     response = client.get("/public/", HTTP_HOST=f"{host}:5797")
     assert response.status_code == 200
     assert b"ArchiveBox" in response.content
@@ -40,7 +41,7 @@ def test_unconfigured_public_host_is_rejected(client, mode, host):
     assert "Location" not in response
 
 
-@pytest.mark.parametrize("mode", ["safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay", "auto"])
+@pytest.mark.parametrize("mode", ["safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay"])
 @pytest.mark.parametrize("host", ["archivebox.localhost", "demo.archivebox.localhost", "archive.example.test"])
 def test_single_domain_mode_serves_configured_public_hosts(client, mode, host):
     configure_hosts(mode=mode)
@@ -48,8 +49,12 @@ def test_single_domain_mode_serves_configured_public_hosts(client, mode, host):
     assert response.status_code == 200
 
 
-def test_builtin_role_and_original_replay_hosts_keep_existing_routing(snapshot, client):
-    configure_hosts()
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "auto"])
+def test_builtin_role_and_original_replay_hosts_keep_existing_routing(snapshot, client, mode):
+    configure_hosts(mode=mode)
+    base = client.get("/public/?tag=example", HTTP_HOST="archivebox.localhost:5797")
+    assert base.status_code == 302
+    assert base["Location"] == "http://web.archivebox.localhost:5797/public/?tag=example"
     snapshot.permissions = "unlisted"
     snapshot.save(update_fields=["permissions"])
     output = save_output(snapshot, "singlefile")
@@ -214,7 +219,12 @@ from django.conf import settings
 client = Client()
 for host in ("canonical.example.test", "alias.example.test"):
     response = client.get("/public/", HTTP_HOST=host + ":5797")
-    assert response.status_code == 200, (host, response.status_code)
+    if {mode!r} == "safe-subdomains-fullreplay" and host == "canonical.example.test":
+        assert response.status_code == 302, (host, response.status_code)
+        assert response["Location"] == "http://web.canonical.example.test:5797/public/"
+        assert client.get("/public/", HTTP_HOST="web.canonical.example.test:5797").status_code == 200
+    else:
+        assert response.status_code == 200, (host, response.status_code)
 assert client.get("/public/", HTTP_HOST="other.example.test:5797").status_code == 400
 assert "canonical.example.test" in settings.ALLOWED_HOSTS
 if {mode!r} == "safe-onedomain-nojsreplay":

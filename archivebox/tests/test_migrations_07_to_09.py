@@ -290,7 +290,7 @@ def test_legacy_onedomain_server_upgrade_works_in_auto_mode(archive_07):
     (work_dir / "ArchiveBox.conf").write_text(
         """[SERVER_CONFIG]
 LISTEN_HOST = archivebox.mydomain
-ALLOWED_HOSTS = archivebox.mydomain
+ALLOWED_HOSTS = archivebox.mydomain,other-intranet-name
 CSRF_TRUSTED_ORIGINS = http://admin.archivebox.localhost:5797
 PUBLIC_INDEX = True
 PUBLIC_SNAPSHOTS = True
@@ -331,7 +331,7 @@ PUBLIC_ADD_VIEW = False
     assert result.returncode == 0, f"Init failed: {result.stderr}"
     migrated_config = (work_dir / "ArchiveBox.conf").read_text(encoding="utf-8")
     assert "LISTEN_HOST = archivebox.mydomain" in migrated_config
-    assert "ALLOWED_HOSTS = archivebox.mydomain" in migrated_config
+    assert "ALLOWED_HOSTS = archivebox.mydomain,other-intranet-name" in migrated_config
     assert "BASE_URL = http://archivebox.mydomain" in migrated_config
 
     script = f"""
@@ -363,6 +363,9 @@ for host in ('archivebox.mydomain', 'other-intranet-name'):
         app_response = client.get(app_path, HTTP_HOST=host)
         assert app_response.status_code == 200
         assert "script-src 'none'" not in (app_response.headers.get('Content-Security-Policy') or '')
+
+for app_path in ('/public/', '/admin/login/', '/api/v1/docs'):
+    assert client.get(app_path, HTTP_HOST='unconfigured-intranet-name').status_code == 400
 
 alternate = client.get('/public/', HTTP_HOST='other-intranet-name')
 alternate_config = get_request_config(alternate.wsgi_request)

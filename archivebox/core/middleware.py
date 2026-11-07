@@ -435,7 +435,11 @@ def HostRoutingMiddleware(get_response):
                 return redirect(target_path)
             return get_response(request)
 
-        if host_matches(request_host, web_host) or is_public_host(request_host, config, explicit=True):
+        public_alias = is_public_host(request_host, config, explicit=True) and not host_matches(
+            request_host,
+            get_base_host(config=config, request=request),
+        )
+        if host_matches(request_host, web_host) or public_alias:
             if request.COOKIES.get(ADMIN_LOGIN_HINT_COOKIE) == "1" and (request.path == "/public" or request.path.startswith("/public/")):
                 target = build_admin_url("/admin/core/snapshot/", request=request)
                 return redirect(target)
