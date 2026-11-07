@@ -147,7 +147,14 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     sentinel = "private-url-token-sentinel"
     probe = (
         "const fs = require('fs'); const events = []; let omitted = 0;"
-        f"const tracePath = {json.dumps(str(trace_output))}; const names = {names};"
+        f"const traceStatePath = {json.dumps(str(tmp_path / 'trace-state.json'))};"
+        + "const traceState = "
+        + patched.split("const traceState = ", 1)[1].split(";", 1)[0]
+        + ";"
+        + "const writeTraceState = "
+        + patched.split("const writeTraceState = ", 1)[1].split(";", 1)[0]
+        + ";"
+        + f"const tracePath = {json.dumps(str(trace_output))}; const names = {names};"
         f"const collect = {projection} }};"
         "collect({value: "
         + json.dumps(
@@ -163,6 +170,9 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     serialized = trace_output.read_text()
     assert sentinel not in serialized
     assert json.loads(serialized)["events"] == [{"name": "MajorGC", "ts": 1, "dur": 2, "pid": 3, "usedHeapSizeAfter": 123}]
+    assert json.loads((tmp_path / "trace-state.json").read_text())["data_batches"] == 1
+    assert patched.index("writeTraceState();") < patched.index("createCDPSession();")
+    assert "page.browser().on('disconnected'" in patched
     # Source drift fails explicitly rather than applying the diagnostic twice.
     repeat = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(helper)], text=True, capture_output=True)
     assert repeat.returncode != 0
@@ -194,3 +204,58 @@ def test_public_probe_injects_reviewed_hook_before_crawl_discovery(tmp_path):
     rejected = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(hook)], capture_output=True, text=True)
     assert rejected.returncode != 0
     assert "differs from reviewed hook" in rejected.stderr
+
+
+def test_capture_failure_classifier_keeps_only_fixed_labels():
+    import ast
+    import json
+    import re
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    code = capture.split("<<'VERIFY'", 1)[1].split("VERIFY\n", 1)[0].lstrip()
+    tree = ast.parse(code)
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "classify_capture")
+    namespace = {"re": re}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "diagnostic-classifier", "exec"), namespace)
+    sentinel = "private-cookie-url-sentinel"
+    report = namespace["classify_capture"](
+        [
+            ("singlefile", "failed", 1, "SingleFile selected bundle SHA256 mismatch " + sentinel),
+            ("chrome", "failed", 1, "[chrome] target_crash status=crashed error_code=5 " + sentinel),
+            (sentinel, "failed", 9, sentinel),
+        ],
+    )
+    assert report["failure.singlefile"] == report["failure.chrome"] == report["failure.other"] == 1
+    assert report["indicator.guard_rejected"] == report["indicator.renderer_crashed"] == 1
+    assert report["native.error_code"] == 5
+    assert report["process.singlefile.exit.0"] == 1
+    assert report["indicator.timeout"] == report["indicator.target_closed"] == 0
+    assert all(type(value) is int for value in report.values())
+    assert sentinel not in json.dumps(report)
+
+
+def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
+    import hashlib
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    source = capture.split("<<'STAGE_HOOK'", 1)[1].split("STAGE_HOOK\n", 1)[0].lstrip()
+    compile(source, "stage-hook", "exec")
+    assert "AGPL-3.0-or-later" in source
+    assert "root.is_relative_to" in source and 'Path(config.PERSONAS_DIR) / ".singlefile"' in source
+    assert 'root / "lib/single-file-extension.js"' in source
+    assert "f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3" in source
+    assert "0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b" in source
+    addition = next(line for line in source.splitlines() if line.strip().startswith("addition ="))
+    assert "Number.isSafeInteger(t.detail.step)" in addition
+    assert "t.detail.step>=0&&t.detail.step<=5" in addition
+    assert "!t.detail.frame" in addition
+    assert "await" not in addition and "sendMessage" not in addition and "pageURL" not in addition
+    assert "page.on('console', recordPhase)" in capture
+    assert "progress|blob|chunk|chunk_end|stage_start|stage_end" in capture
+    assert 'assert metrics["capture.diagnostic_hash_class"] == 2' in capture
+    assert 'metrics["capture.stage_setup_success_count"] == 1' in capture
+    assert capture.index("STAGE_HOOK\n") < capture.index("archivebox init --quick")
+    candidate = capture.split("<<'CANDIDATE_HOOK'", 1)[1].split("CANDIDATE_HOOK\n", 1)[0].lstrip()
+    assert hashlib.sha256(candidate.encode()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff"

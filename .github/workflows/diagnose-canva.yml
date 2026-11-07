@@ -227,6 +227,43 @@ jobs:
         assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff", "Candidate preparation source differs from reviewed hook"
         candidate.chmod(0o755)
         CHECK_CANDIDATE
+        # Diagnostic81 runs after actual candidate preparation and before Chrome launch.
+        stage_hook="${candidate_hook%/*}/on_CrawlSetup__81_singlefile_diagnostic.py"
+        cat > "$stage_hook" <<'STAGE_HOOK'
+        #!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries python3
+        # /// script
+        # requires-python = ">=3.12"
+        # ///
+        # Temporary public diagnostic, removed with this workflow. Modified AGPL-3.0-or-later
+        # excerpt from SingleFile 1.36.0, Gildas Lormeau; NOT relicensed under repository MIT.
+        # Source: https://github.com/gildas-lormeau/SingleFile/blob/fdef1d9086392a08d32f194dc803f06593490e0e/src/core/content/content.js
+        # Full license and original additional-permission notice: ../diagnostics/singlefile/
+        # (relative to this workflow). The original notices in the private copy stay intact.
+        import hashlib
+        import json
+        from pathlib import Path
+        from abx_plugins.plugins.base.utils import load_config
+
+        config = load_config()
+        metadata = json.loads((Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json").read_text())
+        root = Path(metadata["unpacked_path"]).resolve()
+        assert root.is_relative_to((Path(config.PERSONAS_DIR) / ".singlefile").resolve()), "Diagnostic requires private prepared copy"
+        assert hashlib.sha256((root / "lib/single-file.js").read_bytes()).hexdigest() == "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef"
+        bundle = root / "lib/single-file-extension.js"
+        original = bundle.read_bytes()
+        original_sha = "f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3"
+        patched_sha = "0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b"
+        if hashlib.sha256(original).hexdigest() != patched_sha:
+            assert hashlib.sha256(original).hexdigest() == original_sha, "Stage diagnostic extension SHA mismatch"
+            anchor = 't.onprogress=async t=>{const{options:e}=t.detail;'
+            addition = 'if(!t.detail.frame&&Number.isSafeInteger(t.detail.step)&&t.detail.step>=0&&t.detail.step<=5&&(t.type===t.STAGE_STARTED||t.type===t.STAGE_ENDED))console.log("ABX_PUBLIC_PHASE "+(t.type===t.STAGE_STARTED?"stage_start":"stage_end")+" "+t.detail.step+" 0");'
+            source = original.decode()
+            assert source.count(anchor) == 1, "Stage diagnostic anchor changed"
+            patched = source.replace(anchor, anchor + addition).encode()
+            assert hashlib.sha256(patched).hexdigest() == patched_sha, "Stage diagnostic output SHA mismatch"
+            bundle.write_bytes(patched)
+        STAGE_HOOK
+        chmod 755 "$stage_hook"
         cd "$PUBLIC_ROOT/data"
         python "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan > "$PUBLIC_ROOT/plan.json"
         archivebox init --quick
@@ -274,7 +311,9 @@ jobs:
             const preparedBundlePath = preparedMetadata.unpacked_path && path.join(preparedMetadata.unpacked_path, 'lib/single-file.js');
             const preparedHash = preparedBundlePath && fs.existsSync(preparedBundlePath) ? createHash('sha256').update(fs.readFileSync(preparedBundlePath)).digest('hex') : '';
             const preparedHashClass = preparedHash === '9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
-            fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass}), {mode: 0o600});
+            const diagnosticHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file-extension.js'))).digest('hex');
+            const diagnosticHashClass = diagnosticHash === '0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b' ? 2 : diagnosticHash === 'f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3' ? 1 : 0;
+            fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass, diagnostic_hash_class: diagnosticHashClass}), {mode: 0o600});
             validatePreparedSinglefile(extension);
         """)
 
@@ -283,19 +322,29 @@ jobs:
             const diagnosticPath = path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'singlefile-phases.json');
             const tracePath = path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'v8-gc.json');
             const phases = [];
-            helperPage.on('console', message => {
-              const match = /^ABX_PUBLIC_PHASE (progress|blob|chunk|chunk_end) (-?\d+) (-?\d+)$/.exec(message.text());
+            const traceStatePath = path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'trace-state.json');
+            const traceState = {session_created: 0, started: 0, data_batches: 0, completed: 0, stop_requested: 0, detached: 0, drain_error: 0, disconnected: 0};
+            const writeTraceState = () => fs.writeFileSync(traceStatePath, JSON.stringify(traceState), {mode: 0o600});
+            writeTraceState();
+            const recordPhase = message => {
+              const match = /^ABX_PUBLIC_PHASE (progress|blob|chunk|chunk_end|stage_start|stage_end) (-?\d+) (-?\d+)$/.exec(message.text());
               if (match) {
                 phases.push({phase: match[1], a: Number(match[2]), b: Number(match[3]), elapsed_ms: Date.now() - saveStartedAt});
                 if (phases.length > 512) phases.shift();
                 fs.writeFileSync(diagnosticPath, JSON.stringify(phases), {mode: 0o600});
               }
-            });
+            };
+            helperPage.on('console', recordPhase);
+            page.on('console', recordPhase);
             const trace = await page.browser().target().createCDPSession();
+            traceState.session_created = 1; writeTraceState();
+            page.browser().on('disconnected', () => { traceState.disconnected = 1; writeTraceState(); });
+            trace.on('Tracing.tracingComplete', () => { traceState.completed = 1; writeTraceState(); });
             const events = [];
             let omitted = 0;
             const names = new Set(['MajorGC', 'MinorGC', 'V8.GC_SCAVENGER', 'V8.GC_MARK_COMPACTOR', 'V8.GCFinalizeMC', 'V8.GCIncrementalMarking']);
             trace.on('Tracing.dataCollected', ({value}) => {
+              traceState.data_batches++; writeTraceState();
               for (const event of value) {
                 if (!names.has(event.name)) continue;
                 const clean = {name: event.name};
@@ -312,12 +361,20 @@ jobs:
               recordMode: 'recordContinuously', includedCategories: ['v8', 'disabled-by-default-v8.gc'],
               excludedCategories: ['*'], traceBufferSizeInKb: 1024,
             }});
+            traceState.started = 1; writeTraceState();
             const stopTrace = async () => {
+              traceState.stop_requested = 1; writeTraceState();
+              try {
               const completed = new Promise(resolve => trace.once('Tracing.tracingComplete', resolve));
               await trace.send('Tracing.end');
               // Diagnostic drain only, after capture ends; the capture deadline is unchanged.
               await chromeUtils.withTimeout(() => completed, 5000, 'Public trace drain exceeded 5s');
               await trace.detach();
+              traceState.detached = 1; writeTraceState();
+              } catch (error) {
+                traceState.drain_error = 1; writeTraceState();
+                throw error;
+              }
             };
             publicDiagnosticStop = stopTrace;
             const downloadTimeoutMs = deadline - Date.now();""")
@@ -347,6 +404,44 @@ jobs:
         from archivebox.core.models import ArchiveResult
         from archivebox.machine.models import Process
 
+        # Fixed diagnostic labels only: never serialize process identities or log text.
+        def classify_capture(rows, capture_stderr=""):
+            plugins = 'accessibility archivewebpage box calendar canva chrome chrome_mhtml consolelog defuddle dns dom drawio dropbox excalidraw figma forumdl gallerydl git googledocs googledrive hashes headers htmltotext iclouddrive iwork liteparse mercury microsoft365 miro nextcloud notion onedrive opencode opendataloader opentimestamps papersdl parse_dom_outlinks parse_html_urls parse_jsonl_urls parse_netscape_urls parse_rss_urls parse_txt_urls pdf protondocs protondrive readability redirects responses screenshot seo singlefile sslcerts staticfile title tldraw tlsnotary trafilatura wetransfer wget ytdlp'.split()
+            patterns = {'guard_rejected': 'SingleFile selected bundle SHA256 mismatch|SingleFile capture requires reviewed extension version', 'renderer_crashed': 'Page crashed!|target_crash status=crashed|Snapshot target [0-9a-f]+ crashed:', 'unexpected_target_close': 'tab closed unexpectedly!|Snapshot target [0-9a-f]+ closed unexpectedly', 'target_closed': 'Target closed|Session closed|Connection closed', 'timeout': 'timed out|TimeoutError|timeout exceeded|exceeded .*timeout', 'heap_failure': 'JavaScript heap out of memory|Reached heap limit|FatalProcessOutOfMemory|OOM_CRASH', 'trace_drain_failed': 'Public trace drain failed'}
+            report = {"failure." + name: 0 for name in [*plugins, "other"]}
+            report.update({"indicator." + name: 0 for name in patterns})
+            for name in ("chrome", "singlefile"):
+                report["process." + name + ".count"] = 0
+                report["process." + name + ".missing_exit"] = 0
+                for index in range(16):
+                    report[f"process.{name}.exit.{index}"] = 0
+            report["native.crash_count"] = 0
+            report["native.error_code"] = 0
+            report["native.error_code_conflict"] = 0
+            for plugin, status, exit_code, stderr in rows:
+                if status == "failed":
+                    report["failure." + (plugin if plugin in plugins else "other")] += 1
+                if plugin not in ("chrome", "singlefile"):
+                    continue
+                key = "process." + plugin
+                index = report[key + ".count"]
+                report[key + ".count"] += 1
+                if exit_code is None:
+                    report[key + ".missing_exit"] += 1
+                elif index < 16:
+                    report[f"{key}.exit.{index}"] = int(exit_code)
+                for name, pattern in patterns.items():
+                    report["indicator." + name] += int(bool(re.search(pattern, stderr or "", re.I)))
+                for value in re.findall(r"target_crash status=crashed error_code=(-?\d+)", stderr or ""):
+                    code = int(value)
+                    if report["native.crash_count"] and report["native.error_code"] != code:
+                        report["native.error_code_conflict"] = 1
+                    report["native.crash_count"] += 1
+                    report["native.error_code"] = code
+            for name, pattern in patterns.items():
+                report["log_indicator." + name] = int(bool(re.search(pattern, capture_stderr, re.I)))
+            return report
+
         results = ArchiveResult.objects.filter(plugin="singlefile")
         result = results.first() if results.count() == 1 else None
         output = result.output_dir / "singlefile.html" if result else None
@@ -365,7 +460,11 @@ jobs:
         selected_class = live.get("selected_hash_class", 0)
         selected_ok = type(selected_class) is int and selected_class == 2
         setup = [process for process in Process.objects.all() if any(str(arg).endswith("on_CrawlSetup__80_singlefile_prepare.py") for arg in process.cmd)]
+        stage_setup = [process for process in Process.objects.all() if any(str(arg).endswith("on_CrawlSetup__81_singlefile_diagnostic.py") for arg in process.cmd)]
         metrics = {
+            "capture.stage_setup_count": len(stage_setup),
+            "capture.stage_setup_success_count": sum(process.exit_code == 0 for process in stage_setup),
+            "capture.diagnostic_hash_class": live.get("diagnostic_hash_class", 0),
             "capture.prepared_bundle_verified": int(prepared_ok and selected_ok),
             "capture.prepared_file_count": len(prepared_files),
             "capture.prepared_hash_class": prepared_class if type(prepared_class) is int and prepared_class in {0, 1, 2} else 0,
@@ -380,10 +479,24 @@ jobs:
             "capture.public_title_preserved": int('<title>Public Access - Certificate v1 (Bleed) - 8.5 x 11"</title>' in html),
             "capture.failed_results": ArchiveResult.objects.filter(status="failed").count(),
         }
+        capture_log = Path(os.environ["PUBLIC_ROOT"]) / "capture.log"
+        metrics.update(classify_capture(
+            ArchiveResult.objects.order_by("start_ts", "id").values_list("plugin", "status", "process__exit_code", "process__stderr"),
+            capture_log.read_text(errors="replace") if capture_log.is_file() else "",
+        ))
+        trace_file = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics/trace-state.json"
+        trace_state = json.loads(trace_file.read_text()) if trace_file.is_file() else {}
+        for key in ['session_created', 'started', 'data_batches', 'completed', 'stop_requested', 'detached', 'drain_error', 'disconnected']:
+            value = trace_state.get(key, 0)
+            metrics["trace." + key] = value if type(value) is int and value >= 0 else 0
+        metrics["trace.state_present"] = int(trace_file.is_file())
+        metrics["trace.gc_file_present"] = int((trace_file.parent / "v8-gc.json").is_file())
         report = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics/system-memory.json"
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(metrics))
         assert metrics["capture.setup_process_count"] == 1 and metrics["capture.setup_success_count"] == 1, "Candidate CrawlSetup hook did not succeed exactly once"
+        assert metrics["capture.stage_setup_count"] == metrics["capture.stage_setup_success_count"] == 1, "Stage diagnostic setup did not succeed exactly once"
+        assert metrics["capture.diagnostic_hash_class"] == 2, "Stage diagnostic runtime bundle not selected"
         assert metrics["capture.prepared_bundle_verified"], "CrawlSetup did not prepare reviewed SingleFile bundle"
         assert metrics["capture.singlefile_succeeded"], "SingleFile hook did not succeed"
         assert metrics["capture.failed_results"] == 0, "Full public capture contains failed hooks"
@@ -406,7 +519,16 @@ jobs:
         output = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "diagnostics" / "system-memory.json"
         capture = json.loads(output.read_text()) if output.is_file() else {}
         capture_keys = {"capture.prepared_file_count", "capture.prepared_hash_class", "capture.selected_hash_class", "capture.setup_process_count", "capture.setup_success_count", "capture.prepared_bundle_verified", "capture.singlefile_succeeded", "capture.html_bytes", "capture.font_count", "capture.unique_fonts", "capture.font_payloads_preserved", "capture.public_title_preserved", "capture.failed_results"}
-        report = {key: value for key, value in capture.items() if key in capture_keys and type(value) is int and value >= 0}
+        capture_keys.update({"capture.stage_setup_count", "capture.stage_setup_success_count", "capture.diagnostic_hash_class"})
+        capture_keys.update("failure." + name for name in 'accessibility archivewebpage box calendar canva chrome chrome_mhtml consolelog defuddle dns dom drawio dropbox excalidraw figma forumdl gallerydl git googledocs googledrive hashes headers htmltotext iclouddrive iwork liteparse mercury microsoft365 miro nextcloud notion onedrive opencode opendataloader opentimestamps papersdl parse_dom_outlinks parse_html_urls parse_jsonl_urls parse_netscape_urls parse_rss_urls parse_txt_urls pdf protondocs protondrive readability redirects responses screenshot seo singlefile sslcerts staticfile title tldraw tlsnotary trafilatura wetransfer wget ytdlp'.split() + ["other"])
+        capture_keys.update("indicator." + name for name in ['guard_rejected', 'renderer_crashed', 'unexpected_target_close', 'target_closed', 'timeout', 'heap_failure', 'trace_drain_failed'])
+        capture_keys.update("log_indicator." + name for name in ['guard_rejected', 'renderer_crashed', 'unexpected_target_close', 'target_closed', 'timeout', 'heap_failure', 'trace_drain_failed'])
+        capture_keys.update("trace." + name for name in ['session_created', 'started', 'data_batches', 'completed', 'stop_requested', 'detached', 'drain_error', 'disconnected', 'state_present', 'gc_file_present'])
+        capture_keys.update({"native.crash_count", "native.error_code", "native.error_code_conflict"})
+        for plugin in ("chrome", "singlefile"):
+            capture_keys.update({f"process.{plugin}.count", f"process.{plugin}.missing_exit"})
+            capture_keys.update(f"process.{plugin}.exit.{index}" for index in range(16))
+        report = {key: value for key, value in capture.items() if key in capture_keys and type(value) is int}
         meminfo = Path("/proc/meminfo")
         if meminfo.exists():
             for line in meminfo.read_text().splitlines():
