@@ -113,6 +113,18 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     )
     assert result.returncode == 0, result.stderr
     patched = helper.read_text()
+    import hashlib
+
+    guard_start = patched.index("function validatePreparedSinglefile(")
+    guard_end = patched.index("async function getExactChromeTab", guard_start)
+    assert (
+        hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
+        == "00e1063bac1eda719c83a4042f43381962c67be755bf8a8e19698959af4b0bf3"
+    )
+    assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
+        "const manifest =",
+        patched.index("const extension = { ...sessionEntry };"),
+    )
     assert "process.env.PUBLIC_ROOT" not in patched
     assert str(tmp_path / "diagnostics") in patched
     assert patched.index("helperPage = await") < patched.index("helperPage.on('console'")
@@ -154,7 +166,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     # Source drift fails explicitly rather than applying the diagnostic twice.
     repeat = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(helper)], text=True, capture_output=True)
     assert repeat.returncode != 0
-    assert "diagnostic anchor changed" in repeat.stderr
+    assert "differs from reviewed diagnostic base" in repeat.stderr
 
 
 def test_public_probe_injects_reviewed_hook_before_crawl_discovery(tmp_path):
@@ -163,12 +175,16 @@ def test_public_probe_injects_reviewed_hook_before_crawl_discovery(tmp_path):
     workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
     capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
     source = capture.split("<<'CANDIDATE_HOOK'\n", 1)[1].split("CANDIDATE_HOOK\n", 1)[0]
-    assert hashlib.sha256(source.encode()).hexdigest() == "ff1161bdefef7ae4574361ebbe68c5b4e17d654c1db7c4d7ecf3dd873c58374e"
+    assert hashlib.sha256(source.encode()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff"
     compile(source, "candidate.py", "exec")
     assert capture.index("CANDIDATE_HOOK\n") < capture.index("archivebox init --quick") < capture.index("archivebox add --depth=0")
     assert "prepared_ok and selected_ok" in capture
-    assert "chrome/browser.json" in capture
+    assert "selected-bundle.json" in capture
+    assert "capture.setup_process_count" in capture
+    assert "capture.prepared_file_count" in capture
+    assert "capture.selected_hash_class" in capture
     assert 'assert metrics["capture.prepared_bundle_verified"]' in capture
+    assert 'assert metrics["capture.failed_results"] == 0' in capture
     hook = tmp_path / "candidate.py"
     hook.write_text(source)
     code = capture.split("<<'CHECK_CANDIDATE'\n", 1)[1].split("CHECK_CANDIDATE\n", 1)[0]

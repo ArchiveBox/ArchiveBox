@@ -1,3 +1,18 @@
+# The temporary SingleFile method excerpt below is modified upstream code:
+# Copyright 2010-2022 Gildas Lormeau; contact : gildas.lormeau <at> gmail.com.
+# Licensed under GNU AGPL version 3 or (at your option) any later version,
+# without warranty. This attribution applies to the copied/modified excerpt,
+# not a relicensing of ArchiveBox. Modified 2026-11-07: reuse generated CSS and avoid full-source key copies.
+# Upstream repository: https://github.com/gildas-lormeau/single-file-core
+# Corresponding original source (getPropertyValue):
+# https://github.com/gildas-lormeau/single-file-core/blob/79ecf4dce4acab130c0b587d8843f0328eb389f9/core/lib/processor-helper-common.js
+# Full license: ../diagnostics/singlefile/AGPL-3.0.txt
+# Readable source patch: ../diagnostics/singlefile/font-serialization.patch
+# Verbatim original notice: ../diagnostics/singlefile/README.md
+# Upstream's additional permission applies only to UNMODIFIED VERSIONS;
+# this changed excerpt is not covered by that exception. BEFORE and AFTER
+# below provide the exact changed code. Remove this entire probe after the
+# upstream fix or normal plugin release and gallery are validated.
 # Temporary public-only diagnostic. Remove after the native fatal cause is isolated.
 name: Diagnose public Canva renderer crash
 'on':
@@ -115,7 +130,9 @@ jobs:
         Upstream provenance: single-file-core 79ecf4dce4acab130c0b587d8843f0328eb389f9,
         core/lib/processor-helper-common.js:getPropertyValue. The selected CSS value
         has already been generated to check the legacy \\9 suffix; reuse it rather
-        than generating the same embedded font again. No font selection changes.
+        than generating the same embedded font again. Duplicate-font keys use nested
+        exact-string Maps instead of concatenating embedded font payloads into keys.
+        No font selection changes. See patches/README.md for license and source.
         Remove this hook once an upstream release includes and validates this fix.
         """
 
@@ -131,9 +148,12 @@ jobs:
 
         VERSION = "1.36.0"
         ORIGINAL_SHA256 = "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
-        PATCHED_SHA256 = "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9"
+        PATCHED_SHA256 = "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef"
         BEFORE = r"getPropertyValue(e,n){let t;if(e.block.children&&(t=e.block.children.filter(e=>{try{return e.property==n&&!RN.generate(e.value).match(/\\9$/)}catch(t){return e.property==n}}).tail),t)try{return RN.generate(t.data.value)}catch(e){}}"
         AFTER = r"getPropertyValue(e,n){let t;if(e.block.children)e.block.children.forEach(e=>{if(e.property==n)try{const n=RN.generate(e.value);n.match(/\\9$/)||(t=n)}catch(e){t=void 0}});return t}"
+
+        MAP_BEFORE = 'markRepeatedFontFaceRules(e,n,t){const a=new Map;e.fonts.forEach((o,i)=>{const r=n.get(i);r&&!t.has(r)&&t.set(r,t.size+1);const s=(r?t.get(r):0)+" "+this.getFontKey(i)+" "+this.getPropertyValue(i,"src"),l=a.get(s);l&&e.repeatedFonts.add(l),a.set(s,i)}),e.medias.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.supports.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.layers.forEach(e=>this.markRepeatedFontFaceRules(e,n,t))}'  # codespell:ignore medias
+        MAP_AFTER = 'markRepeatedFontFaceRules(e,n,t){const a=new Map;e.fonts.forEach((o,i)=>{const r=n.get(i);r&&!t.has(r)&&t.set(r,t.size+1);const s=(r?t.get(r):0)+" "+this.getFontKey(i);let l=a.get(s);l||(l=new Map,a.set(s,l));const c=String(this.getPropertyValue(i,"src")),d=l.get(c);d&&e.repeatedFonts.add(d),l.set(c,i)}),e.medias.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.supports.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.layers.forEach(e=>this.markRepeatedFontFaceRules(e,n,t))}'  # codespell:ignore medias
 
 
         def prepare():
@@ -153,12 +173,14 @@ jobs:
             script = original.decode()
             if script.count(BEFORE) != 1:
                 raise RuntimeError("SingleFile font serialization source anchor mismatch")
-            patched = script.replace(BEFORE, AFTER).encode()
+            if script.count(MAP_BEFORE) != 1:
+                raise RuntimeError("SingleFile duplicate font-key source anchor mismatch")
+            patched = script.replace(BEFORE, AFTER).replace(MAP_BEFORE, MAP_AFTER).encode()
             if hashlib.sha256(patched).hexdigest() != PATCHED_SHA256:
                 raise RuntimeError("SingleFile prepared bundle SHA256 mismatch")
             config = load_config()
             destination = (
-                Path(config.PERSONAS_DIR) / ".singlefile" / f"{VERSION}-font-serialization1"
+                Path(config.PERSONAS_DIR) / ".singlefile" / f"{VERSION}-font-serialization2"
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
             if not destination.exists():
@@ -202,7 +224,7 @@ jobs:
         import sys
         from pathlib import Path
         candidate = Path(sys.argv[1])
-        assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "ff1161bdefef7ae4574361ebbe68c5b4e17d654c1db7c4d7ecf3dd873c58374e", "Candidate preparation source differs from reviewed hook"
+        assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff", "Candidate preparation source differs from reviewed hook"
         candidate.chmod(0o755)
         CHECK_CANDIDATE
         cd "$PUBLIC_ROOT/data"
@@ -217,7 +239,10 @@ jobs:
         import os
         import json
 
+        import hashlib
+
         helper = Path(sys.argv[1])
+        assert hashlib.sha256(helper.read_bytes()).hexdigest() == "f059ec4b5839b88b54abcab641f28b966e4c5e234913b1881433f24e3f9a0e00", "Published SingleFile helper differs from reviewed diagnostic base"
         source = helper.read_text()
         assert "ABX_PUBLIC_PHASE" not in source, "SingleFile diagnostic anchor changed"
 
@@ -225,6 +250,33 @@ jobs:
             global source
             assert source.count(old) == 1, "SingleFile diagnostic anchor changed"
             source = source.replace(old, new)
+
+        assert "function validatePreparedSinglefile(" not in source, "Published helper already has a preparation guard"
+        replace_once('async function getExactChromeTab(extension, page) {', r"""
+        function validatePreparedSinglefile(extension) {
+          if (extension?.version !== "1.36.0") {
+            throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
+          }
+          const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
+          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef") {
+            throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
+          }
+        }
+        async function getExactChromeTab(extension, page) {
+        """)
+
+        replace_once('    const extension = { ...sessionEntry };', r"""
+            const extension = { ...sessionEntry };
+            const liveBundleHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file.js'))).digest('hex');
+            const liveHashClass = liveBundleHash === '9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const preparedMetadataPath = path.join(require('../base/utils.js').getCrawlDir(), 'chrome/extensions/singlefile.extension.json');
+            const preparedMetadata = fs.existsSync(preparedMetadataPath) ? JSON.parse(fs.readFileSync(preparedMetadataPath, 'utf8')) : {};
+            const preparedBundlePath = preparedMetadata.unpacked_path && path.join(preparedMetadata.unpacked_path, 'lib/single-file.js');
+            const preparedHash = preparedBundlePath && fs.existsSync(preparedBundlePath) ? createHash('sha256').update(fs.readFileSync(preparedBundlePath)).digest('hex') : '';
+            const preparedHashClass = preparedHash === '9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass}), {mode: 0o600});
+            validatePreparedSinglefile(extension);
+        """)
 
         replace_once('    const downloadTimeoutMs = deadline - Date.now();', r"""
             // Public diagnostic only: no options, URLs, bodies or arbitrary trace strings.
@@ -293,6 +345,7 @@ jobs:
         import re
         from pathlib import Path
         from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Process
 
         results = ArchiveResult.objects.filter(plugin="singlefile")
         result = results.first() if results.count() == 1 else None
@@ -305,16 +358,20 @@ jobs:
         # 571-font multiset (118 unique payloads), including responsive faces.
         font_digest = hashlib.sha256("\n".join(hashes).encode()).hexdigest()
         prepared_files = list(Path.cwd().glob("**/chrome/extensions/singlefile.extension.json"))
-        prepared = json.loads(prepared_files[0].read_text()) if len(prepared_files) == 1 else {}
-        prepared_bundle = Path(prepared["unpacked_path"]) / "lib/single-file.js" if prepared else None
-        prepared_ok = bool(prepared_bundle and prepared_bundle.is_file() and hashlib.sha256(prepared_bundle.read_bytes()).hexdigest() == "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9")
-        browser_file = Path(result.snapshot.output_dir) / "chrome/browser.json" if result else None
-        browser = json.loads(browser_file.read_text()) if browser_file and browser_file.is_file() else {}
-        selected = [extension for extension in browser.get("extensions", []) if extension.get("name") == "singlefile"]
-        selected_bundle = Path(selected[0]["unpacked_path"]) / "lib/single-file.js" if len(selected) == 1 else None
-        selected_ok = bool(selected_bundle and selected_bundle.is_file() and not selected[0].get("load_error") and hashlib.sha256(selected_bundle.read_bytes()).hexdigest() == "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9")
+        live_file = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics/selected-bundle.json"
+        live = json.loads(live_file.read_text()) if live_file.is_file() else {}
+        prepared_class = live.get("prepared_hash_class", 0)
+        prepared_ok = type(prepared_class) is int and prepared_class == 2
+        selected_class = live.get("selected_hash_class", 0)
+        selected_ok = type(selected_class) is int and selected_class == 2
+        setup = [process for process in Process.objects.all() if any(str(arg).endswith("on_CrawlSetup__80_singlefile_prepare.py") for arg in process.cmd)]
         metrics = {
             "capture.prepared_bundle_verified": int(prepared_ok and selected_ok),
+            "capture.prepared_file_count": len(prepared_files),
+            "capture.prepared_hash_class": prepared_class if type(prepared_class) is int and prepared_class in {0, 1, 2} else 0,
+            "capture.selected_hash_class": selected_class if type(selected_class) is int and selected_class in {0, 1, 2} else 0,
+            "capture.setup_process_count": len(setup),
+            "capture.setup_success_count": sum(process.exit_code == 0 for process in setup),
             "capture.singlefile_succeeded": int(bool(result and result.status == "succeeded")),
             "capture.html_bytes": output.stat().st_size if output and output.is_file() else 0,
             "capture.font_count": len(fonts),
@@ -326,8 +383,10 @@ jobs:
         report = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics/system-memory.json"
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(metrics))
+        assert metrics["capture.setup_process_count"] == 1 and metrics["capture.setup_success_count"] == 1, "Candidate CrawlSetup hook did not succeed exactly once"
         assert metrics["capture.prepared_bundle_verified"], "CrawlSetup did not prepare reviewed SingleFile bundle"
         assert metrics["capture.singlefile_succeeded"], "SingleFile hook did not succeed"
+        assert metrics["capture.failed_results"] == 0, "Full public capture contains failed hooks"
         assert metrics["capture.html_bytes"] > 300_000_000, "Full public capture missing"
         assert metrics["capture.font_payloads_preserved"], "Public font multiset differs from intact control"
         assert metrics["capture.public_title_preserved"], "Public document title missing"
@@ -346,7 +405,7 @@ jobs:
 
         output = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "diagnostics" / "system-memory.json"
         capture = json.loads(output.read_text()) if output.is_file() else {}
-        capture_keys = {"capture.prepared_bundle_verified", "capture.singlefile_succeeded", "capture.html_bytes", "capture.font_count", "capture.unique_fonts", "capture.font_payloads_preserved", "capture.public_title_preserved", "capture.failed_results"}
+        capture_keys = {"capture.prepared_file_count", "capture.prepared_hash_class", "capture.selected_hash_class", "capture.setup_process_count", "capture.setup_success_count", "capture.prepared_bundle_verified", "capture.singlefile_succeeded", "capture.html_bytes", "capture.font_count", "capture.unique_fonts", "capture.font_payloads_preserved", "capture.public_title_preserved", "capture.failed_results"}
         report = {key: value for key, value in capture.items() if key in capture_keys and type(value) is int and value >= 0}
         meminfo = Path("/proc/meminfo")
         if meminfo.exists():

@@ -1,0 +1,57 @@
+--- a/core/lib/processor-helper-common.js
++++ b/core/lib/processor-helper-common.js
+@@ -483,4 +483,10 @@
+ 			}
+-			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData) + " " + this.getPropertyValue(ruleData, "src");
+-			const previousRuleData = lastRules.get(ruleKey);
++			const ruleKey = (scope ? scopeIds.get(scope) : 0) + " " + this.getFontKey(ruleData);
++			let sourceRules = lastRules.get(ruleKey);
++			if (!sourceRules) {
++				sourceRules = new Map();
++				lastRules.set(ruleKey, sourceRules);
++			}
++			const sourceKey = String(this.getPropertyValue(ruleData, "src"));
++			const previousRuleData = sourceRules.get(sourceKey);
+ 			if (previousRuleData) {
+@@ -488,3 +494,3 @@
+ 			}
+-			lastRules.set(ruleKey, ruleData);
++			sourceRules.set(sourceKey, ruleData);
+ 		});
+@@ -631,21 +637,18 @@
+ 	getPropertyValue(ruleData, propertyName) {
+-		let property;
++		let value;
+ 		if (ruleData.block.children) {
+-			property = ruleData.block.children.filter(node => {
+-				try {
+-					return node.property == propertyName && !cssTree.generate(node.value).match(/\\9$/);
+-					// eslint-disable-next-line no-unused-vars
+-				} catch (error) {
+-					return node.property == propertyName;
+-				}
+-			}).tail;
+-		}
+-		if (property) {
+-			try {
+-				return cssTree.generate(property.data.value);
+-				// eslint-disable-next-line no-unused-vars
+-			} catch (error) {
+-				// ignored
+-			}
+-		}
++			ruleData.block.children.forEach(node => {
++				if (node.property == propertyName) {
++					try {
++						const generated = cssTree.generate(node.value);
++						if (!generated.match(/\\9$/)) {
++							value = generated;
++						}
++					} catch (error) {
++						value = undefined;
++					}
++				}
++			});
++		}
++		return value;
+ 	}
