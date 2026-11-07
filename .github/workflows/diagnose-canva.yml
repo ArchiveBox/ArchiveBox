@@ -1,0 +1,179 @@
+# Temporary public-only diagnostic. Remove after the native fatal cause is isolated.
+name: Diagnose public Canva renderer crash
+'on':
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: canva-public-native-diagnostic
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      wayback:
+        image: nginx:alpine
+        ports:
+        - 80/tcp
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: '1'
+        persist-credentials: false
+    - name: Setup Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.13'
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: 0.13.5
+        enable-cache: 'false'
+    - name: Install ArchiveBox and screenshot dependencies
+      run: uv sync --no-cache --frozen
+    - name: Install the matching Chrome sandbox helper
+      run: |
+        chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
+        import json
+        import os
+        import subprocess
+        from pathlib import Path
+        import abx_plugins
+
+        config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+        env = json.loads(subprocess.check_output([
+            "abxpkg", "env", "--install", "--json",
+            f"--deps-from={config}:required_binaries", "browsers",
+        ], text=True))
+        # CHROME_BINARY may be a provider launcher, not the native executable.
+        native_chrome = subprocess.check_output([
+            env["NODE_BINARY"], "-e", r"""
+            const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+            const {execFileSync} = require('node:child_process');
+            const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+            getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                console.log(matches[0].executablePath);
+            }).catch(error => { console.error(error); process.exit(1); });
+            """,
+        ], env={**os.environ, **env}, text=True).strip()
+        helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
+        assert helper.is_file(), helper
+        print(helper)
+        PY
+        )"
+        sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+        echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+        # Match plugin CI: keep software 2D rendering; emulating the whole GPU
+        # can stall document exports on CPU-limited runners.
+        echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+    - name: Install public browser display
+      run: |-
+        sudo apt-get update
+        sudo apt-get install -y xvfb xauth poppler-utils
+    - name: Configure local Wayback submission service
+      run: |
+        set -Eeuo pipefail
+        docker cp .github/fixtures/wayback.conf '${{ job.services.wayback.id }}:/etc/nginx/conf.d/default.conf'
+        docker exec '${{ job.services.wayback.id }}' nginx -t
+        docker restart '${{ job.services.wayback.id }}'
+        # Docker can reassign an ephemeral host port on restart. GitHub's
+        # service context retains the original port, so resolve the live mapping.
+        wayback_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' '${{ job.services.wayback.id }}')"
+        save_url="http://127.0.0.1:$wayback_port/save/"
+        echo "ARCHIVEDOTORG_SAVE_URL=$save_url" >> "$GITHUB_ENV"
+    - name: Capture public Canva with native diagnostics
+      run: |
+        set -Eeuo pipefail
+        umask 077
+        public_root="$(mktemp -d "$RUNNER_TEMP/canva-public.XXXXXX")"
+        echo "CANVA_PUBLIC_ROOT=$public_root" >> "$GITHUB_ENV"
+        mkdir -p "$public_root/home" "$public_root/data" "$public_root/diagnostics"
+        # Explicit allowlist: no runner tokens, auth storage, cookies or user HOME.
+        env -i PATH="$GITHUB_WORKSPACE/.venv/bin:/usr/local/bin:/usr/bin:/bin" \
+          HOME="$public_root/home" LANG=C.UTF-8 \
+          PUBLIC_ROOT="$public_root" REPO_DIR="$GITHUB_WORKSPACE" \
+          CHROME_DEVEL_SANDBOX="$CHROME_DEVEL_SANDBOX" \
+          CHROME_ARGS_EXTRA="$CHROME_ARGS_EXTRA" \
+          ARCHIVEDOTORG_SAVE_URL="$ARCHIVEDOTORG_SAVE_URL" \
+          TIMEOUT=60 CHROME_HEADLESS=false CHROME_LOG_SUBPROCESS_OUTPUT=true \
+          xvfb-run -a bash -euo pipefail <<'PUBLIC' >"$public_root/capture.log" 2>&1
+        cd "$PUBLIC_ROOT/data"
+        python "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan > "$PUBLIC_ROOT/plan.json"
+        archivebox init --quick
+        mapfile -t enabled < <(python -c 'import json,sys; print("\n".join(f"{p.upper()}_ENABLED=True" for p in json.load(open(sys.argv[1]))["enabled"]))' "$PUBLIC_ROOT/plan.json")
+        archivebox config --set "${enabled[@]}"
+        archivebox install
+        url="$(python -c 'import json,sys; print(next(e["url"] for e in json.load(open(sys.argv[1]))["examples"] if "canva" in e["plugins"]))' "$PUBLIC_ROOT/plan.json")"
+        capture_status=0
+        archivebox add --depth=0 --overwrite "$url" || capture_status=$?
+        # Read persisted stderr even when a successful daemon deleted its sidecar.
+        archivebox manage shell --no-imports -c '
+        import os
+        from pathlib import Path
+        from django.db.models.functions import Right
+        from archivebox.machine.models import Process
+        out = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics"
+        for i, p in enumerate(Process.objects.filter(process_type="hook", pwd__endswith="/chrome").order_by("-created_at").annotate(tail=Right("stderr", 65536))[:16]):
+            (out / f"chrome-{i}.log").write_text(p.tail)
+        '
+        exit "$capture_status"
+        PUBLIC
+    - name: Retain bounded public capture log
+      if: always()
+      run: |-
+        if [[ -n "${CANVA_PUBLIC_ROOT:-}" && -f "$CANVA_PUBLIC_ROOT/capture.log" ]]; then
+          tail -c 131072 "$CANVA_PUBLIC_ROOT/capture.log" > "$CANVA_PUBLIC_ROOT/diagnostics/capture.log"
+        fi
+    - name: Record failed capture resource diagnostics
+      if: always()
+      run: |
+        # Resource evidence only: never collect environment variables,
+        # process arguments, browser profiles, or provider persona contents.
+        umask 077
+        [[ -n "${CANVA_PUBLIC_ROOT:-}" ]] || exit 0
+        diagnostics="$CANVA_PUBLIC_ROOT/diagnostics"
+        mkdir -p "$diagnostics"
+        {
+          echo 'Memory totals (kB)'
+          if [[ -r /proc/meminfo ]]; then
+            awk '/^(MemTotal|MemAvailable|SwapTotal|SwapFree):/' /proc/meminfo
+          else
+            echo 'Memory totals unavailable'
+          fi
+          echo 'Cgroup memory'
+          cgroup_path=''
+          if [[ -r /proc/self/cgroup ]]; then
+            cgroup_path="$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup)"
+          fi
+          cgroup_path="${cgroup_path%/}"
+          for cgroup_dir in "/sys/fs/cgroup$cgroup_path" /sys/fs/cgroup; do
+            for metric in memory.max memory.peak memory.events memory.swap.max memory.swap.peak; do
+              if [[ -r "$cgroup_dir/$metric" ]]; then
+                printf '%s: ' "$cgroup_dir/$metric"
+                head -c 4096 "$cgroup_dir/$metric"
+                echo
+              fi
+            done
+            [[ "$cgroup_dir" != /sys/fs/cgroup ]] || break
+          done
+          echo 'Kernel memory/process failures (last 50 matching lines)'
+          if ! sudo -n dmesg --color=never 2>/dev/null | grep -Ei 'out of memory|oom-kill|killed process|segfault' | tail -50 | tail -c 16384; then
+            echo 'No matching kernel failures, or kernel log unavailable'
+          fi
+        } > "$diagnostics/system-memory.log"
+    - name: Upload public diagnostics only
+      if: always() && env.CANVA_PUBLIC_ROOT != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: canva-public-native-diagnostics
+        path: ${{ env.CANVA_PUBLIC_ROOT }}/diagnostics
+        retention-days: 3
+        if-no-files-found: error
+    - name: Remove disposable public collection
+      if: always()
+      run: if [[ -n "${CANVA_PUBLIC_ROOT:-}" ]]; then rm -rf -- "$CANVA_PUBLIC_ROOT"; fi
