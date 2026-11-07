@@ -38,6 +38,8 @@ services:
             # For more info, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration
         shm_size: 1gb                                            # chrome runs better when it can use a decently sized shm pool
         pids_limit: 2048                                         # avoids low systemd task caps with Chrome and parallel extractors
+        ulimits:
+            nofile: 8192                                         # headroom for concurrent replay files, SQLite connections, and capture hooks
 
 
 ####################################################################################################################
