@@ -81,7 +81,8 @@ def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surfac
         # A long directory must scroll inside a stable viewport, not resize the
         # outer page and move its header when opening a shorter directory.
         frame_box = page.locator("#main-frame-wrapper").bounding_box()
-        assert frame_box["height"] == page.viewport_size["height"]
+        assert frame_box["y"] + frame_box["height"] == page.viewport_size["height"]
+        assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
         files.get_by_role("link", name="ytdlp/", exact=True).click()
         expect(files.locator(".directory-title")).to_have_text("ytdlp/")
         assert page.locator("#main-frame-wrapper").bounding_box() == frame_box

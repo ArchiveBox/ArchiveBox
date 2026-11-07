@@ -16,6 +16,9 @@
                 padding: 0;
             }
             body {
+                /* The preview owns document scrolling, not the outer shell. */
+                height: 100dvh;
+                overflow: hidden;
                 display: flex;
                 flex-direction: column;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -40,10 +43,15 @@
                 color: #fff;
                 order: 1;
                 flex: 0 0 auto;
+                display: flex;
+                flex-direction: column;
+                max-height: 60%;
+                min-height: 0;
                 container-type: inline-size;
                 container-name: snapshot-header;
             }
             .header-top {
+                flex: 0 0 auto;
                 position: relative;
                 padding: 6px 32px 6px 10px;
                 font-size: 13px;
@@ -487,12 +495,12 @@
             #main-frame-wrapper {
                 position: relative;
                 width: 100%;
-                height: 100svh;
+                height: 0;
                 border-top: 3px solid #aa1e55;
                 overflow: hidden;
                 order: 2;
-                flex: 0 0 auto;
-                min-height: max(360px, 100svh);
+                flex: 1 1 0;
+                min-height: 0;
                 display: flex;
                 flex-direction: column;
             }
@@ -1345,47 +1353,7 @@
                 } catch (err) {}
             }
 
-            function resetPreviewFrameSize(frame) {
-                const wrapper = document.getElementById('main-frame-wrapper')
-                if (!wrapper || !frame || frame.id !== 'main-frame') return
-                wrapper.style.height = ''
-                wrapper.style.overflow = ''
-                frame.style.height = ''
-            }
-
-            function fitPreviewFrameToContent(frame) {
-                const wrapper = document.getElementById('main-frame-wrapper')
-                if (!wrapper || !frame || frame.id !== 'main-frame' || frame.src.includes('.pdf')) return
-                // Directory lists scroll inside a stable viewport. Growing the frame
-                // as rows load makes the outer page jump when changing folders.
-                if (new URL(frame.src, window.location.href).searchParams.has('files')) {
-                    resetPreviewFrameSize(frame)
-                    return
-                }
-                try {
-                    const doc = frame.contentDocument || frame.contentWindow.document
-                    if (!doc || !doc.documentElement) return
-                    const candidates = [
-                        doc.documentElement,
-                        doc.body,
-                        ...doc.querySelectorAll('main, [role="main"], #doc, .ui-content, .markdown-body'),
-                    ].filter(Boolean)
-                    const contentHeight = Math.ceil(Math.max(...candidates.map((element) => element.scrollHeight || 0)))
-                    const minimumHeight = Math.max(window.innerHeight, 360)
-                    if (!Number.isFinite(contentHeight) || contentHeight <= minimumHeight + 4) {
-                        resetPreviewFrameSize(frame)
-                        return
-                    }
-                    wrapper.style.height = `${contentHeight}px`
-                    wrapper.style.overflow = 'visible'
-                    frame.style.height = `${contentHeight}px`
-                } catch (err) {
-                    resetPreviewFrameSize(frame)
-                }
-            }
-
             function attachPreviewFrameHandlers(frame) {
-                resetPreviewFrameSize(frame)
                 if (new URL(frame.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
                     frame.removeAttribute('sandbox')
                     const pdfUrl = new URL(frame.src, window.location.href)
@@ -1403,14 +1371,6 @@
                         // doesnt work if frame origin rules prevent accessing its DOM via JS
                         if (!new URL(this.src, window.location.href).hash) this.contentWindow.scrollTo(0, 0);
                     } catch(err) {}
-                    requestAnimationFrame(() => {
-                        fitPreviewFrameToContent(this)
-                        try {
-                            if (this._archiveboxResizeObserver) this._archiveboxResizeObserver.disconnect()
-                            this._archiveboxResizeObserver = new ResizeObserver(() => fitPreviewFrameToContent(this))
-                            this._archiveboxResizeObserver.observe(this.contentDocument.documentElement)
-                        } catch (err) {}
-                    })
                 }
             }
 

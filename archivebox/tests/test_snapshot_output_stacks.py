@@ -945,7 +945,7 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
 
 
 @pytest.mark.django_db(transaction=True)
-def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server, tmp_path, browser_runtime):
+def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snapshot, live_server, tmp_path, browser_runtime):
     import zipfile
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
@@ -1090,13 +1090,15 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             for file_list in page.locator(".other-files-preview > .loose-items").all():
                 assert file_list.evaluate("e => getComputedStyle(e).overflowY") == "auto"
             stack = page.locator(".header-bottom")
-            assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"
-            tray = page.locator("#stack-tray").bounding_box()
+            assert stack.evaluate("e => getComputedStyle(e).overflowY") == "auto"
             frame = page.locator("#main-frame-wrapper").bounding_box()
-            assert frame["y"] >= tray["y"] + tray["height"]
-            assert frame["height"] >= height
+            assert frame["y"] >= stack.bounding_box()["y"] + stack.bounding_box()["height"] - 1
+            assert frame["height"] > 0
+            assert frame["y"] + frame["height"] <= height + 1
             page.locator("#main-frame-wrapper").scroll_into_view_if_needed()
-            assert page.evaluate("scrollY") > 0
+            assert page.evaluate("scrollY") == 0
+            assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+            assert page.locator(".header-top").bounding_box()["y"] == 0
             page.get_by_role("button", name="Collapse stack", exact=True).click()
         browser.close()
 
