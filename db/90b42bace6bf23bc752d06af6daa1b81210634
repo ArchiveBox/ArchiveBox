@@ -1,0 +1,22 @@
+archivebox/templates/core/snapshot.html
+  h_923c208e183a7b 19-21,46-49,54,498,502-503
+archivebox/templates/core/snapshot_stacks.css.html
+  h_923c208e183a7b 6-9
+archivebox/tests/test_snapshot_file_navigation.py
+  h_923c208e183a7b 84-85
+archivebox/tests/test_snapshot_output_stacks.py
+  h_923c208e183a7b 948,1093,1095-1097,1099-1101
+archivebox/tests/test_snapshot_scroll_layout.py
+  h_923c208e183a7b 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db90b42bace6bf23bc752d06af6daa1b81210634",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
