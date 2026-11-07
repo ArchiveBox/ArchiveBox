@@ -269,3 +269,57 @@ def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots, req
     output = snapshot.output_dir / "parse_txt_urls" / "urls.jsonl"
     records = [json.loads(line) for line in output.read_text().splitlines()]
     assert any(record["url"] == "https://archivebox.io/tests/retained-memory-output" for record in records)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sealed_plugin_request_survives_resource_deferral(cached_abxpkg_lib_dir):
+    import psutil
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://archivebox.io/tests/sealed-memory-admission",
+        config={"PLUGINS": "hashes", "MEMORY_MIN_FREE": psutil.virtual_memory().total + psutil.swap_memory().total + 1},
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+    )
+    snapshot = Snapshot.objects.create(
+        crawl=crawl,
+        url=crawl.urls,
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+        retry_at=None,
+    )
+    snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+    preserved = snapshot.output_dir / "preserved.txt"
+    preserved.write_text("Already archived bytes\n")
+    downloaded_at = snapshot.downloaded_at
+    snapshot.schedule_plugin_run(["hashes"])
+    before = timezone.now()
+    runner = CrawlRunner(crawl, show_progress=False, wait_for_resources=False)
+    asyncio.run(runner.run())
+    snapshot.refresh_from_db()
+    crawl.refresh_from_db()
+    assert runner._resource_deferred
+    assert snapshot.retry_at > before and crawl.retry_at > before
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert snapshot.downloaded_at == downloaded_at
+    assert snapshot.config["RETRY_PLUGINS"] == ["hashes"]
+    assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+
+    crawl.config["MEMORY_MIN_FREE"] = 0
+    crawl.save(update_fields=["config"])
+    runner = CrawlRunner(crawl, show_progress=False)
+
+    async def run_when_due():
+        await asyncio.sleep(max(0, (snapshot.retry_at - timezone.now()).total_seconds()))
+        await runner.run()
+
+    asyncio.run(run_when_due())
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert snapshot.downloaded_at == downloaded_at
+    assert snapshot.retry_at is None
+    assert "RETRY_PLUGINS" not in snapshot.config
+    assert preserved.read_text() == "Already archived bytes\n"
+    assert (snapshot.output_dir / "hashes/hashes.json").is_file()
+    assert ArchiveResult.objects.get(snapshot=snapshot, plugin="hashes").status == ArchiveResult.StatusChoices.SUCCEEDED

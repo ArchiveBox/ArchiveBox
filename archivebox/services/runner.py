@@ -1678,7 +1678,12 @@ def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memor
     )
     if reason is None:
         return False
-    pending = crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES).exclude(id__in=excluded_snapshot_ids)
+    # Sealed snapshots with explicit plugin requests are capture work too,
+    # matching projected admission. Otherwise pressure looks like an empty
+    # queue after the last ordinary capture and the runner exits prematurely.
+    pending = crawl.snapshot_set.filter(
+        Q(status__in=Snapshot.RUNNABLE_STATES) | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
+    ).exclude(id__in=excluded_snapshot_ids)
     if crawl.snapshot_set.exists() and not pending.exists():
         return False
     logging.getLogger(__name__).warning("Capture admission deferred for crawl %s: %s", crawl.id, reason)
