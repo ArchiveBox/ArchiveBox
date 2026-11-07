@@ -61,6 +61,57 @@ REQUIRED_VIEW_NAMES = {
 }
 
 
+def write_chrome_lifecycle_diagnostics(output_path: Path) -> None:
+    """Classify persisted hook stderr without exporting any log-derived values.
+
+    Successful hook sidecars are deleted, but their Process.stderr remains in
+    the database. Older Chrome hooks can report success after a renderer crash.
+    Keep page crashes separate from unexplained closes (including tab discard).
+    """
+    from django.db.models.functions import Length, Right
+
+    from archivebox.machine.models import Process
+
+    process_limit = 128
+    stderr_limit = 65536
+    patterns = {
+        "renderer_crashed": re.compile(r"Page crashed!|Snapshot target [0-9a-f]+ crashed:", re.I),
+        "unexpected_target_close": re.compile(r"tab closed unexpectedly!|Snapshot target [0-9a-f]+ closed unexpectedly", re.I),
+        "heap_allocation_failure": re.compile(
+            r"JavaScript heap out of memory|Reached heap limit|FatalProcessOutOfMemory|OOM_CRASH|"
+            r"(?:PartitionAlloc|partition_alloc).*out of memory",
+            re.I,
+        ),
+        "browser_close_failed": re.compile(r"Browser\.close failed:|cleanup did not fully stop the browser process tree", re.I),
+    }
+    processes = list(
+        Process.objects.filter(process_type=Process.TypeChoices.HOOK, pwd__endswith="/chrome")
+        .order_by("-created_at")
+        .annotate(stderr_tail=Right("stderr", stderr_limit), stderr_length=Length("stderr"))
+        .values_list("exit_code", "stderr_tail", "stderr_length")[: process_limit + 1],
+    )
+    report = {
+        "version": 1,
+        "process_limit": process_limit,
+        "stderr_tail_limit": stderr_limit,
+        "processes_scanned": min(len(processes), process_limit),
+        "processes_omitted": len(processes) > process_limit,
+        "stderr_truncated_processes": 0,
+        "reported_success_with_lifecycle_evidence": 0,
+        "classifications": dict.fromkeys(patterns, 0),
+    }
+    for exit_code, stderr, stderr_length in processes[:process_limit]:
+        matches = {name: bool(pattern.search(stderr)) for name, pattern in patterns.items()}
+        for name, matched in matches.items():
+            report["classifications"][name] += int(matched)
+        report["stderr_truncated_processes"] += int(stderr_length > stderr_limit)
+        report["reported_success_with_lifecycle_evidence"] += int(exit_code == 0 and any(matches.values()))
+    with output_path.open("w", encoding="utf-8") as output:
+        os.fchmod(output.fileno(), 0o600)
+        json.dump(report, output, indent=2, sort_keys=True)
+        output.write("\n")
+
+
 def plugin_screenshot_plan() -> dict:
     """Discover default coverage and plugin-owned examples from the installed package."""
     from abx_plugins import get_plugins_dir

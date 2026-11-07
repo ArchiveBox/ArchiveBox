@@ -125,6 +125,20 @@ cleanup() {
             umask 077
             mkdir -p "$diagnostics_dir" || exit 1
             chmod 700 "$diagnostics_dir" || exit 1
+            # Successful Chrome sidecars may have been removed even when an old
+            # tab daemon hid a renderer failure. Export only fixed classifications
+            # from persisted stderr, never raw database/log values or credentials.
+            if [[ -f "$DATA_DIR/index.sqlite3" ]]; then
+                if ! (
+                    cd "$DATA_DIR"
+                    UI_SCREENSHOT_GENERATOR="$REPO_DIR/bin/generate_ui_screenshot_gallery.py" \
+                    UI_SCREENSHOT_CHROME_DIAGNOSTICS="$diagnostics_dir/chrome-lifecycle.json" \
+                        uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                        'import os, runpy; from pathlib import Path; runpy.run_path(os.environ["UI_SCREENSHOT_GENERATOR"])["write_chrome_lifecycle_diagnostics"](Path(os.environ["UI_SCREENSHOT_CHROME_DIAGNOSTICS"]))'
+                ) >/dev/null 2>&1; then
+                    echo '[!] Could not retain classified Chrome lifecycle diagnostics' >&2
+                fi
+            fi
             for diagnostic_log in \
                 "$CAPTURE_ROOT"/*-supplementary-capture.log \
                 "$CAPTURE_ROOT"/article-live-capture.log; do
