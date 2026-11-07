@@ -1,0 +1,16 @@
+.github/workflows/diagnose-canva.yml
+  h_923c208e183a7b 111-182,193-232,238-241
+archivebox/tests/test_canva_diagnostic_workflow.py
+  h_923c208e183a7b 43-48,68-73,78-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16b8b00a3767a6098c79b0d3f9a042fbb7a4779b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
