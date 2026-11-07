@@ -618,6 +618,50 @@ def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edi
     assert renamed["max_workers"] == 1
 
 
+def test_ci_collects_runtime_logs_without_following_snapshot_symlinks(tmp_path):
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/test-parallel.yml").read_text())
+    step = next(
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == "Collect failed runtime diagnostics"
+    )
+    home = tmp_path / "home"
+    lib = tmp_path / "persistent-lib"
+    logs = {
+        tmp_path / "pytest/snapshot/hashes/hook.stderr.log": "original hook failure\n",
+        home / ".npm/_logs/install.log": "npm download failure\n",
+        lib / "cache/npm/_logs/bootstrap.log": "pnpm bootstrap failure\n",
+    }
+    for path, content in logs.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    (tmp_path / "pytest/loop").symlink_to("loop")
+    (tmp_path / "pytest/snapshot/loop").symlink_to("..", target_is_directory=True)
+    (tmp_path / "pytest/snapshot/broken.log").symlink_to("missing.log")
+    (tmp_path / "pytest/snapshot/alias.log").symlink_to("hashes/hook.stderr.log")
+    os.mkfifo(tmp_path / "pytest/snapshot/pipe.log")
+    (tmp_path / "pytest/snapshot/not-a-log.txt").write_text("not diagnostic output")
+
+    result = subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        cwd=tmp_path,
+        env={**os.environ, "HOME": str(home), "RUNNER_TEMP": str(tmp_path), "ABXPKG_LIB_DIR": str(lib)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    output = tmp_path / "runtime-logs"
+    saved = {str(path.relative_to(output)): path.read_text() for path in output.rglob("*.log")}
+    assert saved == {
+        "pytest/snapshot/hashes/hook.stderr.log": "original hook failure\n",
+        "npm/install.log": "npm download failure\n",
+        "managed-npm/bootstrap.log": "pnpm bootstrap failure\n",
+    }
+    assert not any(path.is_symlink() for path in output.rglob("*"))
+
+
 @pytest.mark.parametrize("runner,limit", [("github-hosted", 0), ("github-hosted", 1), ("self-hosted", 0), ("self-hosted", 1)])
 def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_path, runner, limit):
     workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/test-parallel.yml").read_text())

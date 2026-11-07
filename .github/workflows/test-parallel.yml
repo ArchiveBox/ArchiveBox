@@ -257,6 +257,37 @@ jobs:
           path: ${{ runner.temp }}/test-results/*.xml
           if-no-files-found: error
           retention-days: 14
+      - name: Collect failed runtime diagnostics
+        if: failure()
+        run: |
+          uv run --no-project python - <<'PYTHON'
+          import os
+          import shutil
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          roots = {
+              "pytest": temp / "pytest",
+              "npm": Path.home() / ".npm/_logs",
+              "managed-npm": Path(os.environ["ABXPKG_LIB_DIR"]) / "cache/npm/_logs",
+          }
+          def report_error(error):
+              raise error
+
+          for label, root in roots.items():
+              if not root.is_dir():
+                  continue
+              # Snapshot failure tests create broken/cyclic symlinks. Never
+              # follow them while preserving the original failure's logs.
+              for directory, _, filenames in os.walk(root, followlinks=False, onerror=report_error):
+                  for filename in filenames:
+                      source = Path(directory) / filename
+                      if source.suffix != ".log" or source.is_symlink() or not source.is_file():
+                          continue
+                      target = temp / "runtime-logs" / label / source.relative_to(root)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(source, target)
+          PYTHON
       - name: Save failed runtime diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -266,10 +297,7 @@ jobs:
           # logs when the outer installer times out without emitting output.
           # Managed pnpm bootstrap uses a separate npm cache. Without its logs,
           # later ENOTEMPTY errors hide the initial installation stall.
-          path: |
-            ${{ runner.temp }}/pytest/**/*.log
-            ~/.npm/_logs/*.log
-            ${{ runner.temp }}/archivebox-lib/cache/npm/_logs/*.log
+          path: ${{ runner.temp }}/runtime-logs
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
