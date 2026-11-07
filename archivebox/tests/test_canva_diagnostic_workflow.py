@@ -37,6 +37,10 @@ def test_canva_probe_is_manual_public_and_uses_gallery_settings():
     assert "plugin-plan" in capture
     assert 'archivebox config --set "${enabled[@]}"' in capture
     assert "archivebox add --depth=0 --overwrite" in capture
+    assert 'result.status == "succeeded"' in capture
+    assert 'assert metrics["capture.font_payloads_preserved"]' in capture
+    assert 'assert metrics["capture.public_title_preserved"]' in capture
+    assert "beb4f5ebe5ec8cd10dae7f74dcc1f8b6cc7a3095550e5920d1cf951eaae8eae3" in capture
     assert "AUTH_STORAGE_FILE" not in capture and "COOKIES_FILE" not in capture
     assert "removeUnusedFonts" not in capture
     upload = next(s for s in steps if s["name"] == "Upload public diagnostics only")
@@ -57,6 +61,19 @@ def test_canva_probe_resource_report_does_not_read_credentials(tmp_path):
     step = next(s for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Record failed capture resource diagnostics")
     sentinel = "secret-provider-sentinel-never-export"
     (tmp_path / "provider-auth.json").write_text(sentinel)
+    import json
+
+    (tmp_path / "diagnostics").mkdir()
+    (tmp_path / "diagnostics/system-memory.json").write_text(
+        json.dumps(
+            {
+                "capture.font_count": 571,
+                "capture.html_bytes": sentinel,
+                "capture.url": sentinel,
+                "unexpected": sentinel,
+            },
+        ),
+    )
     result = subprocess.run(
         ["bash", "-euo", "pipefail", "-c", step["run"]],
         env={**os.environ, "CANVA_PUBLIC_ROOT": str(tmp_path), "PROVIDER_AUTH_STORAGE_JSON": sentinel},
@@ -70,7 +87,9 @@ def test_canva_probe_resource_report_does_not_read_credentials(tmp_path):
 
     metrics = json.loads(report.read_text())
     assert all(isinstance(value, int) or value == "max" for value in metrics.values())
-    assert all(key.endswith("_kB") or key.startswith("memory.") for key in metrics)
+    assert all(key.endswith("_kB") or key.startswith("memory.") or key == "capture.font_count" for key in metrics)
+    assert metrics["capture.font_count"] == 571
+    assert "capture.html_bytes" not in metrics
     assert report.stat().st_size < 65536
     assert report.stat().st_mode & 0o077 == 0
     assert sentinel not in report.read_text() + result.stdout + result.stderr
@@ -136,3 +155,26 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     repeat = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(helper)], text=True, capture_output=True)
     assert repeat.returncode != 0
     assert "diagnostic anchor changed" in repeat.stderr
+
+
+def test_public_probe_injects_reviewed_hook_before_crawl_discovery(tmp_path):
+    import hashlib
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    source = capture.split("<<'CANDIDATE_HOOK'\n", 1)[1].split("CANDIDATE_HOOK\n", 1)[0]
+    assert hashlib.sha256(source.encode()).hexdigest() == "ff1161bdefef7ae4574361ebbe68c5b4e17d654c1db7c4d7ecf3dd873c58374e"
+    compile(source, "candidate.py", "exec")
+    assert capture.index("CANDIDATE_HOOK\n") < capture.index("archivebox init --quick") < capture.index("archivebox add --depth=0")
+    assert "prepared_ok and selected_ok" in capture
+    assert "chrome/browser.json" in capture
+    assert 'assert metrics["capture.prepared_bundle_verified"]' in capture
+    hook = tmp_path / "candidate.py"
+    hook.write_text(source)
+    code = capture.split("<<'CHECK_CANDIDATE'\n", 1)[1].split("CHECK_CANDIDATE\n", 1)[0]
+    checked = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(hook)], capture_output=True, text=True)
+    assert checked.returncode == 0, checked.stderr
+    hook.write_text(source + "# drift\n")
+    rejected = subprocess.run(["uv", "run", "--no-sync", "python", "-c", code, str(hook)], capture_output=True, text=True)
+    assert rejected.returncode != 0
+    assert "differs from reviewed hook" in rejected.stderr

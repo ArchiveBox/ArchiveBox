@@ -102,6 +102,109 @@ jobs:
           ARCHIVEDOTORG_SAVE_URL="$ARCHIVEDOTORG_SAVE_URL" \
           TIMEOUT=60 CHROME_HEADLESS=false CHROME_LOG_SUBPROCESS_OUTPUT=true \
           xvfb-run -a bash -euo pipefail <<'PUBLIC' >"$public_root/capture.log" 2>&1
+        # Candidate-only source, before init/install/add launch fresh processes.
+        candidate_hook="$(python -c 'from pathlib import Path; import abx_plugins; print(Path(abx_plugins.__file__).parent / "plugins/singlefile/on_CrawlSetup__80_singlefile_prepare.py")')"
+        cat > "$candidate_hook" <<'CANDIDATE_HOOK'
+        #!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries python3
+        # /// script
+        # requires-python = ">=3.12"
+        # ///
+
+        """Temporarily avoid duplicate font-source serialization in SingleFile 1.36.0.
+
+        Upstream provenance: single-file-core 79ecf4dce4acab130c0b587d8843f0328eb389f9,
+        core/lib/processor-helper-common.js:getPropertyValue. The selected CSS value
+        has already been generated to check the legacy \\9 suffix; reuse it rather
+        than generating the same embedded font again. No font selection changes.
+        Remove this hook once an upstream release includes and validates this fix.
+        """
+
+        import errno
+        import hashlib
+        import json
+        import os
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        from abx_plugins.plugins.base.utils import load_config, write_text_atomic
+
+        VERSION = "1.36.0"
+        ORIGINAL_SHA256 = "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
+        PATCHED_SHA256 = "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9"
+        BEFORE = r"getPropertyValue(e,n){let t;if(e.block.children&&(t=e.block.children.filter(e=>{try{return e.property==n&&!RN.generate(e.value).match(/\\9$/)}catch(t){return e.property==n}}).tail),t)try{return RN.generate(t.data.value)}catch(e){}}"
+        AFTER = r"getPropertyValue(e,n){let t;if(e.block.children)e.block.children.forEach(e=>{if(e.property==n)try{const n=RN.generate(e.value);n.match(/\\9$/)||(t=n)}catch(e){t=void 0}});return t}"
+
+
+        def prepare():
+            metadata_path = (
+                Path(os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"]) / "singlefile.extension.json"
+            )
+            metadata = json.loads(metadata_path.read_text())
+            source = Path(metadata["unpacked_path"])
+            manifest = json.loads((source / "manifest.json").read_text())
+            if metadata["version"] != VERSION or manifest["version"] != VERSION:
+                raise RuntimeError(
+                    "SingleFile font serialization preparation requires reviewed release 1.36.0",
+                )
+            original = (source / "lib/single-file.js").read_bytes()
+            if hashlib.sha256(original).hexdigest() != ORIGINAL_SHA256:
+                raise RuntimeError("SingleFile 1.36.0 source bundle SHA256 mismatch")
+            script = original.decode()
+            if script.count(BEFORE) != 1:
+                raise RuntimeError("SingleFile font serialization source anchor mismatch")
+            patched = script.replace(BEFORE, AFTER).encode()
+            if hashlib.sha256(patched).hexdigest() != PATCHED_SHA256:
+                raise RuntimeError("SingleFile prepared bundle SHA256 mismatch")
+            config = load_config()
+            destination = (
+                Path(config.PERSONAS_DIR) / ".singlefile" / f"{VERSION}-font-serialization1"
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if not destination.exists():
+                with tempfile.TemporaryDirectory(
+                    prefix=".prepare-",
+                    dir=destination.parent,
+                ) as temporary:
+                    staging = Path(temporary) / "extension"
+                    shutil.copytree(source, staging)
+                    (staging / "lib/single-file.js").write_bytes(patched)
+                    try:
+                        staging.rename(destination)
+                    except OSError as error:
+                        if error.errno not in (errno.EEXIST, errno.ENOTEMPTY):
+                            raise
+            if (destination / "lib/single-file.js").read_bytes() != patched:
+                raise RuntimeError(
+                    "Prepared SingleFile differs from reviewed font serialization fix",
+                )
+            prepared_path = (
+                Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json"
+            )
+            prepared_path.parent.mkdir(parents=True, exist_ok=True)
+            write_text_atomic(
+                prepared_path,
+                json.dumps(
+                    {
+                        "name": "singlefile",
+                        "version": VERSION,
+                        "unpacked_path": str(destination.resolve()),
+                    },
+                ),
+            )
+
+
+        if __name__ == "__main__":
+            prepare()
+        CANDIDATE_HOOK
+        python - "$candidate_hook" <<'CHECK_CANDIDATE'
+        import hashlib
+        import sys
+        from pathlib import Path
+        candidate = Path(sys.argv[1])
+        assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "ff1161bdefef7ae4574361ebbe68c5b4e17d654c1db7c4d7ecf3dd873c58374e", "Candidate preparation source differs from reviewed hook"
+        candidate.chmod(0o755)
+        CHECK_CANDIDATE
         cd "$PUBLIC_ROOT/data"
         python "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan > "$PUBLIC_ROOT/plan.json"
         archivebox init --quick
@@ -183,6 +286,52 @@ jobs:
         url="$(python -c 'import json,sys; print(next(e["url"] for e in json.load(open(sys.argv[1]))["examples"] if "canva" in e["plugins"]))' "$PUBLIC_ROOT/plan.json")"
         capture_status=0
         archivebox add --depth=0 --overwrite "$url" || capture_status=$?
+        archivebox manage shell <<'VERIFY'
+        import hashlib
+        import json
+        import os
+        import re
+        from pathlib import Path
+        from archivebox.core.models import ArchiveResult
+
+        results = ArchiveResult.objects.filter(plugin="singlefile")
+        result = results.first() if results.count() == 1 else None
+        output = result.output_dir / "singlefile.html" if result else None
+        html = output.read_text() if output and output.is_file() else ""
+        blocks = re.findall(r"@font-face\s*\{([^{}]*)\}", html, re.I)
+        fonts = [value for block in blocks for value in re.findall(r"url\([\"']?(data:[^\"')\s]+)", block)]
+        hashes = sorted(hashlib.sha256(value.encode()).hexdigest() for value in fonts)
+        # Both successful unmodified public controls produced this same full
+        # 571-font multiset (118 unique payloads), including responsive faces.
+        font_digest = hashlib.sha256("\n".join(hashes).encode()).hexdigest()
+        prepared_files = list(Path.cwd().glob("**/chrome/extensions/singlefile.extension.json"))
+        prepared = json.loads(prepared_files[0].read_text()) if len(prepared_files) == 1 else {}
+        prepared_bundle = Path(prepared["unpacked_path"]) / "lib/single-file.js" if prepared else None
+        prepared_ok = bool(prepared_bundle and prepared_bundle.is_file() and hashlib.sha256(prepared_bundle.read_bytes()).hexdigest() == "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9")
+        browser_file = Path(result.snapshot.output_dir) / "chrome/browser.json" if result else None
+        browser = json.loads(browser_file.read_text()) if browser_file and browser_file.is_file() else {}
+        selected = [extension for extension in browser.get("extensions", []) if extension.get("name") == "singlefile"]
+        selected_bundle = Path(selected[0]["unpacked_path"]) / "lib/single-file.js" if len(selected) == 1 else None
+        selected_ok = bool(selected_bundle and selected_bundle.is_file() and not selected[0].get("load_error") and hashlib.sha256(selected_bundle.read_bytes()).hexdigest() == "c5010080c7826e5c7cc32e594ae718b31776845baeaba1a0481182f45dca18a9")
+        metrics = {
+            "capture.prepared_bundle_verified": int(prepared_ok and selected_ok),
+            "capture.singlefile_succeeded": int(bool(result and result.status == "succeeded")),
+            "capture.html_bytes": output.stat().st_size if output and output.is_file() else 0,
+            "capture.font_count": len(fonts),
+            "capture.unique_fonts": len(set(hashes)),
+            "capture.font_payloads_preserved": int(font_digest == "beb4f5ebe5ec8cd10dae7f74dcc1f8b6cc7a3095550e5920d1cf951eaae8eae3"),
+            "capture.public_title_preserved": int('<title>Public Access - Certificate v1 (Bleed) - 8.5 x 11"</title>' in html),
+            "capture.failed_results": ArchiveResult.objects.filter(status="failed").count(),
+        }
+        report = Path(os.environ["PUBLIC_ROOT"]) / "diagnostics/system-memory.json"
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps(metrics))
+        assert metrics["capture.prepared_bundle_verified"], "CrawlSetup did not prepare reviewed SingleFile bundle"
+        assert metrics["capture.singlefile_succeeded"], "SingleFile hook did not succeed"
+        assert metrics["capture.html_bytes"] > 300_000_000, "Full public capture missing"
+        assert metrics["capture.font_payloads_preserved"], "Public font multiset differs from intact control"
+        assert metrics["capture.public_title_preserved"], "Public document title missing"
+        VERIFY
         exit "$capture_status"
         PUBLIC
     - name: Record failed capture resource diagnostics
@@ -195,7 +344,10 @@ jobs:
         import os
         from pathlib import Path
 
-        report = {}
+        output = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "diagnostics" / "system-memory.json"
+        capture = json.loads(output.read_text()) if output.is_file() else {}
+        capture_keys = {"capture.prepared_bundle_verified", "capture.singlefile_succeeded", "capture.html_bytes", "capture.font_count", "capture.unique_fonts", "capture.font_payloads_preserved", "capture.public_title_preserved", "capture.failed_results"}
+        report = {key: value for key, value in capture.items() if key in capture_keys and type(value) is int and value >= 0}
         meminfo = Path("/proc/meminfo")
         if meminfo.exists():
             for line in meminfo.read_text().splitlines():
