@@ -945,7 +945,14 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
 
 
 @pytest.mark.django_db(transaction=True)
-def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snapshot, live_server, tmp_path, browser_runtime):
+@pytest.mark.parametrize("snapshot_status", ["started", "paused"])
+def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(
+    snapshot,
+    live_server,
+    tmp_path,
+    browser_runtime,
+    snapshot_status,
+):
     import zipfile
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
@@ -956,7 +963,8 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snaps
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
     machine.save(update_fields=["config"])
     snapshot.permissions = "public"
-    snapshot.save(update_fields=["permissions"])
+    snapshot.status = snapshot_status
+    snapshot.save(update_fields=["permissions", "status"])
     for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
         save_output(snapshot, plugin)
     ArchiveResult.objects.create(
@@ -1157,10 +1165,27 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snaps
             assert monitor.bounding_box()["height"] <= progress.bounding_box()["height"]
             assert details.evaluate("e => e.scrollHeight > e.clientHeight")
             assert details.bounding_box()["y"] + details.bounding_box()["height"] <= preview_box["y"] + 1
+            natural_progress = monitor.locator(".header-bar").bounding_box()["height"] + details.evaluate("e => e.scrollHeight") + 1
+            expected_progress = min(natural_progress, page.locator("#main-frame-wrapper").evaluate("e => e.clientHeight") / 2)
+            assert abs(progress.bounding_box()["height"] - expected_progress) <= 1, (
+                width,
+                height,
+                progress.bounding_box(),
+                expected_progress,
+            )
             assert preview_box["y"] + preview_box["height"] <= height + 1
         page.get_by_role("button", name="Collapse stack", exact=True).click()
         assert group.get_attribute("aria-expanded") == "false"
         assert page.locator(".header-top").bounding_box()["y"] == 0
+        page.set_viewport_size({"width": 640, "height": 240})
+        page.get_by_role("button", name="Toggle saved outputs", exact=True).click()
+        assert not page.locator(".header-bottom").is_visible()
+        # Even paused/idle details should get a readable line when the output
+        # tray is collapsed, rather than shrinking to a few pixels beside a
+        # preview that unnecessarily requested the entire remaining height.
+        assert details.bounding_box()["height"] >= 31
+        assert page.locator("#main-frame").bounding_box()["height"] > 0
+        assert page.evaluate("scrollY") == 0
         browser.close()
 
 
