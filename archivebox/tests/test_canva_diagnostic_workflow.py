@@ -119,7 +119,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     guard_end = patched.index("async function getExactChromeTab", guard_start)
     assert (
         hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
-        == "00e1063bac1eda719c83a4042f43381962c67be755bf8a8e19698959af4b0bf3"
+        == "b7fd14b665986c267c2415ac3a3681e888b24fc702f76d3ef1821945f76aba79"
     )
     assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
         "const manifest =",
@@ -185,7 +185,7 @@ def test_public_probe_injects_reviewed_hook_before_crawl_discovery(tmp_path):
     workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
     capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
     source = capture.split("<<'CANDIDATE_HOOK'\n", 1)[1].split("CANDIDATE_HOOK\n", 1)[0]
-    assert hashlib.sha256(source.encode()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff"
+    assert hashlib.sha256(source.encode()).hexdigest() == "c4f564574c50bc77256993549baf41a534c51839f83da5c0d85d71c081759de7"
     compile(source, "candidate.py", "exec")
     assert capture.index("CANDIDATE_HOOK\n") < capture.index("archivebox init --quick") < capture.index("archivebox add --depth=0")
     assert "prepared_ok and selected_ok" in capture
@@ -258,4 +258,4 @@ def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
     assert 'metrics["capture.stage_setup_success_count"] == 1' in capture
     assert capture.index("STAGE_HOOK\n") < capture.index("archivebox init --quick")
     candidate = capture.split("<<'CANDIDATE_HOOK'", 1)[1].split("CANDIDATE_HOOK\n", 1)[0].lstrip()
-    assert hashlib.sha256(candidate.encode()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff"
+    assert hashlib.sha256(candidate.encode()).hexdigest() == "c4f564574c50bc77256993549baf41a534c51839f83da5c0d85d71c081759de7"

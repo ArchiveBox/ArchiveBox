@@ -132,7 +132,8 @@ jobs:
         has already been generated to check the legacy \\9 suffix; reuse it rather
         than generating the same embedded font again. Duplicate-font keys use nested
         exact-string Maps instead of concatenating embedded font payloads into keys.
-        No font selection changes. See patches/README.md for license and source.
+        Repeated source parsing uses per-pass exact-string caches with fresh mutable
+        arrays and records for every rule. No font selection changes. See patches/README.md for license and source.
         Remove this hook once an upstream release includes and validates this fix.
         """
 
@@ -148,7 +149,7 @@ jobs:
 
         VERSION = "1.36.0"
         ORIGINAL_SHA256 = "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
-        PATCHED_SHA256 = "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef"
+        PATCHED_SHA256 = "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
         BEFORE = r"getPropertyValue(e,n){let t;if(e.block.children&&(t=e.block.children.filter(e=>{try{return e.property==n&&!RN.generate(e.value).match(/\\9$/)}catch(t){return e.property==n}}).tail),t)try{return RN.generate(t.data.value)}catch(e){}}"
         AFTER = r"getPropertyValue(e,n){let t;if(e.block.children)e.block.children.forEach(e=>{if(e.property==n)try{const n=RN.generate(e.value);n.match(/\\9$/)||(t=n)}catch(e){t=void 0}});return t}"
 
@@ -156,7 +157,20 @@ jobs:
         MAP_AFTER = 'markRepeatedFontFaceRules(e,n,t){const a=new Map;e.fonts.forEach((o,i)=>{const r=n.get(i);r&&!t.has(r)&&t.set(r,t.size+1);const s=(r?t.get(r):0)+" "+this.getFontKey(i);let l=a.get(s);l||(l=new Map,a.set(s,l));const c=String(this.getPropertyValue(i,"src")),d=l.get(c);d&&e.repeatedFonts.add(d),l.set(c,i)}),e.medias.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.supports.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.layers.forEach(e=>this.markRepeatedFontFaceRules(e,n,t))}'  # codespell:ignore medias
 
 
+        FONT_SOURCES_BEFORE = 'getFontsDetails(e,n,t,a){let o=0,i=0,r=0;n.forEach(n=>{if("Atrule"==n.type&&"media"==n.name&&n.block&&n.block.children&&n.prelude){const i=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.medias.set("media-"+t+"-"+o+"-"+i,r),o++,this.getFontsDetails(e,n.block.children,t,r)}else if("Atrule"==n.type&&"supports"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.supports.set("supports-"+t+"-"+i+"-"+o,r),i++,this.getFontsDetails(e,n.block.children,t,r)}else if("Atrule"==n.type&&"layer"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),i=this.createFontsDetailsInfo();a.layers.set("layer-"+t+"-"+r+"-"+o,i),r++,this.getFontsDetails(e,n.block.children,t,i)}else if("Atrule"==n.type&&"font-face"==n.name&&n.block&&n.block.children){const e=[];a.fonts.set(n,e);const t=this.getPropertyValue(n,"src");if(t){const n=t.match(cN);n&&n.forEach(n=>{const t=n.match(vN)[1];e.includes(t)&&e.splice(e.indexOf(t),1),e.unshift(t)})}}})}'  # codespell:ignore medias
+        FONT_SOURCES_AFTER = 'getFontsDetails(e,n,t,a,abxSourceLists=new Map){let o=0,i=0,r=0;n.forEach(n=>{if("Atrule"==n.type&&"media"==n.name&&n.block&&n.block.children&&n.prelude){const i=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.medias.set("media-"+t+"-"+o+"-"+i,r),o++,this.getFontsDetails(e,n.block.children,t,r,abxSourceLists)}else if("Atrule"==n.type&&"supports"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.supports.set("supports-"+t+"-"+i+"-"+o,r),i++,this.getFontsDetails(e,n.block.children,t,r,abxSourceLists)}else if("Atrule"==n.type&&"layer"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),i=this.createFontsDetailsInfo();a.layers.set("layer-"+t+"-"+r+"-"+o,i),r++,this.getFontsDetails(e,n.block.children,t,i,abxSourceLists)}else if("Atrule"==n.type&&"font-face"==n.name&&n.block&&n.block.children){const t=this.getPropertyValue(n,"src");let e=abxSourceLists.get(t);if(!e){e=[];if(t){const n=t.match(cN);n&&n.forEach(n=>{const t=n.match(vN)[1];e.includes(t)&&e.splice(e.indexOf(t),1),e.unshift(t)})}abxSourceLists.set(t,e)}a.fonts.set(n,e.slice());}})}'  # codespell:ignore medias
+
+        FONT_DETAILS_BEFORE = 'function DN(e,n){e.fonts.forEach((t,a)=>{e.fonts.set(a,t.map(e=>{const t=e.match(bN),a=e.match(yN);let o,i;const r=function(e){const n=(e=e.replace(/url\\(-sf-url-original\\\\\\(\\\\"(.*?)\\\\"\\\\\\)\\\\ /g,"")).match(dN)||e.match(uN)||e.match(mN);return n&&n[1]}(e);if(t&&t[1]){o=t[1].replace(hN,"$1").replace(pN,"$1").toLowerCase();const e=o.match(kN);e&&(o=e[1],i=e[2])}if(a&&a[1]&&(i=a[1].toLowerCase()),!o){const n=e.match(gN);if(n&&n[1])o=n[1];else{const n=e.match(fN);n&&n[1]&&(o=n[1])}}if(!o&&r){const e=r.match(wN);e&&e[1]&&(o=e[1])}if(n){const t=Array.from(n.values()).find(e=>e.name==r);return{src:e.match(vN)[1],fontUrl:r,format:o,tech:i,contentType:t&&t.contentType}}return{src:e.match(vN)[1],fontUrl:r,format:o,tech:i}}))}),n?(e.medias.forEach(e=>DN(e,n)),e.supports.forEach(e=>DN(e,n)),e.layers.forEach(e=>DN(e,n))):(e.medias.forEach(e=>DN(e)),e.supports.forEach(e=>DN(e)),e.layers.forEach(e=>DN(e)))}'  # codespell:ignore medias
+        FONT_DETAILS_AFTER = 'function DN(e,n,abxSourceDetails=new Map){const abxRemember=(source,info)=>{abxSourceDetails.set(source,info);return {...info}};e.fonts.forEach((t,a)=>{e.fonts.set(a,t.map(e=>{if(abxSourceDetails.has(e))return {...abxSourceDetails.get(e)};const t=e.match(bN),a=e.match(yN);let o,i;const r=function(e){const n=(e=e.replace(/url\\(-sf-url-original\\\\\\(\\\\"(.*?)\\\\"\\\\\\)\\\\ /g,"")).match(dN)||e.match(uN)||e.match(mN);return n&&n[1]}(e);if(t&&t[1]){o=t[1].replace(hN,"$1").replace(pN,"$1").toLowerCase();const e=o.match(kN);e&&(o=e[1],i=e[2])}if(a&&a[1]&&(i=a[1].toLowerCase()),!o){const n=e.match(gN);if(n&&n[1])o=n[1];else{const n=e.match(fN);n&&n[1]&&(o=n[1])}}if(!o&&r){const e=r.match(wN);e&&e[1]&&(o=e[1])}if(n){const t=Array.from(n.values()).find(e=>e.name==r);return abxRemember(e,{src:e.match(vN)[1],fontUrl:r,format:o,tech:i,contentType:t&&t.contentType})}return abxRemember(e,{src:e.match(vN)[1],fontUrl:r,format:o,tech:i})}))}),n?(e.medias.forEach(e=>DN(e,n,abxSourceDetails)),e.supports.forEach(e=>DN(e,n,abxSourceDetails)),e.layers.forEach(e=>DN(e,n,abxSourceDetails))):(e.medias.forEach(e=>DN(e,undefined,abxSourceDetails)),e.supports.forEach(e=>DN(e,undefined,abxSourceDetails)),e.layers.forEach(e=>DN(e,undefined,abxSourceDetails)))}'  # codespell:ignore medias
+
+        FONT_PASS_BEFORE = 'async removeAlternativeFonts(e,n,t,a){const o=this.createFontsDetailsInfo(),i={rules:{processed:0,discarded:0},fonts:{processed:0,discarded:0}},r=new Map;return Jp(n).forEach(({stylesheetInfo:n,index:t})=>{if(n.stylesheet){n.scope&&RN.walk(n.stylesheet,{visit:"Atrule",enter:e=>r.set(e,n.scope)});const a=n.stylesheet.children;if(a)if(i.rules.processed+=a.size,i.rules.discarded+=a.size,n.mediaText&&"all"!=n.mediaText){const i=this.createFontsDetailsInfo();o.medias.set("media-"+t+"-"+n.mediaText,i),this.getFontsDetails(e,a,t,i)}else this.getFontsDetails(e,a,t,o)}}),DN(o,t),this.markRepeatedFontFaceRules(o,r,new Map),await Promise.all([...n].map(async([,e],n)=>{if(e.stylesheet){const r=e.stylesheet.children,s=e.mediaText;r&&(s&&"all"!=s?await this.processFontFaceRules(r,n,o.medias.get("media-"+n+"-"+s),t,a,i):await this.processFontFaceRules(r,n,o,t,a,i),i.rules.discarded-=r.size)}})),i}'  # codespell:ignore medias
+        FONT_PASS_AFTER = 'async removeAlternativeFonts(e,n,t,a){const abxSourceLists=new Map,o=this.createFontsDetailsInfo(),i={rules:{processed:0,discarded:0},fonts:{processed:0,discarded:0}},r=new Map;return Jp(n).forEach(({stylesheetInfo:n,index:t})=>{if(n.stylesheet){n.scope&&RN.walk(n.stylesheet,{visit:"Atrule",enter:e=>r.set(e,n.scope)});const a=n.stylesheet.children;if(a)if(i.rules.processed+=a.size,i.rules.discarded+=a.size,n.mediaText&&"all"!=n.mediaText){const i=this.createFontsDetailsInfo();o.medias.set("media-"+t+"-"+n.mediaText,i),this.getFontsDetails(e,a,t,i,abxSourceLists)}else this.getFontsDetails(e,a,t,o,abxSourceLists)}}),DN(o,t),this.markRepeatedFontFaceRules(o,r,new Map),await Promise.all([...n].map(async([,e],n)=>{if(e.stylesheet){const r=e.stylesheet.children,s=e.mediaText;r&&(s&&"all"!=s?await this.processFontFaceRules(r,n,o.medias.get("media-"+n+"-"+s),t,a,i):await this.processFontFaceRules(r,n,o,t,a,i),i.rules.discarded-=r.size)}})),i}'  # codespell:ignore medias
+
+
         def prepare():
+            config = load_config()
+            if not config.SINGLEFILE_ENABLED:
+                return
             metadata_path = (
                 Path(os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"]) / "singlefile.extension.json"
             )
@@ -175,12 +189,20 @@ jobs:
                 raise RuntimeError("SingleFile font serialization source anchor mismatch")
             if script.count(MAP_BEFORE) != 1:
                 raise RuntimeError("SingleFile duplicate font-key source anchor mismatch")
-            patched = script.replace(BEFORE, AFTER).replace(MAP_BEFORE, MAP_AFTER).encode()
+            script = script.replace(BEFORE, AFTER).replace(MAP_BEFORE, MAP_AFTER)
+            for before, after in (
+                (FONT_SOURCES_BEFORE, FONT_SOURCES_AFTER),
+                (FONT_DETAILS_BEFORE, FONT_DETAILS_AFTER),
+                (FONT_PASS_BEFORE, FONT_PASS_AFTER),
+            ):
+                if script.count(before) != 1:
+                    raise RuntimeError("SingleFile font-source cache anchor mismatch")
+                script = script.replace(before, after)
+            patched = script.encode()
             if hashlib.sha256(patched).hexdigest() != PATCHED_SHA256:
                 raise RuntimeError("SingleFile prepared bundle SHA256 mismatch")
-            config = load_config()
             destination = (
-                Path(config.PERSONAS_DIR) / ".singlefile" / f"{VERSION}-font-serialization2"
+                Path(config.PERSONAS_DIR) / ".singlefile" / f"{VERSION}-font-serialization3"
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
             if not destination.exists():
@@ -224,7 +246,7 @@ jobs:
         import sys
         from pathlib import Path
         candidate = Path(sys.argv[1])
-        assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "c6a6858f005d9c98d941e0363e324a203c4309ce8ea970ee9732946801c7d6ff", "Candidate preparation source differs from reviewed hook"
+        assert hashlib.sha256(candidate.read_bytes()).hexdigest() == "c4f564574c50bc77256993549baf41a534c51839f83da5c0d85d71c081759de7", "Candidate preparation source differs from reviewed hook"
         candidate.chmod(0o755)
         CHECK_CANDIDATE
         # Diagnostic81 runs after actual candidate preparation and before Chrome launch.
@@ -248,7 +270,7 @@ jobs:
         metadata = json.loads((Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json").read_text())
         root = Path(metadata["unpacked_path"]).resolve()
         assert root.is_relative_to((Path(config.PERSONAS_DIR) / ".singlefile").resolve()), "Diagnostic requires private prepared copy"
-        assert hashlib.sha256((root / "lib/single-file.js").read_bytes()).hexdigest() == "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef"
+        assert hashlib.sha256((root / "lib/single-file.js").read_bytes()).hexdigest() == "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
         bundle = root / "lib/single-file-extension.js"
         original = bundle.read_bytes()
         original_sha = "f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3"
@@ -295,7 +317,7 @@ jobs:
             throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
           }
           const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
-          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef") {
+          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2") {
             throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
           }
         }
@@ -305,12 +327,12 @@ jobs:
         replace_once('    const extension = { ...sessionEntry };', r"""
             const extension = { ...sessionEntry };
             const liveBundleHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file.js'))).digest('hex');
-            const liveHashClass = liveBundleHash === '9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const liveHashClass = liveBundleHash === 'f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const preparedMetadataPath = path.join(require('../base/utils.js').getCrawlDir(), 'chrome/extensions/singlefile.extension.json');
             const preparedMetadata = fs.existsSync(preparedMetadataPath) ? JSON.parse(fs.readFileSync(preparedMetadataPath, 'utf8')) : {};
             const preparedBundlePath = preparedMetadata.unpacked_path && path.join(preparedMetadata.unpacked_path, 'lib/single-file.js');
             const preparedHash = preparedBundlePath && fs.existsSync(preparedBundlePath) ? createHash('sha256').update(fs.readFileSync(preparedBundlePath)).digest('hex') : '';
-            const preparedHashClass = preparedHash === '9f03c95364f4d0568e15cf23f27ff30682c2029a5ce04b20b28d94ebdd5cb3ef' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const preparedHashClass = preparedHash === 'f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const diagnosticHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file-extension.js'))).digest('hex');
             const diagnosticHashClass = diagnosticHash === '0be550c69429dfc816c717e3bbe8c63278d3919c7ad83b3d7b40a31871c82d1b' ? 2 : diagnosticHash === 'f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3' ? 1 : 0;
             fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass, diagnostic_hash_class: diagnosticHashClass}), {mode: 0o600});
