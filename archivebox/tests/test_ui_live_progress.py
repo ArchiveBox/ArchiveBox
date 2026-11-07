@@ -515,12 +515,21 @@ class TestLiveProgressView:
         assert 60 <= elapsed < 75, (elapsed, result.stderr)
         assert not any(Path(variant["path"]).exists() for variant in variants)
 
-    def test_gallery_captures_real_sweeting_screencast(self, crawl, snapshot, live_screenshot_command):
+    @pytest.mark.parametrize("saved_outputs", [False, True])
+    def test_gallery_captures_real_sweeting_screencast(self, crawl, snapshot, live_screenshot_command, saved_outputs):
         from struct import unpack
 
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.services.runner import run_due_snapshot
+
+        if saved_outputs:
+            from archivebox.tests.test_snapshot_output_stacks import save_output
+
+            # Recaptures and early-completing plugins leave saved previews next
+            # to the active screencast, as in the published screenshot gallery.
+            for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
+                save_output(snapshot, plugin)
 
         config = {
             "PLUGINS": "chrome,chrome_screencast,title,wget,screenshot,dom,pdf",

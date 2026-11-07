@@ -519,8 +519,26 @@
                 flex: 0 1 auto;
                 min-height: 0;
                 max-height: 50%;
+                display: flex;
+                flex-direction: column;
+            }
+            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor:not(.hidden) {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .header-bar {
+                flex: 0 0 auto;
+            }
+            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .progress-content {
+                min-height: 0;
+                padding-block: 0;
                 overflow: auto;
                 overscroll-behavior: contain;
+            }
+            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .tree-container {
+                max-height: none;
+                overflow: visible;
             }
             #main-frame-wrapper > #main-frame,
             #main-frame-wrapper > #snapshot-empty-state {

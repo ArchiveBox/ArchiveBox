@@ -1152,7 +1152,11 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(snaps
             assert preview_box["height"] >= (wrapper_box["height"] - 3) / 2 - 1, (width, height, preview_box)
             progress = page.locator("#snapshot-progress-wrapper")
             assert progress.bounding_box()["height"] <= wrapper_box["height"] / 2
-            assert progress.evaluate("e => e.scrollHeight > e.clientHeight")
+            monitor = progress.locator("#progress-monitor")
+            details = monitor.locator(".progress-content")
+            assert monitor.bounding_box()["height"] <= progress.bounding_box()["height"]
+            assert details.evaluate("e => e.scrollHeight > e.clientHeight")
+            assert details.bounding_box()["y"] + details.bounding_box()["height"] <= preview_box["y"] + 1
             assert preview_box["y"] + preview_box["height"] <= height + 1
         page.get_by_role("button", name="Collapse stack", exact=True).click()
         assert group.get_attribute("aria-expanded") == "false"
