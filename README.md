@@ -383,6 +383,7 @@ See <a href="#cli-usage">below</a> for usage examples using the CLI, Web UI, or 
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://repocloud.io/details/ArchiveBox/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="22px"/></a> (USD $3-50+/mo)</li>
+<li><a href="https://zop.dev/zopday/app/deploy?image=archivebox/archivebox&port=5797&name=archivebox&utm_source=github&utm_medium=one_click&utm_content=archivebox"><img src="https://img.shields.io/badge/Managed_Deploy-ZopDay-%230ea5e9.svg?style=flat" alt="Deploy to ZopDay" height="22px"/></a> (from USD $0/mo)</li>
 <br/>
 <sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
