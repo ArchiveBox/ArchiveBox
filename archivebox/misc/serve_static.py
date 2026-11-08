@@ -454,8 +454,6 @@ def _build_directory_zip_response(
             # Closing the response also interrupts ZIP writes/error delivery.
             pass
 
-    threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
-
     def iter_zip_chunks():
         # Emit a meaningful first chunk quickly so browsers show the download
         # immediately instead of waiting on dozens of tiny ZIP header writes.
@@ -463,6 +461,10 @@ def _build_directory_zip_response(
         initial_deadline = time.monotonic() + initial_chunk_wait
 
         try:
+            # A sync view may construct this response after its ASGI caller
+            # disconnects; no one then receives or closes that response. Start
+            # the producer only once a body consumer exists to own its cleanup.
+            threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
             while True:
                 timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
                 try:

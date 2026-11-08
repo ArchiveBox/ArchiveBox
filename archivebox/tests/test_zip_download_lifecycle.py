@@ -102,6 +102,31 @@ def test_uvicorn_zip_has_bounded_memory_and_releases_source_file(archivebox_daem
 
 
 @pytest.mark.parametrize("use_async_stream", [False, True])
+def test_directory_zip_does_not_start_work_before_body_consumption(tmp_path: Path, use_async_stream: bool):
+    import threading
+
+    root = tmp_path / "unconsumed-export"
+    root.mkdir()
+    (root / "payload.bin").write_bytes(os.urandom(2 * 1024 * 1024))
+    request = RequestFactory().get("/?download=zip")
+    if use_async_stream:
+        request.scope = {"type": "http"}
+    before = set(threading.enumerate())
+    response = serve_static_with_byterange_support(request, "", document_root=root, show_indexes=True)
+    try:
+        # A sync view can finish constructing its response after the ASGI
+        # caller has disconnected. Its response never reaches send_response or
+        # response.close(), so construction must not start an orphan producer.
+        producers = [thread for thread in threading.enumerate() if thread not in before and thread.name.startswith("zip-stream-")]
+        assert not producers, "Unconsumed ZIP response started background work with no body consumer"
+    finally:
+        response.close()
+        for thread in threading.enumerate():
+            if thread not in before and thread.name.startswith("zip-stream-"):
+                thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("use_async_stream", [False, True])
 @pytest.mark.parametrize("read_first_chunk", [False, True])
 def test_directory_zip_close_stops_producer(tmp_path: Path, use_async_stream: bool, read_first_chunk: bool):
     import asyncio
@@ -109,8 +134,8 @@ def test_directory_zip_close_stops_producer(tmp_path: Path, use_async_stream: bo
 
     root = tmp_path / "cancelled-export"
     root.mkdir()
-    # Incompressible real bytes keep the bounded producer queue full when the
-    # download is abandoned, including before the first response iteration.
+    # Incompressible real bytes keep the bounded producer queue full when an
+    # active download is abandoned. Unconsumed responses must start no work.
     (root / "payload.bin").write_bytes(os.urandom(2 * 1024 * 1024))
     request = RequestFactory().get("/?download=zip")
     if use_async_stream:
@@ -118,7 +143,7 @@ def test_directory_zip_close_stops_producer(tmp_path: Path, use_async_stream: bo
     before = set(threading.enumerate())
     response = serve_static_with_byterange_support(request, "", document_root=root, show_indexes=True)
     producers = [thread for thread in threading.enumerate() if thread not in before and thread.name.startswith("zip-stream-")]
-    assert len(producers) == 1
+    assert not producers
     assert response.is_async is use_async_stream
     try:
         if read_first_chunk:
@@ -127,15 +152,23 @@ def test_directory_zip_close_stops_producer(tmp_path: Path, use_async_stream: bo
                 async def read_and_close():
                     iterator = aiter(response.streaming_content)
                     assert (await anext(iterator)).startswith(b"PK")
+                    producers.extend(
+                        thread for thread in threading.enumerate() if thread not in before and thread.name.startswith("zip-stream-")
+                    )
                     response.close()
                     await iterator.aclose()
 
                 asyncio.run(read_and_close())
             else:
                 assert next(iter(response.streaming_content)).startswith(b"PK")
+                producers.extend(
+                    thread for thread in threading.enumerate() if thread not in before and thread.name.startswith("zip-stream-")
+                )
+            assert len(producers) == 1
         response.close()
-        producers[0].join(timeout=2)
-        assert not producers[0].is_alive(), "Closed ZIP response retained its producer thread and queued output"
+        for producer in producers:
+            producer.join(timeout=2)
+            assert not producer.is_alive(), "Closed ZIP response retained its producer thread and queued output"
     finally:
         response.close()
 
