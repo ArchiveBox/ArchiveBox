@@ -1,0 +1,16 @@
+archivebox/misc/serve_static.py
+  h_923c208e183a7b 464-467
+archivebox/tests/test_zip_download_lifecycle.py
+  h_923c208e183a7b 104-128,137-138,146,155-157,164-167,169-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "33160b871ebeac21bc1bc1d9842cad6158cb22ec",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
