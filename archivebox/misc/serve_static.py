@@ -901,23 +901,35 @@ class Resources(HTMLParser):
         self.offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
         self.base_href = None
         self.passive = passive
-        self.script_attributes: list[tuple[int, int]] = []
+        self.script_tags: list[tuple[int, int, str]] = []
 
     attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
-        rel = (values.get("rel") or "").lower().split()
-        script_fetch = tag == "script" or (
-            tag == "link" and ("modulepreload" in rel or ("preload" in rel and (values.get("as") or "").lower() == "script"))
-        )
-        if self.passive and script_fetch:
-            line, column = self.getpos()
-            offset = self.offsets[line - 1] + column
-            for match in self.attribute.finditer(self.get_starttag_text()):
-                if match.group(1).lower() == ("src" if tag == "script" else "href"):
-                    self.script_attributes.append((offset + match.start(), offset + match.end()))
-            return
+        if self.passive:
+            # Browsers keep the first duplicate attribute. Leave the ordinary
+            # resource mapper unchanged; passive selection follows that rule too.
+            passive_values = dict(reversed(attrs))
+            rel = (passive_values.get("rel") or "").lower().split()
+            script_fetch = tag == "script" or (
+                tag == "link" and ("modulepreload" in rel or ("preload" in rel and (passive_values.get("as") or "").lower() == "script"))
+            )
+            if script_fetch:
+                line, column = self.getpos()
+                offset = self.offsets[line - 1] + column
+                omitted = "src" if tag == "script" else "href"
+                if omitted in passive_values:
+                    # Rebuild only these start tags from parsed attributes: HTML
+                    # permits missing spaces after quoted attributes, so regex
+                    # spans requiring whitespace can leave a script URL behind.
+                    attributes = "".join(
+                        f' {name}="{html.escape(value, quote=True)}"' if value is not None else f" {name}"
+                        for name, value in attrs
+                        if name != omitted
+                    )
+                    self.script_tags.append((offset, offset + len(self.get_starttag_text()), f"<{tag}{attributes}>"))
+                return
         if tag == "base" and self.base_href is None:
             self.base_href = values.get("href")
         lazy_names = ("data-src", "data-lazy-src", "data-echo")
@@ -969,8 +981,8 @@ def _passive_html_thumbnail(html_text: str) -> str:
     resources.feed(html_text)
     chunks = []
     previous = 0
-    for start, end in resources.script_attributes:
-        chunks.append(html_text[previous:start])
+    for start, end, replacement in resources.script_tags:
+        chunks.extend((html_text[previous:start], replacement))
         previous = end
     chunks.append(html_text[previous:])
     return "".join(chunks)
@@ -1525,6 +1537,22 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:
+                if thumbnail and request.method == "HEAD":
+                    # Metadata is sufficient. Do not open a cold FUSE payload
+                    # or advertise the source size/range support for generated
+                    # HTML whose byte length is not known without rendering it.
+                    # CommonMiddleware would add Content-Length: 0 to an empty
+                    # HttpResponse. An empty stream keeps that unknown field
+                    # absent on the wire without opening any archived payload.
+                    response = StreamingHttpResponse(iter(()), content_type=content_type)
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
+                    return _apply_archive_replay_headers(
+                        response,
+                        fullpath=fullpath,
+                        content_type=content_type,
+                        is_archive_replay=is_archive_replay,
+                        config=config,
+                    )
                 raw = fullpath.read_bytes()
                 decoded = raw.decode("utf-8", errors="replace")
                 source_html = decoded if content_type.startswith("text/html") and rel_path == "dom/output.html" else None
@@ -1538,7 +1566,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     # raw source. Ignore it for this generated preview; raw=1
                     # continues to serve exact stored byte ranges.
                     decoded = _passive_html_thumbnail(decoded)
-                rewritten_html, rewritten_count = ("", 0)
+                rewritten_html, rewritten_count = (decoded, 0)
                 if content_type.startswith("text/html") and document_root:
                     rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(
                         request,

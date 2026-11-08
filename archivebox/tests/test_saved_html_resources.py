@@ -32,6 +32,20 @@ class ResourceTags(HTMLParser):
             self.tags.append((tag, dict(attrs)))
 
 
+@pytest.mark.parametrize("rel", ["preload", "modulepreload"])
+def test_passive_thumbnail_omits_both_script_preload_forms(tmp_path, rel):
+    source = (Path(__file__).parent / "fixtures/notion-script-resources.html").read_text().replace('rel="preload"', f'rel="{rel}"')
+    output = tmp_path / "page.html"
+    output.write_text(source)
+    request = RequestFactory().get("/page.html?preview=thumbnail")
+    request.archivebox_snapshot_url = "https://notion.notion.site/"
+    response = serve_static_with_byterange_support(request, "page.html", document_root=tmp_path)
+    links = [attrs for tag, attrs in ResourceTags(response.content.decode()).tags if tag == "link" and attrs.get("rel") == rel]
+    assert len(links) == 2
+    assert all("href" not in attrs for attrs in links)
+    assert output.read_text() == source
+
+
 @pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
 @pytest.mark.parametrize(
     "fixture",
@@ -111,6 +125,20 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
     sys.addaudithook(observe_open)
     try:
         response = serve_static_with_byterange_support(request, "page.html", document_root=tmp_path)
+        phase = "head"
+        head = serve_static_with_byterange_support(
+            RequestFactory().head("/page.html?preview=thumbnail"),
+            "page.html",
+            document_root=tmp_path,
+        )
+        assert head.status_code == response.status_code
+        assert not head.has_header("ETag")
+        assert not head.has_header("Content-Length")
+        assert not head.has_header("Accept-Ranges")
+        if not extra_bytes:
+            assert head.streaming
+            assert list(head.streaming_content) == []
+            assert head["Cache-Control"] == response["Cache-Control"]
         phase = "full"
         full_request = RequestFactory().get("/page.html")
         full_request.archivebox_snapshot_url = "https://crontab.guru/"
@@ -121,6 +149,7 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
     finally:
         phase = ""
     assert "full" in observed_opens
+    assert "head" not in observed_opens
     assert ("thumbnail" in observed_opens) == (not extra_bytes)
     assert response.status_code == (413 if extra_bytes else 200)
     assert not response.streaming
@@ -290,8 +319,16 @@ def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
-@pytest.mark.parametrize("card", [False, True])
-def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, live_server, browser_runtime, card, tmp_path, metadata):
+@pytest.mark.parametrize("card,attribute_gap", [(False, " "), (True, " "), (True, "")], ids=["full", "card", "adjacent-attributes-card"])
+def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(
+    snapshot,
+    live_server,
+    browser_runtime,
+    card,
+    tmp_path,
+    metadata,
+    attribute_gap,
+):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -323,7 +360,12 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
 
         output = snapshot.output_dir / "dom/output.html"
         output.parent.mkdir()
-        output.write_bytes((FIXTURE / "page.html").read_bytes().replace(b"<head>", b"<head>" + metadata, 1))
+        output.write_bytes(
+            (FIXTURE / "page.html")
+            .read_bytes()
+            .replace(b"<head>", b"<head>" + metadata, 1)
+            .replace(b'<script src="/index.js">', f'<script defer=""{attribute_gap}src="/index.js">'.encode()),
+        )
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="dom",
@@ -362,6 +404,11 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
                 assert (origin + "/responses/all/styles.css", 200) in responses
                 assert not [url for kind, url in requests if kind == "script"]
                 assert page.request.get(origin + "/dom/output.html?raw=1").body() == output.read_bytes()
+                head = page.request.head(page.locator("iframe").get_attribute("src"))
+                assert head.status == 200
+                assert "content-length" not in head.headers
+                assert "accept-ranges" not in head.headers
+                assert "etag" not in head.headers
                 page.screenshot(path=str(tmp_path / "card.png"))
                 print(f"REPLAY_SCREENSHOT={tmp_path / 'card.png'}")
                 return
