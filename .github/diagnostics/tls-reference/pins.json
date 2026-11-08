@@ -1,0 +1,59 @@
+{
+  "python": "3.14.5",
+  "uv": "0.13.5",
+  "plugins": "1.13.655",
+  "abx_dl": "1.13.320",
+  "node": {
+    "version": "24.22.1",
+    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
+    "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6"
+  },
+  "chrome": {
+    "version": "156.0.8078.47",
+    "url": "https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.47/linux64/chrome-linux64.zip",
+    "sha256": "e6c94490f0b6b337225aeb2d2a5034858516b7017356980ba94f5176d8774a50"
+  },
+  "plugin_wheel": {
+    "url": "https://files.pythonhosted.org/packages/df/aa/f1b60b0300fe5de75c11726f45a86300b4b99b37334a3015e463ee26c49b/abx_plugins-1.13.655-py3-none-any.whl",
+    "filename": "abx_plugins-1.13.655-py3-none-any.whl",
+    "sha256": "bed8d05d45e1c63d3ce3865e61f68583129858109d17b3eb1430d492e9a618fa"
+  },
+  "extension": {
+    "version": "0.1.0.1501",
+    "url": "https://github.com/tlsnotary/tlsn-extension/releases/download/0.1.0.1501/extension-0.1.0.1501.zip",
+    "sha256": "1c312ad4305653b8d9351cf3eac46de4222a43be513260bf53053cfa1de45155",
+    "wasm_original": "bb3c73628f088867a1f99291275b56a379ce44fd239efca9445fb5908a97e318",
+    "wasm_patched": "43ef006e7a8ffacd7bee59629d13e45202be73605a95e53eb95ea3a6ea8cee21"
+  },
+  "node_base": "node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd",
+  "verifier": "ghcr.io/tlsnotary/tlsn-extension/demo-verifier-server@sha256:1240f4d63f2f92026be89cf208b6761ba6873959bb8d14a3e3f2fc26baf8483c",
+  "gateway_files": {
+    "Dockerfile": "f49ce99f2c21879ff9c8338cdb8a1b7a397f803e51ab72171889c3bff1f19fde",
+    "package.json": "78b96515db712c02fd9ff1f1ce01d7143260b7205dd67bce22f4384f0a78617a",
+    "package-lock.json": "0e8af984179fb1f34e7a1341b44a883b9efedd8af992d67a4196a3a885a4702c",
+    "server.mjs": "d3dd8d822efbdb152f5cf07947b20225e6889db5bb2e9167e09478e0be5c8cce",
+    "memory.cjs": "036e9c5ef59989f5890ae073c897c613dccf6ce00a6238a29f6259495187255d",
+    "web/app.mjs": "926bbb3430498e9ebd1651a7cbf5c828328fc6a773ffc66b5225ca036dd7fa56",
+    "web/diagram.mjs": "13ea3b156c9f4f041900ccdb5a92c89681a22dcee3d75e365f63c563ff36b2a7",
+    "web/index.html": "9889a15851afc0fa689bd2a018703d23f331d673e340d3f505097aedf2b64e79",
+    "web/site-chrome.mjs": "d0d2846d9d9012615624d9728b32c23511cb4de9a3c2937a6a5775451b4b0a10",
+    "web/style.css": "6ac167df81ee8c4b8c7f23a6fe210f9005815f811721fff8e9eeee309c0db9e7",
+    "web/verify.mjs": "e6d66d9383723efa9c019106748b8268478a77cdf71a7c7b6b87c798d7aa1a7e"
+  },
+  "verifier_config_sha256": "627dd9864916857d1baa321e69c7aa51717929791a9cbbce638c05ef2610a64a",
+  "checker": {
+    "url": "https://raw.githubusercontent.com/ArchiveBox/abx-plugins/b7f1fef88fbe7652c07b031f3dfb3f4500ded023/abx_plugins/plugins/tlsnotary/tests/check_capture.mjs",
+    "sha256": "56db44533ba442ba02b7fd1f78f24f7cbb4f2149d72c428d81c1ee75d146125f"
+  },
+  "checker_fixture": {
+    "url": "https://raw.githubusercontent.com/ArchiveBox/abx-plugins/b7f1fef88fbe7652c07b031f3dfb3f4500ded023/abx_plugins/plugins/tlsnotary/tests/fixtures/hacker-news/response.http",
+    "sha256": "4050936ce3ef1b1e609b8c7ead532e96b01c05146c05a11404063e1fa0d3c1f4"
+  },
+  "locks": {
+    "requirements.txt": "e5c3491a4b34a2ba63d7be227206485f27e52746e275844e35ba3b628358091c",
+    "npm/chrome/package.json": "57583f3931d9d87edba5716d30b7cde2ec0c505a3db650443242db3827c6c25a",
+    "npm/chrome/package-lock.json": "b3c2ea711e1e730690e0a24113104abaec9c67c3adcada326beeeda0525e8be2",
+    "npm/abxbus/package.json": "d37e7752ba6043b7e32c50a3c729954632fbfe68aa06e0923c6e34228b499bb6",
+    "npm/abxbus/package-lock.json": "518471b943aa11c4fce8f1430c93ade88406a25b86a407876d59167ce26609cd"
+  }
+}

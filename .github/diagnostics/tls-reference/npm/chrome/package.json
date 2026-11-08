@@ -1,0 +1,8 @@
+{
+	"dependencies": {
+		"@puppeteer/browsers": "3.2.6",
+		"puppeteer": "25.16.0",
+		"dexie": "4.4.6",
+		"dexie-export-import": "4.4.1"
+	}
+}
