@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
@@ -998,6 +999,35 @@ def manifest_file_count(captures, plugin: str, exclude_parts: str = "", exclude_
     return len(paths)
 
 
+class PassiveCardFrames(HTMLParser):
+    """Select the thumbnail representation only for already scriptless frames."""
+
+    def __init__(self, document: str, output_url: str):
+        super().__init__()
+        self.output_url = output_url
+        self.offsets = [0, *(match.end() for match in re.finditer("\n", document))]
+        self.edits = []
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if (
+            tag != "iframe"
+            or values.get("src") != self.output_url
+            or "sandbox" not in values
+            or "allow-scripts" in (values["sandbox"] or "").lower().split()
+        ):
+            return
+        url = urlsplit(self.output_url)
+        query = [item for item in parse_qsl(url.query, keep_blank_values=True) if item[0] != "preview"]
+        thumbnail_url = urlunsplit(url._replace(query=urlencode([*query, ("preview", "thumbnail")])))
+        attributes = "".join(
+            f' {name}="{escape(thumbnail_url if name == "src" else value)}"' if value is not None else f" {name}" for name, value in attrs
+        )
+        line, column = self.getpos()
+        start = self.offsets[line - 1] + column
+        self.edits.append((start, start + len(self.get_starttag_text()), f"<iframe{attributes}>"))
+
+
 def render_plugin_card_document(context, result) -> str:
     """Render one plugin card template for the trusted snapshot-origin frame."""
     plugin = get_plugin_name(result.plugin)
@@ -1056,6 +1086,13 @@ def render_plugin_card_document(context, result) -> str:
                 },
             )
             rendered = tpl.render(ctx)
+            if not context.get("STATIC_EXPORT") and output_lower.endswith((".html", ".htm")):
+                # A sandbox stops execution, but Chrome's preload scanner can
+                # still fetch script tags. Full replay keeps its original URL.
+                frames = PassiveCardFrames(rendered, output_url)
+                frames.feed(rendered)
+                for start, end, replacement in reversed(frames.edits):
+                    rendered = rendered[:start] + replacement + rendered[end:]
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
                 if rendered.lstrip().lower().startswith("<!doctype html"):

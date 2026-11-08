@@ -6,10 +6,44 @@ from django.db.models import prefetch_related_objects
 from django.template import Context, Template
 from django.test.utils import CaptureQueriesContext
 from django.utils.html import escapejs
+from html.parser import HTMLParser
+from urllib.parse import parse_qs, urlsplit
 
 from archivebox.core.models import ArchiveResult
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.parametrize("plugin", ["dom", "wget", "singlefile", "readability", "defuddle"])
+@pytest.mark.parametrize("static", [False, True])
+def test_only_scriptless_live_cards_select_passive_thumbnail(snapshot, plugin, static):
+    from archivebox.core.templatetags.core_tags import render_plugin_card_document
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin=plugin,
+        status="succeeded",
+        output_str=f"{plugin}/output.html",
+        output_files={"output.html": {"size": 12, "mimetype": "text/html"}},
+    )
+    rendered = render_plugin_card_document(Context({"STATIC_EXPORT": static, "STATIC_EXPORT_DIR": str(snapshot.output_dir)}), result)
+    frames = []
+
+    class Frames(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag == "iframe":
+                attrs = dict(attrs)
+                if "srcdoc" in attrs:
+                    Frames().feed(attrs["srcdoc"])
+                else:
+                    frames.append(attrs)
+
+    Frames().feed(rendered)
+    assert len(frames) == 1
+    frame = frames[0]
+    passive = plugin in {"dom", "wget", "singlefile"}
+    assert frame["sandbox"] == ("allow-same-origin" if passive else "allow-scripts allow-same-origin")
+    assert (parse_qs(urlsplit(frame["src"]).query).get("preview") == ["thumbnail"]) == (passive and not static)
 
 
 @pytest.mark.parametrize("prefetched", [False, True])

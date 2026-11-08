@@ -891,7 +891,7 @@ class Resources(HTMLParser):
     # A request-local class closes over every offset and URL span; its class/MRO
     # cycle keeps that large state alive until cyclic GC. Instances instead own
     # only this document and release it when the request finishes.
-    def __init__(self, html_text: str):
+    def __init__(self, html_text: str, *, passive: bool = False):
         super().__init__()
         self.spans: list[tuple[int, int, str]] = []
         self.inserted_sources: set[int] = set()
@@ -900,11 +900,24 @@ class Resources(HTMLParser):
         # HTMLParser advances lines only on LF, not CR or Unicode separators.
         self.offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
         self.base_href = None
+        self.passive = passive
+        self.script_attributes: list[tuple[int, int]] = []
 
     attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
+        rel = (values.get("rel") or "").lower().split()
+        script_fetch = tag == "script" or (
+            tag == "link" and ("modulepreload" in rel or ("preload" in rel and (values.get("as") or "").lower() == "script"))
+        )
+        if self.passive and script_fetch:
+            line, column = self.getpos()
+            offset = self.offsets[line - 1] + column
+            for match in self.attribute.finditer(self.get_starttag_text()):
+                if match.group(1).lower() == ("src" if tag == "script" else "href"):
+                    self.script_attributes.append((offset + match.start(), offset + match.end()))
+            return
         if tag == "base" and self.base_href is None:
             self.base_href = values.get("href")
         lazy_names = ("data-src", "data-lazy-src", "data-echo")
@@ -948,6 +961,19 @@ class Resources(HTMLParser):
                     self.stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
 
     handle_startendtag = handle_starttag
+
+
+def _passive_html_thumbnail(html_text: str) -> str:
+    """Omit unusable script fetches from a scriptless card, not full replay."""
+    resources = Resources(html_text, passive=True)
+    resources.feed(html_text)
+    chunks = []
+    previous = 0
+    for start, end in resources.script_attributes:
+        chunks.append(html_text[previous:start])
+        previous = end
+    chunks.append(html_text[previous:])
+    return "".join(chunks)
 
 
 def _rewrite_html_image_sources_to_responses(
@@ -1350,13 +1376,15 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     }
     if is_text_like and "charset=" not in content_type:
         content_type = f"{content_type}; charset=utf-8"
+    thumbnail = request.GET.get("preview") == "thumbnail"
     preview_as_text_html = (
         bool(request.GET.get("preview"))
+        and not thumbnail
         and is_text_like
         and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
     )
-    preview_as_image_html = bool(request.GET.get("preview")) and content_type.startswith("image/")
+    preview_as_image_html = bool(request.GET.get("preview")) and not thumbnail and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
     if (
         not request.GET.get("preview")
@@ -1379,7 +1407,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # A shared archive explorer for ZIP outputs from any plugin. Raw/range
     # requests retain the original bytes for downloads and seekable reads.
-    if fullpath.suffix.lower() == ".zip" and request.GET.get("preview") and not request.META.get("HTTP_RANGE"):
+    if fullpath.suffix.lower() == ".zip" and request.GET.get("preview") and not thumbnail and not request.META.get("HTTP_RANGE"):
         raw_query = request.GET.copy()
         raw_query.pop("preview", None)
         raw_query["raw"] = "1"
@@ -1439,7 +1467,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, ValueError):
             pass
 
-    if request.GET.get("preview"):
+    if request.GET.get("preview") and not thumbnail:
         try:
             raw_query = request.GET.copy()
             raw_query.pop("preview", None)
@@ -1493,6 +1521,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
     if not request.GET.get("raw") and not preserve_plain_text and content_type.startswith(("text/plain", "text/html", "text/markdown")):
+        thumbnail_error = None
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:
@@ -1503,6 +1532,12 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 tag_count = decoded.count("<")
                 if escaped_count and escaped_count > tag_count * 2:
                     decoded = html.unescape(decoded)
+                passive_html = thumbnail and content_type.startswith("text/html")
+                if passive_html:
+                    # Range applies to the selected representation, not its
+                    # raw source. Ignore it for this generated preview; raw=1
+                    # continues to serve exact stored byte ranges.
+                    decoded = _passive_html_thumbnail(decoded)
                 rewritten_html, rewritten_count = ("", 0)
                 if content_type.startswith("text/html") and document_root:
                     rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(
@@ -1526,7 +1561,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         is_archive_replay=is_archive_replay,
                         config=config,
                     )
-                if rewritten_count:
+                if rewritten_count or passive_html:
                     if not HTML_DOCUMENT_RE.match(rewritten_html):
                         rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
@@ -1549,8 +1584,24 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         is_archive_replay=is_archive_replay,
                         config=config,
                     )
+            elif thumbnail:
+                thumbnail_error = (413, "This capture exceeds the 10 MiB thumbnail limit. Open the full capture to view it.")
         except (OSError, UnicodeDecodeError, ValueError):
-            pass
+            if thumbnail:
+                thumbnail_error = (500, "The thumbnail could not be rendered. Open the full capture to view it.")
+        if thumbnail_error:
+            # Never fall through to script-fetching raw HTML under a thumbnail
+            # URL when transformation is unavailable. Full/raw URLs still work.
+            status_code, message = thumbnail_error
+            response = HttpResponse(message, status=status_code, content_type="text/plain; charset=utf-8")
+            response.headers["Cache-Control"] = "no-store"
+            return _apply_archive_replay_headers(
+                response,
+                fullpath=fullpath,
+                content_type="text/plain",
+                is_archive_replay=is_archive_replay,
+                config=config,
+            )
 
     # HEAD must not open the payload: a FUSE open can start remote downloads,
     # and ASGI consumes a streaming iterator even when no wire body is needed.
