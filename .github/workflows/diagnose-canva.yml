@@ -275,9 +275,9 @@ jobs:
         core = root / "lib/single-file.js"
         core_source = core.read_text()
         pure_sha = "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
-        diagnostic_core_sha = "275a897424ae0607e4fd0230e28839ad4fbe8d547b951f36d08e6017cabe1405"
+        diagnostic_core_sha = "a621a26c0760351159f3702dafb25e949d671fb491381132649fbab025c98335"
         core_changes = [
-            ('class bP{constructor(', 'const abxBoundaryCounts=new Uint32Array(32);function abxBoundary(e){const n=++abxBoundaryCounts[e];if(n<=16||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail "+e+" "+n)}function abxBoundaryFlush(){abxBoundaryCounts.forEach((e,n)=>{if(e)console.log("ABX_PUBLIC_PHASE detail "+n+" "+e)})}function abxBoundaryFlight(e){const n=abxBoundaryCounts[31]+=e;if(n<=1||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail 31 "+n)}const abxMetrics=new Float64Array(45),abxMetricUpdates=new Uint32Array(45),abxActive=new WeakMap;function abxMetric(e,n=1,t=0){abxMetrics[e]=t?Math.max(abxMetrics[e],n):abxMetrics[e]+n;const a=++abxMetricUpdates[e];if(a<=16||!(a&(a-1)))console.log("ABX_PUBLIC_PHASE metric "+e+" "+Math.round(abxMetrics[e]))}function abxDuration(e,n,t){const a=Math.max(0,Math.round((performance.now()-t)*1e3));abxMetric(e,a);abxMetric(n,a,1)}function abxEnter(e,n){let t=abxActive.get(e);t||(t=[],abxActive.set(e,t));abxMetric(0);const a=t.some(e=>e.src===n.src);abxMetric(a?2:1);t.push(n);abxMetric(3,t.length,1);abxMetric(43);abxMetric(44,1);return t}function abxLeave(e,n){e.splice(e.indexOf(n),1);abxMetric(44,-1)}function abxMetricsFlush(){abxMetricUpdates.forEach((e,n)=>{if(e)console.log("ABX_PUBLIC_PHASE metric "+n+" "+Math.round(abxMetrics[n]))})}class bP{constructor('),
+            ('class bP{constructor(', 'const abxBoundaryCounts=new Uint32Array(32);function abxBoundary(e){const n=++abxBoundaryCounts[e];if(n<=16||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail "+e+" "+n)}function abxBoundaryFlush(){abxBoundaryCounts.forEach((e,n)=>{if(e)console.log("ABX_PUBLIC_PHASE detail "+n+" "+e)})}function abxBoundaryFlight(e){const n=abxBoundaryCounts[31]+=e;if(n<=1||!(n&(n-1)))console.log("ABX_PUBLIC_PHASE detail 31 "+n)}const abxMetrics=new Float64Array(69),abxMetricUpdates=new Uint32Array(69),abxActive=new WeakMap;function abxMetric(e,n=1,t=0){abxMetrics[e]=t?Math.max(abxMetrics[e],n):abxMetrics[e]+n;const a=++abxMetricUpdates[e];if(a<=16||!(a&(a-1)))console.log("ABX_PUBLIC_PHASE metric "+e+" "+Math.round(abxMetrics[e]))}function abxDuration(e,n,t){const a=Math.max(0,Math.round((performance.now()-t)*1e3));abxMetric(e,a);abxMetric(n,a,1)}function abxEnter(e,n){let t=abxActive.get(e);t||(t=[],abxActive.set(e,t));abxMetric(0);const a=t.some(e=>e.src===n.src);abxMetric(a?2:1);t.push(n);abxMetric(3,t.length,1);abxMetric(43);abxMetric(44,1);return t}function abxLeave(e,n){e.splice(e.indexOf(n),1);abxMetric(44,-1)}function abxMetricsFlush(){abxMetricUpdates.forEach((e,n)=>{if(e)console.log("ABX_PUBLIC_PHASE metric "+n+" "+Math.round(abxMetrics[n]))})}class bP{constructor('),
             ('for(const n of wP[e].sequential)this.cancelled||this.executeTask(n);', 'for(const n of wP[e].sequential)if(!this.cancelled){if(e===2)abxBoundary(0);this.executeTask(n);if(e===2)abxBoundary(1)}'),
             ('async removeAlternativeFonts(){await this.processorHelper.removeAlternativeFonts(this.doc,this.stylesheets,this.resources.fonts,this.options.fontTests)}', 'async removeAlternativeFonts(){abxBoundary(this.options.rootDocument?2:4);await this.processorHelper.removeAlternativeFonts(this.doc,this.stylesheets,this.resources.fonts,this.options.fontTests);abxBoundary(this.options.rootDocument?3:5);abxBoundaryFlush();abxMetricsFlush()}'),
             ('const abxSourceLists=new Map,o=this.createFontsDetailsInfo()', 'abxBoundary(6);const abxSourceLists=new Map,o=this.createFontsDetailsInfo()'),
@@ -286,7 +286,7 @@ jobs:
             ('await t.runner.run();const a=await t.runner.getPageData();', 'abxBoundary(16),await t.runner.run();abxBoundary(17),abxBoundary(18);const a=await t.runner.getPageData();abxBoundary(19);'),
             ('this.processorHelper.processFrame(n,t,this.options,this.resources,a,o),this.stats.addAll(t)', 'abxBoundary(20),this.processorHelper.processFrame(n,t,this.options,this.resources,a,o),abxBoundary(21),this.stats.addAll(t)'),
             ('this.frameManifests.push(...t.manifest.frames)}})}}replaceStylesheets()', 'this.frameManifests.push(...t.manifest.frames)}})}abxBoundary(this.options.rootDocument?13:15)}replaceStylesheets()'),
-            ('async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{if(a.has(e.src))e.valid=a.get(e.src);else{if(sU&&e.fontUrl){const n=new sU("test-font",e.src);try{let t;await Promise.race([n.load().then(()=>n.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{e.valid=!0,n()},5e3))])}catch(n){if("NetworkError"==n.name)e.valid=!0;else{const n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);if(a&&a[1].length){const n=a[1][0];if(n){const t=new sU("test-font","url("+n+")");try{let n;await Promise.race([t.load().then(()=>t.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{e.valid=!0,t()},5e3))])}catch(e){}}}else e.valid=!0}}}else e.valid=!0;a.set(e.src,e.valid)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{r.data.value=ST(n.map(e=>e.src).join(","),{context:"value",parseCustomProperty:!0})}catch(e){}}return!0}}}', 'async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{const abxLookupAt=performance.now(),abxCached=a.has(e.src);abxDuration(40,41,abxLookupAt);if(abxCached)abxMetric(4),abxBoundary(22),e.valid=a.get(e.src);else{const abxPending=abxEnter(a,e);if(sU&&e.fontUrl){abxBoundary(23);abxBoundaryFlight(1);abxMetric(5);const abxConstructorAt=performance.now(),n=new sU("test-font",e.src);abxDuration(6,7,abxConstructorAt);abxBoundary(24);let abxAwaitAt,abxLoadAt,abxPromise,abxOutcome=0;try{let t;await Promise.race([(abxMetric(8),abxLoadAt=performance.now(),abxPromise=n.load(),abxDuration(9,10,abxLoadAt),abxAwaitAt=performance.now(),abxPromise).then(()=>n.loaded).then(()=>{abxOutcome||(abxOutcome=1);e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{abxMetric(38),abxOutcome||(abxOutcome=2),abxBoundary(25),e.valid=!0,n()},5e3))]);abxDuration(15,16,abxAwaitAt);abxMetric(abxOutcome===2?12:11)}catch(n){abxOutcome=3;if(Number.isFinite(abxAwaitAt))abxDuration(15,16,abxAwaitAt);abxMetric("NetworkError"==n.name?13:14);if("NetworkError"==n.name)e.valid=!0;else{abxMetric(17);const abxScanAt=performance.now(),n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);abxDuration(18,19,abxScanAt);if(a&&a[1].length){const n=a[1][0];if(n){abxBoundary(26);abxMetric(20);const abxFallbackCtorAt=performance.now(),t=new sU("test-font","url("+n+")");abxDuration(21,22,abxFallbackCtorAt);let abxFallbackAwaitAt,abxFallbackLoadAt,abxFallbackPromise,abxFallbackOutcome=0;try{let n;await Promise.race([(abxMetric(23),abxFallbackLoadAt=performance.now(),abxFallbackPromise=t.load(),abxDuration(24,25,abxFallbackLoadAt),abxFallbackAwaitAt=performance.now(),abxFallbackPromise).then(()=>t.loaded).then(()=>{abxFallbackOutcome||(abxFallbackOutcome=1);e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{abxMetric(39),abxFallbackOutcome||(abxFallbackOutcome=2),abxBoundary(27),e.valid=!0,t()},5e3))]);abxDuration(29,30,abxFallbackAwaitAt);abxMetric(abxFallbackOutcome===2?27:26)}catch(e){abxFallbackOutcome=3;if(Number.isFinite(abxFallbackAwaitAt))abxDuration(29,30,abxFallbackAwaitAt);abxMetric(28)}}}else e.valid=!0}}abxBoundaryFlight(-1)}else e.valid=!0;abxBoundary(28),a.set(e.src,e.valid),abxLeave(abxPending,e)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{abxBoundary(29);abxMetric(31);const abxJoinAt=performance.now(),abxJoined=n.map(e=>e.src).join(",");abxDuration(32,33,abxJoinAt);abxMetric(34);const abxParseAt=performance.now();r.data.value=ST(abxJoined,{context:"value",parseCustomProperty:!0});abxDuration(35,36,abxParseAt);abxBoundary(30)}catch(e){abxMetric(37)}}return!0}}}'),
+            ('async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{if(a.has(e.src))e.valid=a.get(e.src);else{if(sU&&e.fontUrl){const n=new sU("test-font",e.src);try{let t;await Promise.race([n.load().then(()=>n.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{e.valid=!0,n()},5e3))])}catch(n){if("NetworkError"==n.name)e.valid=!0;else{const n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);if(a&&a[1].length){const n=a[1][0];if(n){const t=new sU("test-font","url("+n+")");try{let n;await Promise.race([t.load().then(()=>t.loaded).then(()=>{e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{e.valid=!0,t()},5e3))])}catch(e){}}}else e.valid=!0}}}else e.valid=!0;a.set(e.src,e.valid)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{r.data.value=ST(n.map(e=>e.src).join(","),{context:"value",parseCustomProperty:!0})}catch(e){}}return!0}}}', 'async processFontFaceRule(e,n,t,a,o){const i=[];for(let n=e.block.children.head;n;n=n.next)"src"==n.data.property&&i.push(n);i.pop(),i.forEach(n=>e.block.children.remove(n));const r=e.block.children.filter(e=>"src"==e.property).tail;if(r){await Promise.all(n.map(async e=>{const abxLookupAt=performance.now(),abxCached=a.has(e.src);abxDuration(40,41,abxLookupAt);if(abxCached)abxMetric(4),abxBoundary(22),e.valid=a.get(e.src);else{const abxPending=abxEnter(a,e);if(sU&&e.fontUrl){abxBoundary(23);abxBoundaryFlight(1);abxMetric(5);const abxConstructorAt=performance.now(),n=new sU("test-font",e.src);abxDuration(6,7,abxConstructorAt);abxBoundary(24);let abxAwaitAt,abxLoadAt,abxPromise,abxOutcome=0;try{let t;await Promise.race([(abxMetric(8),abxLoadAt=performance.now(),abxPromise=n.load(),abxMetric(45),abxMetric(50),abxMetric(51,abxMetrics[50],1),abxDuration(9,10,abxLoadAt),abxAwaitAt=performance.now(),abxPromise).then(()=>{try{abxMetric(46);abxMetric(50,-1);abxDuration(52,53,abxLoadAt);if(abxOutcome===2)abxMetric(48);}finally{return n.loaded}},abxError=>{try{abxMetric(47);abxMetric(50,-1);abxDuration(54,55,abxLoadAt);if(abxOutcome===2)abxMetric(49);}finally{throw abxError}}).then(()=>{abxOutcome||(abxOutcome=1);e.valid=!0,globalThis.clearTimeout(t)}),new Promise(n=>t=globalThis.setTimeout(()=>{abxMetric(38),abxOutcome||(abxMetric(56),abxOutcome=2),abxBoundary(25),e.valid=!0,n()},5e3))]);abxDuration(15,16,abxAwaitAt);abxMetric(abxOutcome===2?12:11)}catch(n){abxOutcome=3;if(Number.isFinite(abxAwaitAt))abxDuration(15,16,abxAwaitAt);abxMetric("NetworkError"==n.name?13:14);if("NetworkError"==n.name)e.valid=!0;else{abxMetric(17);const abxScanAt=performance.now(),n=LT(r.data,e=>"Url"==e.type),a=Array.from(t).find(([t])=>n.includes(t)&&t.value==e.fontUrl);abxDuration(18,19,abxScanAt);if(a&&a[1].length){const n=a[1][0];if(n){abxBoundary(26);abxMetric(20);const abxFallbackCtorAt=performance.now(),t=new sU("test-font","url("+n+")");abxDuration(21,22,abxFallbackCtorAt);let abxFallbackAwaitAt,abxFallbackLoadAt,abxFallbackPromise,abxFallbackOutcome=0;try{let n;await Promise.race([(abxMetric(23),abxFallbackLoadAt=performance.now(),abxFallbackPromise=t.load(),abxMetric(57),abxMetric(62),abxMetric(63,abxMetrics[62],1),abxDuration(24,25,abxFallbackLoadAt),abxFallbackAwaitAt=performance.now(),abxFallbackPromise).then(()=>{try{abxMetric(58);abxMetric(62,-1);abxDuration(64,65,abxFallbackLoadAt);if(abxFallbackOutcome===2)abxMetric(60);}finally{return t.loaded}},abxError=>{try{abxMetric(59);abxMetric(62,-1);abxDuration(66,67,abxFallbackLoadAt);if(abxFallbackOutcome===2)abxMetric(61);}finally{throw abxError}}).then(()=>{abxFallbackOutcome||(abxFallbackOutcome=1);e.valid=!0,globalThis.clearTimeout(n)}),new Promise(t=>n=globalThis.setTimeout(()=>{abxMetric(39),abxFallbackOutcome||(abxMetric(68),abxFallbackOutcome=2),abxBoundary(27),e.valid=!0,t()},5e3))]);abxDuration(29,30,abxFallbackAwaitAt);abxMetric(abxFallbackOutcome===2?27:26)}catch(e){abxFallbackOutcome=3;if(Number.isFinite(abxFallbackAwaitAt))abxDuration(29,30,abxFallbackAwaitAt);abxMetric(28)}}}else e.valid=!0}}abxBoundaryFlight(-1)}else e.valid=!0;abxBoundary(28),a.set(e.src,e.valid),abxLeave(abxPending,e)}}));const e=(e,t)=>TU.findLast(n,n=>!n.src.match(SU)&&!n.tech&&n.format==e&&(!t||n.valid)),i=e=>n.filter(n=>n==e||n.src.startsWith(xU)||n.tech&&n.valid);o.fonts.processed+=n.length,o.fonts.discarded+=n.length;const s=e("woff2-variations",!0)||e("woff2",!0)||e("woff",!0);if(s)n=i(s);else{const t=e("truetype-variations",!0)||e("truetype",!0);if(t)n=i(t);else{const t=e("opentype")||e("embedded-opentype");n=t?i(t):n.filter(e=>!e.src.match(SU)&&e.valid||e.src.startsWith(xU))}}if(o.fonts.discarded-=n.length,!n.length)return!1;n.reverse();try{abxBoundary(29);abxMetric(31);const abxJoinAt=performance.now(),abxJoined=n.map(e=>e.src).join(",");abxDuration(32,33,abxJoinAt);abxMetric(34);const abxParseAt=performance.now();r.data.value=ST(abxJoined,{context:"value",parseCustomProperty:!0});abxDuration(35,36,abxParseAt);abxBoundary(30)}catch(e){abxMetric(37)}}return!0}}}'),
         ]
         if hashlib.sha256(core_source.encode()).hexdigest() != diagnostic_core_sha:
             assert hashlib.sha256(core_source.encode()).hexdigest() == pure_sha, "Diagnostic requires exact pure candidate"
@@ -341,7 +341,7 @@ jobs:
             throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
           }
           const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
-          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "275a897424ae0607e4fd0230e28839ad4fbe8d547b951f36d08e6017cabe1405") {
+          if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "a621a26c0760351159f3702dafb25e949d671fb491381132649fbab025c98335") {
             throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
           }
         }
@@ -351,12 +351,12 @@ jobs:
         replace_once('    const extension = { ...sessionEntry };', r"""
             const extension = { ...sessionEntry };
             const liveBundleHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file.js'))).digest('hex');
-            const liveHashClass = liveBundleHash === '275a897424ae0607e4fd0230e28839ad4fbe8d547b951f36d08e6017cabe1405' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const liveHashClass = liveBundleHash === 'a621a26c0760351159f3702dafb25e949d671fb491381132649fbab025c98335' ? 2 : liveBundleHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const preparedMetadataPath = path.join(require('../base/utils.js').getCrawlDir(), 'chrome/extensions/singlefile.extension.json');
             const preparedMetadata = fs.existsSync(preparedMetadataPath) ? JSON.parse(fs.readFileSync(preparedMetadataPath, 'utf8')) : {};
             const preparedBundlePath = preparedMetadata.unpacked_path && path.join(preparedMetadata.unpacked_path, 'lib/single-file.js');
             const preparedHash = preparedBundlePath && fs.existsSync(preparedBundlePath) ? createHash('sha256').update(fs.readFileSync(preparedBundlePath)).digest('hex') : '';
-            const preparedHashClass = preparedHash === '275a897424ae0607e4fd0230e28839ad4fbe8d547b951f36d08e6017cabe1405' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
+            const preparedHashClass = preparedHash === 'a621a26c0760351159f3702dafb25e949d671fb491381132649fbab025c98335' ? 2 : preparedHash === '386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2' ? 1 : 0;
             const diagnosticHash = createHash('sha256').update(fs.readFileSync(path.join(extension.unpacked_path, 'lib/single-file-extension.js'))).digest('hex');
             const diagnosticHashClass = diagnosticHash === '97a37688f42f6aaf8080b0ec125e8082924a5ca0d85dd20328a8abbd1e6c4cf8' ? 2 : diagnosticHash === 'f7ffb981581faa31f4057037c1248c3405fdb503cf58b0566a6bbd3e3523a2b3' ? 1 : 0;
             fs.writeFileSync(path.join(__PUBLIC_DIAGNOSTIC_DIRECTORY__, 'selected-bundle.json'), JSON.stringify({selected_hash_class: liveHashClass, prepared_hash_class: preparedHashClass, diagnostic_hash_class: diagnosticHashClass}), {mode: 0o600});
@@ -378,7 +378,7 @@ jobs:
                 const a = Number(match[2]), b = Number(match[3]);
                 if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b)) return;
                 if (match[1] === 'detail' || match[1] === 'metric') {
-                  if (a < 0 || a > (match[1] === 'metric' ? 44 : 31) || b < 0 || b > (match[1] === 'metric' ? 1000000000000 : 1048576)) return;
+                  if (a < 0 || a > (match[1] === 'metric' ? 68 : 31) || b < 0 || b > (match[1] === 'metric' ? 1000000000000 : 1048576)) return;
                   const previous = phases.findIndex(event => event.phase === match[1] && event.a === a);
                   if (previous >= 0 && phases[previous].b === b) return;
                   if (previous >= 0) phases.splice(previous, 1);
@@ -404,7 +404,7 @@ jobs:
               for (const event of value) {
                 if (!names.has(event.name)) continue;
                 const clean = {name: event.name};
-                for (const key of ['ts', 'dur', 'pid', 'tid']) if (Number.isFinite(event[key])) clean[key] = event[key];
+                for (const key of ['ts', 'dur']) if (Number.isFinite(event[key])) clean[key] = event[key];
                 for (const key of ['usedHeapSizeBefore', 'usedHeapSizeAfter', 'heap_size', 'allocated']) {
                   if (Number.isFinite(event.args?.[key])) clean[key] = event.args[key];
                 }
@@ -449,6 +449,69 @@ jobs:
         helper.write_text(source)
         INSTRUMENT
         url="$(python -c 'import json,sys; print(next(e["url"] for e in json.load(open(sys.argv[1]))["examples"] if "canva" in e["plugins"]))' "$PUBLIC_ROOT/plan.json")"
+        cat > "$PUBLIC_ROOT/resource-snapshot.py" <<'RESOURCE'
+        import json
+        import os
+        import time
+        from pathlib import Path
+
+        RESOURCE_KEYS = {"monotonic_ms", "chrome.count", "chrome.rss_bytes", "chrome.user_ticks", "chrome.system_ticks", "clock_ticks", "memory.current", "memory.swap.current", "cpu.usage_usec", "cpu.user_usec", "cpu.system_usec", "cpu.nr_periods", "cpu.nr_throttled", "cpu.throttled_usec"}
+        RESOURCE_KEYS.update("pressure." + kind + "." + scope + ".total_usec" for kind in ("cpu", "memory", "io") for scope in ("some", "full"))
+        RESOURCE_KEYS.update("memory.events." + key for key in ("low", "high", "max", "oom", "oom_kill", "oom_group_kill"))
+
+        def sample():
+            result = {"monotonic_ms": time.monotonic_ns() // 1000000, "clock_ticks": os.sysconf("SC_CLK_TCK"), "chrome.count": 0, "chrome.rss_bytes": 0, "chrome.user_ticks": 0, "chrome.system_ticks": 0}
+            root = Path("/sys/fs/cgroup")
+            try:
+                for line in Path("/proc/self/cgroup").read_text().splitlines():
+                    if line.startswith("0::"):
+                        candidate = root / line[3:].lstrip("/")
+                        if (candidate / "memory.events").is_file():
+                            root = candidate
+            except OSError:
+                pass
+            for name in ("memory.current", "memory.swap.current"):
+                try:
+                    value = (root / name).read_text().strip()
+                    if value.isdigit():
+                        result[name] = int(value)
+                except OSError:
+                    pass
+            for filename, prefix in (("cpu.stat", "cpu."), ("memory.events", "memory.events.")):
+                try:
+                    for line in (root / filename).read_text().splitlines():
+                        parts = line.split()
+                        if len(parts) == 2 and prefix + parts[0] in RESOURCE_KEYS and parts[1].isdigit():
+                            result[prefix + parts[0]] = int(parts[1])
+                except OSError:
+                    pass
+            for kind in ("cpu", "memory", "io"):
+                try:
+                    for line in (root / (kind + ".pressure")).read_text().splitlines():
+                        parts = line.split()
+                        if parts and parts[0] in ("some", "full"):
+                            for field in parts[1:]:
+                                if field.startswith("total=") and field[6:].isdigit():
+                                    result["pressure." + kind + "." + parts[0] + ".total_usec"] = int(field[6:])
+                except OSError:
+                    pass
+            for proc in Path("/proc").glob("[0-9]*"):
+                try:
+                    if (proc / "comm").read_text().strip() not in {"chrome", "chromium", "chrome_crashpad"}:
+                        continue
+                    fields = (proc / "stat").read_text().rpartition(") ")[2].split()
+                    result["chrome.count"] += 1
+                    result["chrome.user_ticks"] += int(fields[11])
+                    result["chrome.system_ticks"] += int(fields[12])
+                    result["chrome.rss_bytes"] += max(0, int(fields[21])) * os.sysconf("SC_PAGE_SIZE")
+                except (OSError, ValueError, IndexError):
+                    pass
+            return {key: value for key, value in result.items() if key in RESOURCE_KEYS and type(value) is int and value >= 0}
+
+        if __name__ == "__main__":
+            (Path(os.environ["PUBLIC_ROOT"]) / "resource-before.json").write_text(json.dumps(sample()))
+        RESOURCE
+        python "$PUBLIC_ROOT/resource-snapshot.py"
         capture_status=0
         archivebox add --depth=0 --overwrite "$url" || capture_status=$?
         archivebox manage shell <<'VERIFY'
@@ -563,6 +626,7 @@ jobs:
         exit "$capture_status"
         PUBLIC
     - name: Record failed capture resource diagnostics
+      id: fixed_metrics
       if: always()
       run: |
         umask 077
@@ -613,14 +677,67 @@ jobs:
                 key, value = line.split()
                 if key in {"low", "high", "max", "oom", "oom_kill", "oom_group_kill"} and value.isdigit():
                     report["memory.events." + key] = int(value)
+        import runpy
+        resource_script = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "resource-snapshot.py"
+        resource_module = runpy.run_path(str(resource_script)) if resource_script.is_file() else {"RESOURCE_KEYS": set(), "sample": lambda: {}}
+        resource_keys = resource_module["RESOURCE_KEYS"]
+        before_file = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "resource-before.json"
+        before = json.loads(before_file.read_text()) if before_file.is_file() else {}
+        after = resource_module["sample"]()
+        for key in resource_keys:
+            if type(before.get(key)) is int and before[key] >= 0:
+                report["resource.before." + key] = before[key]
+            if type(after.get(key)) is int and after[key] >= 0:
+                report["resource.after." + key] = after[key]
+            if type(before.get(key)) is int and type(after.get(key)) is int:
+                report["resource.delta." + key] = after[key] - before[key]
         output = Path(os.environ["CANVA_PUBLIC_ROOT"]) / "diagnostics" / "system-memory.json"
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("w") as stream:
             os.fchmod(stream.fileno(), 0o600)
             json.dump(report, stream, sort_keys=True)
+
+        import math
+        def number(value):
+            return type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1e18
+        allowed_system = capture_keys | {"MemTotal_kB", "MemAvailable_kB", "SwapTotal_kB", "SwapFree_kB"}
+        allowed_system.update({"memory.max", "memory.peak", "memory.swap.max", "memory.swap.peak"})
+        allowed_system.update("memory.events." + key for key in ("low", "high", "max", "oom", "oom_kill", "oom_group_kill"))
+        allowed_system.update("resource." + phase + "." + key for phase in ("before", "after", "delta") for key in resource_keys)
+        def validate_artifact(name, data):
+            if name == "system-memory.json":
+                assert type(data) is dict and set(data) <= allowed_system
+                for key, value in data.items():
+                    assert type(value) is int and abs(value) <= 10**18 or key in {"memory.max", "memory.peak", "memory.swap.max", "memory.swap.peak"} and value == "max"
+            elif name == "singlefile-phases.json":
+                assert type(data) is list and len(data) <= 512
+                for event in data:
+                    assert type(event) is dict and set(event) == {"phase", "a", "b", "elapsed_ms"}
+                    assert event["phase"] in {"progress", "blob", "chunk", "chunk_end", "stage_start", "stage_end", "detail", "metric"}
+                    assert all(type(event[key]) is int and 0 <= event[key] <= 10**12 for key in ("a", "b", "elapsed_ms"))
+                    if event["phase"] == "metric":
+                        assert event["a"] <= 68
+                    if event["phase"] == "detail":
+                        assert event["a"] <= 31 and event["b"] <= 1048576
+                    if event["phase"].startswith("stage_"):
+                        assert event["a"] <= 5 and event["b"] <= 1
+            elif name == "v8-gc.json":
+                assert type(data) is dict and set(data) == {"events", "omitted"}
+                assert type(data["omitted"]) is int and data["omitted"] >= 0
+                assert type(data["events"]) is list and len(data["events"]) <= 2048
+                for event in data["events"]:
+                    assert type(event) is dict and set(event) <= {"name", "ts", "dur", "usedHeapSizeBefore", "usedHeapSizeAfter", "heap_size", "allocated"}
+                    assert event.get("name") in {"MinorGC", "MajorGC", "V8.GC_SCAVENGER", "V8.GC_MARK_COMPACTOR", "V8.GCFinalizeMC", "V8.GCIncrementalMarking"}
+                    assert all(number(value) for key, value in event.items() if key != "name")
+            else:
+                raise AssertionError("Unexpected diagnostic artifact")
+        for name in ("singlefile-phases.json", "v8-gc.json", "system-memory.json"):
+            file = output.parent / name
+            if file.is_file():
+                validate_artifact(name, json.loads(file.read_text()))
         METRICS
     - name: Upload public diagnostics only
-      if: always() && env.CANVA_PUBLIC_ROOT != ''
+      if: always() && env.CANVA_PUBLIC_ROOT != '' && steps.fixed_metrics.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: canva-public-native-diagnostics

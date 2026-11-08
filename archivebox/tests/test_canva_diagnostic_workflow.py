@@ -120,7 +120,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     guard_end = patched.index("async function getExactChromeTab", guard_start)
     assert (
         hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
-        == "8a26e991e3db9d79903a829b0ace03fa2b39e2f021ee1f0bc1c053b84cbec168"
+        == "a73ba9179a601ac82a2b478ad4994ce8ac5d66326cff9ab4ca31dd2cf7ea7b2f"
     )
     assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
         "const manifest =",
@@ -170,7 +170,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     assert projected.returncode == 0, projected.stderr
     serialized = trace_output.read_text()
     assert sentinel not in serialized
-    assert json.loads(serialized)["events"] == [{"name": "MajorGC", "ts": 1, "dur": 2, "pid": 3, "usedHeapSizeAfter": 123}]
+    assert json.loads(serialized)["events"] == [{"name": "MajorGC", "ts": 1, "dur": 2, "usedHeapSizeAfter": 123}]
     assert json.loads((tmp_path / "trace-state.json").read_text())["data_batches"] == 1
     assert patched.index("writeTraceState();") < patched.index("createCDPSession();")
     assert "page.browser().on('disconnected'" in patched
@@ -330,7 +330,7 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
     assert checked.returncode == 0, checked.stderr
     assert (original_root / "lib/single-file.js").read_text() == original
     assert "abxBoundary" not in candidate
-    assert "a > (match[1] === 'metric' ? 44 : 31)" in capture
+    assert "a > (match[1] === 'metric' ? 68 : 31)" in capture
     assert "event.phase === match[1] && event.a === a" in capture
 
 
@@ -373,14 +373,14 @@ def test_font_metrics_projection_bounds_and_excludes_source_values(tmp_path):
     script = "const fs=require('fs'),phases=[],saveStartedAt=Date.now();"
     script += f"const diagnosticPath={json.dumps(str(output))};const record={projection}"
     script += "for(let i=0;i<2000;i++)record('ABX_PUBLIC_PHASE metric 0 '+i);"
-    script += "for(let i=0;i<45;i++)record('ABX_PUBLIC_PHASE metric '+i+' 12');"
-    script += "record('ABX_PUBLIC_PHASE metric 0 1000000000001');record('ABX_PUBLIC_PHASE metric 45 12');"
+    script += "for(let i=0;i<69;i++)record('ABX_PUBLIC_PHASE metric '+i+' 12');"
+    script += "record('ABX_PUBLIC_PHASE metric 0 1000000000001');record('ABX_PUBLIC_PHASE metric 69 12');"
     script += "record('ABX_PUBLIC_PHASE metric 1 -1');record('ABX_PUBLIC_PHASE metric 1 12 secret-font-url');"
     result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     records = json.loads(output.read_text())
-    assert len(records) == 45
-    assert {record["a"] for record in records} == set(range(45))
+    assert len(records) == 69
+    assert {record["a"] for record in records} == set(range(69))
     assert all(record["phase"] == "metric" and record["b"] == 12 for record in records)
     assert "secret-font-url" not in output.read_text()
     assert all(set(record) == {"phase", "a", "b", "elapsed_ms"} for record in records)
@@ -416,9 +416,60 @@ def test_actual_metric_functions_count_exact_active_sources_without_export(tmp_p
     for line in result.stdout.splitlines():
         prefix, phase, code, value = line.split()
         assert (prefix, phase) == ("ABX_PUBLIC_PHASE", "metric")
-        assert 0 <= int(code) <= 44
+        assert 0 <= int(code) <= 68
         assert 0 <= int(value) <= 1000000000000
     assert "new Set" not in helpers
     assert "new Map" not in helpers
     assert "new WeakMap" in helpers
     assert "src===" in helpers and "e.splice(e.indexOf(n),1)" in helpers
+
+
+def test_final_artifact_schema_rejects_identifiers_and_content(tmp_path):
+    import json
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    steps = workflow["jobs"]["diagnose"]["steps"]
+    report = next(step for step in steps if step["name"] == "Record failed capture resource diagnostics")
+    upload = next(step for step in steps if step["name"] == "Upload public diagnostics only")
+    assert report["id"] == "fixed_metrics"
+    assert "steps.fixed_metrics.outcome == 'success'" in upload["if"]
+    directory = tmp_path / "diagnostics"
+    directory.mkdir()
+    for name, data in (
+        ("singlefile-phases.json", [{"phase": "metric", "a": 45, "b": 1, "elapsed_ms": 2, "url": "PRIVATE_SENTINEL"}]),
+        ("v8-gc.json", {"events": [{"name": "MajorGC", "pid": 123}], "omitted": 0}),
+        ("v8-gc.json", {"events": [{"name": "PRIVATE_SENTINEL", "dur": 1}], "omitted": 0}),
+    ):
+        for existing in directory.glob("*.json"):
+            existing.unlink()
+        (directory / name).write_text(json.dumps(data))
+        result = subprocess.run(
+            ["bash", "-euo", "pipefail", "-c", report["run"]],
+            env={**os.environ, "CANVA_PUBLIC_ROOT": str(tmp_path)},
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "PRIVATE_SENTINEL" not in result.stdout + result.stderr
+
+
+def test_resource_snapshots_are_fixed_numeric_and_read_only(tmp_path):
+    import json
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(
+        step["run"] for step in workflow["jobs"]["diagnose"]["steps"] if step["name"] == "Capture public Canva with native diagnostics"
+    )
+    source = capture.split("<<'RESOURCE'", 1)[1].split("RESOURCE\n", 1)[0].lstrip()
+    assert "cmdline" not in source and "environ" not in source.replace('os.environ["PUBLIC_ROOT"]', "")
+    assert "time.sleep" not in source and "while " not in source
+    script = tmp_path / "resource-snapshot.py"
+    script.write_text(source)
+    result = subprocess.run(
+        ["uv", "run", "--no-sync", "python", str(script)], env={**os.environ, "PUBLIC_ROOT": str(tmp_path)}, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads((tmp_path / "resource-before.json").read_text())
+    assert all(type(value) is int and value >= 0 for value in data.values())
+    assert "chrome.count" in data and "monotonic_ms" in data
+    assert len(data) <= 26

@@ -172,3 +172,38 @@ lower bounds and the pending gauge may be stale. Completed font branches flush
 all recorded aggregates. The collector keeps at most45 latest metric entries
 alongside32 detail entries within the512-record cap, rejecting values outside
 0–1000000000000 and codes outside0–44. No additional artifact is uploaded.
+
+## Callback settlement observation (diagnostic branch only)
+
+The pure reviewed candidate remains unchanged. The additional temporary core
+instrumentation has SHA256
+`a621a26c0760351159f3702dafb25e949d671fb491381132649fbab025c98335`.
+It preserves eager validation, original rejection timers, selection, cache policy,
+all capture settings and strict full-output gates. It does not include the
+experimental timer repair or lazy validation design.
+
+Metric codes 45–56 (primary) and 57–68 (fallback), in order, are: load calls
+returned, success callbacks, rejection callbacks, late successes, late rejections,
+callbacks not delivered, maximum callbacks not delivered, summed success
+microseconds, maximum success microseconds, summed rejection microseconds,
+maximum rejection microseconds, and timer-winning races. Pending callbacks do not
+prove native decoding is still active. Durations overlap across concurrent loads;
+sparse checkpoints may be stale. Existing first `.then` callbacks return the same
+`face.loaded` or rethrow the identical rejection object through `finally`, even if
+numeric observation fails. There are no additional promise-chain links, timers,
+retries or awaits. Existing success/timeout validity decisions remain unchanged.
+
+Resource observations are two snapshots only: immediately before `archivebox add`
+and in the existing final diagnostic step. No periodic observer is created.
+Cgroup CPU/pressure counter differences span that whole interval, including
+cleanup and verification; they cannot correlate a timeline with font events.
+Chrome process counts, RSS and ticks are endpoint aggregates, not process lifetime
+usage; processes may exit between snapshots. Negative gauge differences are valid.
+Only fixed executable names select processes; arguments and environments are not
+read. Process identifiers are never emitted. GC output omits PID/TID.
+
+All three permitted JSON files must pass explicit numeric/fixed-enum schemas before
+upload; schema failure blocks the artifact upload. No source strings, font/page
+identifiers, content, URLs, filesystem paths, credentials or arbitrary exception
+messages are included. Original upstream attribution and license above also cover
+these modified observation excerpts; this does not relicense them as MIT.
