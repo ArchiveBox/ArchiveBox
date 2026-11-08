@@ -121,3 +121,54 @@ negative counts, counts over1048576 and nonboolean stage frame values are
 rejected. Only the existing three JSON filenames are upload-eligible.
 GC tracing is unchanged: CDP delivers collected events after tracing ends;
 an externally terminated helper can legitimately leave no GC JSON.
+
+
+## Branch-only native font-validation measurement
+
+This additional overlay is restricted to manual execution on
+`diagnostics/canva-font-validation-rc78`, based on held rc78. It does not change
+production candidate code, release workflows, capture options or deadlines.
+Its complete corresponding-source before/after pairs remain in the diagnostic
+workflow under the same AGPL-3.0-or-later notice and full license above.
+
+The additional `metric` phase uses fixed integer codes0–44 and numeric values
+only. Timing values are integer microseconds measured with `performance.now()`.
+For each pair below the first code is cumulative duration and the second is
+maximum duration:
+
+- 0: uncached source entries;1: unique exact-src misses within each existing
+  fontTests cache;2: same-src misses overlapping another active miss.
+- 3: maximum active misses in any one cache;4: completed-cache hits.
+- 5: primary FontFace constructor starts;6/7: constructor duration.
+- 8: primary existing load calls;9/10: synchronous load-call duration.
+- 11/12: primary await resolved by load/timer;13/14: NetworkError/other rejection;
+  15/16: settled primary await duration, excluding fallback work.
+- 17: original-resource fallback scans;18/19: scan duration.
+- 20: fallback constructor starts;21/22: constructor duration.
+- 23: existing fallback load calls;24/25: synchronous call duration.
+- 26/27/28: fallback await resolved by load/timer/rejected;29/30: settled duration.
+- 31: retained-source joins;32/33: join duration.
+- 34: retained CSS parses;35/36: successful parse duration;37: join/parse exception.
+- 38/39: primary/fallback timer firings, including late loser timers.
+- 40/41: completed-cache lookup duration;42: reserved and never emitted.
+- 43: validation entry count;44: current unfinished uncached validations.
+
+Exact source comparison uses the source records already retained by pending
+validation. A WeakMap keyed by the existing fontTests map holds an active-record
+array; records are removed at the original cache write. It creates no source
+copies, payload digests or persistent set of font strings. Strings and source
+records are never logged. Counts are per existing cache, then aggregated across
+root/child caches, not global payload identity. Exact-string comparisons add
+observation cost; this is not a timing-neutral benchmark.
+
+No new promises, handlers, awaits, timers or load calls are added. Measurements
+surround the existing constructor, load call, race settlement, fallback scan,
+join and parse. Outcome bookkeeping does not change source validity or cancel
+existing timers. A constructor that throws or an unfinished await contributes
+no completed duration; code37 includes join/parse exceptions without a duration.
+Concurrent await-duration sums can exceed wall time and must not be treated as
+CPU time. Existing sparse emission means unfinished-run totals and maxima are
+lower bounds and the pending gauge may be stale. Completed font branches flush
+all recorded aggregates. The collector keeps at most45 latest metric entries
+alongside32 detail entries within the512-record cap, rejecting values outside
+0–1000000000000 and codes outside0–44. No additional artifact is uploaded.

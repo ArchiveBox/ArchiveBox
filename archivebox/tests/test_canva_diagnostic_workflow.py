@@ -19,6 +19,7 @@ def test_canva_probe_is_manual_public_and_uses_gallery_settings():
     assert "secrets." not in text
     assert job["runs-on"] == "ubuntu-24.04"
     assert job["timeout-minutes"] == "20"
+    assert job["if"] == "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/diagnostics/canva-font-validation-rc78'"
     steps = job["steps"]
     assert steps[0]["with"]["persist-credentials"] == "false"
     gallery = yaml.load((ROOT / ".github/workflows/screenshots.yml").read_text(), Loader=yaml.BaseLoader)
@@ -119,7 +120,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     guard_end = patched.index("async function getExactChromeTab", guard_start)
     assert (
         hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
-        == "f70b7a9d22c78e141af8ec77ebc8eca70dfb6beb327350bcc0c21ce3b45294b7"
+        == "8a26e991e3db9d79903a829b0ace03fa2b39e2f021ee1f0bc1c053b84cbec168"
     )
     assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
         "const manifest =",
@@ -313,6 +314,8 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
         assert before.count("await ") == after.count("await ")
         assert before.count("Promise.") == after.count("Promise.")
         assert before.count("setTimeout(") == after.count("setTimeout(")
+        assert before.count(".then(") == after.count(".then(")
+        assert before.count(".load()") == after.count(".load()")
         diagnostic = diagnostic.replace(before, after)
     assert hashlib.sha256(diagnostic.encode()).hexdigest() == literals["diagnostic_core_sha"]
     assert literals["pure_sha"] != literals["diagnostic_core_sha"]
@@ -327,8 +330,8 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
     assert checked.returncode == 0, checked.stderr
     assert (original_root / "lib/single-file.js").read_text() == original
     assert "abxBoundary" not in candidate
-    assert "a > 31 || b < 0 || b > 1048576" in capture
-    assert "event.phase === 'detail' && event.a === a" in capture
+    assert "a > (match[1] === 'metric' ? 44 : 31)" in capture
+    assert "event.phase === match[1] && event.a === a" in capture
 
 
 def test_stage2_projection_rejects_arbitrary_content_and_bounds_records(tmp_path):
@@ -357,3 +360,65 @@ def test_stage2_projection_rejects_arbitrary_content_and_bounds_records(tmp_path
     assert all(record["b"] == 1 for record in records)
     assert "private-cookie-url-sentinel" not in output.read_text()
     assert output.stat().st_mode & 0o077 == 0
+
+
+def test_font_metrics_projection_bounds_and_excludes_source_values(tmp_path):
+    import json
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    instrument = capture.split("<<'INSTRUMENT'", 1)[1].split("INSTRUMENT\n", 1)[0]
+    projection = instrument.split("const recordPhaseText = ", 1)[1].split("const recordPhase =", 1)[0].strip()
+    output = tmp_path / "phases.json"
+    script = "const fs=require('fs'),phases=[],saveStartedAt=Date.now();"
+    script += f"const diagnosticPath={json.dumps(str(output))};const record={projection}"
+    script += "for(let i=0;i<2000;i++)record('ABX_PUBLIC_PHASE metric 0 '+i);"
+    script += "for(let i=0;i<45;i++)record('ABX_PUBLIC_PHASE metric '+i+' 12');"
+    script += "record('ABX_PUBLIC_PHASE metric 0 1000000000001');record('ABX_PUBLIC_PHASE metric 45 12');"
+    script += "record('ABX_PUBLIC_PHASE metric 1 -1');record('ABX_PUBLIC_PHASE metric 1 12 secret-font-url');"
+    result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    records = json.loads(output.read_text())
+    assert len(records) == 45
+    assert {record["a"] for record in records} == set(range(45))
+    assert all(record["phase"] == "metric" and record["b"] == 12 for record in records)
+    assert "secret-font-url" not in output.read_text()
+    assert all(set(record) == {"phase", "a", "b", "elapsed_ms"} for record in records)
+
+
+def test_actual_metric_functions_count_exact_active_sources_without_export(tmp_path):
+    import ast
+
+    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
+    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
+    stage = capture.split("<<'STAGE_HOOK'", 1)[1].split("STAGE_HOOK\n", 1)[0].lstrip()
+    statement = next(
+        n
+        for n in ast.parse(stage).body
+        if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "core_changes"
+    )
+    changes = ast.literal_eval(statement.value)
+    source = changes[0][1]
+    helpers = source[source.index("const abxMetrics=") : source.index("class bP{")]
+    script = helpers + "const assert=require('node:assert/strict');"
+    script += "const cache=new Map(),otherCache=new Map();"
+    script += "const a={src:'secret-source-sentinel'},b={src:'secret-source-sentinel'},c={src:'another-secret-source'};"
+    script += "const first=abxEnter(cache,a),second=abxEnter(cache,b),third=abxEnter(cache,c);"
+    script += "assert.equal(first,second);assert.equal(first[0],a);assert.equal(first[1],b);"
+    script += "assert.equal(abxMetrics[0],3);assert.equal(abxMetrics[1],2);assert.equal(abxMetrics[2],1);"
+    script += "assert.equal(abxMetrics[3],3);abxLeave(first,a);abxLeave(second,b);abxLeave(third,c);"
+    script += "assert.equal(first.length,0);assert.equal(abxMetrics[44],0);"
+    script += "const independent=abxEnter(otherCache,a);assert.equal(abxMetrics[1],3);abxLeave(independent,a);"
+    script += "abxMetricsFlush();"
+    result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    assert "secret-source" not in result.stdout + result.stderr
+    for line in result.stdout.splitlines():
+        prefix, phase, code, value = line.split()
+        assert (prefix, phase) == ("ABX_PUBLIC_PHASE", "metric")
+        assert 0 <= int(code) <= 44
+        assert 0 <= int(value) <= 1000000000000
+    assert "new Set" not in helpers
+    assert "new Map" not in helpers
+    assert "new WeakMap" in helpers
+    assert "src===" in helpers and "e.splice(e.indexOf(n),1)" in helpers
