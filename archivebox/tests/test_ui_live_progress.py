@@ -960,10 +960,12 @@ class TestLiveProgressView:
     ):
         import hashlib
 
+        import psutil
+
         from archivebox.config.common import get_config
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.machine.models import Machine
+        from archivebox.machine.models import Machine, Process
         from archivebox.services.runner import run_crawl
 
         resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
@@ -1011,6 +1013,7 @@ class TestLiveProgressView:
 
         runner = Thread(target=run_snapshots)
         runner.start()
+        writers = []
         try:
             deadline = time.monotonic() + 90
             while time.monotonic() < deadline and sum(frame.is_file() for frame in frames) < 2:
@@ -1018,6 +1021,26 @@ class TestLiveProgressView:
                 time.sleep(0.1)
             active = [(snapshot, frame) for snapshot, frame in zip(snapshots, frames) if frame.is_file()]
             assert len(active) == 2
+            # Each producer atomically replaces latest.jpg. Pause both real
+            # writers so the response and the later path read observe the same
+            # frame, rather than two valid frames from one live capture.
+            for snapshot, frame in active:
+                process = Process.objects.get(
+                    pwd=str(Path(snapshot.output_dir) / "chrome_screencast"),
+                    status=Process.StatusChoices.RUNNING,
+                )
+                assert process.pid and process.started_at
+                writer = process.proc
+                assert writer is not None
+                assert any("chrome_screencast" in arg for arg in writer.cmdline())
+                writers.append(writer)
+                writer.suspend()
+            assert len({writer.pid for writer in writers}) == 2
+            while time.monotonic() < deadline and any(writer.status() != psutil.STATUS_STOPPED for writer in writers):
+                assert not errors, errors
+                time.sleep(0.1)
+            assert all(writer.status() == psutil.STATUS_STOPPED for writer in writers)
+            assert all(frame.read_bytes().startswith(b"\xff\xd8\xff") for _, frame in active)
             client.force_login(admin_user)
             response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
             assert response.status_code == 200, response.content
@@ -1036,7 +1059,14 @@ class TestLiveProgressView:
             assert len(set(urls)) == 2
             assert active_crawl["screencast_url"] in urls
         finally:
-            runner.join(timeout=120)
+            try:
+                for writer in writers:
+                    try:
+                        writer.resume()
+                    except psutil.NoSuchProcess:
+                        pass
+            finally:
+                runner.join(timeout=120)
         assert not runner.is_alive()
         assert not errors, errors
         assert not any(frame.exists() for frame in frames)
