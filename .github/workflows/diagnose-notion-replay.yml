@@ -1,0 +1,14 @@
+name: Diagnose public Notion replay
+
+on:
+  push:
+    branches: [diagnose/notion-replay-rc82]
+
+permissions:
+  contents: read
+
+jobs:
+  provider-replay:
+    uses: ./.github/workflows/test-parallel.yml
+    with:
+      test_file: archivebox/tests/test_provider_plugin_replay.py

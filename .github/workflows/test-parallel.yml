@@ -258,7 +258,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Collect failed runtime diagnostics
-        if: failure()
+        if: failure() || github.ref == 'refs/heads/diagnose/notion-replay-rc82'
         run: |
           uv run --no-project python - <<'PYTHON'
           import os
@@ -289,7 +289,7 @@ jobs:
                       shutil.copy2(source, target)
           PYTHON
       - name: Save failed runtime diagnostics
-        if: failure()
+        if: failure() || github.ref == 'refs/heads/diagnose/notion-replay-rc82'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: runtime-logs-${{ strategy.job-index }}

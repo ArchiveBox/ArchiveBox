@@ -6,6 +6,8 @@ or its owner revokes access. Plugin-local tests assert provider-specific content
 
 import hashlib
 import json
+import shutil
+import time
 import zipfile
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
@@ -101,14 +103,33 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
             browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
             page = browser.new_page(viewport={"width": 1600, "height": 1000}, accept_downloads=True)
             replay_events = []
-            if plugin == "notion":
+            record_replay = plugin == "notion" and not env.get("AUTH_STORAGE_FILE")
+            if record_replay:
                 # This public fixture intermittently reaches an empty viewer in
                 # CI. Retain browser evidence without recording network bodies
                 # or authenticated provider sessions.
+                source_dom = output.parent / "dom/output.html"
+                try:
+                    if source_dom.is_file():
+                        shutil.copyfile(source_dom, root / "replay-source-dom.log")
+                except OSError as error:
+                    replay_events.append({"source_dom_error": str(error)})
                 page.on("pageerror", lambda error: replay_events.append({"error": str(error)}))
                 page.on("console", lambda message: replay_events.append({"console": message.type, "text": message.text}))
                 page.on("framenavigated", lambda frame: replay_events.append({"frame": frame.name, "url": frame.url}))
                 page.on("requestfailed", lambda request: replay_events.append({"request": request.url, "failure": request.failure}))
+                page.on(
+                    "request",
+                    lambda request: replay_events.append(
+                        {"request": request.url, "resource_type": request.resource_type, "started": time.monotonic()},
+                    ),
+                )
+                page.on(
+                    "requestfinished",
+                    lambda request: replay_events.append(
+                        {"finished": request.url, "resource_type": request.resource_type, "timing": request.timing},
+                    ),
+                )
             page.goto(f"http://web.archivebox.localhost:{port}/public/")
             # Discover and follow the real snapshot link rendered by the index.
             snapshot_link = page.locator(f'a[href*="/web/"][href*="{snapshot["id"]}"]').first
@@ -154,7 +175,7 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                 try:
                     expect(formats).to_have_count(len(manifest["files"]))
                 except AssertionError:
-                    if plugin == "notion":
+                    if record_replay:
                         replay_events.append(
                             {"browser": browser.version, "frames": [{"name": frame.name, "url": frame.url} for frame in page.frames]},
                         )
@@ -324,6 +345,8 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
             for label, width, height in (("desktop", 1600, 1000), ("tablet", 1024, 1366), ("mobile", 390, 844)):
                 page.set_viewport_size({"width": width, "height": height})
                 page.screenshot(path=str(root / f"{plugin}-{label}.jpg"), type="jpeg", quality=85)
+            if record_replay:
+                (root / "replay-browser.log").write_text(json.dumps(replay_events, indent=2))
             browser.close()
     finally:
         stop_archivebox_process(server)
