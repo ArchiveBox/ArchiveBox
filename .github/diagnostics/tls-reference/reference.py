@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parent
 BRANCH='refs/heads/diagnostics/canva-font-validation-rc78'
 URL='https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview&utm_campaign=designshare&utm_content=DAGudZAYlEE&utm_medium=link&utm_source=publishsharelink'
 DOCKER=['docker','--host','unix:///var/run/docker.sock']
-STAGES={'preflight','python','downloads','node_dependencies','sandbox','gateway_build','services','proof','verification','cleanup'}
+STAGES={'preflight','python','python_venv','python_install','python_inspect','downloads','node_dependencies','sandbox','gateway_build','services','proof','verification','cleanup'}
 SOURCE_NAMES={'wheel','extension','chrome','node','requirements','chrome_lock','abxbus_lock','gateway_tree','client_tree','official_extension_tree','prepared_extension_tree','prepared_wasm','prepared_offscreen','checker','verifier_module','node_modules_tree','gateway_image'}
 
 def sha(data):return hashlib.sha256(data).hexdigest()
@@ -23,9 +23,30 @@ def tree_hash(root):
 def consume(root):
  marker=Path(root)/'proof-consumed';marker.open('x').close()
 ERRORS={'','unknown','timeout','permission_denied','snapshot_parent_missing','snapshot_exists','image_missing','resource_exhausted','runtime_failure','connection_failed','invariant_failed'}
-def redact(text):
+PYTHON_ERRORS={
+ 'uv_argument_conflict':r"error: the argument .* cannot be used with",
+ 'uv_argument_invalid':r"error: (?:unexpected argument|invalid value|a value is required)",
+ 'python_not_found':r'no (?:interpreter|python installation) found|failed to query python interpreter|interpreter not found',
+ 'requirements_invalid':r'failed to parse|unable to parse|error parsing',
+ 'hash_mismatch':r'hash mismatch|hashes? (?:do not|does not|did not) match',
+ 'hash_required':r'hashes are required|must have a hash|must be pinned',
+ 'wheel_unavailable':r'no compatible wheel|no wheels with a matching|no binary distribution|no usable wheels',
+ 'dependency_resolution':r'no solution found|unsatisfiable',
+ 'certificate_failed':r'certificate verify failed|invalid peer certificate|unknownissuer',
+ 'download_failed':r'failed to download|failed to fetch|error sending request',
+ 'python_import_failed':r'modulenotfounderror:|importerror:',
+}
+ERRORS.update(PYTHON_ERRORS)
+ERRORS.update({'command_missing','process_start_failed'})
+def python_install_args(py):
+ # --no-build is an alias of --only-binary :all:, and uv rejects combining them.
+ return ['uv','pip','install','--python',py,'--require-hashes','--only-binary',':all:','-r',HERE/'requirements.txt']
+def redact(text,stage=None):
  if isinstance(text,bytes):text=text.decode('utf8','replace')
  text=(text or '')[:32768].lower()
+ if stage in {'python_venv','python_install','python_inspect'}:
+  for category,pattern in PYTHON_ERRORS.items():
+   if re.search(pattern,text):return category
  for category,pattern in [('snapshot_parent_missing','failed to stat parent'),('snapshot_exists','already exists'),('permission_denied','permission denied|operation not permitted'),('image_missing','no such image|pull access denied'),('resource_exhausted','no space left|cannot allocate memory'),('runtime_failure','oci runtime|failed to create.*task'),('connection_failed','cannot connect to the docker daemon')]:
   if re.search(pattern,text):return category
  return 'unknown'
@@ -59,8 +80,8 @@ def validate_report(report):
   for service in ['verifier','gateway']:
    assert set(row[service])<={'current','peak','max','oom','oom_kill','swap_current','swap_max','unavailable'}
    assert all(type(v) is int and v>=0 for v in row[service].values())
- assert set(report['checks'])=={'sandbox_ready','proof_started','prepared_complete','receipt_verified','tamper_checks'}
- assert all(type(report['checks'][x]) is bool for x in ['sandbox_ready','proof_started','prepared_complete','receipt_verified'])
+ assert set(report['checks'])=={'browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified','tamper_checks'}
+ assert all(type(report['checks'][x]) is bool for x in ['browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified'])
  assert report['checks']['tamper_checks'] in {0,5}
  assert set(report['cleanup'])=={'key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed'}
  assert all(type(v) is bool for v in report['cleanup'].values())
@@ -89,10 +110,10 @@ def run(root,safe):
  root=Path(root);safe=Path(safe);safe.mkdir(parents=True,exist_ok=True)
  assert not (safe/'summary.json').exists(),'No repeat attempt'
  work=Path(tempfile.mkdtemp(prefix='tls-private-',dir=root));token=uuid.uuid4().hex;project='abx-tls-'+token[:16]
- report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:False for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
+ report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:False for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
  journal=root/'tls-ownership.json'
- with journal.open('x') as f:
-  os.chmod(journal,0o600);json.dump({'work':str(work),'token':token,'project':project},f);f.flush();os.fsync(f.fileno())
+ from cleanup import persist_journal,mark_browser_invoked
+ persist_journal(journal,{'work':str(work),'token':token,'project':project,'browser_invoked':False},create=True)
  stage='preflight';ids={};compose=None;service_attempted=False;observer=None;capture=None;stop=threading.Event();threads=[];start=time.monotonic();failed=False
  env={'ABX_TLS_REFERENCE_OWNER':token,'PATH':os.environ['PATH'],'HOME':str(work/'home'),'LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1','NODE_DISABLE_COMPILE_CACHE':'1'}
  for d in ['home','state','tmp','capture','personas','lib','downloads']: (work/d).mkdir()
@@ -101,9 +122,14 @@ def run(root,safe):
   except subprocess.TimeoutExpired as error:
    report['stages'].append({'stage':stage,'exit':None,'timeout':True,'error':'timeout'})
    raise RuntimeError('Command timeout') from None
+  except OSError as error:
+   category='command_missing' if isinstance(error,FileNotFoundError) else 'permission_denied' if isinstance(error,PermissionError) else 'process_start_failed'
+   report['stages'].append({'stage':stage,'exit':None,'timeout':False,'error':category})
+   raise RuntimeError('Command start failure') from None
   if result.returncode:
-   report['stages'].append({'stage':stage,'exit':result.returncode,'timeout':False,'error':redact(result.stderr)})
+   report['stages'].append({'stage':stage,'exit':result.returncode,'timeout':False,'error':redact(result.stderr,stage)})
    raise RuntimeError('Command failure')
+  if stage in {'python_venv','python_install','python_inspect'}:report['stages'].append({'stage':stage,'exit':0,'timeout':False,'error':''})
   return result.stdout.strip()
  def owned(cid):
   labels=json.loads(cmd(DOCKER+['inspect',cid,'--format','{{json .Config.Labels}}']))
@@ -160,11 +186,13 @@ def run(root,safe):
   for name,value in PINS['locks'].items():assert digest(HERE/name)==value
   assert not cmd(DOCKER+['ps','-aq','--filter','label=com.docker.compose.project='+project])
   assert not cmd(DOCKER+['network','ls','-q','--filter','label=com.docker.compose.project='+project])
-  stage='python'
+  stage='python_venv'
   cmd(['uv','venv','--python',sys.executable,str(work/'venv')])
   py=work/'venv/bin/python'
-  cmd(['uv','pip','install','--python',py,'--require-hashes','--only-binary',':all:','--no-build','-r',HERE/'requirements.txt'],timeout=180)
+  stage='python_install'
+  cmd(python_install_args(py),timeout=180)
   report['sources']['requirements']=digest(HERE/'requirements.txt')
+  stage='python_inspect'
   installed=json.loads(cmd([py,'-c',"import importlib.metadata,json,abx_plugins;print(json.dumps({'plugins':importlib.metadata.version('abx-plugins'),'abx_dl':importlib.metadata.version('abx-dl'),'path':abx_plugins.__file__}))"]))
   assert installed['plugins']==PINS['plugins'] and installed['abx_dl']==PINS['abx_dl'];plugin=Path(installed['path']).parent
   assert plugin.resolve().is_relative_to(work.resolve())
@@ -184,7 +212,9 @@ def run(root,safe):
   extension_dir=work/'lib/chromewebstore/extensions';extension_dir.mkdir(parents=True)
   (extension_dir/'tlsnotary.extension.json').write_text(json.dumps({'unpacked_path':str(original),'name':'tlsnotary','webstore_id':'gcfkkledipjbgdbimfpijgbkhajiaaph'}))
   env['PATH']=str(node.parent)+':'+str(work/'venv/bin')+':'+env['PATH']
-  assert PINS['node']['version'] in cmd([node,'--version']);assert PINS['chrome']['version'] in cmd([chrome,'--version']);report['versions'].update(node=PINS['node']['version'],chrome=PINS['chrome']['version'])
+  assert PINS['node']['version'] in cmd([node,'--version'])
+  mark_browser_invoked(journal);report['checks']['browser_invoked']=True
+  assert PINS['chrome']['version'] in cmd([chrome,'--version']);report['versions'].update(node=PINS['node']['version'],chrome=PINS['chrome']['version'])
   stage='node_dependencies'
   for name in ['chrome','abxbus']:
    target=work/'lib/pnpm/packages'/name;target.mkdir(parents=True)

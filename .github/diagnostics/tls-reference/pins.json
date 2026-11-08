@@ -1,5 +1,5 @@
 {
-  "python": "3.14.5",
+  "python": "3.13.18",
   "uv": "0.13.5",
   "plugins": "1.13.655",
   "abx_dl": "1.13.320",
@@ -50,10 +50,13 @@
     "sha256": "4050936ce3ef1b1e609b8c7ead532e96b01c05146c05a11404063e1fa0d3c1f4"
   },
   "locks": {
-    "requirements.txt": "e5c3491a4b34a2ba63d7be227206485f27e52746e275844e35ba3b628358091c",
+    "requirements.txt": "a6a676a7a1154faadcf3620646641dc6e9c1439e6ae2e45a13547c7aa46d7a5b",
     "npm/chrome/package.json": "57583f3931d9d87edba5716d30b7cde2ec0c505a3db650443242db3827c6c25a",
     "npm/chrome/package-lock.json": "b3c2ea711e1e730690e0a24113104abaec9c67c3adcada326beeeda0525e8be2",
     "npm/abxbus/package.json": "d37e7752ba6043b7e32c50a3c729954632fbfe68aa06e0923c6e34228b499bb6",
-    "npm/abxbus/package-lock.json": "518471b943aa11c4fce8f1430c93ade88406a25b86a407876d59167ce26609cd"
+    "npm/abxbus/package-lock.json": "518471b943aa11c4fce8f1430c93ade88406a25b86a407876d59167ce26609cd",
+    "baseline-uv.lock": "57fc95cbc9e8a4729e801b27c3cb24d1fc4c29b05a9d67278a712cfa1e883fd3",
+    "derive_requirements.py": "bc4104140be3a7b7daa397071e4917c8042d8db21e5ea5a53a1f95c7fe5c2383",
+    "baseline-provenance.json": "1861a9afb89d632d6c254df92e56be67836acba079920111cdea0dbfa86b0df2"
   }
 }

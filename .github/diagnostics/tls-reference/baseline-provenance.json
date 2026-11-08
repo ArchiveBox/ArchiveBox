@@ -1,0 +1,281 @@
+{
+  "source_commit": "85b6f3335e89aad33d057b2f75e6a1a7ca50494b",
+  "source_path": "uv.lock",
+  "source_blob": "85bc2c498e378039015938867b676f9b482ef5be",
+  "source_sha256": "57fc95cbc9e8a4729e801b27c3cb24d1fc4c29b05a9d67278a712cfa1e883fd3",
+  "python": "3.13.18",
+  "interpreter_evidence": "https://github.com/ArchiveBox/ArchiveBox/actions/runs/42450906708/job/128639735285",
+  "interpreter_evidence_line": "Using CPython 3.13.18 interpreter",
+  "lock_requires_python": ">=3.13",
+  "package_requires_python_metadata": "not present in uv.lock; wheel metadata not downloaded",
+  "scope": "matching default downloader closure; not full environment equivalence",
+  "compatibility_scope": "filename tags only, CPython 3.13 standard ABI, Linux x86_64 glibc 2.39; no download/install validation",
+  "compatible_wheels": {
+    "abx-dl": [
+      {
+        "filename": "abx_dl-1.13.320-py3-none-any.whl",
+        "hash": "sha256:58a55f444eb78fdcdd82991ec0db6bf30eb5f0350622cadf07769bc7c358b0de",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "abx-plugins": [
+      {
+        "filename": "abx_plugins-1.13.655-py3-none-any.whl",
+        "hash": "sha256:bed8d05d45e1c63d3ce3865e61f68583129858109d17b3eb1430d492e9a618fa",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "abxbus": [
+      {
+        "filename": "abxbus-2.5.82-py3-none-any.whl",
+        "hash": "sha256:a87f5fa9f8659ba478944139da166441df4187a517438a4c4cc9c560ab5692ec",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "abxpkg": [
+      {
+        "filename": "abxpkg-1.13.81-py3-none-any.whl",
+        "hash": "sha256:df6aa3a55e80c30fa447371fc1784b5ae9899a86e19d39fc9d41645b525b9a5f",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "annotated-types": [
+      {
+        "filename": "annotated_types-0.8.0-py3-none-any.whl",
+        "hash": "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "certifi": [
+      {
+        "filename": "certifi-2026.10.19-py3-none-any.whl",
+        "hash": "sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "charset-normalizer": [
+      {
+        "filename": "charset_normalizer-3.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "hash": "sha256:7218e8f32b0956cfcd048fd42d9d5779809745ca1d86113ca56f66e7ae1549c4",
+        "python_tag": "cp313",
+        "abi_tag": "cp313",
+        "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64"
+      },
+      {
+        "filename": "charset_normalizer-3.5.2-cp37-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+        "hash": "sha256:1c50fe28bbc2ced33386f298650d91218076c05420e6cbd790b913adc41659e7",
+        "python_tag": "cp37",
+        "abi_tag": "abi3",
+        "platform_tag": "manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64"
+      },
+      {
+        "filename": "charset_normalizer-3.5.2-py3-none-any.whl",
+        "hash": "sha256:b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "click": [
+      {
+        "filename": "click-8.5.0-py3-none-any.whl",
+        "hash": "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "idna": [
+      {
+        "filename": "idna-3.20-py3-none-any.whl",
+        "hash": "sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "imagesize": [
+      {
+        "filename": "imagesize-2.0.1-py3-none-any.whl",
+        "hash": "sha256:ea0c9a0384df69ed86a943a15cde37d0360b82491b3910dc2215e202e62b5b02",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "markdown-it-py": [
+      {
+        "filename": "markdown_it_py-4.2.0-py3-none-any.whl",
+        "hash": "sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "mdurl": [
+      {
+        "filename": "mdurl-0.1.2-py3-none-any.whl",
+        "hash": "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "packaging": [
+      {
+        "filename": "packaging-26.3-py3-none-any.whl",
+        "hash": "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "platformdirs": [
+      {
+        "filename": "platformdirs-4.13.4-py3-none-any.whl",
+        "hash": "sha256:502ce08e9d36cf90579ee44e1e764838842fa658e4975ef47344fd053011d2c8",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "psutil": [
+      {
+        "filename": "psutil-7.2.1-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl",
+        "hash": "sha256:5e38404ca2bb30ed7267a46c02f06ff842e92da3bb8c5bfdadbd35a5722314d8",
+        "python_tag": "cp36",
+        "abi_tag": "abi3",
+        "platform_tag": "manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64"
+      }
+    ],
+    "pydantic": [
+      {
+        "filename": "pydantic-2.14.1-py3-none-any.whl",
+        "hash": "sha256:9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "pydantic-core": [
+      {
+        "filename": "pydantic_core-2.50.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "hash": "sha256:17e722e156d0444ecaefbe640bdb60928752bf2013e2b7a11cdb099aaae19bec",
+        "python_tag": "cp313",
+        "abi_tag": "cp313",
+        "platform_tag": "manylinux_2_17_x86_64.manylinux2014_x86_64"
+      }
+    ],
+    "pydantic-settings": [
+      {
+        "filename": "pydantic_settings-2.16.0-py3-none-any.whl",
+        "hash": "sha256:7e73acf7f61936a15e5a3b6eedaea29f133357faf7272f2607ba479b049dd7f2",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "pygments": [
+      {
+        "filename": "pygments-2.21.0-py3-none-any.whl",
+        "hash": "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "python-dotenv": [
+      {
+        "filename": "python_dotenv-1.2.4-py3-none-any.whl",
+        "hash": "sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "requests": [
+      {
+        "filename": "requests-2.34.2-py3-none-any.whl",
+        "hash": "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "rich": [
+      {
+        "filename": "rich-15.0.0-py3-none-any.whl",
+        "hash": "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "rich-click": [
+      {
+        "filename": "rich_click-1.9.9-py3-none-any.whl",
+        "hash": "sha256:365e7a9d0adb42e41ea832a0a12e02c44c079a26536dee688125eb9814f97274",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "typing-extensions": [
+      {
+        "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+        "hash": "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "typing-inspection": [
+      {
+        "filename": "typing_inspection-0.4.4-py3-none-any.whl",
+        "hash": "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "urllib3": [
+      {
+        "filename": "urllib3-2.8.0-py3-none-any.whl",
+        "hash": "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "uuid7": [
+      {
+        "filename": "uuid7-0.1.0-py2.py3-none-any.whl",
+        "hash": "sha256:5e259bb63c8cb4aded5927ff41b444a80d0c7124e8a0ced7cf44efa1f5cccf61",
+        "python_tag": "py2.py3",
+        "abi_tag": "none",
+        "platform_tag": "any"
+      }
+    ],
+    "uv": [
+      {
+        "filename": "uv-0.13.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "hash": "sha256:fa8d26e08e34c29c0c4e820cf3181757086d547240b4f4d31ff1d8bd810ca946",
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "manylinux_2_17_x86_64.manylinux2014_x86_64"
+      }
+    ]
+  }
+}

@@ -27,6 +27,50 @@ class Contract(unittest.TestCase):
   for value in ['X-Custom: private value\npayload: private words','Authorization: Bearer secretvalue','https://example.com/private','-----BEGIN PRIVATE KEY-----secretbytes']:
    self.assertEqual(r.redact(value),'unknown')
   self.assertEqual(r.redact('failed to stat parent: stat /private/value: no such file'),'snapshot_parent_missing')
+ def test_python_stages_and_private_errors(self):
+  for stage in ['python_venv','python_install','python_inspect']:self.assertIn(stage,r.STAGES)
+  samples={
+   'uv_argument_conflict':"error: the argument '--only-binary <ONLY_BINARY>' cannot be used with '--no-build'",
+   'uv_argument_invalid':"error: unexpected argument '--bad' found",
+   'python_not_found':'No interpreter found at /private/path',
+   'requirements_invalid':'Failed to parse /private/requirements.txt',
+   'hash_mismatch':'Hash mismatch for https://private.example/secret',
+   'hash_required':'Hashes are required for /private/package',
+   'wheel_unavailable':'No compatible wheel for private-package',
+   'dependency_resolution':'No solution found when resolving dependencies',
+   'download_failed':'Failed to download https://private.example/secret',
+   'certificate_failed':'certificate verify failed',
+   'python_import_failed':"ModuleNotFoundError: No module named 'private'",
+  }
+  for category,message in samples.items():
+   self.assertEqual(r.redact(message,'python_install'),category)
+   self.assertIn(category,r.ERRORS)
+  for secret in ['Authorization: Bearer secretvalue','https://private.example/token','-----BEGIN PRIVATE KEY-----private','/private/secret','a'*40000]:
+   self.assertEqual(r.redact(secret,'python_install'),'unknown')
+   for category,message in samples.items():self.assertEqual(r.redact(message+' '+secret,'python_install'),category)
+ def test_setup_report_boundary(self):
+  report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:True for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
+  for stage in ['python_venv','python_install','python_inspect']:
+   for error in r.ERRORS:
+    report['stages']=[{'stage':stage,'exit':2 if error else 0,'timeout':error=='timeout','error':error}]
+    self.assertEqual(r.validate_report(json.loads(json.dumps(report))),report)
+  for field in ['stage','error']:
+   bad=copy.deepcopy(report);bad['stages'][0][field]='https://private.example/token'
+   with self.assertRaises(AssertionError):r.validate_report(bad)
+ def test_real_uv_install_argument_regression(self):
+  # Exercise the production argument builder with an empty local requirements file.
+  # No network, package install, Docker, browser, key, or proof is involved.
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d);(root/'home').mkdir();requirements=root/'requirements.txt';requirements.write_text('')
+   env={'PATH':os.environ['PATH'],'HOME':str(root/'home'),'UV_OFFLINE':'1','UV_NO_CONFIG':'1'}
+   created=subprocess.run(['uv','venv','--python',sys.executable,str(root/'venv')],env=env,cwd=root,capture_output=True,text=True)
+   self.assertEqual(created.returncode,0)
+   args=[str(a) for a in r.python_install_args(root/'venv/bin/python')];args[-1]=str(requirements)
+   self.assertIn('--require-hashes',args);self.assertIn('--only-binary',args);self.assertNotIn('--no-build',args)
+   broken=subprocess.run(args+['--no-build'],env=env,cwd=root,capture_output=True,text=True)
+   self.assertEqual(broken.returncode,2);self.assertEqual(r.redact(broken.stderr,'python_install'),'uv_argument_conflict')
+   fixed=subprocess.run(args,env=env,cwd=root,capture_output=True,text=True)
+   self.assertEqual(fixed.returncode,0)
  def test_cleanup_no_journal(self):
   import cleanup
   with tempfile.TemporaryDirectory() as d:

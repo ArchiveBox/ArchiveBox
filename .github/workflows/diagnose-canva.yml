@@ -19,13 +19,17 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: '3.14.5'
+          python-version: '3.13.18'
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
         with:
           version: '0.13.5'
           enable-cache: 'false'
       - name: Test diagnostic contract
-        run: python .github/diagnostics/tls-reference/test_reference.py
+        run: |
+          python .github/diagnostics/tls-reference/derive_requirements.py
+          python .github/diagnostics/tls-reference/test_reference.py
+          python .github/diagnostics/tls-reference/test_lifecycle.py
+          python .github/diagnostics/tls-reference/test_baseline.py
       - name: One isolated reference attempt
         timeout-minutes: 16
         env:
@@ -39,6 +43,7 @@ jobs:
         id: boundary
         if: always()
         run: |
+          python .github/diagnostics/tls-reference/derive_requirements.py
           python .github/diagnostics/tls-reference/test_reference.py --validate "$RUNNER_TEMP/tls-safe/summary.json"
       - name: Upload sanitized evidence only
         if: always() && steps.boundary.outcome == 'success'
