@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  saved-html-replay:
+  provider-replay:
     uses: ./.github/workflows/test-parallel.yml
     with:
-      test_file: archivebox/tests/test_saved_html_resources.py
+      test_file: archivebox/tests/test_provider_plugin_replay.py
