@@ -1,0 +1,35 @@
+--- original/processFontFaceRule
++++ modified/processFontFaceRule
+@@ -15,13 +15,14 @@
+ 					} else {
+ 						if (FontFace && source.fontUrl) {
+ 							const fontFace = new FontFace("test-font", source.src);
++							let timeout;
+ 							try {
+-								let timeout;
+ 								await Promise.race([
+ 									fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+ 									new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+ 								]);
+ 							} catch (error) {
++								globalThis.clearTimeout(timeout);
+ 								if (error.name == "NetworkError") {
+ 									source.valid = true;
+ 								} else {
+@@ -31,14 +32,15 @@
+ 										const fontURL = declarationFontURLs[1][0];
+ 										if (fontURL) {
+ 											const fontFace = new FontFace("test-font", "url(" + fontURL + ")");
++											let timeout;
+ 											try {
+-												let timeout;
+ 												await Promise.race([
+ 													fontFace.load().then(() => fontFace.loaded).then(() => { source.valid = true; globalThis.clearTimeout(timeout); }),
+ 													new Promise(resolve => timeout = globalThis.setTimeout(() => { source.valid = true; resolve(); }, FONT_MAX_LOAD_DELAY))
+ 												]);
+ 												// eslint-disable-next-line no-unused-vars
+ 											} catch (error) {
++												globalThis.clearTimeout(timeout);
+ 												// ignored
+ 											}
+ 										}

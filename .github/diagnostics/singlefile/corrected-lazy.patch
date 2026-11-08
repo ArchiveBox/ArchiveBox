@@ -1,0 +1,39 @@
+--- corrected-eager/processFontFaceRule
++++ corrected-lazy/processFontFaceRule
+@@ -9,7 +9,10 @@
+ 			removedNodes.forEach(node => ruleData.block.children.remove(node));
+ 			const srcDeclaration = ruleData.block.children.filter(node => node.property == "src").tail;
+ 			if (srcDeclaration) {
+-				await Promise.all(fontInfo.map(async source => {
++				const tested = new Set();
++                const validateSource = async source => {
++                    if (tested.has(source)) return;
++                    tested.add(source);
+ // Cache primary outcomes only; original-URL fallback belongs to this rule.
+                     let outcome;
+                     if (fontTests.has(source.src)) {
+@@ -68,7 +71,23 @@
+                             source.valid = true;
+                         }
+                     }
+-                }));
++                };
++                let winner;
++                for (const format of ["woff2-variations", "woff2", "woff", "truetype-variations", "truetype"]) {
++                    for (let index = fontInfo.length - 1; index >= 0; index--) {
++                        const source = fontInfo[index];
++                        if (!source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == format) {
++                            await validateSource(source);
++                            if (source.valid) { winner = source; break; }
++                        }
++                    }
++                    if (winner) break;
++                }
++                await Promise.all(fontInfo.filter(source => source.tech).map(validateSource));
++                if (!winner && !fontInfo.some(source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && ["opentype", "embedded-opentype"].includes(source.format))) {
++                    await Promise.all(fontInfo.map(validateSource));
++                }
++
+ 				const findSourceByFormat = (fontFormat, testValidity) => util.findLast(fontInfo, source => !source.src.match(EMPTY_URL_SOURCE) && !source.tech && source.format == fontFormat && (!testValidity || source.valid));
+ 				const filterSources = fontSource => fontInfo.filter(source => source == fontSource || source.src.startsWith(LOCAL_SOURCE) || (source.tech && source.valid));
+ 				stats.fonts.processed += fontInfo.length;

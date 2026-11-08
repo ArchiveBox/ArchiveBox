@@ -207,3 +207,43 @@ upload; schema failure blocks the artifact upload. No source strings, font/page
 identifiers, content, URLs, filesystem paths, credentials or arbitrary exception
 messages are included. Original upstream attribution and license above also cover
 these modified observation excerpts; this does not relicense them as MIT.
+
+## Combined correctness candidate trial (supersedes observation core above)
+
+This branch-only trial selects uninstrumented core SHA256
+`67909f49dfc92efe8f9427f5ec90afc53238d64d4b685c4e51479b14a5ebd339`.
+The preparation hook still produces the prior pure three-optimization base
+`f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2`;
+the private stage hook then applies three separately attributable reviewed edits:
+[timer rejection cleanup](timer-repair.patch),
+[primary-only cache with rule-local fallback](primary-cache-only.patch), and
+[priority-ordered validation](corrected-lazy.patch). The exact before/after
+anchors and final SHA are enforced before capture and on the live selected bundle.
+These modified upstream excerpts retain the SingleFile AGPL-3.0-or-later and
+additional permission notices above and in AGPL-3.0.txt; they are not MIT-licensed.
+
+All internal core counters/boundaries from the previous diagnostic are removed,
+including callback settlement, source uniqueness, font durations and frame-detail
+counters. Absence of those events is not a zero measurement. Only the existing
+separate extension stage/progress observations, helper GC observation and the two
+endpoint resource snapshots remain. The three numeric-only artifact schemas,
+public isolated environment, full gallery plan, 60-second deadline, exact font
+multiset/title/HTML-size checks and zero-failed-hook requirement are unchanged.
+TLSNotary failure still fails the complete trial even if SingleFile succeeds.
+
+This is an experimental correctness baseline plus lazy selection, not proof of a
+Canva/Linux root-cause repair. Timer rejection and contextual-cache counterexample
+output changes are deliberate repairs. Native timeout acceptance remains upstream
+policy rather than proof the bytes decoded; changed load ordering can alter race
+outcomes. Local full-plan capture passed font/CSS preservation but failed TLS and
+whole-document equality against an unmatched older isolated control. No production
+publication is authorized. Remove this entire temporary diagnostic after review.
+
+The additional three patches modify `processFontFaceRule` in the inline helper,
+Copyright 2010–2022 Gildas Lormeau. The reviewed reference source is
+[processor-helper-inline.js](https://github.com/gildas-lormeau/single-file-core/blob/79ecf4dce4acab130c0b587d8843f0328eb389f9/core/lib/processor-helper-inline.js).
+Application is against the exact shipped SingleFile1.36.0 bundle, original SHA256
+`386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2`,
+not an assumption that the reference revision rebuilds byte-identically. The
+workflow includes the complete original/replacement method text for each step;
+patches show the readable delta. Modified 2026-11-08 for this temporary trial.

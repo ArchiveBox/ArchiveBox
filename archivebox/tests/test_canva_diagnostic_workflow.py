@@ -120,7 +120,7 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     guard_end = patched.index("async function getExactChromeTab", guard_start)
     assert (
         hashlib.sha256(patched[guard_start:guard_end].strip().encode()).hexdigest()
-        == "a73ba9179a601ac82a2b478ad4994ce8ac5d66326cff9ab4ca31dd2cf7ea7b2f"
+        == "eb9fa0d6c01cb1c711da68691b1202540e1ef302195cba21d7fb502802e87e21"
     )
     assert patched.index("validatePreparedSinglefile(extension);", patched.index("const extension = { ...sessionEntry };")) < patched.index(
         "const manifest =",
@@ -262,7 +262,7 @@ def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
     assert hashlib.sha256(candidate.encode()).hexdigest() == "c4f564574c50bc77256993549baf41a534c51839f83da5c0d85d71c081759de7"
 
 
-def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
+def test_correctness_candidate_exact_bundle_and_reversibility(tmp_path):
     import ast
     import hashlib
     import json
@@ -311,13 +311,11 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
     diagnostic = pure
     for before, after in literals["core_changes"]:
         assert diagnostic.count(before) == 1
-        assert before.count("await ") == after.count("await ")
-        assert before.count("Promise.") == after.count("Promise.")
-        assert before.count("setTimeout(") == after.count("setTimeout(")
-        assert before.count(".then(") == after.count(".then(")
-        assert before.count(".load()") == after.count(".load()")
         diagnostic = diagnostic.replace(before, after)
     assert hashlib.sha256(diagnostic.encode()).hexdigest() == literals["diagnostic_core_sha"]
+    assert literals["diagnostic_core_sha"] == "67909f49dfc92efe8f9427f5ec90afc53238d64d4b685c4e51479b14a5ebd339"
+    assert "abxMetric" not in diagnostic and "abxBoundary" not in diagnostic
+    assert len(literals["core_changes"]) == 3
     assert literals["pure_sha"] != literals["diagnostic_core_sha"]
     restored = diagnostic
     for before, after in reversed(literals["core_changes"]):
@@ -384,44 +382,6 @@ def test_font_metrics_projection_bounds_and_excludes_source_values(tmp_path):
     assert all(record["phase"] == "metric" and record["b"] == 12 for record in records)
     assert "secret-font-url" not in output.read_text()
     assert all(set(record) == {"phase", "a", "b", "elapsed_ms"} for record in records)
-
-
-def test_actual_metric_functions_count_exact_active_sources_without_export(tmp_path):
-    import ast
-
-    workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
-    capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
-    stage = capture.split("<<'STAGE_HOOK'", 1)[1].split("STAGE_HOOK\n", 1)[0].lstrip()
-    statement = next(
-        n
-        for n in ast.parse(stage).body
-        if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "core_changes"
-    )
-    changes = ast.literal_eval(statement.value)
-    source = changes[0][1]
-    helpers = source[source.index("const abxMetrics=") : source.index("class bP{")]
-    script = helpers + "const assert=require('node:assert/strict');"
-    script += "const cache=new Map(),otherCache=new Map();"
-    script += "const a={src:'secret-source-sentinel'},b={src:'secret-source-sentinel'},c={src:'another-secret-source'};"
-    script += "const first=abxEnter(cache,a),second=abxEnter(cache,b),third=abxEnter(cache,c);"
-    script += "assert.equal(first,second);assert.equal(first[0],a);assert.equal(first[1],b);"
-    script += "assert.equal(abxMetrics[0],3);assert.equal(abxMetrics[1],2);assert.equal(abxMetrics[2],1);"
-    script += "assert.equal(abxMetrics[3],3);abxLeave(first,a);abxLeave(second,b);abxLeave(third,c);"
-    script += "assert.equal(first.length,0);assert.equal(abxMetrics[44],0);"
-    script += "const independent=abxEnter(otherCache,a);assert.equal(abxMetrics[1],3);abxLeave(independent,a);"
-    script += "abxMetricsFlush();"
-    result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
-    assert result.returncode == 0, result.stderr
-    assert "secret-source" not in result.stdout + result.stderr
-    for line in result.stdout.splitlines():
-        prefix, phase, code, value = line.split()
-        assert (prefix, phase) == ("ABX_PUBLIC_PHASE", "metric")
-        assert 0 <= int(code) <= 68
-        assert 0 <= int(value) <= 1000000000000
-    assert "new Set" not in helpers
-    assert "new Map" not in helpers
-    assert "new WeakMap" in helpers
-    assert "src===" in helpers and "e.splice(e.indexOf(n),1)" in helpers
 
 
 def test_final_artifact_schema_rejects_identifiers_and_content(tmp_path):
