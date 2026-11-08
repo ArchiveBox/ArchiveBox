@@ -928,7 +928,9 @@ class Resources(HTMLParser):
                         for name, value in attrs
                         if name != omitted
                     )
-                    self.script_tags.append((offset, offset + len(self.get_starttag_text()), f"<{tag}{attributes}>"))
+                    original_tag = self.get_starttag_text()
+                    closing = "/>" if original_tag.endswith("/>") else ">"
+                    self.script_tags.append((offset, offset + len(original_tag), f"<{tag}{attributes}{closing}"))
                 return
         if tag == "base" and self.base_href is None:
             self.base_href = values.get("href")

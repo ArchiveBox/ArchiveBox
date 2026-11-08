@@ -364,7 +364,12 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(
             (FIXTURE / "page.html")
             .read_bytes()
             .replace(b"<head>", b"<head>" + metadata, 1)
-            .replace(b'<script src="/index.js">', f'<script defer=""{attribute_gap}src="/index.js">'.encode()),
+            .replace(b'<script src="/index.js">', f'<script defer=""{attribute_gap}src="/index.js">'.encode())
+            .replace(
+                b"</body>",
+                b'<svg width="40" height="40"><script src="/index.js"/>'
+                b'<rect id="thumbnail-svg-marker" width="40" height="40" fill="green"/></svg></body>',
+            ),
         )
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
@@ -403,6 +408,9 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(
                 expect(content.locator("body")).to_contain_text("loading...")
                 assert (origin + "/responses/all/styles.css", 200) in responses
                 assert not [url for kind, url in requests if kind == "script"]
+                # A self-closing script in foreign content must not consume
+                # the following SVG markup when its unusable src is omitted.
+                expect(content.locator("svg > #thumbnail-svg-marker")).to_be_visible()
                 assert page.request.get(origin + "/dom/output.html?raw=1").body() == output.read_bytes()
                 head = page.request.head(page.locator("iframe").get_attribute("src"))
                 assert head.status == 200
