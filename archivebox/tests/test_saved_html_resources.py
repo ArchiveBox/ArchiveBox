@@ -7,6 +7,7 @@ import base64
 import hashlib
 import shutil
 from pathlib import Path
+from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
 import pytest
@@ -18,6 +19,155 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 FIXTURE = Path(__file__).parent / "fixtures/crontab-resources"
 NEWLINE_METADATA = gzip.decompress((Path(__file__).parent / "fixtures/saved-html-newlines/metadata.html.gz").read_bytes())
 LAZY_FIXTURE = Path(__file__).parent / "fixtures/bablosoft-lazy-image"
+
+
+class ResourceTags(HTMLParser):
+    def __init__(self, source):
+        super().__init__()
+        self.tags = []
+        self.feed(source)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "link"):
+            self.tags.append((tag, dict(attrs)))
+
+
+@pytest.mark.parametrize("rel", ["preload", "modulepreload"])
+def test_passive_thumbnail_omits_both_script_preload_forms(tmp_path, rel):
+    source = (Path(__file__).parent / "fixtures/notion-script-resources.html").read_text().replace('rel="preload"', f'rel="{rel}"')
+    output = tmp_path / "page.html"
+    output.write_text(source)
+    request = RequestFactory().get("/page.html?preview=thumbnail")
+    request.archivebox_snapshot_url = "https://notion.notion.site/"
+    response = serve_static_with_byterange_support(request, "page.html", document_root=tmp_path)
+    links = [attrs for tag, attrs in ResourceTags(response.content.decode()).tags if tag == "link" and attrs.get("rel") == rel]
+    assert len(links) == 2
+    assert all("href" not in attrs for attrs in links)
+    assert output.read_text() == source
+
+
+@pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
+@pytest.mark.parametrize(
+    "fixture",
+    [FIXTURE / "page.html", Path(__file__).parent / "fixtures/notion-script-resources.html"],
+    ids=["crontab", "notion"],
+)
+def test_passive_thumbnail_omits_script_fetches_without_changing_raw_or_full_replay(tmp_path, metadata, fixture):
+    install_responses(tmp_path)
+    path = "dom/output.html"
+    output = tmp_path / path
+    output.parent.mkdir()
+    original = fixture.read_bytes().replace(b"<head>", b"<head>" + metadata, 1)
+    output.write_bytes(original)
+    digest = hashlib.sha256(original).hexdigest()
+    (tmp_path / "hashes").mkdir()
+    (tmp_path / "hashes/hashes.json").write_text(json.dumps({"files": [{"path": path, "hash": digest}]}))
+
+    def get(query="", **headers):
+        request = RequestFactory().get("/" + path + query, **headers)
+        request.archivebox_snapshot_url = "https://crontab.guru/"
+        response = serve_static_with_byterange_support(request, path, document_root=tmp_path, is_archive_replay=True)
+        body = b"".join(response.streaming_content) if response.streaming else response.content
+        return response, body
+
+    raw, body = get("?raw=1")
+    assert body == original
+    assert raw["ETag"] == f'"{digest}"'
+    preview, thumbnail = get(
+        "?preview=thumbnail",
+        HTTP_IF_NONE_MATCH=raw["ETag"],
+        HTTP_IF_MODIFIED_SINCE="Sat, 01 Jan 2050 00:00:00 GMT",
+    )
+    assert preview.status_code == 200
+    assert not preview.has_header("ETag")
+    assert "immutable" not in preview["Cache-Control"]
+    assert preview.get("Content-Security-Policy") == raw.get("Content-Security-Policy")
+    assert metadata in thumbnail
+    tags = ResourceTags(thumbnail.decode()).tags
+    assert any(tag == "script" for tag, _ in tags)
+    assert not any(attrs.get("src") for tag, attrs in tags if tag == "script")
+    assert not any(attrs.get("href") for tag, attrs in tags if tag == "link" and attrs.get("as") == "script")
+    assert any(attrs.get("href") for tag, attrs in tags if tag == "link" and attrs.get("rel") == "stylesheet")
+    _, full = get()
+    assert len([attrs for tag, attrs in ResourceTags(full.decode()).tags if tag == "script" and attrs.get("src")]) == len(
+        [attrs for tag, attrs in ResourceTags(original.decode()).tags if tag == "script" and attrs.get("src")],
+    )
+    assert get("?preview=thumbnail&raw=1")[1] == original
+    ranged_preview, body = get("?preview=thumbnail", HTTP_RANGE="bytes=0-255")
+    assert ranged_preview.status_code == 200
+    assert body == thumbnail
+    ranged, body = get("?preview=thumbnail&raw=1", HTTP_RANGE="bytes=0-255")
+    assert ranged.status_code == 206
+    assert body == original[:256]
+    assert output.read_bytes() == original
+
+
+@pytest.mark.parametrize("extra_bytes", [0, 1])
+def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_bytes):
+    import sys
+
+    limit = 10 * 1024 * 1024
+    output = tmp_path / "page.html"
+    source = (FIXTURE / "page.html").read_bytes()
+    with output.open("wb") as stream:
+        stream.write(source)
+        stream.truncate(limit + extra_bytes)
+    request = RequestFactory().get("/page.html?preview=thumbnail")
+    request.archivebox_snapshot_url = "https://crontab.guru/"
+    observed_opens = []
+    phase = "thumbnail"
+
+    # Observe real payload opens without replacing any filesystem operations.
+    def observe_open(event, args):
+        if phase and event == "open" and args[0] == str(output):
+            observed_opens.append(phase)
+
+    sys.addaudithook(observe_open)
+    try:
+        response = serve_static_with_byterange_support(request, "page.html", document_root=tmp_path)
+        phase = "head"
+        head = serve_static_with_byterange_support(
+            RequestFactory().head("/page.html?preview=thumbnail"),
+            "page.html",
+            document_root=tmp_path,
+        )
+        assert head.status_code == response.status_code
+        assert not head.has_header("ETag")
+        assert not head.has_header("Content-Length")
+        assert not head.has_header("Accept-Ranges")
+        if not extra_bytes:
+            assert head.streaming
+            assert list(head.streaming_content) == []
+            assert head["Cache-Control"] == response["Cache-Control"]
+        phase = "full"
+        full_request = RequestFactory().get("/page.html")
+        full_request.archivebox_snapshot_url = "https://crontab.guru/"
+        full = serve_static_with_byterange_support(full_request, "page.html", document_root=tmp_path)
+        assert full.status_code == 200
+        assert b"".join(full.streaming_content) == output.read_bytes()
+        full.close()
+    finally:
+        phase = ""
+    assert "full" in observed_opens
+    assert "head" not in observed_opens
+    assert ("thumbnail" in observed_opens) == (not extra_bytes)
+    assert response.status_code == (413 if extra_bytes else 200)
+    assert not response.streaming
+    assert not response.has_header("ETag")
+    if extra_bytes:
+        assert response["Cache-Control"] == "no-store"
+        assert b"Open the full capture" in response.content
+        assert len(response.content) < 200
+    else:
+        assert not any(attrs.get("src") for tag, attrs in ResourceTags(response.content.decode()).tags if tag == "script")
+    # Raw byte ranges still work, including beyond the thumbnail limit.
+    raw = serve_static_with_byterange_support(
+        RequestFactory().get("/page.html?raw=1", HTTP_RANGE="bytes=0-255"),
+        "page.html",
+        document_root=tmp_path,
+    )
+    assert raw.status_code == 206
+    assert b"".join(raw.streaming_content) == source[:256]
 
 
 @pytest.mark.parametrize("attribute", ["data-echo", "data-src", "data-lazy-src"])
@@ -169,8 +319,16 @@ def test_saved_html_stylesheets_and_scripts_resolve_locally_and_raw_stays_exact(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("metadata", [b"", NEWLINE_METADATA], ids=["lf", "mixed-newlines"])
-@pytest.mark.parametrize("card", [False, True])
-def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, live_server, browser_runtime, card, tmp_path, metadata):
+@pytest.mark.parametrize("card,attribute_gap", [(False, " "), (True, " "), (True, "")], ids=["full", "card", "adjacent-attributes-card"])
+def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(
+    snapshot,
+    live_server,
+    browser_runtime,
+    card,
+    tmp_path,
+    metadata,
+    attribute_gap,
+):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -202,7 +360,17 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
 
         output = snapshot.output_dir / "dom/output.html"
         output.parent.mkdir()
-        output.write_bytes((FIXTURE / "page.html").read_bytes().replace(b"<head>", b"<head>" + metadata, 1))
+        output.write_bytes(
+            (FIXTURE / "page.html")
+            .read_bytes()
+            .replace(b"<head>", b"<head>" + metadata, 1)
+            .replace(b'<script src="/index.js">', f'<script defer=""{attribute_gap}src="/index.js">'.encode())
+            .replace(
+                b"</body>",
+                b'<svg width="40" height="40"><script src="/index.js"/>'
+                b'<rect id="thumbnail-svg-marker" width="40" height="40" fill="green"/></svg></body>',
+            ),
+        )
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="dom",
@@ -223,6 +391,8 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
             page = browser.new_page()
             responses = []
             stylesheets = []
+            requests = []
+            page.on("request", lambda request: requests.append((request.resource_type, request.url)))
 
             def observed(response):
                 responses.append((response.url, response.status))
@@ -237,6 +407,16 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
                 expect(content.locator("html")).to_have_css("background-color", "rgb(23, 23, 23)")
                 expect(content.locator("body")).to_contain_text("loading...")
                 assert (origin + "/responses/all/styles.css", 200) in responses
+                assert not [url for kind, url in requests if kind == "script"]
+                # A self-closing script in foreign content must not consume
+                # the following SVG markup when its unusable src is omitted.
+                expect(content.locator("svg > #thumbnail-svg-marker")).to_be_visible()
+                assert page.request.get(origin + "/dom/output.html?raw=1").body() == output.read_bytes()
+                head = page.request.head(page.locator("iframe").get_attribute("src"))
+                assert head.status == 200
+                assert "content-length" not in head.headers
+                assert "accept-ranges" not in head.headers
+                assert "etag" not in head.headers
                 page.screenshot(path=str(tmp_path / "card.png"))
                 print(f"REPLAY_SCREENSHOT={tmp_path / 'card.png'}")
                 return
