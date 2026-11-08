@@ -9,6 +9,23 @@ class Contract(unittest.TestCase):
    lock=json.loads((r.HERE/'npm'/name/'package-lock.json').read_text())
    for path,package in lock['packages'].items():
     if path:self.assertTrue(package['resolved'].startswith('https://registry.npmjs.org/'));self.assertTrue(package['integrity'].startswith('sha512-'))
+ def test_npm_lock_topology(self):
+  for name in ['chrome','abxbus']:
+   lock=r.validate_npm_lock(r.HERE/'npm'/name)
+   with tempfile.TemporaryDirectory() as d:
+    root=Path(d);(root/'package.json').write_bytes((r.HERE/'npm'/name/'package.json').read_bytes())
+    bad=copy.deepcopy(lock);key=next(k for k in bad['packages'] if k)
+    bad['packages']['../../private/tmp/'+key]=bad['packages'].pop(key)
+    (root/'package-lock.json').write_text(json.dumps(bad))
+    with self.assertRaises(AssertionError):r.validate_npm_lock(root)
+ def test_npm_fixed_schema_errors(self):
+  for stage in r.NODE_STAGES:
+   self.assertIn(stage,r.STAGES)
+   for code in r.NPM_CODES:
+    for prefix in ['npm error','npm ERR!']:
+     self.assertEqual(r.redact(prefix+' code '+code+'\nhttps://private.example/token\n/private/secret',stage),'npm_'+code.lower())
+   for message in ['npm error code PRIVATE_SECRET','npm error code EUSAGE https://private.example','Authorization: Bearer secret','https://private.example','npm error path /private/secret']:
+    self.assertEqual(r.redact(message,stage),'unknown')
  def test_one_shot(self):
   with tempfile.TemporaryDirectory() as d:
    r.consume(d)
@@ -50,7 +67,7 @@ class Contract(unittest.TestCase):
    for category,message in samples.items():self.assertEqual(r.redact(message+' '+secret,'python_install'),category)
  def test_setup_report_boundary(self):
   report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:True for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
-  for stage in ['python_venv','python_install','python_inspect']:
+  for stage in ['python_venv','python_install','python_inspect']+sorted(r.NODE_STAGES):
    for error in r.ERRORS:
     report['stages']=[{'stage':stage,'exit':2 if error else 0,'timeout':error=='timeout','error':error}]
     self.assertEqual(r.validate_report(json.loads(json.dumps(report))),report)

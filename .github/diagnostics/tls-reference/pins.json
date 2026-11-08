@@ -52,9 +52,9 @@
   "locks": {
     "requirements.txt": "a6a676a7a1154faadcf3620646641dc6e9c1439e6ae2e45a13547c7aa46d7a5b",
     "npm/chrome/package.json": "57583f3931d9d87edba5716d30b7cde2ec0c505a3db650443242db3827c6c25a",
-    "npm/chrome/package-lock.json": "b3c2ea711e1e730690e0a24113104abaec9c67c3adcada326beeeda0525e8be2",
+    "npm/chrome/package-lock.json": "4d7856034c280b3aa3d64c316e057cc5db25d2eebfec843dfc5d821398b9b5dc",
     "npm/abxbus/package.json": "d37e7752ba6043b7e32c50a3c729954632fbfe68aa06e0923c6e34228b499bb6",
-    "npm/abxbus/package-lock.json": "518471b943aa11c4fce8f1430c93ade88406a25b86a407876d59167ce26609cd",
+    "npm/abxbus/package-lock.json": "75eca59fc44b8672fc3086a8f1d0182e820d5ab879f8bc99ff925ebc0d9bab27",
     "baseline-uv.lock": "57fc95cbc9e8a4729e801b27c3cb24d1fc4c29b05a9d67278a712cfa1e883fd3",
     "derive_requirements.py": "bc4104140be3a7b7daa397071e4917c8042d8db21e5ea5a53a1f95c7fe5c2383",
     "baseline-provenance.json": "1861a9afb89d632d6c254df92e56be67836acba079920111cdea0dbfa86b0df2"

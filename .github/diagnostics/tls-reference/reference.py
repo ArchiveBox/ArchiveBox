@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parent
 BRANCH='refs/heads/diagnostics/canva-font-validation-rc78'
 URL='https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview&utm_campaign=designshare&utm_content=DAGudZAYlEE&utm_medium=link&utm_source=publishsharelink'
 DOCKER=['docker','--host','unix:///var/run/docker.sock']
-STAGES={'preflight','python','python_venv','python_install','python_inspect','downloads','node_dependencies','sandbox','gateway_build','services','proof','verification','cleanup'}
+STAGES={'preflight','python','python_venv','python_install','python_inspect','downloads','node_dependencies','node_chrome_install','node_abxbus_install','node_inspect','sandbox','gateway_build','services','proof','verification','cleanup'}
 SOURCE_NAMES={'wheel','extension','chrome','node','requirements','chrome_lock','abxbus_lock','gateway_tree','client_tree','official_extension_tree','prepared_extension_tree','prepared_wasm','prepared_offscreen','checker','verifier_module','node_modules_tree','gateway_image'}
 
 def sha(data):return hashlib.sha256(data).hexdigest()
@@ -36,14 +36,35 @@ PYTHON_ERRORS={
  'download_failed':r'failed to download|failed to fetch|error sending request',
  'python_import_failed':r'modulenotfounderror:|importerror:',
 }
+NODE_STAGES={'node_chrome_install','node_abxbus_install','node_inspect'}
+NPM_CODES={'EUSAGE','ENOTCACHED','ELOCKVERIFY','EJSONPARSE','ERESOLVE','ETARGET','EINTEGRITY','ENOENT','EACCES','EPERM','ENOSPC','ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ECONNRESET','ETIMEDOUT','ENETUNREACH','E401','E403','E404','CERT_HAS_EXPIRED','UNABLE_TO_VERIFY_LEAF_SIGNATURE','SELF_SIGNED_CERT_IN_CHAIN'}
+ERRORS.update('npm_'+code.lower() for code in NPM_CODES)
 ERRORS.update(PYTHON_ERRORS)
+def npm_install_args(npm):
+ # npm 11.19 treats --prefix outside cwd as a local-package edge; run in target instead.
+ return [npm,'ci','--ignore-scripts','--no-audit','--no-fund','--userconfig=/dev/null','--registry=https://registry.npmjs.org']
+def validate_npm_lock(directory):
+ directory=Path(directory);package=json.loads((directory/'package.json').read_text());lock=json.loads((directory/'package-lock.json').read_text())
+ assert lock['lockfileVersion']==3 and not str(lock.get('version','')).startswith('file:')
+ entries=lock['packages'];assert entries[''].get('dependencies',{})==package.get('dependencies',{})
+ for location,entry in entries.items():
+  if not location:continue
+  assert location.startswith('node_modules/') and not any(p in {'','..','.'} for p in location.split('/'))
+  assert not entry.get('link') and entry['resolved'].startswith('https://registry.npmjs.org/') and entry['integrity'].startswith('sha512-')
+ for name,version in package.get('dependencies',{}).items():assert entries['node_modules/'+name]['version']==version
+ return lock
+
 ERRORS.update({'command_missing','process_start_failed'})
 def python_install_args(py):
  # --no-build is an alias of --only-binary :all:, and uv rejects combining them.
  return ['uv','pip','install','--python',py,'--require-hashes','--only-binary',':all:','-r',HERE/'requirements.txt']
 def redact(text,stage=None):
  if isinstance(text,bytes):text=text.decode('utf8','replace')
- text=(text or '')[:32768].lower()
+ text=(text or '')[:32768]
+ if stage in NODE_STAGES:
+  for code in re.findall(r'^npm (?:error|ERR!) code ([A-Z0-9_]+)\s*$',text,re.MULTILINE):
+   if code in NPM_CODES:return 'npm_'+code.lower()
+ text=text.lower()
  if stage in {'python_venv','python_install','python_inspect'}:
   for category,pattern in PYTHON_ERRORS.items():
    if re.search(pattern,text):return category
@@ -117,8 +138,8 @@ def run(root,safe):
  stage='preflight';ids={};compose=None;service_attempted=False;observer=None;capture=None;stop=threading.Event();threads=[];start=time.monotonic();failed=False
  env={'ABX_TLS_REFERENCE_OWNER':token,'PATH':os.environ['PATH'],'HOME':str(work/'home'),'LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1','NODE_DISABLE_COMPILE_CACHE':'1'}
  for d in ['home','state','tmp','capture','personas','lib','downloads']: (work/d).mkdir()
- def cmd(args,timeout=60,use_env=None):
-  try:result=subprocess.run([str(x) for x in args],env=use_env or env,capture_output=True,text=True,timeout=timeout,cwd=work)
+ def cmd(args,timeout=60,use_env=None,cwd=None):
+  try:result=subprocess.run([str(x) for x in args],env=use_env or env,capture_output=True,text=True,timeout=timeout,cwd=work if cwd is None else cwd)
   except subprocess.TimeoutExpired as error:
    report['stages'].append({'stage':stage,'exit':None,'timeout':True,'error':'timeout'})
    raise RuntimeError('Command timeout') from None
@@ -129,7 +150,7 @@ def run(root,safe):
   if result.returncode:
    report['stages'].append({'stage':stage,'exit':result.returncode,'timeout':False,'error':redact(result.stderr,stage)})
    raise RuntimeError('Command failure')
-  if stage in {'python_venv','python_install','python_inspect'}:report['stages'].append({'stage':stage,'exit':0,'timeout':False,'error':''})
+  if stage in {'python_venv','python_install','python_inspect'}|NODE_STAGES:report['stages'].append({'stage':stage,'exit':0,'timeout':False,'error':''})
   return result.stdout.strip()
  def owned(cid):
   labels=json.loads(cmd(DOCKER+['inspect',cid,'--format','{{json .Config.Labels}}']))
@@ -217,10 +238,12 @@ def run(root,safe):
   assert PINS['chrome']['version'] in cmd([chrome,'--version']);report['versions'].update(node=PINS['node']['version'],chrome=PINS['chrome']['version'])
   stage='node_dependencies'
   for name in ['chrome','abxbus']:
+   stage='node_'+name+'_install';validate_npm_lock(HERE/'npm'/name)
    target=work/'lib/pnpm/packages'/name;target.mkdir(parents=True)
    for filename in ['package.json','package-lock.json']:shutil.copyfile(HERE/'npm'/name/filename,target/filename)
-   cmd([npm,'ci','--prefix',target,'--ignore-scripts','--no-audit','--no-fund','--userconfig=/dev/null','--registry=https://registry.npmjs.org'],timeout=120)
+   cmd(npm_install_args(npm),timeout=120,cwd=target)
    report['sources'][name+'_lock']=digest(target/'package-lock.json')
+  stage='node_inspect'
   report['sources']['node_modules_tree']=tree_hash(work/'lib/pnpm/packages')
   stage='sandbox'
   helper=Path('/opt/google/chrome/chrome-sandbox')
