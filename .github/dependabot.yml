@@ -10,6 +10,19 @@ updates:
     target-branch: "dev"
     schedule:
       interval: "monthly"
+    # Match tool.uv.exclude-newer so the bot only requests age-eligible releases.
+    cooldown:
+      default-days: 5
+    ignore:
+      # Mirror the fixed tool.uv.exclude-newer-package cutoffs. Update these
+      # bounds together with the corresponding cutoff after reviewing a release.
+      - dependency-name: "twisted"
+        versions: [">26.10.0rc1"]
+      - dependency-name: "uv"
+        versions: [">0.13.5"]
+      # abx-dl excludes this release; retain updates to later compatible versions.
+      - dependency-name: "psutil"
+        versions: ["7.2.2"]
     groups:
       pip:
         patterns:
