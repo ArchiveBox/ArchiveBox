@@ -223,6 +223,8 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
             page = browser.new_page()
             responses = []
             stylesheets = []
+            requests = []
+            page.on("request", lambda request: requests.append((request.resource_type, request.url)))
 
             def observed(response):
                 responses.append((response.url, response.status))
@@ -237,6 +239,8 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(snapshot, 
                 expect(content.locator("html")).to_have_css("background-color", "rgb(23, 23, 23)")
                 expect(content.locator("body")).to_contain_text("loading...")
                 assert (origin + "/responses/all/styles.css", 200) in responses
+                assert not [url for kind, url in requests if kind == "script"]
+                assert page.request.get(origin + "/dom/output.html?raw=1").body() == output.read_bytes()
                 page.screenshot(path=str(tmp_path / "card.png"))
                 print(f"REPLAY_SCREENSHOT={tmp_path / 'card.png'}")
                 return
