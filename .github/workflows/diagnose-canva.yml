@@ -30,6 +30,7 @@ jobs:
           python .github/diagnostics/tls-reference/test_reference.py
           python .github/diagnostics/tls-reference/test_lifecycle.py
           python .github/diagnostics/tls-reference/test_baseline.py
+          python .github/diagnostics/tls-reference/test_sandbox.py
       - name: One isolated reference attempt
         timeout-minutes: 16
         env:

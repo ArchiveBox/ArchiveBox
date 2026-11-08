@@ -20,6 +20,14 @@ def mark_browser_invoked(path):
  assert type(value['browser_invoked']) is bool
  value['browser_invoked']=True;persist_journal(path,value)
 
+def mark_version_state(path,completed):
+ assert type(completed) is bool
+ value=json.loads(Path(path).read_text());value['chrome_version_invoked']=True
+ value['chrome_version_completed']=completed;persist_journal(path,value)
+
+def needs_browser_cleanup(value):
+ return value['browser_invoked'] or (value['chrome_version_invoked'] and not value['chrome_version_completed'])
+
 def browser_cleanup_confirmed(invoked,candidates,inspection_uncertain,signal_failed,prior=None):
  assert type(invoked) is bool
  if not invoked:return True
@@ -45,8 +53,9 @@ def signal_owned(pid,sig):
 def cleanup(root):
  root=Path(root).resolve();journal=root/'tls-ownership.json'
  if not journal.exists():return True
- value=json.loads(journal.read_text());assert set(value)=={'work','token','project','browser_invoked'}
- invoked=value['browser_invoked'];assert type(invoked) is bool
+ value=json.loads(journal.read_text());assert set(value)=={'work','token','project','browser_invoked','chrome_version_invoked','chrome_version_completed'}
+ assert all(type(value[k]) is bool for k in ['browser_invoked','chrome_version_invoked','chrome_version_completed'])
+ invoked=needs_browser_cleanup(value)
  token=value['token'];project=value['project'];work=Path(value['work'])
  assert re.fullmatch('[0-9a-f]{32}',token) and project=='abx-tls-'+token[:16]
  assert work.parent==root and work.name.startswith('tls-private-') and not work.is_symlink()
@@ -88,7 +97,9 @@ def cleanup(root):
  if summary.exists():
   from reference import validate_report
   report=validate_report(json.loads(summary.read_text()))
-  report['checks']['browser_invoked']=invoked
+  report['checks']['browser_invoked']=value['browser_invoked']
+  report['checks']['chrome_version_invoked']=value['chrome_version_invoked']
+  report['checks']['chrome_version_completed']=value['chrome_version_completed']
   results['browser_stopped']=browser_cleanup_confirmed(invoked,candidates,uncertain,signal_failed,report['cleanup']['browser_stopped'])
   for key,ok in results.items():report['cleanup'][key]=ok
   if errors or not all(results.values()):report['outcome']='cleanup_failed'

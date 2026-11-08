@@ -66,7 +66,7 @@ class Contract(unittest.TestCase):
    self.assertEqual(r.redact(secret,'python_install'),'unknown')
    for category,message in samples.items():self.assertEqual(r.redact(message+' '+secret,'python_install'),category)
  def test_setup_report_boundary(self):
-  report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:True for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
+  report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'chrome_version_invoked':False,'chrome_version_completed':False,'helper_present':False,'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:True for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
   for stage in ['python_venv','python_install','python_inspect']+sorted(r.NODE_STAGES):
    for error in r.ERRORS:
     report['stages']=[{'stage':stage,'exit':2 if error else 0,'timeout':error=='timeout','error':error}]

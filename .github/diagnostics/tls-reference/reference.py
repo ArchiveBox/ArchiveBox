@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse,hashlib,json,os,platform,re,shutil,signal,stat,subprocess,sys,tarfile,tempfile,threading,time,urllib.request,uuid,zipfile
 
+import sandbox_checks
 HERE=Path(__file__).resolve().parent
 BRANCH='refs/heads/diagnostics/canva-font-validation-rc78'
 URL='https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview&utm_campaign=designshare&utm_content=DAGudZAYlEE&utm_medium=link&utm_source=publishsharelink'
@@ -55,6 +56,7 @@ def validate_npm_lock(directory):
  return lock
 
 ERRORS.update({'command_missing','process_start_failed'})
+STAGES.update(sandbox_checks.STAGES);ERRORS.update(sandbox_checks.ERRORS)
 def python_install_args(py):
  # --no-build is an alias of --only-binary :all:, and uv rejects combining them.
  return ['uv','pip','install','--python',py,'--require-hashes','--only-binary',':all:','-r',HERE/'requirements.txt']
@@ -101,8 +103,8 @@ def validate_report(report):
   for service in ['verifier','gateway']:
    assert set(row[service])<={'current','peak','max','oom','oom_kill','swap_current','swap_max','unavailable'}
    assert all(type(v) is int and v>=0 for v in row[service].values())
- assert set(report['checks'])=={'browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified','tamper_checks'}
- assert all(type(report['checks'][x]) is bool for x in ['browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified'])
+ assert set(report['checks'])=={'chrome_version_invoked','chrome_version_completed','helper_present','browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified','tamper_checks'}
+ assert all(type(report['checks'][x]) is bool for x in ['chrome_version_invoked','chrome_version_completed','helper_present','browser_invoked','sandbox_ready','proof_started','prepared_complete','receipt_verified'])
  assert report['checks']['tamper_checks'] in {0,5}
  assert set(report['cleanup'])=={'key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed'}
  assert all(type(v) is bool for v in report['cleanup'].values())
@@ -131,10 +133,10 @@ def run(root,safe):
  root=Path(root);safe=Path(safe);safe.mkdir(parents=True,exist_ok=True)
  assert not (safe/'summary.json').exists(),'No repeat attempt'
  work=Path(tempfile.mkdtemp(prefix='tls-private-',dir=root));token=uuid.uuid4().hex;project='abx-tls-'+token[:16]
- report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:False for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
+ report={'schema':1,'outcome':'setup_failed','versions':{},'sources':{},'stages':[],'transport':[],'resources':[],'container_outcomes':[],'failure_class':'none','checks':{'chrome_version_invoked':False,'chrome_version_completed':False,'helper_present':False,'browser_invoked':False,'sandbox_ready':False,'proof_started':False,'prepared_complete':False,'receipt_verified':False,'tamper_checks':0},'cleanup':{x:False for x in ['key_removed','containers_removed','networks_removed','browser_stopped','private_files_removed']}}
  journal=root/'tls-ownership.json'
- from cleanup import persist_journal,mark_browser_invoked
- persist_journal(journal,{'work':str(work),'token':token,'project':project,'browser_invoked':False},create=True)
+ from cleanup import persist_journal,mark_browser_invoked,mark_version_state
+ persist_journal(journal,{'work':str(work),'token':token,'project':project,'browser_invoked':False,'chrome_version_invoked':False,'chrome_version_completed':False},create=True)
  stage='preflight';ids={};compose=None;service_attempted=False;observer=None;capture=None;stop=threading.Event();threads=[];start=time.monotonic();failed=False
  env={'ABX_TLS_REFERENCE_OWNER':token,'PATH':os.environ['PATH'],'HOME':str(work/'home'),'LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1','NODE_DISABLE_COMPILE_CACHE':'1'}
  for d in ['home','state','tmp','capture','personas','lib','downloads']: (work/d).mkdir()
@@ -234,8 +236,10 @@ def run(root,safe):
   (extension_dir/'tlsnotary.extension.json').write_text(json.dumps({'unpacked_path':str(original),'name':'tlsnotary','webstore_id':'gcfkkledipjbgdbimfpijgbkhajiaaph'}))
   env['PATH']=str(node.parent)+':'+str(work/'venv/bin')+':'+env['PATH']
   assert PINS['node']['version'] in cmd([node,'--version'])
-  mark_browser_invoked(journal);report['checks']['browser_invoked']=True
-  assert PINS['chrome']['version'] in cmd([chrome,'--version']);report['versions'].update(node=PINS['node']['version'],chrome=PINS['chrome']['version'])
+  mark_version_state(journal,False);report['checks']['chrome_version_invoked']=True
+  chrome_version=cmd([chrome,'--version'])
+  mark_version_state(journal,True);report['checks']['chrome_version_completed']=True
+  assert PINS['chrome']['version'] in chrome_version;report['versions'].update(node=PINS['node']['version'],chrome=PINS['chrome']['version'])
   stage='node_dependencies'
   for name in ['chrome','abxbus']:
    stage='node_'+name+'_install';validate_npm_lock(HERE/'npm'/name)
@@ -245,17 +249,19 @@ def run(root,safe):
    report['sources'][name+'_lock']=digest(target/'package-lock.json')
   stage='node_inspect'
   report['sources']['node_modules_tree']=tree_hash(work/'lib/pnpm/packages')
-  stage='sandbox'
-  helper=Path('/opt/google/chrome/chrome-sandbox')
-  if helper.exists():
-   info=helper.stat();assert info.st_uid==0 and stat.S_IMODE(info.st_mode)==0o4755
-   package=cmd(['dpkg-query','-S',str(helper)]).split(':',1)[0];assert package=='google-chrome-stable'
-   md5file=Path(cmd(['dpkg-query','--control-path',package,'md5sums']))
-   matches=[line.split()[0] for line in md5file.read_text().splitlines() if line.endswith('  opt/google/chrome/chrome-sandbox')]
-   assert len(matches)==1 and hashlib.md5(helper.read_bytes()).hexdigest()==matches[0]
+  stage='sandbox_helper_stat'
+  helper=Path(sandbox_checks.HELPER);report['checks']['helper_present']=helper.exists()
+  if report['checks']['helper_present']:
+   info=helper.stat();sandbox_checks.validate_stat(info.st_uid,stat.S_IMODE(info.st_mode))
+   stage='sandbox_helper_owner';package=sandbox_checks.package_owner(cmd(['dpkg-query','-S',str(helper)]))
+   stage='sandbox_helper_checksum'
+   metadata=cmd(['dpkg-query','--control-show',package,'md5sums'])
+   sandbox_checks.checksum_match(metadata,hashlib.md5(helper.read_bytes()).hexdigest())
+   stage='sandbox_helper_version'
    env['CHROME_DEVEL_SANDBOX']=str(helper);report['versions']['sandbox_helper']=cmd(['dpkg-query','-W','-f=${Version}',package])
-  page=cmd([chrome,'--headless','--no-first-run','--no-default-browser-check','--user-data-dir='+str(work/'sandbox-profile'),'--dump-dom','chrome://sandbox'],timeout=20)
-  assert 'You are adequately sandboxed' in page,'Stock sandbox readiness failed'
+  stage='sandbox_probe';mark_browser_invoked(journal);report['checks']['browser_invoked']=True
+  page=cmd(sandbox_checks.probe_args(chrome,work/'sandbox-profile'),timeout=20)
+  stage='sandbox_page';sandbox_checks.validate_page(page)
   report['checks']['sandbox_ready']=True
   stage='gateway_build';server=plugin/'plugins/tlsnotary/server';build=work/'build';build.mkdir()
   for name,value in PINS['gateway_files'].items():
@@ -312,7 +318,7 @@ def run(root,safe):
   report['outcome']='verified'
  except Exception as error:
   failed=True;report['outcome']='proof_failed' if report['checks']['proof_started'] else 'setup_failed'
-  report['stages'].append({'stage':stage,'exit':None,'timeout':isinstance(error,subprocess.TimeoutExpired),'error':'timeout' if isinstance(error,subprocess.TimeoutExpired) else 'invariant_failed'})
+  report['stages'].append({'stage':stage,'exit':None,'timeout':isinstance(error,subprocess.TimeoutExpired),'error':error.code if isinstance(error,sandbox_checks.SandboxCheckError) else ('timeout' if isinstance(error,subprocess.TimeoutExpired) else 'invariant_failed')})
  finally:
   stage='cleanup';stop.set();cleanup_errors=[]
   def attempt(fn):

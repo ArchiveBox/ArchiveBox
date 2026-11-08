@@ -3,7 +3,7 @@ from pathlib import Path
 from cleanup import persist_journal,mark_browser_invoked,browser_cleanup_confirmed
 class Lifecycle(unittest.TestCase):
  def journal(self,root):
-  path=Path(root)/'ownership.json';persist_journal(path,{'work':str(Path(root)/'tls-private-test'),'token':'a'*32,'project':'abx-tls-'+('a'*16),'browser_invoked':False},create=True);return path
+  path=Path(root)/'ownership.json';persist_journal(path,{'work':str(Path(root)/'tls-private-test'),'token':'a'*32,'project':'abx-tls-'+('a'*16),'browser_invoked':False,'chrome_version_invoked':False,'chrome_version_completed':False},create=True);return path
  def test_before_browser_failure(self):
   with tempfile.TemporaryDirectory() as d:
    p=self.journal(d);self.assertFalse(json.loads(p.read_text())['browser_invoked']);self.assertTrue(browser_cleanup_confirmed(False,[],True,False))
@@ -25,5 +25,5 @@ class Lifecycle(unittest.TestCase):
    self.journal(d)
    with self.assertRaises(FileExistsError):self.journal(d)
  def test_marker_precedes_all_chrome_calls(self):
-  text=(Path(__file__).parent/'reference.py').read_text();marker=text.index('mark_browser_invoked(journal);');self.assertLess(marker,text.index("cmd([chrome,'--version'])"));self.assertLess(marker,text.index("page=cmd([chrome,"));self.assertIn("'browser_invoked':False",text)
+  text=(Path(__file__).parent/'reference.py').read_text();marker=text.index('mark_browser_invoked(journal);');self.assertGreater(marker,text.index("cmd([chrome,'--version'])"));self.assertLess(marker,text.index("page=cmd(sandbox_checks.probe_args("));self.assertIn("'browser_invoked':False",text)
 if __name__=='__main__':unittest.main()
