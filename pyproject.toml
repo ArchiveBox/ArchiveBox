@@ -50,7 +50,7 @@ dependencies = [
     "daphne>=4.2.1",  # retain ASGI runserver/WebSockets for --debug; removing its app makes runserver WSGI
     "autobahn>=26.10.1",  # Daphne WebSocket security floor: GHSA-pjh6-c8mg-3x7m
     "twisted>=26.10.0rc1",  # published security fixes for Daphne's HTTP runtime
-    "django-ninja>=1.5.1",
+    "django-ninja>=1.7.3",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.4.1",
@@ -69,7 +69,7 @@ dependencies = [
     "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid
     "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
     ### Base Types
-    "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
+    "pydantic>=2.14.2",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
     "pydantic-settings>=2.5.2", # for: archivebox.config
     "base32-crockford>=0.3.0", # for: encoding UUIDs in base32
     ### Static Typing
