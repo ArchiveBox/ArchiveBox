@@ -1,0 +1,54 @@
+name: Probe existing official Chrome for Canva rc84
+'on':
+  push:
+    branches:
+    - diagnostics/canva-runner-probe-rc84
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - name: Read installed Chrome and helper metadata without changes
+      run: |
+        python3 - <<'PROBE'
+        """Read-only inspection of Ubuntu runner's already installed official Chrome."""
+        import hashlib
+        import json
+        from pathlib import Path
+        import re
+        import stat
+        import subprocess
+        import sys
+
+        required = '156.0.8078.47'
+        binary = Path('/opt/google/chrome/chrome')
+        helper = Path('/opt/google/chrome/chrome-sandbox')
+        report = {'required_version': required, 'binary_exists': binary.is_file(), 'helper_exists': helper.is_file()}
+        for label, path in [('binary', binary), ('helper', helper)]:
+            if path.is_file():
+                info = path.stat()
+                report[label + '_uid'] = info.st_uid
+                report[label + '_gid'] = info.st_gid
+                report[label + '_mode'] = oct(stat.S_IMODE(info.st_mode))
+                with path.open('rb') as stream:
+                    report[label + '_sha256'] = hashlib.file_digest(stream, 'sha256').hexdigest()
+        package = subprocess.run(['dpkg-query', '-W', '-f=${Package}\t${Version}', 'google-chrome-stable'], capture_output=True, text=True)
+        match = re.fullmatch(r'google-chrome-stable\t(\d+\.\d+\.\d+\.\d+-\d+)', package.stdout)
+        report['official_package_present'] = package.returncode == 0 and bool(match)
+        if match:
+            report['package_version'] = match[1]
+        verify = subprocess.run(['dpkg', '--verify', 'google-chrome-stable'], capture_output=True, text=True)
+        report['package_verification_clean'] = verify.returncode == 0 and not verify.stdout.strip() and not verify.stderr.strip()
+        if binary.is_file():
+            version = subprocess.run([str(binary), '--version'], capture_output=True, text=True, timeout=15)
+            match = re.fullmatch(r'Google Chrome\s+(\d+\.\d+\.\d+\.\d+)\s*', version.stdout)
+            report['version_read_success'] = version.returncode == 0 and bool(match)
+            if match:
+                report['binary_version'] = match[1]
+        report['compatible'] = bool(report.get('official_package_present') and report.get('package_verification_clean') and report.get('binary_version') == required and report.get('binary_uid') == report.get('helper_uid') == 0 and report.get('helper_gid') == 0 and report.get('helper_mode') == '0o4755' and report.get('binary_mode') == '0o755')
+        print(json.dumps(report, indent=2, sort_keys=True))
+        # No install, ownership/mode changes, browser session or security changes.
+        sys.exit(0 if report['compatible'] else 1)
+
+        PROBE
