@@ -136,7 +136,8 @@ def _find_snapshot_by_ref(snapshot_ref: str, *, request: HttpRequest | None = No
     if not lookup:
         return None
 
-    snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by")
+    # Replay needs the owner, not the crawl's potentially huge intake text.
+    snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by").defer("crawl__urls")
 
     if len(lookup) == 12 and "-" not in lookup:
         cached_pk = _SNAPSHOT_SUFFIX_PKS.get(lookup)
@@ -669,7 +670,12 @@ class SnapshotPathView(View):
             requested_url = domain
 
         snapshot = None
-        snapshots_qs = discoverable_snapshots_queryset(request, Snapshot.objects.select_related("crawl", "crawl__created_by"))
+        # Domain aliases examine many candidates. Joining the shared intake
+        # once per snapshot can allocate gigabytes for a tiny redirect.
+        snapshots_qs = discoverable_snapshots_queryset(
+            request,
+            Snapshot.objects.select_related("crawl", "crawl__created_by").defer("crawl__urls"),
+        )
         if snapshot_id:
             snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
             if snapshot and not can_view_snapshot(request, snapshot):
@@ -682,6 +688,7 @@ class SnapshotPathView(View):
                     request,
                     SnapshotView.find_snapshots_for_url(requested_url)
                     .select_related("crawl", "crawl__created_by")
+                    .defer("crawl__urls")
                     .filter(
                         crawl__created_by__username=username_lookup,
                     ),
@@ -1016,6 +1023,7 @@ def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) ->
     candidates = (
         Snapshot.objects.filter(pk__in=domain_ids)
         .select_related("crawl", "crawl__created_by")
+        .defer("crawl__urls")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )
     return [snapshot for snapshot in candidates if can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot)]
