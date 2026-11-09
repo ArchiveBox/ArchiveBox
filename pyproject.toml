@@ -108,6 +108,7 @@ ldap = [
     # python-ldap depends on the openldap bindings which provide no prebuilt wheels because they link against tons of other system packages
     # apt install build-essential python3-dev python3-ldap libsasl2-dev libldap2-dev libssl-dev
     "python-ldap>=3.4.3",
+    "pyasn1>=0.6.5",  # LDAP ASN.1 decoder security fixes (four October 2026 advisories)
     "django-auth-ldap>=4.1.0",
 ]
 debug = [
