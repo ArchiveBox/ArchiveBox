@@ -40,7 +40,7 @@ classifiers = [
 dependencies = [
     ### Django libraries
     "setuptools>=84.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
-    "django>=6.1.2",
+    "django>=6.1.3",
     # Psycopg's binary extra already excludes PyPy. Express that split with the
     # same marker as Autobahn/cbor2 so uv does not combine incompatible PyPy and
     # CPython branches when resolving the universal lock (uv 0.13.5/0.13.6).
