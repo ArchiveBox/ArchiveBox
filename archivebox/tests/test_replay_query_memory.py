@@ -18,7 +18,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("route", ["original-domain", "owner-domain", "owner-date-domain"])
+@pytest.mark.parametrize("route", ["original-domain", "owner-domain", "owner-date-domain", "legacy-timestamp", "legacy-domain"])
 def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_server, route):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
     state = server.wait_for_workers(("worker_uvicorn",))
@@ -60,7 +60,10 @@ def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_serve
         owner = "web" if crawl.created_by.username == "system" else crawl.created_by.username
         snapshot_host = get_snapshot_host(str(selected.id), overrides={"BASE_URL": "http://archivebox.localhost"})
         replay_path = "/responses/memory.example/probe.txt"
-        if route == "original-domain":
+        if route.startswith("legacy-"):
+            path = "/archive/170000" if route == "legacy-timestamp" else "/archive/memory.example"
+            expected_location = None
+        elif route == "original-domain":
             path = "/original/memory.example/probe.txt"
             expected_location = f"http://{snapshot_host}{replay_path}"
         else:
@@ -69,6 +72,18 @@ def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_serve
             expected_location = f"/{selected.archive_path_from_db}"
         crawl_id = crawl.id
 
+    def assert_lookup_response(response):
+        if expected_location is None:
+            assert response.status_code == 404, response.text
+            assert "Multiple Snapshots" in response.text
+            expected = snapshots if route == "legacy-timestamp" else snapshots[:128]
+            for candidate in expected:
+                assert candidate.url in response.text
+            assert private.url not in response.text
+        else:
+            assert response.status_code == 302, response.text
+            assert response.headers["Location"] == expected_location
+
     base = f"http://127.0.0.1:{server.port}"
     with requests.Session() as client:
         client.trust_env = False
@@ -76,8 +91,7 @@ def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_serve
         # only the irrelevant intake text. The captured response stays tiny.
         for _ in range(2):
             response = client.get(base + path, headers={"Host": "web.archivebox.localhost"}, allow_redirects=False, timeout=30)
-            assert response.status_code == 302, response.text
-            assert response.headers["Location"] == expected_location
+            assert_lookup_response(response)
         replay = client.get(base + replay_path, headers={"Host": snapshot_host}, timeout=30)
         assert replay.status_code == 200
         assert replay.content == saved
@@ -104,8 +118,7 @@ def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_serve
             stopped.set()
             sampler.join(timeout=5)
         assert not sampler.is_alive()
-        assert response.status_code == 302, response.text
-        assert response.headers["Location"] == expected_location
+        assert_lookup_response(response)
         growth = max(samples) - baseline
         print(f"{route}: Python={sys.version.split()[0]} Django={django.get_version()} intake={len(intake)} RSS growth={growth}")
         # 128-160 copies would exceed 128 MiB. Allow 32 MiB for normal request

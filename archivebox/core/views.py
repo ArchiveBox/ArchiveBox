@@ -503,6 +503,8 @@ class SnapshotView(View):
                     status=404,
                 )
             except Snapshot.MultipleObjectsReturned:
+                # A choice list needs only link fields, never one copy of the
+                # crawl intake and snapshot payload for every matching row.
                 snapshot_hrefs = mark_safe("<br/>").join(
                     format_html(
                         '{} <a href="{}"><b><code>{}</code></b></a> {} <b>{}</b>',
@@ -512,7 +514,10 @@ class SnapshotView(View):
                         snap.url,
                         snap.title_stripped[:64] or "",
                     )
-                    for snap in snapshots.select_related("crawl__created_by").order_by("-bookmarked_at")
+                    for snap in snapshots.select_related("crawl__created_by")
+                    .only("id", "url", "title", "timestamp", "bookmarked_at", "fs_version", "crawl__created_by__username")
+                    .order_by("-bookmarked_at")
+                    .iterator(chunk_size=128)
                 )
                 return HttpResponse(
                     format_html(
@@ -583,7 +588,7 @@ class SnapshotView(View):
                 return id_qs
             return discoverable_snapshots_queryset(request, SnapshotView.find_snapshots_for_url(slug))
 
-        snapshots = _resolve_snapshots_for_slug(path).select_related("crawl__created_by")
+        snapshots = _resolve_snapshots_for_slug(path).select_related("crawl__created_by").defer("crawl__urls")
         try:
             if "://" in path:
                 snapshot = snapshots.order_by("-bookmarked_at").first()
@@ -591,8 +596,10 @@ class SnapshotView(View):
                     # Fetch the exact match once before trying legacy URL
                     # fallbacks; an exists() probe followed by the same lookup
                     # needlessly doubled reads on every normal redirect.
-                    snapshots = discoverable_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related(
-                        "crawl__created_by",
+                    snapshots = (
+                        discoverable_snapshots_queryset(request, self.find_snapshots_for_url(path))
+                        .select_related("crawl__created_by")
+                        .defer("crawl__urls")
                     )
                     snapshot = snapshots.order_by("-bookmarked_at").first()
                 if snapshot is None:
@@ -627,7 +634,10 @@ class SnapshotView(View):
                     snap.url,
                     snap.title_stripped[:64] or "",
                 )
-                for snap in snapshots.select_related("crawl__created_by").order_by("-bookmarked_at")
+                for snap in snapshots.select_related("crawl__created_by")
+                .only("id", "url", "title", "timestamp", "bookmarked_at", "fs_version", "crawl__created_by__username")
+                .order_by("-bookmarked_at")
+                .iterator(chunk_size=128)
             )
             return HttpResponse(
                 format_html(
