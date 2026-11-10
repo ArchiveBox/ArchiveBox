@@ -150,8 +150,8 @@ def main():
                     if replay.url.startswith(replay_prefix) and replay.url.endswith(f"/{snapshot['url']}"):
                         body = replay.locator("body")
                         expect(body).to_be_visible()
-                        # Both acceptance URLs contain substantial article/profile
-                        # text. Reject a blank frame or a short viewer error message.
+                        # Require substantial saved page content from the observed
+                        # workload, not a blank frame or short viewer error message.
                         assert len(" ".join(body.inner_text().split())) > 1000, f"Missing captured page content: {replay.url}"
                         break
                     frames.extend(replay.child_frames)

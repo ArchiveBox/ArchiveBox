@@ -8,7 +8,7 @@ architectures and the existing image/CLI/storage checks run against the exact
 candidate in CI before promotion; they do not wait for Cabbage to deploy it.
 After successful promotion, `staging-acceptance.yml` selects the exact published
 source from that Release run's artifact, waits for Watchtower, and verifies the
-running source, dependency pins, mounts, and health before capturing. Requiring
+running source, dependency pins, mounts, and health before observing the existing capture workload. Requiring
 Cabbage to run the candidate before promotion would deadlock ordinary `:dev`
 updates. Publication alone is not deployment or capture acceptance. Never
 substitute a published PyPI wheel, healthy container, or local build for this
@@ -30,8 +30,12 @@ The `staging` GitHub environment is restricted to dev/main branches. It contains
 Only trusted release events use the private ugNAS runner route. Never expose
 these credentials to PR jobs or copy an operator's existing root key.
 
-Acceptance creates one tagged background crawl per source through the normal
-add/runner path, retaining the host's effective plugin selection. Explicitly
+Acceptance never adds URLs or creates production validation crawls. It observes
+the first two public snapshots completed after the candidate observation starts,
+from the existing daily feeds and user backlogs, excluding old synthetic
+release-acceptance crawls. It does not select captures based on plugin success.
+An idle server remains pending; it does not manufacture validation traffic.
+The host's effective plugin selection is retained. Explicitly
 disabled extractors remain disabled and are listed in `disabled_plugins`. It
 checks installed pins, completed outputs and their files, unexpected/missing
 plugin results, host OOM kills, and real rendered snapshot pages. For this

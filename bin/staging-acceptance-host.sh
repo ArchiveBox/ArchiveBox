@@ -44,8 +44,8 @@ if [[ "$operation" == inspect ]]; then
     exit 0
 fi
 
-# Persist the start of this candidate's real acceptance flow. Repeated status
-# requests observe the same crawl instead of repeatedly adding test data.
+# Observe the existing workload after this candidate is ready. Acceptance must
+# never add production captures; daily feeds and user backlogs supply the work.
 install -d -m 700 /var/lib/archivebox-staging
 exec 9>/var/lib/archivebox-staging/acceptance.lock
 flock -x 9
@@ -64,16 +64,18 @@ script="$(cat <<'PY'
 import json
 import os
 from pathlib import Path
-from archivebox.crawls.models import Crawl
-from archivebox.cli.archivebox_add import add
+from archivebox.core.models import Snapshot
+from archivebox.core.permissions import public_snapshots_queryset
+from django.utils.dateparse import parse_datetime
 from archivebox.config import VERSION
 from archivebox.core.routes_util import build_snapshot_detail_url
 from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
 from importlib.metadata import version
 
 sha = os.environ['ACCEPTANCE_SHA']
-tag = f'release-acceptance-{sha}'
-urls = ['https://docs.sweeting.me/s/cookie-dilemma', 'https://sweeting.me/']
+since = parse_datetime(os.environ['ACCEPTANCE_SINCE'])
+if since is None:
+    raise ValueError('Missing candidate observation start time')
 catalog = get_plugin_catalog()
 enabled_plugins = get_enabled_plugins()
 capture_plugins = [plugin for plugin in catalog.values() if plugin.name in enabled_plugins and any(hook.event == 'Snapshot' for hook in plugin.hooks)]
@@ -91,44 +93,28 @@ def accepted_limitation(plugin, status, output_str):
         plugin == 'tlsnotary' or output_str == claude_auth_failures.get(plugin)
     )
 
-# PLUGINS is the persisted crawl selector; *_ENABLED flags are derived execution
-# config and are stripped when freezing a crawl. Freeze the host's effective
-# selection so acceptance cannot re-enable explicitly disabled extractors.
-# Every candidate must recapture these URLs even when
-# an earlier acceptance crawl already saved them (the CLI's --update behavior).
-capture_config = {'PERMISSIONS': 'public', 'ONLY_NEW': False, 'PLUGINS': ','.join(sorted(enabled_plugins))}
-crawls = list(Crawl.objects.filter(tags_str=tag).order_by('created_at'))
-if not crawls:
-    # Normal add/runner flow with every configured extractor enabled.
-    # Never steal the server runner's lease.
-    crawl, _ = add(urls=urls, depth=0, tag=tag, bg=True, persona='ReleaseAcceptance', config=capture_config)
-    crawls = [crawl]
-if len(crawls) != 1:
-    raise RuntimeError('Expected one acceptance crawl for this source')
-crawl = crawls[0]
-snapshots = list(crawl.snapshot_set.all())
+# Take the first two public captures completed by the existing workload after
+# observation began. Do not pick only successful plugins: failures on these
+# captures must fail acceptance instead of silently selecting easier pages.
+# Ordered completion timestamps keep the sample stable across polling and the
+# final browser check. Exclude the obsolete synthetic acceptance crawls.
+snapshots = list(public_snapshots_queryset(Snapshot.objects.filter(
+    status='sealed', downloaded_at__gte=since,
+)).exclude(crawl__tags_str__startswith='release-acceptance-').order_by('downloaded_at', 'id')[:2])
 report = {
-    'source_sha': sha, 'version': VERSION, 'crawl_id': str(crawl.pk),
+    'source_sha': sha, 'version': VERSION, 'crawl_id': str(snapshots[0].crawl_id) if snapshots else None,
     'pins': {p: version(p) for p in ('abx-dl', 'abx-plugins', 'abxbus', 'abxpkg')},
     'status': 'pending', 'snapshots': [], 'errors': [], 'limitations': [],
     'enabled_capture_plugins': sorted(plugin.name for plugin in capture_plugins),
     'disabled_plugins': sorted(set(catalog) - set(enabled_plugins)),
 }
-complete = crawl.status == 'sealed' and len(snapshots) == len(urls) and all(s.status == 'sealed' for s in snapshots)
-if crawl.status == 'sealed' and not complete:
-    report['errors'].append('Crawl sealed without completing every requested snapshot')
-    report['status'] = 'failed'
-if crawl.status == 'sealed' and sorted(snapshot.url for snapshot in snapshots) != sorted(urls):
-    report['errors'].append('Captured URLs differ from the requested acceptance URLs')
-    report['status'] = 'failed'
+complete = len(snapshots) == 2
 for snapshot in snapshots:
     results = list(snapshot.archiveresult_set.all())
     statuses = {}
     for result in results:
         statuses.setdefault(result.plugin, []).append(str(result.status))
     report['snapshots'].append({'id': str(snapshot.pk), 'url': snapshot.url, 'replay_url': build_snapshot_detail_url(snapshot.archive_path_from_db), 'status': snapshot.status, 'plugins': statuses})
-    if crawl.status != 'sealed':
-        continue
     # Real stored outputs, not status labels alone. Missing core capture formats
     # and failed extractors remain visible failures for investigation.
     for plugin in ('screenshot', 'pdf', 'singlefile', 'archivewebpage', 'readability', 'defuddle', 'hashes'):
@@ -163,4 +149,4 @@ if complete:
 print('STAGING_REPORT=' + json.dumps(report, default=str))
 PY
 )"
-docker exec -e "ACCEPTANCE_SHA=$source_sha" "$container" archivebox shell -c "$script"
+docker exec -e "ACCEPTANCE_SHA=$source_sha" -e "ACCEPTANCE_SINCE=$since" "$container" archivebox shell -c "$script"
