@@ -173,9 +173,19 @@ def test_legacy_archive_incomplete_ids_use_discovery_permissions(client, crawl, 
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("viewer", ["anonymous", "member", "staff"])
+@pytest.mark.parametrize("viewer", ["anonymous", "member", "owner", "staff"])
+@pytest.mark.parametrize("host", ["admin.archivebox.localhost:5797", "web.archivebox.localhost:5797"])
 @pytest.mark.parametrize("public_count", [0, 1, 2])
-def test_legacy_archive_ambiguous_ids_only_list_discoverable_snapshots(client, crawl, django_user_model, viewer, public_count):
+def test_legacy_archive_ambiguous_ids_only_list_discoverable_snapshots(client, crawl, django_user_model, viewer, public_count, host):
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": "http://archivebox.localhost:5797",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
     snapshots = [
         Snapshot.objects.create(
             id=uuid.UUID(f"12345678abcd7abc8abc{index:012x}"),
@@ -189,11 +199,18 @@ def test_legacy_archive_ambiguous_ids_only_list_discoverable_snapshots(client, c
     ]
     if viewer != "anonymous":
         user = django_user_model.objects.create_user(username="legacy-viewer", password="testpassword", is_staff=viewer == "staff")
+        if viewer == "owner":
+            crawl.created_by = user
+            crawl.save(update_fields=["created_by"])
         assert client.login(username=user.username, password="testpassword")
 
+    privileged = viewer == "staff" and host.startswith("admin.")
     for reference in ("12345678", "12345678abcd", "1792583912", "legacy-"):
-        response = client.get(f"/archive/{reference}", HTTP_HOST="admin.archivebox.localhost:5797")
-        if public_count == 1 and viewer != "staff" and reference != "1792583912":
+        response = client.get(f"/archive/{reference}", HTTP_HOST=host)
+        assert "private" in response.headers["Cache-Control"]
+        assert "no-store" in response.headers["Cache-Control"]
+        assert {"cookie", "authorization"} <= {value.strip().lower() for value in response.headers["Vary"].split(",")}
+        if public_count == 1 and not privileged and reference != "1792583912":
             assert response.status_code == 302
             assert snapshots[0].id.hex in response["Location"].replace("-", "")
             continue
@@ -201,7 +218,7 @@ def test_legacy_archive_ambiguous_ids_only_list_discoverable_snapshots(client, c
         assert "Location" not in response
         disclosed = response.content.decode() + str(dict(response.headers))
         for snapshot in snapshots:
-            visible = snapshot.permissions == "public" or viewer == "staff"
+            visible = snapshot.permissions == "public" or privileged
             assert (snapshot.url in disclosed) == visible
             assert (snapshot.id.hex in disclosed.replace("-", "")) == visible
             assert (snapshot.timestamp in disclosed) == visible
