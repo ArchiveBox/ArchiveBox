@@ -5,6 +5,7 @@ import operator
 import os
 import posixpath
 import time
+from contextlib import closing
 from functools import reduce
 from pathlib import Path
 from typing import ClassVar, cast
@@ -720,11 +721,19 @@ class SnapshotPathView(View):
                 else:
                     requested_domain = Snapshot.extract_domain_from_url(f"https://{requested_domain}")
 
-                # Prefer exact domain matches
-                matches = [
-                    s for s in qs.order_by("-bookmarked_at", "-created_at") if Snapshot.extract_domain_from_url(s.url) == requested_domain
-                ]
-                snapshot = matches[0] if matches else qs.order_by("-bookmarked_at", "-created_at", "-timestamp").first()
+                # Sort and scan only identities and URLs: streaming full joined
+                # rows still makes SQLite sort their large payloads. Fetch one
+                # model afterward, with no cursor held while serving files.
+                candidates_qs = qs.order_by("-bookmarked_at", "-created_at").values_list("pk", "url")
+                with closing(candidates_qs.iterator(chunk_size=128)) as candidates:
+                    matched_pk = next(
+                        (pk for pk, candidate_url in candidates if Snapshot.extract_domain_from_url(candidate_url) == requested_domain),
+                        None,
+                    )
+                if matched_pk is not None:
+                    snapshot = qs.filter(pk=matched_pk).first()
+                else:
+                    snapshot = qs.order_by("-bookmarked_at", "-created_at", "-timestamp").first()
 
         if not snapshot:
             return HttpResponse(

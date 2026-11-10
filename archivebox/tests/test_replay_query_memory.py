@@ -114,3 +114,70 @@ def test_replay_candidates_do_not_duplicate_crawl_intake(archivebox_daemon_serve
         health = client.get(base + "/health/", timeout=5)
         assert health.status_code == 200
         assert health.content == b"OK"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("domain", ["memory.example", "absent.example"])
+def test_owner_domain_lookup_keeps_large_history_bounded(archivebox_daemon_server, domain):
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
+    worker = psutil.Process(server.wait_for_workers(("worker_uvicorn",))["worker_uvicorn"]["pid"])
+    with use_archivebox_db(server.data_dir):
+        owner = get_user_model().objects.create_user(username="large-history-owner")
+        crawl = Crawl.objects.create(created_by=owner, urls="https://memory.example/", status="sealed", retry_at=None)
+        selected = Snapshot.objects.create(
+            crawl=crawl,
+            url="https://memory.example/newest",
+            timestamp="1700000000",
+            bookmarked_at=timezone.now(),
+            status="sealed",
+            retry_at=None,
+            config={"PERMISSIONS": "public"},
+        )
+        expected_location = f"/{selected.archive_path_from_db}"
+        crawl_id = crawl.id
+        older = selected.bookmarked_at - timedelta(days=1)
+
+    with requests.Session() as client:
+        client.trust_env = False
+        url = f"http://127.0.0.1:{server.port}/large-history-owner/{domain}"
+        headers = {"Host": "web.archivebox.localhost"}
+        response = client.get(url, headers=headers, allow_redirects=False, timeout=30)
+        assert response.status_code == 302
+        assert response.headers["Location"] == expected_location
+        with use_archivebox_db(server.data_dir):
+            Snapshot.objects.bulk_create(
+                [
+                    Snapshot(
+                        crawl_id=crawl_id,
+                        url=f"https://history.example/item/{index}",
+                        timestamp=str(1700000001 + index),
+                        bookmarked_at=older,
+                        status="sealed",
+                        retry_at=None,
+                        config={"PERMISSIONS": "public"},
+                    )
+                    for index in range(12000)
+                ],
+            )
+        baseline = worker.memory_info().rss
+        samples = [baseline]
+        stopped = threading.Event()
+
+        def sample_rss():
+            while not stopped.wait(0.005):
+                samples.append(worker.memory_info().rss)
+
+        sampler = threading.Thread(target=sample_rss)
+        sampler.start()
+        try:
+            response = client.get(url, headers=headers, allow_redirects=False, timeout=30)
+            samples.append(worker.memory_info().rss)
+        finally:
+            stopped.set()
+            sampler.join(timeout=5)
+        assert not sampler.is_alive()
+        assert response.status_code == 302
+        assert response.headers["Location"] == expected_location
+        growth = max(samples) - baseline
+        print(f"{domain}: 12001 snapshots RSS growth={growth}")
+        assert growth < 32 * 1024 * 1024
