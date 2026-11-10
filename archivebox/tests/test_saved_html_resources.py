@@ -102,7 +102,7 @@ def test_passive_thumbnail_omits_script_fetches_without_changing_raw_or_full_rep
     assert output.read_bytes() == original
 
 
-@pytest.mark.parametrize("extra_bytes", [0, 1])
+@pytest.mark.parametrize("extra_bytes", [-1, 0, 1])
 def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_bytes):
     import sys
 
@@ -135,10 +135,9 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
         assert not head.has_header("ETag")
         assert not head.has_header("Content-Length")
         assert not head.has_header("Accept-Ranges")
-        if not extra_bytes:
-            assert head.streaming
-            assert list(head.streaming_content) == []
-            assert head["Cache-Control"] == response["Cache-Control"]
+        assert head.streaming
+        assert list(head.streaming_content) == []
+        assert head["Cache-Control"] == response["Cache-Control"]
         phase = "full"
         full_request = RequestFactory().get("/page.html")
         full_request.archivebox_snapshot_url = "https://crontab.guru/"
@@ -150,14 +149,16 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
         phase = ""
     assert "full" in observed_opens
     assert "head" not in observed_opens
-    assert ("thumbnail" in observed_opens) == (not extra_bytes)
-    assert response.status_code == (413 if extra_bytes else 200)
+    assert ("thumbnail" in observed_opens) == (extra_bytes <= 0)
+    assert response.status_code == 200
     assert not response.streaming
     assert not response.has_header("ETag")
-    if extra_bytes:
+    if extra_bytes > 0:
         assert response["Cache-Control"] == "no-store"
-        assert b"Open the full capture" in response.content
-        assert len(response.content) < 200
+        assert b'class="thumbnail-fallback"' in response.content
+        assert b"page.html" in response.content
+        assert b"thumbnail limit" not in response.content
+        assert len(response.content) < 5000
     else:
         assert not any(attrs.get("src") for tag, attrs in ResourceTags(response.content.decode()).tags if tag == "script")
     # Raw byte ranges still work, including beyond the thumbnail limit.
@@ -168,6 +169,60 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
     )
     assert raw.status_code == 206
     assert b"".join(raw.streaming_content) == source[:256]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("plugin", [None, "screenshot", "chrome_extension_screenshot", "chrome_extension_viewport"])
+def test_large_thumbnail_reuses_only_its_snapshots_declared_screenshot(snapshot, client, plugin):
+    from archivebox.core.models import ArchiveResult
+    from archivebox.core.routes_util import build_snapshot_url
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": "http://archivebox.localhost:5797",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    output = snapshot.output_dir / "singlefile/output.html"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("wb") as stream:
+        stream.write((FIXTURE / "page.html").read_bytes())
+        stream.truncate(10 * 1024 * 1024 + 1)
+    screenshot_url = None
+    if plugin:
+        filename = "screenshot-1.png" if plugin == "chrome_extension_screenshot" else "screenshot.png"
+        image = snapshot.output_dir / plugin / filename
+        image.parent.mkdir(exist_ok=True)
+        shutil.copyfile(LAZY_FIXTURE / "work-1.png", image)
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            status="succeeded",
+            output_str=filename,
+            output_files={filename: {"size": image.stat().st_size, "mimetype": "image/png"}},
+        )
+        screenshot_url = build_snapshot_url(str(snapshot.id), f"{plugin}/{filename}")
+    url = build_snapshot_url(str(snapshot.id), "singlefile/output.html")
+    host = urlsplit(url).netloc
+    response = client.get(urlsplit(url).path + "?preview=thumbnail", HTTP_HOST=host)
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
+    body = response.content.decode()
+    assert '<div class="thumbnail-fallback">' in body
+    assert '<svg class="thumbnail-icon"' in body
+    assert "thumbnail limit" not in body
+    assert "<script" not in body
+    assert ('class="thumbnail-screenshot"' in body) == bool(plugin)
+    if screenshot_url:
+        assert screenshot_url in body
+        image_response = client.get(urlsplit(screenshot_url).path, HTTP_HOST=host)
+        assert image_response.status_code == 200
+        assert b"".join(image_response.streaming_content) == (LAZY_FIXTURE / "work-1.png").read_bytes()
+        image_response.close()
 
 
 @pytest.mark.parametrize("attribute", ["data-echo", "data-src", "data-lazy-src"])

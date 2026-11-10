@@ -1615,7 +1615,39 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
             elif thumbnail:
-                thumbnail_error = (413, "This capture exceeds the 10 MiB thumbnail limit. Open the full capture to view it.")
+                # Keep the source-size guard without turning a valid capture
+                # into an error card. Resolve sibling screenshots from the DB
+                # manifest only; never read the oversized payload to preview it.
+                body = ""
+                if request.method != "HEAD":
+                    from archivebox.core.routes_util import build_snapshot_url
+
+                    snapshot = request.__dict__.get("archivebox_snapshot")
+                    screenshot_path = snapshot.plugin_output_path("screenshot") if snapshot is not None else None
+                    screenshot_url = (
+                        build_snapshot_url(str(snapshot.id), screenshot_path, request=request, config=config) if screenshot_path else ""
+                    )
+                    body = loader.render_to_string(
+                        "static/thumbnail_fallback.html",
+                        {
+                            "screenshot_url": screenshot_url,
+                            "path": rel_path,
+                            "size": statobj.st_size,
+                        },
+                    )
+                response = (
+                    StreamingHttpResponse(iter(()), content_type="text/html; charset=utf-8")
+                    if request.method == "HEAD"
+                    else HttpResponse(body, content_type="text/html; charset=utf-8")
+                )
+                response.headers["Cache-Control"] = "no-store"
+                return _apply_archive_replay_headers(
+                    response,
+                    fullpath=fullpath,
+                    content_type="text/html",
+                    is_archive_replay=is_archive_replay,
+                    config=config,
+                )
         except (OSError, UnicodeDecodeError, ValueError):
             if thumbnail:
                 thumbnail_error = (500, "The thumbnail could not be rendered. Open the full capture to view it.")

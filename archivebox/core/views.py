@@ -1137,6 +1137,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     )
     request.archivebox_config = request_config
     request.archivebox_snapshot_url = snapshot.url
+    request.archivebox_snapshot = snapshot
     request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
     snapshot._runtime_config = request_config
 

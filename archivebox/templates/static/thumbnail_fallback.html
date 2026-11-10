@@ -1,0 +1,32 @@
+{% load core_tags %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Saved capture preview</title>
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+        .thumbnail-fallback { position: relative; box-sizing: border-box; width: 100%; height: 100%; display: flex; align-items: center; gap: 3vw; padding: 4vw; background: #1a1a2e; color: #e6e6f0; font: clamp(12px, 3.5vw, 48px) system-ui, sans-serif; }
+        .thumbnail-icon { flex: 0 0 13vw; width: 13vw; height: 13vw; color: #7ed4ff; }
+        .thumbnail-details { min-width: 0; }
+        .thumbnail-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 .9em monospace; }
+        .thumbnail-size { margin-top: .5em; color: #9aa3b8; }
+        /* A missing image leaves the icon visible, even in scriptless frames. */
+        .thumbnail-screenshot { position: absolute; inset: 0; background-position: top center; background-repeat: no-repeat; background-size: cover; }
+    </style>
+</head>
+<body>
+    <div class="thumbnail-fallback">
+        <svg class="thumbnail-icon" width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6M8 13h8M8 17h6"/>
+        </svg>
+        <div class="thumbnail-details">
+            <div class="thumbnail-path" title="{{path}}">{{path}}</div>
+            <div class="thumbnail-size">{{size|file_size}} &middot; Saved capture</div>
+        </div>
+        {% if screenshot_url %}<div class="thumbnail-screenshot" role="img" aria-label="Screenshot of saved page" style="background-image: url('{{screenshot_url}}');"></div>{% endif %}
+    </div>
+</body>
+</html>
