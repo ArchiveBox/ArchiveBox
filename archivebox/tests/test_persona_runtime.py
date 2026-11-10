@@ -433,6 +433,8 @@ def test_get_config_resolves_parent_scopes_for_snapshot_runtime(initialized_arch
             'crawl_dir': str(runtime_config['CRAWL_DIR']),
             'expected_crawl_dir': str(crawl.output_dir),
             'active_persona': runtime_config['ACTIVE_PERSONA'],
+            'runtime_personas_dir': runtime_config['PERSONAS_DIR'],
+            'expected_runtime_personas_dir': str(persona.local_runtime_root_for_crawl(crawl).parent),
         }, default=str))
         """,
     )
@@ -447,6 +449,76 @@ def test_get_config_resolves_parent_scopes_for_snapshot_runtime(initialized_arch
     assert payload["crawl"] == [44, "persona-chrome-updated"]
     assert payload["snapshot"] == [55, "persona-chrome-updated"]
     assert payload["override"] == [77, "persona-chrome-updated"]
+    assert payload["runtime_personas_dir"] == payload["expected_runtime_personas_dir"]
     assert payload["snap_dir"] == payload["expected_snap_dir"]
     assert payload["crawl_dir"] == payload["expected_crawl_dir"]
     assert payload["active_persona"] == "StackPersona"
+
+
+@pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
+def test_persona_profile_io_uses_local_storage_and_preserves_archive_link(initialized_archive, isolation):
+    script = textwrap.dedent(
+        """
+        import json
+        import os
+        import sys
+        from pathlib import Path
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.objects.create(name='LocalProfileIO')
+        persona.ensure_dirs()
+        template = Path(persona.CHROME_USER_DATA_DIR)
+        script = template / 'Default' / 'Service Worker' / 'ScriptCache' / 'script'
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_bytes(b'preserve service worker source')
+        (persona.path / 'cookies.txt').write_text('# Netscape HTTP Cookie File\\n')
+        (persona.path / 'auth.json').write_text('{"cookies": [], "origins": []}')
+        crawl = Crawl.objects.create(urls='https://example.com', persona=persona)
+        snapshot = Snapshot.objects.create(url='https://example.com', crawl=crawl)
+        events = []
+        def audit(event, args):
+            if event in ('shutil.copytree', 'shutil.copyfile', 'shutil.rmtree', 'os.scandir', 'open'):
+                events.append((event, [str(arg) for arg in args[:2]]))
+        sys.addaudithook(audit)
+        overrides = persona.prepare_runtime_for_crawl(crawl)
+        root = persona.runtime_root_for_crawl(crawl)
+        if ISOLATION == 'snapshot':
+            overrides = persona.prepare_runtime_for_snapshot(snapshot)
+            root = persona.runtime_root_for_snapshot(snapshot)
+        preparation_events = list(events)
+        local = root.resolve()
+        archive_roots = [str(crawl.output_dir), str(snapshot.output_dir)]
+        remote_io = [(event, args) for event, args in preparation_events
+            if any(arg.startswith(prefix + '/.persona/') for arg in args for prefix in archive_roots)]
+        linked = root.parent.is_symlink() and not local.is_symlink()
+        local_config = Path(overrides['PERSONAS_DIR']) == local.parent
+        contents = (root / 'chrome_profile' / 'Default' / 'Service Worker' / 'ScriptCache' / 'script').read_bytes()
+        auth = Path(overrides['AUTH_STORAGE_FILE']).read_text()
+        cookies = Path(overrides['COOKIES_FILE']).read_text()
+        persona.cleanup_runtime_for_crawl(crawl)
+        print(json.dumps({
+            'remote_io': remote_io, 'linked': linked, 'local_config': local_config,
+            'contents': contents.decode(), 'auth': auth, 'cookies': cookies,
+            'local_removed': not local.exists(), 'link_removed': not root.parent.is_symlink(),
+            'template_preserved': script.read_bytes() == contents,
+        }))
+        """,
+    ).replace("ISOLATION", repr(isolation))
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    assert payload["remote_io"] == []
+    assert payload["linked"] is True
+    assert payload["local_config"] is True
+    assert payload["contents"] == "preserve service worker source"
+    assert json.loads(payload["auth"]) == {"cookies": [], "origins": []}
+    assert payload["cookies"] == "# Netscape HTTP Cookie File\n"
+    assert payload["local_removed"] is True
+    assert payload["link_removed"] is True
+    assert payload["template_preserved"] is True

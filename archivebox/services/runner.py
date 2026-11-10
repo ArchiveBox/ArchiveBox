@@ -1062,18 +1062,13 @@ class CrawlRunner:
             snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
             persona = snapshot.crawl.persona
             base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=persona, overrides=self.config_overrides)
+            crawl_local_root = persona.local_runtime_root_for_crawl(snapshot.crawl) if persona else None
             local_root = None
             if persona and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
-                local_root = (
-                    persona.local_runtime_root_for_crawl(snapshot.crawl).parent.parent
-                    / "snapshots"
-                    / str(snapshot.id)
-                    / ".persona"
-                    / persona.name
-                )
-            return snapshot, persona, base_config, snapshot.tags_str(), local_root
+                local_root = crawl_local_root.parent.parent / "snapshots" / str(snapshot.id) / ".persona" / persona.name
+            return snapshot, persona, base_config, snapshot.tags_str(), local_root, crawl_local_root
 
-        snapshot, persona, base_config, tags, local_root = await sync_to_async(load_context, thread_sensitive=True)()
+        snapshot, persona, base_config, tags, local_root, crawl_local_root = await sync_to_async(load_context, thread_sensitive=True)()
 
         def prepare_payload(*, create_outputs: bool = True):
             # Persona copies and remote archive metadata must not occupy the one
@@ -1092,12 +1087,12 @@ class CrawlRunner:
                         ),
                     )
                 else:
-                    crawl_downloads_dir = persona.runtime_downloads_dir_for_crawl(snapshot.crawl)
+                    crawl_downloads_dir = crawl_local_root / "chrome_downloads"
                     if create_outputs:
                         crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
                     runtime_chrome_overrides.update(
                         {
-                            "PERSONAS_DIR": str(persona.runtime_root_for_crawl(snapshot.crawl).parent),
+                            "PERSONAS_DIR": str(crawl_local_root.parent),
                             "ACTIVE_PERSONA": persona.name,
                         },
                     )

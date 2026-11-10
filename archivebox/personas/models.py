@@ -385,14 +385,15 @@ class Persona(ModelWithConfig):
         self.ensure_dirs()
 
         template_dir = Path(self.CHROME_USER_DATA_DIR)
-        runtime_root = self.runtime_root_for_crawl(crawl)
-        runtime_profile_dir = self.runtime_profile_dir_for_crawl(crawl)
-        runtime_downloads_dir = self.runtime_downloads_dir_for_crawl(crawl)
+        # Traversing the archive-side symlink still invokes FUSE for every file.
+        # Keep that compatibility link, but perform profile I/O directly locally.
+        runtime_root = self.local_runtime_root_for_crawl(crawl)
+        runtime_profile_dir = runtime_root / "chrome_profile"
+        runtime_downloads_dir = runtime_root / "chrome_downloads"
 
         with self.lock_runtime_for_crawl():
-            local_root = self.local_runtime_root_for_crawl(crawl)
-            local_root.parent.mkdir(parents=True, exist_ok=True)
-            self.link_runtime_for_output(crawl.output_dir, local_root)
+            runtime_root.parent.mkdir(parents=True, exist_ok=True)
+            self.link_runtime_for_output(crawl.output_dir, runtime_root)
             if runtime_root.exists():
                 shutil.rmtree(runtime_root, ignore_errors=True)
             if template_dir.exists() and any(template_dir.iterdir()):
@@ -417,11 +418,11 @@ class Persona(ModelWithConfig):
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "", *, local_root: Path | None = None) -> dict[str, str]:
-        crawl_runtime_profile_dir = self.runtime_profile_dir_for_crawl(snapshot.crawl)
+        # Resolve once, rather than traversing the archive mount for every source
+        # file. This also supports an existing runtime from before local storage.
+        crawl_runtime_root = self.runtime_root_for_crawl(snapshot.crawl).resolve()
+        crawl_runtime_profile_dir = crawl_runtime_root / "chrome_profile"
         template_dir = crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else Path(self.CHROME_USER_DATA_DIR)
-        runtime_root = self.runtime_root_for_snapshot(snapshot)
-        runtime_profile_dir = self.runtime_profile_dir_for_snapshot(snapshot)
-        runtime_downloads_dir = self.runtime_downloads_dir_for_snapshot(snapshot)
 
         # The async runner resolves config/ORM paths before entering its filesystem
         # worker; other callers retain the existing local-runtime path resolution.
@@ -431,6 +432,9 @@ class Persona(ModelWithConfig):
             )
         local_root.parent.mkdir(parents=True, exist_ok=True)
         self.link_runtime_for_output(snapshot.output_dir, local_root)
+        runtime_root = local_root
+        runtime_profile_dir = runtime_root / "chrome_profile"
+        runtime_downloads_dir = runtime_root / "chrome_downloads"
         if runtime_root.exists():
             shutil.rmtree(runtime_root, ignore_errors=True)
         if template_dir.exists() and any(template_dir.iterdir()):
@@ -439,7 +443,7 @@ class Persona(ModelWithConfig):
             runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
         for filename in ("cookies.txt", "auth.json"):
-            source = self.runtime_root_for_crawl(snapshot.crawl) / filename
+            source = crawl_runtime_root / filename
             if not source.is_file():
                 source = self.path / filename
             if source.is_file():

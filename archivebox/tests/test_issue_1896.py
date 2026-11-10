@@ -113,8 +113,15 @@ def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpser
             # CrawlSetup runs before the snapshot persona is prepared. Only
             # snapshot hooks receive the isolated copy; setup uses the template.
             if isolation == "snapshot" and hook_name.startswith("on_Snapshot__"):
-                expected_personas = Path(hook_env["SNAP_DIR"]) / ".persona"
-                assert hook_env["PERSONAS_DIR"] == str(expected_personas)
+                expected_personas = (
+                    Path(hook_env["TMP_DIR"])
+                    / "personas"
+                    / Path(hook_env["CRAWL_DIR"]).name
+                    / "snapshots"
+                    / Path(hook_env["SNAP_DIR"]).name
+                    / ".persona"
+                )
+                assert hook_env["PERSONAS_DIR"] == str(expected_personas.resolve())
                 expected_cookies = expected_personas / "Default" / "cookies.txt"
             else:
                 expected_cookies = cookies_file
