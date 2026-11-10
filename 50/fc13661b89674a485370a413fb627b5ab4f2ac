@@ -1,0 +1,25 @@
+bin/staging-acceptance-host.sh
+  s_10bc94d001be49::t_e1f9f2851cde60 47-48,67-69,76-78,96-103,105,111,152
+bin/check-staging-deployment.py
+  s_10bc94d001be49::t_e1f9f2851cde60 153-154
+.github/STAGING.md
+  s_10bc94d001be49::t_e1f9f2851cde60 11,33-38
+archivebox/tests/test_release_workflow.py
+  s_10bc94d001be49::t_e1f9f2851cde60 534-535,692,698-699,710-713,716-731
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "50fc13661b89674a485370a413fb627b5ab4f2ac",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
