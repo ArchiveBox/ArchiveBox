@@ -40,7 +40,7 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
         (datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc), int(cost), int(available))
         for stamp, cost, available in re.findall(
             r"\[([^]\n]+)\] INFO archivebox.services.resource_admission Snapshot admission decision: "
-            r"configured=3 adaptive=1 active=0 slots=1 observed_cost=(\d+) available=(\d+) pressure=none$",
+            r"configured=3 adaptive=1 active=0 slots=1 observed_cost=(\d+) available=(\d+)(?: active_memory=None)? pressure=none$",
             stderr,
             re.M,
         )
@@ -61,12 +61,15 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
 
 
 @pytest.mark.parametrize("active_pressure", [False, True])
+@pytest.mark.parametrize("memory_observation", [False, True])
 @pytest.mark.parametrize("pressure_reason", ["io stalls", "cpu quota throttling"])
 @pytest.mark.parametrize("invalid", [None, "absent", "stale", "other-crawl", "parallel", "missing-decision", "unmeasured", "not-denied"])
-def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure, pressure_reason):
+def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure, pressure_reason, memory_observation):
     # Exact stderr excerpt and first-hook timestamps from the real hosted run.
     stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-recovery.txt").read_text()
     stderr = stderr.replace("io stalls", pressure_reason)
+    if memory_observation:
+        stderr = stderr.replace(" pressure=none", " active_memory=None pressure=none")
     if active_pressure:
         # Same strict evidence contract for the active-pressure branch, whose
         # native cgroup regression proves it can deny without the idle warning.
