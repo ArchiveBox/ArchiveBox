@@ -1,0 +1,166 @@
+{
+  "time": "2026-11-11T20:32:34.691Z",
+  "views": [
+    {
+      "name": "Filtered snapshot exports",
+      "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/?folder=1",
+      "path": "/admin/core/snapshot/?folder=1",
+      "source": "archivebox/core/admin_snapshots.py"
+    },
+    {
+      "name": "RSS importer settings",
+      "url": "http://admin.archivebox.localhost:5888/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "path": "/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "source": "archivebox/importers/views.py"
+    }
+  ],
+  "contexts": [
+    {
+      "name": "snapshot-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?folder=1",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 3
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?folder=1",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 3
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?folder=1",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 3
+        }
+      }
+    },
+    {
+      "name": "snapshot-grid-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?folder=1",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 3
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?folder=1",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 3
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?folder=1",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 3
+        }
+      }
+    },
+    {
+      "name": "crawl-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?crawl_id=06af4c93319478d980008520d82ac475",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 3
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?crawl_id=06af4c93319478d980008520d82ac475",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 3
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?crawl_id=06af4c93319478d980008520d82ac475",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 3
+        }
+      }
+    },
+    {
+      "name": "tag-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?tag=1",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 3
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?tag=1",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 3
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?tag=1",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 3
+        }
+      }
+    },
+    {
+      "name": "user-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?crawl__created_by__id__exact=1",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 3
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?crawl__created_by__id__exact=1",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 3
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?crawl__created_by__id__exact=1",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 3
+        }
+      }
+    },
+    {
+      "name": "public-exports",
+      "exports": {
+        "rss": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?q=news.ycombinator.com&search_mode=meta",
+          "status": 200,
+          "contentType": "application/rss+xml; charset=utf-8",
+          "count": 1
+        },
+        "csv": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?q=news.ycombinator.com&search_mode=meta",
+          "status": 200,
+          "contentType": "text/csv; charset=utf-8",
+          "count": 1
+        },
+        "jsonl": {
+          "url": "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?q=news.ycombinator.com&search_mode=meta",
+          "status": 200,
+          "contentType": "application/x-ndjson",
+          "count": 1
+        }
+      }
+    }
+  ],
+  "anonymous": true,
+  "invalidExplicitKeyWithCookieStatus": 401,
+  "loadedScreenshotThumbnails": 3,
+  "userListLinks": [
+    "http://admin.archivebox.localhost:5888/admin/core/snapshot/feed/?crawl__created_by__id__exact=1",
+    "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.csv?crawl__created_by__id__exact=1",
+    "http://admin.archivebox.localhost:5888/admin/core/snapshot/export.jsonl?crawl__created_by__id__exact=1"
+  ],
+  "csvParsedWithStandardLibrary": true
+}

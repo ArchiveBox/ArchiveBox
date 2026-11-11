@@ -1,0 +1,110 @@
+{
+  "captures": [
+    {
+      "id": "06af4c934551763e80002686ba170b31",
+      "url": "https://docodethatmatters.com/home-automation-overnight-success/",
+      "title": "Smart home devices should work without the internet \u2014 Do Code That Matters",
+      "folder_id": 2,
+      "plugins": [
+        {
+          "plugin": "screenshot",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "title",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "wget",
+          "status": "succeeded"
+        }
+      ],
+      "screenshot": {
+        "bytes": 373983,
+        "width": 1440,
+        "height": 2000,
+        "sha256": "8451381aa0aab4903bdba1cc387f668e41fb7f06be61dab5c5c1181a730c23b2"
+      },
+      "html_bytes": 61053,
+      "sha256": "4650ba24a6d3441e6df915487f3cdff60defb350f7047b4faef5f4c4bdc4cbca"
+    },
+    {
+      "id": "06af4c93455179728000f26174da5505",
+      "url": "https://neil.fraser.name/news/2026/11/10/",
+      "title": "Neil Fraser: News: .name Grandfathered",
+      "folder_id": 2,
+      "plugins": [
+        {
+          "plugin": "screenshot",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "title",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "wget",
+          "status": "succeeded"
+        }
+      ],
+      "screenshot": {
+        "bytes": 134838,
+        "width": 1440,
+        "height": 2000,
+        "sha256": "51bc00b8dd2fd5b087f016350c1c551353c2ab2926f714320da0223a90e6abe2"
+      },
+      "html_bytes": 10713,
+      "sha256": "c0e40d3d15d1efc9086a74935cb3c04761abc920ecacc08fb5c86f91c6b21068"
+    },
+    {
+      "id": "06af4c93455170748000823c9092107f",
+      "url": "https://news.ycombinator.com/",
+      "title": "Hacker News",
+      "folder_id": 2,
+      "plugins": [
+        {
+          "plugin": "screenshot",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "title",
+          "status": "succeeded"
+        },
+        {
+          "plugin": "wget",
+          "status": "succeeded"
+        }
+      ],
+      "screenshot": {
+        "bytes": 246689,
+        "width": 1440,
+        "height": 2000,
+        "sha256": "44cb5a5cab6cae21902bd7416e7906be79e0c43a28dcc54c1fda01e03a9c5614"
+      },
+      "html_bytes": 39323,
+      "sha256": "a4755c3954544e756cd3cc4a4f49a90da4a1dded376896462f391be18e6987ef"
+    }
+  ],
+  "folders": [
+    {
+      "id": 1,
+      "name": "Hacker News",
+      "parent_id": null
+    },
+    {
+      "id": 2,
+      "name": "Recent top stories",
+      "parent_id": 1
+    }
+  ],
+  "subscriptions": [
+    {
+      "name": "Hacker News RSS",
+      "plugin": "importer_rss",
+      "feed": "feed",
+      "schedule": "0 0 * * *"
+    }
+  ],
+  "feed_tables": [],
+  "feed_migrations": 0
+}
