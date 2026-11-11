@@ -325,7 +325,10 @@ jobs:
         import hashlib
 
         helper = Path(sys.argv[1])
-        assert hashlib.sha256(helper.read_bytes()).hexdigest() == "81e9dd14b08ee108ae024043996ff6f71bb0779e0adf0a53e91dc2f4ec21c15a", "Published SingleFile helper differs from reviewed diagnostic base"
+        assert hashlib.sha256(helper.read_bytes()).hexdigest() in {
+            "81e9dd14b08ee108ae024043996ff6f71bb0779e0adf0a53e91dc2f4ec21c15a",  # abx-plugins 1.13.660
+            "ceb795c7eaa8319033c771aaaaa33e8fccd5f4daa8a894773dfaf019cd2880ad",  # options-page control helper
+        }, "Published SingleFile helper differs from reviewed diagnostic base"
         source = helper.read_text()
         assert "ABX_PUBLIC_PHASE" not in source, "SingleFile diagnostic anchor changed"
 
