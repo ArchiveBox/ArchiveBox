@@ -23,6 +23,22 @@
       "sha256": "a4cbf1d3dc192d73c7c6ef25ecf6c9b7f168250d0e195bfc0caa05d7d423213e"
     },
     {
+      "path": "docs/screenshots/library-features/broken-links-mobile-viewport.png",
+      "sha256": "90a887eb65a7474955ee3877a1c74b0e05e44de3bf51be72771830d455b18bf6"
+    },
+    {
+      "path": "docs/screenshots/library-features/broken-links-mobile.png",
+      "sha256": "62c0b6e0c48ba6d2d5889945b70696c80bd9510980dcc087f3ff3272eda9a263"
+    },
+    {
+      "path": "docs/screenshots/library-features/broken-links-viewport.png",
+      "sha256": "d9aa2e5a56a7d559aa9d84090b7bd03e4f23a4187e404b3e4368301b93c525f6"
+    },
+    {
+      "path": "docs/screenshots/library-features/broken-links.png",
+      "sha256": "4a9123ce8b6fe87f64a0a2dea457fafb6fd63c17174fd300d669d43ece0c62da"
+    },
+    {
       "path": "docs/screenshots/library-features/capture-rule-editor-mobile.png",
       "sha256": "fb667f6aa836a7af150ec475cc7db049afe50a683e8107d949fe4f4177f74b71"
     },
@@ -147,20 +163,44 @@
       "sha256": "79841df3facb35a8b39b18c0584e36b295309c76dd5fd3646f9cea037c6cd4a5"
     },
     {
+      "path": "docs/screenshots/library-features/storage-audit-files-mobile-viewport.png",
+      "sha256": "1ed341c1bba9f243814039ca2105685cdce60b7d9ad7b3c76395a48aa63f1091"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-files-viewport.png",
+      "sha256": "1c3652dbd0e017a462462903edbb4ed1e0fcca229fa9532977e26ae1acfbf05d"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-mobile-viewport.png",
+      "sha256": "0782567186d6b42c1ed3e26b42727164af37936e257c930a980f1d5fb2bb15d3"
+    },
+    {
       "path": "docs/screenshots/library-features/storage-audit-mobile.png",
-      "sha256": "40423996fdebaf5b809d9ac67a7e87e52526337d15955d900f2392d9686ab5b2"
+      "sha256": "767768aca2fb46c65a1e6c2b8094ac2f8a97f295b882f92d5171d15b98788a16"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-preview-mobile-viewport.png",
+      "sha256": "c937d693b0aefc7f7773d44d4545ab9acb95be8d4af10905d9fe86928bd45d90"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit-preview-mobile.png",
-      "sha256": "8bbd50aa9758ddb0638f42836a9d7cf806c254dbee54adaf999b43c608c5b388"
+      "sha256": "ca089138365423b3a7df4f534012c2f86b6f5e485d5eb82236d9d91e00408974"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-preview-viewport.png",
+      "sha256": "a801052a34f675ca5a9174c0d786cad1bb995f4cf6def29b103b07ab4dc72205"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit-preview.png",
-      "sha256": "8b9642399e789adc71c0915edcaa1589cd094ff1bd375f493e7d1bd7fc772c06"
+      "sha256": "15f79ee4d38e4516095ef20eda08f65675d76c5537537d5174066e6e235d7406"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-viewport.png",
+      "sha256": "4f66ca574ffa1b68f757077c16230c1c5f0aec418e2d402c9248a44976dce8f0"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit.png",
-      "sha256": "14bcd40960a9563c7abc0a2dbc001a7da95695de6a288eb80b4d84c310369654"
+      "sha256": "caba265cd2db38767789a277dd3dd8f71ab96595c71e3d07a4f6864a435d8b27"
     }
   ]
 }
