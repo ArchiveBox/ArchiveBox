@@ -620,6 +620,17 @@ PY
             [[ -z "$library_view" ]] || VIEWS+=("$library_view")
         done <"$CAPTURE_ROOT/library-views.txt"
 
+        (
+            cd "$DATA_DIR"
+            UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
+                UI_LIBRARY_RULE_VIEWS_FILE="$CAPTURE_ROOT/rule-views.txt" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from pathlib import Path; from archivebox.automation.screenshots import prepare, gallery_entries; base=os.environ["UI_LIBRARY_ADMIN_URL"]; rule_id=prepare(base, os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"]); Path(os.environ["UI_LIBRARY_RULE_VIEWS_FILE"]).write_text("\n".join(gallery_entries(base, rule_id))+"\n")'
+        )
+        while IFS= read -r rule_view; do
+            [[ -z "$rule_view" ]] || VIEWS+=("$rule_view")
+        done <"$CAPTURE_ROOT/rule-views.txt"
+
         EXAMPLE_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"
             uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \

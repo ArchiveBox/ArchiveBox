@@ -1,0 +1,10 @@
+{% extends "automation/base.html" %}
+{% block automation_content %}
+<span class="eyebrow">A LITTLE ORDER, AUTOMATICALLY</span><h1>Rules</h1><p class="lead">Organize completed captures automatically. Rules respond to capture, AI, tag and folder events in order, and keep a history of every change.</p>
+<div class="toolbar"><a class="button" href="{% url 'automation:new' %}">+ New rule</a><a href="{% url 'automation:history' %}">View history</a></div>
+{% for rule in rules %}<section class="card"><div class="rule-heading"><h2>{{ rule.position }}. {{ rule.name }} <span class="badge">{% if rule.enabled %}Enabled{% else %}Paused{% endif %}</span></h2><div class="toolbar"><a href="{% url 'automation:edit' rule.pk %}">Edit</a><a href="{% url 'automation:preview' rule.pk %}">Preview &amp; apply</a><form method="post" action="{% url 'automation:toggle' rule.pk %}">{% csrf_token %}<button>{% if rule.enabled %}Pause{% else %}Enable{% endif %}</button></form></div></div>
+<p class="muted">When: {{ rule.get_trigger_display }}{% if rule.groups %} · {{ rule.groups|length }} nested group{{ rule.groups|length|pluralize }}{% endif %}</p><p>{{ rule.condition_summary }}</p>
+<p>{% if rule.add_tags %}Add tags: <strong>{{ rule.add_tags }}</strong>. {% endif %}{% if rule.remove_tags %}Remove tags: <strong>{{ rule.remove_tags }}</strong>. {% endif %}{% if rule.folder_id %}Move to folder: <strong>{{ rule.folder }}</strong>. {% endif %}{% if rule.permissions %}Visibility: <strong>{{ rule.get_permissions_display }}</strong>. {% endif %}{% if rule.stop_processing %}Stop later rules.{% endif %}</p></section>
+{% empty %}<section class="card empty"><h2>Make your archive organize itself</h2><p>For example: tag everything from news.ycombinator.com as “Hacker News”, or make captures matching a private project URL private.</p><a href="{% url 'automation:new' %}">Create your first rule</a></section>{% endfor %}
+<h2>Recent activity</h2>{% include "automation/runs.html" %}
+{% endblock %}

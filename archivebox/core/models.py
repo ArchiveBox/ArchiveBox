@@ -617,25 +617,46 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     archiveresult_set: models.Manager["ArchiveResult"]
 
     def add_tag_ids(self, tag_ids: Iterable[int | str]) -> None:
+        from archivebox.core.signals import snapshot_tags_changed
+
         tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
+        added = []
         for tag_id in tag_ids:
             try:
                 SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
+                added.append(tag_id)
             except IntegrityError:
                 # Only the unique (snapshot, tag) conflict is idempotent. Do
                 # not hide foreign-key or other integrity failures.
                 if SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id=tag_id).exists():
                     continue
                 raise
+        if added and snapshot_tags_changed.has_listeners(type(self)):
+            changes = [
+                {
+                    "snapshot_id": str(self.pk),
+                    "kind": "tag_added",
+                    "tags": list(Tag.objects.filter(pk__in=added).values_list("name", flat=True)),
+                },
+            ]
+            transaction.on_commit(lambda: snapshot_tags_changed.send(sender=type(self), changes=changes))
 
     def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
+        from archivebox.core.signals import snapshot_tags_changed
+
         tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
         if not tag_ids:
             return 0
         # QuerySet.delete() wraps even a fast through-table DELETE in atomic().
         # SnapshotTag has no delete hooks or child rows, so issue the same
         # idempotent DELETE as one autocommit statement.
-        return SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)._raw_delete(SnapshotTag.objects.db)
+        links = SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)
+        names = list(links.values_list("tag__name", flat=True)) if snapshot_tags_changed.has_listeners(type(self)) else []
+        deleted = links._raw_delete(SnapshotTag.objects.db)
+        if deleted and names:
+            changes = [{"snapshot_id": str(self.pk), "kind": "tag_removed", "tags": names}]
+            transaction.on_commit(lambda: snapshot_tags_changed.send(sender=type(self), changes=changes))
+        return deleted
 
     class Meta(
         ModelWithDeleteAfter.Meta,
