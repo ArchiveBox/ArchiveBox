@@ -1,9 +1,11 @@
 from django.urls import path
 
-from . import views
+from . import views, ai_views
 
 app_name = "automation"
 urlpatterns = [
+    path("ai/", ai_views.index, name="ai"),
+    path("ai/queue/", ai_views.queue, name="ai-queue"),
     path("", views.index, name="index"),
     path("new/", views.edit, name="new"),
     path("history/", views.history, name="history"),

@@ -127,6 +127,7 @@ def run_pending_rules(*, limit=25):
         for snapshot in (
             Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED, created_at__gte=earliest)
             .exclude(pk__in=RuleEvent.objects.filter(kind="capture").values("snapshot_id"))
+            .exclude(ai_enrichment__status__in=["queued", "submitting", "running"])
             .order_by("created_at")[:limit]
         ):
             record_event(snapshot, "capture")
@@ -176,6 +177,9 @@ def _background_run():
     try:
         while not _stop.is_set():
             try:
+                from .ai import run_pending_enrichment
+
+                run_pending_enrichment()
                 run_pending_rules()
             except Exception:
                 logger.exception("Automatic snapshot rules failed")
@@ -193,7 +197,15 @@ def shutdown():
 def tick(*, daemon):
     global _thread
     if not daemon:
-        return bool(run_pending_rules())
+        from .ai import run_pending_enrichment
+
+        active = run_pending_enrichment()
+        processed = run_pending_rules()
+        if active:
+            import time
+
+            time.sleep(1)
+        return bool(processed) or active
     if _thread is None or not _thread.is_alive():
         import atexit
 

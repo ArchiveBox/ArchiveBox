@@ -1316,6 +1316,7 @@
                 <button type="button" class="header-toggle" aria-label="Toggle saved outputs" aria-expanded="true" aria-controls="snapshot-output-browser">▾</button>
             </div>
             <div class="header-bottom container-fluid" id="snapshot-output-browser" hidden>
+                {% include "automation/snapshot_summary.html" with snapshot=snapshot %}
                 <div class="thumb-grid">
                     
                     

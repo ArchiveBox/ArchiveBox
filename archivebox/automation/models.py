@@ -126,7 +126,7 @@ class RuleEvent(models.Model):
 
     class Meta:
         constraints: ClassVar = [
-            models.UniqueConstraint(fields=["snapshot"], condition=models.Q(kind="capture"), name="automation_capture_event_once")
+            models.UniqueConstraint(fields=["snapshot"], condition=models.Q(kind="capture"), name="automation_capture_event_once"),
         ]
 
 
@@ -152,3 +152,5 @@ class RuleRun(models.Model):
         ]
 
 
+# Models live separately so enrichment remains independently reviewable.
+from .ai_models import AISettings, Enrichment  # noqa: E402, F401

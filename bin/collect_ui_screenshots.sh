@@ -431,6 +431,12 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     if [[ "$capture_mode" == plugin-config:* ]]; then
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="$config_selector .plugin-config-marker"
+    elif [[ "$capture_mode" == "snapshot-summary" ]]; then
+        config_selector=".snapshot-ai-summary"
+        config_click_selector="$config_selector > summary"
+    elif [[ "$capture_mode" == "automation-preferences" ]]; then
+        config_selector=".setup-card:first-child"
+        config_click_selector="$config_selector > summary"
     elif [[ "$capture_mode" == "feed-options" ]]; then
         config_selector=".feed-subscribe details"
         config_click_selector="$config_selector > summary"
@@ -630,6 +636,25 @@ PY
         while IFS= read -r rule_view; do
             [[ -z "$rule_view" ]] || VIEWS+=("$rule_view")
         done <"$CAPTURE_ROOT/rule-views.txt"
+
+        echo "[*] Summarizing real Hacker News captures with OpenAI through OpenCode"
+        UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}"
+        if [[ "$UI_SCREENSHOT_AI_MODEL" != openai/?* ]]; then
+            echo "[!] UI_SCREENSHOT_AI_MODEL must select an OpenAI model (openai/model)" >&2
+            exit 1
+        fi
+        (
+            cd "$DATA_DIR"
+            uv run --no-cache --project "$REPO_DIR" archivebox config --set OPENCODE_ENABLED=True
+            UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
+                UI_LIBRARY_DATA_DIR="$DATA_DIR" UI_LIBRARY_PROJECT_DIR="$REPO_DIR" \
+                UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/ai-views.txt" UI_SCREENSHOT_AI_MODEL="$UI_SCREENSHOT_AI_MODEL" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import json, os; from pathlib import Path; from archivebox.automation.ai_screenshots import prepare, gallery_entries; base=os.environ["UI_LIBRARY_ADMIN_URL"]; output=Path(os.environ["UI_LIBRARY_VIEWS_FILE"]); snapshot_url=prepare(base, os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"], model=os.environ["UI_SCREENSHOT_AI_MODEL"], data_dir=os.environ["UI_LIBRARY_DATA_DIR"], project_dir=os.environ["UI_LIBRARY_PROJECT_DIR"], source_urls=json.loads((output.parent / "hacker-news-urls.json").read_text())); output.write_text("\n".join(gallery_entries(base, snapshot_url))+"\n")'
+        )
+        while IFS= read -r ai_view; do
+            [[ -z "$ai_view" ]] || VIEWS+=("$ai_view")
+        done <"$CAPTURE_ROOT/ai-views.txt"
 
         EXAMPLE_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"
