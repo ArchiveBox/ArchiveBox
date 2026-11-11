@@ -23,6 +23,42 @@
       "sha256": "a4cbf1d3dc192d73c7c6ef25ecf6c9b7f168250d0e195bfc0caa05d7d423213e"
     },
     {
+      "path": "docs/screenshots/library-features/capture-rule-editor-mobile.png",
+      "sha256": "fb667f6aa836a7af150ec475cc7db049afe50a683e8107d949fe4f4177f74b71"
+    },
+    {
+      "path": "docs/screenshots/library-features/capture-rule-editor.png",
+      "sha256": "75b2f456594b71359238fe833660aebdb801aecfe7d350bc85dee44d6e1f9305"
+    },
+    {
+      "path": "docs/screenshots/library-features/capture-rule-history.png",
+      "sha256": "bb47de30b430372567c9a871cda49f547d0a3f9418929d192ea27485f10f3c3f"
+    },
+    {
+      "path": "docs/screenshots/library-features/capture-rule-preview-mobile.png",
+      "sha256": "937573400d1454433d99d8dc96a4dc1a655dc2d79ccce2f96aa8fb7c82d4ef03"
+    },
+    {
+      "path": "docs/screenshots/library-features/capture-rule-preview.png",
+      "sha256": "962e635cff0a2549900cc1ab13cb0d16389648bead0105011d0f84f4edf4fb92"
+    },
+    {
+      "path": "docs/screenshots/library-features/clone-desktop.png",
+      "sha256": "cd8cc895e7d225e759a659f718713f36c873020abe01ab2a127423ae5523d7ff"
+    },
+    {
+      "path": "docs/screenshots/library-features/clone-mobile.png",
+      "sha256": "4463553d2d5451ae3cea04c7630fac04dc1c34b1a54c0597489ab4c17aefb9f4"
+    },
+    {
+      "path": "docs/screenshots/library-features/clone-progress-desktop.png",
+      "sha256": "d091a26d07be112813b185ad74b323017de3e1957b3f570f35f94b3811c4c476"
+    },
+    {
+      "path": "docs/screenshots/library-features/clone-progress-mobile.png",
+      "sha256": "00e3e4d76c7a819268e8c9dbbb23bdd6e96b2088d513a054cf6e0b3b22a301e6"
+    },
+    {
       "path": "docs/screenshots/library-features/feeds-desktop.png",
       "sha256": "14f3ada4e957d36a0db22345b1c123a06672a87276eb139aa5dcc39daa976d1c"
     },
@@ -79,12 +115,52 @@
       "sha256": "fff0a1ace0c5fff65febed791a60dd9b9de6e0dcc51673fe240cfecf015fa520"
     },
     {
+      "path": "docs/screenshots/library-features/native-hn-summary-desktop.png",
+      "sha256": "d167f257e1cb3dab11f3ed5b50d2308cafb2a9abf1ce035ffd6ff2b1b9c7b5ca"
+    },
+    {
+      "path": "docs/screenshots/library-features/native-hn-summary-mobile.png",
+      "sha256": "3ea107b7bedeed09bc5b668fc1e9f7bfb4f20179e24cfcd0e94fdf935a93032e"
+    },
+    {
       "path": "docs/screenshots/library-features/native-summary-desktop.png",
       "sha256": "d6b0f45f55cfc742eab655024201aee7a3c56a4bf3233447437fdec34fb33712"
     },
     {
       "path": "docs/screenshots/library-features/native-summary-mobile.png",
       "sha256": "9817ff8247231de4d7a0d113d40aae0576c57747aa34e193df6b324cf4729736"
+    },
+    {
+      "path": "docs/screenshots/library-features/saved-domain-desktop.png",
+      "sha256": "f0f3ba1062ef327962f40d1d383236bdcd5243590fc681ceb1e25ef749159506"
+    },
+    {
+      "path": "docs/screenshots/library-features/saved-domain-mobile.png",
+      "sha256": "d97f2ee7a1255ee1461c22b3138b6347db1983d229c2a31dc69c8eddfe1ae811"
+    },
+    {
+      "path": "docs/screenshots/library-features/saved-domain-newest-desktop.png",
+      "sha256": "505cc8db87d5990c0d869a65adbe0a1f08b9f33f5e7edc0611a551ea8aaa534d"
+    },
+    {
+      "path": "docs/screenshots/library-features/saved-domain-newest-mobile.png",
+      "sha256": "79841df3facb35a8b39b18c0584e36b295309c76dd5fd3646f9cea037c6cd4a5"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-mobile.png",
+      "sha256": "40423996fdebaf5b809d9ac67a7e87e52526337d15955d900f2392d9686ab5b2"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-preview-mobile.png",
+      "sha256": "8bbd50aa9758ddb0638f42836a9d7cf806c254dbee54adaf999b43c608c5b388"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit-preview.png",
+      "sha256": "8b9642399e789adc71c0915edcaa1589cd094ff1bd375f493e7d1bd7fc772c06"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-audit.png",
+      "sha256": "14bcd40960a9563c7abc0a2dbc001a7da95695de6a288eb80b4d84c310369654"
     }
   ]
 }
