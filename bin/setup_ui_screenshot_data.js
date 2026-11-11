@@ -148,6 +148,13 @@ async function main() {
     runWorker(['manage', 'linkhealth', '--once']);
     featureViews.push(health);
     featureViews.push({name: 'Review duplicate captures', url: `${adminBaseUrl}/admin/link-health/?review=duplicates#duplicate-review`, path: '/admin/link-health/?review=duplicates', source: 'archivebox/linkhealth/templates/linkhealth/index.html'});
+    const storageUrl = await require('../archivebox/storage/gallery.js').setupStorage(page, {
+      adminBaseUrl,
+      destinationPath: path.join(path.dirname(viewsFile), 'rclone-gallery-copies'),
+      runWorker: () => runWorker(['manage', 'storage', '--once']),
+    });
+    featureViews.push({name: 'Storage destinations', url: `${adminBaseUrl}/admin/storage/`, path: '/admin/storage/', source: 'archivebox/storage/views.py'});
+    featureViews.push({name: 'Verified archive copies', url: storageUrl, path: new URL(storageUrl).pathname, source: 'archivebox/storage/views.py'});
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

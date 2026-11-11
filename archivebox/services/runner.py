@@ -2361,6 +2361,10 @@ def run_pending_crawls(
 
             if tick_automation(daemon=daemon):
                 continue
+            from archivebox.storage.service import tick as tick_storage
+
+            if tick_storage(daemon=daemon):
+                continue
             from archivebox.linkhealth.service import tick as tick_linkhealth
 
             if tick_linkhealth(daemon=daemon):

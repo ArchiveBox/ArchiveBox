@@ -38,6 +38,7 @@ urlpatterns = [
     path("admin/automation/", include("archivebox.automation.urls")),
     path("admin/site-clones/", include("archivebox.siteclones.urls")),
     path("admin/feeds/", include("archivebox.feeds.urls")),
+    path("admin/storage/", include("archivebox.storage.urls")),
     path("admin/link-health/", include("archivebox.linkhealth.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),

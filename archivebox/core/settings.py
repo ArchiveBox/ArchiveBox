@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "archivebox.automation",
     "archivebox.siteclones",
     "archivebox.feeds",
+    "archivebox.storage",
     "archivebox.linkhealth",
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.

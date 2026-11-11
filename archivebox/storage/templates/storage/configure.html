@@ -1,0 +1,18 @@
+{% extends "storage/base.html" %}
+{% block storage_content %}
+<div class="toolbar"><div><p class="eyebrow">A second home for your archive</p><h1>{{ title }}</h1><p class="muted">Choose where your captured pages should be copied.</p></div></div>
+<div class="setup-grid"><form method="post" autocomplete="off" class="card">{% csrf_token %}{{ form.non_field_errors }}
+<section class="form-section"><div class="section-heading"><span class="section-number">01</span><h2>Your destination</h2></div>
+{% include "storage/field.html" with field=form.provider %}
+{% include "storage/field.html" with field=form.name %}
+{% include "storage/field.html" with field=form.path %}
+</section>
+<section class="form-section" id="connection-fields"><div class="section-heading"><span class="section-number">02</span><h2>Connection details</h2></div>
+{% for field in form %}{% if field.name != 'name' and field.name != 'provider' and field.name != 'path' %}{% include "storage/field.html" with field=field %}{% endif %}{% endfor %}
+<div class="guide" id="drive-guide"><h2>Before you sign in</h2><p class="helptext">Create a <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google OAuth client</a> of type “Web application”, enable the Google Drive API, and register this redirect URI:</p><p><code>{{ callback_url }}</code></p><p class="helptext">Save the client ID and secret above, then sign in with Google. Remote servers require an HTTPS hostname.</p></div>
+</section>
+<div class="form-actions"><button class="primary" type="submit">Save destination</button><a class="button" href="{% url 'storage:index' %}">Cancel</a></div>
+</form><aside class="setup-aside"><span class="icon">{% include "storage/icon.html" with kind='check' %}</span><h2>Your archive stays yours.</h2><p class="muted">ArchiveBox keeps capturing and replaying from your local archive. This destination holds an additional copy of your saved pages.</p><p class="muted">After saving, check the connection before starting your first copy. Existing destination files are never deleted.</p><div class="guide"><h2>Credentials stay private</h2><p class="helptext">Keys are stored privately on your server. Saved secrets are never displayed here or included in copied captures.</p></div></aside></div>
+<script>
+(()=>{const provider=document.getElementById('id_provider');const auth=document.getElementById('id_drive_auth');const groups={s3:['s3_provider','region','endpoint','access_key_id','secret_access_key'],drive:['drive_auth','root_folder_id']};function update(){const kind=provider.value;const visible=new Set(['name','provider','path',...(groups[kind]||[])]);if(kind==='drive'){(auth.value==='service_account'?['service_account']:['client_id','client_secret']).forEach(x=>visible.add(x))}document.querySelectorAll('[data-field]').forEach(row=>{row.hidden=!visible.has(row.dataset.field)});document.getElementById('connection-fields').hidden=kind==='local';document.getElementById('drive-guide').hidden=kind!=='drive'||auth.value==='service_account'}provider.addEventListener('change',update);auth.addEventListener('change',update);update()})();
+</script>{% endblock %}
