@@ -1,0 +1,110 @@
+{
+  "schedule": "06af4d86ae7877928000f100fca9b854",
+  "schedule_expression": "daily",
+  "template_crawl": "06af4d86ae347e9d8000c7610d6cd93a",
+  "folder": 4,
+  "initial_and_scheduled_captures": [
+    {
+      "id": "06af4d8788da7d788000857d63b3cb03",
+      "crawl": "06af4d86ae347e9d8000c7610d6cd93a",
+      "url": "https://news.ycombinator.com/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 242671,
+        "sha256": "4ae39f3145df25340c17a4e9144aec873d2bde2b4aebd28a28c96ade1b243160",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    },
+    {
+      "id": "06af4d8788db7ba78000e65d6662c90f",
+      "crawl": "06af4d86ae347e9d8000c7610d6cd93a",
+      "url": "https://neil.fraser.name/news/2026/11/10/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 134838,
+        "sha256": "51bc00b8dd2fd5b087f016350c1c551353c2ab2926f714320da0223a90e6abe2",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    },
+    {
+      "id": "06af4d8788db76f880003ae297fe9723",
+      "crawl": "06af4d86ae347e9d8000c7610d6cd93a",
+      "url": "https://docodethatmatters.com/home-automation-overnight-success/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 373983,
+        "sha256": "8451381aa0aab4903bdba1cc387f668e41fb7f06be61dab5c5c1181a730c23b2",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    },
+    {
+      "id": "06af4d8c94507afd80002db7725ce0b4",
+      "crawl": "06af4d8c021577d08000f45148bbcec1",
+      "url": "https://news.ycombinator.com/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 242719,
+        "sha256": "5e489fb03daa9b911bd3e6721a9955a27080a396eb00a92fc7c54d027c44898b",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    },
+    {
+      "id": "06af4d8c9451715e8000cb995d629b77",
+      "crawl": "06af4d8c021577d08000f45148bbcec1",
+      "url": "https://docodethatmatters.com/home-automation-overnight-success/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 373982,
+        "sha256": "c88c1953f44a331391e9275d1e23efdfbaf5bb8a552043655edd1eab18e27687",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    },
+    {
+      "id": "06af4d8c945174a68000fa2719539da8",
+      "crawl": "06af4d8c021577d08000f45148bbcec1",
+      "url": "https://neil.fraser.name/news/2026/11/10/",
+      "folder": 4,
+      "plugins": "title,wget,screenshot",
+      "screenshot": {
+        "bytes": 134838,
+        "sha256": "51bc00b8dd2fd5b087f016350c1c551353c2ab2926f714320da0223a90e6abe2",
+        "width": 1440,
+        "height": 2000
+      },
+      "html_files": 1
+    }
+  ],
+  "original_captures_unchanged_folders": [
+    {
+      "id": "06af4c93455170748000823c9092107f",
+      "folder_id": 2
+    },
+    {
+      "id": "06af4c934551763e80002686ba170b31",
+      "folder_id": 2
+    },
+    {
+      "id": "06af4c93455179728000f26174da5505",
+      "folder_id": 2
+    }
+  ],
+  "native_worker_exit_codes": [
+    0,
+    0
+  ]
+}

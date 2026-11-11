@@ -1,0 +1,25 @@
+{
+  "runtime": {
+    "version": "0.9.78rc101",
+    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
+    "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
+    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+    "sourceBindMounts": false,
+    "baseUrl": "http://admin.archivebox.localhost:5894"
+  },
+  "created": {
+    "id": 5,
+    "name": "Follow-up captures"
+  },
+  "selected": {
+    "id": "5",
+    "label": "Capture inbox / Recent stories / Follow-up captures",
+    "focused": true
+  },
+  "navigations": 0,
+  "typedUrlsPreserved": true,
+  "schedulePreserved": "daily",
+  "existingCaptureFolder": "4",
+  "noCrawlSubmitted": true,
+  "time": "2026-11-11T21:16:25.526Z"
+}

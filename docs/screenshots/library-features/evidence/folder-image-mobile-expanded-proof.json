@@ -1,0 +1,31 @@
+{
+  "time": "2026-11-11T21:17:17.908Z",
+  "thumbnails": [
+    {
+      "src": "http://snap-f26174da5505.archivebox.localhost:5894/screenshot/screenshot.png?_abx_rev=1794427547.965505",
+      "complete": true,
+      "width": 1440,
+      "height": 2000
+    },
+    {
+      "src": "http://snap-2686ba170b31.archivebox.localhost:5894/screenshot/screenshot.png?_abx_rev=1794427540.842140",
+      "complete": true,
+      "width": 1440,
+      "height": 2000
+    },
+    {
+      "src": "http://snap-823c9092107f.archivebox.localhost:5894/screenshot/screenshot.png?_abx_rev=1794427535.288148",
+      "complete": true,
+      "width": 1440,
+      "height": 2000
+    }
+  ],
+  "runtime": {
+    "version": "0.9.78rc101",
+    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
+    "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
+    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+    "sourceBindMounts": false,
+    "baseUrl": "http://admin.archivebox.localhost:5894"
+  }
+}
