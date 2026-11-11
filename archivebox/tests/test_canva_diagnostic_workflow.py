@@ -129,6 +129,11 @@ def test_public_probe_instruments_actual_helper_without_changing_capture_options
     assert str(tmp_path / "diagnostics") in patched
     assert patched.index("helperPage = await") < patched.index("helperPage.on('console'")
     assert patched.count("Tracing.start") == 1
+    trace_stop = patched.index("if (publicDiagnosticStop) await publicDiagnosticStop()")
+    assert patched.index("phase=download completed") < trace_stop < patched.index("await helperPage?.close")
+    profile_start = original.index("  const releaseProfile =")
+    profile_end = original.index("  let captureStarted", profile_start)
+    assert original[profile_start:profile_end] in patched
     assert "traceBufferSizeInKb: 1024" in patched
     assert "events.length > 2048" in patched
     assert "phases.length > 512" in patched

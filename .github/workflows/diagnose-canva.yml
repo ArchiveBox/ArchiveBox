@@ -325,7 +325,7 @@ jobs:
         import hashlib
 
         helper = Path(sys.argv[1])
-        assert hashlib.sha256(helper.read_bytes()).hexdigest() == "f059ec4b5839b88b54abcab641f28b966e4c5e234913b1881433f24e3f9a0e00", "Published SingleFile helper differs from reviewed diagnostic base"
+        assert hashlib.sha256(helper.read_bytes()).hexdigest() == "81e9dd14b08ee108ae024043996ff6f71bb0779e0adf0a53e91dc2f4ec21c15a", "Published SingleFile helper differs from reviewed diagnostic base"
         source = helper.read_text()
         assert "ABX_PUBLIC_PHASE" not in source, "SingleFile diagnostic anchor changed"
 
@@ -444,7 +444,9 @@ jobs:
                         else if (typeof message.content === 'string') console.log('ABX_PUBLIC_PHASE ' + (message.finished ? 'chunk_end' : 'chunk') + ' ' + message.content.length + ' 0');
                       }
                     }""")
-        replace_once('      releaseSinglefileLock?.();', "      if (publicDiagnosticStop) await publicDiagnosticStop().catch(() => console.error('Public trace drain failed'));\n      releaseSinglefileLock?.();")
+        # Profile release now happens before download completion. Drain tracing
+        # only at final cleanup, preserving observation of the entire capture.
+        replace_once('    } finally {\n      releaseSinglefileLock?.();', "    } finally {\n      if (publicDiagnosticStop) await publicDiagnosticStop().catch(() => console.error('Public trace drain failed'));\n      releaseSinglefileLock?.();")
         source = source.replace("__PUBLIC_DIAGNOSTIC_DIRECTORY__", json.dumps(str(Path(os.environ["PUBLIC_ROOT"]) / "diagnostics")))
         helper.write_text(source)
         INSTRUMENT
