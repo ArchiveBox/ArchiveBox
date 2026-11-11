@@ -1,0 +1,24 @@
+archivebox/tests/test_canva_diagnostic_workflow.py
+  s_10bc94d001be49::t_3f82bc5496184c 283
+  s_10bc94d001be49::t_afb8ab658bca49 267,280-282,284-287,321
+archivebox/tests/test_crawl_runner.py
+  s_10bc94d001be49::t_5748bbddba553b 137-142,144-145,183-193,195-196
+.github/diagnostics/singlefile/README.md
+  s_10bc94d001be49::t_206f94e176181a 124-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "321bd2640090408822800154703bdee69a2f7bd5",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
