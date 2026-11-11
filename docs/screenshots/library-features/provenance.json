@@ -171,19 +171,19 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop-viewport.png",
-      "sha256": "2a860b08ba4af6cb6021f8292cab5d1a065f89dbfd31fd1b4bf56514953d9558"
+      "sha256": "2435966507b2ce26e70d682bb868f484e649e80cda6a606d70598661cbcdc655"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop.png",
-      "sha256": "957aee83b17e9833bf3cfdce5b787e86c186532e26aa32e1ef0be77d71b09a21"
+      "sha256": "e67d5af1f788ef9dcac1968d39c8d5010276285fd523778d110eb954596b5466"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile-viewport.png",
-      "sha256": "7e0b3fc3deeb71f7bc7c3fb8a41a7971b8b6a8dd33b03bc294ff315ef1bb1111"
+      "sha256": "ca8d257ee090e3f760e6710ad8959ed1ec7b907edbdcbe37c546ea7ace641384"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile.png",
-      "sha256": "6b2bdb1a0786ab170841d92975fc20e23378aeec2f44ff4012ee24dc7dc747d0"
+      "sha256": "ae65235cab53a262947a7d6013c35612b895cd4f5be9f06714f830ee68da9fa5"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit-files-mobile-viewport.png",
@@ -239,19 +239,19 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-network-warning-mobile-viewport.png",
-      "sha256": "b6d683221042a33a157bde1dfeea035c7cf4836a13f19b6eb9a467bd670463b4"
+      "sha256": "7ac0938021d5c0c7ec348498b4d1c4485b1415af70bcd8f9e42d4dff3504cee4"
     },
     {
       "path": "docs/screenshots/library-features/storage-network-warning-mobile.png",
-      "sha256": "cb618e8a2887fd6e0e077fd76b45216a5e22be027b0b1c374c192ab4a4c13e70"
+      "sha256": "be6410b6e34680c93808c383e8f8a5cfc930971bc7d70985347f07a74770c9c5"
     },
     {
       "path": "docs/screenshots/library-features/storage-network-warning-viewport.png",
-      "sha256": "e391d668ff46432accf51ef1653d5ed95da5a4d8fa471a3e1850c9e2f52ae8df"
+      "sha256": "b8ede7f678b3c992f9f3a65e83c8016c1c1e7d3dd6cabd9343bd98ae21d6f35c"
     },
     {
       "path": "docs/screenshots/library-features/storage-network-warning.png",
-      "sha256": "6fdd9c2336541cac89aabd82cb11c71bae97a30cf253ab78545198cb2164c4c4"
+      "sha256": "200dfaf9369dfa58cf52a5eb7a2f45bbb36165a8d2d3d933860d34a204d28d4e"
     },
     {
       "path": "docs/screenshots/library-features/storage-replay-0-desktop.png",
@@ -293,5 +293,15 @@
       "path": "docs/screenshots/library-features/storage-s3-setup-mobile.png",
       "sha256": "6b8af99082845d7955450cb197620278d91024e8c9d7ed7931154b745db1584a"
     }
-  ]
+  ],
+  "feature_heads": {
+    "folders": "430faab795bb5f526baea4a6877cfe83ae6f5824",
+    "feeds": "ee00b5a046801be5d150be5780101a0ecc5041ad",
+    "rules": "bafde5e1164c600c654a0ad7500840017030a2e1",
+    "ai": "20266f721f6bb8d42e1613e8e50fa07797081ffe",
+    "site-clones": "b91ad498d470bf801caf191b9a1d7f5e49067f3d",
+    "broken-links": "fe96873c1ff0c01bc91065a4115071dec206b009",
+    "storage-audit": "09203d432b6e490fa5c43795e5f5c033115ae655",
+    "primary-storage": "020f0794dab1717bc6ed1aaf172572b76e016110"
+  }
 }

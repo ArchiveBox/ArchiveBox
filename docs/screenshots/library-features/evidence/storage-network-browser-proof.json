@@ -3,52 +3,52 @@
   "alert": "!\nSQLite database on network storage\nRisk of database corruption · move SQLite files to a local disk\nAdditional index.sqlite3 (not active)\n/data/index.sqlite3\nfuse.sshfs · /mnt/review-network",
   "rows": [
     {
-      "text": "Collection data\n/data\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
+      "text": "Collection data\n/data\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Collection data\n/data",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0755 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Primary archive\n/data/archive\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
+      "text": "Primary archive\n/data/archive\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Primary archive\n/data/archive",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0755 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Active SQLite database\n/data/index-local.sqlite3\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 1.4 MB\nReady",
+      "text": "Active SQLite database\n/data/index-local.sqlite3\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 1.4 MB\nReady",
       "cells": [
         "Active SQLite database\n/data/index-local.sqlite3",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0644 · RW\nUID:GID 911:911 · 1.4 MB\nReady"
       ]
     },
     {
-      "text": "SQLite WAL\n/data/index-local.sqlite3-wal\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 0 bytes\nReady",
+      "text": "SQLite WAL\n/data/index-local.sqlite3-wal\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 0 bytes\nReady",
       "cells": [
         "SQLite WAL\n/data/index-local.sqlite3-wal",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0644 · RW\nUID:GID 911:911 · 0 bytes\nReady"
       ]
     },
     {
-      "text": "SQLite shared memory\n/data/index-local.sqlite3-shm\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 32.0 KB\nReady",
+      "text": "SQLite shared memory\n/data/index-local.sqlite3-shm\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 32.0 KB\nReady",
       "cells": [
         "SQLite shared memory\n/data/index-local.sqlite3-shm",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0644 · RW\nUID:GID 911:911 · 32.0 KB\nReady"
       ]
     },
@@ -63,72 +63,72 @@
       ]
     },
     {
-      "text": "Configuration\n/data/ArchiveBox.conf\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 1.5 KB\nReady",
+      "text": "Configuration\n/data/ArchiveBox.conf\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0644 · RW\nUID:GID 911:911 · 1.5 KB\nReady",
       "cells": [
         "Configuration\n/data/ArchiveBox.conf",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0644 · RW\nUID:GID 911:911 · 1.5 KB\nReady"
       ]
     },
     {
-      "text": "Browser profiles\n/data/personas\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
+      "text": "Browser profiles\n/data/personas\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Browser profiles\n/data/personas",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0755 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Logs\n/data/logs\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
+      "text": "Logs\n/data/logs\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Logs\n/data/logs",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0755 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Import sources\n/data/sources\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
+      "text": "Import sources\n/data/sources\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0755 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Import sources\n/data/sources",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0755 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Temporary files\n/tmp/archivebox\n\toverlay\n/\noverlay\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0775 · RW\nUID:GID 911:911\nReady",
+      "text": "Temporary files\n/tmp/archivebox\n\toverlay\n/\noverlay\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0775 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Temporary files\n/tmp/archivebox",
         "overlay\n/\noverlay",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0775 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "Installed binaries\n/opt/archivebox/lib\n\toverlay\n/\noverlay\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0775 · RW\nUID:GID 911:911\nReady",
+      "text": "Installed binaries\n/opt/archivebox/lib\n\toverlay\n/\noverlay\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0775 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "Installed binaries\n/opt/archivebox/lib",
         "overlay\n/\noverlay",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0775 · RW\nUID:GID 911:911\nReady"
       ]
     },
     {
-      "text": "rclone credentials\n/data/storage\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t570.8 GB\n220.6 GB used\n791.4 GB total\n\t0700 · RW\nUID:GID 911:911\nReady",
+      "text": "rclone credentials\n/data/storage\n\tbtrfs\n/data\n/dev/vdb1\n\tLocal\t564.8 GB\n223.6 GB used\n788.4 GB total\n\t0700 · RW\nUID:GID 911:911\nReady",
       "cells": [
         "rclone credentials\n/data/storage",
         "btrfs\n/data\n/dev/vdb1",
         "Local",
-        "570.8 GB\n220.6 GB used\n791.4 GB total",
+        "564.8 GB\n223.6 GB used\n788.4 GB total",
         "0700 · RW\nUID:GID 911:911\nReady"
       ]
     },
