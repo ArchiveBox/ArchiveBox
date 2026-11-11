@@ -581,11 +581,7 @@ class CrawlRunner:
             if self._observed_snapshot_cost is None:
                 self._warmup_snapshot_id = snapshot_id
         else:
-            # Whole-workload growth cannot identify one capture's cost once
-            # captures overlap. Retain the largest isolated measurement and
-            # resume learning only when a new capture starts from idle.
             self._observe_snapshot_memory()
-            self._memory_baseline = None
         if isinstance(current_event, CrawlStartEvent):
             task = asyncio.create_task(self.run_snapshot(snapshot_id, current_event), context=_runner_task_context())
         else:
@@ -679,22 +675,25 @@ class CrawlRunner:
             return None
         used = resource_admission.process_tree_memory()
         if used is not None:
-            # Only attribute this workload's growth to a capture. Other jobs on
-            # the host reduce available headroom, but are not a per-capture cost
-            # to multiply again for every snapshot we want to admit.
+            # Keep sampling overlapping captures: their average is a lower
+            # bound on the largest capture's cost, not a reason to stop learning.
+            # Count tracked tasks until their completion is consumed so finishing
+            # a task does not attribute its resident bytes to its siblings.
+            growth = max(0, used - self._memory_baseline)
             self._memory_peak_cost = max(
                 self._memory_peak_cost,
-                used - self._memory_baseline,
+                growth // max(1, len(self.snapshot_tasks)),
             )
             if self._observed_snapshot_cost is not None:
                 self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
-            return max(0, used - self._memory_baseline)
+            return growth
         return None
 
     def _finish_warmup_snapshot(self, snapshot_id: str) -> None:
-        self._observe_snapshot_memory()
-        # Only isolated captures teach a per-snapshot cost. Reuse it across
-        # crawls, with slow decay so one expensive capture is not a lifetime cap.
+        if self.snapshot_tasks:
+            return
+        # Persist the batch's largest per-capture measurement when it drains.
+        # Slow decay keeps one expensive batch from becoming a lifetime cap.
         if self._memory_baseline is not None and self._memory_baseline > 0:
             # A short child between 2s samples or shared Chrome heap shrinkage can hide growth; reserve the measured whole-tree baseline.
             observed_cost = self._memory_peak_cost or self._memory_baseline

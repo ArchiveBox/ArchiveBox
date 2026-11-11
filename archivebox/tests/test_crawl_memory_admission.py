@@ -13,8 +13,21 @@ from archivebox.crawls.models import Crawl
 from archivebox.services.runner import CrawlRunner
 
 
+@pytest.fixture
+def fresh_memory_history():
+    from archivebox.services.resource_admission import resource_admission
+
+    previous = resource_admission.observed_snapshot_cost
+    resource_admission.observed_snapshot_cost = None
+    try:
+        yield
+    finally:
+        resource_admission.observed_snapshot_cost = previous
+
+
 @pytest.mark.django_db(transaction=True)
-def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
+@pytest.mark.parametrize("heavy_overlap", [False, True])
+def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path, heavy_overlap, fresh_memory_history):
     crawl = Crawl.objects.create(
         urls="\n".join(f"https://example.com/admission/{index}" for index in range(3)),
         config={"PLUGINS": "parse_txt_urls", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2},
@@ -39,7 +52,7 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
         previous_cost = runner._observed_snapshot_cost
         # Real allocations expose the accounting error independently of how
         # much RAM the installed parser happens to need on this platform.
-        allocation_size = size * (3 if index == 3 else 1)
+        allocation_size = size * (5 if index == 3 else 3 if heavy_overlap and index == 2 else 1)
         child = subprocess.Popen(
             [
                 "uv",
@@ -124,7 +137,10 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
     assert measurements[2]["active_allocations"] == 2, measurements
     isolated_cost = measurements[1]["cost"]
     assert isolated_cost > size // 2, measurements
-    assert measurements[2]["cost"] == measurements[2]["previous_cost"], measurements
+    if heavy_overlap:
+        assert measurements[2]["cost"] > measurements[1]["previous_cost"] + size // 2, measurements
+    else:
+        assert measurements[2]["cost"] == measurements[2]["previous_cost"], measurements
     assert measurements[3]["previous_cost"] == learned_before_heavy, measurements
     # The final crawl contains just one heavier capture; it must still teach
     # admission a larger cost rather than freezing the initial warmup forever.
