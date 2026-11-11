@@ -3,7 +3,9 @@
   "captured_urls": [
     "https://deepmind.google/blog/introducing-alphaproof-code/",
     "https://docodethatmatters.com/home-automation-overnight-success/",
+    "https://neil.fraser.name/news/2026/11/10/",
     "https://news.ycombinator.com/",
+    "https://news.ycombinator.com/newest",
     "https://simonwillison.net/2026/Nov/9/mysterious-beeps/"
   ],
   "images": [
@@ -165,19 +167,19 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop-viewport.png",
-      "sha256": "6bbeb1228cc46d491833690720df8d80cef60eba0d53070181caf715790cc939"
+      "sha256": "e9533e0f43584b3f42a01a1d63d253f5089a4d4cc4542995db1e9f71236793c4"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop.png",
-      "sha256": "b74722dceb68c0d1c4b2c8b0926aafcdec7520ca5784e042b6f5a68484d3ef77"
+      "sha256": "6f6c972d935aa11748d37e906808a460a26ede01b5a32c15f368024c58c7e5c2"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile-viewport.png",
-      "sha256": "dfe6e20fdcdedfb6dd6c156a6cb8acfca25367dfe3ddcd1cf1402a75820ab96a"
+      "sha256": "9f529b02b237ba81fe8875d16da227a57b7943b4a642301a0a7ce11ed67574a1"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile.png",
-      "sha256": "44db01c8316413cd05aa45e76af037ed7c9ea7d56ea7b996658f2491f2c0954a"
+      "sha256": "26cf5a48cd9d59e2a6233a8690dc35a242ba8bf2e9da6a57b5f040531699ac51"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit-files-mobile-viewport.png",
@@ -221,7 +223,19 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-before.png",
-      "sha256": "c1685e6f8c94595f73323069e5ec3a823ab6ba39fcc068402e8682abb1951e48"
+      "sha256": "cfaadf9d27d62419580183b57a6c1124035b4d0ce1e65f9d53ea2f05749c7e33"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-disconnected-desktop.png",
+      "sha256": "74d1904bcbd4ab9a79141a1dd8c28686ad4f499caffe6050e3788ca9be01fdb2"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-drive-setup-desktop.png",
+      "sha256": "9c605d82dc09019e4e376ba62ed4e1549d13f83d5fcc70c6709300dfa6f7b41c"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-drive-setup-mobile.png",
+      "sha256": "c6303da9bea964e796b1d943c3454e5553d6fef93e9a31d8d8e493e9da7955da"
     },
     {
       "path": "docs/screenshots/library-features/storage-replay-0-desktop.png",
@@ -254,6 +268,14 @@
     {
       "path": "docs/screenshots/library-features/storage-replay-3-mobile.png",
       "sha256": "01e739bbf376ebeab88324cda2aa02cf3a6a252b8ac4f02488fbab1b75e3e83b"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-s3-setup-desktop.png",
+      "sha256": "e89374561781226192e839a3acb35e73b9b72caf4d8c314c589f7dcba92c8974"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-s3-setup-mobile.png",
+      "sha256": "6e3e04e45a1da1080a951d405b33f66bdbd380f1489c97e1420729079ba68511"
     }
   ]
 }

@@ -1,0 +1,6 @@
+{
+  "scheduled_capture_blocked": true,
+  "delete_pending_without_row_loss": true,
+  "unmounted_directory_write_blocked": true,
+  "snapshot": "06af4b28aae07bc080001a75e206eeab"
+}

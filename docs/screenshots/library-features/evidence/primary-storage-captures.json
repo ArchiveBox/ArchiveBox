@@ -1,0 +1,46 @@
+[
+  {
+    "snapshot": "06af4b013847744980002ed439b650af",
+    "url": "https://news.ycombinator.com/",
+    "title": "Hacker News",
+    "path": "wget/news.ycombinator.com/index.html",
+    "sha256": "8e0851ae577eccda7c3e34f8be985c2e4866ae63f8f8867683b5c78e783d4916",
+    "size": 39185,
+    "mounted_file": "/data/archive/users/system/snapshots/20261111/news.ycombinator.com/06af4b013847744980002ed439b650af/wget/news.ycombinator.com/index.html",
+    "backend_file": "/remote-archive/users/system/snapshots/20261111/news.ycombinator.com/06af4b013847744980002ed439b650af/wget/news.ycombinator.com/index.html",
+    "existed_before_cutover": true
+  },
+  {
+    "snapshot": "06af4b2515b97caf8000d0c631003634",
+    "url": "https://docodethatmatters.com/home-automation-overnight-success/",
+    "title": "Smart home devices should work without the internet \u2014 Do Code That Matters",
+    "path": "wget/docodethatmatters.com/home-automation-overnight-success/index.html",
+    "sha256": "4650ba24a6d3441e6df915487f3cdff60defb350f7047b4faef5f4c4bdc4cbca",
+    "size": 61053,
+    "mounted_file": "/data/archive/users/system/snapshots/20261111/docodethatmatters.com/06af4b2515b97caf8000d0c631003634/wget/docodethatmatters.com/home-automation-overnight-success/index.html",
+    "backend_file": "/remote-archive/users/system/snapshots/20261111/docodethatmatters.com/06af4b2515b97caf8000d0c631003634/wget/docodethatmatters.com/home-automation-overnight-success/index.html",
+    "existed_before_cutover": false
+  },
+  {
+    "snapshot": "06af4b28aae075968000fd19f7e39f30",
+    "url": "https://neil.fraser.name/news/2026/11/10/",
+    "title": "Neil Fraser: News: .name Grandfathered",
+    "path": "wget/neil.fraser.name/news/2026/11/10/index.html",
+    "sha256": "c0e40d3d15d1efc9086a74935cb3c04761abc920ecacc08fb5c86f91c6b21068",
+    "size": 10713,
+    "mounted_file": "/data/archive/users/system/snapshots/20261111/neil.fraser.name/06af4b28aae075968000fd19f7e39f30/wget/neil.fraser.name/news/2026/11/10/index.html",
+    "backend_file": "/remote-archive/users/system/snapshots/20261111/neil.fraser.name/06af4b28aae075968000fd19f7e39f30/wget/neil.fraser.name/news/2026/11/10/index.html",
+    "existed_before_cutover": false
+  },
+  {
+    "snapshot": "06af4b28aae07bc080001a75e206eeab",
+    "url": "https://news.ycombinator.com/newest",
+    "title": "New Links | Hacker News",
+    "path": "wget/news.ycombinator.com/newest.html",
+    "sha256": "3fdc59dff0769b49af3643e41a62b90ecc4f495da076b7d2132bc6a1efa3daa9",
+    "size": 45976,
+    "mounted_file": "/data/archive/users/system/snapshots/20261111/news.ycombinator.com/06af4b28aae07bc080001a75e206eeab/wget/news.ycombinator.com/newest.html",
+    "backend_file": "/remote-archive/users/system/snapshots/20261111/news.ycombinator.com/06af4b28aae07bc080001a75e206eeab/wget/news.ycombinator.com/newest.html",
+    "existed_before_cutover": false
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "containerRestarted": true,
+  "adminBootsWithoutMount": 200,
+  "authorizedReplayWithoutMount": 503,
+  "nativeRunnerRemountedAfterContainerRestart": true,
+  "runnerExitCode": 0,
+  "remainingBackendHashesUnchanged": true
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://news.ycombinator.com/",
+    "replay": "http://news.ycombinator.com.archivebox.localhost:5888/",
+    "status": 200,
+    "sha256": "8e0851ae577eccda7c3e34f8be985c2e4866ae63f8f8867683b5c78e783d4916"
+  },
+  {
+    "url": "https://docodethatmatters.com/home-automation-overnight-success/",
+    "replay": "http://docodethatmatters.com.archivebox.localhost:5888/home-automation-overnight-success/",
+    "status": 200,
+    "sha256": "4650ba24a6d3441e6df915487f3cdff60defb350f7047b4faef5f4c4bdc4cbca"
+  },
+  {
+    "url": "https://neil.fraser.name/news/2026/11/10/",
+    "replay": "http://neil.fraser.name.archivebox.localhost:5888/news/2026/11/10/",
+    "status": 200,
+    "sha256": "c0e40d3d15d1efc9086a74935cb3c04761abc920ecacc08fb5c86f91c6b21068"
+  },
+  {
+    "url": "https://news.ycombinator.com/newest",
+    "replay": "http://news.ycombinator.com.archivebox.localhost:5888/newest",
+    "status": 200,
+    "sha256": "3fdc59dff0769b49af3643e41a62b90ecc4f495da076b7d2132bc6a1efa3daa9"
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "deleted_snapshot": "06af4b28aae07bc080001a75e206eeab",
+  "database_row_deleted": true,
+  "mounted_file_deleted": true,
+  "backend_file_deleted": true,
+  "other_capture_hashes_unchanged": true,
+  "native_runner_remounted": true,
+  "deletion_command": "archivebox snapshot delete --yes (one saved HN newest snapshot via JSONL stdin)"
+}

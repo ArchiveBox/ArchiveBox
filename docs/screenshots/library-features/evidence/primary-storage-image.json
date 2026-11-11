@@ -1,0 +1,16 @@
+{
+  "uid": 911,
+  "plugins": "1.13.660",
+  "host": "0.9.78rc101",
+  "native_ai_host_only": true,
+  "hashes_helper_imported": true,
+  "fuse_available": true,
+  "host_commit_verified": true,
+  "host_commit": "94b1a83e5df7dbb38a6a835c229f7897418e7c89",
+  "plugin_commit": "40ede3a224766e1bfb761781ef398f385d79e43c",
+  "image_digest": "sha256:006fe0fd9210af4b0c6b6d00c50442a28e84323ada9ece313303b62fe3fbc9f0",
+  "platform": "linux/arm64",
+  "verified_runtime_files": 634,
+  "compressed_bytes": 1043725800,
+  "compressed_mib": 995.37
+}
