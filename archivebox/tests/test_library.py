@@ -21,6 +21,13 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert list(response.context["cl"].queryset.values_list("pk", flat=True)) == [snapshot.pk]
     assert b'aria-label="Folders"' in response.content
     assert b"Research" in response.content and b"Papers" in response.content
+    response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [folder.pk for folder in response.context["folder_breadcrumbs"]] == [parent.pk, child.pk]
+    breadcrumbs = response.content.decode().split('<nav class="library-breadcrumbs"', 1)[1].split("</nav>", 1)[0]
+    assert '<a href="/admin/core/snapshot/">Snapshots</a>' in breadcrumbs
+    assert f'<a href="?folder={parent.pk}">Research</a>' in breadcrumbs
+    assert '<span aria-current="page">Papers</span>' in breadcrumbs
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")

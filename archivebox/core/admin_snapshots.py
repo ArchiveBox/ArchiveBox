@@ -582,10 +582,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["folder_tree"] = Folder.tree()
         extra_context["selected_folder"] = request.GET.get("folder", "")
         selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
-        extra_context["folder_title"] = (
-            selected.name if selected else "Unfiled" if extra_context["selected_folder"] == "unfiled" else "All snapshots"
-        )
-        extra_context["folder_path"] = selected.path_label if selected and selected.parent_id else "Your saved pages, organized."
+        folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
+        breadcrumbs = []
+        while selected:
+            breadcrumbs.append(selected)
+            selected = folders_by_id.get(selected.parent_id)
+        extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
         extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
         feed_query = request.GET.copy()
         feed_query.pop("p", None)

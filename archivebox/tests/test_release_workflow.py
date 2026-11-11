@@ -195,6 +195,15 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
         "paths": [
             ".github/workflows/screenshots.yml",
             "bin/take_screenshot.js",
+            "bin/setup_ui_screenshot_data.js",
+            *[
+                f"archivebox/{app}/**"
+                for app in ("automation", "feeds", "siteclones", "linkhealth", "storage")
+                if (REPO_ROOT / "archivebox" / app).is_dir()
+            ],
+            "archivebox/core/library*",
+            "archivebox/core/admin*",
+            "archivebox/core/models.py",
             "bin/collect_ui_screenshots.sh",
             "bin/generate_ui_screenshot_gallery.py",
             "archivebox/templates/**",
@@ -340,6 +349,29 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert 'inspection.get("health") != "healthy"' in verifier
     assert "expected_abx_dl_digest" in verifier
     assert 'run["conclusion"] != "success"' in verifier
+
+
+def test_stacked_feature_prs_run_full_ci_without_publishing():
+    ci = yaml.load(CI_WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    assert ci["on"]["pull_request"]["branches"] == ["dev", "main", "codex/karakeep-*"]
+    assert ci["on"]["push"]["branches"] == ["dev", "main"]
+    assert ci["jobs"]["dev-image"]["if"] == "github.event_name == 'push' && github.ref_name == 'dev'"
+
+
+def test_pr_image_exports_use_release_compression_and_size_budget():
+    docker = yaml.safe_load(DOCKER_WORKFLOW.read_text())
+    steps = docker["jobs"]["build"]["steps"]
+    pr_build = next(step for step in steps if step.get("id") == "docker_build_pr")
+    release_build = next(step for step in steps if step.get("id") == "docker_build")
+    assert "compression=zstd,compression-level=8" in release_build["with"]["outputs"]
+    outputs = pr_build["with"]["outputs"].strip().splitlines()
+    assert len(outputs) == 2
+    assert outputs[0].startswith("type=docker,")
+    assert outputs[1].startswith("type=oci,")
+    assert all(output.endswith(",compression=zstd,compression-level=8") for output in outputs)
+    validation = next(step for step in steps if step.get("name") == "Validate compressed image size")
+    assert "$((1025 * 1024 * 1024))" in validation["run"]
+    assert "if total > limit:" in validation["run"]
 
 
 def test_dev_promotion_does_not_wait_for_its_own_deployment():
