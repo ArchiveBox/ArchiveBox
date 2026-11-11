@@ -1,0 +1,21 @@
+archivebox/tests/test_canva_diagnostic_workflow.py
+  s_10bc94d001be49::t_29876829e22ca8 132-136
+.github/workflows/diagnose-canva.yml
+  s_10bc94d001be49::t_29876829e22ca8 328,447-449
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c432c7587646a635855ab278286babb9fa958d15",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
