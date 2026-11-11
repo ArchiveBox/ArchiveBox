@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const {spawnSync} = require('child_process');
 
 const [adminBaseUrl, username] = process.argv.slice(2);
 if (!adminBaseUrl || !username || !process.env.SCREENSHOT_USER_DATA_DIR) {
@@ -121,11 +122,18 @@ async function main() {
       await selectUser(page);
     });
 
+    const repoDir = path.resolve(__dirname, '..');
     const dataDir = process.env.UI_LIBRARY_DATA_DIR;
     const viewsFile = process.env.UI_LIBRARY_VIEWS_FILE;
     if (!dataDir || !viewsFile || !process.env.UI_LIBRARY_CRAWL_ID) {
       throw new Error('Gallery features require a real captured library crawl and an isolated data directory.');
     }
+    const runWorker = (args) => {
+      const result = spawnSync('uv', ['run', '--no-sync', '--project', repoDir, 'archivebox', ...args], {
+        cwd: dataDir, encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.stderr || result.stdout}`);
+    };
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
@@ -133,6 +141,9 @@ async function main() {
     featureViews.push(await require('../archivebox/feeds/gallery.js').prepare(page, adminBaseUrl, library.url));
     featureViews.push({name: 'RSS schedule and category tags', url: `${adminBaseUrl}/admin/feeds/`, path: '/admin/feeds/', source: 'archivebox/templates/feeds/index.html', mode: 'feed-options'});
     featureViews.push({name: 'Export a snapshot list as RSS', url: `${adminBaseUrl}/admin/feeds/export/${new URL(library.url).search}`, path: '/admin/feeds/export/', source: 'archivebox/templates/feeds/export.html'});
+    const clone = await require('../archivebox/siteclones/gallery.js').prepare(page, adminBaseUrl);
+    runWorker(['run', '--crawl-id', clone.crawlId]);
+    featureViews.push({name: 'Clone a site', url: `${adminBaseUrl}/admin/site-clones/`, path: '/admin/site-clones/', source: 'archivebox/siteclones/views.py'}, clone);
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

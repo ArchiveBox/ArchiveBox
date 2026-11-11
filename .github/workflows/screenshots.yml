@@ -11,6 +11,7 @@ on:
       - 'bin/setup_ui_screenshot_data.js'
       - 'archivebox/automation/**'
       - 'archivebox/feeds/**'
+      - 'archivebox/siteclones/**'
       - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'

@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .siteclones {max-width:1280px;margin:20px auto 60px;color:var(--body-fg,#172033)}
+  .siteclones * {box-sizing:border-box}
+  .siteclones .eyebrow {color:#64748b;text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:700;margin-bottom:10px}
+  .siteclones h1 {font-size:30px;font-weight:650;letter-spacing:-.04em;margin:0 0 12px;color:var(--body-fg,#172033)}
+  .siteclones h2 {font-size:18px;margin:0 0 20px;color:var(--body-fg,#172033)}
+  .siteclones .lede {max-width:730px;font-size:15px;line-height:1.7;color:var(--body-quiet-color,#64748b);margin:0 0 28px}
+  .siteclone-layout {display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:24px;align-items:start}
+  .siteclone-card {border:1px solid var(--hairline-color,#e2e8f0);background:var(--body-bg,#fff);padding:28px;border-radius:14px;margin-bottom:24px}
+  .siteclone-card .field {margin:0 0 20px}
+  .siteclone-card label {display:block;font-size:13px;font-weight:600;margin-bottom:7px}
+  .siteclone-card input:not([type=checkbox]), .siteclone-card select, .siteclone-card textarea {width:100%;border:1px solid var(--border-color,#cbd5e1);border-radius:7px;padding:10px 12px;background:var(--body-bg,#fff);color:var(--body-fg,#172033);font:inherit;min-height:40px}
+  .siteclone-card input[type=checkbox] {margin:0 8px 0 0}
+  .siteclone-card .help {display:block;font-size:12px;line-height:1.5;color:var(--body-quiet-color,#64748b);margin-top:6px}
+  .siteclone-grid {display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  body:not(.change-list) #content #siteclone-form > .field {display:block}
+  body:not(.change-list) #content #siteclone-form > .siteclone-grid {display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  .siteclones .button, .siteclones button {display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--archivebox-accent, #a51c50);border-radius:7px;padding:10px 16px;font-size:13px;font-weight:600;line-height:1.2;background:var(--archivebox-accent, #a51c50);color:#fff;cursor:pointer;text-decoration:none;min-height:38px}
+  .siteclones .secondary {background:var(--body-bg,#fff);border-color:var(--border-color,#cbd5e1);color:var(--body-fg,#334155)}
+  .siteclone-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
+  .siteclone-actions form {margin:0}
+  .siteclones details {border-top:1px solid var(--hairline-color,#e2e8f0);padding-top:18px;margin-top:10px}
+  .siteclones summary {font-weight:600;cursor:pointer;margin-bottom:20px}
+  .siteclone-run {padding:17px 0;border-top:1px solid var(--hairline-color,#e2e8f0)}
+  .siteclone-run:first-of-type {border-top:0;padding-top:0}
+  .siteclone-run a {font-weight:600}
+  .siteclone-run small {display:block;color:var(--body-quiet-color,#64748b);line-height:1.5;overflow-wrap:anywhere;margin-top:6px}
+  .siteclone-badge {display:inline-block;border:1px solid var(--border-color,#cbd5e1);border-radius:100px;padding:3px 9px;font-size:11px;text-transform:capitalize;margin-left:8px}
+  .siteclone-stats {display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .siteclone-stats div {border:1px solid var(--hairline-color,#e2e8f0);border-radius:12px;padding:18px;background:var(--body-bg,#fff)}
+  .siteclone-stats strong {font-size:26px;font-weight:650;display:block;margin-bottom:6px}
+  .siteclone-stats span {font-size:12px;color:var(--body-quiet-color,#64748b)}
+  .siteclones table {width:100%;table-layout:fixed}
+  .siteclones td,.siteclones th {padding:12px 10px;overflow-wrap:anywhere}
+  #content .siteclones td,#content .siteclones th {padding:12px 10px;line-height:1.5}
+  #content .siteclones td a {white-space:normal;overflow-wrap:anywhere}
+  .siteclones .page-title {font-weight:600;display:block;margin-bottom:5px}
+  .siteclones .page-url {font-size:11px;color:var(--body-quiet-color,#64748b)}
+  .siteclones .empty {padding:24px 0;color:var(--body-quiet-color,#64748b);line-height:1.6}
+  .siteclones .note {font-size:12px;line-height:1.6;color:var(--body-quiet-color,#64748b)}
+  .siteclones .errorlist {color:#b91c1c;margin:6px 0;padding:0;list-style:none}
+  @media(max-width:800px) {.siteclone-layout {grid-template-columns:1fr}.siteclone-card{padding:20px}.siteclone-stats{grid-template-columns:1fr 1fr}.siteclones{margin-top:12px}.siteclones h1{font-size:25px}}
+  @media(max-width:480px) {body:not(.change-list) #content #siteclone-form > .siteclone-grid{grid-template-columns:1fr}.siteclone-stats strong{font-size:22px}}
+  @media(max-width:600px) {.siteclones table thead{display:none}.siteclones table tr{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--hairline-color,#e2e8f0);padding:12px 0}.siteclones table td:first-child{grid-column:1/-1}#content .siteclones td{border:0;padding:6px 0}.siteclones td[data-label]::before{content:attr(data-label);display:block;font-size:11px;color:var(--body-quiet-color,#64748b);margin-bottom:4px}}
+</style>
+{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'siteclones:index' %}">Clone a site</a>{% if clone %} &rsaquo; {{ crawl.label }}{% endif %}</div>{% endblock %}
+{% block content %}<main class="siteclones">{% block clone_content %}{% endblock %}</main>{% endblock %}

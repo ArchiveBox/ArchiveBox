@@ -1,0 +1,44 @@
+{% extends "siteclones/base.html" %}
+{% block clone_content %}
+<div class="eyebrow">Capture a website</div>
+<h1>Clone a site</h1>
+<p class="lede">Save a website and follow its internal links. Choose a starting page, keep the crawl inside its domain, and control how far it goes.</p>
+<div class="siteclone-layout">
+  <form method="post" class="siteclone-card" id="siteclone-form">
+    {% csrf_token %}{{ form.non_field_errors }}
+    <h2>Start a new clone</h2>
+    {% include "siteclones/field.html" with field=form.url %}
+    {% include "siteclones/field.html" with field=form.name %}
+    {% include "siteclones/field.html" with field=form.include_subdomains %}
+    <div class="siteclone-grid">
+      {% include "siteclones/field.html" with field=form.max_depth %}
+      {% include "siteclones/field.html" with field=form.max_urls %}
+      {% include "siteclones/field.html" with field=form.concurrency %}
+      {% include "siteclones/field.html" with field=form.timeout_minutes %}
+    </div>
+    {% include "siteclones/field.html" with field=form.schedule %}
+    <details {% if form.errors %}open{% endif %}><summary>Identity, exclusions &amp; organization</summary>
+      {% include "siteclones/field.html" with field=form.persona %}
+      {% include "siteclones/field.html" with field=form.exclude_paths %}
+      {% include "siteclones/field.html" with field=form.only_new %}
+      {% include "siteclones/field.html" with field=form.tags %}
+      {% include "siteclones/field.html" with field=form.permissions %}
+      {% include "siteclones/field.html" with field=form.plugins %}
+    </details>
+    <button type="submit">Start site clone →</button>
+    <p class="note">This is a bounded crawl. Pages beyond your limits, excluded paths, and links outside the selected domain are not captured. Your configured capture plugins and Persona settings apply.</p>
+  </form>
+  <aside>
+    <section class="siteclone-card"><h2>Your site clones</h2>
+      {% for item in clones %}<div class="siteclone-run">
+        <a href="{{ item.get_absolute_url }}">{{ item.crawl.label }}</a><span class="siteclone-badge">{{ item.crawl.get_status_display }}</span>
+        <small>{{ item.crawl.urls }}</small><small>{{ item.crawl.created_at|date:"M j, Y · H:i" }} · Depth {{ item.crawl.max_depth }}</small>
+        {% if item.crawl.schedule_id %}<small>Repeats: {{ item.crawl.schedule.schedule }}{% if not item.crawl.schedule.is_enabled %} · Disabled{% endif %}</small>{% endif %}
+      </div>{% empty %}<div class="empty">Your site clones will appear here. Each one keeps its page queue and saved captures, so you can pause and resume it.</div>{% endfor %}
+      {% if clones.has_previous %}<a href="?page={{ clones.previous_page_number }}">← Newer</a>{% endif %}
+      {% if clones.has_next %}<a href="?page={{ clones.next_page_number }}">Older →</a>{% endif %}
+    </section>
+    <section class="siteclone-card"><h2>Keep the scope manageable</h2><p class="note">Start with 100 pages and two link hops. Review the results, then adjust limits from the crawl settings. A completed queue means the selected scope was processed; it does not prove every page on the site was discovered.</p><p class="note">For scheduled social feeds and RSS, use <a href="{% url 'importers:index' %}">Importers</a>.</p></section>
+  </aside>
+</div>
+{% endblock %}

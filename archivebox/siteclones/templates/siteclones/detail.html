@@ -1,0 +1,36 @@
+{% extends "siteclones/base.html" %}
+{% block clone_content %}
+<div class="eyebrow">Site clone <span class="siteclone-badge">{{ crawl.get_status_display }}</span></div>
+<h1>{{ crawl.label }}</h1>
+<p class="lede">{{ crawl.urls }}</p>
+<div class="siteclone-actions">
+  {% if crawl.status == "paused" %}<form method="post" action="{% url 'siteclones:action' clone.pk 'resume' %}">{% csrf_token %}<button type="submit">Resume crawl</button></form>
+  {% elif crawl.status != "sealed" %}<form method="post" action="{% url 'siteclones:action' clone.pk 'pause' %}">{% csrf_token %}<button type="submit" class="secondary">Pause crawl</button></form>{% endif %}
+  <a class="button secondary" href="{{ crawl.admin_change_url }}">Crawl settings &amp; logs</a>
+  <a class="button secondary" href="{% url 'admin:core_snapshot_changelist' %}?crawl__id__exact={{ crawl.pk }}">Open snapshots</a>
+  <a class="button secondary" href="{% url 'siteclones:index' %}">New site clone</a>
+</div>
+{% if crawl.schedule_id %}<section class="siteclone-card">
+  <h2>Recurring site clone</h2>
+  <p><strong>{% if crawl.schedule.is_enabled %}Next run: {{ crawl.schedule.next_run_at|date:"M j, Y · H:i T" }}{% else %}Schedule disabled{% endif %}</strong> <span class="siteclone-badge">{{ crawl.schedule.schedule }}</span></p>
+  <p class="note">The native ArchiveBox scheduler repeats this site clone with its domain filters, page and time budgets, Persona, and capture settings. Pausing a crawl only pauses that run; manage the schedule to turn future runs off.</p>
+  <a class="button secondary" href="{{ crawl.schedule.admin_change_url }}">Manage schedule</a>
+  {% for run in scheduled_runs %}<div class="siteclone-run"><a href="{{ run.admin_change_url }}">{{ run.created_at|date:"M j, Y · H:i" }}</a><span class="siteclone-badge">{{ run.get_status_display }}</span></div>{% endfor %}
+</section>{% endif %}
+<div class="siteclone-stats">
+  <div><strong>{{ total }}</strong><span>Discovered pages</span></div>
+  <div><strong>{{ saved }}</strong><span>Pages with saved files</span></div>
+  <div><strong>{{ crawl.config.CRAWL_MAX_URLS }}</strong><span>Page budget</span></div>
+  <div><strong>{{ crawl.max_depth }}</strong><span>Maximum link depth</span></div>
+</div>
+<section class="siteclone-card">
+  <h2>Discovered pages</h2>
+  <p class="note">This is a bounded crawl. Limits and domain filters still apply when you resume. Review capture results for each page; a finished page can include failed extractors.</p>
+  <table><thead><tr><th style="width:65%">Page</th><th>Depth</th><th>Status</th><th>Saved</th></tr></thead><tbody>
+  {% for snapshot in snapshots %}<tr><td><a class="page-title" href="{{ snapshot.admin_change_url }}">{{ snapshot.title|default:snapshot.url }}</a><span class="page-url">{{ snapshot.url }}</span></td><td data-label="Depth">{{ snapshot.depth }}</td><td data-label="Status">{{ snapshot.get_status_display }}</td><td data-label="Saved">{{ snapshot.output_size|filesizeformat }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="empty">Waiting for the worker to discover and save pages. Progress appears above as the crawl runs.</td></tr>{% endfor %}
+  </tbody></table>
+  {% if snapshots.has_previous %}<a href="?page={{ snapshots.previous_page_number }}">← Previous</a>{% endif %}
+  {% if snapshots.has_next %}<a href="?page={{ snapshots.next_page_number }}">Next →</a>{% endif %}
+</section>
+{% endblock %}
