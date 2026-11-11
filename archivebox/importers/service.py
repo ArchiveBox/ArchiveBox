@@ -178,11 +178,26 @@ def _finish(run, items, result):
     # Resolve config before entering the short DB-only commit. No plugin/network/filesystem work in it.
     crawl = None
     if status == "succeeded" and run.action == ImporterRun.Action.IMPORT and items:
+        urls = []
+        for item in items:
+            tags = (
+                item.get("metadata", {}).get("tags", [])
+                if source.plugin == "importer_rss" and source.settings.get("IMPORTER_RSS_IMPORT_TAGS") is True
+                else []
+            )
+            if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+                raise ValueError("Feed categories must be a list of tag names.")
+            tags = Crawl.parse_tag_names(tags)
+            if any(len(tag) > 100 for tag in tags):
+                raise ValueError(
+                    "Feed category names must be at most 100 characters. Disable category import to import these articles without their categories.",
+                )
+            urls.append(json.dumps({"url": item["url"], "tags": tags}, ensure_ascii=False) if tags else item["url"])
         capture_config = build_crawl_config_snapshot(persona=source.persona, overrides={"ONLY_NEW": True})
         crawl = Crawl(
-            # Discovery already validated these URLs. Keep provenance/titles on
-            # the run; ordinary URL submission must not depend on input parsers.
-            urls="\n".join(item["url"] for item in items),
+            # Native crawl JSONL preserves per-article tags without an input-parser plugin.
+            # Untagged discovery keeps the ordinary plain-URL submission path.
+            urls="\n".join(urls),
             config=capture_config,
             persona=source.persona,
             created_by=source.created_by,

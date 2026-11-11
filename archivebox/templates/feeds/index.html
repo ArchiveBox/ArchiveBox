@@ -1,0 +1,25 @@
+{% extends "feeds/base.html" %}
+{% block feeds_content %}
+<p class="eyebrow">Stay connected</p><h1>Feeds</h1><p class="muted intro">Bring new stories into your archive. Share a curated list with your feed reader.</p>
+<div class="feeds-grid"><section class="feed-card feed-subscribe">
+<div class="section-heading"><span class="feed-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg></span><div><h2>Follow a feed</h2><p class="muted">RSS, Atom, and RSSHub sources</p></div></div>
+<form method="post">{% csrf_token %}{{ form.non_field_errors }}
+<div class="feed-field">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+<div class="feed-field">{{ form.url.label_tag }}{{ form.url }}{{ form.url.errors }}<p class="helptext">Paste an RSS or Atom URL. New articles are imported daily by default.</p></div>
+<details {% if form.rsshub_route.value or form.rsshub_route.errors or form.tags.errors or form.schedule.errors %}open{% endif %}><summary>Schedule, tags &amp; RSSHub</summary>
+<div class="feed-field">{{ form.schedule.label_tag }}{{ form.schedule }}{{ form.schedule.errors }}<p class="helptext">{{ form.schedule.help_text }}</p></div>
+<div class="feed-check">{{ form.import_tags }}<div><label for="{{ form.import_tags.id_for_label }}">{{ form.import_tags.label }}</label><p class="helptext">{{ form.import_tags.help_text }}</p>{{ form.import_tags.errors }}</div></div>
+<div class="feed-field">{{ form.tags.label_tag }}{{ form.tags }}{{ form.tags.errors }}<p class="helptext">Add tags to the snapshots imported from this source.</p></div>
+<div class="feed-field">{{ form.rsshub_route.label_tag }}{{ form.rsshub_route }}{{ form.rsshub_route.errors }}<p class="helptext">{{ form.rsshub_route.help_text }}</p></div></details>
+<button type="submit">Save feed <span aria-hidden="true">→</span></button></form>
+<div class="feed-footer"><a href="https://docs.rsshub.app/" target="_blank" rel="noopener noreferrer">Find a route for a site without RSS ↗</a><a href="{% url 'importers:index' %}">Browse other importers →</a></div></section>
+<section><div class="feed-card"><h2>Subscriptions</h2><p class="muted" style="font-size:13px">Fresh articles, ready to preserve.</p><table class="feed-table"><thead><tr><th>Source</th><th>Schedule</th><th>Latest activity</th></tr></thead><tbody>
+{% for source in sources %}<tr><td><a href="{{ source.get_absolute_url }}">{{ source.name }}</a></td><td>{% if not source.enabled %}Paused{% elif source.schedule == '0 0 * * *' %}Daily{% elif source.schedule == '0 * * * *' %}Hourly{% elif source.schedule == '0 0 * * 0' %}Weekly{% else %}{{ source.schedule|default:'Manual' }}{% endif %}{% if source.enabled and source.next_run_at %}<p class="helptext">Next: {{ source.next_run_at|date:'M j, g:i A' }}</p>{% endif %}</td><td>{% with run=source.latest_runs.0 %}{% if run %}<span class="feed-badge feed-status-{{ run.status }}">{{ run.get_status_display }}</span><p class="helptext">{{ run.created_at|date:'M j, g:i A' }}</p>{% else %}<span class="muted">Not fetched yet</span>{% endif %}{% endwith %}<a class="feed-manage" href="{{ source.get_absolute_url }}">Manage source →</a></td></tr>{% empty %}<tr><td colspan="3" class="empty-state">Your subscriptions will appear here after you save a feed.</td></tr>{% endfor %}</tbody></table></div>
+<div class="export-heading"><h2>Your exported lists</h2><p class="muted">Choose filters in your library, then select <strong>RSS for this list</strong>.</p></div>
+{% for feed in feeds %}<article class="feed-card feed-export"><div class="feed-export-header"><div><h3>{{ feed.name }}</h3><p class="visibility">{{ feed.include_private|yesno:'Includes private and unlisted snapshots,Public snapshots only' }}</p></div><span class="feed-badge">RSS</span></div>
+<p class="feed-url"><a href="{{ feed.get_absolute_url }}">{{ request.scheme }}://{{ request.get_host }}{{ feed.get_absolute_url }}</a></p><div class="feed-export-footer"><div><button type="button" class="feed-secondary feed-copy">Copy RSS link</button><span class="feed-copy-status helptext" role="status" aria-live="polite"></span></div><form method="post" action="{% url 'feeds:revoke' feed.pk %}">{% csrf_token %}<button class="feed-secondary" type="submit">Revoke link</button></form></div></article>{% empty %}<div class="feed-card empty-state">Create a feed from any filtered snapshot list. Its contents update as your archive grows.</div>{% endfor %}
+</section></div>
+<script>
+document.querySelectorAll('.feed-copy').forEach(button=>button.addEventListener('click',async()=>{const card=button.closest('.feed-export');const status=card.querySelector('.feed-copy-status');try{await navigator.clipboard.writeText(card.querySelector('.feed-url a').href);status.textContent='Link copied';}catch(error){status.textContent='Select and copy the link above. Clipboard access is unavailable.';}}));
+</script>
+{% endblock %}

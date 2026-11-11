@@ -130,6 +130,9 @@ async function main() {
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
     featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
+    featureViews.push(await require('../archivebox/feeds/gallery.js').prepare(page, adminBaseUrl, library.url));
+    featureViews.push({name: 'RSS schedule and category tags', url: `${adminBaseUrl}/admin/feeds/`, path: '/admin/feeds/', source: 'archivebox/templates/feeds/index.html', mode: 'feed-options'});
+    featureViews.push({name: 'Export a snapshot list as RSS', url: `${adminBaseUrl}/admin/feeds/export/${new URL(library.url).search}`, path: '/admin/feeds/export/', source: 'archivebox/templates/feeds/export.html'});
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

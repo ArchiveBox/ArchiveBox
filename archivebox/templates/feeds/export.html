@@ -1,0 +1,9 @@
+{% extends "feeds/base.html" %}
+{% block feeds_content %}
+<p class="eyebrow">Your archive, anywhere</p><h1>Export this list as RSS</h1><p class="muted intro">Keep this collection close in your favorite feed reader. New matching snapshots appear automatically.</p>
+<section class="feed-card export-panel"><div class="section-heading"><span class="feed-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg></span><div><h2>{{ count }} matching snapshot{{ count|pluralize }}</h2><p class="muted">Up to 500 items in each feed response</p></div></div>
+<form method="post">{% csrf_token %}{{ form.non_field_errors }}<div class="feed-field">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}<p class="helptext">A name to recognize this list in your feed reader.</p></div>
+<div class="feed-check">{{ form.include_private }}<div><label for="{{ form.include_private.id_for_label }}">{{ form.include_private.label }}</label><p class="helptext">{{ form.include_private.help_text }}</p>{{ form.include_private.errors }}</div></div>
+<p class="feed-notice">Only public snapshots are included by default. Your feed preserves the filters you selected in the library.</p>
+<div class="feed-form-actions"><button type="submit">Create RSS link <span aria-hidden="true">→</span></button><a class="feed-button feed-secondary" href="{% url 'feeds:index' %}">Back to feeds</a></div></form></section>
+{% endblock %}

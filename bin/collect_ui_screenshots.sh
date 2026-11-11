@@ -431,6 +431,9 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     if [[ "$capture_mode" == plugin-config:* ]]; then
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="$config_selector .plugin-config-marker"
+    elif [[ "$capture_mode" == "feed-options" ]]; then
+        config_selector=".feed-subscribe details"
+        config_click_selector="$config_selector > summary"
     fi
     view_timing_report=""
     while IFS='|' read -r profile _viewport_width _viewport_height; do

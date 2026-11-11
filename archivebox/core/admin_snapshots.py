@@ -589,7 +589,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
         feed_query = request.GET.copy()
         feed_query.pop("p", None)
-        extra_context["list_feed_url"] = reverse("admin:core_snapshot_feed") + "?" + feed_query.urlencode()
+        extra_context["list_feed_url"] = reverse("feeds:export") + "?" + feed_query.urlencode()
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
