@@ -43,13 +43,13 @@ from .test_cli_add_1 import (
 )
 
 
-def test_abort_stops_long_running_background_hook(initialized_archive):
-    env = cli_env(INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True")
+def test_abort_stops_long_running_background_hook(initialized_archive, recursive_test_site):
+    env = cli_env(WGET_ARGS_EXTRA='["--limit-rate=5"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True")
     # Keep first-use dependency installation outside the timed hook-start
     # observation. This test is about interrupting a running hook; a cold
-    # browser or forumdl install must not consume its readiness window.
+    # browser or wget install must not consume its readiness window.
     installed = run_archivebox_cmd(
-        ["install", "forumdl", "chrome"],
+        ["install", "wget", "chrome"],
         cwd=initialized_archive,
         env=env,
         timeout=600,
@@ -77,11 +77,10 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
 
     try:
         result = run_archivebox_cmd(
-            # A fixed discussion keeps the real finite downloader busy while
-            # the browser hook is interrupted. The HN homepage instead scans
-            # from today's newest API item, which can be a titleless tombstone
-            # that ends forum-dl before the interruption is exercised.
-            ["add", "--depth=1", "--plugins=forumdl,infiniscroll", "https://news.ycombinator.com/item?id=41860909"],
+            # Control transfer duration with wget's native bandwidth setting,
+            # rather than assume an external forum is still downloading when
+            # the browser becomes ready. Both hooks and the HTTP transfer are real.
+            ["add", "--depth=1", "--plugins=wget,infiniscroll", recursive_test_site["root_url"]],
             cwd=initialized_archive,
             env=env,
             stdin=slave,
@@ -105,18 +104,27 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
         result.send_signal(signal.SIGINT)
         read_until(lambda: b"Choice [skip]:" in output)
         read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
-        forum = result_for("forumdl")
-        assert forum is not None and forum.status == "started"
+        wget = result_for("wget")
+        assert wget is not None and wget.status == "started", wget.output_str if wget else "wget never started"
         children = psutil.Process(result.pid).children(recursive=True)
+        downloaders = []
+        for child in children:
+            try:
+                if Path(child.exe()).name == "wget":
+                    downloaders.append(child.cmdline())
+            except psutil.NoSuchProcess:
+                # Chrome's short-lived helpers may exit during enumeration.
+                continue
+        assert downloaders and all("--limit-rate=5" in command for command in downloaders)
         abort_offset = len(output)
         os.write(master, b"\x03")
         read_until(lambda: b"Aborting crawl" in output[abort_offset:], timeout=3)
         read_until(lambda: result.poll() is not None, timeout=25)
         assert result.returncode == 130, output.decode(errors="replace")
         assert not [child.pid for child in children if child.is_running() and child.status() != psutil.STATUS_ZOMBIE]
-        assert any("INFO:root:GET" in log.read_text() for log in initialized_archive.rglob("on_Snapshot__33_forumdl.*.stderr.log"))
+        assert any("saving page with wget" in log.read_text() for log in initialized_archive.rglob("on_Snapshot__35_wget.*.stderr.log"))
         assert b"Stopped during crawl abort" in output
-        assert b"INFO:root:GET" not in output[abort_offset:]
+        assert b"saving page with wget" not in output[abort_offset:]
         assert b"Traceback" not in output
     finally:
         if result is not None and result.poll() is None:
