@@ -107,14 +107,6 @@
     0,
     0
   ],
-  "runtime": {
-    "version": "0.9.78rc101",
-    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
-    "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
-    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
-    "sourceBindMounts": false,
-    "baseUrl": "http://admin.archivebox.localhost:5894"
-  },
   "captureRecordsUnchanged": [
     [
       "06af4c93455170748000823c9092107f",
@@ -165,5 +157,22 @@
   "archiveFilesUnchanged": 372,
   "archiveManifestSha256": "93123f5c1acc31776f0e2a181dab76774fca09e359a7db9dcce4cda9e006e5a8",
   "databaseIntegrity": "ok",
-  "feedTables": []
+  "feedTables": [],
+  "priorInspectionRuntime": {
+    "version": "0.9.78rc101",
+    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
+    "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
+    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+    "sourceBindMounts": false,
+    "baseUrl": "http://admin.archivebox.localhost:5894"
+  },
+  "runtime": {
+    "version": "0.9.78rc101",
+    "hostCommit": "61cb6cc7a7609f05e4a8057a46f8e7c70787405e",
+    "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
+    "imageDigest": "sha256:53fdbf417dc0029b091be49aaaf15472b0a1697f3bc154a2ffe239bd6fda58e0",
+    "sourceBindMounts": false,
+    "baseUrl": "http://admin.archivebox.localhost:5895"
+  },
+  "verificationScope": "Existing native initial/scheduled capture outputs revalidated in this packaged image; no new capture was requested."
 }

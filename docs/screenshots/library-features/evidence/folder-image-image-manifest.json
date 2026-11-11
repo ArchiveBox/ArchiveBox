@@ -1,299 +1,299 @@
 {
   "runtime": {
     "version": "0.9.78rc101",
-    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
+    "hostCommit": "61cb6cc7a7609f05e4a8057a46f8e7c70787405e",
     "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
-    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+    "imageDigest": "sha256:53fdbf417dc0029b091be49aaaf15472b0a1697f3bc154a2ffe239bd6fda58e0",
     "sourceBindMounts": false,
-    "baseUrl": "http://admin.archivebox.localhost:5894"
+    "baseUrl": "http://admin.archivebox.localhost:5895"
   },
   "images": [
     {
       "filename": "add-folder-dialog-desktop.png",
-      "bytes": 240615,
+      "sha256": "e49c6a7bee9049b686f76eb77d544546262216328562a6d738cbb982a99fb020",
+      "bytes": 240898,
       "width": 1600,
-      "height": 1000,
-      "sha256": "22ea9e3778bf850c876d5cf22be231f4cc052d89d9ee674e94261aaaf92fb168"
+      "height": 1000
     },
     {
       "filename": "add-folder-dialog-mobile.png",
-      "bytes": 87337,
+      "sha256": "e440799fd3fd5696e1928bb62f8f1d2e6ec5f98b4f94bd2c96e1dcbb2ff979c8",
+      "bytes": 87610,
       "width": 390,
-      "height": 844,
-      "sha256": "0db339db9aa7d15d4d2df04c374ac30de01d86187c941e8462b390c58b5d69d8"
+      "height": 844
     },
     {
       "filename": "add-folder-selected-desktop.png",
+      "sha256": "3f8fd62c3d64b9bd365e65dad995227a0a7e76e7db80c393807d80cd1172f3e8",
       "bytes": 175522,
       "width": 1600,
-      "height": 1000,
-      "sha256": "3f8fd62c3d64b9bd365e65dad995227a0a7e76e7db80c393807d80cd1172f3e8"
+      "height": 1000
     },
     {
       "filename": "add-folder-selected-mobile.png",
+      "sha256": "8f2f6af04d80942211dcf5e86ec06b44bec8a079c0f0524ef4adb49e86d719e4",
       "bytes": 66483,
       "width": 390,
-      "height": 844,
-      "sha256": "8f2f6af04d80942211dcf5e86ec06b44bec8a079c0f0524ef4adb49e86d719e4"
+      "height": 844
     },
     {
       "filename": "crawl-exports-desktop-viewport.png",
-      "bytes": 128456,
+      "sha256": "3f4b00155af37ffae74abff9d79cab7d0b7343734502416238fad64f69b6a6fa",
+      "bytes": 129817,
       "width": 1600,
-      "height": 1000,
-      "sha256": "2f728648111bc95250f1985f9d6a45968f3acb38196ce16e797e6d5e00c11802"
+      "height": 1000
     },
     {
       "filename": "crawl-exports-desktop.png",
-      "bytes": 128456,
+      "sha256": "3f4b00155af37ffae74abff9d79cab7d0b7343734502416238fad64f69b6a6fa",
+      "bytes": 129817,
       "width": 1600,
-      "height": 1000,
-      "sha256": "2f728648111bc95250f1985f9d6a45968f3acb38196ce16e797e6d5e00c11802"
+      "height": 1000
     },
     {
       "filename": "crawl-exports-mobile-viewport.png",
-      "bytes": 72769,
+      "sha256": "bba73b2db0ae31ad6f5d5e140ae16e635333180ffcb8df2b67e1ecda6df5f044",
+      "bytes": 74502,
       "width": 390,
-      "height": 844,
-      "sha256": "1f9c3bb9d3bb80203c442ac5ba1f3e4a684d2e837ea8939dc0b81ac66102396b"
+      "height": 844
     },
     {
       "filename": "crawl-exports-mobile.png",
-      "bytes": 72769,
+      "sha256": "bba73b2db0ae31ad6f5d5e140ae16e635333180ffcb8df2b67e1ecda6df5f044",
+      "bytes": 74502,
       "width": 390,
-      "height": 844,
-      "sha256": "1f9c3bb9d3bb80203c442ac5ba1f3e4a684d2e837ea8939dc0b81ac66102396b"
+      "height": 844
     },
     {
       "filename": "public-exports-desktop-viewport.png",
-      "bytes": 85496,
+      "sha256": "90c6d933f79704fe2863f03a7195f9fa979ef2921198abb67227018d81b93bbf",
+      "bytes": 85306,
       "width": 1600,
-      "height": 1000,
-      "sha256": "b7b4073f78aae7a677bc6599056e348cee71205d5095ac04faa371b4c9fe5ecf"
+      "height": 1000
     },
     {
       "filename": "public-exports-desktop.png",
-      "bytes": 85496,
+      "sha256": "90c6d933f79704fe2863f03a7195f9fa979ef2921198abb67227018d81b93bbf",
+      "bytes": 85306,
       "width": 1600,
-      "height": 1000,
-      "sha256": "b7b4073f78aae7a677bc6599056e348cee71205d5095ac04faa371b4c9fe5ecf"
+      "height": 1000
     },
     {
       "filename": "public-exports-mobile-viewport.png",
-      "bytes": 56851,
+      "sha256": "bcf809eb9306277269703e3bdf6ea0b16c99df1bc8c1b2ed5955b44eed4922ad",
+      "bytes": 56676,
       "width": 390,
-      "height": 844,
-      "sha256": "d1522e9e097ce895348dcab5c07a74f30013b93e44da50424a945e7fc25ecbff"
+      "height": 844
     },
     {
       "filename": "public-exports-mobile.png",
-      "bytes": 56851,
+      "sha256": "bcf809eb9306277269703e3bdf6ea0b16c99df1bc8c1b2ed5955b44eed4922ad",
+      "bytes": 56676,
       "width": 390,
-      "height": 844,
-      "sha256": "d1522e9e097ce895348dcab5c07a74f30013b93e44da50424a945e7fc25ecbff"
+      "height": 844
     },
     {
       "filename": "rss-importer-desktop-viewport.png",
-      "bytes": 158167,
+      "sha256": "05964737969d6c49412c04b4eb56686dbc2eabf19f3124618449457fad188e39",
+      "bytes": 159494,
       "width": 1600,
-      "height": 1000,
-      "sha256": "a34c5ba1b237fa46e10ea824edcc39b3c63211a8fa881efef81af1d324bd97b0"
+      "height": 1000
     },
     {
       "filename": "rss-importer-desktop.png",
-      "bytes": 156777,
+      "sha256": "d406c252449d449ce31c87c4d790919b30977cb95a588b2577c00a8535e132bf",
+      "bytes": 159509,
       "width": 1600,
-      "height": 1000,
-      "sha256": "211fbe229b52dcca4ee0f1956aa5e875cd0ac06804661bd68c17ab797596fdc3"
+      "height": 1000
     },
     {
       "filename": "rss-importer-mobile-viewport.png",
-      "bytes": 68512,
+      "sha256": "62a2f10cc529e66f2d4b1fe8beeba5370891598e157f49839ac57d9f8c5edb0c",
+      "bytes": 69859,
       "width": 390,
-      "height": 844,
-      "sha256": "72f281ea28bdebf994a13f22f8fe390b7e7a06fceafb1657a4cab814df6cbb8e"
+      "height": 844
     },
     {
       "filename": "rss-importer-mobile.png",
-      "bytes": 105146,
+      "sha256": "312facd2a7d1d28a80b1b660ca163a008ff9d8dfa3867fb977977472ba07c2cb",
+      "bytes": 121165,
       "width": 390,
-      "height": 1193,
-      "sha256": "6156608a28a5f0f1a9eaeb8ac3815636ac61a0d62ec2c11e265b0ab84e3f3b02"
+      "height": 1444
     },
     {
       "filename": "scheduled-folder-results-desktop.png",
-      "bytes": 196142,
+      "sha256": "cedaa31fe3ba9df1ba42309f83f8de9e47fdd3e26e5fd3bebc0e828789858f42",
+      "bytes": 197043,
       "width": 1600,
-      "height": 1000,
-      "sha256": "a2c61326667eef6b92c2b6919272d34b259e607cce924a759e76aa5e5c8bd917"
+      "height": 1000
     },
     {
       "filename": "scheduled-folder-results-mobile.png",
-      "bytes": 178596,
+      "sha256": "d046aece03573f5a17b7bbd9fef117d7c3780212ef62797a2b077189b40fbc61",
+      "bytes": 178040,
       "width": 390,
-      "height": 1854,
-      "sha256": "4a6c6beb728d109ff6f8d9158d18641cd62ec982fa32704614487dc459cb645f"
+      "height": 1854
     },
     {
       "filename": "sidebar-desktop-expanded.png",
-      "bytes": 148088,
+      "sha256": "f68207c0881d954e04450f4d027ff338ae732b54ca5f24f56acb0444de66108d",
+      "bytes": 151044,
       "width": 1600,
-      "height": 1000,
-      "sha256": "a7e4342ca66024a0e59be2e3a73161f603e99f5f4727eb30f4366f381e32903c"
+      "height": 1000
     },
     {
       "filename": "sidebar-desktop-hidden.png",
-      "bytes": 121422,
+      "sha256": "52103895def68bd4464051ddeeebb8db581819ac355a5e5d9d931d0652101d4f",
+      "bytes": 122785,
       "width": 1600,
-      "height": 1000,
-      "sha256": "eaf1da0095f0e819b440b9e58479c8bda6de4ae2496bde15a5c3d650d3431061"
+      "height": 1000
     },
     {
       "filename": "sidebar-grid-expanded.png",
-      "bytes": 186707,
+      "sha256": "039c6956dd446a6f51f643b28e8d4de913baf7eef15ad6f0dc46170a50c2253e",
+      "bytes": 189673,
       "width": 1600,
-      "height": 1000,
-      "sha256": "2b50bff0fa2fe6f34f6eb0432c4c52458a0902d481b5dab68c2c160348465a67"
+      "height": 1000
     },
     {
       "filename": "sidebar-grid-hidden.png",
-      "bytes": 174878,
+      "sha256": "e978a922517ed097bf6e499235a970465ccb633cd9d9b9dc80509c00f4dae208",
+      "bytes": 176190,
       "width": 1600,
-      "height": 1000,
-      "sha256": "3672405c5d58eb18898162fbe0bc5964e03c31c5a876533c2ab05d7a5eab0c41"
+      "height": 1000
     },
     {
       "filename": "sidebar-mobile-collapsed.png",
-      "bytes": 100392,
+      "sha256": "1a09fd99226184446faab4a161fa4518531226a6b105d1588cd7884f283dce65",
+      "bytes": 104313,
       "width": 390,
-      "height": 864,
-      "sha256": "bf1f89c229e3596645342c73e0d0184402b798883985a4270cdedf9f343ca50e"
+      "height": 894
     },
     {
       "filename": "sidebar-mobile-expanded.png",
-      "bytes": 118718,
+      "sha256": "f5f00312d167bd72cea3089276fc09761b8179666cff8766d740c92c9699f400",
+      "bytes": 124828,
       "width": 390,
-      "height": 1314,
-      "sha256": "429cea7c65ceb8dd4863b2b9f664c342272b648713282808f4e8099684513f59"
+      "height": 1385
     },
     {
       "filename": "snapshot-exports-desktop-viewport.png",
-      "bytes": 144158,
+      "sha256": "4c53b58a61665a2c97113bed1969fe78ab5f21ed2c2e44d90aec69d274293a15",
+      "bytes": 151033,
       "width": 1600,
-      "height": 1000,
-      "sha256": "d6c22f487d93705dbae9cff26c2a4b93bb3d4243824ee4de8077fb83491058e9"
+      "height": 1000
     },
     {
       "filename": "snapshot-exports-desktop.png",
-      "bytes": 142354,
+      "sha256": "4c53b58a61665a2c97113bed1969fe78ab5f21ed2c2e44d90aec69d274293a15",
+      "bytes": 151033,
       "width": 1600,
-      "height": 1000,
-      "sha256": "154485d786c3d662ecc2c89726ad0ac09d34ec5d0713dc0cdc29ecba559bd53c"
+      "height": 1000
     },
     {
       "filename": "snapshot-exports-mobile-expanded.png",
-      "bytes": 118500,
+      "sha256": "7ab848905195fe2fb58373b3d5cb3b362039452cca0b6acbb3ad864888c2f5a9",
+      "bytes": 118448,
       "width": 390,
-      "height": 1385,
-      "sha256": "ed1bfd5b034a3fa4d5e76369c9fdd385066ae3b4d069e4b43e0e325a6dc5da44"
+      "height": 1385
     },
     {
       "filename": "snapshot-exports-mobile-viewport.png",
-      "bytes": 93897,
+      "sha256": "eafc48d804293ab73ea5c2409504de8daba9072c9510cc2ca75b8a38b34d72bc",
+      "bytes": 103853,
       "width": 390,
-      "height": 844,
-      "sha256": "39d0e27d984e207a9b6fce7599b62826e6c849c4763529dabdcb720e5d991474"
+      "height": 844
     },
     {
       "filename": "snapshot-exports-mobile.png",
-      "bytes": 95021,
+      "sha256": "e1703e04fb185891af29a60e5a6b1745a6e969e5d889f475f4ab8a92eb7383f0",
+      "bytes": 104341,
       "width": 390,
-      "height": 864,
-      "sha256": "8c0686295c62f6d02a6cf3a4d2df6e8a7dd6b6db411f400fe8b718e435387494"
+      "height": 894
     },
     {
       "filename": "snapshot-grid-exports-desktop-viewport.png",
-      "bytes": 186184,
+      "sha256": "b68063aebcd064e046a17f1f909bb4f141023b489a69aeda710a171a3734eaef",
+      "bytes": 204700,
       "width": 1600,
-      "height": 1000,
-      "sha256": "fd59165ba9cd787f5c5c211b57fe1b5e78d12dcd8254df5043b4de17f1018008"
+      "height": 1000
     },
     {
       "filename": "snapshot-grid-exports-desktop.png",
-      "bytes": 160715,
+      "sha256": "6f46d28ea784cacba9d87486b77d49a845bd4998d26c21c9b42b458e725cd810",
+      "bytes": 204712,
       "width": 1600,
-      "height": 1000,
-      "sha256": "5c093ec127ac4756420e52e521779081a88ffad7616295a311086b3816c48a2b"
+      "height": 1000
     },
     {
       "filename": "snapshot-grid-exports-mobile-viewport.png",
-      "bytes": 78018,
+      "sha256": "6262368c87869d9e44fd8fa12398bdd03cfe5e07e46236a18357fc98236b9de2",
+      "bytes": 81242,
       "width": 390,
-      "height": 844,
-      "sha256": "c68fe9d759999563a8cb47ce9d1c7b642833dae4a1efbc4ead372cabb94f68fc"
+      "height": 844
     },
     {
       "filename": "snapshot-grid-exports-mobile.png",
-      "bytes": 97107,
+      "sha256": "96d596b1a0533bba0075e423868a6072af1f2441a731f79d3348c525dc5a9626",
+      "bytes": 106377,
       "width": 390,
-      "height": 1672,
-      "sha256": "6b91047ae8f4b95db769af00f1bc88daf3bfa0abc3005d787f25976e6146ca0d"
+      "height": 1702
     },
     {
       "filename": "tag-exports-desktop-viewport.png",
-      "bytes": 178153,
+      "sha256": "fd38db8d84285a699ff097d3d4bca3e2366c5bb55d5da181dc44ce69bed7534a",
+      "bytes": 179343,
       "width": 1600,
-      "height": 1000,
-      "sha256": "10b95bdc718e6a09fa302f2f76cc424b9f5f210f44a5dab19d0a19f5e75bb01a"
+      "height": 1000
     },
     {
       "filename": "tag-exports-desktop.png",
-      "bytes": 178153,
+      "sha256": "ae0e48df58ec720349e1ffd32fb8ca6f508113a1fa7b2820159eaea6e5b30d1e",
+      "bytes": 179353,
       "width": 1600,
-      "height": 1000,
-      "sha256": "10b95bdc718e6a09fa302f2f76cc424b9f5f210f44a5dab19d0a19f5e75bb01a"
+      "height": 1000
     },
     {
       "filename": "tag-exports-mobile-viewport.png",
-      "bytes": 84971,
+      "sha256": "b904d5beceea98f2f20f0190de4c3de77dd544d12ffc3f957b10693260153223",
+      "bytes": 88433,
       "width": 390,
-      "height": 844,
-      "sha256": "7a28247edba08c1afb88bc7ce71a94d53314d3d6ee7f49f8a53851ed220b3263"
+      "height": 844
     },
     {
       "filename": "tag-exports-mobile.png",
-      "bytes": 84971,
+      "sha256": "9fbb96fe601774943ef1cf5bbe246fefcfcd01bd4f4f1c13341f7ab21ac2d394",
+      "bytes": 88446,
       "width": 390,
-      "height": 844,
-      "sha256": "a646e1d40990ea5d7c912fe343dba903cc65e9844dbaf1cec1bdbfab3992b0f4"
+      "height": 844
     },
     {
       "filename": "user-exports-desktop-viewport.png",
-      "bytes": 138971,
+      "sha256": "d6bf012befeb6fc2ce68125f95af1144fd90f1a8d0afd729784fbc4e9c58322f",
+      "bytes": 140294,
       "width": 1600,
-      "height": 1000,
-      "sha256": "144e9f26ac604e85d1fd1fd6c73e76c7d2fa3da911683b69b0d3c0d5b8b8422c"
+      "height": 1000
     },
     {
       "filename": "user-exports-desktop.png",
-      "bytes": 138971,
+      "sha256": "d6bf012befeb6fc2ce68125f95af1144fd90f1a8d0afd729784fbc4e9c58322f",
+      "bytes": 140294,
       "width": 1600,
-      "height": 1000,
-      "sha256": "144e9f26ac604e85d1fd1fd6c73e76c7d2fa3da911683b69b0d3c0d5b8b8422c"
+      "height": 1000
     },
     {
       "filename": "user-exports-mobile-viewport.png",
-      "bytes": 57229,
+      "sha256": "8fcddd7e522f1e63357a09024132789dd3daf8674d2661598fcafd6b9abb308e",
+      "bytes": 59743,
       "width": 390,
-      "height": 844,
-      "sha256": "dbf3011aca5e552676c6262c333e8d83d90dc267adc30396bf9e7e34ba5cbe0c"
+      "height": 844
     },
     {
       "filename": "user-exports-mobile.png",
-      "bytes": 57229,
+      "sha256": "f7905abbed777b30a77ccf60e6b90a3b27d0cbb9d00ee9f3792b0fd7583b9f95",
+      "bytes": 59754,
       "width": 390,
-      "height": 844,
-      "sha256": "dbf3011aca5e552676c6262c333e8d83d90dc267adc30396bf9e7e34ba5cbe0c"
+      "height": 844
     }
   ]
 }

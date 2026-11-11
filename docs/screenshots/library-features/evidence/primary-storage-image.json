@@ -7,11 +7,11 @@
   "fuse_available": true,
   "host_commit_verified": true,
   "obsolete_feeds_app_absent": true,
-  "host_commit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
-  "plugin_commit": "f819cefc736d914c89d89fce22e73ac85e3cba72",
-  "image_digest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+  "host_commit": "61cb6cc7a7609f05e4a8057a46f8e7c70787405e",
+  "plugin_commit": "060462b5a7cbdabae44e165ed05f8b0c2ee1ffc3",
+  "image_digest": "sha256:53fdbf417dc0029b091be49aaaf15472b0a1697f3bc154a2ffe239bd6fda58e0",
   "platform": "linux/arm64",
   "verified_runtime_files": 634,
-  "compressed_bytes": 1043741744,
-  "compressed_mib": 995.39
+  "compressed_bytes": 1043735309,
+  "compressed_mib": 995.38
 }

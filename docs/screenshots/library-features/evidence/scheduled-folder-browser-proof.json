@@ -1,25 +1,25 @@
 {
   "runtime": {
     "version": "0.9.78rc101",
-    "hostCommit": "d0cbc9da0debc50f1e2e9bcffd5326fac9918dfa",
+    "hostCommit": "61cb6cc7a7609f05e4a8057a46f8e7c70787405e",
     "module": "/venv/lib/python3.13/site-packages/archivebox/__init__.py",
-    "imageDigest": "sha256:f00d98f72e968b3a7e567903daee16cad078c1a7975d6eead413afd468d5d36d",
+    "imageDigest": "sha256:53fdbf417dc0029b091be49aaaf15472b0a1697f3bc154a2ffe239bd6fda58e0",
     "sourceBindMounts": false,
-    "baseUrl": "http://admin.archivebox.localhost:5894"
+    "baseUrl": "http://admin.archivebox.localhost:5895"
   },
   "exports": {
     "rss": {
-      "url": "http://admin.archivebox.localhost:5894/admin/core/snapshot/feed/?folder=4",
+      "url": "http://admin.archivebox.localhost:5895/admin/core/snapshot/feed/?folder=4",
       "status": 200,
       "count": 6
     },
     "csv": {
-      "url": "http://admin.archivebox.localhost:5894/admin/core/snapshot/export.csv?folder=4",
+      "url": "http://admin.archivebox.localhost:5895/admin/core/snapshot/export.csv?folder=4",
       "status": 200,
-      "count": 6
+      "count": null
     },
     "jsonl": {
-      "url": "http://admin.archivebox.localhost:5894/admin/core/snapshot/export.jsonl?folder=4",
+      "url": "http://admin.archivebox.localhost:5895/admin/core/snapshot/export.jsonl?folder=4",
       "status": 200,
       "count": 6
     }
