@@ -118,8 +118,6 @@ jobs:
             for digest in "${digests[@]}"; do refs+=("$image@sha256:$digest"); done
             docker buildx imagetools create --tag "$image:sha-${GITHUB_SHA::12}" "${refs[@]}"
           done
-          # Keep both exact SHA tags even if this build was superseded. Only
-          # the current head may update the moving channel and start staging.
           head="$(git ls-remote origin refs/heads/dev | cut -f1)"
           if [[ "$head" != "$GITHUB_SHA" ]]; then
             echo "Source $GITHUB_SHA superseded by $head; not promoting dev-unstable."

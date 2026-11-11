@@ -138,20 +138,6 @@
       "binproviders": "env"
     }
   ],
-  "deploy_binaries": [
-    {
-      "name": "{GIT_BINARY}",
-      "binproviders": "env,brew,apt"
-    },
-    {
-      "name": "{PYTHON_BINARY}",
-      "binproviders": "env"
-    },
-    {
-      "name": "{SSH_BINARY}",
-      "binproviders": "env"
-    }
-  ],
   "docker_debug_binaries": [
     {
       "name": "{DOCKER_BINARY}",
