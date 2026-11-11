@@ -8,6 +8,10 @@ on:
     paths:
       - '.github/workflows/screenshots.yml'
       - 'bin/take_screenshot.js'
+      - 'bin/setup_ui_screenshot_data.js'
+      - 'archivebox/core/library*'
+      - 'archivebox/core/admin*'
+      - 'archivebox/core/models.py'
       - 'bin/collect_ui_screenshots.sh'
       - 'bin/generate_ui_screenshot_gallery.py'
       - 'archivebox/templates/**'

@@ -50,7 +50,7 @@ from archivebox.plugins.output_groups import (
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
-from archivebox.core.models import Tag, Snapshot, ArchiveResult
+from archivebox.core.models import Tag, Snapshot, ArchiveResult, Folder
 from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
@@ -78,6 +78,12 @@ class SnapshotActionForm(ActionForm):
             required=False,
             widget=TagEditorWidget(),
         )
+        self.fields["folder_destination"] = forms.ModelChoiceField(
+            queryset=Folder.objects.all(),
+            required=False,
+            label="Folder",
+            empty_label="Unfiled",
+        )
 
     def clean_tags(self):
         """Parse comma-separated tag names without touching the DB."""
@@ -86,6 +92,24 @@ class SnapshotActionForm(ActionForm):
             return []
 
         return [name.strip() for name in tags_str.split(",") if name.strip()]
+
+
+class SnapshotFolderListFilter(admin.SimpleListFilter):
+    title = "folder"
+    parameter_name = "folder"
+
+    def lookups(self, request, model_admin):
+        return [("unfiled", "Unfiled"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == "unfiled":
+            return queryset.filter(folder__isnull=True)
+        if value:
+            if not value.isdecimal():
+                return queryset.none()
+            return queryset.filter(folder_id__in=Folder.subtree_ids(int(value)))
+        return queryset
 
 
 class TagNameListFilter(admin.SimpleListFilter):
@@ -357,6 +381,7 @@ class SnapshotAdminForm(forms.ModelForm):
 
 
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
+    change_list_template = "admin/core/snapshot/change_list.html"
     form = SnapshotAdminForm
     raw_id_fields = ("crawl", "parent_snapshot")
     list_select_related = ()
@@ -396,6 +421,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     search_fields = ("id", "url", "timestamp", "title", "tags__name")
     list_filter = (
+        SnapshotFolderListFilter,
         SnapshotPermissionsListFilter,
         SnapshotStatusListFilter,
         SnapshotResultHealthListFilter,
@@ -453,7 +479,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         (
             "Relations",
             {
-                "fields": ("crawl",),
+                "fields": ("crawl", "folder"),
                 "classes": ("card",),
             },
         ),
@@ -483,6 +509,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     ordering = ["-created_at"]
     actions = [
+        "move_to_folder",
         "add_tags",
         "remove_tags",
         "resnapshot_snapshot",
@@ -552,6 +579,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context = extra_context or {}
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
+        extra_context["folder_tree"] = Folder.tree()
+        extra_context["selected_folder"] = request.GET.get("folder", "")
+        selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
+        extra_context["folder_title"] = (
+            selected.name if selected else "Unfiled" if extra_context["selected_folder"] == "unfiled" else "All snapshots"
+        )
+        extra_context["folder_path"] = selected.path_label if selected and selected.parent_id else "Your saved pages, organized."
+        extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
+        feed_query = request.GET.copy()
+        feed_query.pop("p", None)
+        extra_context["list_feed_url"] = reverse("admin:core_snapshot_feed") + "?" + feed_query.urlencode()
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
@@ -588,6 +626,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
+            path("feed/", self.admin_site.admin_view(self.feed_view), name="core_snapshot_feed"),
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
@@ -603,6 +642,51 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def feed_view(self, request):
+        from archivebox.api.v1_core import _snapshots_rss_response
+        from archivebox.search.query import apply_snapshot_search
+
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        self = copy(self)
+        self.request = request
+
+        def search(_request, queryset, term):
+            if term:
+                queryset = apply_snapshot_search(
+                    queryset,
+                    term,
+                    search_mode=request.GET.get("search_mode", "meta"),
+                    config=request.archivebox_config,
+                )
+            return queryset, True
+
+        self.get_search_results = search
+        changelist = self.get_changelist_instance(request)
+        snapshots = changelist.queryset.select_related("crawl__created_by").prefetch_related("tags")[:500]
+        return _snapshots_rss_response(request, snapshots=snapshots)
+
+    @admin.action(description="Move to folder", permissions=["change"])
+    def move_to_folder(self, request, queryset):
+        from django.db import transaction
+        from archivebox.core.signals import snapshot_folders_changed
+
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        folder_id = request.POST.get("folder_destination")
+        folder = get_object_or_404(Folder, pk=folder_id) if folder_id else None
+        destination_id = folder.pk if folder else None
+        with transaction.atomic():
+            changes = [
+                {"snapshot_id": str(pk), "before": previous, "after": destination_id}
+                for pk, previous in queryset.values_list("pk", "folder_id")
+                if previous != destination_id
+            ]
+            count = queryset.update(folder=folder, modified_at=timezone.now())
+            if changes:
+                transaction.on_commit(lambda: snapshot_folders_changed.send(sender=Snapshot, changes=changes))
+        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Unfiled'}.")
 
     def preview_view(self, request, object_id, plugin, filename):
         """Serve a saved image output from the authenticated admin origin."""

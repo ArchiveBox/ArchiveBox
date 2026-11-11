@@ -1,0 +1,46 @@
+{% extends "admin/change_list.html" %}{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'library/folders.js' %}" defer></script>{% endblock %}
+{% block content %}
+{% if not embedded_changelist %}<div class="snapshot-library">
+<svg class="library-symbols" aria-hidden="true"><defs>
+<symbol id="library-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/></symbol>
+<symbol id="library-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="library-tray" viewBox="0 0 24 24"><path d="m3 13 3-9h12l3 9v7H3Zm0 0h5l2 3h4l2-3h5"/></symbol>
+<symbol id="library-rss" viewBox="0 0 24 24"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></symbol>
+</defs></svg>
+<nav class="folder-sidebar" aria-label="Folders" data-move-url="{% url 'admin:core_folder_move' %}">
+  <div class="library-heading"><span class="library-mark"><svg><use href="#library-grid"/></svg></span><div><span class="library-eyebrow">YOUR ARCHIVE</span><h2>Library</h2></div><button type="button" class="folder-mobile-toggle icon-button" aria-label="Show folders" aria-expanded="false">☰</button></div>
+  <div class="library-primary">
+    <a class="library-link" href="{% url 'admin:core_snapshot_changelist' %}" {% if not selected_folder %}aria-current="page"{% endif %}><svg><use href="#library-grid"/></svg><span>All snapshots</span><small class="folder-count">{{ library_counts.total }}</small></a>
+    <a class="library-link folder-drop-target" data-folder-id="" href="?folder=unfiled" {% if selected_folder == 'unfiled' %}aria-current="page"{% endif %}><svg><use href="#library-tray"/></svg><span>Unfiled</span><small class="folder-count">{{ library_counts.unfiled }}</small></a>
+  </div>
+  <div class="folder-section-heading"><h3>Folders</h3><button type="button" class="folder-collapse-all icon-button" aria-label="Collapse all folders" title="Collapse all folders">⌃</button><button type="button" class="folder-new icon-button" aria-label="Create folder" title="Create folder">＋</button></div>
+  <input type="search" class="folder-search" placeholder="Find a folder…" aria-label="Find a folder">
+  <div class="folder-tree">
+  {% for folder in folder_tree %}<div class="folder-row folder-drop-target" data-folder-id="{{ folder.pk }}" data-folder-name="{{ folder.name }}" data-parent-id="{{ folder.parent_id|default:'' }}" style="--folder-depth:{{ folder.level }}">
+    {% if folder.has_children %}<button class="folder-toggle icon-button" type="button" aria-label="Collapse {{ folder.name }}" aria-expanded="true"><svg viewBox="0 0 16 16"><path d="m5 6 3 3 3-3"/></svg></button>{% else %}<span class="folder-toggle-spacer"></span>{% endif %}
+    <a class="library-link folder-link" title="{{ folder.path_label }}" href="?folder={{ folder.pk }}" {% if selected_folder == folder.pk|stringformat:'s' %}aria-current="page"{% endif %}><svg><use href="#library-folder"/></svg><span>{{ folder.name }}</span><small class="folder-count" title="Snapshots including subfolders">{{ folder.snapshot_count }}</small></a>
+    <button type="button" class="folder-edit icon-button" aria-label="Edit {{ folder.name }}" data-id="{{ folder.pk }}" data-name="{{ folder.name }}" data-parent="{{ folder.parent_id|default:'' }}">⋯</button>
+  </div>{% empty %}<div class="folder-empty"><svg><use href="#library-folder"/></svg><p>A place for every idea.</p><button type="button" class="folder-new">Create your first folder</button></div>{% endfor %}
+  </div><p class="folder-search-empty" hidden>No matching folders.</p>
+  <p class="folder-drag-hint">Drag snapshots into a folder.<br>Check several to move them together.</p>
+  <div class="folder-actions">
+    <a href="{{ list_feed_url }}"><svg><use href="#library-rss"/></svg>RSS for this list<span aria-hidden="true">↗</span></a>
+    <a href="{% url 'importers:index' %}"><svg><use href="#library-tray"/></svg>Connect a source<span aria-hidden="true">↗</span></a>
+    <a class="folder-manage" href="{% url 'admin:core_folder_changelist' %}">Manage folders</a>
+  </div>
+  <div class="folder-drop-status" role="status" aria-live="polite"></div>
+</nav>{% endif %}
+{{ block.super }}
+{% if not embedded_changelist %}</div>
+<dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form method="post" action="{% url 'admin:core_folder_save' %}">{% csrf_token %}
+  <div class="folder-dialog-heading"><h2 id="folder-dialog-title">New folder</h2><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
+  <p>Keep related snapshots together.</p><input type="hidden" name="folder_id" value="">
+  <label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required placeholder="e.g. Design inspiration" autocomplete="off">
+  <label for="folder-parent">Inside</label><select id="folder-parent" name="parent"><option value="">Library · top level</option>{% for folder in folder_tree %}<option value="{{ folder.pk }}">{{ folder.path_label }}</option>{% endfor %}</select>
+  <p class="folder-form-error" role="alert"></p><div class="folder-dialog-footer"><button type="button" class="folder-dialog-close">Cancel</button><button type="submit" class="folder-save">Save folder</button></div>
+</form></dialog>{% endif %}
+{% endblock %}
+
+{% block object-tools %}{% if not embedded_changelist %}<header class="library-context"><div><p>{{ folder_path }}</p><h1>{{ folder_title }}</h1></div><button type="button" class="folder-new library-new-subfolder" data-parent="{% if selected_folder != 'unfiled' %}{{ selected_folder }}{% endif %}">＋ New folder</button></header>{% if not cl.result_count %}<div class="library-empty"><h2>No snapshots here yet</h2><p>Move captures into this folder, or adjust your search and filters.</p><a href="{% url 'admin:core_snapshot_changelist' %}">Browse all snapshots →</a></div>{% endif %}{% endif %}{{ block.super }}{% endblock %}

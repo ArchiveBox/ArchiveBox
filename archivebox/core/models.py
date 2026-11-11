@@ -63,6 +63,72 @@ if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
 
 
+class Folder(models.Model):
+    """A virtual collection; organizing captures never moves their archived files."""
+
+    name = models.CharField(max_length=100)
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("position", "name", "pk")
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        self.name = sanitize_html_text(self.name).strip()
+        if not self.name:
+            raise ValidationError({"name": "Enter a folder name."})
+        parent_id = self.parent_id
+        seen = {self.pk} if self.pk else set()
+        while parent_id:
+            if parent_id in seen:
+                raise ValidationError({"parent": "Folders cannot contain a cycle."})
+            seen.add(parent_id)
+            parent_id = type(self).objects.filter(pk=parent_id).values_list("parent_id", flat=True).first()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def tree(cls):
+        """Build the complete sidebar with one query, without recursive SQL or N+1 reads."""
+        folders = list(cls.objects.annotate(snapshot_count=models.Count("snapshots")))
+        by_id = {folder.pk: folder for folder in folders}
+        children = {}
+        for folder in folders:
+            children.setdefault(folder.parent_id, []).append(folder)
+        result = []
+        pending = [(folder, 0) for folder in reversed(children.get(None, []))]
+        while pending:
+            folder, level = pending.pop()
+            folder.level = level
+            folder.has_children = bool(children.get(folder.pk))
+            folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
+            result.append(folder)
+            pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
+        for folder in reversed(result):
+            if folder.parent_id:
+                by_id[folder.parent_id].snapshot_count += folder.snapshot_count
+        return result
+
+    @classmethod
+    def subtree_ids(cls, folder_id):
+        children = {}
+        for pk, parent_id in cls.objects.values_list("pk", "parent_id"):
+            children.setdefault(parent_id, []).append(pk)
+        result, pending = set(), [folder_id]
+        while pending:
+            pk = pending.pop()
+            if pk not in result:
+                result.add(pk)
+                pending.extend(children.get(pk, []))
+        return result
+
+
 class SnapshotMigrationError(RuntimeError):
     """Raised when a snapshot filesystem migration fails validation."""
 
@@ -525,6 +591,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     )
     notes = models.TextField(blank=True, null=False, default="")
     # output_dir is computed via @cached_property from fs_version and get_storage_path_for_version()
+
+    folder = models.ForeignKey(Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="snapshots")
 
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name="snapshot_set", through_fields=("snapshot", "tag"))
 

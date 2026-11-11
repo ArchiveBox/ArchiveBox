@@ -121,6 +121,16 @@ async function main() {
       await selectUser(page);
     });
 
+    const dataDir = process.env.UI_LIBRARY_DATA_DIR;
+    const viewsFile = process.env.UI_LIBRARY_VIEWS_FILE;
+    if (!dataDir || !viewsFile || !process.env.UI_LIBRARY_CRAWL_ID) {
+      throw new Error('Gallery features require a real captured library crawl and an isolated data directory.');
+    }
+    const featureViews = [];
+    const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
+    featureViews.push(library);
+    featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
+    fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {
     await browser.close();
