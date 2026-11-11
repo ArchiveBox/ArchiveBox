@@ -1,9 +1,10 @@
 {
   "source": "Actual browser screenshots of ArchiveBox with saved Hacker News and recent story captures.",
   "captured_urls": [
-    "https://news.ycombinator.com/",
     "https://deepmind.google/blog/introducing-alphaproof-code/",
-    "https://docodethatmatters.com/home-automation-overnight-success/"
+    "https://docodethatmatters.com/home-automation-overnight-success/",
+    "https://news.ycombinator.com/",
+    "https://simonwillison.net/2026/Nov/9/mysterious-beeps/"
   ],
   "images": [
     {
@@ -163,6 +164,22 @@
       "sha256": "79841df3facb35a8b39b18c0584e36b295309c76dd5fd3646f9cea037c6cd4a5"
     },
     {
+      "path": "docs/screenshots/library-features/storage-active-desktop-viewport.png",
+      "sha256": "6bbeb1228cc46d491833690720df8d80cef60eba0d53070181caf715790cc939"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-active-desktop.png",
+      "sha256": "b74722dceb68c0d1c4b2c8b0926aafcdec7520ca5784e042b6f5a68484d3ef77"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-active-mobile-viewport.png",
+      "sha256": "dfe6e20fdcdedfb6dd6c156a6cb8acfca25367dfe3ddcd1cf1402a75820ab96a"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-active-mobile.png",
+      "sha256": "44db01c8316413cd05aa45e76af037ed7c9ea7d56ea7b996658f2491f2c0954a"
+    },
+    {
       "path": "docs/screenshots/library-features/storage-audit-files-mobile-viewport.png",
       "sha256": "1ed341c1bba9f243814039ca2105685cdce60b7d9ad7b3c76395a48aa63f1091"
     },
@@ -201,6 +218,42 @@
     {
       "path": "docs/screenshots/library-features/storage-audit.png",
       "sha256": "caba265cd2db38767789a277dd3dd8f71ab96595c71e3d07a4f6864a435d8b27"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-before.png",
+      "sha256": "c1685e6f8c94595f73323069e5ec3a823ab6ba39fcc068402e8682abb1951e48"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-0-desktop.png",
+      "sha256": "d7ebe3756d916f53022fc537f4a65c88a74aa25db68473dd8535d649f47d6895"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-0-mobile.png",
+      "sha256": "52d60ecbc2075761b8eadb6d75b8845e991d90717e004bf93d5a30890b87ea17"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-1-desktop.png",
+      "sha256": "bf1628e8ed953ea878feec4a6265679ac06af7486e68c3fa384ae3c917b46007"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-1-mobile.png",
+      "sha256": "aa920cd602ae14cafba01765d519e38674bcc421f6660e10eabd805977f6ae30"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-2-desktop.png",
+      "sha256": "1feaf1ce0e243c584763ab047144b86f9f58155c52a776cd46e8637b6f231173"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-2-mobile.png",
+      "sha256": "31512af6545a86117df8e9af1bee37197a473796f8e81502475fd29660ca67cd"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-3-desktop.png",
+      "sha256": "34ae3313cd0c66ca02c1275306c891e7a9d789730693032f4258ff99bdc8db8c"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-replay-3-mobile.png",
+      "sha256": "01e739bbf376ebeab88324cda2aa02cf3a6a252b8ac4f02488fbab1b75e3e83b"
     }
   ]
 }
