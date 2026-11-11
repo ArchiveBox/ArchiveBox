@@ -1,0 +1,31 @@
+archivebox/tests/test_release_workflow.py
+  s_10bc94d001be49::t_a7ff4d6bac5245 318
+.github/workflows/ci.yml
+  s_f8414d52051f83::t_a570680b5e9632 133
+.github/RELEASE.md
+  s_10bc94d001be49::t_59cd2293bfb607 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "857336169d45b23cb0bc508e42f309d7c282f344",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": null
+    },
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
