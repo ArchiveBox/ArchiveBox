@@ -1,0 +1,30 @@
+{
+  "source": "Actual browser screenshots of ArchiveBox with saved Hacker News and recent story captures.",
+  "captured_urls": [
+    "https://news.ycombinator.com/",
+    "https://deepmind.google/blog/introducing-alphaproof-code/",
+    "https://docodethatmatters.com/home-automation-overnight-success/"
+  ],
+  "images": [
+    {
+      "path": "docs/screenshots/library-features/folders-breadcrumbs.png",
+      "sha256": "6068a1f58132117ef2386fc92aae52c5df947b34a5cde617e4d4c88b0aaf1bb9"
+    },
+    {
+      "path": "docs/screenshots/library-features/folders-create.png",
+      "sha256": "405f40dd8413b2c2523155264e9c8427c762204020a8b89349f55f4fe36d1fad"
+    },
+    {
+      "path": "docs/screenshots/library-features/folders-desktop.png",
+      "sha256": "5d41089a2d49717b24241b8e6f6d5bf463e6b8d3b6e710ae8547ba7c06dc139f"
+    },
+    {
+      "path": "docs/screenshots/library-features/folders-grid.png",
+      "sha256": "e451980cedcee0eb964d21952d6dce1c69ee42dadca59fe2b2b8048abff2ae25"
+    },
+    {
+      "path": "docs/screenshots/library-features/folders-mobile.png",
+      "sha256": "fff0a1ace0c5fff65febed791a60dd9b9de6e0dcc51673fe240cfecf015fa520"
+    }
+  ]
+}
