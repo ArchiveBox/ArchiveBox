@@ -264,9 +264,7 @@ def test_stage_probe_uses_private_prepared_runtime_and_fixed_numeric_events():
 def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
     import ast
     import hashlib
-    import json
-    import abx_plugins
-    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+    from urllib.request import urlopen
 
     workflow = yaml.load((ROOT / ".github/workflows/diagnose-canva.yml").read_text(), Loader=yaml.BaseLoader)
     capture = next(s["run"] for s in workflow["jobs"]["diagnose"]["steps"] if s["name"] == "Capture public Canva with native diagnostics")
@@ -279,19 +277,14 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
                 literals[statement.targets[0].id] = ast.literal_eval(statement.value)
             except (ValueError, TypeError):
                 pass
-    plugin = Path(abx_plugins.__file__).parent / "plugins/singlefile"
-    config = json.loads((plugin / "config.json").read_text())
-    config["required_binaries"][0]["min_version"] = "1.36.0"
-    install_plugin = tmp_path / "singlefile"
-    install_plugin.mkdir()
-    (install_plugin / "config.json").write_text(json.dumps(config))
-    extensions = tmp_path / "lib/chromewebstore/extensions"
-    env = {"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home"), "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
-    (tmp_path / "home").mkdir()
-    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions)
-    install_required_binary_from_config(install_plugin, "singlefile", env=env)
-    original_root = Path(json.loads((extensions / "singlefile.extension.json").read_text())["unpacked_path"])
-    original = (original_root / "lib/single-file.js").read_text()
+    # This is an exact-source diagnostic regression for 1.36.0, not a test of
+    # the moving Web Store release. Download the real reviewed upstream bundle;
+    # the normal provider/capture tests continue to install the current release.
+    source_url = "https://raw.githubusercontent.com/gildas-lormeau/SingleFile/fdef1d9086392a08d32f194dc803f06593490e0e/lib/single-file.js"
+    original_path = tmp_path / "single-file.js"
+    with urlopen(source_url, timeout=30) as response:
+        original_path.write_bytes(response.read())
+    original = original_path.read_text()
     constants = {}
     for statement in ast.parse(candidate).body:
         if isinstance(statement, ast.Assign) and isinstance(statement.targets[0], ast.Name):
@@ -325,7 +318,7 @@ def test_stage2_overlay_exact_bundle_and_no_new_async_control(tmp_path):
     output.write_text(diagnostic)
     checked = subprocess.run(["node", "--check", str(output)], text=True, capture_output=True)
     assert checked.returncode == 0, checked.stderr
-    assert (original_root / "lib/single-file.js").read_text() == original
+    assert original_path.read_text() == original
     assert "abxBoundary" not in candidate
     assert "a > 31 || b < 0 || b > 1048576" in capture
     assert "event.phase === 'detail' && event.a === a" in capture

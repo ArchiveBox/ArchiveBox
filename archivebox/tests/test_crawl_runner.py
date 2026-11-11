@@ -134,14 +134,15 @@ def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
 
     personas_dir = Path(config["PERSONAS_DIR"])
     other_personas_dir = Path(other_config["PERSONAS_DIR"])
-    assert personas_dir.is_relative_to(crawl.output_dir)
-    assert personas_dir.is_symlink()
-    assert personas_dir.resolve() == persona.local_runtime_root_for_crawl(crawl).parent.resolve()
-    assert not personas_dir.resolve().is_relative_to(crawl.output_dir)
-    assert personas_dir == persona.runtime_root_for_crawl(crawl).parent
+    assert personas_dir == persona.local_runtime_root_for_crawl(crawl).parent
+    assert not personas_dir.is_relative_to(crawl.output_dir)
+    assert not personas_dir.is_symlink()
+    archive_link = persona.runtime_root_for_crawl(crawl).parent
+    assert archive_link.is_symlink()
+    assert archive_link.resolve() == personas_dir.resolve()
     assert personas_dir == other_personas_dir
-    assert personas_dir / config["ACTIVE_PERSONA"] / "chrome_profile" == persona.runtime_profile_dir_for_crawl(crawl)
-    assert personas_dir / config["ACTIVE_PERSONA"] / "chrome_downloads" == persona.runtime_downloads_dir_for_crawl(crawl)
+    assert (personas_dir / config["ACTIVE_PERSONA"] / "chrome_profile").samefile(persona.runtime_profile_dir_for_crawl(crawl))
+    assert (personas_dir / config["ACTIVE_PERSONA"] / "chrome_downloads").samefile(persona.runtime_downloads_dir_for_crawl(crawl))
     assert crawl_downloads_sentinel.read_text() == "keep"
     assert config["ACTIVE_PERSONA"] == "RuntimePersona"
     assert Path(config["CRAWL_DIR"]) == crawl.output_dir
@@ -179,19 +180,20 @@ def test_snapshot_payload_uses_snapshot_chrome_dirs_when_snapshot_isolated():
 
     personas_dir = Path(config["PERSONAS_DIR"])
     other_personas_dir = Path(other_config["PERSONAS_DIR"])
-    assert personas_dir.is_relative_to(snapshot.output_dir)
-    assert other_personas_dir.is_relative_to(other_snapshot.output_dir)
-    assert personas_dir.is_symlink()
-    assert other_personas_dir.is_symlink()
-    assert personas_dir.resolve().is_relative_to(persona.local_runtime_root_for_crawl(crawl).parent.parent.resolve())
-    assert other_personas_dir.resolve().is_relative_to(persona.local_runtime_root_for_crawl(crawl).parent.parent.resolve())
-    assert personas_dir.resolve() != other_personas_dir.resolve()
-    assert not personas_dir.resolve().is_relative_to(snapshot.output_dir)
-    assert personas_dir == persona.runtime_root_for_snapshot(snapshot).parent
-    assert other_personas_dir == persona.runtime_root_for_snapshot(other_snapshot).parent
+    local_snapshots = persona.local_runtime_root_for_crawl(crawl).parent.parent / "snapshots"
+    assert personas_dir == local_snapshots / str(snapshot.id) / ".persona"
+    assert other_personas_dir == local_snapshots / str(other_snapshot.id) / ".persona"
+    assert not personas_dir.is_relative_to(snapshot.output_dir)
+    assert not other_personas_dir.is_relative_to(other_snapshot.output_dir)
+    assert not personas_dir.is_symlink()
+    assert not other_personas_dir.is_symlink()
+    for snap, local in ((snapshot, personas_dir), (other_snapshot, other_personas_dir)):
+        archive_link = persona.runtime_root_for_snapshot(snap).parent
+        assert archive_link.is_symlink()
+        assert archive_link.resolve() == local.resolve()
     assert personas_dir != other_personas_dir
-    assert personas_dir / config["ACTIVE_PERSONA"] / "chrome_profile" == persona.runtime_profile_dir_for_snapshot(snapshot)
-    assert personas_dir / config["ACTIVE_PERSONA"] / "chrome_downloads" == persona.runtime_downloads_dir_for_snapshot(snapshot)
+    assert (personas_dir / config["ACTIVE_PERSONA"] / "chrome_profile").samefile(persona.runtime_profile_dir_for_snapshot(snapshot))
+    assert (personas_dir / config["ACTIVE_PERSONA"] / "chrome_downloads").samefile(persona.runtime_downloads_dir_for_snapshot(snapshot))
     assert Path(config["CRAWL_DIR"]) == crawl.output_dir
     assert Path(config["SNAP_DIR"]) == snapshot.output_dir
 

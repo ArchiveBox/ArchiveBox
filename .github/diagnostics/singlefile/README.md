@@ -121,3 +121,11 @@ negative counts, counts over1048576 and nonboolean stage frame values are
 rejected. Only the existing three JSON filenames are upload-eligible.
 GC tracing is unchanged: CDP delivers collected events after tracing ends;
 an externally terminated helper can legitimately leave no GC JSON.
+
+The exact-source overlay regression downloads `lib/single-file.js` from upstream
+SingleFile 1.36.0 commit `fdef1d9086392a08d32f194dc803f06593490e0e`, then checks
+the original, candidate, and diagnostic hashes and every patch anchor. A moving
+Web Store install cannot supply this historical source after an upstream update.
+Normal capture tests still exercise the current installed extension; the manual
+diagnostic retains its explicit version and hash guards and rejects an unreviewed
+release rather than applying old instrumentation to it.
