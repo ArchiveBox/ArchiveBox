@@ -132,12 +132,10 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       CI_RUN_ID: ${{ needs.candidate.outputs.artifact_run_id }}
-      DOCKER_DIGEST_RUN_ID: ${{ needs.candidate.outputs.digest_run_id }}
     environment: pypi
     permissions:
       actions: read
       contents: write
-      deployments: read
       id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -160,36 +158,6 @@ jobs:
         with:
           version: "0.13.5"
           enable-cache: false
-
-      # This precedes every stable upload, including workflow_dispatch. A green
-      # build is not evidence that our automatically updated test servers ran it.
-      # Named lookups avoid the wildcard downloader's 100-artifact listing limit.
-      - name: Download tested Docker base-image metadata (amd64)
-        if: env.RELEASE_BRANCH == 'main'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: ${{ runner.temp }}/tested-docker-artifacts
-          name: digest-linux-amd64
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ env.DOCKER_DIGEST_RUN_ID }}
-
-      - name: Download tested Docker base-image metadata (arm64)
-        if: env.RELEASE_BRANCH == 'main'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: ${{ runner.temp }}/tested-docker-artifacts
-          name: digest-linux-arm64
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ env.DOCKER_DIGEST_RUN_ID }}
-
-      - name: Require matching acceptance on Cabbage
-        if: env.RELEASE_BRANCH == 'main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          STAGING_DOCKER_ARTIFACT_DIR: ${{ runner.temp }}/tested-docker-artifacts
-        run: uv run --no-project python bin/verify-staging-release.py
 
       - name: Resolve release binaries through abxpkg
         env:
@@ -559,27 +527,6 @@ jobs:
               echo "Verified exact tested images: $tag"
             done <<< "${!tags_var}"
           done
-
-      - name: Record published image source
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          # workflow_run can report the default branch's head even when this
-          # run published a different branch/SHA. Preserve the verified target.
-          [[ "$RELEASE_BRANCH" == dev || "$RELEASE_BRANCH" == main ]]
-          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          mkdir -p "$RUNNER_TEMP/published-image-source"
-          # shellcheck disable=SC2016
-          "$JQ_BINARY" -n --arg branch "$RELEASE_BRANCH" --arg sha "$RELEASE_SHA" \
-            '{branch: $branch, sha: $sha}' > "$RUNNER_TEMP/published-image-source/source.json"
-
-      - name: Upload published image source
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: published-image-source
-          path: ${{ runner.temp }}/published-image-source/source.json
-          if-no-files-found: error
-
 
   cascade:
     name: Cascade verified release

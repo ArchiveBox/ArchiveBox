@@ -130,8 +130,6 @@ jobs:
           done
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
-  # Cabbage follows :dev. Its exact-SHA acceptance runs after Release promotes
-  # the tested image; requiring that deployment here would block promotion.
   required:
     name: All required CI lanes
     if: ${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}

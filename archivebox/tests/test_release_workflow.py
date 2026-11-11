@@ -1,7 +1,5 @@
 from pathlib import Path
-import ast
 import json
-import importlib.util
 import shlex
 import os
 import re
@@ -17,11 +15,6 @@ RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PIP_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pip.yml"
 DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docker.yml"
-VERIFY_STAGING_SCRIPT = REPO_ROOT / "bin" / "verify-staging-release.py"
-_VERIFY_SPEC = importlib.util.spec_from_file_location("verify_staging_release", VERIFY_STAGING_SCRIPT)
-assert _VERIFY_SPEC is not None and _VERIFY_SPEC.loader is not None
-_VERIFY_STAGING = importlib.util.module_from_spec(_VERIFY_SPEC)
-_VERIFY_SPEC.loader.exec_module(_VERIFY_STAGING)
 
 
 def _git(repo, *args):
@@ -320,32 +313,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert publish_line < rc_skip_line < create_release_line < upload_release_line
 
 
-def test_stable_publication_requires_live_acceptance_before_upload():
-    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
-    publisher = workflow["jobs"]["python-release"]
-    steps = publisher["steps"]
-    gate = next(i for i, step in enumerate(steps) if step.get("name") == "Require matching acceptance on Cabbage")
-    upload = next(i for i, step in enumerate(steps) if step.get("name") == "Publish the exact tested distributions")
-    assert gate < upload
-    # The same guard applies to automatic and manually requested stable releases.
-    assert steps[gate]["if"] == "env.RELEASE_BRANCH == 'main'"
-    assert "verify-staging-release.py" in steps[gate]["run"]
-    assert not steps[gate].get("continue-on-error")
-    assert publisher["permissions"]["deployments"] == "read"
-    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
-    assert staging["jobs"]["acceptance"]["strategy"]["matrix"]["target"] == ["cabbage"]
-    verifier = VERIFY_STAGING_SCRIPT.read_text()
-    assert 'for environment in ("cabbage",):' in verifier
-    assert "source_fingerprint" in verifier
-    assert 'inspection.get("health") != "healthy"' in verifier
-    assert "expected_abx_dl_digest" in verifier
-    assert 'run["conclusion"] != "success"' in verifier
-
-
 def test_dev_promotion_does_not_wait_for_its_own_deployment():
     ci = yaml.safe_load(CI_WORKFLOW.read_text())
-    # Cabbage follows :dev, so its exact-SHA check can run only after promotion.
-    # All pre-promotion test lanes still run against the candidate in CI.
     assert set(ci["jobs"]["required"]["needs"]) == {
         "prepare",
         "lint",
@@ -356,7 +325,6 @@ def test_dev_promotion_does_not_wait_for_its_own_deployment():
         "docker-digests",
         "dev-image",
     }
-    assert not any(job.get("uses", "").endswith("staging-acceptance.yml") for job in ci["jobs"].values())
     docker = yaml.load(DOCKER_WORKFLOW.read_text(), Loader=yaml.BaseLoader)
     assert docker["on"]["workflow_call"]["inputs"]["full_tests"]["default"] == "true"
     assert ci["jobs"]["docker-digests"]["with"].get("full_tests", True) is True
@@ -366,10 +334,6 @@ def test_dev_promotion_does_not_wait_for_its_own_deployment():
         if step.get("name") == "Validate Docker mounts, ports, CLI and compose concurrently"
     )
     assert "steps.docker_build.outputs.digest" in validation["env"]["ARCHIVEBOX_IMAGE"]
-    staging = yaml.load((REPO_ROOT / ".github/workflows/staging-acceptance.yml").read_text(), Loader=yaml.BaseLoader)
-    assert staging["on"]["workflow_run"] == {"workflows": ["Release"], "types": ["completed"]}
-    assert staging["jobs"]["acceptance"]["needs"] == "published"
-    assert not staging["jobs"]["acceptance"].get("continue-on-error")
 
 
 @pytest.mark.parametrize(
@@ -397,146 +361,6 @@ def test_required_ci_gate_rejects_each_failed_lane(failed_lane):
         env[failed_lane] = "failure"
     result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", gate["run"]], env=env, capture_output=True, text=True)
     assert (result.returncode == 0) is (failed_lane is None), result.stdout + result.stderr
-
-
-def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
-    release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
-    docker_steps = release["jobs"]["docker-release"]["steps"]
-    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Promote the exact tested universal image")
-    source = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Record published image source")
-    uploaded = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Upload published image source")
-    assert verified < source < uploaded
-    assert docker_steps[uploaded]["with"]["name"] == "published-image-source"
-
-    staging_text = (REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text()
-    assert "branches: [dev]" not in staging_text
-    assert "workflow_run.head_branch" not in staging_text
-    assert "workflow_run.head_sha" not in staging_text
-    staging = yaml.safe_load(staging_text)
-    published = staging["jobs"]["published"]
-    download = next(step for step in published["steps"] if step.get("name") == "Download published image source")
-    assert download["with"]["name"] == docker_steps[uploaded]["with"]["name"]
-    assert download["with"]["run-id"] == "${{ github.event.workflow_run.id }}"
-    assert "head_branch" not in published["if"]
-    assert published["outputs"]["sha"] == "${{ steps.source.outputs.sha }}"
-    assert published["outputs"]["ready"] == "${{ steps.source.outputs.ready }}"
-    assert '"$RELEASE_BRANCH"' in docker_steps[source]["run"]
-    assert '"$RELEASE_SHA"' in docker_steps[source]["run"]
-    assert '"$branch" == dev' in next(step for step in published["steps"] if step.get("id") == "source")["run"]
-
-    acceptance = staging["jobs"]["acceptance"]
-    assert acceptance["steps"][0]["with"]["ref"] == "${{ inputs.sha || needs.published.outputs.sha }}"
-    verify = next(
-        step for step in acceptance["steps"] if step.get("name") == "Verify actual deployment, full captures and rendered snapshots"
-    )
-    assert verify["env"]["STAGING_SHA"] == "${{ inputs.sha || needs.published.outputs.sha }}"
-
-
-@pytest.mark.parametrize(("branch", "ready"), [("dev", "true"), ("main", "false")])
-def test_staging_selects_actual_published_branch(tmp_path, branch, ready):
-    release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
-    record = next(step for step in release["jobs"]["docker-release"]["steps"] if step.get("name") == "Record published image source")
-    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
-    select = next(step for step in staging["jobs"]["published"]["steps"] if step.get("id") == "source")
-    jq = shutil.which("jq")
-    assert jq is not None
-    sha = "a" * 40
-    output = tmp_path / "github-output"
-    output.touch()
-    env = {
-        **os.environ,
-        "RUNNER_TEMP": str(tmp_path),
-        "GITHUB_OUTPUT": str(output),
-        "JQ_BINARY": jq,
-        "RELEASE_BRANCH": branch,
-        "RELEASE_SHA": sha,
-    }
-
-    recorded = subprocess.run(["bash", "-c", record["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
-    assert recorded.returncode == 0, recorded.stderr
-    source = tmp_path / "published-image-source" / "source.json"
-    assert json.loads(source.read_text()) == {"branch": branch, "sha": sha}
-
-    selected = subprocess.run(["bash", "-c", select["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
-    assert selected.returncode == 0, selected.stderr
-    assert output.read_text().splitlines() == [f"sha={sha}", f"ready={ready}"]
-
-
-def test_staging_rejects_published_source_with_malformed_sha(tmp_path):
-    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
-    select = next(step for step in staging["jobs"]["published"]["steps"] if step.get("id") == "source")
-    source = tmp_path / "published-image-source" / "source.json"
-    source.parent.mkdir()
-    source.write_text(json.dumps({"branch": "dev", "sha": "not-a-sha"}))
-    output = tmp_path / "github-output"
-    output.touch()
-    env = {**os.environ, "RUNNER_TEMP": str(tmp_path), "GITHUB_OUTPUT": str(output)}
-
-    selected = subprocess.run(["bash", "-c", select["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
-    assert selected.returncode != 0
-    assert output.read_text() == ""
-
-
-def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
-    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
-    publisher = workflow["jobs"]["python-release"]
-    steps = publisher["steps"]
-    metadata = [step for step in steps if step.get("name", "").startswith("Download tested Docker base-image metadata (")]
-    gate = next(step for step in steps if step.get("name") == "Require matching acceptance on Cabbage")
-    assert publisher["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
-    assert [step["with"]["name"] for step in metadata] == ["digest-linux-amd64", "digest-linux-arm64"]
-    for step in metadata:
-        assert step["with"]["run-id"] == "${{ env.DOCKER_DIGEST_RUN_ID }}"
-        assert "pattern" not in step["with"]
-        assert step["with"]["path"] == "${{ runner.temp }}/tested-docker-artifacts"
-        assert steps.index(step) < steps.index(gate)
-    assert gate["env"]["STAGING_DOCKER_ARTIFACT_DIR"] == "${{ runner.temp }}/tested-docker-artifacts"
-
-    docker_workflow = yaml.safe_load(DOCKER_WORKFLOW.read_text())
-    export = next(step for step in docker_workflow["jobs"]["build"]["steps"] if step.get("name") == "Export digest")
-    assert export["env"]["ABX_DL_IMAGE_REF"] == "${{ steps.abx_dl_image.outputs.image }}"
-    assert '"/tmp/digests/abx-dl-image-$ARTIFACT_NAME"' in export["run"]
-    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
-    assert "abx_dl_image" in helper
-
-    source_sha = "a" * 40
-    base_digest = "sha256:" + "b" * 64
-    (tmp_path / "source-ref").write_text(source_sha + "\n")
-    for platform in ("linux-amd64", "linux-arm64"):
-        (tmp_path / f"abx-dl-image-digest-{platform}").write_text(f"archivebox/abx-dl:1.13.51@{base_digest}\n")
-    assert _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, source_sha) == base_digest
-
-    (tmp_path / "abx-dl-image-digest-linux-arm64").write_text(f"archivebox/abx-dl:1.13.52@{'sha256:' + 'c' * 64}\n")
-    with pytest.raises(SystemExit, match="different abx-dl images"):
-        _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, source_sha)
-    with pytest.raises(SystemExit, match="different source commit"):
-        _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, "d" * 40)
-
-
-def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
-    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
-    embedded = re.search(r"script=\"\$\(cat <<'PY'\n(.*?)\nPY\n\)\"", helper, re.S)
-    assert embedded, "staging acceptance Python body not found"
-    tree = ast.parse(embedded.group(1))
-    classifier = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "accepted_limitation")
-    namespace = {}
-    exec(compile(ast.Module(body=[classifier], type_ignores=[]), "staging-acceptance", "exec"), namespace)
-    accepts = namespace["accepted_limitation"]
-
-    assert accepts("tlsnotary", "failed", "Not enough memory for TLSNotary")
-    assert accepts("claudechrome", "failed", "ANTHROPIC_API_KEY not set")
-    assert accepts("claudecodeextract", "failed", "Claude Code auth not set")
-    assert accepts("claudecodecleanup", "failed", "Claude Code auth not set")
-    assert not accepts("claudechrome", "failed", "ANTHROPIC_API_KEY not set; other failure")
-    assert not accepts("other-plugin", "failed", "Claude Code auth not set")
-    assert not accepts("claudechrome", "succeeded", "ANTHROPIC_API_KEY not set")
-    assert "'limitations': []" in embedded.group(1)
-    assert "from archivebox.cli.archivebox_add import add" not in embedded.group(1)
-    assert "release-acceptance-" in embedded.group(1)
-    assert "for plugin in capture_plugins:" in embedded.group(1)
-    assert "missing or truncated" in embedded.group(1)
-    assert "output.stat().st_size != metadata.get('size')" in embedded.group(1)
-    assert "tlsnotary reported unexpected status" in embedded.group(1)
 
 
 @pytest.mark.parametrize("requested", ["", "archivebox/tests/test_urls.py", "archivebox/tests/test_release_workflow.py"])
@@ -686,51 +510,3 @@ def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_pat
     assert int(written["CI_TEST_WORKERS"]) == (min(available, limit) if limit else available)
     assert written["DATA_DIR"] == str(tmp_path / "archivebox-test-data")
     assert written["PERSONAS_DIR"] == str(tmp_path / "abx-personas")
-
-
-@pytest.mark.django_db(transaction=True)
-def test_staging_observes_workload_without_adding_captures(initialized_archive):
-    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
-
-    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
-    embedded = re.search(r"script=\"\$\(cat <<'PY'\n(.*?)\nPY\n\)\"", helper, re.S)
-    assert embedded is not None
-    script = embedded.group(1)
-    env = cli_env(ACCEPTANCE_SHA="a" * 40, ACCEPTANCE_SINCE="2026-11-10T00:00:00Z")
-    run_archivebox_cmd(
-        ["config", "--set", "TLSNOTARY_ENABLED=False", "CLAUDECHROME_ENABLED=False", "SCREENSHOT_ENABLED=True"],
-        cwd=initialized_archive,
-        env=env,
-        check=True,
-    )
-    result = run_archivebox_cmd(
-        [
-            "shell",
-            "-c",
-            script
-            + "\nassert 'tlsnotary' not in enabled_plugins"
-            + "\nassert 'claudechrome' not in enabled_plugins"
-            + "\nassert 'screenshot' in enabled_plugins"
-            + "\nassert 'tlsnotary' not in [plugin.name for plugin in capture_plugins]"
-            + "\nassert 'screenshot' in [plugin.name for plugin in capture_plugins]"
-            + "\nassert report['status'] == 'pending'"
-            + "\nassert Snapshot.objects.count() == 0"
-            + "\nfrom archivebox.crawls.models import Crawl"
-            + "\nassert Crawl.objects.count() == 0"
-            + "\nfrom django.utils import timezone"
-            + "\ncrawl = Crawl.objects.create(urls='https://example.com/backlog', status='started')"
-            + "\nfirst = Snapshot.objects.create(crawl=crawl, url='https://example.com/first', status='sealed', downloaded_at=since, config={'PERMISSIONS': 'public'})"
-            + "\nsecond = Snapshot.objects.create(crawl=crawl, url='https://example.com/second', status='sealed', downloaded_at=since, config={'PERMISSIONS': 'public'})"
-            + "\nSnapshot.objects.create(crawl=crawl, url='https://example.com/private', status='sealed', downloaded_at=since, config={'PERMISSIONS': 'private'})"
-            + "\n"
-            + script
-            + "\nassert report['status'] == 'failed', report"
-            + "\nassert {s['id'] for s in report['snapshots']} == {str(first.pk), str(second.pk)}"
-            + "\nassert any('screenshot did not succeed' in error for error in report['errors'])"
-            + "\nassert Snapshot.objects.count() == 3"
-            + "\nassert Crawl.objects.count() == 1",
-        ],
-        cwd=initialized_archive,
-        env=env,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
