@@ -12,6 +12,7 @@ on:
       - 'archivebox/automation/**'
       - 'archivebox/feeds/**'
       - 'archivebox/siteclones/**'
+      - 'archivebox/linkhealth/**'
       - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'

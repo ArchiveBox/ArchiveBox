@@ -144,6 +144,10 @@ async function main() {
     const clone = await require('../archivebox/siteclones/gallery.js').prepare(page, adminBaseUrl);
     runWorker(['run', '--crawl-id', clone.crawlId]);
     featureViews.push({name: 'Clone a site', url: `${adminBaseUrl}/admin/site-clones/`, path: '/admin/site-clones/', source: 'archivebox/siteclones/views.py'}, clone);
+    const health = await require('../archivebox/linkhealth/gallery.js').prepare(page, adminBaseUrl);
+    runWorker(['manage', 'linkhealth', '--once']);
+    featureViews.push(health);
+    featureViews.push({name: 'Review duplicate captures', url: `${adminBaseUrl}/admin/link-health/?review=duplicates#duplicate-review`, path: '/admin/link-health/?review=duplicates', source: 'archivebox/linkhealth/templates/linkhealth/index.html'});
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

@@ -1,0 +1,76 @@
+{% extends "admin/base.html" %}
+{% block title %}Link health{% endblock %}
+{% block extrastyle %}{{ block.super }}<style>
+.linkhealth{max-width:1280px;margin:24px auto 60px;color:var(--body-fg,#172033)}
+.linkhealth *{box-sizing:border-box}
+.linkhealth h1{font-size:30px;font-weight:650;letter-spacing:-.035em;margin:0 0 12px}.linkhealth h2{font-size:18px;margin:0 0 20px;color:var(--body-fg,#172033)}
+.linkhealth .lede{font-size:15px;line-height:1.7;color:var(--body-quiet-color,#64748b);max-width:800px;margin-bottom:24px}
+.health-card{border:1px solid var(--hairline-color,#e2e8f0);border-radius:12px;background:var(--body-bg,#fff);padding:24px;margin-bottom:24px}
+.health-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}.health-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}.health-stats .health-card{margin:0;text-decoration:none;color:inherit}.health-stats .selected{border-color:var(--archivebox-accent,#a51c50);box-shadow:0 0 0 1px var(--archivebox-accent,#a51c50)}.health-stats strong{font-size:26px;display:block;margin-bottom:8px}.health-stats span,.linkhealth .note{font-size:12px;line-height:1.6;color:var(--body-quiet-color,#64748b)}
+.linkhealth button,.linkhealth .button{display:inline-flex;align-items:center;min-height:36px;background:var(--archivebox-accent, #a51c50);color:#fff;border:1px solid var(--archivebox-accent, #a51c50);border-radius:7px;padding:9px 15px;cursor:pointer;font-size:13px;font-weight:600;text-decoration:none}.linkhealth .secondary{background:var(--body-bg,#fff);border-color:var(--border-color,#cbd5e1);color:var(--body-fg,#334155)}.health-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:24px}.health-actions form{margin:0}
+.linkhealth label{display:block;font-weight:600;font-size:13px;margin-bottom:8px}.linkhealth input,.linkhealth select{border:1px solid var(--border-color,#cbd5e1);border-radius:6px;padding:8px 10px;background:var(--body-bg,#fff);color:var(--body-fg,#172033);font:inherit}.linkhealth .errorlist{color:#b91c1c}
+.linkhealth table{width:100%;table-layout:fixed}.linkhealth td,.linkhealth th{padding:11px 8px;overflow-wrap:anywhere}.linkhealth .badge{font-size:11px;border:1px solid var(--border-color,#cbd5e1);border-radius:100px;padding:3px 8px;display:inline-block}.linkhealth .broken{background:#fff1f2;color:#be123c;border-color:#fecdd3}.linkhealth .ok{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.linkhealth .restricted,.linkhealth .temporary{background:#fffbeb;color:#92400e;border-color:#fde68a}.health-group{border-top:1px solid var(--hairline-color,#e2e8f0);padding:15px 0;overflow-wrap:anywhere}.health-group:first-of-type{border-top:0;padding-top:0}.health-group strong{font-size:13px}.health-group ul{margin:10px 0 0;padding-left:18px}.health-group li{margin:6px 0;font-size:12px}.health-empty{padding:10px 0;line-height:1.6;color:var(--body-quiet-color,#64748b)}
+@media(max-width:800px){.health-grid{grid-template-columns:1fr}.health-card{padding:18px}.health-stats{gap:8px;grid-template-columns:repeat(2,1fr)}.health-stats strong{font-size:22px}.linkhealth h1{font-size:25px}}
+#content .linkhealth .health-stats a{text-decoration:none}
+#content .linkhealth select{height:auto;min-height:40px;line-height:1.5}
+.health-filter{display:flex;align-items:end;gap:12px;margin:20px 0}body:not(.change-list) #content .health-filter > .field{display:block;flex:1;min-width:0;width:auto}.health-filter .search-field{flex:2!important}.health-filter input{width:100%;min-height:40px}.health-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.health-row-actions form{margin:0}.linkhealth .health-row-actions button{padding:5px 9px;font-size:12px}.health-row-actions a{font-size:12px}.linkhealth summary{cursor:pointer;font-size:18px;font-weight:600}.health-review-note{margin:0 0 16px}.health-count{margin:16px 0 0}.health-filter{flex-wrap:wrap}@media(max-width:600px){body:not(.change-list) #content .health-filter > .field{flex:1 1 100%}}.health-filter select{width:100%}
+#content .linkhealth td,#content .linkhealth th{padding:12px 10px;font-size:12px;line-height:1.5}
+#content .linkhealth td a{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:600px){.linkhealth table thead{display:none}.linkhealth table tr{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--hairline-color,#e2e8f0);padding:12px 0}.linkhealth table td:first-child{grid-column:1/-1}.linkhealth table td:last-child{grid-column:1/-1}#content .linkhealth td{border:0;padding:5px 0}.linkhealth td[data-label]::before{content:attr(data-label) " ";font-size:11px;color:var(--body-quiet-color,#64748b);margin-right:6px}}
+.health-bulk{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:16px 0}.linkhealth .health-bulk label{display:inline-flex;align-items:center;gap:8px;margin:0}.health-row-select{float:left;margin:3px 10px 0 0}.linkhealth button:disabled{opacity:.5;cursor:default}
+</style>{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; Link health</div>{% endblock %}
+{% block content %}<main class="linkhealth">
+<h1>Link health</h1><p class="lede">Find repeated saves and check whether original pages are still reachable. Review the evidence here while keeping every archived capture intact.</p>
+<div class="health-actions"><form method="post" action="{% url 'linkhealth:scan' %}">{% csrf_token %}<button type="submit">{% if active %}Check in progress · {{ active.checked }}/{{ active.total }}{% else %}Check links now{% endif %}</button></form><a class="button secondary" href="{% url 'linkhealth:index' %}">Refresh results</a><a class="button secondary" href="{% url 'admin:core_snapshot_changelist' %}">Open snapshots</a></div>
+<div class="health-stats">
+<a class="health-card{% if not selected_status %} selected{% endif %}" href="?status=#health-results"><strong>{{ checked_count }}</strong><span>All checked</span></a>
+<a class="health-card{% if selected_status == 'attention' %} selected{% endif %}" href="?status=attention#health-results"><strong>{{ attention_count }}</strong><span>Needs review</span></a>
+<a class="health-card{% if selected_status == 'restricted' %} selected{% endif %}" href="?status=restricted#health-results"><strong>{{ restricted_count }}</strong><span>Restricted / rate limited</span></a>
+<a class="health-card{% if selected_status == 'broken' %} selected{% endif %}" href="?status=broken#health-results"><strong>{{ broken_count }}</strong><span>Not found / gone</span></a>
+</div><p class="note health-review-note">{{ snapshot_count }} snapshots in your library. <a href="?review=duplicates#duplicate-review">Review duplicate candidates →</a></p>
+{% if not duplicate_review %}<section class="health-card" id="health-results"><h2>Original-page availability</h2><p class="note">Checks use anonymous HTTP requests without Persona cookies. Authentication, rate limits, server errors and connection failures are shown separately from missing pages. A reachable URL does not prove its content is unchanged.</p>
+<form method="get" class="health-filter">
+<div class="field search-field"><label for="health-query">Search saved pages</label><input type="search" name="q" id="health-query" value="{{ query }}" placeholder="Title or URL"></div>
+<div class="field"><label for="health-status">Show results</label><select name="status" id="health-status"><option value="">All results</option><option value="attention"{% if selected_status == 'attention' %} selected{% endif %}>Needs review</option>{% for value,label in statuses %}<option value="{{ value }}"{% if selected_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+<div class="field"><label for="health-sort">Sort by</label><select name="sort" id="health-sort"><option value="recent"{% if sort == 'recent' %} selected{% endif %}>Recently checked</option><option value="oldest"{% if sort == 'oldest' %} selected{% endif %}>Oldest check</option><option value="title"{% if sort == 'title' %} selected{% endif %}>Title</option></select></div><button class="secondary" type="submit">Apply</button></form>
+<p class="note health-count">{{ checks.paginator.count }} matching result{{ checks.paginator.count|pluralize }}</p>
+<form id="health-bulk" class="health-bulk" method="post" action="{% url 'linkhealth:recheck_selected' %}">{% csrf_token %}<label><input type="checkbox" id="health-select-all"> Select all on this page</label><button type="submit" class="secondary" data-busy="{{ active|yesno:'true,false' }}" disabled>Recheck selected (<span id="health-selected-count" aria-live="polite">0</span>)</button></form>
+<table><thead><tr><th style="width:42%">Saved page</th><th>Result</th><th>HTTP</th><th>Checked</th><th>Review</th></tr></thead><tbody>{% for check in checks %}<tr><td><input class="health-row-select" type="checkbox" name="snapshot_ids" value="{{ check.snapshot_id }}" form="health-bulk" aria-label="Select {{ check.snapshot.title|default:check.checked_url }}"><a href="{{ check.snapshot.admin_change_url }}">{{ check.snapshot.title|default:check.checked_url }}</a><br><span class="note">{{ check.checked_url }}</span>{% if check.message %}<br><span class="note">{{ check.message }}</span>{% endif %}</td><td data-label="Result"><span class="badge {{ check.status }}">{{ check.get_status_display }}</span></td><td data-label="HTTP">{{ check.status_code|default:"—" }}</td><td data-label="Checked">{{ check.checked_at|date:"M j, H:i" }}</td><td><div class="health-row-actions">{% if check.status != 'unsupported' %}<a href="{{ check.checked_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}<form method="post" action="{% url 'linkhealth:retry' check.snapshot_id %}">{% csrf_token %}<button type="submit" class="secondary"{% if active %} disabled{% endif %}>Recheck</button></form></div></td></tr>{% empty %}<tr><td colspan="5" class="health-empty">No results for this selection.</td></tr>{% endfor %}</tbody></table>
+{% if checks.has_previous %}<a href="?q={{ query|urlencode }}&amp;sort={{ sort }}&amp;status={{ selected_status|urlencode }}&amp;page={{ checks.previous_page_number }}">← Previous</a>{% endif %}{% if checks.has_next %}<a href="?q={{ query|urlencode }}&amp;sort={{ sort }}&amp;status={{ selected_status|urlencode }}&amp;page={{ checks.next_page_number }}">Next →</a>{% endif %}
+</section>
+{% endif %}
+<details id="duplicate-review" class="health-card"{% if duplicate_review %} open{% endif %}><summary>Duplicate candidates</summary><p class="note">Review versions and matching saved files before deciding what to keep.</p><div class="health-grid">
+<section class="health-card"><h2>Repeated URLs</h2><p class="note">These captures may be intentional versions of the same page. Nothing is merged or deleted. Showing up to 20 groups and five captures per group.</p>
+{% for group in duplicates %}<div class="health-group"><strong>{{ group.url }}</strong> <span class="badge">{{ group.count }} versions</span><ul>{% for snapshot in group.snapshots %}<li><a href="{{ snapshot.admin_change_url }}">{{ snapshot.title|default:snapshot.url }}</a> · {{ snapshot.created_at|date:"M j, Y H:i" }}</li>{% endfor %}</ul><a class="note" href="{% url 'admin:core_snapshot_changelist' %}?url__exact={{ group.url|urlencode }}">View all {{ group.count }} versions →</a></div>{% empty %}<p class="health-empty">No repeated exact URLs found.</p>{% endfor %}
+{% for group in equivalent_groups %}<div class="health-group"><strong>{{ group.normalized_url }}</strong> <span class="badge">Equivalent URLs</span><p class="note">Fragments, hostname capitalization and default ports differ; query parameters are preserved.</p><ul>{% for check in group.checks %}<li><a href="{{ check.snapshot.admin_change_url }}">{{ check.checked_url }}</a></li>{% endfor %}</ul></div>{% endfor %}
+</section>
+<section class="health-card"><h2>Identical saved content</h2><p class="note">Exact SHA-256 matches of the largest available saved text or HTML file (up to 64 MiB). This identifies candidates, not proof that every file in two captures is identical.</p>
+{% for group in content_groups %}<div class="health-group"><strong>{{ group.count }} matching saved files</strong><ul>{% for check in group.checks %}<li><a href="{{ check.snapshot.admin_change_url }}">{{ check.snapshot.title|default:check.checked_url }}</a><br><span class="note">{{ check.content_path }}</span></li>{% endfor %}</ul></div>{% empty %}<p class="health-empty">{% if checked_count %}No matching saved content found.{% else %}Run a link check to compare existing saved content.{% endif %}</p>{% endfor %}
+</section></div>
+</details>
+<div class="health-grid"><form method="post" class="health-card">{% csrf_token %}<h2>Automatic checks</h2>{{ form.as_p }}<button type="submit">Save schedule</button>{% if policy.next_scan_at %}<p class="note">Next scan: {{ policy.next_scan_at|date:"M j, Y H:i" }} while the ArchiveBox worker is running.</p>{% endif %}</form><section class="health-card"><h2>Recent scans</h2>{% for run in runs %}<div class="health-group"><strong>{{ run.status|capfirst }} · {{ run.checked }}/{{ run.total }}</strong><p class="note">{{ run.created_at|date:"M j, Y H:i" }}<br>{{ run.message }}</p></div>{% empty %}<p class="health-empty">No checks have run yet.</p>{% endfor %}</section></div>
+</main>
+<script>
+(() => {
+  const form = document.getElementById('health-bulk');
+  if (!form) return;
+  const rows = [...document.querySelectorAll('input[form="health-bulk"]')];
+  const selectAll = document.getElementById('health-select-all');
+  const button = form.querySelector('button');
+  function updateSelection() {
+    const count = rows.filter(input => input.checked).length;
+    document.getElementById('health-selected-count').textContent = count;
+    button.disabled = count === 0 || button.dataset.busy === 'true';
+    selectAll.checked = rows.length > 0 && count === rows.length;
+    selectAll.indeterminate = count > 0 && count < rows.length;
+    selectAll.disabled = rows.length === 0;
+  }
+  selectAll.addEventListener('change', () => {
+    rows.forEach(input => { input.checked = selectAll.checked; });
+    updateSelection();
+  });
+  rows.forEach(input => input.addEventListener('change', updateSelection));
+  updateSelection();
+})();
+</script>{% endblock %}

@@ -2361,6 +2361,10 @@ def run_pending_crawls(
 
             if tick_automation(daemon=daemon):
                 continue
+            from archivebox.linkhealth.service import tick as tick_linkhealth
+
+            if tick_linkhealth(daemon=daemon):
+                continue
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
             if daemon:
                 # At most one job can be doing filesystem I/O. A stuck mount
