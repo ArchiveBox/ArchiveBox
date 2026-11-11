@@ -1,0 +1,13 @@
+{
+  "mounts": [
+    {
+      "device": "root@127.0.0.1:/srv/network-export",
+      "mountpoint": "/mnt/review-network",
+      "fstype": "fuse.sshfs",
+      "opts": "rw,nosuid,nodev,relatime,user_id=0,group_id=0,allow_other"
+    }
+  ],
+  "sqlite_fixture": "/mnt/review-network/index.sqlite3",
+  "integrity_check": "ok",
+  "fixture_bytes": 8192
+}

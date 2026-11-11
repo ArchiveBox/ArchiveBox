@@ -134,6 +134,10 @@
       "sha256": "fff0a1ace0c5fff65febed791a60dd9b9de6e0dcc51673fe240cfecf015fa520"
     },
     {
+      "path": "docs/screenshots/library-features/gallery-login.png",
+      "sha256": "cdce6af87c9da57ca30de2300c7bd21b6e45c4181907d06a1ac4583684e077f9"
+    },
+    {
       "path": "docs/screenshots/library-features/native-hn-summary-desktop.png",
       "sha256": "d167f257e1cb3dab11f3ed5b50d2308cafb2a9abf1ce035ffd6ff2b1b9c7b5ca"
     },
@@ -167,19 +171,19 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop-viewport.png",
-      "sha256": "e9533e0f43584b3f42a01a1d63d253f5089a4d4cc4542995db1e9f71236793c4"
+      "sha256": "2a860b08ba4af6cb6021f8292cab5d1a065f89dbfd31fd1b4bf56514953d9558"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-desktop.png",
-      "sha256": "6f6c972d935aa11748d37e906808a460a26ede01b5a32c15f368024c58c7e5c2"
+      "sha256": "957aee83b17e9833bf3cfdce5b787e86c186532e26aa32e1ef0be77d71b09a21"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile-viewport.png",
-      "sha256": "9f529b02b237ba81fe8875d16da227a57b7943b4a642301a0a7ce11ed67574a1"
+      "sha256": "7e0b3fc3deeb71f7bc7c3fb8a41a7971b8b6a8dd33b03bc294ff315ef1bb1111"
     },
     {
       "path": "docs/screenshots/library-features/storage-active-mobile.png",
-      "sha256": "26cf5a48cd9d59e2a6233a8690dc35a242ba8bf2e9da6a57b5f040531699ac51"
+      "sha256": "6b2bdb1a0786ab170841d92975fc20e23378aeec2f44ff4012ee24dc7dc747d0"
     },
     {
       "path": "docs/screenshots/library-features/storage-audit-files-mobile-viewport.png",
@@ -222,20 +226,32 @@
       "sha256": "caba265cd2db38767789a277dd3dd8f71ab96595c71e3d07a4f6864a435d8b27"
     },
     {
-      "path": "docs/screenshots/library-features/storage-before.png",
-      "sha256": "cfaadf9d27d62419580183b57a6c1124035b4d0ce1e65f9d53ea2f05749c7e33"
-    },
-    {
       "path": "docs/screenshots/library-features/storage-disconnected-desktop.png",
       "sha256": "74d1904bcbd4ab9a79141a1dd8c28686ad4f499caffe6050e3788ca9be01fdb2"
     },
     {
       "path": "docs/screenshots/library-features/storage-drive-setup-desktop.png",
-      "sha256": "9c605d82dc09019e4e376ba62ed4e1549d13f83d5fcc70c6709300dfa6f7b41c"
+      "sha256": "7da6f4a1fc8f9cb8807654e8b34cfe3d7bfe2cba008d34d79e28a155ac140bce"
     },
     {
       "path": "docs/screenshots/library-features/storage-drive-setup-mobile.png",
-      "sha256": "c6303da9bea964e796b1d943c3454e5553d6fef93e9a31d8d8e493e9da7955da"
+      "sha256": "d0ef36abebf772fbecc25be460e24d94c0be2773ada2f294e892070368b068eb"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-network-warning-mobile-viewport.png",
+      "sha256": "b6d683221042a33a157bde1dfeea035c7cf4836a13f19b6eb9a467bd670463b4"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-network-warning-mobile.png",
+      "sha256": "cb618e8a2887fd6e0e077fd76b45216a5e22be027b0b1c374c192ab4a4c13e70"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-network-warning-viewport.png",
+      "sha256": "e391d668ff46432accf51ef1653d5ed95da5a4d8fa471a3e1850c9e2f52ae8df"
+    },
+    {
+      "path": "docs/screenshots/library-features/storage-network-warning.png",
+      "sha256": "6fdd9c2336541cac89aabd82cb11c71bae97a30cf253ab78545198cb2164c4c4"
     },
     {
       "path": "docs/screenshots/library-features/storage-replay-0-desktop.png",
@@ -271,11 +287,11 @@
     },
     {
       "path": "docs/screenshots/library-features/storage-s3-setup-desktop.png",
-      "sha256": "e89374561781226192e839a3acb35e73b9b72caf4d8c314c589f7dcba92c8974"
+      "sha256": "645fd7a80f1e32d11b342ae08f357d62d937fbb2093c1f5667e7600425b31a12"
     },
     {
       "path": "docs/screenshots/library-features/storage-s3-setup-mobile.png",
-      "sha256": "6e3e04e45a1da1080a951d405b33f66bdbd380f1489c97e1420729079ba68511"
+      "sha256": "6b8af99082845d7955450cb197620278d91024e8c9d7ed7931154b745db1584a"
     }
   ]
 }

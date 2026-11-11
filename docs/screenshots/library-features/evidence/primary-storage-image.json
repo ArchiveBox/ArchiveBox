@@ -6,11 +6,11 @@
   "hashes_helper_imported": true,
   "fuse_available": true,
   "host_commit_verified": true,
-  "host_commit": "94b1a83e5df7dbb38a6a835c229f7897418e7c89",
-  "plugin_commit": "40ede3a224766e1bfb761781ef398f385d79e43c",
-  "image_digest": "sha256:006fe0fd9210af4b0c6b6d00c50442a28e84323ada9ece313303b62fe3fbc9f0",
+  "host_commit": "d7f6acd38c5c3207cf90f4e236d46d35ae18469e",
+  "plugin_commit": "381ee8b86faffb2b194c54d459b80f2a07ecb421",
+  "image_digest": "sha256:de3c9420fb3a3c9e199d48a140a591092913ccd1770e9e54b46461bca77b8143",
   "platform": "linux/arm64",
   "verified_runtime_files": 634,
-  "compressed_bytes": 1043725800,
-  "compressed_mib": 995.37
+  "compressed_bytes": 1043696026,
+  "compressed_mib": 995.35
 }

@@ -4,6 +4,5 @@
   "mounted_file_deleted": true,
   "backend_file_deleted": true,
   "other_capture_hashes_unchanged": true,
-  "native_runner_remounted": true,
-  "deletion_command": "archivebox snapshot delete --yes (one saved HN newest snapshot via JSONL stdin)"
+  "native_runner_remounted": true
 }
