@@ -300,9 +300,47 @@ def run_archivebox_cmd(
     if wait:
         try:
             result.communicate(input=input, timeout=timeout)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
+            # Keep the original command deadline and drain pipes during
+            # shutdown: wait() alone can deadlock on a child's final logs.
+            try:
+                parent = psutil.Process(process.pid)
+                children = parent.children(recursive=True)
+            except psutil.NoSuchProcess:
+                children = []
+            for child in children:
+                try:
+                    exc.add_note(f"Child at timeout: pid={child.pid} name={child.name()} status={child.status()}")
+                    child.terminate()
+                except psutil.NoSuchProcess:
+                    pass
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                result.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                for child in children:
+                    try:
+                        child.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                process.kill()
+                result.communicate(timeout=5)
+            # A detached child may not keep either output pipe open.
+            for child in children:
+                try:
+                    if child.is_running():
+                        child.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            psutil.wait_procs(children, timeout=5)
+            exc.output, exc.stderr = result.stdout, result.stderr
+            log_dir = cwd / "logs"
+            log_dir.mkdir(exist_ok=True)
+            for stream, output in (("stdout", exc.output), ("stderr", exc.stderr)):
+                if output is not None:
+                    (log_dir / f"cli-timeout-{process.pid}.{stream}.log").write_bytes(
+                        output.encode() if isinstance(output, str) else output,
+                    )
             raise
         if check and result.returncode:
             raise subprocess.CalledProcessError(

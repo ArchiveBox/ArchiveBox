@@ -5,10 +5,55 @@ Verify shell command starts Django shell (basic smoke tests only).
 """
 
 import re
+import json
+import subprocess
+
+import psutil
 
 import pytest
 
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+
+
+@pytest.mark.parametrize("shutdown", ["flush", "ignore"])
+def test_cli_timeout_preserves_failure_output_and_reaps_children(initialized_archive, shutdown):
+    pid_file = initialized_archive / "timeout-pids.json"
+    script = f"""
+import json, os, signal, subprocess, sys, time
+from pathlib import Path
+def shutdown(signum, frame):
+    sys.stderr.write('cleanup-output:' + 'x' * 262144 + ':cleanup-finished\\n')
+    sys.stderr.flush()
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, {"shutdown" if shutdown == "flush" else "signal.SIG_IGN"})
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])
+Path({str(pid_file)!r}).write_text(json.dumps([os.getpid(), child.pid]))
+print('command-started', flush=True)
+time.sleep(120)
+"""
+    try:
+        with pytest.raises(subprocess.TimeoutExpired) as caught:
+            run_archivebox_cmd(["shell", "-c", script], cwd=initialized_archive, timeout=4)
+        assert pid_file.exists(), "the real CLI must start before testing its timeout"
+        assert caught.value.timeout == 4
+        assert caught.value.cmd[:2] == ["archivebox", "shell"]
+        stdout = caught.value.output
+        stderr = caught.value.stderr
+        assert "command-started" in (stdout.decode() if isinstance(stdout, bytes) else stdout)
+        if shutdown == "flush":
+            assert ":cleanup-finished" in (stderr.decode() if isinstance(stderr, bytes) else stderr)
+        pids = json.loads(pid_file.read_text())
+        assert all(not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE for pid in pids)
+        for stream, output in (("stdout", stdout), ("stderr", stderr)):
+            saved = initialized_archive / "logs" / f"cli-timeout-{pids[0]}.{stream}.log"
+            assert saved.read_bytes() == (output.encode() if isinstance(output, str) else output)
+    finally:
+        if pid_file.exists():
+            for pid in json.loads(pid_file.read_text()):
+                try:
+                    psutil.Process(pid).kill()
+                except psutil.NoSuchProcess:
+                    pass
 
 
 def test_shell_command_exists(initialized_archive):
