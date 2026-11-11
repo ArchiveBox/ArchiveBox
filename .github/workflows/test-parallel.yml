@@ -319,6 +319,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
+      - name: Use the standard Ubuntu archive on hosted Linux
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: |
+          # Apply the same mirror policy as the main matrix before installing
+          # display tools or Puppeteer's Chromium/font dependencies.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+          fi
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.CI_PYTHON_VERSION }}
