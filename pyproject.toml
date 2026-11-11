@@ -250,7 +250,7 @@ ignore = ["E731", "E303", "E266", "E241", "E222"]
 [tool.codespell]
 ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,succeded,re-use,re-used,re-using,re-usable,generat,te"
 # Preserve exact upstream identifiers in the corresponding-source patch.
-skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*,docs/apidocs/*,.github/diagnostics/singlefile/font-serialization.patch"
+skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*,docs/apidocs/*"
 
 [tool.pytest.ini_options]
 testpaths = [ "archivebox/tests" ]
