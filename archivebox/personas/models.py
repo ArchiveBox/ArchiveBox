@@ -26,7 +26,7 @@ from django.utils import timezone
 
 from archivebox.core.permissions import PERMISSIONS_VALUES, normalize_permissions
 from archivebox.base_models.models import ModelWithConfig, get_or_create_system_user_pk
-from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
 
 _fcntl: Any | None = None
 try:
@@ -459,14 +459,29 @@ class Persona(ModelWithConfig):
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
+        local_root = self.local_runtime_root_for_crawl(crawl).parent.parent
         link = Path(crawl.output_dir) / ".persona"
         if link.is_symlink():
             link.unlink()
-        for snapshot in crawl.snapshot_set.select_related("crawl__created_by").paged_iterator():
+        # Snapshot isolation creates these local directories before capture.
+        # They survive runner restarts and identify the archive links to remove.
+        # Scanning the whole crawl instead touches every queued/historical path
+        # on remote storage whenever resource pressure yields the crawl.
+        snapshot_ids = []
+        snapshots_dir = local_root / "snapshots"
+        if snapshots_dir.is_dir():
+            for directory in snapshots_dir.iterdir():
+                try:
+                    snapshot_ids.append(compact_uuid(directory.name))
+                except ValueError:
+                    continue
+        for snapshot in (
+            crawl.snapshot_set.filter(id__in=snapshot_ids).select_related("crawl__created_by").defer("crawl__urls").paged_iterator()
+        ):
             link = Path(snapshot.output_dir) / ".persona"
             if link.is_symlink():
                 link.unlink()
-        shutil.rmtree(self.local_runtime_root_for_crawl(crawl).parent.parent, ignore_errors=True)
+        shutil.rmtree(local_root, ignore_errors=True)
 
     @classmethod
     def get_or_create_default(cls) -> "Persona":

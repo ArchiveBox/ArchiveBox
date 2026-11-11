@@ -210,6 +210,57 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
     assert payload["retained_contents"] is True
 
 
+@pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
+def test_persona_cleanup_does_not_load_unprepared_backlog(initialized_archive, isolation):
+    script = textwrap.dedent(
+        """
+        import json
+        import os
+        from pathlib import Path
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+        from django.db.models.signals import post_init
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.objects.create(name='BoundedCleanup')
+        crawl = Crawl.objects.create(urls='https://example.com', persona=persona)
+        snapshots = [Snapshot.objects.create(url=f'https://example.com/{i}', crawl=crawl) for i in range(12)]
+        persona.prepare_runtime_for_crawl(crawl)
+        prepared = snapshots[:2] if ISOLATION == 'snapshot' else []
+        for snapshot in prepared:
+            persona.prepare_runtime_for_snapshot(snapshot)
+        local = persona.local_runtime_root_for_crawl(crawl).parent.parent
+        seen = []
+        def observe(sender, instance, **kwargs):
+            seen.append(str(instance.id))
+        post_init.connect(observe, sender=Snapshot)
+        try:
+            persona.cleanup_runtime_for_crawl(Crawl.objects.get(pk=crawl.pk))
+        finally:
+            post_init.disconnect(observe, sender=Snapshot)
+        print(json.dumps({
+            'loaded': sorted(seen),
+            'prepared': sorted(str(snapshot.id) for snapshot in prepared),
+            'local_removed': not local.exists(),
+            'links_removed': all(not persona.runtime_root_for_snapshot(snapshot).parent.is_symlink() for snapshot in prepared),
+            'crawl_link_removed': not persona.runtime_root_for_crawl(crawl).parent.is_symlink(),
+            'template_preserved': Path(persona.CHROME_USER_DATA_DIR).exists(),
+            'backlog_count': crawl.snapshot_set.count(),
+        }))
+        """,
+    ).replace("ISOLATION", repr(isolation))
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    assert payload["loaded"] == payload["prepared"]
+    assert payload["local_removed"] and payload["links_removed"] and payload["crawl_link_removed"]
+    assert payload["template_preserved"]
+    assert payload["backlog_count"] == 12
+
+
 def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized_archive):
     script = textwrap.dedent(
         """
