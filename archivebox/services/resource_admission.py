@@ -139,6 +139,7 @@ class ResourceAdmission:
         *,
         crawl_id: str | None = None,
         minimum_free: int = 0,
+        active_memory: int | None = None,
     ) -> int:
         pressure = self.resource_pressure()
         headroom = self.memory_headroom(minimum_free=minimum_free)
@@ -160,29 +161,40 @@ class ResourceAdmission:
             return self.slots_for_headroom(configured, active, observed_cost, headroom)
         previous_limit = self._concurrency
         ceiling = self.concurrency_limit(configured, pressure=False, now=time.monotonic())
-        slots = self.slots_for_headroom(ceiling, active, observed_cost, headroom)
+        slots = self.slots_for_headroom(ceiling, active, observed_cost, headroom, active_memory=active_memory)
         if ceiling != previous_limit or slots < max(0, configured - active):
             logging.getLogger(__name__).info(
-                "Snapshot admission decision: configured=%s adaptive=%s active=%s slots=%s observed_cost=%s available=%s pressure=%s",
+                "Snapshot admission decision: configured=%s adaptive=%s active=%s slots=%s observed_cost=%s available=%s active_memory=%s pressure=%s",
                 configured,
                 ceiling,
                 active,
                 slots,
                 observed_cost,
                 headroom,
+                active_memory,
                 pressure or "none",
             )
         return slots
 
     @staticmethod
-    def slots_for_headroom(configured: int, active: int, observed_cost: int | None, available: int) -> int:
+    def slots_for_headroom(
+        configured: int,
+        active: int,
+        observed_cost: int | None,
+        available: int,
+        *,
+        active_memory: int | None = None,
+    ) -> int:
         if not observed_cost:
             return int(active == 0 and configured > 0 and available > 0)
         slots = max(0, configured - active)
         if observed_cost > 0:
-            # Active captures can still grow to the measured peak. Reserve for
-            # that growth before promising the remaining headroom to new work.
-            unpromised = max(0, available - active * observed_cost)
+            # Free headroom already excludes the active capture's allocation.
+            # Reserve its remaining growth to peak, without charging those
+            # resident bytes twice. Unknown/overlapping measurements retain
+            # the full conservative reservation; excess usage adds no credit.
+            remaining_growth = max(0, active * observed_cost - max(0, active_memory or 0))
+            unpromised = max(0, available - remaining_growth)
             slots = min(slots, unpromised // observed_cost)
         return slots
 

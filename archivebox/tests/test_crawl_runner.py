@@ -3,6 +3,7 @@ import json
 from importlib.resources import files
 from pathlib import Path
 import sys
+import subprocess
 
 import pytest
 from asgiref.sync import async_to_sync, sync_to_async
@@ -10,6 +11,38 @@ from asgiref.sync import async_to_sync, sync_to_async
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
+
+
+def test_runner_measures_active_growth_without_crediting_idle_memory(crawl):
+    from archivebox.services.runner import CrawlRunner, resource_admission
+
+    runner = CrawlRunner(crawl)
+    baseline = resource_admission.process_tree_memory()
+    assert baseline is not None
+    runner._memory_baseline = baseline
+    child = subprocess.Popen(
+        ["uv", "run", "python", "-c", "import sys; data = bytearray(64 * 1024 * 1024); print(len(data), flush=True); sys.stdin.read()"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert child.stdout is not None
+        assert child.stdout.readline().strip() == str(64 * 1024 * 1024)
+        active_memory = runner._observe_snapshot_memory()
+        assert active_memory is not None
+        assert active_memory > 32 * 1024 * 1024
+        assert runner._memory_peak_cost == active_memory
+        assert resource_admission.slots_for_headroom(2, 1, active_memory, active_memory, active_memory=active_memory) == 1
+        # Starting overlapping captures invalidates the isolated baseline. Do
+        # not credit the whole runner/browser footprint as active allocation.
+        runner._memory_baseline = None
+        assert runner._observe_snapshot_memory() is None
+    finally:
+        assert child.stdin is not None
+        child.stdin.close()
+        assert child.wait(timeout=10) == 0
+        asyncio.run(runner.bus.destroy(clear=False))
 
 
 @pytest.mark.django_db(transaction=True)

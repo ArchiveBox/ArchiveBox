@@ -107,10 +107,34 @@ def test_memory_observation_tracks_a_real_child_process():
         during = admission.process_tree_memory()
         assert during is not None
         assert during > before + 32 * 1024 * 1024
+        growth = during - before
+        # The child already occupies its measured peak. Free headroom of one
+        # more peak can admit one more child; charging this allocation again
+        # incorrectly serializes the workload.
+        assert admission.slots_for_headroom(2, active=1, observed_cost=growth, available=growth, active_memory=growth) == 1
     finally:
         assert child.stdin is not None
         child.stdin.close()
         assert child.wait(timeout=10) == 0
+
+
+def test_active_memory_credit_preserves_remaining_peak_reservation():
+    admission = ResourceAdmission()
+    # Only bytes measured above the isolated capture's idle baseline count.
+    # Already-free headroom must still cover its remaining growth and every
+    # newly admitted capture's entire peak.
+    assert admission.slots_for_headroom(2, 1, 500, 800, active_memory=200) == 1
+    assert admission.slots_for_headroom(2, 1, 500, 799, active_memory=200) == 0
+    assert admission.slots_for_headroom(2, 1, 500, 500, active_memory=500) == 1
+    assert admission.slots_for_headroom(2, 1, 500, 499, active_memory=500) == 0
+    # Missing measurements (including overlapping captures) keep the original
+    # conservative reservation. Neither bad input nor retained idle memory
+    # may create extra headroom for new work.
+    assert admission.slots_for_headroom(2, 1, 500, 500, active_memory=None) == 0
+    assert admission.slots_for_headroom(2, 1, 500, 999, active_memory=-1) == 0
+    assert admission.slots_for_headroom(2, 1, 500, 499, active_memory=1000) == 0
+    assert admission.slots_for_headroom(2, 0, 500, 499, active_memory=1000) == 0
+    assert admission.slots_for_headroom(3, 2, 500, 1000, active_memory=None) == 0
 
 
 def test_memory_observation_counts_shared_pages_once_on_linux():

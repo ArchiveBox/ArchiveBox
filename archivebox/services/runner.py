@@ -674,9 +674,9 @@ class CrawlRunner:
             if not stop_scheduling and enqueue_projected:
                 await self.enqueue_pending_snapshots_from_projection()
 
-    def _observe_snapshot_memory(self) -> None:
+    def _observe_snapshot_memory(self) -> int | None:
         if self._memory_baseline is None:
-            return
+            return None
         used = resource_admission.process_tree_memory()
         if used is not None:
             # Only attribute this workload's growth to a capture. Other jobs on
@@ -688,6 +688,8 @@ class CrawlRunner:
             )
             if self._observed_snapshot_cost is not None:
                 self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
+            return max(0, used - self._memory_baseline)
+        return None
 
     def _finish_warmup_snapshot(self, snapshot_id: str) -> None:
         self._observe_snapshot_memory()
@@ -775,12 +777,14 @@ class CrawlRunner:
         self.max_concurrent_snapshots = resource_admission.snapshot_limit(int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
 
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
+        active_memory = self._observe_snapshot_memory() if active_snapshot_ids else None
         available_slots = resource_admission.additional_snapshot_slots(
             self.max_concurrent_snapshots,
             len(active_snapshot_ids),
             self._observed_snapshot_cost,
             crawl_id=str(self.crawl.id),
             minimum_free=int(config["MEMORY_MIN_FREE"]),
+            active_memory=active_memory,
         )
         if available_slots <= 0:
             if not active_snapshot_ids:
