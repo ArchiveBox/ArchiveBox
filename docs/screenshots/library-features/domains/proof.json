@@ -1,0 +1,73 @@
+{
+  "source_commit": "1832c9ac698c3c6c39fd5cdf367a8fc94009f6c1",
+  "base_commit": "26939c64c6ea570c9cc60d7b0344e4ca32b03000",
+  "image_id": "sha256:3431ef5631eea86d0531f13f3031a42db1223eccc31934ee5a287d22f34141b2",
+  "source_mounts": false,
+  "changed_source_files": [
+    {
+      "path": "archivebox/siteclones/templates/siteclones/base.html",
+      "sha256": "c23e60e9f33a6d524843e1d5a5373595f25795838a11f1df2420ba455e04f2e8"
+    },
+    {
+      "path": "archivebox/siteclones/templates/siteclones/index.html",
+      "sha256": "1530fdb0ecf7fa87ab1366d7a1cabdf29b21edc71aad807c606d00f36cf522e7"
+    },
+    {
+      "path": "archivebox/siteclones/templates/siteclones/detail.html",
+      "sha256": "3f82d0ac42e55829f164a8d7a7d36421874fa847cc5f1a2fdd2ee8ac0b5c4f09"
+    },
+    {
+      "path": "archivebox/siteclones/templates/siteclones/field.html",
+      "sha256": "f6bd83326c9c8d79a02aa6719d5dc0cc0afdd86e6722c730c11e8a9372dbd2fd"
+    },
+    {
+      "path": "archivebox/templates/core/library_navigation.html",
+      "sha256": "a6fd375cde573407b284f25815b365033dfdc86e9155c956cb4a7cb003dbc8e4"
+    },
+    {
+      "path": "archivebox/siteclones/views.py",
+      "sha256": "b89c39ac0beb42f059d6b32770b459ec6d31cc51a3e6c2906b58e5c54d0a395f"
+    },
+    {
+      "path": "archivebox/siteclones/forms.py",
+      "sha256": "33c938543b89ce9e5dc2a1aaf2f51d4959f26ea288f6ebb35611ac07fcdccd90"
+    },
+    {
+      "path": "archivebox/siteclones/gallery.js",
+      "sha256": "d39439d51d6a88490e358dbdf5d3ebccada4c6d5b3d8717cef562c3981fe0ed0"
+    },
+    {
+      "path": "bin/setup_ui_screenshot_data.js",
+      "sha256": "445cd83370e02ab338505be1c6be8ddd801fdcbd09ff47ca7926192cb4bc1902"
+    }
+  ],
+  "captures": 14,
+  "saved_files_unchanged": 601,
+  "database_integrity": "ok",
+  "images": [
+    {
+      "file": "add-domain-desktop.png",
+      "sha256": "e876e1e72299cc938f30a5b3b17a9aac3c56c4f2b21b8eb7a5e3b171f3ceba0c"
+    },
+    {
+      "file": "add-domain-mobile.png",
+      "sha256": "40f5d8838a595a494fe215b374a1553f9a776ebf0abb74a32a7dd7ff44b95c33"
+    },
+    {
+      "file": "domain-snapshots-desktop.png",
+      "sha256": "c1c8108a03f94f1a3bee590b59d6a48196e27e3000f54be579e808eec259ce02"
+    },
+    {
+      "file": "domain-snapshots-mobile.png",
+      "sha256": "f70bc6ed0910f2db10b28d221c2ac5a207385142ba2ccb3c68e2db0a4923c1c1"
+    },
+    {
+      "file": "domains-desktop.png",
+      "sha256": "1d04e83d377b372c62feef36203e346761bbfcb360222acb01c99e4d162730a9"
+    },
+    {
+      "file": "domains-mobile.png",
+      "sha256": "2aab2756cffda5cd51dc1dc8cd1f0142f0d2285d85a4afec279941f06a613377"
+    }
+  ]
+}

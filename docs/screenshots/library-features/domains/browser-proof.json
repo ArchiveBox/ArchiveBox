@@ -1,0 +1,119 @@
+{
+  "base_url": "http://admin.archivebox.localhost:5896",
+  "pages": [
+    {
+      "name": "domains",
+      "viewport": "desktop",
+      "path": "/admin/site-clones/",
+      "image": "domains-desktop.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 171.375,
+        "width": 1424,
+        "height": 77.390625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 132.1875,
+        "width": 1424,
+        "height": 155.578125
+      },
+      "rows": 1
+    },
+    {
+      "name": "domains",
+      "viewport": "mobile",
+      "path": "/admin/site-clones/",
+      "image": "domains-mobile.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 196.984375,
+        "width": 700,
+        "height": 77.390625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 157.796875,
+        "width": 374,
+        "height": 155.578125
+      },
+      "rows": 1
+    },
+    {
+      "name": "domain-snapshots",
+      "viewport": "desktop",
+      "path": "/admin/site-clones/06af5545ff06747f80003d23b0bd02d8/",
+      "image": "domain-snapshots-desktop.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 276.359375,
+        "width": 1424,
+        "height": 263.765625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 191.375,
+        "width": 1424,
+        "height": 348.75
+      },
+      "rows": 5
+    },
+    {
+      "name": "domain-snapshots",
+      "viewport": "mobile",
+      "path": "/admin/site-clones/06af5545ff06747f80003d23b0bd02d8/",
+      "image": "domain-snapshots-mobile.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 323.96875,
+        "width": 600,
+        "height": 263.765625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 207.390625,
+        "width": 374,
+        "height": 380.34375
+      },
+      "rows": 5
+    },
+    {
+      "name": "add-domain",
+      "viewport": "desktop",
+      "path": "/admin/site-clones/?add=1",
+      "image": "add-domain-desktop.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 624.90625,
+        "width": 1424,
+        "height": 77.390625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 132.1875,
+        "width": 1424,
+        "height": 609.109375
+      },
+      "rows": 1
+    },
+    {
+      "name": "add-domain",
+      "viewport": "mobile",
+      "path": "/admin/site-clones/?add=1",
+      "image": "add-domain-mobile.png",
+      "table_bounds": {
+        "x": 8,
+        "y": 747.703125,
+        "width": 700,
+        "height": 77.390625
+      },
+      "main_bounds": {
+        "x": 8,
+        "y": 157.796875,
+        "width": 374,
+        "height": 706.296875
+      },
+      "rows": 1
+    }
+  ]
+}
