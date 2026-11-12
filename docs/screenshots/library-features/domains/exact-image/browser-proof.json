@@ -1,0 +1,14 @@
+{
+  "siteUrl": "http://admin.archivebox.localhost:5897/admin/site-clones/site/?scope=%2A.ycombinator.com",
+  "status": {
+    "status": "exited",
+    "exitCode": "0",
+    "text": "\n    Complete html 283.0 KB Process log\n    /evidence/server-output/site-06af56ad023a77d78000e37a8b7c3346\n    5 / 5 pages\n    \n    \n    \n  "
+  },
+  "exported": "/evidence/server-output/site-06af56ad023a77d78000e37a8b7c3346",
+  "first": "file:///Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image/server-output/site-06af56ad023a77d78000e37a8b7c3346/pages/06af556a10957adc800080ea1cef705a/dom/output.html",
+  "next": "file:///Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image/server-output/site-06af56ad023a77d78000e37a8b7c3346/pages/06af556a74cf770580003583a0f62507/dom/output.html",
+  "title": "New Links | Hacker News",
+  "replaySettingSaved": true,
+  "pageErrors": []
+}

@@ -1,0 +1,36 @@
+{
+  "defaults": [
+    {
+      "id": "id_url_filters_same_domain_only",
+      "checked": true,
+      "visible": true
+    },
+    {
+      "id": "id_url_filters_subpaths_only",
+      "checked": false,
+      "visible": true
+    },
+    {
+      "id": "id_url_filters_only_new",
+      "checked": true,
+      "visible": true
+    }
+  ],
+  "fields": {
+    "url": "https://news.ycombinator.com/newest\nhttps://news.ycombinator.com/sitemap.xml",
+    "tag": "more-options-proof",
+    "persona": "Default",
+    "permissions": "private",
+    "depth": "3",
+    "max_urls": "5",
+    "crawl_timeout": "1800",
+    "crawl_max_concurrent_snapshots": "2",
+    "schedule": "daily",
+    "url_filters_allowlist": "/newest|/sitemap",
+    "url_filters_denylist": "/login\n^(?!(?i:https?://news\\.ycombinator\\.com(?::(?:80|443))?)/newest(?:/|[?#]|$))",
+    "url_filters_same_domain_only": "1",
+    "url_filters_subpaths_only": "1",
+    "url_filters_only_new": null
+  },
+  "pageErrors": []
+}

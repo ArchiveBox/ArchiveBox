@@ -1,0 +1,21 @@
+{
+  "uid": 911,
+  "plugins": "1.13.660",
+  "downloader": "1.13.324",
+  "host": "0.9.78rc107",
+  "tldextract": "5.4.0",
+  "native_ai_host_only": true,
+  "hashes_helper_imported": true,
+  "fuse_available": true,
+  "host_commit_verified": true,
+  "obsolete_feeds_app_absent": true,
+  "verified_runtime_files": 634,
+  "offline_public_suffix_verified": true,
+  "host_commit": "795df5691d4146352fbab9addbb7cbe23ff54594",
+  "plugin_commit": "deb565b4ba34f86e4f5a97637147ef064135b67c",
+  "downloader_commit": "4408644d29638dbd1d0688bb98967d5d734ed6af",
+  "image_digest": "sha256:9c3a1efa5786804102f00dc5275c7ba4224b79392f4fa091e4fe73da93114467",
+  "platform": "linux/arm64",
+  "verified_host_files": 30,
+  "archive_bytes": 1043670016
+}

@@ -1,0 +1,39 @@
+{
+  "html": [
+    {
+      "name": "Site export settings",
+      "url": "http://admin.archivebox.localhost:5897/admin/site-clones/site/?scope=*.ycombinator.com",
+      "path": "/admin/site-clones/site/",
+      "source": "archivebox/siteclones/templates/siteclones/detail.html"
+    },
+    {
+      "name": "Static site export",
+      "url": "file:///Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image/gallery-output/site-06af56b7e7bc7a1f80007cda61de06e8/pages/06af556a10957adc800080ea1cef705a/dom/output.html",
+      "path": "/index.html",
+      "source": "archivebox/siteclones/exports.py"
+    },
+    {
+      "name": "Static export internal navigation",
+      "url": "file:///Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image/gallery-output/site-06af56b7e7bc7a1f80007cda61de06e8/pages/06af556a74cf770580003583a0f62507/dom/output.html",
+      "path": "/newest",
+      "source": "archivebox/siteclones/exports.py"
+    }
+  ],
+  "wacz": [
+    {
+      "name": "WACZ site export",
+      "url": "http://127.0.0.1:5908/site-06af56b83fc575eb80004e06658034a8/index.html",
+      "path": "/site-06af56b83fc575eb80004e06658034a8/index.html",
+      "source": "archivebox/siteclones/wacz.py",
+      "mode": "wait-replay-url:https://news.ycombinator.com/"
+    },
+    {
+      "name": "WACZ export internal navigation",
+      "url": "http://127.0.0.1:5908/site-06af56b83fc575eb80004e06658034a8/index.html#url=https%3A%2F%2Fnews.ycombinator.com%2Fnewest&ts=20261112060322",
+      "path": "/site-06af56b83fc575eb80004e06658034a8/index.html",
+      "source": "archivebox/siteclones/exports.py",
+      "mode": "wait-replay-url:https://news.ycombinator.com/newest"
+    }
+  ],
+  "pageErrors": []
+}

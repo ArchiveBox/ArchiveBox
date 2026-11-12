@@ -1,0 +1,29 @@
+{
+  "image": "archivebox-native-features:795df56",
+  "imageDigest": "sha256:9c3a1efa5786804102f00dc5275c7ba4224b79392f4fa091e4fe73da93114467",
+  "container": "archivebox-site-exports-exact",
+  "baseUrl": "http://admin.archivebox.localhost:5897",
+  "sourceBindMounts": false,
+  "mounts": [
+    {
+      "source": "/var/lib/docker/volumes/9c4d3660e31dfb2e20b2e83ae35ccdffa8f432f10067b17d8fee224f20956cd6/_data",
+      "destination": "/data"
+    },
+    {
+      "source": "/var/lib/docker/volumes/cb490c1a2bf7d3692b31b2f091080e127796376351c742c4d127f6c4e7848b4d/_data",
+      "destination": "/out"
+    },
+    {
+      "source": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image/collection",
+      "destination": "/rss-data"
+    },
+    {
+      "source": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image",
+      "destination": "/evidence"
+    },
+    {
+      "source": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image",
+      "destination": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/feature-parity/site-export-exact-image"
+    }
+  ]
+}

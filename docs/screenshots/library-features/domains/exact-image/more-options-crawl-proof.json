@@ -1,0 +1,17 @@
+{
+  "id": "06af56afa3bc7baf8000621600157f15",
+  "urls": "https://news.ycombinator.com/newest\r\nhttps://news.ycombinator.com/sitemap.xml",
+  "tags": "more-options-proof",
+  "persona": "Default",
+  "permissions": "private",
+  "depth": 3,
+  "config": {
+    "CRAWL_MAX_URLS": 5,
+    "CRAWL_TIMEOUT": 1800,
+    "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2,
+    "ONLY_NEW": false,
+    "URL_ALLOWLIST": "/newest|/sitemap",
+    "URL_DENYLIST": "/login\n^(?!(?i:https?://news\\.ycombinator\\.com(?::(?:80|443))?)/newest(?:/|[?#]|$))"
+  },
+  "schedule": "daily"
+}
