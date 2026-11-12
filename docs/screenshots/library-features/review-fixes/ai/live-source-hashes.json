@@ -1,0 +1,74 @@
+{
+  "/venv/lib/python3.13/site-packages/archivebox/services/runner.py": {
+    "sha256": "222dba5a9385fd0ccf4be940a3f76722986ad8b9a2eb977fa4c5cd657df48239",
+    "mode": "0o755",
+    "candidate_sha256": "222dba5a9385fd0ccf4be940a3f76722986ad8b9a2eb977fa4c5cd657df48239",
+    "equal": true,
+    "published_commit": "5fb09c9eecaeeb122240462e7178ea79c06a8be9",
+    "published_sha256": "222dba5a9385fd0ccf4be940a3f76722986ad8b9a2eb977fa4c5cd657df48239"
+  },
+  "/venv/lib/python3.13/site-packages/archivebox/services/tag_service.py": {
+    "sha256": "12b880af60770f448fef574e7b25e3f5ab404910a3efa1782c717e83d5cab997",
+    "mode": "0o755",
+    "candidate_sha256": "12b880af60770f448fef574e7b25e3f5ab404910a3efa1782c717e83d5cab997",
+    "equal": true,
+    "published_commit": "5fb09c9eecaeeb122240462e7178ea79c06a8be9",
+    "published_sha256": "12b880af60770f448fef574e7b25e3f5ab404910a3efa1782c717e83d5cab997"
+  },
+  "/venv/lib/python3.13/site-packages/archivebox/core/library_screenshots.py": {
+    "sha256": "5c1b1ef071d3c7371b40b19ec7ec067242c3731f73982ea841edcafdb3c0ddd4",
+    "mode": "0o755",
+    "candidate_sha256": "5c1b1ef071d3c7371b40b19ec7ec067242c3731f73982ea841edcafdb3c0ddd4",
+    "equal": true,
+    "published_commit": "5fb09c9eecaeeb122240462e7178ea79c06a8be9",
+    "published_sha256": "5c1b1ef071d3c7371b40b19ec7ec067242c3731f73982ea841edcafdb3c0ddd4"
+  },
+  "/venv/lib/python3.13/site-packages/archivebox/plugins/forms.py": {
+    "sha256": "dd14260e4d9d9f5ae3077c29f45d9c0f8f3dd0c39370c2db8c8c5f781ff39103",
+    "mode": "0o755",
+    "candidate_sha256": "dd14260e4d9d9f5ae3077c29f45d9c0f8f3dd0c39370c2db8c8c5f781ff39103",
+    "equal": true,
+    "published_commit": "5fb09c9eecaeeb122240462e7178ea79c06a8be9",
+    "published_sha256": "dd14260e4d9d9f5ae3077c29f45d9c0f8f3dd0c39370c2db8c8c5f781ff39103"
+  },
+  "/venv/lib/python3.13/site-packages/abx_plugins/plugins/autotag/__init__.py": {
+    "sha256": "3e5cef03a346c7cc4d44bac33bc990531fce79098702a5861a924332ef742725",
+    "mode": "0o644",
+    "candidate_sha256": "3e5cef03a346c7cc4d44bac33bc990531fce79098702a5861a924332ef742725",
+    "equal": true,
+    "published_commit": "28a338c961fc231d1692dc542b41792bcb3215f6",
+    "published_sha256": "3e5cef03a346c7cc4d44bac33bc990531fce79098702a5861a924332ef742725"
+  },
+  "/venv/lib/python3.13/site-packages/abx_plugins/plugins/autotag/config.json": {
+    "sha256": "1c552a13fa5d1af5e569c472b18279e7a0249cdd7a8ef4985eef628ebfedd217",
+    "mode": "0o644",
+    "candidate_sha256": "1c552a13fa5d1af5e569c472b18279e7a0249cdd7a8ef4985eef628ebfedd217",
+    "equal": true,
+    "published_commit": "28a338c961fc231d1692dc542b41792bcb3215f6",
+    "published_sha256": "1c552a13fa5d1af5e569c472b18279e7a0249cdd7a8ef4985eef628ebfedd217"
+  },
+  "/venv/lib/python3.13/site-packages/abx_plugins/plugins/autotag/on_Snapshot__85_autotag.py": {
+    "sha256": "331f56fe345a1553bfa096de8dfde94ae014b5da1c30eb58a1010edcdf83a1b9",
+    "mode": "0o755",
+    "candidate_sha256": "331f56fe345a1553bfa096de8dfde94ae014b5da1c30eb58a1010edcdf83a1b9",
+    "equal": true,
+    "published_commit": "28a338c961fc231d1692dc542b41792bcb3215f6",
+    "published_sha256": "331f56fe345a1553bfa096de8dfde94ae014b5da1c30eb58a1010edcdf83a1b9"
+  },
+  "/venv/lib/python3.13/site-packages/abx_plugins/plugins/autosummary/config.json": {
+    "sha256": "e8545e7870e61ddc6283cbeb2a646c9f9e75d711c2f27df166f317e6829527b3",
+    "mode": "0o644",
+    "candidate_sha256": "e8545e7870e61ddc6283cbeb2a646c9f9e75d711c2f27df166f317e6829527b3",
+    "equal": true,
+    "published_commit": "28a338c961fc231d1692dc542b41792bcb3215f6",
+    "published_sha256": "e8545e7870e61ddc6283cbeb2a646c9f9e75d711c2f27df166f317e6829527b3"
+  },
+  "/venv/lib/python3.13/site-packages/abx_plugins/plugins/autosummary/on_Snapshot__86_autosummary.py": {
+    "sha256": "41a748ac0b8c77658f832fdbea4af3886ad3090d252c58ad38ac8690f2aa9cab",
+    "mode": "0o755",
+    "candidate_sha256": "41a748ac0b8c77658f832fdbea4af3886ad3090d252c58ad38ac8690f2aa9cab",
+    "equal": true,
+    "published_commit": "28a338c961fc231d1692dc542b41792bcb3215f6",
+    "published_sha256": "41a748ac0b8c77658f832fdbea4af3886ad3090d252c58ad38ac8690f2aa9cab"
+  }
+}

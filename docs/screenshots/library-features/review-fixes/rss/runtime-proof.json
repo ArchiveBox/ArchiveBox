@@ -1,0 +1,43 @@
+{
+  "files": [
+    {
+      "path": "abx_plugins/plugins/importer_rss/config.json",
+      "sha256": "e6bfe9f223f1f15af406db6314d024cfa830b3fc705d6cffb87016f92ca3926b"
+    },
+    {
+      "path": "abx_plugins/plugins/importer_rss/importer.py",
+      "sha256": "3222be31f4eefd7f39cd05f49b06d2abc9b6b38f474a082867abe3b7e7b38d92"
+    },
+    {
+      "path": "abx_plugins/plugins/importer_rss/tests/test_categories.py",
+      "sha256": "836ed89650f920fbe761bff366422ada78274dc1af30c45411acafa51caca22f"
+    },
+    {
+      "path": "archivebox/importers/service.py",
+      "sha256": "b9f6503d9b931a805e40f95c4dc293c51c4e207dcf44148c78c3c98e7bdd3701"
+    },
+    {
+      "path": "archivebox/tests/test_importers.py",
+      "sha256": "745e64a936d5703d204feae60b01ad80077d254ae11a9350e446cff24b2337d6"
+    }
+  ],
+  "importer_executable": true,
+  "image_id": "sha256:592141ea8355aa1d5c5d91810a40e0c5a923c4dd92bf56aef81885a1823a7fcf",
+  "mounts": [
+    {
+      "type": "bind",
+      "source": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/pr-comment-fixes/rss/collection",
+      "destination": "/rss-data"
+    },
+    {
+      "type": "volume",
+      "source": "/var/lib/docker/volumes/101035e4f9aaaa48f1aa88f0f33a7ab1ced45df528a1b5448c326d8aa5db1238/_data",
+      "destination": "/data"
+    },
+    {
+      "type": "volume",
+      "source": "/var/lib/docker/volumes/3a8fa5a6e2b4ef877070335fa10b5a454732a6ad4fb929dd2f63da17acf45f71/_data",
+      "destination": "/out"
+    }
+  ]
+}

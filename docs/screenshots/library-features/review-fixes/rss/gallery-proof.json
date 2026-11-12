@@ -1,0 +1,19 @@
+{
+  "gallery_sha256": "b3bbefc30d6aa2b71b92b0bbffbb22a993667d89b4a096910583eace0b63fbad",
+  "views": [
+    {
+      "name": "Filtered snapshot exports",
+      "url": "http://admin.archivebox.localhost:5899/admin/core/snapshot/?folder=1",
+      "path": "/admin/core/snapshot/?folder=1",
+      "source": "archivebox/core/admin_snapshots.py"
+    },
+    {
+      "name": "RSS importer settings",
+      "url": "http://admin.archivebox.localhost:5899/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "path": "/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "source": "archivebox/importers/views.py"
+    }
+  ],
+  "category_checkbox_absent": true,
+  "real_anonymous_exports_verified": true
+}

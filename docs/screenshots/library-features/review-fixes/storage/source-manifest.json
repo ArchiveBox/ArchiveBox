@@ -1,0 +1,46 @@
+{
+  "base": "795df5691d4146352fbab9addbb7cbe23ff54594",
+  "head": "392ff377c72fe9d6f0c5f77dfd00b29f125d4e82",
+  "files": [
+    {
+      "path": "archivebox/siteclones/gallery.js",
+      "sha256": "b60010ad20ebff3a91fcd04210c205e5478aba1fc92c48eb48c83d5566bcae30"
+    },
+    {
+      "path": "archivebox/siteclones/wacz_gallery.js",
+      "sha256": "b6b40946e528f844e802bb3a07e996ca792faf5d18dcecd057fe8df823409955"
+    },
+    {
+      "path": "archivebox/storageaudit/gallery.js",
+      "sha256": "5cbc6c1da3034274bac7510d2d8c14f44865e43a42ab5393b8d73ca5dc1a8c5e"
+    },
+    {
+      "path": "archivebox/storageaudit/management/commands/storageaudit.py",
+      "sha256": "ecdc2d15c3f5e2b8d7276399db2b5fff326c0b92da0197839b9ccb78a7928bd5"
+    },
+    {
+      "path": "archivebox/storageaudit/service.py",
+      "sha256": "5161cfbdd79609141da4b5b01659dbc7c4fbcae53ba8e798a1144bdef6dcee06"
+    },
+    {
+      "path": "archivebox/storageaudit/templates/storageaudit/base.html",
+      "sha256": "087a45ecab137cf2600d90dffd520fa9a8fb39d02b96d214945e400007cb9802"
+    },
+    {
+      "path": "archivebox/storageaudit/templates/storageaudit/index.html",
+      "sha256": "63baf9d7878590f14d69d2f3144d228bdaa257897afce5a30ac7048885f716df"
+    },
+    {
+      "path": "archivebox/storageaudit/templates/storageaudit/preview.html",
+      "sha256": "7e46f365d6f8b0c7f951fd23975cf67836fe76282ab4ca561b1f8bbcc35dadd7"
+    },
+    {
+      "path": "archivebox/storageaudit/views.py",
+      "sha256": "5a878bb737b42c7a165083853be9862ec925b6131cf8450f529c5d504d0e3c71"
+    },
+    {
+      "path": "bin/setup_ui_screenshot_data.js",
+      "sha256": "d45ef4050bc6fdbe023b5bcd90950a07724f699add7a2bb746a3c97d53d1f786"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "plugin": "4f0bdfcc",
+  "host": "b9eb7d40",
+  "verified_files": [
+    "abx_plugins/plugins/importer_rss/config.json",
+    "abx_plugins/plugins/importer_rss/importer.py",
+    "abx_plugins/plugins/importer_rss/tests/test_categories.py",
+    "archivebox/importers/service.py",
+    "archivebox/tests/test_importers.py"
+  ]
+}

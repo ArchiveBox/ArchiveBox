@@ -1,0 +1,207 @@
+{
+  "crawl": {
+    "id": "06af578e25e57fa680005f10c17f0a49",
+    "created_at": "2026-11-12 08:29:22.368662",
+    "status": "sealed",
+    "created_by_id": 1,
+    "urls": "https://news.ycombinator.com/\nhttps://www.mcmillen.dev/sigbovik/"
+  },
+  "exit_code": 0,
+  "snapshots": [
+    {
+      "id": "06af578e370a74a38000688e1db726ca",
+      "url": "https://news.ycombinator.com/",
+      "title": "Hacker News",
+      "status": "sealed",
+      "output_size": 458233,
+      "archive_path": "archive/users/system/snapshots/20261112/news.ycombinator.com/06af578e370a74a38000688e1db726ca",
+      "tags": [
+        "Hacker News",
+        "Programming",
+        "artificial intelligence",
+        "security",
+        "open source",
+        "hardware",
+        "science",
+        "programming languages"
+      ],
+      "ai": [
+        {
+          "status": "succeeded",
+          "output_str": "autotag/tags.jsonl",
+          "output_size": 1432,
+          "process_id": "06af578e70dc7bbb8000193eca989a95",
+          "session_id": "ses_e311fb6d7ffe87k6iv7oQZPjpp",
+          "model": "openai/gpt-5.4-mini",
+          "source": "readability/content.txt",
+          "input_sha256": "a9de04c1f1c95d20c6d566f19cf684f313035804f9ead4ecfc30e52e0d8fcd6c",
+          "artifact": "archive/users/system/snapshots/20261112/news.ycombinator.com/06af578e370a74a38000688e1db726ca/autotag/tags.jsonl",
+          "sha256": "49f962d6870cf694f39729b12b37a64fb8c622cf64adfeffc24076245ea5fc94",
+          "bytes": 1220,
+          "actual_models": [
+            "openai/gpt-5.4-mini"
+          ],
+          "supplied_vocabulary_bytes": 310,
+          "supplied_vocabulary_count": 19,
+          "emitted_tags": [
+            "Hacker News",
+            "security",
+            "artificial intelligence",
+            "open source",
+            "hardware",
+            "Programming",
+            "programming languages",
+            "science"
+          ],
+          "reused_exact_tags": [
+            "Hacker News",
+            "security",
+            "artificial intelligence",
+            "open source",
+            "hardware",
+            "Programming",
+            "programming languages",
+            "science"
+          ],
+          "allowed_tags": [],
+          "vocabulary_not_persisted_in_process_env": true
+        },
+        {
+          "status": "succeeded",
+          "output_str": "autosummary/summary.md",
+          "output_size": 719,
+          "process_id": "06af578ec5cf7563800051109a99c9b6",
+          "session_id": "ses_e311fa251ffem24FDOFcMNftEQ",
+          "model": "openai/gpt-5.4-mini",
+          "source": "readability/content.txt",
+          "input_sha256": "a9de04c1f1c95d20c6d566f19cf684f313035804f9ead4ecfc30e52e0d8fcd6c",
+          "artifact": "archive/users/system/snapshots/20261112/news.ycombinator.com/06af578e370a74a38000688e1db726ca/autosummary/summary.md",
+          "sha256": "5710740079984b286fae3a5dd58830207c7e5b193d7315afa6bf3c8acd1cd19f",
+          "bytes": 507,
+          "actual_models": [
+            "openai/gpt-5.4-mini"
+          ]
+        }
+      ],
+      "viewer_url": "http://web.archivebox.localhost:5901/web/20261112/news.ycombinator.com/06af578e370a74a38000688e1db726ca"
+    },
+    {
+      "id": "06af578e370a7cc28000dc9f89369ed9",
+      "url": "https://www.mcmillen.dev/sigbovik/",
+      "title": "93% of Paint Splatters are Valid Perl Programs | Colin McMillen",
+      "status": "sealed",
+      "output_size": 1556199,
+      "archive_path": "archive/users/system/snapshots/20261112/www.mcmillen.dev/06af578e370a7cc28000dc9f89369ed9",
+      "tags": [
+        "Hacker News",
+        "Programming",
+        "Perl",
+        "SIGBOVIK",
+        "OCR",
+        "programming languages",
+        "computer science humor",
+        "research paper",
+        "satirical research"
+      ],
+      "ai": [
+        {
+          "status": "succeeded",
+          "output_str": "autotag/tags.jsonl",
+          "output_size": 1282,
+          "process_id": "06af578f346070f18000053a45ed0888",
+          "session_id": "ses_e311f870effeDdnmmhJ77MR6kH",
+          "model": "openai/gpt-5.4-mini",
+          "source": "readability/content.txt",
+          "input_sha256": "4ca2247abcf4da75679a7321a0127c1ef7c10333f0aa1250e10dac26273179a4",
+          "artifact": "archive/users/system/snapshots/20261112/www.mcmillen.dev/06af578e370a7cc28000dc9f89369ed9/autotag/tags.jsonl",
+          "sha256": "1431bf7943de16909282c558b952a382224f6e30852a92ae89e9957b651b16de",
+          "bytes": 1070,
+          "actual_models": [
+            "openai/gpt-5.4-mini"
+          ],
+          "supplied_vocabulary_bytes": 310,
+          "supplied_vocabulary_count": 19,
+          "emitted_tags": [
+            "Perl",
+            "OCR",
+            "SIGBOVIK",
+            "research paper",
+            "computer science humor",
+            "programming languages",
+            "satirical research"
+          ],
+          "reused_exact_tags": [
+            "Perl",
+            "OCR",
+            "SIGBOVIK",
+            "research paper",
+            "computer science humor",
+            "programming languages",
+            "satirical research"
+          ],
+          "allowed_tags": [],
+          "vocabulary_not_persisted_in_process_env": true
+        },
+        {
+          "status": "succeeded",
+          "output_str": "autosummary/summary.md",
+          "output_size": 753,
+          "process_id": "06af578f656e7be380001ed44d8728b5",
+          "session_id": "ses_e311f7b4bffeXQx0eSQaFj4LmD",
+          "model": "openai/gpt-5.4-mini",
+          "source": "readability/content.txt",
+          "input_sha256": "4ca2247abcf4da75679a7321a0127c1ef7c10333f0aa1250e10dac26273179a4",
+          "artifact": "archive/users/system/snapshots/20261112/www.mcmillen.dev/06af578e370a7cc28000dc9f89369ed9/autosummary/summary.md",
+          "sha256": "6ee48852cdc28dd89b714117ff686c62946fab00ed351e710cbca13a6afab352",
+          "bytes": 541,
+          "actual_models": [
+            "openai/gpt-5.4-mini"
+          ]
+        }
+      ],
+      "viewer_url": "http://web.archivebox.localhost:5901/web/20261112/www.mcmillen.dev/06af578e370a7cc28000dc9f89369ed9"
+    }
+  ],
+  "host_candidate_tree": "219df7c28f4d53cb1d366a5610ba9f9b2d0368ae",
+  "plugin_candidate_tree": "a708a804abb1d581075bbcc53434c2ef6eb77418",
+  "source_story_is_current_hn": true,
+  "published_host": "5fb09c9eecaeeb122240462e7178ea79c06a8be9",
+  "published_plugins": "28a338c961fc231d1692dc542b41792bcb3215f6",
+  "screenshots": [
+    {
+      "file": "screenshots/final-hn-summary.jpg",
+      "sha256": "eaf9f80e65087333192b644dc106920718f70d55a7ceeed2bcb7b361307b42cc",
+      "bytes": 157848,
+      "source": "real native snapshot viewer via Brave; no UI modifications"
+    },
+    {
+      "file": "screenshots/final-hn-tags.jpg",
+      "sha256": "d51498e55e0d9c7929a9a8af9c49c96a099b22d69659e8e3ce25c519d4de7793",
+      "bytes": 202763,
+      "source": "real native snapshot viewer via Brave; no UI modifications"
+    },
+    {
+      "file": "screenshots/final-story-summary.jpg",
+      "sha256": "1433bcc43d14ab3a0f9f09968263c66dd6f2d2327f7890afbfe8e1ff76cb4576",
+      "bytes": 169684,
+      "source": "real native snapshot viewer via Brave; no UI modifications"
+    },
+    {
+      "file": "screenshots/final-story-tags.jpg",
+      "sha256": "9835246769af76916a2be518e010201a8c0dfe3dd550f23878ad16d205357a3f",
+      "bytes": 201744,
+      "source": "real native snapshot viewer via Brave; no UI modifications"
+    }
+  ],
+  "tests": {
+    "plugin": {
+      "passed": 10,
+      "junit": "plugin-final.xml"
+    },
+    "host": {
+      "passed": 8,
+      "junit": "env-green.xml"
+    },
+    "regression_red": "env-red.xml"
+  }
+}

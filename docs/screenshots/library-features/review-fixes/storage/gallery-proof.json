@@ -1,0 +1,47 @@
+{
+  "views": {
+    "auditUrl": "http://admin.archivebox.localhost:5898/admin/storage-audit/?run=06af57507034723d80001360d55239d3",
+    "extensionUrl": "http://admin.archivebox.localhost:5898/admin/storage-audit/?run=06af57507034723d80001360d55239d3&extension=.mp3"
+  },
+  "screenshots": [
+    {
+      "filename": "storage-audit-desktop.png",
+      "width": 1424,
+      "overflow": false,
+      "cards": 0
+    },
+    {
+      "filename": "storage-audit-mobile.png",
+      "width": 374,
+      "overflow": false,
+      "cards": 0
+    },
+    {
+      "filename": "duplicate-files-desktop.png",
+      "width": 1424,
+      "overflow": false,
+      "cards": 0
+    },
+    {
+      "filename": "duplicate-files-mobile.png",
+      "width": 374,
+      "overflow": false,
+      "cards": 0
+    },
+    {
+      "filename": "dedupe-review-desktop.png",
+      "width": 1424,
+      "overflow": false,
+      "cards": 0
+    },
+    {
+      "filename": "dedupe-review-mobile.png",
+      "width": 374,
+      "overflow": false,
+      "cards": 0
+    }
+  ],
+  "previewFiles": 3,
+  "operationText": "CoW incomplete\n2 files attempted\n0 bytes extents verified\n2 unsupported / failed",
+  "operationUrl": "http://admin.archivebox.localhost:5898/admin/storage-audit/?run=06af5745a277789e80002558e7739827"
+}

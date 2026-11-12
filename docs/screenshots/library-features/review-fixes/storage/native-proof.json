@@ -1,0 +1,29 @@
+{
+  "snapshot_count": 14,
+  "unchanged_archive_files": 1164,
+  "sqlite_integrity": "ok",
+  "scan": "http://admin.archivebox.localhost:5898/admin/storage-audit/?run=06af574396f471c480000841fde1ed3c",
+  "operation": "CoW incomplete\n2 files attempted\n0\u00a0bytes extents verified\n2 unsupported / failed",
+  "image": "sha256:92b45b2d30e744c122af4d930559d644c4341878027f0752bac640f6a40cb65c",
+  "verified_source_paths": [
+    "/app/archivebox/siteclones/gallery.js",
+    "/venv/lib/python3.13/site-packages/archivebox/siteclones/gallery.js",
+    "/app/archivebox/siteclones/wacz_gallery.js",
+    "/venv/lib/python3.13/site-packages/archivebox/siteclones/wacz_gallery.js",
+    "/app/archivebox/storageaudit/gallery.js",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/gallery.js",
+    "/app/archivebox/storageaudit/management/commands/storageaudit.py",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/management/commands/storageaudit.py",
+    "/app/archivebox/storageaudit/service.py",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/service.py",
+    "/app/archivebox/storageaudit/templates/storageaudit/base.html",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/templates/storageaudit/base.html",
+    "/app/archivebox/storageaudit/templates/storageaudit/index.html",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/templates/storageaudit/index.html",
+    "/app/archivebox/storageaudit/templates/storageaudit/preview.html",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/templates/storageaudit/preview.html",
+    "/app/archivebox/storageaudit/views.py",
+    "/venv/lib/python3.13/site-packages/archivebox/storageaudit/views.py",
+    "/app/bin/setup_ui_screenshot_data.js"
+  ]
+}

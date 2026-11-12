@@ -1,0 +1,30 @@
+{
+  "base_url": "http://admin.archivebox.localhost:5899",
+  "pages": [
+    {
+      "url": "http://admin.archivebox.localhost:5899/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "file": "rss-importer-desktop.png",
+      "sha256": "d9f69997772f3a22cac317823ad0a7c7df99b415af03c052c6b50ea27f29b911"
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5899/admin/importers/06af4c962463779580007089362efa5c/edit/",
+      "file": "rss-importer-mobile.png",
+      "sha256": "b6c7214d8eed33aa97fabb2f9ffe37d69d53cf99c787f59bb80112a961d50e64"
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5899/admin/core/snapshot/?folder=1",
+      "file": "rss-saved-hacker-news-desktop.png",
+      "sha256": "fba6bfd85053482a8e438bb81f2a3535feb9c0f1ef76ad216a7502fb8ac540ea"
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5899/admin/core/snapshot/?folder=1",
+      "file": "rss-saved-hacker-news-mobile.png",
+      "sha256": "7c9d11ec3b81ab9e2ee6f341c48d1c2792051acfedf0c5d84f1fd85b0cf1ef9b"
+    }
+  ],
+  "rss_settings_url": "http://admin.archivebox.localhost:5899/admin/importers/06af4c962463779580007089362efa5c/edit/",
+  "hn_snapshot_rows": 3,
+  "category_checkbox_absent": true,
+  "preserved_snapshots": 14,
+  "preserved_archive_files": 1164
+}
