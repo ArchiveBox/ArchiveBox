@@ -1,0 +1,63 @@
+{
+  "source": "Real browser captures using actual saved Hacker News pages and recent stories; canonical-source local runtime on port 5888. Exact published-image acceptance is separate.",
+  "feature_heads": {
+    "codex/feature-folders": "b395134df71d227277b7cfbf8b9ede95482d0c2d",
+    "codex/feature-feeds": "28b494aa52639be543765e0e36bae514237c45e2",
+    "codex/feature-rules": "49f55c55f007e137e94f88befa6170bc53a40382",
+    "codex/feature-ai": "902b9903f2ce6f14a88cb548a3f3ecf9e30ff437",
+    "codex/feature-site-clones": "c6e86abea2795e75724ce79420879265f69d6fb7",
+    "codex/feature-broken-links": "87522b87b35a03eea9ca3f7ad17e52cdfa74ea64",
+    "codex/feature-storage-audit": "34b18921a763241e7b9d23f9a6c96fa4056dd283",
+    "codex/feature-primary-storage": "9f47212bde71921427d5952e89b44ae8648727bf"
+  },
+  "images": [
+    {
+      "path": "docs/screenshots/library-features/domains/domains-desktop.png",
+      "sha256": "8d34ab4a3583c210a3903d01d14fba93cc838afb1feef99d023d71eefad6b344"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/domains-mobile.png",
+      "sha256": "d53fcf162743295449d399283e8e7017f6fae0ccf3181180fb53e6f11cd60766"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/domains-add-tags-desktop.png",
+      "sha256": "5856ff4a5dfb5d5ec98072b47386267c60ef55c10514e2bfc9e657844819578e"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/domains-settings-desktop.png",
+      "sha256": "f339f1841dae81ff6e49a29e107849bb8239fdeab2f69e413112032dcdd50834"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/domain-delete-confirmation.png",
+      "sha256": "df655e5ddde30fa490fddceb0303961255f4df346a08c83b17a1cc01f4f8878d"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/domain-html-zip-export.png",
+      "sha256": "48919ec7d3ff29ca656512d80646f279ab25af6d9277a6d73e2e705fbfe06132"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/static-site-desktop.png",
+      "sha256": "642aead0d9eef7be6df3acf57608115332214a3021897494b294282e8cd73f57"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/static-newest-desktop.png",
+      "sha256": "1f6e8072893cb30f8e48c7e64453aabcf08fb80b15bef43ae13f877fe2eb2bca"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/wacz-site-desktop.png",
+      "sha256": "2f60cb6ac5d0904bb586e1f70aa99f214d2e79d3f99f9c2ecf7b530c3d6c4d67"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/wacz-newest-desktop.png",
+      "sha256": "c1d3028ae6a9a691adb3d91d2a6a341d279aea855a71567ddbdb929165e6d322"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/wacz-story-desktop.png",
+      "sha256": "76687ac89a3e54310cb3d399a78656d7af3989a799ac21a55f7aa0b623af680e"
+    },
+    {
+      "path": "docs/screenshots/library-features/domains/wacz-export-settings-desktop.png",
+      "sha256": "15f0b262272e0b9c2517f304b487039a78c20d7135aa34c382dfc635b4a78df1"
+    }
+  ]
+}
