@@ -1,0 +1,77 @@
+{
+  "base_url": "http://admin.archivebox.localhost:5896",
+  "checks": [
+    {
+      "provider": "local",
+      "viewport": "desktop",
+      "form_bounds": {
+        "x": 160,
+        "y": 198.1875,
+        "width": 760,
+        "height": 384.96875
+      },
+      "screenshot": "storage-local-setup-desktop.png",
+      "credentials_blank": true
+    },
+    {
+      "provider": "local",
+      "viewport": "mobile",
+      "form_bounds": {
+        "x": 8,
+        "y": 213.796875,
+        "width": 374,
+        "height": 392.15625
+      },
+      "screenshot": "storage-local-setup-mobile.png",
+      "credentials_blank": true
+    },
+    {
+      "provider": "s3",
+      "viewport": "desktop",
+      "form_bounds": {
+        "x": 160,
+        "y": 198.1875,
+        "width": 760,
+        "height": 947.140625
+      },
+      "screenshot": "storage-s3-setup-desktop.png",
+      "credentials_blank": true
+    },
+    {
+      "provider": "s3",
+      "viewport": "mobile",
+      "form_bounds": {
+        "x": 8,
+        "y": 213.796875,
+        "width": 374,
+        "height": 973.515625
+      },
+      "screenshot": "storage-s3-setup-mobile.png",
+      "credentials_blank": true
+    },
+    {
+      "provider": "drive",
+      "viewport": "desktop",
+      "form_bounds": {
+        "x": 160,
+        "y": 198.1875,
+        "width": 760,
+        "height": 1021.25
+      },
+      "screenshot": "storage-drive-setup-desktop.png",
+      "credentials_blank": true
+    },
+    {
+      "provider": "drive",
+      "viewport": "mobile",
+      "form_bounds": {
+        "x": 8,
+        "y": 213.796875,
+        "width": 374,
+        "height": 1128.328125
+      },
+      "screenshot": "storage-drive-setup-mobile.png",
+      "credentials_blank": true
+    }
+  ]
+}

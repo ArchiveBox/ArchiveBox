@@ -1,0 +1,55 @@
+{
+  "base_url": "http://admin.archivebox.localhost:5896",
+  "source_bound": false,
+  "pages": [
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/site-clones/",
+      "viewport": "desktop",
+      "screenshot": "clone-setup-desktop.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/site-clones/",
+      "viewport": "mobile",
+      "screenshot": "clone-setup-mobile.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/site-clones/06af5545ff06747f80003d23b0bd02d8/",
+      "viewport": "desktop",
+      "screenshot": "clone-detail-desktop.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/site-clones/06af5545ff06747f80003d23b0bd02d8/",
+      "viewport": "mobile",
+      "screenshot": "clone-detail-mobile.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/storage-audit/?run=06af55dab91f70c4800049cd639bf841",
+      "viewport": "desktop",
+      "screenshot": "storage-audit-desktop.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/storage-audit/?run=06af55dab91f70c4800049cd639bf841",
+      "viewport": "mobile",
+      "screenshot": "storage-audit-mobile.png",
+      "disclaimer_absent": true,
+      "no_horizontal_overflow": true
+    },
+    {
+      "url": "http://admin.archivebox.localhost:5896/admin/storage-audit/preview/",
+      "viewport": "mobile",
+      "screenshot": "storage-audit-preview-mobile.png",
+      "disclaimer_absent": true
+    }
+  ],
+  "existing_clone_count": 1
+}

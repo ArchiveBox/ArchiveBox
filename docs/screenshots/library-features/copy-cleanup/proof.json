@@ -1,0 +1,93 @@
+{
+  "source_commit": "26939c64c6ea570c9cc60d7b0344e4ca32b03000",
+  "base_commit": "61cb6cc7a7609f05e4a8057a46f8e7c70787405e",
+  "image_id": "sha256:4b6a956263fa9aaea0f3294141352f2b49e4f8051b54226ef2bd58e6e0827dbf",
+  "source_mounts": false,
+  "changed_source_files": [
+    {
+      "path": "archivebox/siteclones/templates/siteclones/detail.html",
+      "sha256": "de254ffc2fa1e426b163e267284c9c2e891dabb8ee846943d0df7e3298068292"
+    },
+    {
+      "path": "archivebox/siteclones/templates/siteclones/index.html",
+      "sha256": "0d8e6644532b99cc2b3944ca3c8662006a81cc870f7ebde2b6fa99c2d726311c"
+    },
+    {
+      "path": "archivebox/storage/templates/storage/base.html",
+      "sha256": "aa83a360dcb0f903ebfb18f48a702da7c8be53b5c157e0a9bc87c25da9004adb"
+    },
+    {
+      "path": "archivebox/storage/templates/storage/configure.html",
+      "sha256": "8ca7efaab8f9e7fec23bab60405775ca1061bd136415c7e1883c4d0bc62fcd6f"
+    },
+    {
+      "path": "archivebox/storageaudit/templates/storageaudit/index.html",
+      "sha256": "40b56037263d98e62410600a4e961f4605e9310b4bc982209bab8b72f4e8a986"
+    },
+    {
+      "path": "archivebox/storageaudit/templates/storageaudit/preview.html",
+      "sha256": "9b049e76c29d0f4d33d19e2eec5f9ffbab2dd7293ba1500de11958b5544d4566"
+    },
+    {
+      "path": "archivebox/tests/test_siteclones.py",
+      "sha256": "34a986c4c17ac27d7fb5f463ce525317e417d0a39642f58a90e87a3c0f4ca4a5"
+    }
+  ],
+  "captures": 14,
+  "saved_files_unchanged": 601,
+  "database_integrity": "ok",
+  "images": [
+    {
+      "file": "clone-detail-desktop.png",
+      "sha256": "bf9a71a694eda5a7d9cc06d12132981688a2082d1aec6be75996d141b99b3a26"
+    },
+    {
+      "file": "clone-detail-mobile.png",
+      "sha256": "b83fb8bc2cd65167ade87f8fede948cb82aec442706f4aace785f0d33ed3fab8"
+    },
+    {
+      "file": "clone-setup-desktop.png",
+      "sha256": "ef6fd21789a20bfae9a6c6b1a67b8a29ba5c0c060916bb3de816b5c71cae1b6b"
+    },
+    {
+      "file": "clone-setup-mobile.png",
+      "sha256": "e19f73e79456293eb4b1ec533865fe19cce6696a41846f6c3b8df4ba67e43d78"
+    },
+    {
+      "file": "storage-audit-desktop.png",
+      "sha256": "6d4f3323b782e7dfae7b0cbd52db0e49ff25b2b8415b7f79ca87cb6ea8996f11"
+    },
+    {
+      "file": "storage-audit-mobile.png",
+      "sha256": "4937d7bc6eacbd9109bb1d4cf53c01849a7f75f3a47d97d40fc15787218e7cf6"
+    },
+    {
+      "file": "storage-audit-preview-mobile.png",
+      "sha256": "69fb787c079cd3b9f8127587c9fec95fe63ed4dd5e74faadb42ef58df42d159e"
+    },
+    {
+      "file": "storage-drive-setup-desktop.png",
+      "sha256": "ba5969ce597f58b95ac6a5183372f4223f2920b6a76c78eb5a9a3780db23a895"
+    },
+    {
+      "file": "storage-drive-setup-mobile.png",
+      "sha256": "85ff2bd2b0422970face6ced64b7dbc710a0e0bba6bf93d93543e1040dcd0201"
+    },
+    {
+      "file": "storage-local-setup-desktop.png",
+      "sha256": "56b107d32d78fa288b21a20259940fa1b236c8e4025d25257bf3d54937a40cc4"
+    },
+    {
+      "file": "storage-local-setup-mobile.png",
+      "sha256": "5164efc90b32d60ed36fd786c58990c09acbed01fd9fcfd01eddd089e06a780e"
+    },
+    {
+      "file": "storage-s3-setup-desktop.png",
+      "sha256": "968476f502904e96248be77d94ec1e039330f6a2da06732c479c7cd3dd483b94"
+    },
+    {
+      "file": "storage-s3-setup-mobile.png",
+      "sha256": "35b4c822d926f778b6778808736e095cf4fe33e4e51a6837965f65740b3b36a3"
+    }
+  ]
+}
