@@ -19,9 +19,11 @@
     "gallery-proof.json",
     "more-options-proof.json",
     "more-options-crawl-proof.json",
-    "preservation-proof.json"
+    "preservation-proof.json",
+    "gallery-handoff-proof.json",
+    "gallery-domain-capture-options.png"
   ],
-  "gallery_commit": "119da4c6262bf2cb9386919102ae759c05c9b4fe",
+  "gallery_commit": "392ff377c72fe9d6f0c5f77dfd00b29f125d4e82",
   "sha256": {
     "saved-sites-desktop.png": "be74db77584f7f10fccdadee4f8f470787feb9884f0f0407c3044538609d59d1",
     "saved-sites-mobile.png": "232c4342cf72e0f9fb340baf1651bc28f2c75f609fa8740adb8c4ed2c650b5ba",
@@ -39,6 +41,8 @@
     "gallery-proof.json": "9ae303a5113c29e322e2ae61435d342b30dcb05d6f5fcfbbc579eb60a8ff4c71",
     "more-options-proof.json": "add577ef677e2c4f27b23e6e1d7b40b485c3eb34196a48efddb9a8233676b959",
     "more-options-crawl-proof.json": "d3b6517a2419bbf616c36e48e86345d994c5868917cdc6a2274fa0e02d6d96f4",
-    "preservation-proof.json": "4af4f2f64312d927fbe8682fc28bd90e12213bf68c7b53ff92bb786cd317882f"
+    "preservation-proof.json": "4af4f2f64312d927fbe8682fc28bd90e12213bf68c7b53ff92bb786cd317882f",
+    "gallery-handoff-proof.json": "9b05b6ea17b7f8e815b67e9acea0b6e472a257857f1de313590917573fc38600",
+    "gallery-domain-capture-options.png": "a86b0789818970cbde3e40e521591a5a1fa81067f5c14c534b2104d3b3837db1"
   }
 }
