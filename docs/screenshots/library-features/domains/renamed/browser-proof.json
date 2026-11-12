@@ -1,0 +1,68 @@
+{
+  "pages": [
+    {
+      "filename": "domains-desktop.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/",
+      "width": 1424,
+      "overflow": false,
+      "oldLinks": 0
+    },
+    {
+      "filename": "domains-mobile.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/",
+      "width": 374,
+      "overflow": false,
+      "oldLinks": 0
+    },
+    {
+      "filename": "add-domain-desktop.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/?add=1",
+      "width": 1424,
+      "overflow": false,
+      "oldLinks": 0
+    },
+    {
+      "filename": "add-domain-mobile.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/?add=1",
+      "width": 374,
+      "overflow": false,
+      "oldLinks": 0
+    },
+    {
+      "filename": "domain-snapshots-desktop.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/site/?scope=news.ycombinator.com",
+      "width": 1424,
+      "overflow": false,
+      "oldLinks": 0
+    },
+    {
+      "filename": "domain-snapshots-mobile.png",
+      "url": "http://admin.archivebox.localhost:5902/admin/domains/site/?scope=news.ycombinator.com",
+      "width": 374,
+      "overflow": false,
+      "oldLinks": 0
+    }
+  ],
+  "gallery": {
+    "name": "Domain snapshots",
+    "url": "http://admin.archivebox.localhost:5902/admin/domains/06af5f1d5c8d7db980008388a2fc32b7/",
+    "moreOptionsUrl": "http://admin.archivebox.localhost:5902/add/?tag=hacker-news%2Cscreenshot-gallery%2Csite-clone&persona=&depth=1&max_urls=5&crawl_max_concurrent_snapshots=2&permissions=private&schedule=&crawl_timeout=1800&url_filters_same_domain_only=1&url_filters_subpaths_only=0&url_filters_only_new=0&url_filters_allowlist=&url=https%3A%2F%2Fnews.ycombinator.com%2F%0Ahttps%3A%2F%2Fnews.ycombinator.com%2Fsitemap.xml&url_filters_denylist=%2F%28%3F%3Alogin%7Clogout%7Csubmit%7Cvote%7Chide%7Cfave%29%28%3F%3A%2F%7C%5B%3F%5D%7C%24%29%0A%5E%28%3F%21%28%3Fi%3Ahttps%3F%3A%2F%2Fnews%5C.ycombinator%5C.com%28%3F%3A%3A%28%3F%3A80%7C443%29%29%3F%29%28%3F%3A%2F%7C%5B%3F%23%5D%7C%24%29%29",
+    "path": "/admin/domains/06af5f1d5c8d7db980008388a2fc32b7/",
+    "crawlId": "06af5f1d5c8d7db980008388a2fc32b7",
+    "source": "archivebox/domains/templates/domains/detail.html"
+  },
+  "replay": [
+    {
+      "name": "Saved site replay",
+      "url": "http://admin.archivebox.localhost:5902/admin/core/snapshot/replay-auth/?snapshot=06af55469f4b78628000b106f0e13b7f&original_domain=news.ycombinator.com&next=%2F",
+      "path": "/",
+      "source": "archivebox/core/views.py"
+    },
+    {
+      "name": "Captured internal link replay",
+      "url": "http://admin.archivebox.localhost:5902/admin/core/snapshot/replay-auth/?snapshot=06af55469f4b78628000b106f0e13b7f&original_domain=news.ycombinator.com&next=%2Fnewest",
+      "path": "/newest",
+      "source": "archivebox/core/views.py"
+    }
+  ]
+}

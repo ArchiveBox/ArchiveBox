@@ -1,0 +1,40 @@
+{
+  "source_commit": "a7284d63dfcd2429004f1f4bd9bc737bbc5b8d48",
+  "runtime": {
+    "application": "archivebox.domains",
+    "url": "/admin/domains/",
+    "export_command_app": "archivebox.domains",
+    "template": "/venv/lib/python3.13/site-packages/archivebox/domains/templates/domains/index.html",
+    "old_package_absent": true
+  },
+  "verified_runtime_files": [
+    "archivebox/core/settings.py",
+    "archivebox/core/urls.py",
+    "archivebox/domains/__init__.py",
+    "archivebox/domains/actions.py",
+    "archivebox/domains/export_service.py",
+    "archivebox/domains/exports.py",
+    "archivebox/domains/forms.py",
+    "archivebox/domains/gallery.js",
+    "archivebox/domains/management/__init__.py",
+    "archivebox/domains/management/commands/__init__.py",
+    "archivebox/domains/management/commands/site_export.py",
+    "archivebox/domains/migrations/__init__.py",
+    "archivebox/domains/scope.py",
+    "archivebox/domains/templates/domains/base.html",
+    "archivebox/domains/templates/domains/detail.html",
+    "archivebox/domains/templates/domains/domain_actions.html",
+    "archivebox/domains/templates/domains/field.html",
+    "archivebox/domains/templates/domains/index.html",
+    "archivebox/domains/urls.py",
+    "archivebox/domains/views.py",
+    "archivebox/domains/wacz.py",
+    "archivebox/domains/wacz_gallery.js",
+    "archivebox/templates/core/library_navigation.html"
+  ],
+  "preserved_snapshots": 14,
+  "preserved_files": 1164,
+  "sqlite_integrity": "ok",
+  "tests": "68 passed",
+  "image": "sha256:3c773bece852ae0b5089c28721190600e33a72704fa5ca0a2208b7fc56b505ee"
+}
