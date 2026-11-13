@@ -110,6 +110,8 @@ ldap = [
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
+allauth = ["django-allauth[socialaccount]>=65.21.1,<66"]
+saml = ["archivebox[allauth]", "django-allauth[saml]>=65.21.1,<66"]
 debug = [
     # packages needed for running with DEBUG=True
     "django-debug-toolbar>=4.4.6",
@@ -119,7 +121,7 @@ debug = [
     "django-autotyping>=0.5.1",
 ]
 all = [
-    "archivebox[sonic,ldap,debug]"
+    "archivebox[sonic,ldap,debug,allauth,saml]"
 ]
 
 [dependency-groups]

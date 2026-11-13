@@ -149,6 +149,7 @@ apt-get install -qq -y --no-install-recommends x11-utils
     --locked \
     --no-cache \
     --no-dev \
+    --extra saml \
     --inexact \
     --no-install-project \
     --no-install-workspace \

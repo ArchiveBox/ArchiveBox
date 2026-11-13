@@ -71,6 +71,9 @@
   </div>
 </form>
 {% else %}
+{% if allauth_enabled %}
+<p><a href="{% url 'account_login' %}?next={{ next|urlencode }}">{% trans "Sign in with SSO or email" %}</a></p>
+{% endif %}
 {% if user.is_authenticated %}
 <p class="errornote">
 {% blocktrans trimmed %}

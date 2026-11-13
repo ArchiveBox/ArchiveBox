@@ -11,6 +11,7 @@ from admin_data_views.admin import (
 from admin_data_views.admin import (
     get_app_list as adv_get_app_list,
 )
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model, login as auth_login
 from django.contrib.auth.decorators import login_not_required
@@ -114,6 +115,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             "app_path": request.get_full_path(),
             "username": request.user.get_username(),
             "first_admin_setup": first_admin_setup,
+            "allauth_enabled": settings.ALLAUTH_ENABLED,
         }
         if REDIRECT_FIELD_NAME not in request.GET and REDIRECT_FIELD_NAME not in request.POST:
             context[REDIRECT_FIELD_NAME] = reverse("admin:index", current_app=self.name)
@@ -228,5 +230,21 @@ def register_admin_site():
     register_machine_admin(archivebox_admin)
     register_personas_admin(archivebox_admin)
     register_workers_admin(archivebox_admin)
+
+    if settings.ALLAUTH_ENABLED:
+        from allauth.account.admin import EmailAddressAdmin
+        from allauth.account.models import EmailAddress
+        from allauth.socialaccount.admin import SocialAccountAdmin, SocialAppAdmin, SocialTokenAdmin
+        from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
+
+        # Django autodiscovery registered these on the site we just replaced.
+        for model, model_admin in (
+            (EmailAddress, EmailAddressAdmin),
+            (SocialAccount, SocialAccountAdmin),
+            (SocialApp, SocialAppAdmin),
+            (SocialToken, SocialTokenAdmin),
+        ):
+            if not archivebox_admin.is_registered(model):
+                archivebox_admin.register(model, model_admin)
 
     return archivebox_admin

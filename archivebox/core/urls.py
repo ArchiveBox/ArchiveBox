@@ -62,14 +62,6 @@ urlpatterns = [
     path("admin/core/snapshot/add/", RedirectView.as_view(url="/add/")),
     path("admin/core/snapshot/replay-auth/", SnapshotReplayAuthView.as_view(), name="snapshot-replay-auth"),
     path("add/", AddView.as_view(), name="add"),
-    # ``query_string=True`` preserves the ``?next=…`` param that Django's
-    # auth/login mixins append, so e.g. ``UserPassesTestMixin`` redirecting
-    # an unauthenticated ``/add`` visitor to ``/accounts/login/?next=/add/``
-    # carries the ``next`` through to ``/admin/login/`` and lands them at
-    # ``/add/`` after login instead of the admin homepage.
-    path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
-    path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
-    path("accounts/", include("django.contrib.auth.urls")),
     # Polling contract: read-only DB/cache, <100 ms, no archive/persona file I/O
     # or reconciliation. Keep this route on the shared live_progress_view.
     path("progress.json", live_progress_view, name="live_progress"),
@@ -80,6 +72,17 @@ urlpatterns = [
     path("index.html", RedirectView.as_view(url="/")),
     path("", HomepageView.as_view(), name="Home"),
 ]
+
+
+# Keep auth routes ahead of the general archive path patterns.
+if settings.ALLAUTH_ENABLED:
+    urlpatterns.insert(0, path("accounts/", include("allauth.urls")))
+else:
+    urlpatterns[:0] = [
+        path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
+        path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
+        path("accounts/", include("django.contrib.auth.urls")),
+    ]
 
 
 def _raise_test_error(_request: HttpRequest):

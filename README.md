@@ -1242,6 +1242,7 @@ We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wik
 - [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile) (archiving sites that require logins)
 - [Setting up the Search Backends](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search) (choosing ripgrep, Sonic, or FTS5)
 - [Setting up Local/Remote Storages](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage) (S3/B2/Google Drive/SMB/NFS/etc.)
+- [Native OIDC, OAuth, and SAML SSO](archivebox/auth/README.md) (optional django-allauth integration)
 - [Setting up Authentication & Permissions](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication) (SSO/LDAP/OAuth/API Keys/etc.)
 - [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive) (sharing your archive server with others)
 - [Chromium Install Options](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) (installing and configuring ArchiveBox's Chrome)

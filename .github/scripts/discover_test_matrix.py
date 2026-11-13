@@ -62,7 +62,11 @@ def main() -> None:
                 "name": f"main/{Path(paths[0]).stem}" if len(paths) == 1 else f"batch/{Path(paths[0]).stem}",
                 "paths": paths,
                 "paths_arg": " ".join(paths),
-                "extra": "ldap" if paths == ["archivebox/tests/test_auth_ldap.py"] else "",
+                "extra": "saml"
+                if any("test_allauth_" in path for path in paths)
+                else "ldap"
+                if paths == ["archivebox/tests/test_auth_ldap.py"]
+                else "",
                 "count": len(paths),
                 "ugnas": False,
                 "environment": "",

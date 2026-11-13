@@ -27,6 +27,7 @@ from rich.console import Console
 from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource, decode_config_inputs
 
 from .constants import CONSTANTS
+from .allauth import AllauthConfig
 from .ldap import LDAPConfig
 from .permissions import IN_DOCKER
 from .version import get_BUILD_TIME, get_COMMIT_HASH
@@ -170,7 +171,11 @@ def is_sensitive_config_key(key: str) -> bool:
     """
     key = str(key or "")
     upper = key.upper()
-    return key in _plugin_sensitive_config_keys() or any(needle in upper for needle in _SENSITIVE_CONFIG_KEY_NEEDLES)
+    return (
+        upper == "SOCIALACCOUNT_PROVIDERS"
+        or key in _plugin_sensitive_config_keys()
+        or any(needle in upper for needle in _SENSITIVE_CONFIG_KEY_NEEDLES)
+    )
 
 
 def redact_sensitive_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -721,6 +726,7 @@ class ArchiveBoxBaseConfig(
     ArchivingConfig,
     SearchBackendConfig,
     LDAPConfig,
+    AllauthConfig,
 ):
     """Merged, typed ArchiveBox config.
 
@@ -751,6 +757,7 @@ class ArchiveBoxBaseConfig(
             ArchivingConfig,
             SearchBackendConfig,
             LDAPConfig,
+            AllauthConfig,
         )
 
     @classmethod
@@ -1383,4 +1390,5 @@ def get_all_configs() -> dict[str, BaseConfigSet]:
         "ARCHIVING_CONFIG": ArchivingConfig.model_validate(resolved),
         "SEARCH_BACKEND_CONFIG": SearchBackendConfig.model_validate(resolved),
         "LDAP_CONFIG": LDAPConfig.model_validate(resolved),
+        "ALLAUTH_CONFIG": AllauthConfig.model_validate(resolved),
     }

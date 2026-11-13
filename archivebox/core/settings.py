@@ -181,6 +181,45 @@ except ImportError:
     pass
 
 ################################################################################
+### Optional SSO and account authentication
+################################################################################
+
+# Installing extras alone must not change authentication or expose signup.
+ALLAUTH_ENABLED = CONFIG.ALLAUTH_ENABLED
+if ALLAUTH_ENABLED:
+    from django.core.exceptions import ImproperlyConfigured
+
+    if find_spec("allauth") is None:
+        raise ImproperlyConfigured("ALLAUTH_ENABLED=True requires archivebox[allauth] (or archivebox[saml])")
+    INSTALLED_APPS += ["archivebox.auth", "allauth", "allauth.account", "allauth.socialaccount"]
+    # Load only explicitly configured providers, including OIDC subproviders and SAML.
+    for provider in CONFIG.SOCIALACCOUNT_PROVIDERS:
+        if not provider.isidentifier():
+            raise ImproperlyConfigured(f"Invalid social provider name: {provider}")
+        module = f"allauth.socialaccount.providers.{provider}"
+        if find_spec(module) is None:
+            raise ImproperlyConfigured(f"Unknown allauth provider: {provider}")
+        if provider == "saml" and find_spec("onelogin") is None:
+            raise ImproperlyConfigured("The SAML provider requires archivebox[saml]")
+        INSTALLED_APPS.append(module)
+    MIDDLEWARE.append("allauth.account.middleware.AccountMiddleware")
+    AUTHENTICATION_BACKENDS.append("allauth.account.auth_backends.AuthenticationBackend")
+    ACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxAccountAdapter"
+    SOCIALACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxSocialAccountAdapter"
+    ACCOUNT_LOGIN_METHODS = {"username", "email"}
+    ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+    ACCOUNT_EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION
+    ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
+    ACCOUNT_LOGOUT_ON_GET = False
+    LOGIN_REDIRECT_URL = "/"
+    SOCIALACCOUNT_PROVIDERS = CONFIG.SOCIALACCOUNT_PROVIDERS
+    SOCIALACCOUNT_LOGIN_ON_GET = False
+    SOCIALACCOUNT_STORE_TOKENS = False
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION = CONFIG.SOCIALACCOUNT_EMAIL_AUTHENTICATION
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = CONFIG.SOCIALACCOUNT_EMAIL_AUTO_CONNECT
+
+
+################################################################################
 ### Staticfile and Template Settings
 ################################################################################
 
@@ -286,7 +325,14 @@ CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" if CONFIG.EMAIL_HOST else "django.core.mail.backends.console.EmailBackend"
+EMAIL_HOST = CONFIG.EMAIL_HOST
+EMAIL_PORT = CONFIG.EMAIL_PORT
+EMAIL_HOST_USER = CONFIG.EMAIL_HOST_USER
+EMAIL_HOST_PASSWORD = CONFIG.EMAIL_HOST_PASSWORD
+EMAIL_USE_TLS = CONFIG.EMAIL_USE_TLS
+EMAIL_USE_SSL = CONFIG.EMAIL_USE_SSL
+DEFAULT_FROM_EMAIL = CONFIG.DEFAULT_FROM_EMAIL
 
 
 STORAGES = {
