@@ -59,13 +59,13 @@ def index(request):
         .filter(hook_runtime__gte=timedelta())
         .values("plugin")
         .annotate(count=Count("pk"), total_runtime=Sum("hook_runtime"), avg_runtime=Avg("hook_runtime"), max_runtime=Max("hook_runtime"))
-        .order_by("-max_runtime", "plugin")[:10]
+        .order_by("-max_runtime", "plugin")[:10],
     )
     for row in slowest_plugins:
         for metric in ("total", "avg", "max"):
             row[f"{metric}_seconds"] = row.pop(f"{metric}_runtime").total_seconds()
     heaviest_plugins = list(
-        results.values("plugin").annotate(bytes=Sum("output_size"), count=Count("pk")).order_by("-bytes", "plugin")[:10]
+        results.values("plugin").annotate(bytes=Sum("output_size"), count=Count("pk")).order_by("-bytes", "plugin")[:10],
     )
     for row in [*slowest_plugins, *heaviest_plugins]:
         filters = {"plugin__exact": row["plugin"]}
@@ -77,7 +77,7 @@ def index(request):
         ArchiveResult.objects.filter(snapshot_id__in=[row["id"] for row in largest_snapshots])
         .values("snapshot_id")
         .annotate(count=Count("pk"))
-        .values_list("snapshot_id", "count")
+        .values_list("snapshot_id", "count"),
     )
     for row in largest_snapshots:
         row["bytes"] = row.pop("output_size")

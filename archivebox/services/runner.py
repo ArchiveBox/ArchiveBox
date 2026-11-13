@@ -1090,7 +1090,8 @@ class CrawlRunner:
             return snapshot, persona, base_config, snapshot.tags_str(), local_root, crawl_local_root, existing_tags
 
         snapshot, persona, base_config, tags, local_root, crawl_local_root, existing_tags = await sync_to_async(
-            load_context, thread_sensitive=True
+            load_context,
+            thread_sensitive=True,
         )()
 
         def prepare_payload(*, create_outputs: bool = True):

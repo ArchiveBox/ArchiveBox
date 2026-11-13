@@ -109,7 +109,7 @@ class Folder(models.Model):
 
             public_snapshots = public_snapshots_queryset(Snapshot.objects.filter(folder_id=models.OuterRef("pk")))
             folders = list(
-                cls.objects.only("id", "name", "parent_id", "position").annotate(has_public_snapshots=models.Exists(public_snapshots))
+                cls.objects.only("id", "name", "parent_id", "position").annotate(has_public_snapshots=models.Exists(public_snapshots)),
             )
         else:
             folders = list(cls.objects.annotate(snapshot_count=models.Count("snapshots")))

@@ -25,10 +25,9 @@ def test_main_domain_export_options_validate_server_directory(admin_client, save
         {"action": "export", "domain": "*.ycombinator.com", "export_format": format, "directory": "relative/path"},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
-    assert response.status_code == 302
+    assert response.status_code == 400
     assert not Process.objects.filter(worker_type="site-export").exists()
-    result = admin_client.get(response["Location"], HTTP_HOST=ADMIN_TEST_HOST)
-    assert b"absolute server directory" in result.content
+    assert b"absolute server directory" in response.content
 
 
 def test_static_site_command_preserves_sources_and_exports_links(saved_site, tmp_path):
@@ -61,15 +60,15 @@ def test_site_export_ui_requires_absolute_server_path(admin_client, saved_site):
     crawl.save(update_fields=["tags_str"])
     detail = f"/admin/domains/{crawl.pk}/"
     response = admin_client.post(detail + "export/", {"format": "html", "directory": "relative/path"}, HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 302
+    assert response.status_code == 400
+    assert b"absolute server directory" in response.content
     from archivebox.machine.models import Process
 
     assert not Process.objects.filter(worker_type="site-export").exists()
-    page = admin_client.get(response["Location"], HTTP_HOST=ADMIN_TEST_HOST)
-    assert b"absolute server directory" in page.content
+    page = admin_client.get(detail + "export/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert page.status_code == 200
     assert b"Export to disk" in page.content
     assert b"Server directory" in page.content
-    assert response["Location"] == detail + "export/"
 
 
 def test_replay_setting_uses_machine_config(admin_client, saved_site):
@@ -81,6 +80,9 @@ def test_replay_setting_uses_machine_config(admin_client, saved_site):
     crawl.tags_str = "site-clone"
     crawl.save(update_fields=["tags_str"])
     endpoint = f"/admin/domains/{crawl.pk}/replay-settings/"
+    settings_page = admin_client.get(f"/admin/domains/{crawl.pk}/export/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert settings_page.status_code == 200
+    assert endpoint.encode() in settings_page.content
     before = dict(Machine.current().config)
     for enabled in (True, False):
         response = admin_client.post(endpoint, {"rewrite_archived_links": "on"} if enabled else {}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -182,3 +184,213 @@ def test_domain_delete_uses_native_confirmation_then_queues(admin_client, saved_
     assert confirmed.status_code == 302
     assert Snapshot.objects.filter(pk__in=ids, status="deleting").count() == len(ids)
     assert all(source.read_bytes() == original for _, source, original in saved_site)
+
+
+@pytest.mark.parametrize("format", ["html_zip", "wacz"])
+def test_query_export_uses_folder_subtree_and_preserves_sources(saved_site, tmp_path, format):
+    from pathlib import Path
+    from urllib.parse import urlencode
+    import zipfile
+
+    from archivebox.core.models import ArchiveResult, Folder
+
+    folder = Folder.objects.create(name="Reading")
+    child = Folder.objects.create(name="Articles", parent=folder)
+    unrelated = Folder.objects.create(name="Elsewhere")
+    selected = saved_site[:2]
+    for index, (snapshot, _source, _body) in enumerate(saved_site):
+        snapshot.folder = [folder, child][index] if index < 2 else unrelated
+        snapshot.save(update_fields=["folder"])
+    recordings = []
+    if format == "wacz":
+        fixtures = Path(__file__).parent / "fixtures"
+        for index, (snapshot, _source, _body) in enumerate(saved_site):
+            recording = (fixtures / ("memento/iframetest.wacz" if index != 1 else "responsive-images/google-drive.wacz")).read_bytes()
+            relative = "archivewebpage/archive.wacz"
+            output = snapshot.output_dir / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(recording)
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="archivewebpage",
+                status="succeeded",
+                output_str=relative,
+                output_files={relative: {"size": len(recording)}},
+                output_size=len(recording),
+            )
+            if index < 2:
+                recordings.append(recording)
+    destination = tmp_path / "folder-export"
+    call_command("site_export", query=urlencode({"folder": str(folder.pk)}), format=format, destination=str(destination))
+    with zipfile.ZipFile(destination / ("site.zip" if format == "html_zip" else "site.wacz")) as archive:
+        if format == "html_zip":
+            manifest = json.loads(archive.read("pages.json"))
+            assert {page["url"] for page in manifest} == {snapshot.url for snapshot, _, _ in selected}
+        else:
+            package = json.loads(archive.read("datapackage.json"))
+            assert len(package["resources"]) == 2
+            assert {archive.read(resource["path"]) for resource in package["resources"]} == set(recordings)
+    for _snapshot, source, original in saved_site:
+        assert source.read_bytes() == original
+    limited = tmp_path / "limited-folder-export"
+    with pytest.raises(CommandError, match="exceeds"):
+        call_command("site_export", query=urlencode({"folder": str(folder.pk)}), format=format, destination=str(limited), max_bytes=100)
+    assert not (limited / ("site.zip" if format == "html_zip" else "site.wacz")).exists()
+
+
+def test_query_export_combines_native_filters_and_public_visibility(saved_site, tmp_path):
+    from urllib.parse import urlencode
+    import zipfile
+    from archivebox.core.models import Folder
+
+    folder = Folder.objects.create(name="Reading")
+    child = Folder.objects.create(name="Articles", parent=folder)
+    for snapshot, _source, _body in saved_site:
+        snapshot.folder = child
+        snapshot.save(update_fields=["folder"])
+    query = urlencode({"folder": str(folder.pk), "domain": "news.ycombinator.com", "q": "newest", "search_mode": "meta"})
+    destination = tmp_path / "filtered"
+    call_command("site_export", query=query, public_only=True, format="html_zip", destination=str(destination))
+    with zipfile.ZipFile(destination / "site.zip") as archive:
+        assert [page["url"] for page in json.loads(archive.read("pages.json"))] == ["https://news.ycombinator.com/newest"]
+    snapshot = next(snapshot for snapshot, _, _ in saved_site if snapshot.url.endswith("/newest"))
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
+    snapshot.save(update_fields=["config"])
+    with pytest.raises(CommandError, match="No saved HTML"):
+        call_command("site_export", query=query, public_only=True, format="html_zip", destination=str(tmp_path / "private"))
+    assert not (tmp_path / "private/site.zip").exists()
+
+
+def test_archive_job_api_exports_selected_files_and_revokes_public_download(initialized_archive):
+    from pathlib import Path
+    from archivebox.tests.conftest import run_python_cwd
+
+    fixture = Path(__file__).parent / "fixtures/original-domain-replay"
+    script = """
+import os
+from pathlib import Path
+os.environ["DATA_DIR"] = str(Path.cwd())
+import django
+django.setup()
+import gzip, hashlib, io, json, zipfile
+from urllib.parse import urlencode
+from django.contrib.auth import get_user_model
+from django.test import Client
+from archivebox.api.models import APIToken
+from archivebox.core.models import ArchiveResult, Folder, Snapshot
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Process
+
+user = get_user_model().objects.create_superuser(username="export-api", password="export-api")
+token = APIToken.objects.create(created_by=user)
+crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=user)
+root = Folder.objects.create(name="Hacker News", created_by=user)
+child = Folder.objects.create(name="Recent", parent=root, created_by=user)
+fixture = Path(FIXTURE_PATH)
+saved = []
+for index, record in enumerate(json.loads((fixture / "captures.json").read_text())):
+    body = gzip.decompress((fixture / record["file"]).read_bytes())
+    assert hashlib.sha256(body).hexdigest() == record["sha256"]
+    snapshot = Snapshot.objects.create(url=record["url"], crawl=crawl, folder=child if index == 0 else None, config={"PERMISSIONS": "public"})
+    output = snapshot.output_dir / "dom/output.html"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(body)
+    ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", hook_name="on_Snapshot__53_dom.js", status="succeeded", output_str="dom/output.html", output_files={"dom/output.html": {"size": len(body), "mimetype": "text/html"}}, output_size=len(body))
+    saved.append((snapshot, output, body))
+client = Client(HTTP_HOST="api.archivebox.localhost:5797")
+headers = {"HTTP_X_ARCHIVEBOX_API_KEY": token.token}
+query = urlencode({"folder": str(root.pk)})
+response = client.post("/api/v1/core/snapshots/export/html_zip", json.dumps({"query": query, "directory": str(Path.cwd() / "exports")}), content_type="application/json", **headers)
+assert response.status_code == 202, response.content
+job = response.json()
+process = Process.objects.get(pk=job["id"])
+assert token.token not in " ".join(process.cmd)
+assert "--query" in process.cmd and "--user" in process.cmd
+assert process.cmd[process.cmd.index("--max-bytes") + 1] == str(4 * 1024**3)
+assert process.wait(timeout=30) == 0, process.stderr_file.read_text()
+status = client.get(job["status_url"], **headers)
+assert status.status_code == 200, status.content
+assert status.json()["result"]["complete"] is True
+assert Path(status.json()["result"]["destination"]).is_absolute()
+assert client.get(job["download_url"]).status_code == 403
+response = client.get(job["download_url"], **headers)
+assert response.status_code == 200
+with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as bundle:
+    pages = json.loads(bundle.read("pages.json"))
+    assert [page["url"] for page in pages] == [saved[0][0].url]
+    assert b"archivebox-links.js" in bundle.read(pages[0]["path"])
+response.close()
+# Public jobs use the same worker and become unavailable after visibility changes.
+response = client.post("/api/v1/core/snapshots/export/html_zip", json.dumps({"query": query}), content_type="application/json")
+assert response.status_code == 202, response.content
+public = response.json()
+process = Process.objects.get(pk=public["id"])
+assert "--public-only" in process.cmd and "--user" not in process.cmd
+assert process.wait(timeout=30) == 0, process.stderr_file.read_text()
+response = client.get(public["download_url"])
+assert response.status_code == 200
+assert b"".join(response.streaming_content)
+response.close()
+Snapshot.objects.filter(pk=saved[0][0].pk).update(config={"PERMISSIONS": "private"})
+response = client.get(public["download_url"])
+assert response.status_code == 409, response.content
+for snapshot, output, body in saved:
+    assert output.read_bytes() == body
+print("archive-job-api-ok")
+""".replace("FIXTURE_PATH", repr(str(fixture)))
+    stdout, stderr, returncode = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert returncode == 0, stderr + stdout
+    assert "archive-job-api-ok" in stdout
+
+
+@pytest.mark.parametrize("format", ["rss", "csv", "jsonl"])
+def test_domain_metadata_export_uses_shared_native_selection(admin_client, saved_site, format):
+    import csv
+    import io
+    from xml.etree import ElementTree
+    from archivebox.machine.models import Process
+
+    payload = {"action": "export", "domain": "news.ycombinator.com/newest", "export_format": format}
+    response = admin_client.post("/admin/domains/actions/", payload, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200, response.content
+    if format == "rss":
+        urls = [
+            item.findtext("description").splitlines()[0].removeprefix("Original URL: ")
+            for item in ElementTree.fromstring(response.content).findall("channel/item")
+        ]
+    elif format == "csv":
+        urls = [row["url"] for row in csv.DictReader(io.StringIO(response.content.decode()))]
+    else:
+        urls = [json.loads(line)["url"] for line in response.content.decode().splitlines()]
+    assert urls == ["https://news.ycombinator.com/newest"]
+    assert not Process.objects.filter(worker_type="site-export").exists()
+
+
+def test_archive_digest_tracks_consumed_selection_when_folder_membership_changes(saved_site, tmp_path):
+    from archivebox.core.exports import selection_digest
+    from archivebox.core.models import Folder, Snapshot
+    from archivebox.domains.exports import export_snapshots_to_directory
+
+    first, second = [snapshot for snapshot, _, _ in saved_site[:2]]
+    folder = Folder.objects.create(name="Export selection", created_by=first.crawl.created_by)
+    Snapshot.objects.filter(pk=first.pk).update(folder=folder)
+    entered = False
+    left = False
+
+    def progress(state):
+        nonlocal entered, left
+        if not entered:
+            Snapshot.objects.filter(pk=second.pk).update(folder=folder)
+            entered = True
+        elif state.get("pages") == 1 and not left:
+            Snapshot.objects.filter(pk=second.pk).update(folder=None, config={"PERMISSIONS": "private"})
+            left = True
+
+    destination = tmp_path / "changing-selection"
+    report = export_snapshots_to_directory(
+        Snapshot.objects.filter(folder=folder), destination=destination, format="html", progress=progress
+    )
+    assert entered and left
+    assert {page["url"] for page in json.loads((destination / "pages.json").read_text())} == {first.url, second.url}
+    assert report["selection_digest"] == selection_digest(Snapshot.objects.filter(pk__in=[first.pk, second.pk]))
+    assert report["selection_digest"] != selection_digest(Snapshot.objects.filter(folder=folder))

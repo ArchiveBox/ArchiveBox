@@ -316,7 +316,12 @@ def test_extension_bulk_review_uses_native_scan_and_compact_signed_selection(adm
         )
         with pytest.raises(CommandError, match="selection changed"):
             call_command(
-                "storageaudit", user=admin_user.pk, source=str(process.pk), extension=".json", selection_hash="0" * 64, stdout=StringIO()
+                "storageaudit",
+                user=admin_user.pk,
+                source=str(process.pk),
+                extension=".json",
+                selection_hash="0" * 64,
+                stdout=StringIO(),
             )
         applied = admin_client.post("/admin/storage-audit/apply/", {"preview": token}, HTTP_HOST=ADMIN_TEST_HOST)
         if sys.platform == "linux":

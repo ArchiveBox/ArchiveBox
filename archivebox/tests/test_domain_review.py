@@ -97,6 +97,7 @@ def test_replay_toggle_preserves_config_changed_after_machine_cache(admin_client
     from archivebox.machine.models import Machine
 
     cached = Machine.current()
+    cached.save(update_fields=["config"])
     updated = {**cached.config, "TIMEOUT": 127}
     Machine.objects.filter(pk=cached.pk).update(config=updated)
     response = admin_client.post(

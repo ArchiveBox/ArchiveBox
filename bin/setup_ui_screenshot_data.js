@@ -137,6 +137,8 @@ async function main() {
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
+    featureViews.push({...library, name: 'Folder export menu', mode: 'folder-menu'});
+    featureViews.push({...library, name: 'Import sources menu', mode: 'import-menu'});
     featureViews.push(await require('../archivebox/core/public_library_gallery.js').prepare(page, process.env.UI_LIBRARY_PUBLIC_URL, library.url));
     featureViews.push({name: 'Folder creators', url: `${adminBaseUrl}/admin/core/folder/`, path: '/admin/core/folder/', source: 'archivebox/core/admin_folders.py'});
     featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
@@ -144,13 +146,14 @@ async function main() {
     featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
     runWorker(['config', '--set', 'PLUGINS=wget,title,screenshot,readability,parse_dom_outlinks,archivewebpage']);
     const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl);
-    featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     runWorker(['run', '--crawl-id', clone.crawlId]);
+    featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
     featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
     featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports')));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const stories = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-urls.json'), 'utf8'));
+    featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').folderViews(page, library.url, stories, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const health = await require('../archivebox/linkhealth/gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(health);
