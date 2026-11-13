@@ -63,6 +63,90 @@ if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
 
 
+class Folder(models.Model):
+    """A virtual collection; organizing captures never moves their archived files."""
+
+    id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="folder_set")
+    name = models.CharField(max_length=100)
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("position", "name", "pk")
+        constraints = [
+            models.UniqueConstraint(fields=["parent", "name"], name="unique_folder_name_per_parent"),
+            models.UniqueConstraint(fields=["name"], condition=Q(parent__isnull=True), name="unique_root_folder_name"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        self.name = sanitize_html_text(self.name).strip()
+        if not self.name:
+            raise ValidationError({"name": "Enter a folder name."})
+        parent_id = self.parent_id
+        seen = {self.pk} if self.pk else set()
+        while parent_id:
+            if parent_id in seen:
+                raise ValidationError({"parent": "Folders cannot contain a cycle."})
+            seen.add(parent_id)
+            parent_id = type(self).objects.filter(pk=parent_id).values_list("parent_id", flat=True).first()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def tree(cls, *, public=False):
+        """Build the sidebar in one query; public visibility needs existence, not totals."""
+        if public:
+            from archivebox.core.permissions import public_snapshots_queryset
+
+            public_snapshots = public_snapshots_queryset(Snapshot.objects.filter(folder_id=models.OuterRef("pk")))
+            folders = list(
+                cls.objects.only("id", "name", "parent_id", "position").annotate(has_public_snapshots=models.Exists(public_snapshots))
+            )
+        else:
+            folders = list(cls.objects.annotate(snapshot_count=models.Count("snapshots")))
+        by_id = {folder.pk: folder for folder in folders}
+        children = {}
+        for folder in folders:
+            children.setdefault(folder.parent_id, []).append(folder)
+        result = []
+        pending = [(folder, 0) for folder in reversed(children.get(None, []))]
+        while pending:
+            folder, level = pending.pop()
+            folder.level = level
+            folder.has_children = bool(children.get(folder.pk))
+            folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
+            result.append(folder)
+            pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
+        for folder in reversed(result):
+            if public:
+                folder.has_children = any(child.has_public_snapshots for child in children.get(folder.pk, []))
+                if folder.parent_id and folder.has_public_snapshots:
+                    by_id[folder.parent_id].has_public_snapshots = True
+            elif folder.parent_id:
+                by_id[folder.parent_id].snapshot_count += folder.snapshot_count
+        return [folder for folder in result if folder.has_public_snapshots] if public else result
+
+    @classmethod
+    def subtree_ids(cls, folder_id):
+        children = {}
+        for pk, parent_id in cls.objects.values_list("pk", "parent_id"):
+            children.setdefault(parent_id, []).append(pk)
+        result, pending = set(), [compact_uuid(folder_id)]
+        while pending:
+            pk = pending.pop()
+            if pk not in result:
+                result.add(pk)
+                pending.extend(children.get(pk, []))
+        return result
+
+
 class SnapshotMigrationError(RuntimeError):
     """Raised when a snapshot filesystem migration fails validation."""
 
@@ -526,6 +610,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     notes = models.TextField(blank=True, null=False, default="")
     # output_dir is computed via @cached_property from fs_version and get_storage_path_for_version()
 
+    folder = models.ForeignKey(Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="snapshots")
+
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name="snapshot_set", through_fields=("snapshot", "tag"))
 
     state_field_name = "status"
@@ -582,6 +668,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         verbose_name_plural = "Snapshots"
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
+            models.Index(fields=["folder", "permissions", "-bookmarked_at", "-created_at"], name="snapshot_folder_public_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
             # Cross-crawl incremental API polls must seek into their time window,
             # not read every historical row with the requested status.
@@ -1039,6 +1126,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def save(self, *args, **kwargs):
         creating = self._state.adding
+        if creating and self.folder_id is None:
+            self.folder_id = Crawl.objects.filter(pk=self.crawl_id).values_list("folder_id", flat=True).first()
         update_fields = kwargs.get("update_fields")
         validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
         if self.ensure_permissions_config() and update_fields is not None:

@@ -21,7 +21,7 @@ from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
     PERMISSIONS_META,
@@ -443,6 +443,8 @@ class CrawlAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "folder" in self.fields:
+            self.fields["folder"].choices = [("", "Unfiled"), *((folder.pk, folder.path_label) for folder in Folder.tree())]
         config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
         if self.instance and self.instance.pk:
             self.initial["tags_editor"] = self.instance.tags_str
@@ -688,7 +690,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             {
                 "fields": (
                     ("label", "status", "retry_at", "schedule", "created_by", "created_at", "modified_at"),
-                    ("max_depth",),
+                    ("max_depth", "folder"),
                     ("stop_reason_display",),
                     ("notes", "tags_editor"),
                 ),
@@ -716,7 +718,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             {
                 "fields": (
                     ("label", "status", "retry_at", "schedule", "created_by"),
-                    ("max_depth",),
+                    ("max_depth", "folder"),
                     ("notes", "tags_editor"),
                 ),
                 "classes": ("card", "wide", "crawl-admin-overview"),
@@ -988,6 +990,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
         new_crawl = Crawl.create_scheduler_row(
             urls=obj.urls,
+            folder_id=obj.folder_id,
             max_depth=obj.max_depth,
             tags_str=obj.tags_str,
             config=obj.config,
@@ -1256,7 +1259,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     sort_fields = ("id", "created_at", "created_by", "label", "notes", "template_str")
     search_fields = ("id", "created_by__username", "label", "notes", "schedule_id", "template_id", "template__urls")
 
-    readonly_fields = ("created_at", "modified_at", "crawls", "snapshots")
+    readonly_fields = ("created_at", "modified_at", "crawls", "snapshots", "destination_folder")
     autocomplete_fields = ("template", "created_by")
 
     fieldsets = (
@@ -1270,7 +1273,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
         (
             "Configuration",
             {
-                "fields": ("is_enabled", "schedule", "template"),
+                "fields": ("is_enabled", "schedule", "template", "destination_folder"),
                 "classes": ("card",),
             },
         ),
@@ -1301,6 +1304,13 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     ordering = ("-created_at",)
     list_per_page = 100
     actions = ("delete_selected",)
+
+    @admin.display(description="Folder")
+    def destination_folder(self, obj):
+        if not obj or not obj.template_id:
+            return "Unfiled"
+        folder = obj.template.folder
+        return format_html('<a href="{}">{}</a>', obj.template.admin_change_url, folder or "Unfiled")
 
     def get_queryset(self, request):
         self.request = request

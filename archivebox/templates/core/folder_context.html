@@ -1,0 +1,10 @@
+{% url "admin:core_snapshot_changelist" as admin_library_url %}
+<header class="library-context">
+  <button type="button" class="folder-sidebar-reopen" aria-label="Show folders" title="Show folders" aria-controls="folder-sidebar" aria-expanded="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m4-12 4 4-4 4"/></svg><span>Folders</span></button>
+  <nav class="library-breadcrumbs" aria-label="Snapshot folders"><ol>
+    <li>{% if folder_breadcrumbs or selected_folder == 'unfiled' %}<a href="{{ library_root_url|default:admin_library_url }}">Snapshots</a>{% else %}<span aria-current="page">Snapshots</span>{% endif %}</li>
+    {% for folder in folder_breadcrumbs %}<li>{% if forloop.last %}<span aria-current="page">{{ folder.name }}</span>{% else %}<a href="?folder={{ folder.pk }}">{{ folder.name }}</a>{% endif %}</li>{% endfor %}
+    {% if selected_folder == 'unfiled' %}<li><span aria-current="page">Unfiled</span></li>{% endif %}
+  </ol></nav>
+{% if not folder_readonly %}  <button type="button" class="folder-new library-new-subfolder" data-parent="{% if selected_folder != 'unfiled' %}{{ selected_folder }}{% endif %}">＋ New folder</button>{% endif %}
+</header>

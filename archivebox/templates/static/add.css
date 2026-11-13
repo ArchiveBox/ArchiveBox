@@ -222,6 +222,31 @@ select {
   min-width: 0;
 }
 
+.tags-persona-row.has-folder {
+  grid-template-columns: minmax(200px, 2fr) minmax(180px, 1.5fr) minmax(200px, 1.5fr) minmax(160px, 1fr);
+}
+
+.folder-field .field-label-with-icon {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.folder-field select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 62px;
+}
+
+.folder-field .folder-new {
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--primary, #9b2050);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .tags-persona-row .tag-editor-container,
 .tags-persona-row select[name="persona"],
 .tags-persona-row select[name="permissions"] {
@@ -799,7 +824,8 @@ select {
 }
 
 @media (max-width: 1020px) {
-  .tags-persona-row {
+  .tags-persona-row,
+  .tags-persona-row.has-folder {
     grid-template-columns: 1fr;
   }
 

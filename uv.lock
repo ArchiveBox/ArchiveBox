@@ -54,7 +54,7 @@ wheels = [
 [[package]]
 name = "abx-plugins"
 version = "1.13.660"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/ArchiveBox/abx-plugins.git?rev=356e04ab2ee06333d5648a05deb914e616920d00#356e04ab2ee06333d5648a05deb914e616920d00" }
 dependencies = [
     { name = "abxbus" },
     { name = "abxpkg" },
@@ -62,10 +62,6 @@ dependencies = [
     { name = "imagesize" },
     { name = "rich-click" },
     { name = "uv" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/45/ce/5ffffba62be9db7996c4e97aa45e68e17c758cded7b30b33f7e318c2b535/abx_plugins-1.13.660.tar.gz", hash = "sha256:2782efe00812010158cff72dd5406bd310488ff68561f553fa649c7fd9a06e76", size = 1364151, upload-time = "2026-11-11T07:20:32.245Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/51/1b73324b1f3646f4ddf711a60cb9d342c26eb466eee152b780e14a21dbd6/abx_plugins-1.13.660-py3-none-any.whl", hash = "sha256:558dcbac20336bbef35d526f8ded7fe39931c9d5aaef706802ab7a0ef77a9d31", size = 1667039, upload-time = "2026-11-11T07:20:30.82Z" },
 ]
 
 [package.optional-dependencies]
@@ -245,7 +241,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abx-dl", specifier = "==1.13.324" },
-    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.660" },
+    { name = "abx-plugins", extras = ["opencode"], git = "https://github.com/ArchiveBox/abx-plugins.git?rev=356e04ab2ee06333d5648a05deb914e616920d00" },
     { name = "abxbus", specifier = "==2.5.82" },
     { name = "abxpkg", specifier = "==1.13.82" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },

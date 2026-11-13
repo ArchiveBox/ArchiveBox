@@ -135,6 +135,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
             config=crawl_config,
             max_depth=template.max_depth,
             tags_str=template.tags_str,
+            folder_id=Crawl.objects.filter(pk=template.pk).values_list("folder_id", flat=True).first(),
             persona_id=template.persona_id,
             label=label,
             notes=template.notes,
@@ -164,6 +165,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
     )
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
     tags_str = models.CharField(max_length=1024, blank=True, null=False, default="")
+    folder = models.ForeignKey("core.Folder", on_delete=models.SET_NULL, null=True, blank=True, related_name="crawls")
     persona = models.ForeignKey(
         "personas.Persona",
         db_column="persona_id",

@@ -1,0 +1,16 @@
+{% extends "admin/change_list.html" %}{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'library/folders.js' %}" defer></script>{% endblock %}
+{% block content %}
+{% if not embedded_changelist %}<div class="snapshot-library">
+{% include "core/folder_sidebar.html" %}{% endif %}
+{{ block.super }}
+{% if not embedded_changelist %}</div>
+{% include "core/folder_dialog.html" %}{% endif %}
+{% endblock %}
+
+{% block object-tools %}
+{% if not embedded_changelist %}
+{% include "core/folder_context.html" %}
+{% if not cl.result_count %}<div class="library-empty"><h2>No snapshots here yet</h2><p>Move captures into this folder, or adjust your search and filters.</p><a href="{% url 'admin:core_snapshot_changelist' %}">Browse all snapshots →</a></div>{% endif %}
+{% endif %}{{ block.super }}{% endblock %}

@@ -13,6 +13,10 @@
 {% block extra_head %}
     <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}" />
     <link rel="stylesheet" href="{% static 'add.css' %}" />
+    {% if can_override_crawl_config %}
+    <link rel="stylesheet" href="{% static 'library/folders.css' %}" />
+    <script src="{% static 'library/folders.js' %}" defer></script>
+    {% endif %}
 {% endblock %}
 
 {% block body %}
@@ -92,7 +96,7 @@
                         {% endif %}
                     </div>
 
-                    <div class="tags-persona-row">
+                    <div class="tags-persona-row{% if form.folder %} has-folder{% endif %}">
                         <div class="form-field">
                             <div class="field-label-with-icon">
                                 <span class="field-label-icon" aria-hidden="true">🏷️</span>
@@ -104,6 +108,17 @@
                             {% endif %}
                             <div class="help-text">Tags will be applied to all snapshots created by this crawl.</div>
                         </div>
+
+                        {% if form.folder %}
+                        <div class="form-field folder-field">
+                            <div class="field-label-with-icon">
+                                {{ form.folder.label_tag }}
+                                <button type="button" class="folder-new">＋ New folder</button>
+                            </div>
+                            {{ form.folder }}
+                            {% if form.folder.errors %}<div class="error">{{ form.folder.errors }}</div>{% endif %}
+                        </div>
+                        {% endif %}
 
                         <div class="form-field persona-field">
                             <div class="field-label-with-icon">
@@ -326,6 +341,7 @@
                     <button role="submit" id="submit">&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
+            {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}
             <br/><br/><br/>
             <center id="delay-warning" style="display: none">
                 <small>(you will be redirected to your new Crawl page momentarily, it's safe to close this page at any time)</small>
@@ -1340,6 +1356,7 @@
                                 if (el) el.checked = Boolean(value);
                             } else {
                                 if (key === 'url' || key === 'config' || key.startsWith('plugin_config__')) continue;
+                                if (key === 'folder' && new URLSearchParams(window.location.search).has('folder')) continue;
                                 const el = document.querySelector(`[name="${key}"]`);
                                 if (el && el.type !== 'checkbox' && el.type !== 'radio') {
                                     if (el.tagName === 'SELECT') {

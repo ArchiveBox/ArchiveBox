@@ -432,6 +432,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="$config_selector .plugin-config-marker"
     fi
+    screenshot_user_data_dir="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile"
+    [[ "$capture_mode" != "public" ]] || screenshot_user_data_dir="$CAPTURE_ROOT/public-browser-profile"
     view_timing_report=""
     while IFS='|' read -r profile _viewport_width _viewport_height; do
         filename="$slug-$profile.png"
@@ -550,7 +552,7 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
-                    SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+                    SCREENSHOT_USER_DATA_DIR="$screenshot_user_data_dir" \
                     SCREENSHOT_WIDTH=1600 \
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
@@ -594,13 +596,29 @@ PY
             SCREENSHOT_COLLAPSE_FILTERS=1 \
             node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 
+        echo "[*] Capturing Hacker News and current top stories for the library feature gallery"
+        (
+            cd "$DATA_DIR"
+            UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"])'
+        )
+        UI_LIBRARY_CRAWL_ID="$(cat "$CAPTURE_ROOT/library-crawl-id.txt")"
+
         echo "[*] Populating empty configuration views through the real Django admin UI"
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
             SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+            UI_LIBRARY_CRAWL_ID="$UI_LIBRARY_CRAWL_ID" \
+            UI_LIBRARY_PUBLIC_URL="$PUBLIC_BASE_URL" \
+            UI_LIBRARY_DATA_DIR="$DATA_DIR" \
+            UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/library-views.txt" \
             CREATE_API_TOKEN="$CREATE_API_TOKEN" \
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
+
+        while IFS= read -r library_view; do
+            [[ -z "$library_view" ]] || VIEWS+=("$library_view")
+        done <"$CAPTURE_ROOT/library-views.txt"
 
         EXAMPLE_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"

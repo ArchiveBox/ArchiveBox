@@ -1,0 +1,7 @@
+<dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form method="post" action="{% url 'admin:core_folder_save' %}">{% csrf_token %}
+  <div class="folder-dialog-heading"><h2 id="folder-dialog-title">New folder</h2><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
+  <input type="hidden" name="folder_id" value="">
+  <label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required placeholder="e.g. Design inspiration" autocomplete="off">
+  <label for="folder-parent">Inside</label><select id="folder-parent" name="parent"><option value="">Library · top level</option>{% for folder in folder_tree %}<option value="{{ folder.pk }}">{{ folder.path_label }}</option>{% endfor %}</select>
+  <p class="folder-form-error" role="alert"></p><div class="folder-dialog-footer"><button type="button" class="folder-dialog-close">Cancel</button><button type="submit" class="folder-save">Save folder</button></div>
+</form></dialog>

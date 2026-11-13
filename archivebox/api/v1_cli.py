@@ -1,3 +1,5 @@
+from uuid import UUID
+
 __package__ = "archivebox.api"
 
 import json
@@ -6,13 +8,14 @@ from typing import Any
 from enum import Enum
 
 from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import Field, model_validator
 
 from archivebox.misc.util import ansi_to_html
-from archivebox.core.models import SnapshotQuerySet
+from archivebox.core.models import Folder, SnapshotQuerySet
 
 
 # router for API that exposes archivebox cli subcommands as REST endpoints
@@ -64,6 +67,7 @@ class AddCommandSchema(Schema):
         return handler(value)
 
     urls: list[str]
+    folder_id: UUID | None = None
     snapshot_ids: list[str] | None = None
     tag: str = ""
     depth: int = 0
@@ -104,6 +108,7 @@ class UpdateCommandSchema(SnapshotFilterCommandSchema):
 
 
 class ScheduleCommandSchema(Schema):
+    folder_id: UUID | None = None
     import_path: str | None = None
     add: bool = False
     show: bool = False
@@ -143,6 +148,8 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
     from archivebox.cli.archivebox_add import add
     from archivebox.misc.util import validate_url
 
+    if args.folder_id is not None:
+        get_object_or_404(Folder, pk=args.folder_id)
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
@@ -178,6 +185,7 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
         parser=args.parser,
         bg=True,  # Always run in background for API calls
         created_by_id=request.user.pk,
+        folder_id=args.folder_id,
         config=config_overrides or None,
     )
 
@@ -245,6 +253,8 @@ def cli_update(request: HttpRequest, args: UpdateCommandSchema):
 def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
     from archivebox.cli.archivebox_schedule import schedule
 
+    if args.folder_id is not None:
+        get_object_or_404(Folder, pk=args.folder_id)
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
@@ -259,6 +269,7 @@ def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
         quiet=args.quiet,
         clear=args.clear,
         every=args.every,
+        folder_id=args.folder_id,
         tag=args.tag,
         depth=args.depth,
         config=config_overrides or None,

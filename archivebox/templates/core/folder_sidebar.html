@@ -1,0 +1,35 @@
+{% url "admin:core_snapshot_changelist" as admin_library_url %}
+<svg class="library-symbols" aria-hidden="true"><defs>
+<symbol id="library-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/></symbol>
+<symbol id="library-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="library-tray" viewBox="0 0 24 24"><path d="m3 13 3-9h12l3 9v7H3Zm0 0h5l2 3h4l2-3h5"/></symbol>
+<symbol id="library-rss" viewBox="0 0 24 24"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></symbol>
+<symbol id="library-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+</defs></svg>
+<nav id="folder-sidebar" class="folder-sidebar" aria-label="Folders" {% if not folder_readonly %}data-move-url="{% url 'admin:core_folder_move' %}"{% endif %}>
+  <div class="library-heading"><span class="library-mark"><svg><use href="#library-grid"/></svg></span><div><h2>Library</h2></div><button type="button" class="folder-mobile-toggle icon-button" aria-label="Hide folders" title="Hide folders" aria-controls="folder-sidebar" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m7-12-4 4 4 4"/></svg></button></div>
+  <div class="library-primary">
+    <a class="library-link" href="{{ library_root_url|default:admin_library_url }}" {% if not selected_folder %}aria-current="page"{% endif %}><svg><use href="#library-grid"/></svg><span>All snapshots</span>{% if not folder_readonly %}<small class="folder-count">{{ library_counts.total }}</small>{% endif %}</a>
+{% if not folder_readonly %}
+    <a class="library-link folder-drop-target" data-folder-id="" href="?folder=unfiled" {% if selected_folder == 'unfiled' %}aria-current="page"{% endif %}><svg><use href="#library-tray"/></svg><span>Unfiled</span><small class="folder-count">{{ library_counts.unfiled }}</small></a>
+    <a class="library-link" href="/admin/domains/"><svg><use href="#library-globe"/></svg><span>Domains</span></a>{% endif %}
+  </div>
+  <div class="folder-section-heading"><h3>Folders</h3><button type="button" class="folder-collapse-all icon-button" aria-label="Collapse all folders" title="Collapse all folders">⌃</button>{% if not folder_readonly %}<button type="button" class="folder-new icon-button" aria-label="Create folder" title="Create folder">＋</button>{% endif %}</div>
+  <input type="search" class="folder-search" placeholder="Find a folder…" aria-label="Find a folder">
+  <div class="folder-tree">
+  {% for folder in folder_tree %}<div class="folder-row{% if not folder_readonly %} folder-drop-target{% endif %}" data-folder-id="{{ folder.pk }}" data-folder-name="{{ folder.name }}" data-parent-id="{{ folder.parent_id|default:'' }}" style="--folder-depth:{{ folder.level }}">
+    {% if folder.has_children %}<button class="folder-toggle icon-button" type="button" aria-label="Collapse {{ folder.name }}" aria-expanded="true"><svg viewBox="0 0 16 16"><path d="m5 6 3 3 3-3"/></svg></button>{% else %}<span class="folder-toggle-spacer"></span>{% endif %}
+    <a class="library-link folder-link" title="{{ folder.path_label }}" href="?folder={{ folder.pk }}" {% if selected_folder == folder.pk|stringformat:'s' %}aria-current="page"{% endif %}><svg><use href="#library-folder"/></svg><span>{{ folder.name }}</span>{% if not folder_readonly %}<small class="folder-count" title="Snapshots including subfolders">{{ folder.snapshot_count }}</small>{% endif %}</a>
+{% if not folder_readonly %}    <button type="button" class="folder-edit icon-button" aria-label="Edit {{ folder.name }}" data-id="{{ folder.pk }}" data-name="{{ folder.name }}" data-parent="{{ folder.parent_id|default:'' }}">⋯</button>{% endif %}
+  </div>{% empty %}{% if not folder_readonly %}<div class="folder-empty"><svg><use href="#library-folder"/></svg><p>No folders yet.</p><button type="button" class="folder-new">Create your first folder</button></div>{% endif %}{% endfor %}
+  </div><p class="folder-search-empty" hidden>No matching folders.</p>
+{% if not folder_readonly %}
+  <p class="folder-drag-hint">Drag snapshots into a folder.<br>Check several to move them together.</p>
+  <div class="folder-actions">
+    <a href="{{ list_feed_url }}"><svg><use href="#library-rss"/></svg>RSS for this list<span aria-hidden="true">↗</span></a>
+    <a href="{% url 'importers:index' %}"><svg><use href="#library-tray"/></svg>Connect a source<span aria-hidden="true">↗</span></a>
+    <a class="folder-manage" href="{% url 'admin:core_folder_changelist' %}">Manage folders</a>
+  </div>
+  <div class="folder-drop-status" role="status" aria-live="polite"></div>
+{% endif %}
+</nav>

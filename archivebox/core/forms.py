@@ -8,6 +8,7 @@ from django import forms
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.config.common import get_config, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
+from archivebox.core.models import Folder
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
@@ -117,6 +118,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         required=False,
         widget=TagEditorWidget(),
     )
+    folder = forms.ModelChoiceField(label="Folder", queryset=Folder.objects.none(), required=False, empty_label="Unfiled")
     depth = forms.ChoiceField(
         label="Archive depth",
         choices=DEPTH_CHOICES,
@@ -305,6 +307,13 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             user = self.request.user
             self.can_override_crawl_config = bool(user.is_authenticated and user.is_active and user.is_superuser)
         super().__init__(*args, **kwargs)
+
+        self.folder_tree = Folder.tree() if self.can_override_crawl_config else []
+        if self.can_override_crawl_config:
+            self.fields["folder"].queryset = Folder.objects.all()
+            self.fields["folder"].choices = [("", "Unfiled"), *((folder.pk, folder.path_label) for folder in self.folder_tree)]
+        else:
+            self.fields.pop("folder")
 
         # Persona creation belongs to init/server startup, never a GET of /add/.
         persona_queryset = Persona.objects.order_by("name")
