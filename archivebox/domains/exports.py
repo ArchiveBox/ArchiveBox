@@ -5,6 +5,8 @@ import json
 import posixpath
 import re
 import time
+import shutil
+import zipfile
 from pathlib import Path
 from urllib.parse import quote, unquote, urljoin, urlsplit
 
@@ -177,3 +179,72 @@ def write_replay_site(destination, snapshots, *, title, config, progress, player
             '"Upload this folder to an HTTPS website, or use the Static HTML export to open saved pages directly.";</script></body></html>',
         )
     return count
+
+
+def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=None, progress=None, title="Snapshots", config=None):
+    from archivebox.config.common import get_config
+    from archivebox.core.exports import MAX_ARCHIVE_BYTES, selection_digest
+    from .export_service import FORMATS
+
+    if format not in FORMATS:
+        raise ValueError("Select an archive export format.")
+    if format in {"html_zip", "wacz"}:
+        max_bytes = min(max_bytes, MAX_ARCHIVE_BYTES) if max_bytes and max_bytes > 0 else MAX_ARCHIVE_BYTES
+    max_bytes = max_bytes or 0
+    destination = Path(destination)
+    if not destination.is_absolute():
+        raise ValueError("Export destination must be an absolute path.")
+    state = {"destination": str(destination), "format": format, "bytes": 0}
+    consumed_ids = []
+
+    def report(update):
+        if max_bytes and max(update.get("bytes", 0), update.get("total_bytes", 0)) > max_bytes:
+            raise ValueError(f"Export exceeds the {printable_filesize(max_bytes)} ({max_bytes} bytes) limit.")
+        state.update(update)
+        if progress:
+            progress(dict(state))
+
+    def snapshots():
+        # Each batch is materialized before touching saved files; no open DB cursor
+        # spans filesystem work. Slicing retains native CLI ordering and limits.
+        offset = 0
+        while batch := list(queryset.prefetch_related("archiveresult_set")[offset : offset + 100]):
+            consumed_ids.extend(snapshot.pk for snapshot in batch)
+            yield from batch
+            offset += len(batch)
+
+    destination.mkdir(parents=True, exist_ok=False)
+    archive_file = destination / ("site.zip" if format == "html_zip" else "site.wacz")
+    try:
+        report({})
+        if format in {"html", "html_zip"}:
+            write_static_site(destination, snapshots(), title=title, progress=report, max_bytes=max_bytes)
+        else:
+            write_replay_site(
+                destination, snapshots(), title=title, config=config or get_config(), progress=report, player=format == "replay"
+            )
+        if format == "html_zip":
+            with zipfile.ZipFile(archive_file, "x", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as bundle:
+                for item in destination.rglob("*"):
+                    if item.is_file() and item != archive_file:
+                        bundle.write(item, item.relative_to(destination).as_posix())
+            if max_bytes and archive_file.stat().st_size > max_bytes:
+                raise ValueError(f"Export ZIP exceeds the {printable_filesize(max_bytes)} ({max_bytes} bytes) limit.")
+            for item in destination.iterdir():
+                if item != archive_file:
+                    shutil.rmtree(item) if item.is_dir() else item.unlink()
+        if archive_file.is_file() and max_bytes and archive_file.stat().st_size > max_bytes:
+            raise ValueError(f"Export archive exceeds the {printable_filesize(max_bytes)} ({max_bytes} bytes) limit.")
+        report(
+            {
+                "complete": True,
+                "selection_digest": selection_digest(consumed_ids),
+                **({"bytes": archive_file.stat().st_size} if archive_file.is_file() else {}),
+            }
+        )
+        return state
+    except Exception as error:
+        if format in {"html_zip", "wacz"} and archive_file.is_file():
+            archive_file.unlink()
+        report({"error": str(error), "complete": False})
+        raise

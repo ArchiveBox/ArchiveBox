@@ -18,7 +18,9 @@ def test_inline_folder_records_creator_and_preserves_it_on_edit(admin_client, ad
     folder.created_by = other
     folder.save()
     response = admin_client.post(
-        "/admin/core/folder/save/", {"folder_id": folder.pk, "name": "Read later", "created_by": admin_user.pk}, **HOST
+        "/admin/core/folder/save/",
+        {"folder_id": folder.pk, "name": "Read later", "created_by": admin_user.pk},
+        **HOST,
     )
     assert response.status_code == 200, response.content
     folder.refresh_from_db()

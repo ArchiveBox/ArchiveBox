@@ -23,12 +23,15 @@ async function prepare(page, adminBaseUrl, crawlId) {
     await page.type('#folder-name', name);
     if (await page.$eval('#folder-parent', select => select.value) !== parent) throw new Error('New folder dialog lost the selected parent.');
     const saved = page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method() === 'POST');
-    await page.click('.folder-save');
+    if (parent) await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click('.folder-save')]);
+    else await page.click('.folder-save');
     const response = await saved;
-    if (!response.ok()) throw new Error(`Creating the gallery folder failed: ${await response.text()}`);
-    const created = await response.json();
-    await page.waitForSelector('#folder-dialog:not([open])');
-    if (!parent && (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/')) throw new Error('Creating a folder lost the Add form state.');
+    if (!response.ok()) throw new Error(`Creating the gallery folder failed: HTTP ${response.status()}`);
+    if (!parent) {
+      const created = await response.json();
+      await page.waitForSelector('#folder-dialog:not([open])');
+      if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/') throw new Error('Creating a folder lost the Add form state.');
+    }
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
     const id = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
     if (!id) throw new Error(`Folder was not saved: ${name}`);
@@ -148,3 +151,38 @@ async function prepareExports(page, adminBaseUrl, libraryUrl) {
 }
 
 module.exports = {prepare, prepareExports};
+
+async function openFolderMenu(page) {
+  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
+  if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
+  const row = '.folder-row:has(.folder-link[aria-current="page"])';
+  await page.waitForSelector(row);
+  await page.hover(row);
+  if (await page.$eval(`${row} .folder-menu-toggle`, node => node.getAttribute('aria-expanded')) !== 'true') await page.click(`${row} .folder-menu-toggle`);
+  await page.waitForSelector(`${row} .folder-menu:popover-open`);
+  const menu = await page.$eval(`${row} .folder-menu`, node => {
+    const box = node.getBoundingClientRect();
+    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,formats:[...node.querySelectorAll('[data-export-format]')].map(link=>link.dataset.exportFormat)};
+  });
+  if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Folder menu extends beyond the viewport.');
+  const expected = await page.$$eval('.folder-actions [data-export-format]', links => links.map(link => link.dataset.exportFormat));
+  if (expected.some(format => !menu.formats.includes(format))) throw new Error('Folder menu omitted a supported export format.');
+}
+module.exports.openFolderMenu = openFolderMenu;
+
+async function openImportMenu(page) {
+  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
+  if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
+  await page.click('.library-import-toggle');
+  await page.waitForSelector('#library-import-menu:popover-open');
+  const menu = await page.$eval('#library-import-menu', node => {
+    const box = node.getBoundingClientRect();
+    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,links:[...node.querySelectorAll('a')].map(link=>({text:link.textContent,href:link.getAttribute('href')}))};
+  });
+  if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
+  const expected = ['From Browser History / Bookmarks', 'From RSS or Social Media'];
+  if (await page.$('.library-primary a[href="/admin/domains/"]')) expected.push('Clone an entire site');
+  expected.push('Watch a site for changes', 'Other options...');
+  if (JSON.stringify(menu.links.map(link => link.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
+}
+module.exports.openImportMenu = openImportMenu;

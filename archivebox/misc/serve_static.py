@@ -1011,6 +1011,8 @@ def rewrite_navigation_links(
     """
     parsed = Resources(html_text, navigation=True)
     parsed.feed(html_text)
+    if not parsed.get_starttag_text():
+        return html_text, 0
     original_base = urljoin(page_url, parsed.base_href or "")
     replacements = [(start, end, "") for start, end in parsed.base_tags] if asset_base is not None else []
     for start, end, href in parsed.spans:

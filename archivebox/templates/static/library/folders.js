@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dialog) {
     const picker = sidebar ? null : document.querySelector('#id_folder');
     function openFolder(button) {
+      button.closest('.folder-menu:popover-open')?.hidePopover();
       folderForm.reset();
       folderForm.elements.folder_id.value = button.dataset.id || '';
       folderForm.elements.name.value = button.dataset.name || '';
@@ -41,6 +42,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.querySelector('#changelist-form');
   const status = sidebar.querySelector('.folder-drop-status');
   const rows = [...sidebar.querySelectorAll('.folder-row')];
+  sidebar.querySelectorAll('.folder-menu-toggle,.library-import-toggle').forEach(button => {
+    const menu = document.getElementById(button.getAttribute('popovertarget'));
+    const items = [...menu.querySelectorAll('[role=menuitem]')];
+    function positionMenu() {
+      const rect = button.getBoundingClientRect();
+      const box = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
+      menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, rect.bottom + 4))}px`;
+    }
+    menu.addEventListener('toggle', event => {
+      const open = event.newState === 'open';
+      button.setAttribute('aria-expanded', String(open));
+      if (open) {
+        positionMenu();
+        items[0]?.focus({preventScroll:true});
+        window.addEventListener('resize', positionMenu);
+        window.addEventListener('scroll', positionMenu, true);
+      } else {
+        window.removeEventListener('resize', positionMenu);
+        window.removeEventListener('scroll', positionMenu, true);
+      }
+    });
+    button.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (!menu.matches(':popover-open')) menu.showPopover();
+      }
+    });
+    menu.addEventListener('keydown', event => {
+      const index = items.indexOf(document.activeElement);
+      if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus();
+      } else if (event.key === 'Tab') menu.hidePopover();
+    });
+  });
   const search = sidebar.querySelector('.folder-search');
   const collapsed = new Set();
   try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
