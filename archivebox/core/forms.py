@@ -118,7 +118,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         required=False,
         widget=TagEditorWidget(),
     )
-    folder = forms.ModelChoiceField(label="Folder", queryset=Folder.objects.none(), required=False, empty_label="Unfiled")
+    folder = forms.ModelChoiceField(label="Folder", queryset=Folder.objects.none(), required=False, empty_label="Inbox")
     depth = forms.ChoiceField(
         label="Archive depth",
         choices=DEPTH_CHOICES,
@@ -311,7 +311,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         self.folder_tree = Folder.tree() if self.can_override_crawl_config else []
         if self.can_override_crawl_config:
             self.fields["folder"].queryset = Folder.objects.all()
-            self.fields["folder"].choices = [("", "Unfiled"), *((folder.pk, folder.path_label) for folder in self.folder_tree)]
+            self.fields["folder"].choices = [("", "Inbox"), *((folder.pk, folder.path_label) for folder in self.folder_tree)]
         else:
             self.fields.pop("folder")
 

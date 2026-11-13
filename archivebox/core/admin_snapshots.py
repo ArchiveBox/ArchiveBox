@@ -82,7 +82,7 @@ class SnapshotActionForm(ActionForm):
             queryset=Folder.objects.all(),
             required=False,
             label="Folder",
-            empty_label="Unfiled",
+            empty_label="Inbox",
         )
 
     def clean_tags(self):
@@ -99,7 +99,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
     parameter_name = "folder"
 
     def lookups(self, request, model_admin):
-        return [("unfiled", "Unfiled"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
+        return [("unfiled", "Inbox"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -689,7 +689,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             count = queryset.update(folder=folder, modified_at=timezone.now())
             if changes:
                 transaction.on_commit(lambda: snapshot_folders_changed.send(sender=Snapshot, changes=changes))
-        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Unfiled'}.")
+        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Inbox'}.")
 
     def preview_view(self, request, object_id, plugin, filename):
         """Serve a saved image output from the authenticated admin origin."""
