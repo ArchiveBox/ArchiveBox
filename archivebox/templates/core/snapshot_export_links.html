@@ -1,0 +1,3 @@
+<span class="snapshot-export-links" role="group" aria-label="Export snapshots" style="display:inline-flex;align-items:center;gap:12px;font-size:12px">
+{% for format, url in export_urls.items %}<a href="{{ url }}" data-export-format="{{ format }}" title="Export matching snapshots as {{ format|upper }}">{{ format|upper }}</a>{% endfor %}
+</span>

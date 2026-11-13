@@ -19,6 +19,46 @@ _URL_PATH_SAFE = "/@-._~!$&'()*+,;="
 _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
+def build_snapshot_export_urls(filters) -> dict[str, str]:
+    """Keyless exports of an existing snapshot filter, independent of page size."""
+    from django.http import QueryDict
+    from django.urls import reverse
+
+    omitted = {
+        "api_key",
+        "key",
+        "token",
+        "api_token",
+        "access_token",
+        "password",
+        "auth",
+        "authorization",
+        "csrfmiddlewaretoken",
+        "csrf_token",
+        "sessionid",
+        "cookie",
+        "p",
+        "page",
+        "per_page",
+        "limit",
+        "offset",
+        "_popup",
+        "_to_field",
+        "_embedded",
+    }
+    query = QueryDict(mutable=True)
+    entries = filters.lists() if hasattr(filters, "lists") else filters.items()
+    for key, values in entries:
+        if key.lower() in omitted or values is None:
+            continue
+        query.setlist(key, [str(value) for value in (values if isinstance(values, (list, tuple)) else [values])])
+    suffix = "?" + query.urlencode() if query else ""
+    return {
+        "rss": reverse("admin:core_snapshot_feed") + suffix,
+        **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in ("csv", "jsonl")},
+    }
+
+
 def split_host_port(host: str) -> tuple[str, str | None]:
     parsed = urlparse(f"//{host}")
     hostname = (parsed.hostname or host or "").lower()

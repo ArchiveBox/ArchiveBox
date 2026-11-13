@@ -683,6 +683,7 @@
                 </span>
                 <input type="submit" value="Search">
             </form>
+            {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls %}
             {% comment %}
                 Missing/stale totals are intentional on large collections: show rows
                 immediately and let a later normal reload pick up the cached count.

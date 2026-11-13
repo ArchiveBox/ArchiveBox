@@ -31,7 +31,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_VALUES,
     normalize_permissions,
 )
-from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_role_output_url
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.misc.paginators import AcceleratedPaginator
@@ -816,6 +816,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         extra_context = {
             **(extra_context or {}),
             "crawl_stop_reason": self.stop_reason_for_crawl(crawl) if crawl else "",
+            "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": crawl.pk}) if crawl else {},
             "crawl_snapshots_changelist": self.snapshots_changelist(crawl) if crawl else "",
         }
         if crawl and crawl.status in {

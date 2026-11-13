@@ -26,7 +26,7 @@
 {% if not folder_readonly %}
   <p class="folder-drag-hint">Drag snapshots into a folder.<br>Check several to move them together.</p>
   <div class="folder-actions">
-    <a href="{{ list_feed_url }}"><svg><use href="#library-rss"/></svg>RSS for this list<span aria-hidden="true">↗</span></a>
+    {% include "core/snapshot_export_links.html" with export_urls=list_export_urls %}
     <a href="{% url 'importers:index' %}"><svg><use href="#library-tray"/></svg>Connect a source<span aria-hidden="true">↗</span></a>
     <a class="folder-manage" href="{% url 'admin:core_folder_changelist' %}">Manage folders</a>
   </div>

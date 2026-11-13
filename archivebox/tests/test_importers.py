@@ -462,11 +462,7 @@ def test_simple_setup_defaults_and_advanced_errors(admin_client, import_site):
     assert response.status_code == 200
     assert b"Advanced options" in response.content
     assert b"How to connect" in response.content
-    assert [field.name for field in response.context["form"].basic_fields] == [
-        "setting_IMPORTER_RSS_URL",
-        "setting_IMPORTER_RSS_IMPORT_TAGS",
-    ]
-    assert response.context["form"]["setting_IMPORTER_RSS_IMPORT_TAGS"].value() is False
+    assert [field.name for field in response.context["form"].basic_fields] == ["setting_IMPORTER_RSS_URL"]
     response = admin_client.post(path, {"setting_IMPORTER_RSS_URL": f"{url}/feed.xml"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 302
     source = ImporterSource.objects.get()
@@ -547,7 +543,90 @@ def test_importer_minimal_setup_uses_defaults(admin_client, import_site):
     assert source.name == "RSS & Atom · Feed articles"
     assert source.limit == 100
     assert source.schedule == ""
-    assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml", "IMPORTER_RSS_IMPORT_TAGS": False}
+    assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml"}
+
+
+def test_real_feed_categories_reach_only_their_snapshot(admin_client, import_site):
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    (root / "feed.xml").write_text(
+        '<rss version="2.0"><channel><title>Categories</title><item><guid>one</guid><link>https://example.com/tagged</link><category>Science &amp; Society</category><category>Technology</category></item><item><guid>two</guid><link>https://example.com/untagged</link></item></channel></rss>',
+    )
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {
+            "name": "Categories",
+            "setting_IMPORTER_RSS_URL": f"{url}/feed.xml",
+            "tags": "Manual source tag",
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Categories")
+    assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml"}
+    assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    run = source.runs.get()
+    assert run.status == "succeeded", run.message
+    assert run.crawl_id
+    assert run.items[0]["metadata"].get("tags", []) == ["Science & Society", "Technology"], run.items
+    assert "Science &amp; Society" in run.crawl.urls, run.crawl.urls
+    snapshots = run.crawl.create_snapshots_from_urls()
+    assert len(snapshots) == 2
+    # Match the native Tag sanitizer: stored names retain escaped HTML entities.
+    tags = {snapshot.url: set(snapshot.tags.values_list("name", flat=True)) for snapshot in snapshots}
+    assert tags["https://example.com/tagged"] == {"Science &amp; Society", "Technology", "Manual source tag"}
+    assert tags["https://example.com/untagged"] == {"Manual source tag"}
+
+
+@pytest.mark.parametrize("kind", ["rss", "atom"])
+def test_normal_feed_crawl_preserves_per_article_tags(initialized_archive, import_site, kind):
+    import json
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.tests.conftest import run_archivebox_cmd
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    root, url = import_site
+    if kind == "rss":
+        feed = (
+            '<rss version="2.0"><channel><title>Categories</title><item><guid>one</guid>'
+            f"<link>{url}/article.html</link><category>Science &amp; Society</category>"
+            "<category>Technology</category></item><item><guid>two</guid>"
+            f"<link>{url}/untagged.html</link></item></channel></rss>"
+        )
+    else:
+        feed = (
+            '<feed xmlns="http://www.w3.org/2005/Atom"><title>Categories</title><entry><id>one</id>'
+            f'<link href="{url}/article.html"/><category term="Science &amp; Society"/>'
+            '<category term="Technology"/></entry><entry><id>two</id>'
+            f'<link href="{url}/untagged.html"/></entry></feed>'
+        )
+    (root / "feed.xml").write_text(feed)
+    (root / "untagged.html").write_text("<html><title>Untagged article</title><body>Another article.</body></html>")
+    result = run_archivebox_cmd(
+        ["add", "--depth=1", "--parser=url_list", "--plugins=parse_rss_urls", "--tag=Manual source tag", f"{url}/feed.xml"],
+        cwd=initialized_archive,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db(initialized_archive):
+        snapshots = list(Snapshot.objects.order_by("depth", "url"))
+        assert len(snapshots) == 3
+        tags = {snapshot.url: set(snapshot.tags.values_list("name", flat=True)) for snapshot in snapshots}
+        assert tags[f"{url}/feed.xml"] == {"Science &amp; Society", "Technology", "Manual source tag"}
+        assert tags[f"{url}/article.html"] == {"Science &amp; Society", "Technology", "Manual source tag"}
+        assert tags[f"{url}/untagged.html"] == {"Manual source tag"}
+        captured_feed = next(snapshot for snapshot in snapshots if snapshot.depth == 0)
+        result = captured_feed.archiveresult_set.get(plugin="parse_rss_urls")
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        records = [json.loads(line) for line in result.process.stdout.splitlines() if line.startswith("{")]
+        assert {record["name"] for record in records if record["type"] == "Tag"} == {"Science & Society", "Technology"}
+        discovered = {record["url"]: record for record in records if record["type"] == "Snapshot"}
+        assert set(discovered) == {f"{url}/article.html", f"{url}/untagged.html"}
+        assert discovered[f"{url}/article.html"]["tags"] == "Science & Society,Technology"
+        assert "tags" not in discovered[f"{url}/untagged.html"]
 
 
 def test_browser_importer_discovers_account_from_selected_persona(admin_client):

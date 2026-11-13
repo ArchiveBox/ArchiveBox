@@ -14,7 +14,13 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     parent = Folder.objects.create(name="Research")
     child = Folder.objects.create(name="Papers", parent=parent)
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
-    snapshot = Snapshot.objects.create(url="https://example.com/paper", title="A paper", crawl=crawl, folder=child)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/paper",
+        title="A paper",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "public"},
+    )
     Snapshot.objects.create(url="https://example.com/unfiled", title="Unfiled", crawl=crawl)
     response = admin_client.get("/admin/core/snapshot/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
@@ -73,10 +79,26 @@ def test_bulk_move_snapshots_to_folder(admin_client, admin_user):
     assert snapshot.folder_id == folder.pk
 
 
-def test_folder_feed_requires_login(client):
-    response = client.get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 302
-    assert "/login/" in response["Location"]
+def test_folder_feed_without_key_is_public_even_with_admin_session(admin_client, admin_user):
+    from xml.etree import ElementTree
+    from django.test import Client
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    for permissions in ("public", "unlisted", "private"):
+        Snapshot.objects.create(
+            url=f"https://example.com/{permissions}",
+            title=permissions,
+            crawl=crawl,
+            config={"PERMISSIONS": permissions},
+        )
+    response = Client().get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
+    response = admin_client.get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
 
 
 def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_user):
@@ -87,7 +109,13 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
 
     folder = Folder.objects.create(name="RSS research")
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
-    matching = Snapshot.objects.create(url="https://example.com/feed-query-match", title="Matching story", crawl=crawl, folder=folder)
+    matching = Snapshot.objects.create(
+        url="https://example.com/feed-query-match",
+        title="Matching story",
+        crawl=crawl,
+        folder=folder,
+        config={"PERMISSIONS": "public"},
+    )
     Snapshot.objects.create(url="https://example.com/unrelated", title="Unrelated story", crawl=crawl, folder=folder)
     Snapshot.objects.create(url="https://example.com/feed-query-match-outside", title="Outside folder", crawl=crawl)
     response = admin_client.get(
@@ -98,6 +126,151 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
     assert response.status_code == 200
     items = ElementTree.fromstring(response.content).findall("./channel/item")
     assert [item.findtext("title") for item in items] == [matching.title]
+
+
+def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token):
+    from django.apps import apps
+    from urllib.parse import parse_qs, urlsplit
+    from archivebox.api.models import APIToken
+
+    admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST)
+    tokens_before = APIToken.objects.count()
+    response = admin_client.get("/admin/core/snapshot/", {"q": "Hacker News", "search_mode": "meta"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    links = response.context["list_export_urls"]
+    link = urlsplit(links["rss"])
+    assert link.path == "/admin/core/snapshot/feed/"
+    assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
+    for format, url in links.items():
+        assert api_token.token not in url
+        assert parse_qs(urlsplit(url).query) == parse_qs(link.query)
+        assert format in {"rss", "csv", "jsonl"}
+    assert APIToken.objects.count() == tokens_before
+    assert not apps.is_installed("archivebox.feeds")
+
+
+def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token, api_admin_user, django_user_model):
+    from xml.etree import ElementTree
+    from django.utils import timezone
+
+    from archivebox.core.models import Folder, Snapshot, Tag
+    from archivebox.crawls.models import Crawl
+
+    parent = Folder.objects.create(name="Research")
+    child = Folder.objects.create(name="News", parent=parent)
+    tag = Tag.objects.create(name="RSS topic", created_by=api_admin_user)
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
+    first = Snapshot.objects.create(
+        url="https://news.ycombinator.com/",
+        title="Matching story",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "private"},
+    )
+    first.tags.add(tag)
+    Snapshot.objects.create(url="https://example.com/outside", title="Matching outside", crawl=crawl)
+    other = django_user_model.objects.create_user("other-rss-owner")
+    other_crawl = Crawl.objects.create(urls="https://example.com/other", created_by=other)
+    wrong_owner = Snapshot.objects.create(url=other_crawl.urls, title="Matching other owner", crawl=other_crawl, folder=child)
+    wrong_owner.tags.add(tag)
+    query = {"folder": parent.pk, "tag": tag.pk, "crawl__created_by__id__exact": api_admin_user.pk, "q": "Matching", "search_mode": "meta"}
+    endpoint = "/admin/core/snapshot/feed/"
+    public_response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST)
+    assert public_response.status_code == 200
+    assert ElementTree.fromstring(public_response.content).findall("./channel/item") == []
+    response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST, HTTP_AUTHORIZATION=f"Bearer {api_token.token}")
+    assert response.status_code == 200
+    assert response["Cache-Control"].find("no-store") >= 0
+    assert response["Referrer-Policy"] == "no-referrer"
+    items = ElementTree.fromstring(response.content).findall("./channel/item")
+    assert [item.findtext("guid") for item in items] == [str(first.pk)]
+    second = Snapshot.objects.create(
+        url="https://news.ycombinator.com/newest",
+        title="Matching new story",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "private"},
+    )
+    second.tags.add(tag)
+    response = client.get(endpoint, {**query, "api_key": api_token.token, "p": "999"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert api_token.token.encode() not in response.content
+    assert {item.findtext("guid") for item in ElementTree.fromstring(response.content).findall("./channel/item")} == {
+        str(first.pk),
+        str(second.pk),
+    }
+    api_token.expires = timezone.now() - timezone.timedelta(seconds=1)
+    api_token.save(update_fields=["expires"])
+    assert client.get(endpoint, {**query, "api_key": api_token.token}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
+
+
+def test_native_rss_rejects_writes_and_invalid_filters(admin_client):
+    endpoint = "/admin/core/snapshot/feed/"
+    assert admin_client.post(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
+    assert admin_client.get(endpoint, {"not_a_snapshot_field": "x"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+
+
+def test_feed_key_does_not_inherit_browser_privileges(admin_client, django_user_model):
+    from archivebox.api.models import APIToken
+
+    user = django_user_model.objects.create_user("no-feed-permission")
+    token = APIToken.objects.create(created_by=user)
+    response = admin_client.get("/admin/core/snapshot/feed/", {"api_key": token.token}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 403
+
+
+def test_public_feed_cannot_query_sensitive_config(client, admin_user):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})
+    response = client.get("/admin/core/snapshot/feed/", {"config__contains": "secret"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("format", ["csv", "jsonl"])
+def test_native_list_downloads_are_complete_filtered_and_public_by_default(admin_client, api_token, api_admin_user, format):
+    import csv
+    import io
+    import json
+
+    from archivebox.core.models import Folder, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    folder = Folder.objects.create(name="Exports")
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    expected_ids = set()
+    title = 'A "quoted", multiline\nUnicode café title'
+    for index in range(501):
+        snapshot = Snapshot.objects.create(
+            url=f"https://example.com/export/{index}",
+            title=title,
+            crawl=crawl,
+            folder=folder,
+            config={"PERMISSIONS": "public", "PRIVATE_VALUE": "not-for-export"},
+            notes="private notes",
+        )
+        expected_ids.add(str(snapshot.pk))
+    private = Snapshot.objects.create(url="https://example.com/private", crawl=crawl, folder=folder, config={"PERMISSIONS": "private"})
+    Snapshot.objects.create(url="https://example.com/outside", crawl=crawl, config={"PERMISSIONS": "public"})
+    endpoint = f"/admin/core/snapshot/export.{format}"
+
+    def records(response):
+        assert response.status_code == 200
+        assert "no-store" in response["Cache-Control"]
+        assert response["Content-Disposition"] == f'attachment; filename="snapshots.{format}"'
+        content = response.content.decode()
+        assert "not-for-export" not in content and "private notes" not in content and api_token.token not in content
+        return list(csv.DictReader(io.StringIO(content))) if format == "csv" else [json.loads(line) for line in content.splitlines()]
+
+    public = records(admin_client.get(endpoint, {"folder": folder.pk, "p": 999}, HTTP_HOST=ADMIN_TEST_HOST))
+    assert {row["id"] for row in public} == expected_ids
+    assert {row["title"] for row in public} == {'A "quoted", multiline Unicode café title'}
+    authorized = records(admin_client.get(endpoint, {"folder": folder.pk, "api_key": api_token.token}, HTTP_HOST=ADMIN_TEST_HOST))
+    assert {row["id"] for row in authorized} == expected_ids | {str(private.pk)}
+    assert admin_client.get(endpoint, {"api_key": "invalid"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
+    assert admin_client.get(endpoint, {"config__contains": "private"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
 
 
 def test_view_only_staff_cannot_move_snapshots_to_folder(client, admin_user, django_user_model):

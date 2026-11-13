@@ -1,15 +1,20 @@
 __package__ = "archivebox.core"
 
+import csv
 import json
 from copy import copy
 from html import escape
 from typing import Any
 
 from django.contrib import admin, messages
+from django.contrib.admin.options import IncorrectLookupParameters
 from django.core.exceptions import PermissionDenied
 from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
+from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_safe
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
@@ -29,6 +34,7 @@ from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
     build_snapshot_detail_url,
+    build_snapshot_export_urls,
     build_snapshot_files_url,
     build_snapshot_role_output_url,
     build_snapshot_url,
@@ -60,6 +66,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_META,
     get_snapshot_permissions,
     normalize_permissions,
+    public_snapshots_queryset,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -590,9 +597,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             selected = folders_by_id.get(selected.parent_id)
         extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
         extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
-        feed_query = request.GET.copy()
-        feed_query.pop("p", None)
-        extra_context["list_feed_url"] = reverse("admin:core_snapshot_feed") + "?" + feed_query.urlencode()
+        extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET)
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
@@ -629,7 +634,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("feed/", self.admin_site.admin_view(self.feed_view), name="core_snapshot_feed"),
+            path("feed/", self.export_view, name="core_snapshot_feed"),
+            path("export.<str:format>", self.export_view, name="core_snapshot_export"),
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
@@ -646,16 +652,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ]
         return custom_urls + urls
 
-    def feed_view(self, request):
-        from archivebox.api.v1_core import _snapshots_rss_response
+    def get_list_queryset(self, request, *, public_only=False):
         from archivebox.search.query import apply_snapshot_search
 
-        if not self.has_view_permission(request):
-            raise PermissionDenied
         self = copy(self)
+        request = copy(request)
+        request.GET = request.GET.copy()
+        for key in ("p", "api_key", "token", "password", "_popup", "_to_field", "_embedded", "per_page"):
+            request.GET.pop(key, None)
         self.request = request
 
         def search(_request, queryset, term):
+            if public_only:
+                queryset = public_snapshots_queryset(queryset)
             if term:
                 queryset = apply_snapshot_search(
                     queryset,
@@ -666,9 +675,98 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return queryset, True
 
         self.get_search_results = search
-        changelist = self.get_changelist_instance(request)
-        snapshots = changelist.queryset.select_related("crawl__created_by").prefetch_related("tags")[:500]
-        return _snapshots_rss_response(request, snapshots=snapshots)
+        return self.get_changelist_instance(request).queryset
+
+    @method_decorator(never_cache)
+    @method_decorator(require_safe)
+    def export_view(self, request, format="rss"):
+        from django.contrib.auth.models import AnonymousUser
+        from archivebox.api.auth import auth_using_token, token_from_request
+        from archivebox.api.v1_core import _snapshots_rss_response
+
+        if format not in {"rss", "csv", "jsonl"}:
+            raise Http404
+        request = copy(request)
+        key = token_from_request(request)
+        if key:
+            user = auth_using_token(key, request=request)
+            if user is None or not user.is_active:
+                return HttpResponse(status=401)
+            request.user = user
+            if not self.admin_site.has_permission(request) or not self.has_view_permission(request):
+                raise PermissionDenied
+        else:
+            request.user = AnonymousUser()
+            public_filters = {
+                "q",
+                "search_mode",
+                "p",
+                "o",
+                "api_key",
+                "id__in",
+                "id__exact",
+                "crawl__id__exact",
+                "crawl_id__exact",
+                "crawl_id",
+                "crawl__created_by__id__exact",
+                "crawl__created_by__isnull",
+                "created_at__gte",
+                "created_at__lt",
+                "created_at__isnull",
+                "downloaded_at__gte",
+                "downloaded_at__lt",
+                "downloaded_at__isnull",
+            } | {
+                spec.parameter_name
+                for spec in self.get_list_filter(request)
+                if isinstance(spec, type) and issubclass(spec, admin.SimpleListFilter)
+            }
+            if set(request.GET) - public_filters:
+                return HttpResponseBadRequest("Invalid public snapshot filters.")
+        try:
+            snapshots = self.get_list_queryset(request, public_only=not key)
+        except (IncorrectLookupParameters, ValueError):
+            return HttpResponseBadRequest("Invalid snapshot filters.")
+        if format == "rss":
+            response = _snapshots_rss_response(
+                request,
+                snapshots=snapshots.select_related("crawl__created_by").prefetch_related("tags")[:500],
+            )
+        else:
+            from archivebox.cli.archivebox_snapshot import iter_snapshot_json
+
+            fields = (
+                "type",
+                "schema_version",
+                "id",
+                "crawl_id",
+                "url",
+                "title",
+                "tags",
+                "bookmarked_at",
+                "created_at",
+                "modified_at",
+                "downloaded_at",
+                "timestamp",
+                "depth",
+                "status",
+                "fs_version",
+                "archive_size",
+                "output_size",
+            )
+            response = HttpResponse(content_type="text/csv; charset=utf-8" if format == "csv" else "application/x-ndjson")
+            response["Content-Disposition"] = f'attachment; filename="snapshots.{format}"'
+            writer = csv.DictWriter(response, fieldnames=fields) if format == "csv" else None
+            if writer:
+                writer.writeheader()
+            for record in iter_snapshot_json(snapshots):
+                row = {field: record[field] for field in fields}
+                if writer:
+                    writer.writerow(row)
+                else:
+                    response.write(json.dumps(row, ensure_ascii=False) + "\n")
+        response["Referrer-Policy"] = "no-referrer"
+        return response
 
     @admin.action(description="Move to folder", permissions=["change"])
     def move_to_folder(self, request, queryset):

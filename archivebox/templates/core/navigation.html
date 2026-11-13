@@ -7,6 +7,7 @@
     {% if user.is_superuser %}
     <span class="navbar-separator" aria-hidden="true">|</span>
     <a href="{% url 'importers:index' %}" class="navbar-item navbar-importers">Importers</a>
+    {% include "core/library_navigation.html" %}
     {% endif %}
     <span class="navbar-separator" aria-hidden="true">|</span>
     <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Snapshots</a>
