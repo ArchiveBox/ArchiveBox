@@ -1,0 +1,40 @@
+{
+  "exports": [
+    {
+      "exitCode": "0",
+      "path": "/rss-data/exports/site-06af795bbf7b72508000f05083394a50",
+      "text": "Complete\nWacz\n3.5 MB\nProcess log\nDownload\n/rss-data/exports/site-06af795bbf7b72508000f05083394a50\n5 / 5 recordings · 3.5 MB total",
+      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af795bbf7b72508000f05083394a50/download/",
+      "format": "wacz"
+    },
+    {
+      "exitCode": "0",
+      "path": "/rss-data/exports/site-06af795c138773d780005037de458c66",
+      "text": "Complete\nReplay\n3.5 MB\nProcess log\n/rss-data/exports/site-06af795c138773d780005037de458c66\n5 / 5 recordings · 3.5 MB total",
+      "format": "replay"
+    }
+  ],
+  "navigation": [
+    {
+      "original": "https://news.ycombinator.com/",
+      "frame": "http://127.0.0.1:5907/site-06af795c138773d780005037de458c66/replay/w/id-089d26fca548/:311c7fb9aad4909ae2f487346d096c00a6a4b16cc0fe6c47d840483610c4d32a/20261113224221mp_/https://news.ycombinator.com/",
+      "title": "Hacker News"
+    },
+    {
+      "original": "https://news.ycombinator.com/newest",
+      "link": "https://news.ycombinator.com/newest",
+      "frame": "http://127.0.0.1:5907/site-06af795c138773d780005037de458c66/replay/w/id-089d26fca548/:311c7fb9aad4909ae2f487346d096c00a6a4b16cc0fe6c47d840483610c4d32a/20261113224221mp_/https://news.ycombinator.com/newest",
+      "title": "New Links | Hacker News",
+      "bodyLength": 4369
+    },
+    {
+      "original": "https://www.fly.faa.gov/adv/adv_otherdis?adv_date=11132026&advn=111",
+      "link": "https://www.fly.faa.gov/adv/adv_otherdis?adv_date=11132026&advn=111",
+      "frame": "http://127.0.0.1:5907/site-06af795c138773d780005037de458c66/replay/w/id-089d26fca548/:311c7fb9aad4909ae2f487346d096c00a6a4b16cc0fe6c47d840483610c4d32a/20261113224221mp_/https://www.fly.faa.gov/adv/adv_otherdis?adv_date=11132026&advn=111",
+      "title": "ATCSCC Advisory",
+      "bodyLength": 370
+    }
+  ],
+  "sha256": "25d9c9ec30d34ad4fa05794046daa4764a42ca599a1c279f37c63aaaba1c51ac",
+  "externalDNS": "blocked"
+}

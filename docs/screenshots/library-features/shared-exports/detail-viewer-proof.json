@@ -1,0 +1,159 @@
+{
+  "pages": [
+    {
+      "title": "Hacker News",
+      "name": "desktop",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca",
+      "cards": [
+        {
+          "plugin": "archivewebpage",
+          "group": "html"
+        },
+        {
+          "plugin": "wget",
+          "group": "html"
+        },
+        {
+          "plugin": "screenshot",
+          "group": "raster"
+        },
+        {
+          "plugin": "chrome",
+          "group": "metadata"
+        },
+        {
+          "plugin": "title",
+          "group": "metadata"
+        }
+      ]
+    },
+    {
+      "title": "Hacker News",
+      "name": "mobile",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca",
+      "cards": [
+        {
+          "plugin": "archivewebpage",
+          "group": "html"
+        },
+        {
+          "plugin": "wget",
+          "group": "html"
+        },
+        {
+          "plugin": "screenshot",
+          "group": "raster"
+        },
+        {
+          "plugin": "chrome",
+          "group": "metadata"
+        },
+        {
+          "plugin": "title",
+          "group": "metadata"
+        }
+      ]
+    },
+    {
+      "title": "ATCSCC Advisory",
+      "name": "desktop",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/www.fly.faa.gov/06af792495ac70e58000ae0fd6e5c3c0",
+      "cards": [
+        {
+          "plugin": "archivewebpage",
+          "group": "html"
+        },
+        {
+          "plugin": "wget",
+          "group": "html"
+        },
+        {
+          "plugin": "screenshot",
+          "group": "raster"
+        },
+        {
+          "plugin": "chrome",
+          "group": "metadata"
+        },
+        {
+          "plugin": "title",
+          "group": "metadata"
+        }
+      ]
+    },
+    {
+      "title": "ATCSCC Advisory",
+      "name": "mobile",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/www.fly.faa.gov/06af792495ac70e58000ae0fd6e5c3c0",
+      "cards": [
+        {
+          "plugin": "archivewebpage",
+          "group": "html"
+        },
+        {
+          "plugin": "wget",
+          "group": "html"
+        },
+        {
+          "plugin": "screenshot",
+          "group": "raster"
+        },
+        {
+          "plugin": "chrome",
+          "group": "metadata"
+        },
+        {
+          "plugin": "title",
+          "group": "metadata"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "plugin": "screenshot",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#screenshot/screenshot.png",
+      "frames": [
+        "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#screenshot/screenshot.png",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924db30716780003667999734a7?_abx_rev=1794609741.988794",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924e7c67e5180006a7fb78aea6a?_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924db30716780003667999734a7?_abx_rev=1794609741.988794",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924d36679448000d44932b4df22?_abx_rev=1794609741.596841",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/chrome/browser.json?_abx_rev=1794609741.596841&preview=1&titlebar=0",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/screenshot/screenshot.png?preview=1&_abx_rev=1794609741.988794"
+      ]
+    },
+    {
+      "plugin": "wget",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#wget/news.ycombinator.com/index.html",
+      "frames": [
+        "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#wget/news.ycombinator.com/index.html",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924e7c67e5180006a7fb78aea6a?_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924da287b158000179aacb7389c?_abx_rev=1794609742.009320",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924e7c67e5180006a7fb78aea6a?_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924db30716780003667999734a7?_abx_rev=1794609741.988794",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924d36679448000d44932b4df22?_abx_rev=1794609741.596841",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/chrome/browser.json?_abx_rev=1794609741.596841&preview=1&titlebar=0",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/wget/news.ycombinator.com/index.html?_abx_rev=1794609742.009320&preview=thumbnail",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/wget/news.ycombinator.com/index.html?_abx_rev=1794609742.009320"
+      ]
+    },
+    {
+      "plugin": "archivewebpage",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#archivewebpage/archivewebpage.wacz",
+      "frames": [
+        "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca#archivewebpage/archivewebpage.wacz",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924e7c67e5180006a7fb78aea6a?_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924da287b158000179aacb7389c?_abx_rev=1794609742.009320",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924e7c67e5180006a7fb78aea6a?_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924db30716780003667999734a7?_abx_rev=1794609741.988794",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/_card/06af7924d36679448000d44932b4df22?_abx_rev=1794609741.596841",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/chrome/browser.json?_abx_rev=1794609741.596841&preview=1&titlebar=0",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/wget/news.ycombinator.com/index.html?_abx_rev=1794609742.009320&preview=thumbnail",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/archivewebpage/archivewebpage.wacz?preview=1&_abx_rev=1794609742.766935",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/replay/replay.html?source=http%3A%2F%2Fsnap-048f36d2f8ca.archivebox.localhost%3A5906%2Farchivewebpage%2Farchivewebpage.wacz%3F_abx_rev%3D1794609742.766935%26replay-index%3D1794609742743735471-27309&customColl=&config=&basePageUrl=http%3A%2F%2Fsnap-048f36d2f8ca.archivebox.localhost%3A5906%2Farchivewebpage%2Farchivewebpage.wacz%3Fpreview%3D1%26_abx_rev%3D1794609742.766935&baseUrlSourcePrefix=https%3A%2F%2Freplayweb.page%2F&embed=replayonly&noWebWorker=1&noCache=1&swName=sw-index.js#url=https%3A%2F%2Fnews.ycombinator.com%2F&view=pages",
+        "http://snap-048f36d2f8ca.archivebox.localhost:5906/replay/w/id-fd3724ed25ab/:37a8eec1ce19687d132fe29051dca629d164e2c4958ba141d5f4133a33f0688f/20261113224221mp_/https://news.ycombinator.com/"
+      ]
+    }
+  ]
+}

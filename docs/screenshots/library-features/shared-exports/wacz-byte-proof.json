@@ -1,0 +1,32 @@
+[
+  {
+    "member": "recordings/000000.wacz",
+    "bytes": 28335,
+    "sha256": "83c2093463930397bc1124dffce8ec69d3128a5985e31198e5c4284fcd90348e",
+    "original": "archive/users/system/snapshots/20261113/news.ycombinator.com/06af793d3bd67c43800076aac9311036/archivewebpage/archivewebpage.wacz"
+  },
+  {
+    "member": "recordings/000001.wacz",
+    "bytes": 154989,
+    "sha256": "d713fd399bb5f467f36ec850462d74f981a6d348d186978fe69628fff5e26e1e",
+    "original": "archive/users/system/snapshots/20261113/orcasairband.com/06af792495ac75c1800039dbf387e805/archivewebpage/archivewebpage.wacz"
+  },
+  {
+    "member": "recordings/000002.wacz",
+    "bytes": 3397623,
+    "sha256": "0748a410a3f54fdb302cda220d2261509875abf5616df3230a7837b9eb53f8b4",
+    "original": "archive/users/system/snapshots/20261113/www.freightwaves.com/06af792495ac73be80006d6f434e1403/archivewebpage/archivewebpage.wacz"
+  },
+  {
+    "member": "recordings/000003.wacz",
+    "bytes": 68840,
+    "sha256": "bcabac167560b67494cdfa2ec08ad7656eaa708539a6b91b1f91d61e4569beb3",
+    "original": "archive/users/system/snapshots/20261113/www.fly.faa.gov/06af792495ac70e58000ae0fd6e5c3c0/archivewebpage/archivewebpage.wacz"
+  },
+  {
+    "member": "recordings/000004.wacz",
+    "bytes": 27309,
+    "sha256": "311c7fb9aad4909ae2f487346d096c00a6a4b16cc0fe6c47d840483610c4d32a",
+    "original": "archive/users/system/snapshots/20261113/news.ycombinator.com/06af792495ab79858000048f36d2f8ca/archivewebpage/archivewebpage.wacz"
+  }
+]

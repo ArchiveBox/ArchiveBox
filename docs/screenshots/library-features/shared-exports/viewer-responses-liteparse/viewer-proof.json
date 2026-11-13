@@ -1,0 +1,53 @@
+{
+  "outputs": [
+    {
+      "plugin": "responses",
+      "snapshot": "06af7977be0f7e5c8000780849ea5755",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/news.ycombinator.com/06af7977be0f7e5c8000780849ea5755",
+      "viewer": "http://snap-780849ea5755.archivebox.localhost:5906/responses/all/20261113T230429__GET__e2230485-68a0-4bf4-9765-21ff5268f520__https_3A_2F_2Fnews.ycombinator.com_2F.html?preview=1&_abx_rev=1794611069.997696",
+      "gallery": {
+        "count": "6 / 6",
+        "tiles": 6,
+        "filters": [
+          "All 6",
+          "Images 3",
+          "HTML 1",
+          "Code 2"
+        ]
+      },
+      "filterAndSearch": true,
+      "raw": {
+        "status": 200,
+        "type": "text/plain; charset=utf-8",
+        "text": "{\"ts\":\"20261113T230429\",\"method\":\"GET\",\"url\":\"https://news.ycombinator.com/\",\"urlSha256\":\"0f63a2a5a5620b745938e6a248b49704e580e3c8d9d24a4fb7ec68461f1edd41\",\"status\":200,\"resourceType\":\"document\",\"mimeType\":\"text/html\",\"responseSha256\":\"c64b981b71b2ba9985558f82507361b1c5ea27222a48f377cf5067a9b5cfe026"
+      }
+    },
+    {
+      "plugin": "liteparse",
+      "snapshot": "06af7988dc4d77b28000446a5dba83d8",
+      "url": "http://web.archivebox.localhost:5906/web/20261113/arxiv.org/06af7988dc4d77b28000446a5dba83d8",
+      "viewer": "http://snap-446a5dba83d8.archivebox.localhost:5906/liteparse/20261113T230904__GET__97200236-1adf-4dff-bf07-b25261bc008d__https_3A_2F_2Farxiv.org_2Fpdf_2F1706.txt?preview=1&_abx_rev=1794611349.304674",
+      "gallery": {
+        "count": "1 / 1",
+        "tiles": 1,
+        "filters": [
+          "All 1",
+          "Images 0",
+          "Documents 1"
+        ]
+      },
+      "text": "\n--- Page 1 ---\narX iv:1706.03762v7 [cs.CL] 2 Aug 2023\n\n\n\n\n\n\n\n\n\n\nProvided proper attribution is provided, Google hereby grants permission to\nreproduce the tables and figures in this paper solely for use in journalistic or\n        scholarly works.\n\n\n    Attention Is All You Need\n\n\n\n\n\n    Ashish Vaswa",
+      "raw": {
+        "status": 200,
+        "type": "text/plain; charset=utf-8",
+        "text": "<!-- source: 20261113T230904__GET__97200236-1adf-4dff-bf07-b25261bc008d__https_3A_2F_2Farxiv.org_2Fpdf_2F1706.03762.pdf -->\n\n--- Page 1 ---\narX iv:1706.03762v7 [cs.CL] 2 Aug 2023\n\n\n\n\n\n\n\n\n\n\nProvided proper attribution is provided, Google hereby grants permission to\nreproduce the tables and figures in"
+      },
+      "pdf": {
+        "pages": 15,
+        "state": "success",
+        "loaded": true
+      }
+    }
+  ],
+  "errors": []
+}
