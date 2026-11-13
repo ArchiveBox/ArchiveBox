@@ -13,7 +13,7 @@
         "last-modified": "Fri, 13 Nov 2026 23:04:37 GMT",
         "referrer-policy": "strict-origin-when-cross-origin",
         "server": "daphne",
-        "server-timing": "replay_file;dur=18.8, replay;dur=20.2, replay_cpu;dur=19.1",
+        "server-timing": "replay_file;dur=145.9, replay;dur=147.6, replay_cpu;dur=44.3",
         "vary": "Cookie, Authorization",
         "x-archivebox-security-mode": "safe-subdomains-fullreplay",
         "x-content-type-options": "nosniff"
@@ -36,7 +36,7 @@
         "last-modified": "Fri, 13 Nov 2026 23:04:37 GMT",
         "referrer-policy": "strict-origin-when-cross-origin",
         "server": "daphne",
-        "server-timing": "replay_file;dur=0.4, replay;dur=1.2, replay_cpu;dur=1.2",
+        "server-timing": "replay_file;dur=0.3, replay;dur=1.4, replay_cpu;dur=1.4",
         "vary": "Cookie, Authorization",
         "x-archivebox-security-mode": "safe-subdomains-fullreplay",
         "x-content-type-options": "nosniff",

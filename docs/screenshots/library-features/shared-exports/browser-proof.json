@@ -35,17 +35,17 @@
     {
       "status": "exited",
       "exitCode": "0",
-      "text": "Complete\nStatic HTML ZIP\n1.3 MB\nProcess log\nDownload\n/rss-data/exports/site-06af7985ab5b7e82800028111a617900\n5 / 5 pages",
-      "path": "/rss-data/exports/site-06af7985ab5b7e82800028111a617900",
-      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7985ab5b7e82800028111a617900/download/",
+      "text": "Complete\nStatic HTML ZIP\n1.3 MB\nProcess log\nDownload\n/rss-data/exports/site-06af79e3525e7b6a80005d3bf6c89f64\n5 / 5 pages",
+      "path": "/rss-data/exports/site-06af79e3525e7b6a80005d3bf6c89f64",
+      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af79e3525e7b6a80005d3bf6c89f64/download/",
       "format": "html_zip"
     },
     {
       "status": "exited",
       "exitCode": "0",
-      "text": "Complete\nWACZ\n3.5 MB\nProcess log\nDownload\n/rss-data/exports/site-06af7986136876698000c4871a8ee009\n5 / 5 recordings · 3.5 MB total",
-      "path": "/rss-data/exports/site-06af7986136876698000c4871a8ee009",
-      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7986136876698000c4871a8ee009/download/",
+      "text": "Complete\nWACZ\n3.5 MB\nProcess log\nDownload\n/rss-data/exports/site-06af79e3ba92700780003844dee2cd46\n5 / 5 recordings · 3.5 MB total",
+      "path": "/rss-data/exports/site-06af79e3ba92700780003844dee2cd46",
+      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af79e3ba92700780003844dee2cd46/download/",
       "format": "wacz"
     }
   ],

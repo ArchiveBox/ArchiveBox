@@ -5,21 +5,21 @@
   "views": [
     {
       "name": "Folder WACZ export",
-      "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af799f7b1a7ac98000d96c7c497221/",
-      "path": "/admin/core/snapshot/export-jobs/06af799f7b1a7ac98000d96c7c497221/",
+      "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af79eaba8a7a868000787542ed0e72/",
+      "path": "/admin/core/snapshot/export-jobs/06af79eaba8a7a868000787542ed0e72/",
       "source": "archivebox/domains/export_service.py"
     },
     {
       "name": "Folder WACZ Hacker News",
-      "url": "http://127.0.0.1:5908/site-06af799fce1773f98000fc8075fc6cfb/index.html#url=https%3A%2F%2Fnews.ycombinator.com%2F",
-      "path": "/site-06af799fce1773f98000fc8075fc6cfb/index.html",
+      "url": "http://127.0.0.1:5908/site-06af79eb0d9672ba8000c8bfe9c4c502/index.html#url=https%3A%2F%2Fnews.ycombinator.com%2F",
+      "path": "/site-06af79eb0d9672ba8000c8bfe9c4c502/index.html",
       "source": "archivebox/domains/wacz.py",
       "mode": "wait-replay-url:https://news.ycombinator.com/"
     },
     {
       "name": "Folder WACZ story navigation",
-      "url": "http://127.0.0.1:5908/site-06af799fce1773f98000fc8075fc6cfb/index.html#url=https%3A%2F%2Fwww.fly.faa.gov%2Fadv%2Fadv_otherdis%3Fadv_date%3D11132026%26advn%3D111&ts=20261113224226",
-      "path": "/site-06af799fce1773f98000fc8075fc6cfb/index.html",
+      "url": "http://127.0.0.1:5908/site-06af79eb0d9672ba8000c8bfe9c4c502/index.html#url=https%3A%2F%2Fwww.fly.faa.gov%2Fadv%2Fadv_otherdis%3Fadv_date%3D11132026%26advn%3D111&ts=20261113224226",
+      "path": "/site-06af79eb0d9672ba8000c8bfe9c4c502/index.html",
       "source": "archivebox/domains/wacz.py",
       "mode": "wait-replay-url:https://www.fly.faa.gov/adv/adv_otherdis?adv_date=11132026&advn=111"
     }

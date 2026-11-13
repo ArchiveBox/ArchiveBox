@@ -1,0 +1,9 @@
+{
+  "checked_at": "2026-11-13T23:33:37.085206+00:00",
+  "image": "sha256:a04cf20c400cc8ecce4669c13380d6d842f567071dc3af4f4acd95c14966a4d5",
+  "plugin_commit": "2beae45dc2c2dae47b67547681eab9547589a3cc",
+  "abx_plugins_version": "1.13.670",
+  "helper_sha256": "197f4f89f6254b79962125aae93d4f29565375b304d9826b40c33c1dcb7d01f6",
+  "viewer_proof": "viewer-proof.json",
+  "gallery_proof": "gallery-proof.json"
+}
