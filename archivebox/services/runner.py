@@ -1063,6 +1063,9 @@ class CrawlRunner:
 
         def load_context():
             snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
+            from archivebox.automation.capture import prepare_snapshot_rules
+
+            prepare_snapshot_rules(snapshot)
             persona = snapshot.crawl.persona
             base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=persona, overrides=self.config_overrides)
             crawl_local_root = persona.local_runtime_root_for_crawl(snapshot.crawl) if persona else None
@@ -2355,6 +2358,10 @@ def run_pending_crawls(
             from archivebox.importers.service import tick as tick_importers
 
             if tick_importers(daemon=daemon):
+                continue
+            from archivebox.automation.service import tick as tick_automation
+
+            if tick_automation(daemon=daemon):
                 continue
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
             if daemon:

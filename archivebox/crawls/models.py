@@ -324,7 +324,12 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         config = dict(self.config or {})
         is_new = self._state.adding or old_crawl is None
         persona = self.persona if self.persona_id else None
+        capture_rule_runs = []
         if is_new:
+            if self.status == self.StatusChoices.QUEUED:
+                from archivebox.automation.capture import evaluate_capture_rules
+
+                config, self.max_depth, capture_rule_runs = evaluate_capture_rules(self)
             config = build_crawl_config_snapshot(persona=persona, overrides=config)
         else:
             config = {key: value for key, value in config.items() if ArchiveBoxConfig._scope_by_key().get(key) != "server"}
@@ -346,6 +351,10 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
         super().save(*args, **kwargs)
+        if capture_rule_runs:
+            from archivebox.automation.capture import record_capture_runs
+
+            record_capture_runs(self, capture_rule_runs)
         old_permissions = getattr(old_crawl, "permissions", None)
         if old_crawl is not None and old_permissions != self.permissions:
             transaction.on_commit(lambda: self.update_child_snapshot_permissions(old_permissions, self.permissions))
