@@ -1,0 +1,9 @@
+{% extends "storageaudit/base.html" %}
+{% block audit_content %}
+<h1>Review copy-on-write deduplication</h1>
+<form method="post" action="{% url 'storageaudit:apply' %}" class="audit-toolbar">{% csrf_token %}<input type="hidden" name="preview" value="{{ token }}"><button{% if not cow_available %} disabled{% endif %}>Apply CoW</button><a href="{% url 'storageaudit:index' %}">Cancel</a><div class="audit-totals"><span><strong>{{ groups|length }}</strong> group{{ groups|length|pluralize }}</span><span><strong>{{ potential_bytes|filesizeformat }}</strong> potential savings</span></div></form>
+<section class="audit-section"><h2>Selected files</h2><div class="audit-scroll"><table class="audit-files"><thead><tr><th class="audit-path">File</th><th class="audit-capture">Snapshot</th><th class="audit-size number">Size</th><th class="audit-select number">Copies</th></tr></thead><tbody>
+{% for group in groups %}{% for file in group.files %}<tr><td class="audit-path"><code>{{ file.path }}</code></td><td class="audit-capture"><a href="/admin/core/snapshot/{{ file.snapshot_id }}/change/" title="{{ file.url }}">{{ file.title }}</a><time class="muted">{{ file.captured_at|slice:":10" }} {{ file.captured_at|slice:"11:16" }}</time></td><td class="number">{{ group.size|filesizeformat }}</td><td class="number">{{ group.files|length }}</td></tr>{% endfor %}{% endfor %}
+</tbody></table></div></section>
+{% if not cow_available %}<p class="audit-notice">CoW unavailable on this platform</p>{% endif %}
+{% endblock %}

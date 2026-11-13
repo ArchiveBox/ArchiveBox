@@ -154,6 +154,9 @@ async function main() {
     featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const health = await require('../archivebox/linkhealth/gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(health);
+    const audit = await require('../archivebox/storageaudit/gallery.js').prepare(page, adminBaseUrl);
+    featureViews.push({name: 'Storage audit', url: audit.auditUrl, path: '/admin/storage-audit/', source: 'archivebox/storageaudit/views.py'});
+    featureViews.push({name: 'Duplicate files by extension', url: audit.extensionUrl, path: '/admin/storage-audit/', source: 'archivebox/storageaudit/templates/storageaudit/index.html'});
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {
