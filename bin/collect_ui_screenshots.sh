@@ -426,6 +426,9 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
     preview_wait_for_text=""
     [[ "$capture_mode" != wait-preview-text:* ]] || preview_wait_for_text="${capture_mode#wait-preview-text:}"
+    export SCREENSHOT_LIBRARY_MENU=""
+    [[ "$capture_mode" != "folder-menu" ]] || export SCREENSHOT_LIBRARY_MENU=folder
+    [[ "$capture_mode" != "import-menu" ]] || export SCREENSHOT_LIBRARY_MENU=import
     config_selector=""
     config_click_selector=""
     if [[ "$capture_mode" == plugin-config:* ]]; then

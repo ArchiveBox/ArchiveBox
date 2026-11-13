@@ -54,7 +54,7 @@ wheels = [
 [[package]]
 name = "abx-plugins"
 version = "1.13.660"
-source = { git = "https://github.com/ArchiveBox/abx-plugins.git?rev=4f0bdfccf68055eab02073a81445245d3114404e#4f0bdfccf68055eab02073a81445245d3114404e" }
+source = { git = "https://github.com/ArchiveBox/abx-plugins.git?rev=775a984cffd36371ceefc8477f3759691915916b#775a984cffd36371ceefc8477f3759691915916b" }
 dependencies = [
     { name = "abxbus" },
     { name = "abxpkg" },
@@ -241,7 +241,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abx-dl", specifier = "==1.13.324" },
-    { name = "abx-plugins", extras = ["opencode"], git = "https://github.com/ArchiveBox/abx-plugins.git?rev=4f0bdfccf68055eab02073a81445245d3114404e" },
+    { name = "abx-plugins", extras = ["opencode"], git = "https://github.com/ArchiveBox/abx-plugins.git?rev=775a984cffd36371ceefc8477f3759691915916b" },
     { name = "abxbus", specifier = "==2.5.82" },
     { name = "abxpkg", specifier = "==1.13.82" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },

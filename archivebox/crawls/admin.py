@@ -444,7 +444,7 @@ class CrawlAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if "folder" in self.fields:
-            self.fields["folder"].choices = [("", "Unfiled"), *((folder.pk, folder.path_label) for folder in Folder.tree())]
+            self.fields["folder"].choices = [("", "Inbox"), *((folder.pk, folder.path_label) for folder in Folder.tree())]
         config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
         if self.instance and self.instance.pk:
             self.initial["tags_editor"] = self.instance.tags_str
@@ -1309,9 +1309,9 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     @admin.display(description="Folder")
     def destination_folder(self, obj):
         if not obj or not obj.template_id:
-            return "Unfiled"
+            return "Inbox"
         folder = obj.template.folder
-        return format_html('<a href="{}">{}</a>', obj.template.admin_change_url, folder or "Unfiled")
+        return format_html('<a href="{}">{}</a>', obj.template.admin_change_url, folder or "Inbox")
 
     def get_queryset(self, request):
         self.request = request
