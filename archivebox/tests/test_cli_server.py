@@ -481,6 +481,27 @@ def test_uvicorn_worker_preserves_websocket_message_limit():
     assert "--lifespan=off" in command
 
 
+@pytest.mark.parametrize("arena_limit", [None, "7"])
+def test_uvicorn_worker_bounds_allocator_arenas_and_preserves_override(arena_limit):
+    env = os.environ.copy()
+    env.pop("MALLOC_ARENA_MAX", None)
+    if arena_limit is not None:
+        env["MALLOC_ARENA_MAX"] = arena_limit
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from archivebox.workers.supervisord_util import SERVER_WORKER, _worker_environment_value;"
+            "print(_worker_environment_value(SERVER_WORKER('127.0.0.1', '5797'), 'MALLOC_ARENA_MAX'))",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == (arena_limit or "2")
+
+
 def test_uvicorn_worker_uses_callers_python_runtime(tmp_path):
     from archivebox.workers.supervisord_util import SERVER_WORKER, _worker_environment_value
 
