@@ -1,0 +1,21 @@
+archivebox/workers/supervisord_util.py
+  s_10bc94d001be49::t_862a0b2014a8c8 386-389
+archivebox/tests/test_cli_server.py
+  s_10bc94d001be49::t_7aa3b837da243a 484-504
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2445b993ac6431320a6bb723b6a350fd6040322e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
