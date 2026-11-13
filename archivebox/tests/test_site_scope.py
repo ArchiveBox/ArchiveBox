@@ -11,7 +11,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 def test_site_scope_authority_wildcard_and_prefix_boundaries(crawl):
     from archivebox.core.models import Snapshot
-    from archivebox.domains.scope import site_snapshots
+    from archivebox.domains.scope import site_snapshots, site_snapshot_filters
+    from archivebox.core.exports import get_export_queryset
 
     urls = [
         "https://news.ycombinator.com/",
@@ -30,6 +31,10 @@ def test_site_scope_authority_wildcard_and_prefix_boundaries(crawl):
     assert set(site_snapshots("*.news.ycombinator.com").values_list("url", flat=True)) == set(urls[:6])
     assert set(site_snapshots("https://news.ycombinator.com/docs").values_list("url", flat=True)) == set(urls[2:4])
     assert set(site_snapshots("*.news.ycombinator.com/docs").values_list("url", flat=True)) == {urls[2], urls[3], urls[5]}
+    for scope in ["news.ycombinator.com", "*.news.ycombinator.com", "https://news.ycombinator.com/docs", "*.news.ycombinator.com/docs"]:
+        assert set(get_export_queryset(site_snapshot_filters(scope), public_only=False).values_list("url", flat=True)) == set(
+            site_snapshots(scope).values_list("url", flat=True)
+        )
 
 
 @pytest.mark.parametrize(

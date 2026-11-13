@@ -1,10 +1,12 @@
 {% extends "domains/base.html" %}
+{% block title %}{{ title }} | ArchiveBox{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:core_snapshot_changelist' %}">Snapshots</a> &rsaquo; {{ title }}</div>{% endblock %}
 {% block clone_content %}
 <details class="siteclone-export" open><summary>Export</summary>
   <form method="post" action="{{ export_url }}" id="site-export-form">
-    {% csrf_token %}<input type="hidden" name="scope" value="{{ site_scope }}">
+    {% csrf_token %}{% if authorize_session %}<input type="hidden" name="session" value="1">{% endif %}
     <div class="siteclone-export-fields">
-      <label>Format<select name="format">{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>Format<select name="format">{% for value, label in export_formats %}<option value="{{ value }}"{% if value == selected_format %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
       <label>Server directory<input name="directory" value="{{ export_directory }}" required></label>
       <button type="submit">Export to disk</button>
     </div>
@@ -12,18 +14,18 @@
   {% for job in export_jobs %}
   {% if forloop.counter == 2 %}<details class="siteclone-export-history"><summary>Previous exports ({{ export_jobs|length|add:"-1" }})</summary>{% endif %}
   <div class="siteclone-export-job" {% if forloop.first %}id="site-export-status" data-status="{{ job.status }}" data-exit-code="{{ job.exit_code|default_if_none:'' }}"{% endif %}>
-    <div><strong>{% if job.export_report.complete %}Complete{% elif job.status == 'exited' %}Failed · partial export retained{% else %}Exporting{% endif %}</strong> <span class="siteclone-badge">{{ job.export_report.format }}</span> <span>{{ job.export_report.bytes|default:0|filesizeformat }}</span> <a href="{{ job.admin_change_url }}">Process log</a></div>
+    <div><strong>{% if job.export_report.complete %}Complete{% elif job.status == 'exited' %}Failed · partial export retained{% else %}Exporting{% endif %}</strong> <span class="siteclone-badge">{{ job.export_label }}</span> <span>{{ job.export_report.bytes|default:0|filesizeformat }}</span> {% if request.user.is_staff %}<a href="{{ job.admin_change_url }}">Process log</a>{% endif %}{% if job.download_url and job.export_report.complete %}{% if job.export_report.format == "html_zip" or job.export_report.format == "wacz" %} <a href="{{ job.download_url }}">Download</a>{% endif %}{% endif %}</div>
     <code {% if forloop.first %}id="site-export-path"{% endif %}>{{ job.export_report.destination }}</code>
     {% if job.export_report.total_pages %}<small>{{ job.export_report.pages }} / {{ job.export_report.total_pages }} pages</small>{% endif %}
     {% if job.export_report.total_recordings %}<small>{{ job.export_report.recordings }} / {{ job.export_report.total_recordings }} recordings · {{ job.export_report.total_bytes|filesizeformat }} total</small>{% endif %}
-    {% if job.status != 'exited' %}<form method="post" action="{{ job.cancel_url }}">{% csrf_token %}<input type="hidden" name="scope" value="{{ site_scope }}"><button type="submit" class="secondary">Stop export</button></form>{% endif %}
+    {% if job.status != 'exited' and authorize_session %}<form method="post" action="{{ job.cancel_url }}">{% csrf_token %}{% if authorize_session %}<input type="hidden" name="session" value="1">{% endif %}<button type="submit" class="secondary">Stop export</button></form>{% endif %}
     {% if job.export_report.error %}<p class="errornote">{{ job.export_report.error }}</p>{% endif %}
   </div>
   {% if forloop.last and not forloop.first %}</details>{% endif %}
   {% endfor %}
-  <form method="post" action="{{ replay_settings_url }}" class="siteclone-replay-settings">
-    {% csrf_token %}<input type="hidden" name="scope" value="{{ site_scope }}"><label><input type="checkbox" name="rewrite_archived_links" {% if rewrite_archived_links %}checked{% endif %}> Redirect captured links to archived pages · system-wide</label><button type="submit" class="secondary">Save</button>
-  </form>
+  {% if replay_settings_url %}<form method="post" action="{{ replay_settings_url }}" class="siteclone-replay-settings">
+    {% csrf_token %}{% if authorize_session %}<input type="hidden" name="session" value="1">{% endif %}<label><input type="checkbox" name="rewrite_archived_links" {% if rewrite_archived_links %}checked{% endif %}> Redirect captured links to archived pages · system-wide</label><button type="submit" class="secondary">Save</button>
+  </form>{% endif %}
 </details>
 <script>
 if (document.querySelector('#site-export-status[data-status="running"],#site-export-status[data-status="queued"]')) {

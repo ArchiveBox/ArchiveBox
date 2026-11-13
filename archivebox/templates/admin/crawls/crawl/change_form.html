@@ -25,7 +25,6 @@
 {% block toolbar_extras %}
 {% if original %}
   <div class="ab-toolbar-group">
-    {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls %}
     <span class="crawl-toolbar-status" title="Stop reason for this crawl">
       Stop reason:
       {% if crawl_stop_reason %}

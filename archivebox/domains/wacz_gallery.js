@@ -8,13 +8,13 @@ function matchesReplayUrl(frameUrl, playerUrl, originalUrl) {
   return Boolean(embedded) && URL.parse(embedded + replay.search + replay.hash)?.href === new URL(originalUrl).href;
 }
 
-async function exportPlayer(page, siteUrl, directory, baseUrl) {
+async function exportPlayer(page, siteUrl, directory, baseUrl, format = 'replay') {
   const fs = require('fs');
   const path = require('path');
   if (!baseUrl) throw new Error('The WACZ gallery requires its localhost export server.');
   await page.goto(siteUrl, {waitUntil: 'domcontentloaded'});
   if (!(await page.$eval('.siteclone-export', element => element.open))) await page.click('.siteclone-export > summary');
-  await page.select('#site-export-form select[name="format"]', 'replay');
+  await page.select('#site-export-form select[name="format"]', format);
   const input = '#site-export-form input[name="directory"]';
   await page.focus(input);
   await page.keyboard.press('End');
@@ -71,4 +71,60 @@ async function storyView(page, adminBaseUrl, storyUrl, directory, baseUrl) {
   return {name: 'WACZ archived news story', url: story, path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: `wait-replay-url:${storyUrl}`};
 }
 
-module.exports = {exportViews, storyView};
+async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
+  const fs = require('fs');
+  const path = require('path');
+  const {createHash} = require('crypto');
+  const digest = async file => {
+    const hash = createHash('sha256');
+    for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
+    return hash.digest('hex');
+  };
+  await page.goto(libraryUrl, {waitUntil: 'domcontentloaded'});
+  const exportUrl = await page.$eval('.folder-actions [data-export-format="wacz"]', link => link.href);
+  if (new URL(exportUrl).searchParams.get('folder') !== new URL(libraryUrl).searchParams.get('folder')) {
+    throw new Error('The WACZ export lost the selected folder.');
+  }
+  await exportPlayer(page, exportUrl, directory, baseUrl, 'wacz');
+  const exportStatusUrl = page.url();
+  const exportedWacz = path.join(await page.$eval('#site-export-path', element => element.textContent.trim()), 'site.wacz');
+  const sourceDigest = await digest(exportedWacz);
+  const url = await exportPlayer(page, exportUrl, directory, baseUrl);
+  const playerDirectory = await page.$eval('#site-export-path', element => element.textContent.trim());
+  const playerWacz = path.join(playerDirectory, 'site.wacz');
+  fs.copyFileSync(exportedWacz, playerWacz);
+  if (await digest(playerWacz) !== sourceDigest) throw new Error('The player must use the exact standalone folder WACZ bytes.');
+
+  const homepage = `${url}#${new URLSearchParams({url: 'https://news.ycombinator.com/'})}`;
+  await page.goto(homepage, {waitUntil: 'domcontentloaded'});
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000});
+  await frame.waitForSelector('#hnmain', {timeout: 45000});
+  let storyLink, storyUrl;
+  for (const anchor of await frame.$$('a[href]')) {
+    const href = await anchor.evaluate(element => element.href);
+    const story = stories.find(candidate => new URL(candidate).href === href && new URL(candidate).hostname !== 'news.ycombinator.com');
+    if (story) { storyLink = anchor; storyUrl = story; break; }
+  }
+  if (!storyLink) throw new Error('The folder WACZ has no Hacker News link to an actually captured story.');
+  await storyLink.click();
+  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000});
+  await next.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
+  const text = await next.evaluate(() => document.body.innerText);
+  if (text.includes('Archived Page Not Found')) throw new Error('The linked story is missing from the selected folder WACZ.');
+  await page.waitForFunction(story => new URLSearchParams(location.hash.slice(1)).get('url') === story, {}, storyUrl);
+  if (await digest(exportedWacz) !== sourceDigest || await digest(playerWacz) !== sourceDigest) {
+    throw new Error('Browsing changed the exported folder WACZ bytes.');
+  }
+  fs.writeFileSync(path.join(playerDirectory, 'folder-wacz-proof.json'), JSON.stringify({
+    selection: libraryUrl, exportUrl, exportStatusUrl, source: exportedWacz, player: playerWacz,
+    sha256: sourceDigest, bytes: fs.statSync(exportedWacz).size,
+    from: 'https://news.ycombinator.com/', to: storyUrl, frame: next.url(),
+  }, null, 2) + '\n');
+  return [
+    {name: 'Folder WACZ export', url: exportStatusUrl, path: new URL(exportStatusUrl).pathname, source: 'archivebox/domains/export_service.py'},
+    {name: 'Folder WACZ Hacker News', url: homepage, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: 'wait-replay-url:https://news.ycombinator.com/'},
+    {name: 'Folder WACZ story navigation', url: page.url(), path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${storyUrl}`},
+  ];
+}
+
+module.exports = {exportViews, storyView, folderViews};

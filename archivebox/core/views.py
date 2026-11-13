@@ -1598,7 +1598,7 @@ class PublicIndexView(ListView):
             "snapshot_export_urls": {
                 format: build_admin_url(url, request=self.request, config=runtime_config)
                 for format, url in build_snapshot_export_urls(
-                    {"q": query, "search_mode": search_mode, "folder": self.selected_folder}
+                    {"q": query, "search_mode": search_mode, "folder": self.selected_folder},
                 ).items()
             },
         }
@@ -1656,6 +1656,13 @@ class PublicIndexView(ListView):
 
     def get_queryset(self, **kwargs):
         self.folder_tree = Folder.tree(public=True)
+        for folder in self.folder_tree:
+            folder.export_urls = {
+                format: build_admin_url(url, request=self.request, config=self.request.archivebox_config)
+                for format, url in build_snapshot_export_urls(
+                    {"folder": folder.pk, "q": self.request.GET.get("q", ""), "search_mode": self.request.GET.get("search_mode", "meta")},
+                ).items()
+            }
         self.selected_folder = self.request.GET.get("folder", "")
         self.folder_ids = None
         self.folder_breadcrumbs = []

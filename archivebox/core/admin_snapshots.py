@@ -1,20 +1,15 @@
 __package__ = "archivebox.core"
 
-import csv
 import json
 from copy import copy
 from html import escape
 from typing import Any
 
 from django.contrib import admin, messages
-from django.contrib.admin.options import IncorrectLookupParameters
 from django.core.exceptions import PermissionDenied
 from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
-from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_safe
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
@@ -89,7 +84,7 @@ class SnapshotActionForm(ActionForm):
             queryset=Folder.objects.all(),
             required=False,
             label="Folder",
-            empty_label="Unfiled",
+            empty_label="Inbox",
         )
 
     def clean_tags(self):
@@ -122,7 +117,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
     parameter_name = "folder"
 
     def lookups(self, request, model_admin):
-        return [("unfiled", "Unfiled"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
+        return [("unfiled", "Inbox"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -606,6 +601,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
         extra_context["folder_tree"] = Folder.tree()
+        for folder in extra_context["folder_tree"]:
+            filters = request.GET.copy()
+            filters["folder"] = str(folder.pk)
+            folder.export_urls = build_snapshot_export_urls(filters)
         extra_context["selected_folder"] = request.GET.get("folder", "")
         selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
         folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
@@ -657,6 +656,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         custom_urls = [
             path("feed/", self.export_view, name="core_snapshot_feed"),
             path("export.<str:format>", self.export_view, name="core_snapshot_export"),
+            path("export-jobs/<str:process_id>/", self.export_job_view, name="core_snapshot_export_job"),
+            path(
+                "export-jobs/<str:process_id>/download/",
+                self.export_job_view,
+                {"action": "download"},
+                name="core_snapshot_export_download",
+            ),
+            path("export-jobs/<str:process_id>/cancel/", self.export_job_view, {"action": "cancel"}, name="core_snapshot_export_cancel"),
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
@@ -698,96 +705,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         self.get_search_results = search
         return self.get_changelist_instance(request).queryset
 
-    @method_decorator(never_cache)
-    @method_decorator(require_safe)
     def export_view(self, request, format="rss"):
-        from django.contrib.auth.models import AnonymousUser
-        from archivebox.api.auth import auth_using_token, token_from_request
-        from archivebox.api.v1_core import _snapshots_rss_response
+        from archivebox.core.exports import snapshot_export_view
 
-        if format not in {"rss", "csv", "jsonl"}:
-            raise Http404
-        request = copy(request)
-        key = token_from_request(request)
-        if key:
-            user = auth_using_token(key, request=request)
-            if user is None or not user.is_active:
-                return HttpResponse(status=401)
-            request.user = user
-            if not self.admin_site.has_permission(request) or not self.has_view_permission(request):
-                raise PermissionDenied
-        else:
-            request.user = AnonymousUser()
-            public_filters = {
-                "q",
-                "search_mode",
-                "p",
-                "o",
-                "api_key",
-                "id__in",
-                "id__exact",
-                "crawl__id__exact",
-                "crawl_id__exact",
-                "crawl_id",
-                "crawl__created_by__id__exact",
-                "crawl__created_by__isnull",
-                "created_at__gte",
-                "created_at__lt",
-                "created_at__isnull",
-                "downloaded_at__gte",
-                "downloaded_at__lt",
-                "downloaded_at__isnull",
-            } | {
-                spec.parameter_name
-                for spec in self.get_list_filter(request)
-                if isinstance(spec, type) and issubclass(spec, admin.SimpleListFilter)
-            }
-            if set(request.GET) - public_filters:
-                return HttpResponseBadRequest("Invalid public snapshot filters.")
-        try:
-            snapshots = self.get_list_queryset(request, public_only=not key)
-        except (IncorrectLookupParameters, ValueError):
-            return HttpResponseBadRequest("Invalid snapshot filters.")
-        if format == "rss":
-            response = _snapshots_rss_response(
-                request,
-                snapshots=snapshots.select_related("crawl__created_by").prefetch_related("tags")[:500],
-            )
-        else:
-            from archivebox.cli.archivebox_snapshot import iter_snapshot_json
+        return snapshot_export_view(request, format=format)
 
-            fields = (
-                "type",
-                "schema_version",
-                "id",
-                "crawl_id",
-                "url",
-                "title",
-                "tags",
-                "bookmarked_at",
-                "created_at",
-                "modified_at",
-                "downloaded_at",
-                "timestamp",
-                "depth",
-                "status",
-                "fs_version",
-                "archive_size",
-                "output_size",
-            )
-            response = HttpResponse(content_type="text/csv; charset=utf-8" if format == "csv" else "application/x-ndjson")
-            response["Content-Disposition"] = f'attachment; filename="snapshots.{format}"'
-            writer = csv.DictWriter(response, fieldnames=fields) if format == "csv" else None
-            if writer:
-                writer.writeheader()
-            for record in iter_snapshot_json(snapshots):
-                row = {field: record[field] for field in fields}
-                if writer:
-                    writer.writerow(row)
-                else:
-                    response.write(json.dumps(row, ensure_ascii=False) + "\n")
-        response["Referrer-Policy"] = "no-referrer"
-        return response
+    def export_job_view(self, request, process_id, action="status"):
+        from archivebox.core.exports import snapshot_export_job_view
+
+        return snapshot_export_job_view(request, process_id, action=action)
 
     @admin.action(description="Move to folder", permissions=["change"])
     def move_to_folder(self, request, queryset):
@@ -808,7 +734,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             count = queryset.update(folder=folder, modified_at=timezone.now())
             if changes:
                 transaction.on_commit(lambda: snapshot_folders_changed.send(sender=Snapshot, changes=changes))
-        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Unfiled'}.")
+        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Inbox'}.")
 
     def preview_view(self, request, object_id, plugin, filename):
         """Serve a saved image output from the authenticated admin origin."""
