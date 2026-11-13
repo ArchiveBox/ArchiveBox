@@ -239,6 +239,7 @@ def test_real_provider_login(keycloak, initialized_archive, browser_runtime, pro
                 ),
             )
             page.goto(f"{origin}/accounts/login/")
+            assert page.get_by_role("link", name="Create an account", exact=True).count() == int(mode not in {"closed", "connect"})
             assert page.get_by_text("Keycloak OIDC", exact=True).count() == 1
             assert page.get_by_text("Keycloak SAML", exact=True).count() == 1
             page.screenshot(path=str(initialized_archive / "login.png"), full_page=True)

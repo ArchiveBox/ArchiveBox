@@ -1381,6 +1381,8 @@ def get_config(
 def get_all_configs() -> dict[str, BaseConfigSet]:
     """Get all config section objects as a dictionary."""
     resolved = load_source_config().model_dump(mode="json")
+    # Each section owns its header; the merged model inherits SHELL_CONFIG.
+    resolved.pop("toml_section_header", None)
     return {
         "SHELL_CONFIG": ShellConfig.model_validate(resolved),
         "STORAGE_CONFIG": StorageConfig.model_validate(resolved),

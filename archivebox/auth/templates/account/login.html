@@ -7,15 +7,12 @@
 
 {% block bodyclass %}{{ block.super }} login{% endblock %}
 
-<a href="{% url 'Home' %}">
-{% block branding %}<h1>ArchiveBox</h1>{% endblock %}
-</a>
 {% block usertools %}{% endblock %}
 {% block nav-global %}{% endblock %}
 
 {% block content_title %}
   <center>Log in to your archive.</center><br/><br/>
-  <img src="{% static 'archive.png' %}" style="width: 80px; display: block; margin: auto"/><br/>
+  <img src="{% static 'archive.png' %}" alt="" style="width: 80px; display: block; margin: auto"/><br/>
 {% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -51,7 +48,7 @@
 {% include "socialaccount/snippets/provider_list.html" with process="login" %}
 {% endif %}
 
-{% if signup_url %}
+{% if signup_url and registration_open %}
 <hr/>
 <center>
   <a href="{{ signup_url }}">{% trans "Create an account" %}</a>

@@ -428,6 +428,13 @@ def escape_api_html(app, docname, source):
         source[0] = "---\nmyst:\n  disable_syntax: [html_inline, html_block]\n---\n" + source[0]
     elif Path(app.env.doc2path(docname)).suffix == ".md":
         source[0] = render_wiki_links(source[0])
+        if docname == "README":
+            # The shared README is relative to the repository root on GitHub.
+            # This guide is outside Sphinx's source tree; keep its build ref.
+            source[0] = source[0].replace(
+                "](archivebox/auth/README.md)",
+                f"]({github_url}/blob/{tag}/archivebox/auth/README.md)",
+            )
         if docname == "Screenshots":
             if "latest published screenshot gallery" not in source[0]:
                 source[0] = re.sub(

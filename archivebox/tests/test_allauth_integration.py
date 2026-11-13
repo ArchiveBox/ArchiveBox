@@ -35,6 +35,7 @@ assert r.status_code == 200, r.content
 assert r.headers.get('X-Frame-Options') == 'DENY'
 assert r.headers.get('Content-Security-Policy') == "frame-ancestors 'none'"
 assert b'Forgot your password?' in r.content
+assert (b'Create an account' in r.content) == settings.CONFIG.REGISTRATION_ENABLED
 csrf = c.cookies[settings.CSRF_COOKIE_NAME].value
 r = c.post('/accounts/signup/', {'email': 'new@example.com', 'username': 'newuser', 'password1': 'Sufficient-Test-Pass123!', 'password2': 'Sufficient-Test-Pass123!', 'csrfmiddlewaretoken': csrf})
 user = User.objects.filter(username='newuser').first()
@@ -45,6 +46,7 @@ if settings.CONFIG.REGISTRATION_ENABLED:
     assert user.is_staff == user.is_superuser
     assert ('_auth_user_id' in c.session) == user.is_active
 else:
+    assert r.status_code == 200 and b'Sign Up Closed' in r.content, (r.status_code, r.content)
     assert user is None
 # Existing username/password users retain access even with no EmailAddress migration.
 legacy = User.objects.create_superuser('legacy', 'legacy@example.com', 'Sufficient-Test-Pass123!')

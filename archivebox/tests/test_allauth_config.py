@@ -9,7 +9,26 @@ def test_allauth_is_explicit_and_registration_is_closed():
     assert config.ALLAUTH_ENABLED is False
     assert config.REGISTRATION_ENABLED is False
     assert config.DEFAULT_USER_PERMISSIONS == "none"
-    assert "ALLAUTH_CONFIG" in get_all_configs()
+    sections = get_all_configs()
+    assert "ALLAUTH_CONFIG" in sections
+    assert all(section.model_dump()["toml_section_header"] == name for name, section in sections.items())
+
+
+def test_cli_writes_allauth_keys_to_their_own_section(initialized_archive):
+    from archivebox.config.configset import CaseConfigParser
+    from archivebox.tests.conftest import run_archivebox_cmd
+
+    result = run_archivebox_cmd(
+        ["config", "--set", "REGISTRATION_ENABLED=True", "EMAIL_PORT=2525"],
+        cwd=initialized_archive,
+        default_cli_env=True,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    config = CaseConfigParser()
+    config.read(initialized_archive / "ArchiveBox.conf")
+    assert config.getboolean("ALLAUTH_CONFIG", "REGISTRATION_ENABLED")
+    assert config.getint("ALLAUTH_CONFIG", "EMAIL_PORT") == 2525
+    assert not config.has_option("SHELL_CONFIG", "REGISTRATION_ENABLED")
 
 
 def test_provider_credentials_are_redacted():
