@@ -1,0 +1,27 @@
+{
+  "sidebarLink": {
+    "text": "Domains",
+    "visible": true
+  },
+  "roundTrip": [
+    "/admin/core/snapshot/?domain=%2A.ycombinator.com",
+    "/admin/domains/",
+    "http://admin.archivebox.localhost:5902/admin/core/snapshot/?domain=%2A.ycombinator.com"
+  ],
+  "rows": 8,
+  "pageErrors": [],
+  "replay": [
+    {
+      "name": "Saved site replay",
+      "url": "http://admin.archivebox.localhost:5902/admin/core/snapshot/replay-auth/?snapshot=06af5546fd19778480008cbdceacc3f5&original_domain=news.ycombinator.com&next=%2Fnewcomments",
+      "path": "/",
+      "source": "archivebox/core/views.py"
+    },
+    {
+      "name": "Captured internal link replay",
+      "url": "http://admin.archivebox.localhost:5902/admin/core/snapshot/replay-auth/?snapshot=06af5546fd19778480008cbdceacc3f5&original_domain=news.ycombinator.com&next=%2Fnewest",
+      "path": "/newest",
+      "source": "archivebox/core/views.py"
+    }
+  ]
+}
