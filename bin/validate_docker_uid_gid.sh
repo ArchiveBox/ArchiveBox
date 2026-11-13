@@ -116,6 +116,8 @@ default_cmd='printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id
 # shellcheck disable=SC2016
 runtime_dependency_cmd="$default_cmd"'; mkdir -p "$ABXPKG_LIB_DIR/chromewebstore/extensions/cookie/_metadata"; touch "$ABXPKG_LIB_DIR/chromewebstore/extensions/cookie/_metadata/rules.fbs"; echo ABX_CHROME_EXTENSION_CACHE_OK'
 # shellcheck disable=SC2016
+package_parent_cmd='set -Eeuo pipefail; for provider in uv pnpm; do mkdir "$ABXPKG_LIB_DIR/$provider/packages/new-package"; printf installed > "$ABXPKG_LIB_DIR/$provider/packages/new-package/probe"; test "$(cat "$ABXPKG_LIB_DIR/$provider/packages/new-package/probe")" = installed; test "$(stat -c %u:%g "$ABXPKG_LIB_DIR/$provider/packages/existing/content")" = 911:911; test "$(cat "$ABXPKG_LIB_DIR/$provider/packages/existing/content")" = preserved; done; '"$default_cmd"
+# shellcheck disable=SC2016
 full_flow_cmd='set -Eeuo pipefail
 printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"
 id -Gn | grep -qw audio
@@ -648,6 +650,10 @@ run_case "writable forced-owner mount skips metadata changes" \
 run_case "only the writable Chrome extension cache is recursively repaired" \
     "chown 501:20 /case/data && mkdir -p /case/lib/existing /case/lib/chromewebstore/extensions/cookie /case/browsers/existing && touch /case/lib/existing/file /case/lib/chromewebstore/extensions/cookie/rules.json /case/browsers/existing/file && chown -R 0:0 /case/lib/existing /case/lib/chromewebstore /case/browsers/existing" \
     "-" "-" pass 501 20 "$runtime_dependency_cmd" runtime-nested-root-stays
+
+run_case "UID remap permits new packages without changing installed contents" \
+    'for provider in uv pnpm; do mkdir -p "/case/lib/$provider/packages/existing"; printf preserved > "/case/lib/$provider/packages/existing/content"; chown -R 911:911 "/case/lib/$provider"; chmod -R u+rwX,go+rX "/case/lib/$provider"; done' \
+    "PUID=1201 PGID=1202" "-" pass 1201 1202 "$package_parent_cmd"
 
 run_case "root start fixes read-only top-level data when chmod works" \
     "chown 0:0 /case/data && chmod 555 /case/data" \

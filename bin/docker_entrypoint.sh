@@ -271,6 +271,9 @@ for provider_dir in "$ABXPKG_LIB_DIR"/*; do
     [[ -d "$provider_dir" ]] || continue
     ensure_dir "$provider_dir"
     ensure_file_owner "$provider_dir/derived.env"
+    # New package installs need to create siblings, not just update existing
+    # package directories. This parent retains the image UID after PUID remaps.
+    [[ ! -d "$provider_dir/packages" ]] || ensure_dir "$provider_dir/packages"
     for package_dir in "$provider_dir"/packages/*; do
         [[ -d "$package_dir" ]] || continue
         ensure_dir "$package_dir"
