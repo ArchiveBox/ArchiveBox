@@ -30,10 +30,11 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [folder.pk for folder in response.context["folder_breadcrumbs"]] == [parent.pk, child.pk]
-    breadcrumbs = response.content.decode().split('<nav class="library-breadcrumbs"', 1)[1].split("</nav>", 1)[0]
-    assert '<a href="/admin/core/snapshot/">Snapshots</a>' in breadcrumbs
-    assert f'<a href="?folder={parent.pk}">Research</a>' in breadcrumbs
-    assert '<span aria-current="page">Papers</span>' in breadcrumbs
+    html = response.content.decode()
+    assert 'class="library-breadcrumbs"' not in html
+    assert 'class="library-context"' not in html
+    assert '<span class="folder-current">Papers</span>' in html
+    assert f'aria-label="Add folder in Research" title="Add folder in Research" data-parent="{parent.pk}"' in html
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
@@ -367,9 +368,10 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
             page.locator(f'.folder-row[data-folder-id="{parent.pk}"]'),
         )
         expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to Research")
-        page.locator(".folder-new").first.click()
+        page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
+        page.get_by_role("button", name="Add folder in Research", exact=True).click()
+        expect(page.locator("#folder-parent")).to_have_value(str(parent.pk))
         page.locator("#folder-name").fill("Design inspiration")
-        page.locator("#folder-parent").select_option(str(parent.pk))
         page.get_by_role("button", name="Save folder", exact=True).click()
         expect(page.locator(".folder-tree")).to_contain_text("Design inspiration")
         page.get_by_role("searchbox", name="Find a folder").fill("Design")
