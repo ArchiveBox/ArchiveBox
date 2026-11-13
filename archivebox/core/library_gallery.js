@@ -12,9 +12,14 @@ async function prepare(page, adminBaseUrl, crawlId) {
     if (await page.$('.folder-sidebar-reopen:not([hidden])')) await page.click('.folder-sidebar-reopen');
     const existing = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
     if (existing) return existing;
-    await page.goto(`${adminBaseUrl}/add/?${new URLSearchParams({folder: parent, url: 'https://news.ycombinator.com/'})}`, {waitUntil: 'domcontentloaded'});
-    if (await page.$eval('#id_folder', select => select.value) !== parent) throw new Error('Add page lost the selected parent folder.');
-    await page.click('.folder-field .folder-new');
+    if (parent) {
+      const row = `.folder-row[data-folder-id="${parent}"]`;
+      await page.hover(row);
+      await page.click(`${row} .folder-new`);
+    } else {
+      await page.goto(`${adminBaseUrl}/add/?url=https%3A%2F%2Fnews.ycombinator.com%2F`, {waitUntil: 'domcontentloaded'});
+      await page.click('.folder-field .folder-new');
+    }
     await page.type('#folder-name', name);
     if (await page.$eval('#folder-parent', select => select.value) !== parent) throw new Error('New folder dialog lost the selected parent.');
     const saved = page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method() === 'POST');
@@ -23,7 +28,7 @@ async function prepare(page, adminBaseUrl, crawlId) {
     if (!response.ok()) throw new Error(`Creating the gallery folder failed: ${await response.text()}`);
     const created = await response.json();
     await page.waitForSelector('#folder-dialog:not([open])');
-    if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/') throw new Error('Creating a folder lost the Add form state.');
+    if (!parent && (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/')) throw new Error('Creating a folder lost the Add form state.');
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
     const id = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
     if (!id) throw new Error(`Folder was not saved: ${name}`);
@@ -52,6 +57,8 @@ async function prepare(page, adminBaseUrl, crawlId) {
   await page.goto(result.url, {waitUntil: 'domcontentloaded'});
   if (!await page.$('.folder-sidebar a.library-link[href="/admin/domains/"]')) throw new Error('Folder sidebar has no Domains link.');
   if (!await page.$('.folder-sidebar a[aria-current="page"]')) throw new Error('Saved folder filter is not selected.');
+  if (await page.$('.library-context,.library-breadcrumbs')) throw new Error('The removed folder header is still present.');
+  if (!await page.$('#toolbar .folder-sidebar-reopen')) throw new Error('The folder restore control is outside the snapshot toolbar.');
   await page.click('.folder-mobile-toggle');
   await page.waitForSelector('.snapshot-library.sidebar-hidden');
   if (!await page.$eval('.folder-sidebar-reopen', button => !button.hidden && button.getAttribute('aria-expanded') === 'false' && document.activeElement === button)) throw new Error('Hidden desktop folders have no focused reopen control.');
@@ -69,7 +76,10 @@ async function prepare(page, adminBaseUrl, crawlId) {
   for (const [width, height] of [[1440, 1000], [1024, 768], [768, 1024], [390, 844], [320, 640]]) {
     await page.setViewport({width, height});
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
-    if (width < 768) await page.click('.folder-mobile-toggle');
+    if (width < 768) {
+      if (await page.$eval('.folder-current', node => node.textContent.trim()) !== 'Hacker News') throw new Error('The mobile folder bar lost the selected folder.');
+      await page.click('.folder-mobile-toggle');
+    }
     const layout = await page.evaluate(() => {
       const sidebar = document.querySelector('.folder-sidebar').getBoundingClientRect();
       const table = document.querySelector('#result_list').getBoundingClientRect();

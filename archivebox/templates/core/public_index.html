@@ -665,8 +665,8 @@
     <div class="snapshot-library public-library{% if not folder_tree %} sidebar-hidden{% endif %}">
         {% if folder_tree %}{% include "core/folder_sidebar.html" %}{% endif %}
     <div id="content-main" class="public-snapshot-list">
-        {% include "core/folder_context.html" %}
         <div class="public-snapshot-toolbar">
+            {% if folder_tree %}{% include "core/folder_context.html" %}{% endif %}
             <form id="changelist-search" action="{{ request.path }}" method="get">
                 {% if selected_folder %}<input type="hidden" name="folder" value="{{ selected_folder }}">{% endif %}
                 <span class="public-search-input">
