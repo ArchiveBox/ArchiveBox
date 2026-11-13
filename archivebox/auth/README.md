@@ -184,8 +184,9 @@ configured ArchiveBox hostname family, but not arbitrary external destinations.
 Private replay retains its existing host-only, snapshot-scoped replay grants.
 These are separate from the shared one-bit hint: they authorize reading the
 granted private snapshot, never administration or API access. They contain no
-admin session cookie and are checked against the live server-side login session;
-local logout or password changes revoke their authority.
+admin, API, CSRF, or SSO credentials and are checked against the live server-side
+login session; local logout or password changes revoke their authority. Replay
+hosts may receive only the shared hint and their own scoped replay grant.
 
 ## Registration, permissions, and linking
 
