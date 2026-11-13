@@ -1,0 +1,170 @@
+{
+  "pages": [
+    {
+      "name": "desktop",
+      "overflow": false,
+      "sidebar": {
+        "x": 0,
+        "y": 42.859375,
+        "width": 244,
+        "height": 917.140625,
+        "top": 42.859375,
+        "right": 244,
+        "bottom": 960,
+        "left": 0
+      },
+      "main": {
+        "x": 244,
+        "y": 42.859375,
+        "width": 1676,
+        "height": 917.140625,
+        "top": 42.859375,
+        "right": 1920,
+        "bottom": 960,
+        "left": 244
+      },
+      "folders": [
+        "Capture inbox",
+        "Recent stories",
+        "Hacker News",
+        "Recent top stories"
+      ],
+      "editing": false,
+      "rows": 3
+    },
+    {
+      "name": "tablet",
+      "overflow": false,
+      "sidebar": {
+        "x": 0,
+        "y": 42,
+        "width": 212,
+        "height": 606,
+        "top": 42,
+        "right": 212,
+        "bottom": 648,
+        "left": 0
+      },
+      "main": {
+        "x": 212,
+        "y": 42,
+        "width": 812,
+        "height": 606,
+        "top": 42,
+        "right": 1024,
+        "bottom": 648,
+        "left": 212
+      },
+      "folders": [
+        "Capture inbox",
+        "Recent stories",
+        "Hacker News",
+        "Recent top stories"
+      ],
+      "editing": false,
+      "rows": 3
+    },
+    {
+      "name": "tablet-portrait",
+      "overflow": false,
+      "sidebar": {
+        "x": 0,
+        "y": 42,
+        "width": 212,
+        "height": 862,
+        "top": 42,
+        "right": 212,
+        "bottom": 904,
+        "left": 0
+      },
+      "main": {
+        "x": 212,
+        "y": 42,
+        "width": 556,
+        "height": 862,
+        "top": 42,
+        "right": 768,
+        "bottom": 904,
+        "left": 212
+      },
+      "folders": [
+        "Capture inbox",
+        "Recent stories",
+        "Hacker News",
+        "Recent top stories"
+      ],
+      "editing": false,
+      "rows": 3
+    },
+    {
+      "name": "mobile",
+      "overflow": false,
+      "sidebar": {
+        "x": 0,
+        "y": 38,
+        "width": 390,
+        "height": 410,
+        "top": 38,
+        "right": 390,
+        "bottom": 448,
+        "left": 0
+      },
+      "main": {
+        "x": 0,
+        "y": 448,
+        "width": 390,
+        "height": 433.9375,
+        "top": 448,
+        "right": 390,
+        "bottom": 881.9375,
+        "left": 0
+      },
+      "folders": [
+        "Capture inbox",
+        "Recent stories",
+        "Hacker News",
+        "Recent top stories"
+      ],
+      "editing": false,
+      "rows": 3
+    },
+    {
+      "name": "small-phone",
+      "overflow": false,
+      "sidebar": {
+        "x": 0,
+        "y": 38,
+        "width": 320,
+        "height": 410,
+        "top": 38,
+        "right": 320,
+        "bottom": 448,
+        "left": 0
+      },
+      "main": {
+        "x": 0,
+        "y": 448,
+        "width": 320,
+        "height": 433.9375,
+        "top": 448,
+        "right": 320,
+        "bottom": 881.9375,
+        "left": 0
+      },
+      "folders": [
+        "Capture inbox",
+        "Recent stories",
+        "Hacker News",
+        "Recent top stories"
+      ],
+      "editing": false,
+      "rows": 3
+    }
+  ],
+  "search": {
+    "url": "http://web.archivebox.localhost:5904/public/?folder=2&search_mode=deep%3Asonic&q=Hacker+News",
+    "rows": [
+      "2026-11-11\n11:59\n\t\nN\nnews.ycombinator.com\n▤\n\t\nHacker News\nhttps://news.ycombinator.com/\n\t\nHacker-News\n\tSEALED\t\n\t\n382 KB\n5 outputs"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "snapshot_ids_urls_preserved": 14,
+  "archive_files_sha256_preserved": 1164,
+  "permissions_in_real_test_collection": {
+    "private": 4,
+    "public": 9,
+    "unlisted": 1
+  },
+  "privacy_flow": "Real admin drag/drop moved a private capture and an unlisted capture into separate nested folders. Anonymous requests cannot discover or filter either subtree.",
+  "checks": "48 focused public list, folder, ownership, privacy, query-plan and migration checks passed. Real anonymous browser checks covered five viewport sizes, folder-scoped search, and hidden-folder 404 responses. Native gallery capture and setup helpers passed.",
+  "runtime_source_hashes": [
+    "11fa6b8674ee9308f7180cecf71324e76028bd5e4db4d24b8886fff0c1def223  /venv/lib/python3.13/site-packages/archivebox/core/models.py",
+    "49cfc710bf3e518eef6d5722961bd6840c7a03f60421cd75702c1fbbbc9873f7  /venv/lib/python3.13/site-packages/archivebox/core/views.py",
+    "712f2ab0e2298b38ad2ec0822ff8ba10153bc5fcef493e1065d9bd9779a8c6d8  /venv/lib/python3.13/site-packages/archivebox/templates/core/public_index.html",
+    "889350294576a1b9a93d0dece1d71fe518d482d0115dcbec17239a564ac7f979  /venv/lib/python3.13/site-packages/archivebox/templates/core/folder_sidebar.html",
+    "48a81dbdf99dc35a20a2d2cc29d9178d37005dca2645d30af5bc0d50a6a31e94  /venv/lib/python3.13/site-packages/archivebox/templates/core/folder_context.html"
+  ],
+  "sqlite_integrity": "ok"
+}

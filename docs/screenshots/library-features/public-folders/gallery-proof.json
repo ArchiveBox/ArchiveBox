@@ -1,0 +1,7 @@
+{
+  "name": "Public snapshot folders",
+  "url": "http://web.archivebox.localhost:5904/public/?folder=3",
+  "path": "/public/",
+  "source": "archivebox/templates/core/folder_sidebar.html",
+  "mode": "public"
+}
