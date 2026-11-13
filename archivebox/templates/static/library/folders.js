@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const mobileToggle = sidebar.querySelector('.folder-mobile-toggle');
   const reopenToggle = document.querySelector('.folder-sidebar-reopen');
+  const currentFolder = sidebar.querySelector('[aria-current="page"] span')?.textContent.trim() || 'All snapshots';
+  reopenToggle.querySelector('span').textContent = currentFolder;
+  reopenToggle.title = `Show folders · ${currentFolder}`;
   const library = sidebar.closest('.snapshot-library');
   const mobileViewport = matchMedia('(max-width: 767px)');
   let desktopHidden = false;
