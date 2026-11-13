@@ -32,7 +32,7 @@ uv = "2026-10-23T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.13.324"
+version = "1.13.325"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins" },
@@ -46,15 +46,15 @@ dependencies = [
     { name = "rich" },
     { name = "rich-click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/53/26d7856d2cadf77bcf7d22f05543ed01f743bbec911b620a1859991f0ffc/abx_dl-1.13.324.tar.gz", hash = "sha256:6622b7a708cec9778eed3a6f6a5ca013eec6954db1360e7af137b37d0fd39fd7", size = 115270, upload-time = "2026-11-12T00:44:15.229Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/10/c71a36aa79def9492289ae1c1b0b7a2fade7eca4f00b5f60220848155f62/abx_dl-1.13.325.tar.gz", hash = "sha256:1025e4fd9e1a29474cb71dd5338b2e80c8f71df1deb8ae354c89b407d6ba5c56", size = 115262, upload-time = "2026-11-13T21:45:46.78Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/95/f1196244222cde5a3664d2e24e62a9025afd572c6236f14a5087808ef6b6/abx_dl-1.13.324-py3-none-any.whl", hash = "sha256:77200ae1cc2fdeafd51905b405c40c936c63cabcd78967893ca7cad83415dc76", size = 118726, upload-time = "2026-11-12T00:44:13.337Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/b5/5dcf1c2efcee9c136bdab849d2e4c2a6771bdf49d06601934b49cb44fdb0/abx_dl-1.13.325-py3-none-any.whl", hash = "sha256:b9f64d526ff3c2649b7e4a2838ce0fbd01afd40d5b81f3723b646cc38bca08c2", size = 118726, upload-time = "2026-11-13T21:45:45.243Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.660"
-source = { git = "https://github.com/ArchiveBox/abx-plugins.git?rev=49d564b7ed72240e93b6dc78bd4dcc45ec97ec2f#49d564b7ed72240e93b6dc78bd4dcc45ec97ec2f" }
+version = "1.13.670"
+source = { git = "https://github.com/ArchiveBox/abx-plugins.git?rev=8d88e6ee3a048fac0638d688841b895140e1daa9#8d88e6ee3a048fac0638d688841b895140e1daa9" }
 dependencies = [
     { name = "abxbus" },
     { name = "abxpkg" },
@@ -134,7 +134,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.78rc110"
+version = "0.9.78rc111"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl" },
@@ -240,8 +240,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.13.324" },
-    { name = "abx-plugins", extras = ["opencode"], git = "https://github.com/ArchiveBox/abx-plugins.git?rev=49d564b7ed72240e93b6dc78bd4dcc45ec97ec2f" },
+    { name = "abx-dl", specifier = "==1.13.325" },
+    { name = "abx-plugins", extras = ["opencode"], git = "https://github.com/ArchiveBox/abx-plugins.git?rev=8d88e6ee3a048fac0638d688841b895140e1daa9" },
     { name = "abxbus", specifier = "==2.5.82" },
     { name = "abxpkg", specifier = "==1.13.82" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
