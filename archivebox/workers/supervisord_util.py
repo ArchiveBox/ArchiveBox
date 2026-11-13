@@ -383,7 +383,10 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
     return {
         "name": "worker_uvicorn",
         "command": _shell_join(command),
-        "environment": _archivebox_worker_environment(command),
+        # Django's short-lived request threads otherwise leave many glibc
+        # arenas retaining freed preview/SQLite buffers after requests finish.
+        # Set before exec: changing os.environ inside Python is too late.
+        "environment": _archivebox_worker_environment(command, MALLOC_ARENA_MAX=os.environ.get("MALLOC_ARENA_MAX", "2")),
         "autostart": "false",
         "autorestart": "true",
         "stopasgroup": "true",
