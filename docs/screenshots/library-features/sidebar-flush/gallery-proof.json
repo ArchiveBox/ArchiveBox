@@ -1,0 +1,7 @@
+{
+  "name": "Nested snapshot folders",
+  "url": "http://admin.archivebox.localhost:5902/admin/core/snapshot/?folder=1",
+  "path": "/admin/core/snapshot/?folder=1",
+  "source": "archivebox/core/admin_snapshots.py",
+  "addUrl": "http://admin.archivebox.localhost:5902/add/?folder=2&url=https%3A%2F%2Fnews.ycombinator.com%2F"
+}

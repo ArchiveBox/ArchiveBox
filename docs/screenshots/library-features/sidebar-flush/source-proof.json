@@ -1,0 +1,10 @@
+{
+  "source_sha256": {
+    "archivebox/templates/static/library/folders.css": "e6d24062cca379a9823a47353a0249394a774a93cec271d762339cc2aa5fdfba",
+    "archivebox/core/library_gallery.js": "bf97ae02106d2a09a6aa7384e51894d218b6f50b56246a0a1bd111fabf2813f4"
+  },
+  "original_snapshots_preserved": 14,
+  "original_files_sha256_verified": 1164,
+  "collection": "Previously captured Hacker News and recent linked stories; real browser gallery moved five saved snapshots into the nested folder.",
+  "browser": "Google Chrome with Puppeteer; tablet and phone viewport and touch emulation"
+}

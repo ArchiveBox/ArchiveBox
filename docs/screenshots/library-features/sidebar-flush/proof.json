@@ -1,0 +1,266 @@
+{
+  "pages": [
+    {
+      "name": "desktop-table",
+      "sidebar": {
+        "x": 0,
+        "y": 91.390625,
+        "width": 244,
+        "height": 988.609375,
+        "top": 91.390625,
+        "right": 244,
+        "bottom": 1080,
+        "left": 0
+      },
+      "main": {
+        "x": 244,
+        "y": 91.390625,
+        "width": 1676,
+        "height": 988.609375,
+        "top": 91.390625,
+        "right": 1920,
+        "bottom": 1080,
+        "left": 244
+      },
+      "table": {
+        "x": 244,
+        "y": 181.390625,
+        "width": 1676,
+        "height": 757.125,
+        "top": 181.390625,
+        "right": 1920,
+        "bottom": 938.515625,
+        "left": 244
+      },
+      "overflow": false
+    },
+    {
+      "name": "desktop",
+      "sidebar": {
+        "x": 0,
+        "y": 91.390625,
+        "width": 244,
+        "height": 908.609375,
+        "top": 91.390625,
+        "right": 244,
+        "bottom": 1000,
+        "left": 0
+      },
+      "main": {
+        "x": 244,
+        "y": 91.390625,
+        "width": 1196,
+        "height": 908.609375,
+        "top": 91.390625,
+        "right": 1440,
+        "bottom": 1000,
+        "left": 244
+      },
+      "table": {
+        "x": 244,
+        "y": 181.390625,
+        "width": 1196,
+        "height": 582.5,
+        "top": 181.390625,
+        "right": 1440,
+        "bottom": 763.890625,
+        "left": 244
+      },
+      "overflow": false
+    },
+    {
+      "name": "tablet-landscape",
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 212,
+        "height": 682.609375,
+        "top": 85.390625,
+        "right": 212,
+        "bottom": 768,
+        "left": 0
+      },
+      "main": {
+        "x": 212,
+        "y": 85.390625,
+        "width": 812,
+        "height": 682.609375,
+        "top": 85.390625,
+        "right": 1024,
+        "bottom": 768,
+        "left": 212
+      },
+      "table": {
+        "x": 212,
+        "y": 175.390625,
+        "width": 812,
+        "height": 678.5,
+        "top": 175.390625,
+        "right": 1024,
+        "bottom": 853.890625,
+        "left": 212
+      },
+      "overflow": false
+    },
+    {
+      "name": "tablet-portrait",
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 212,
+        "height": 938.609375,
+        "top": 85.390625,
+        "right": 212,
+        "bottom": 1024,
+        "left": 0
+      },
+      "main": {
+        "x": 212,
+        "y": 85.390625,
+        "width": 556,
+        "height": 938.609375,
+        "top": 85.390625,
+        "right": 768,
+        "bottom": 1024,
+        "left": 212
+      },
+      "table": {
+        "x": 212,
+        "y": 175.390625,
+        "width": 556,
+        "height": 1136,
+        "top": 175.390625,
+        "right": 768,
+        "bottom": 1311.390625,
+        "left": 212
+      },
+      "overflow": false
+    },
+    {
+      "name": "mobile",
+      "sidebar": {
+        "x": 0,
+        "y": 147,
+        "width": 390,
+        "height": 582.78125,
+        "top": 147,
+        "right": 390,
+        "bottom": 729.78125,
+        "left": 0
+      },
+      "main": {
+        "x": 0,
+        "y": 729.78125,
+        "width": 390,
+        "height": 1542,
+        "top": 729.78125,
+        "right": 390,
+        "bottom": 2271.78125,
+        "left": 0
+      },
+      "table": {
+        "x": 0,
+        "y": 819.78125,
+        "width": 390,
+        "height": 1404,
+        "top": 819.78125,
+        "right": 390,
+        "bottom": 2223.78125,
+        "left": 0
+      },
+      "overflow": false
+    },
+    {
+      "name": "mobile-small",
+      "sidebar": {
+        "x": 0,
+        "y": 147,
+        "width": 320,
+        "height": 582.78125,
+        "top": 147,
+        "right": 320,
+        "bottom": 729.78125,
+        "left": 0
+      },
+      "main": {
+        "x": 0,
+        "y": 729.78125,
+        "width": 320,
+        "height": 1832.25,
+        "top": 729.78125,
+        "right": 320,
+        "bottom": 2562.03125,
+        "left": 0
+      },
+      "table": {
+        "x": 0,
+        "y": 819.78125,
+        "width": 320,
+        "height": 1694.25,
+        "top": 819.78125,
+        "right": 320,
+        "bottom": 2514.03125,
+        "left": 0
+      },
+      "overflow": false
+    },
+    {
+      "name": "phone-landscape",
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 212,
+        "height": 304.609375,
+        "top": 85.390625,
+        "right": 212,
+        "bottom": 390,
+        "left": 0
+      },
+      "main": {
+        "x": 212,
+        "y": 85.390625,
+        "width": 632,
+        "height": 304.609375,
+        "top": 85.390625,
+        "right": 844,
+        "bottom": 390,
+        "left": 212
+      },
+      "table": {
+        "x": 212,
+        "y": 175.390625,
+        "width": 632,
+        "height": 1136,
+        "top": 175.390625,
+        "right": 844,
+        "bottom": 1311.390625,
+        "left": 212
+      },
+      "overflow": false
+    }
+  ],
+  "grid": {
+    "sidebar": {
+      "x": 0,
+      "y": 91.390625,
+      "width": 244,
+      "height": 988.609375,
+      "top": 91.390625,
+      "right": 244,
+      "bottom": 1080,
+      "left": 0
+    },
+    "main": {
+      "x": 244,
+      "y": 91.390625,
+      "width": 1676,
+      "height": 988.609375,
+      "top": 91.390625,
+      "right": 1920,
+      "bottom": 1080,
+      "left": 244
+    },
+    "overflow": false
+  },
+  "touchControls": true
+}
