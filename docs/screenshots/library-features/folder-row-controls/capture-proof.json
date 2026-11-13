@@ -1,0 +1,75 @@
+{
+  "source_collection": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/public-folders/collection",
+  "review_collection": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-row-controls/collection",
+  "base_image": "archivebox-public-folders:review",
+  "ui_files": {
+    "archivebox/templates/core/public_index.html": "d61e476be3a68668b036f4340f291cd34178c4d829ecff09cf12c4b2e1327963",
+    "archivebox/templates/core/folder_context.html": "b5eca2b1c2063383d4cc28ec8a388b87f8602e9d68daf5d6deca157ba9f2a6ff",
+    "archivebox/templates/core/folder_sidebar.html": "e31d21cb833924c4a9a9c4856f79d0304efd178b6fb2407dfdfaa701f2c7b223",
+    "archivebox/templates/admin/search_form.html": "c36e7c3e3a8d756b5064475552242edecccb3bc32c14b3e0136480ce0ee66bda",
+    "archivebox/templates/static/library/folders.css": "c90a1d29d10bf0724a5ddf3e75f745c0767ea1c85bec69567c8904f866bc643b",
+    "archivebox/templates/static/library/folders.js": "983d26ce71a2751f6062d77a5ff49821826cd93d7050150ce17bddb6372eb11d",
+    "archivebox/templates/admin/core/snapshot/change_list.html": "164014cd28b0226880b37dd79359ff4294423f6ff0ca0034416d1d2bbad4ab25"
+  },
+  "snapshots": [
+    [
+      "06af4c93455170748000823c9092107f",
+      "https://news.ycombinator.com/"
+    ],
+    [
+      "06af4c934551763e80002686ba170b31",
+      "https://docodethatmatters.com/home-automation-overnight-success/"
+    ],
+    [
+      "06af4c93455179728000f26174da5505",
+      "https://neil.fraser.name/news/2026/11/10/"
+    ],
+    [
+      "06af4d8788da7d788000857d63b3cb03",
+      "https://news.ycombinator.com/"
+    ],
+    [
+      "06af4d8788db76f880003ae297fe9723",
+      "https://docodethatmatters.com/home-automation-overnight-success/"
+    ],
+    [
+      "06af4d8788db7ba78000e65d6662c90f",
+      "https://neil.fraser.name/news/2026/11/10/"
+    ],
+    [
+      "06af4d8c94507afd80002db7725ce0b4",
+      "https://news.ycombinator.com/"
+    ],
+    [
+      "06af4d8c9451715e8000cb995d629b77",
+      "https://docodethatmatters.com/home-automation-overnight-success/"
+    ],
+    [
+      "06af4d8c945174a68000fa2719539da8",
+      "https://neil.fraser.name/news/2026/11/10/"
+    ],
+    [
+      "06af55469f4b78628000b106f0e13b7f",
+      "https://news.ycombinator.com/"
+    ],
+    [
+      "06af5546fd187f038000b5454b6bcf00",
+      "https://news.ycombinator.com/news"
+    ],
+    [
+      "06af5546fd19728e800012de86b53293",
+      "https://news.ycombinator.com/newest"
+    ],
+    [
+      "06af5546fd19753d80008f9fc0660d9a",
+      "https://news.ycombinator.com/front"
+    ],
+    [
+      "06af5546fd19778480008cbdceacc3f5",
+      "https://news.ycombinator.com/newcomments"
+    ]
+  ],
+  "preserved_files": 1164,
+  "preserved_bytes": true,
+  "browser_checks": "browser-proof.json"
+}

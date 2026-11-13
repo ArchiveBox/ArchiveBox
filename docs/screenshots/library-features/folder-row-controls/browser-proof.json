@@ -1,0 +1,137 @@
+{
+  "createdFolder": "Reading queue",
+  "parent": "1",
+  "pages": [
+    {
+      "name": "desktop",
+      "overflow": false,
+      "current": "Hacker News",
+      "bar": false,
+      "sidebar": {
+        "x": 0,
+        "y": 91.390625,
+        "width": 244,
+        "height": 988.609375,
+        "top": 91.390625,
+        "right": 244,
+        "bottom": 1080,
+        "left": 0
+      },
+      "table": {
+        "x": 244,
+        "y": 137.390625,
+        "width": 1676,
+        "height": 531.125,
+        "top": 137.390625,
+        "right": 1920,
+        "bottom": 668.515625,
+        "left": 244
+      }
+    },
+    {
+      "name": "tablet",
+      "overflow": false,
+      "current": "Hacker News",
+      "bar": false,
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 212,
+        "height": 682.609375,
+        "top": 85.390625,
+        "right": 212,
+        "bottom": 768,
+        "left": 0
+      },
+      "table": {
+        "x": 212,
+        "y": 131.390625,
+        "width": 812,
+        "height": 515.125,
+        "top": 131.390625,
+        "right": 1024,
+        "bottom": 646.515625,
+        "left": 212
+      }
+    },
+    {
+      "name": "tablet-portrait",
+      "overflow": false,
+      "current": "Hacker News",
+      "bar": false,
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 212,
+        "height": 938.609375,
+        "top": 85.390625,
+        "right": 212,
+        "bottom": 1024,
+        "left": 0
+      },
+      "table": {
+        "x": 212,
+        "y": 131.390625,
+        "width": 556,
+        "height": 859.25,
+        "top": 131.390625,
+        "right": 768,
+        "bottom": 990.640625,
+        "left": 212
+      }
+    },
+    {
+      "name": "mobile",
+      "overflow": false,
+      "current": "Hacker News",
+      "bar": false,
+      "sidebar": {
+        "x": 0,
+        "y": 117,
+        "width": 390,
+        "height": 45,
+        "top": 117,
+        "right": 390,
+        "bottom": 162,
+        "left": 0
+      },
+      "table": {
+        "x": 0,
+        "y": 208,
+        "width": 390,
+        "height": 1033.25,
+        "top": 208,
+        "right": 390,
+        "bottom": 1241.25,
+        "left": 0
+      }
+    },
+    {
+      "name": "small-phone",
+      "overflow": false,
+      "current": "Hacker News",
+      "bar": false,
+      "sidebar": {
+        "x": 0,
+        "y": 147,
+        "width": 320,
+        "height": 45,
+        "top": 147,
+        "right": 320,
+        "bottom": 192,
+        "left": 0
+      },
+      "table": {
+        "x": 0,
+        "y": 238,
+        "width": 320,
+        "height": 1211.9375,
+        "top": 238,
+        "right": 320,
+        "bottom": 1449.9375,
+        "left": 0
+      }
+    }
+  ],
+  "errors": []
+}
