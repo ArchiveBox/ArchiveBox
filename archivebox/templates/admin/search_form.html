@@ -4,6 +4,7 @@
 <h2 id="changelist-search-form" class="visually-hidden">{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}</h2>
 <div class="changelist-toolbar-row">
 {% if cl.opts.model_name == 'snapshot' and not cl.embedded_changelist %}
+    {% include "core/folder_context.html" %}
     {% if cl.snapshot_is_grid_view %}
       <button
         type="button"
