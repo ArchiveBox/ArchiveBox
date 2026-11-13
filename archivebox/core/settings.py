@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "archivebox.importers",  # generic source management; provider behavior belongs to plugins
     "archivebox.automation",
     "archivebox.domains",
+    "archivebox.storage",
     "archivebox.linkhealth",
     "archivebox.storageaudit",
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template

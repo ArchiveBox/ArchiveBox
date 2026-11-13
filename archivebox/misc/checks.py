@@ -68,12 +68,18 @@ def check_data_folder(config=None, **config_kwargs) -> None:
     from archivebox import DATA_DIR
     from archivebox.config import CONSTANTS
     from archivebox.config.common import get_config
-    from archivebox.config.paths import create_and_chown_dir, get_or_create_working_tmp_dir, get_or_create_working_lib_dir
+    from archivebox.config.paths import (
+        archive_uses_managed_storage,
+        create_and_chown_dir,
+        get_or_create_working_tmp_dir,
+        get_or_create_working_lib_dir,
+    )
 
     config = config or get_config(**config_kwargs)
     archive_dir = CONSTANTS.ARCHIVE_DIR
+    managed_storage = archive_uses_managed_storage()
     archive_dir_exists = os.path.isdir(archive_dir)
-    if not archive_dir_exists:
+    if not archive_dir_exists and not managed_storage:
         print("[red][X] No archivebox index found in the current directory.[/red]", file=sys.stderr)
         print(f"    {DATA_DIR}", file=sys.stderr)
         print(file=sys.stderr)
@@ -87,7 +93,8 @@ def check_data_folder(config=None, **config_kwargs) -> None:
 
     # Create data dir subdirs
     create_and_chown_dir(CONSTANTS.SOURCES_DIR)
-    create_and_chown_dir(CONSTANTS.USERS_DIR)
+    if not managed_storage:
+        create_and_chown_dir(CONSTANTS.USERS_DIR)
     create_and_chown_dir(CONSTANTS.PERSONAS_DIR / "Default")
     create_and_chown_dir(CONSTANTS.LOGS_DIR)
 

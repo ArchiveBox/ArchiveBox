@@ -157,6 +157,12 @@ async function main() {
     const audit = await require('../archivebox/storageaudit/gallery.js').prepare(page, adminBaseUrl);
     featureViews.push({name: 'Storage audit', url: audit.auditUrl, path: '/admin/storage-audit/', source: 'archivebox/storageaudit/views.py'});
     featureViews.push({name: 'Duplicate files by extension', url: audit.extensionUrl, path: '/admin/storage-audit/', source: 'archivebox/storageaudit/templates/storageaudit/index.html'});
+    const storageUrl = await require('../archivebox/storage/gallery.js').setupStorage(page, {
+      adminBaseUrl,
+      destinationPath: path.join(path.dirname(viewsFile), 'rclone-primary-archive'),
+    });
+    featureViews.push({name: 'Primary archive storage', url: storageUrl, path: '/admin/storage/', source: 'archivebox/storage/views.py'});
+    featureViews.push({name: 'Storage provider setup', url: `${adminBaseUrl}/admin/storage/configure/`, path: '/admin/storage/configure/', source: 'archivebox/storage/views.py'});
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {
