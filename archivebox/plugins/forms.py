@@ -201,6 +201,7 @@ class PluginConfigFormMixin:
                 for config_key, prop_schema in properties.items()
                 if (
                     isinstance(prop_schema, dict)
+                    and not prop_schema.get("readOnly")
                     and str(config_key) not in CONSTANTS_CONFIG
                     and (self.allow_crawl_execution_config_fields or ArchiveBoxConfig.scope_for_key(str(config_key)) == "crawl_frozen")
                 )
@@ -310,7 +311,7 @@ class PluginConfigFormMixin:
 
         for plugin_name, schema in discover_plugin_configs().items():
             for config_key, prop_schema in (schema.get("properties") or {}).items():
-                if not isinstance(prop_schema, dict):
+                if not isinstance(prop_schema, dict) or prop_schema.get("readOnly"):
                     continue
 
                 input_name = _plugin_config_input_name(plugin_name, config_key)

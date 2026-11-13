@@ -1072,9 +1072,26 @@ class CrawlRunner:
             local_root = None
             if persona and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
                 local_root = crawl_local_root.parent.parent / "snapshots" / str(snapshot.id) / ".persona" / persona.name
-            return snapshot, persona, base_config, snapshot.tags_str(), local_root, crawl_local_root
+            existing_tags = []
+            if base_config.get("AUTOTAG_ENABLED"):
+                from abx_plugins.plugins.autotag import MAX_EXISTING_TAGS, bounded_existing_tags
+                from django.db.models import Q
+                from archivebox.core.models import Tag
 
-        snapshot, persona, base_config, tags, local_root, crawl_local_root = await sync_to_async(load_context, thread_sensitive=True)()
+                names = (
+                    Tag.objects.filter(
+                        Q(created_by_id=snapshot.crawl.created_by_id) | Q(snapshot_set__crawl__created_by_id=snapshot.crawl.created_by_id),
+                    )
+                    .order_by("-modified_at", "name")
+                    .values_list("name", flat=True)
+                    .distinct()[:MAX_EXISTING_TAGS]
+                )
+                existing_tags = bounded_existing_tags(list(names))
+            return snapshot, persona, base_config, snapshot.tags_str(), local_root, crawl_local_root, existing_tags
+
+        snapshot, persona, base_config, tags, local_root, crawl_local_root, existing_tags = await sync_to_async(
+            load_context, thread_sensitive=True
+        )()
 
         def prepare_payload(*, create_outputs: bool = True):
             # Persona copies and remote archive metadata must not occupy the one
@@ -1114,6 +1131,8 @@ class CrawlRunner:
                     "snapshot_id": str(snapshot.id),
                 },
             )
+            # Derived from this snapshot's owner; never accept a configured vocabulary from another user.
+            config["AUTOTAG_EXISTING_TAGS"] = existing_tags
             normalized_config = normalize_runtime_config(config)
             configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
             if configured_plugins:

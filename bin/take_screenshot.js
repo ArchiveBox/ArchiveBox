@@ -382,6 +382,19 @@ async function main() {
     }
     if (process.env.SCREENSHOT_CLICK_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_CLICK_SELECTOR, { timeout: 45000 });
+      const summaries = await page.evaluateHandle((selector) => {
+        const closed = [];
+        for (let parent = document.querySelector(selector)?.parentElement; parent; parent = parent.parentElement) {
+          if (parent.tagName === 'DETAILS' && !parent.open) closed.unshift(parent.querySelector(':scope > summary'));
+        }
+        return closed;
+      }, process.env.SCREENSHOT_CLICK_SELECTOR);
+      for (const handle of (await summaries.getProperties()).values()) {
+        const summary = handle.asElement();
+        if (summary) await summary.click();
+        await handle.dispose();
+      }
+      await summaries.dispose();
       await page.click(process.env.SCREENSHOT_CLICK_SELECTOR);
     }
     if (process.env.SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR) {

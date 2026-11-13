@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from asgiref.sync import sync_to_async
 
-from abx_dl.events import TagEvent
-from abx_dl.services.base import BaseService
+from abx_dl.events import ProcessStdoutEvent, TagEvent
+from abx_dl.services.tag_service import TagService as HookTagService
 
 
-class TagService(BaseService):
-    LISTENS_TO = [TagEvent]
-    EMITS = []
+class TagService(HookTagService):
+    LISTENS_TO = [ProcessStdoutEvent, TagEvent]
+    EMITS = [TagEvent]
 
     def __init__(self, bus):
         super().__init__(bus)
@@ -17,8 +17,11 @@ class TagService(BaseService):
     async def on_TagEvent__save_to_db(self, event: TagEvent) -> None:
         from archivebox.core.models import Snapshot, Tag
 
-        snapshot = await Snapshot.objects.filter(id=event.snapshot_id).afirst()
+        snapshot = await Snapshot.objects.select_related("crawl").filter(id=event.snapshot_id).afirst()
         if snapshot is None:
             return
-        tag, _ = await sync_to_async(Tag.get_or_create_by_name, thread_sensitive=True)(event.name)
+        tag, _ = await sync_to_async(Tag.get_or_create_by_name, thread_sensitive=True)(
+            event.name,
+            defaults={"created_by_id": snapshot.crawl.created_by_id},
+        )
         await sync_to_async(snapshot.add_tag_ids, thread_sensitive=True)([tag.pk])

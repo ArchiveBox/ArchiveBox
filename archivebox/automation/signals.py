@@ -3,7 +3,7 @@
 from django.db.models.signals import m2m_changed, pre_save, post_save
 from django.dispatch import receiver
 
-from archivebox.core.models import Snapshot, Tag
+from archivebox.core.models import ArchiveResult, Snapshot, Tag
 from archivebox.core.signals import snapshot_folders_changed, snapshot_tags_changed
 from .service import record_event
 
@@ -72,3 +72,22 @@ def folders_changed(sender, changes, **kwargs):
 def snapshot_tags_updated(sender, changes, **kwargs):
     for change in changes:
         record_event(change["snapshot_id"], change["kind"], {"tags": change["tags"]})
+
+
+@receiver(pre_save, sender=ArchiveResult)
+def track_generated_result(sender, instance, update_fields=None, **kwargs):
+    instance._automation_generated_result = False
+    if instance.plugin not in {"autotag", "autosummary"} or instance.status != "succeeded":
+        return
+    if update_fields is not None and "status" not in update_fields:
+        return
+    previous = None if instance._state.adding else ArchiveResult.objects.filter(pk=instance.pk).values_list("status", flat=True).first()
+    instance._automation_generated_result = previous != "succeeded"
+
+
+@receiver(post_save, sender=ArchiveResult)
+def generated_result_completed(sender, instance, **kwargs):
+    completed = getattr(instance, "_automation_generated_result", False)
+    instance._automation_generated_result = False
+    if completed:
+        record_event(instance.snapshot_id, "enrichment", {"plugin": instance.plugin, "result_id": str(instance.pk)})

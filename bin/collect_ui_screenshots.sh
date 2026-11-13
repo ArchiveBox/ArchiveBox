@@ -603,13 +603,17 @@ PY
                 uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import json, os; from pathlib import Path; from archivebox.automation.screenshots import prepare_capture_rules; ids=prepare_capture_rules(os.environ["UI_LIBRARY_ADMIN_URL"], os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"]); Path(os.environ["UI_LIBRARY_RULE_IDS_FILE"]).write_text(json.dumps(ids))'
         )
-        echo "[*] Capturing Hacker News and current top stories for folder and rule screenshots"
+        echo "[*] Capturing Hacker News and current top stories with automatic tag and summary plugins"
         (
             cd "$DATA_DIR"
-            UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" \
+            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" \
+                UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}" \
                 uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"])'
+                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
         )
+        while IFS= read -r ai_view; do
+            [[ -z "$ai_view" ]] || VIEWS+=("$ai_view")
+        done <"$CAPTURE_ROOT/ai-views.txt"
         UI_LIBRARY_CRAWL_ID="$(cat "$CAPTURE_ROOT/library-crawl-id.txt")"
 
         echo "[*] Populating empty configuration views through the real Django admin UI"
