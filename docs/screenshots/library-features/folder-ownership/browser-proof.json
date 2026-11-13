@@ -1,0 +1,25 @@
+{
+  "folders": [
+    {
+      "id": 5,
+      "name": "A",
+      "parent": ""
+    },
+    {
+      "id": 6,
+      "name": "B",
+      "parent": ""
+    },
+    {
+      "id": 7,
+      "name": "C",
+      "parent": 5
+    },
+    {
+      "id": 8,
+      "name": "C",
+      "parent": 6
+    }
+  ],
+  "duplicateError": "Folder with this Parent and Name already exists."
+}

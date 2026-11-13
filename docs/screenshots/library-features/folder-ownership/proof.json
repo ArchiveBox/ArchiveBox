@@ -1,0 +1,14 @@
+{
+  "existing_folders_preserved_with_unknown_creator": 4,
+  "new_folders_with_authenticated_creator": 4,
+  "snapshot_rows_preserved": 14,
+  "archive_files_sha256_preserved": 1164,
+  "sqlite_integrity": "ok",
+  "foreign_key_errors": 0,
+  "tests": "38 folder/library tests plus 2 migration rollback cases passed; Ruff and migration consistency checks passed",
+  "source_sha256": {
+    "archivebox/core/models.py": "e8c8122ce7c92cc9b3efb044becc67a06ea7cc681a24ee0e21de38131d14da52",
+    "archivebox/core/admin_folders.py": "8b535e01caff8e340c8db1a71d80eefdbc57559e9aaad44b8d666bc35a6fdd96",
+    "archivebox/core/migrations/0063_folder_creator_and_unique_paths.py": "0747cc7011f2f2f2479add3e785ea30b66a2e4f133279cefc93a547bae0ad10a"
+  }
+}
