@@ -364,6 +364,14 @@ async function main() {
     }
 
     await page.waitForSelector('body');
+    if (process.env.SCREENSHOT_REPLAY_URL) {
+      const original = process.env.SCREENSHOT_REPLAY_URL;
+      const replay = await page.waitForFrame(frame => frame.url().split('#')[0].endsWith('/' + original), {timeout: 45000});
+      await replay.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
+      if (await replay.evaluate(() => document.body.innerText.includes('Archived Page Not Found'))) {
+        throw new Error(`Exported WACZ does not contain ${original}`);
+      }
+    }
     if (process.env.SCREENSHOT_WAIT_FOR_TEXT) {
       await page.waitForFunction((text) => document.body.innerText.includes(text), {}, process.env.SCREENSHOT_WAIT_FOR_TEXT);
     }

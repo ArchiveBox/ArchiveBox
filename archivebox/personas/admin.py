@@ -11,13 +11,31 @@ from archivebox.personas.importers import discover_local_browser_profiles
 from archivebox.personas.models import Persona
 
 
+class PersonaSnapshotDomainListFilter(admin.SimpleListFilter):
+    title = "snapshot domain"
+    parameter_name = "snapshot__domain"
+
+    def lookups(self, request, model_admin):
+        return [(self.value(), self.value())] if self.value() else []
+
+    def queryset(self, request, queryset):
+        from archivebox.core.models import Snapshot
+
+        if self.value():
+            try:
+                return queryset.filter(pk__in=Snapshot.objects.filter_by_domain(self.value()).values("crawl__persona_id"))
+            except ValueError:
+                return queryset.none()
+        return queryset
+
+
 class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
     form = PersonaAdminForm
     change_form_template = "admin/personas/persona/change_form.html"
 
     list_display = ("name", "created_by", "created_at", "chrome_profile_state", "cookies_state", "auth_state")
     search_fields = ("name", "created_by__username")
-    list_filter = ("created_by",)
+    list_filter = ("created_by", PersonaSnapshotDomainListFilter)
     ordering = ["name"]
     list_per_page = 100
     readonly_fields = ("id", "created_at", "persona_paths", "import_artifact_status")

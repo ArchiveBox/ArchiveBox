@@ -10,6 +10,7 @@ on:
       - 'bin/take_screenshot.js'
       - 'bin/setup_ui_screenshot_data.js'
       - 'archivebox/automation/**'
+      - 'archivebox/domains/**'
       - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'

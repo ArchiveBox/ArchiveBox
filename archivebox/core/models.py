@@ -3,9 +3,11 @@ __package__ = "archivebox.core"
 import json
 import logging
 import os
+import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import urlparse
@@ -14,9 +16,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
-from django.db.models import F, Q, QuerySet, Sum, Value
+from django.db.models import Case, Count, F, Max, Min, Q, QuerySet, Sum, Value, When, Window
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce, Greatest
+from django.db.models.functions import Coalesce, Greatest, Least, Length, Lower, NullIf, Reverse, Right, RowNumber, StrIndex, Substr
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -317,15 +319,170 @@ class SnapshotQuerySet(PagedQuerySet):
     # Filtering Methods
     # =========================================================================
 
+    @staticmethod
+    def domain_q(pattern: str) -> Q:
+        """Match complete HTTP(S) hosts; *.example.com includes the apex."""
+        query = Q(pk__in=[])
+        for value in str(pattern or "").split(","):
+            value = value.strip()
+            if not value:
+                continue
+            wildcard = value.startswith("*.")
+            value = value[2:] if wildcard else value
+            try:
+                parsed = urlparse(value if "://" in value else "//" + value)
+                host = (parsed.hostname or "").rstrip(".").encode("idna").decode("ascii").lower()
+                port = parsed.port
+            except (UnicodeError, ValueError) as error:
+                raise ValueError("Enter a domain, optionally prefixed by *. or separated by commas.") from error
+            if (
+                not host
+                or parsed.username
+                or parsed.password
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+                or ".." in host
+            ):
+                raise ValueError("Domain filters accept hostnames, not URL paths or credentials.")
+            if parsed.scheme not in {"", "http", "https"} or not re.fullmatch(r"[\w.:-]+", host):
+                raise ValueError("Enter an HTTP(S) domain.")
+            host_pattern = re.escape(host)
+            try:
+                unicode_host = host.encode("ascii").decode("idna")
+                if unicode_host != host:
+                    host_pattern = rf"(?:{host_pattern}|{re.escape(unicode_host)})"
+            except UnicodeError:
+                pass
+            if ":" in host:
+                host_pattern = rf"\[{host_pattern}\]"
+            elif wildcard:
+                host_pattern = rf"(?:[^./:@?#]+\.)*{host_pattern}"
+            port_pattern = f":{port}" if port is not None else r"(?::\d+)?"
+            query |= Q(url__iregex=rf"^https?://(?:[^/?#]*@)?{host_pattern}\.?{port_pattern}(?:[/?#]|$)")
+        return query
+
+    def filter_by_domain(self, pattern: str) -> "SnapshotQuerySet":
+        return self.filter(self.domain_q(pattern))
+
+    def filter(self, *args, **kwargs):
+        domain = kwargs.pop("domain", None)
+        queryset = super().filter(*args, **kwargs)
+        return queryset.filter_by_domain(domain) if domain is not None else queryset
+
+    def with_hostname(self) -> "SnapshotQuerySet":
+        """Extract hostnames in SQL, without fetching URLs or archive files."""
+        authority = Substr("url", StrIndex("url", Value("://")) + 3)
+        end = Least(*(Coalesce(NullIf(StrIndex(authority, Value(separator)), 0), Length(authority) + 1) for separator in ("/", "?", "#")))
+        return (
+            self.filter(url__iregex=r"^https?://")
+            .alias(_domain_authority=Substr(authority, 1, end - 1))
+            .alias(
+                _domain_address=Case(
+                    When(
+                        _domain_authority__contains="@",
+                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
+                    ),
+                    default=F("_domain_authority"),
+                ),
+            )
+            .annotate(
+                _domain_host=Lower(
+                    Case(
+                        When(
+                            _domain_address__startswith="[",
+                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
+                        ),
+                        default=Substr(
+                            "_domain_address",
+                            1,
+                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
+                        ),
+                    ),
+                ),
+            )
+            .exclude(_domain_host="")
+        )
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _domain_suffixes():
+        from tldextract import TLDExtract
+
+        # The bundled PSL handles co.uk and tenant domains such as github.io.
+        # No network request or writable suffix cache is needed by an admin view.
+        return TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
+
+    def domain_summary(self) -> list[dict]:
+        """Three SQL queries, transferring only grouped domain metadata."""
+        from ipaddress import ip_address
+
+        # Avoid duplicated snapshots from tag/folder joins in the source query.
+        base = self.model.objects.filter(pk__in=self.values("pk")).with_hostname()
+        stats = list(
+            base.order_by()
+            .values("_domain_host")
+            .annotate(
+                snapshot_count=Count("pk"),
+                total_size=Coalesce(Sum("output_size"), 0),
+                oldest_at=Min("created_at"),
+                newest_at=Max("created_at"),
+            ),
+        )
+        rows, domain_by_host = {}, {}
+        extract = self._domain_suffixes()
+        for stat in stats:
+            host = stat.pop("_domain_host")
+            try:
+                normalized_host = host.rstrip(".").encode("idna").decode("ascii").lower()
+            except UnicodeError:
+                normalized_host = host.rstrip(".").lower()
+            registered = extract(normalized_host).top_domain_under_public_suffix
+            domain = registered or normalized_host
+            domain_by_host[host] = domain
+            try:
+                ip_address(domain)
+                scope = f"[{domain}]" if ":" in domain else domain
+            except ValueError:
+                scope = f"*.{domain}" if registered else domain
+            if domain not in rows:
+                rows[domain] = {"domain": domain, "scope": scope, **stat, "persona_count": 0, "oldest_id": None, "newest_id": None}
+            else:
+                row = rows[domain]
+                row["snapshot_count"] += stat["snapshot_count"]
+                row["total_size"] += stat["total_size"]
+                row["oldest_at"] = min(row["oldest_at"], stat["oldest_at"])
+                row["newest_at"] = max(row["newest_at"], stat["newest_at"])
+        personas = {domain: set() for domain in rows}
+        for host, persona in base.exclude(crawl__persona_id=None).order_by().values_list("_domain_host", "crawl__persona_id").distinct():
+            if host in domain_by_host:
+                personas[domain_by_host[host]].add(persona)
+        extremes = (
+            base.annotate(
+                _domain_first=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").asc(), F("pk").asc()]),
+                _domain_last=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").desc(), F("pk").desc()]),
+            )
+            .filter(Q(_domain_first=1) | Q(_domain_last=1))
+            .order_by()
+            .values_list("_domain_host", "pk", "created_at")
+        )
+        for host, snapshot_id, created in extremes:
+            if host not in domain_by_host:
+                continue
+            row = rows[domain_by_host[host]]
+            if created == row["oldest_at"] and (row["oldest_id"] is None or snapshot_id < row["oldest_id"]):
+                row["oldest_id"] = snapshot_id
+            if created == row["newest_at"] and (row["newest_id"] is None or snapshot_id > row["newest_id"]):
+                row["newest_id"] = snapshot_id
+        for domain, row in rows.items():
+            row["persona_count"] = len(personas[domain])
+        return list(rows.values())
+
     FILTER_TYPES: ClassVar[dict[str, Any]] = {
         "exact": lambda pattern: models.Q(url=pattern),
         "substring": lambda pattern: models.Q(url__icontains=pattern),
         "regex": lambda pattern: models.Q(url__iregex=pattern),
-        "domain": lambda pattern: (
-            models.Q(url__istartswith=f"http://{pattern}")
-            | models.Q(url__istartswith=f"https://{pattern}")
-            | models.Q(url__istartswith=f"ftp://{pattern}")
-        ),
+        "domain": lambda pattern: SnapshotQuerySet.domain_q(pattern),
         "tag": lambda pattern: models.Q(tags__name=pattern),
         "timestamp": lambda pattern: models.Q(timestamp=pattern),
     }
@@ -354,7 +511,7 @@ class SnapshotQuerySet(PagedQuerySet):
         for pattern in patterns:
             try:
                 q_filter = q_filter | self.FILTER_TYPES[filter_type](pattern)
-            except KeyError:
+            except (KeyError, ValueError):
                 stderr()
                 stderr(f"[X] Got invalid pattern for --filter-type={filter_type}:", color="red")
                 stderr(f"    {pattern}")
@@ -524,13 +681,6 @@ class SnapshotQuerySet(PagedQuerySet):
 
 class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Snapshot model - uses SnapshotQuerySet for chainable methods"""
-
-    def filter(self, *args, **kwargs):
-        domain = kwargs.pop("domain", None)
-        qs = super().filter(*args, **kwargs)
-        if domain:
-            qs = qs.filter(url__icontains=f"://{domain}")
-        return qs
 
     def get_queryset(self):
         # Don't prefetch by default - it causes "too many open files" during bulk operations

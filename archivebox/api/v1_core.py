@@ -875,6 +875,7 @@ def _snapshots_rss_response(
 
 
 class SnapshotFilterSchema(FilterSchema):
+    domain: str | None = None
     crawl_id: Annotated[UUID | None, FilterLookup("crawl_id")] = None
     id: Annotated[str | None, FilterLookup(["id__istartswith", "id__iendswith", "timestamp__startswith"])] = None
     created_by_id: Annotated[str | None, FilterLookup("crawl__created_by_id")] = None
@@ -897,6 +898,12 @@ class SnapshotFilterSchema(FilterSchema):
 
     def filter_search(self, value: str | None) -> Q:
         return Q()
+
+    def filter_domain(self, value: str | None) -> Q:
+        try:
+            return Snapshot.objects.domain_q(value) if value else Q()
+        except ValueError as error:
+            raise HttpError(400, str(error)) from error
 
     def filter_search_mode(self, value: str | None) -> Q:
         return Q()

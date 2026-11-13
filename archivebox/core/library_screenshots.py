@@ -80,7 +80,7 @@ def prepare(evidence_dir, *, model=""):
         raise RuntimeError("The live Hacker News front page did not provide three story links.")
     (evidence / "hacker-news-front.html").write_text(response.text)
     (evidence / "hacker-news-urls.json").write_text(json.dumps(urls, indent=2))
-    plugins = "title,favicon,wget,screenshot,readability"
+    plugins = "title,favicon,wget,screenshot,readability,archivewebpage"
     capture_env = os.environ.copy()
     if model:
         if not model.startswith("openai/"):
@@ -114,6 +114,11 @@ def prepare(evidence_dir, *, model=""):
             raise RuntimeError(f"Gallery capture is incomplete: {snapshot.url}")
         if not snapshot.archiveresult_set.filter(plugin="screenshot", status=ArchiveResult.StatusChoices.SUCCEEDED).exists():
             raise RuntimeError(f"Gallery capture has no real screenshot: {snapshot.url}")
+        recording = snapshot.archiveresult_set.filter(plugin="archivewebpage", status=ArchiveResult.StatusChoices.SUCCEEDED).first()
+        relative = recording.embed_path_db() if recording else ""
+        archive = snapshot.output_dir / relative if relative else None
+        if archive is None or archive.suffix.lower() != ".wacz" or not archive.is_file() or archive.stat().st_size == 0:
+            raise RuntimeError(f"Gallery capture has no successful WACZ recording: {snapshot.url}")
         if model:
             for plugin in ("autotag", "autosummary"):
                 if not snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).exists():

@@ -1579,7 +1579,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         Processes are stale if:
         - Status is RUNNING but OS process no longer exists
         - A bounded HOOK or BINARY process exceeded its timeout plus a small grace margin
-        - Status is RUNNING but started_at is older than PID_REUSE_WINDOW
+        - A process in an unobservable PID namespace is older than PID_REUSE_WINDOW
 
         Returns count of processes cleaned up.
         """
@@ -1609,8 +1609,9 @@ class Process(ModelWithDeleteAfter, models.Model):
                 if timeout_seconds > 0 and timezone.now() >= timeout_deadline:
                     is_stale = True
 
-            # Check if too old (PID definitely reused)
-            if not is_stale and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
+            # A locally verified live process can legitimately run for days.
+            # Age is only a fallback when its PID namespace cannot be inspected.
+            if not is_stale and not shares_pid_namespace and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
                 is_stale = True
             elif not is_stale and shares_pid_namespace and PSUTIL_AVAILABLE and proc.pid is not None:
                 # Check if OS process still exists with matching start time

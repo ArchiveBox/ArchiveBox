@@ -396,6 +396,41 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
         browser.close()
 
 
+@pytest.mark.django_db(transaction=True)
+def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabled, live_server, browser_runtime, admin_user):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    port = urlsplit(live_server.url).port
+    public_add_enabled.config["BASE_URL"] = f"http://archivebox.localhost:{port}"
+    public_add_enabled.save(update_fields=["config"])
+    Persona.objects.create(name="Saved", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3, "TIMEOUT": 23})
+    Persona.objects.create(name="Linked", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 5, "TIMEOUT": 61})
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page()
+        base = f"http://admin.archivebox.localhost:{port}/add/"
+        page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/add/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.goto(base)
+        page.locator('select[name="persona"]').select_option("Saved")
+        expect(page.locator('input[name="timeout"]')).to_have_value("23")
+        assert page.evaluate("JSON.parse(localStorage.getItem('archivebox_add_form_state')).persona") == "Saved"
+        page.goto(base + "?persona=Linked&crawl_max_concurrent_snapshots=7")
+        expect(page.locator('select[name="persona"]')).to_have_value("Linked")
+        expect(page.locator('input[name="timeout"]')).to_have_value("61")
+        expect(page.locator('input[name="crawl_max_concurrent_snapshots"]')).to_have_value("7")
+        assert json.loads(page.locator('input[name="config"]').input_value())["TIMEOUT"] == 61
+        browser.close()
+
+
 def _csrf_test_add_data(url: str) -> dict[str, str]:
     return {
         **ADD_FORM_DEFAULTS,

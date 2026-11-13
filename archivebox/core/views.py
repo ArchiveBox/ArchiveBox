@@ -9,7 +9,7 @@ from contextlib import closing
 from functools import reduce
 from pathlib import Path
 from typing import ClassVar, cast
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urlsplit
 from uuid import UUID
 
 from admin_data_views.typing import ItemContext, SectionData, TableContext
@@ -28,6 +28,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidde
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -67,6 +68,7 @@ from archivebox.core.permissions import (
 from archivebox.core.routes_util import (
     build_admin_url,
     build_snapshot_export_urls,
+    build_original_url,
     build_snapshot_detail_url,
     build_snapshot_files_url,
     build_snapshot_url,
@@ -76,6 +78,7 @@ from archivebox.core.routes_util import (
     get_snapshot_lookup_key,
     get_web_host,
     host_matches,
+    is_snapshot_subdomain,
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator
@@ -214,6 +217,8 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
         replay = replay_session.get_decoded().get("replay")
         if not isinstance(replay, dict) or replay.get("snapshot_id") != str(snapshot.id):
             return False
+        if replay.get("original_domain") != payload.get("original_domain"):
+            return False
         session = Session.objects.get(session_key=str(replay.get("session_key") or ""), expire_date__gt=timezone.now())
         session_data = session.get_decoded()
         user_id = str(session_data.get(SESSION_KEY) or "")
@@ -291,6 +296,13 @@ class SnapshotReplayAuthView(View):
         if not snapshot:
             raise Http404
 
+        requested_domain = request.GET.get("original_domain")
+        original_domain = urlsplit(snapshot.url).hostname if requested_domain else None
+        if requested_domain and (
+            requested_domain != original_domain or original_domain in {"admin", "web", "api"} or is_snapshot_subdomain(original_domain)
+        ):
+            raise Http404
+
         # Signed JSON is readable, not encrypted. Store the privileged session
         # reference only server-side; replay credentials carry an opaque key to
         # this separate row, which deliberately has no Django auth session keys.
@@ -300,14 +312,29 @@ class SnapshotReplayAuthView(View):
             "user_id": str(request.user.pk),
             "session_key": request.session.session_key,
             "auth_hash": request.user.get_session_auth_hash(),
+            **({"original_domain": original_domain} if original_domain else {}),
         }
         replay_session.set_expiry(request.session.get_expiry_date())
         replay_session.create()
         payload = {"snapshot_id": str(snapshot.id), "replay_session": replay_session.session_key}
+        if original_domain:
+            payload["original_domain"] = original_domain
         grant = signing.dumps(payload, salt=REPLAY_GRANT_SALT)
         next_path = _clean_replay_next(request.GET.get("next"))
         target = build_snapshot_url(str(snapshot.id), "_auth", request=request, config=get_request_config(request))
-        return redirect(f"{target}?grant={quote(grant, safe='')}&next={quote(next_path, safe='')}")
+        if original_domain:
+            target = build_original_url(original_domain, "_archivebox/auth", request=request)
+        replay_origin = urlsplit(target)
+        destination = f"{target}?grant={quote(grant, safe='')}&next={quote(next_path, safe='')}"
+        if original_domain:
+            destination += f"&snapshot={snapshot.id}"
+        if not url_has_allowed_host_and_scheme(
+            destination,
+            allowed_hosts={replay_origin.netloc},
+            require_https=replay_origin.scheme == "https",
+        ):
+            raise Http404
+        return redirect(destination)
 
 
 class HomepageView(View):
@@ -1018,6 +1045,23 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
     return response
 
 
+def _has_original_domain_replay_cookie(request: HttpRequest, domain: str) -> bool:
+    """A host-only replay grant may cover saved pages from one original host."""
+    for name, value in request.COOKIES.items():
+        if not name.startswith(REPLAY_COOKIE_PREFIX):
+            continue
+        try:
+            payload = signing.loads(value, salt=REPLAY_AUTH_SALT, max_age=settings.SESSION_COOKIE_AGE)
+        except signing.BadSignature:
+            continue
+        if not isinstance(payload, dict) or payload.get("original_domain") != domain:
+            continue
+        snapshot = _find_snapshot_by_ref(str(payload.get("snapshot_id") or ""), request=request)
+        if snapshot and urlsplit(snapshot.url).hostname == domain and _replay_payload_is_valid(payload, snapshot):
+            return True
+    return False
+
+
 def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) -> list[Snapshot]:
     if not domain:
         return []
@@ -1046,7 +1090,13 @@ def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) ->
         .defer("crawl__urls")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )
-    return [snapshot for snapshot in candidates if can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot)]
+    domain_authorized = _has_original_domain_replay_cookie(request, requested_domain)
+    request.archivebox_original_authorized = domain_authorized
+    return [
+        snapshot
+        for snapshot in candidates
+        if domain_authorized or can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot)
+    ]
 
 
 def _latest_response_match(
@@ -1240,7 +1290,7 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
         if not response.get("Cache-Control"):
             policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
             response.headers["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
-        if snapshot.permissions != PERMISSIONS_PUBLIC:
+        if snapshot.permissions != PERMISSIONS_PUBLIC or request.__dict__.get("archivebox_original_authorized"):
             patch_cache_control(response, private=True)
     else:
         response.headers["Cache-Control"] = "private, no-store"
@@ -1251,6 +1301,24 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
 def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str = ""):
     request_config = get_request_config(request, resolve_plugins=False)
     request.archivebox_config = request_config
+    domain = domain.split(":", 1)[0].lower()
+    if domain in {"admin", "web", "api"} or is_snapshot_subdomain(domain):
+        raise Http404
+    if path == "_archivebox/auth":
+        snapshot = _find_snapshot_by_ref(str(request.GET.get("snapshot") or ""), request=request)
+        try:
+            payload = signing.loads(str(request.GET.get("grant") or ""), salt=REPLAY_GRANT_SALT, max_age=REPLAY_GRANT_MAX_AGE)
+        except signing.BadSignature:
+            raise Http404
+        if (
+            not snapshot
+            or urlsplit(snapshot.url).hostname != domain
+            or not isinstance(payload, dict)
+            or payload.get("original_domain") != domain
+        ):
+            raise Http404
+        return _replay_auth_response(request, snapshot)
+
     requested_root_index = path in ("", "index.html") or path.endswith("/")
     rel_path = path or ""
     if not rel_path or rel_path.endswith("/"):
@@ -1259,8 +1327,47 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     if rel_path is None:
         raise Http404
 
-    domain = domain.split(":", 1)[0].lower()
     snapshots = _visible_response_snapshots_for_domain(request, domain)
+    request.archivebox_original_links = {
+        urlsplit(snapshot.url)._replace(scheme="", fragment="").geturl(): build_original_url(
+            domain,
+            (urlsplit(snapshot.url).path or "/") + (f"?{urlsplit(snapshot.url).query}" if urlsplit(snapshot.url).query else ""),
+            request=request,
+        )
+        for snapshot in reversed(snapshots)
+        if snapshot.output_size > 0
+    }
+    request.archivebox_original_domain = domain
+    if path.startswith("_archivebox/files/"):
+        parts = path.split("/", 3)
+        if len(parts) != 4:
+            raise Http404
+        snapshot = next((item for item in snapshots if str(item.id) == parts[2]), None)
+        if not snapshot:
+            raise Http404
+        return _serve_snapshot_replay(request, snapshot, parts[3])
+
+    query = request.META.get("QUERY_STRING", "")
+    if query == "raw=1":
+        query = ""
+    exact = [item for item in snapshots if (urlsplit(item.url).path or "/") == f"/{path}" and urlsplit(item.url).query == query]
+    for snapshot in exact:
+        results = list(snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.SUCCEEDED))
+        for plugin in ("singlefile", "dom", "wget", "readability", "defuddle"):
+            output_path = snapshot.plugin_output_path(plugin, archive_results=results)
+            if output_path and Path(output_path).suffix.lower() in {".html", ".htm"}:
+                try:
+                    return _serve_snapshot_replay(request, snapshot, output_path)
+                except Http404:
+                    continue
+
+    # A response captured for /item?id=1 must never stand in for /item?id=2.
+    # Snapshot URL selection above retains the original query verbatim.
+    if query:
+        if not exact:
+            raise Http404
+        snapshots = exact
+
     match = _latest_response_match(snapshots, domain, rel_path)
     if not match and "." not in Path(rel_path).name:
         index_path = f"{rel_path.rstrip('/')}/index.html"
@@ -1273,7 +1380,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     responses_root = root_match[1] if root_match else None
     if root_match:
         request.archivebox_cache_policy = "public" if root_match[0].permissions == PERMISSIONS_PUBLIC else "private"
-    if request_config.USES_SUBDOMAIN_ROUTING:
+    if request_config.USES_SUBDOMAIN_ROUTING and request.path.startswith("/original/"):
         snapshot = root_match[0] if root_match else (snapshots[0] if requested_root_index and snapshots else None)
         if snapshot:
             snapshot_path = f"responses/{domain}/{match[2]}" if match else path
@@ -1281,10 +1388,11 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
             return redirect(target)
-
     show_indexes = bool(request.GET.get("files"))
     if match:
-        _snapshot, responses_root, rel_to_root = match
+        snapshot, responses_root, rel_to_root = match
+        request.archivebox_snapshot_url = snapshot.url
+        request.archivebox_snapshot = snapshot
         response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
         if response is not None:
             return response
@@ -1608,14 +1716,32 @@ class AddView(UserPassesTestMixin, FormView):
     form_class = AddLinkForm
 
     def get_initial(self):
-        """Prefill the AddLinkForm with the 'url' GET parameter"""
+        """Prefill native capture fields when opening More options from another view."""
         initial = super().get_initial()
         if self.request.method == "GET":
             url = self.request.GET.get("url", None)
             if url:
                 initial["url"] = url if "://" in url else f"https://{url}"
-            if self._can_override_crawl_config() and self.request.GET.get("folder"):
-                initial["folder"] = self.request.GET["folder"]
+            if self._can_override_crawl_config():
+                for field in (
+                    "folder",
+                    "tag",
+                    "persona",
+                    "permissions",
+                    "depth",
+                    "max_urls",
+                    "crawl_timeout",
+                    "crawl_max_concurrent_snapshots",
+                    "schedule",
+                ):
+                    if field in self.request.GET:
+                        initial[field] = self.request.GET[field]
+                if any(key.startswith("url_filters_") for key in self.request.GET):
+                    initial["url_filters"] = self.form_class.base_fields["url_filters"].widget.value_from_datadict(
+                        self.request.GET,
+                        {},
+                        "url_filters",
+                    )
 
         return initial
 
@@ -1769,6 +1895,11 @@ class AddView(UserPassesTestMixin, FormView):
 
         config.update(plugin_config)
         config.update(custom_config)
+        # Native multiline filter fields remain authoritative over their
+        # single-line copies in the generic config editor.
+        for field, key in (("allowlist", "URL_ALLOWLIST"), ("denylist", "URL_DENYLIST")):
+            if form.add_prefix(f"url_filters_{field}") in form.data:
+                config[key] = url_filters.get(field, "")
         if bool(url_filters.get("only_new")) != bool(effective_config.ONLY_NEW):
             config["ONLY_NEW"] = bool(url_filters.get("only_new"))
         crawl, _snapshots = add(

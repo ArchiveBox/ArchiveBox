@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const {spawnSync} = require('child_process');
 
 const [adminBaseUrl, username] = process.argv.slice(2);
 if (!adminBaseUrl || !username || !process.env.SCREENSHOT_USER_DATA_DIR) {
@@ -121,11 +122,18 @@ async function main() {
       await selectUser(page);
     });
 
+    const repoDir = path.resolve(__dirname, '..');
     const dataDir = process.env.UI_LIBRARY_DATA_DIR;
     const viewsFile = process.env.UI_LIBRARY_VIEWS_FILE;
     if (!dataDir || !viewsFile || !process.env.UI_LIBRARY_CRAWL_ID) {
       throw new Error('Gallery features require a real captured library crawl and an isolated data directory.');
     }
+    const runWorker = (args) => {
+      const result = spawnSync('uv', ['run', '--no-sync', '--project', repoDir, 'archivebox', ...args], {
+        cwd: dataDir, encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.stderr || result.stdout}`);
+    };
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
@@ -134,6 +142,16 @@ async function main() {
     featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
     featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
+    runWorker(['config', '--set', 'PLUGINS=wget,title,screenshot,readability,parse_dom_outlinks,archivewebpage']);
+    const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl);
+    featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
+    runWorker(['run', '--crawl-id', clone.crawlId]);
+    featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
+    featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
+    featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports')));
+    featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
+    const stories = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-urls.json'), 'utf8'));
+    featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

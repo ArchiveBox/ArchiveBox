@@ -577,6 +577,9 @@ def build_snapshot_zip_url(
 
 def build_original_url(domain: str, path: str = "", request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
+    if config.USES_SUBDOMAIN_ROUTING:
+        base_url = _build_base_url_for_host(get_original_host(domain, config=config, request=request), request=request, config=config)
+        return _build_url(base_url, path or "/")
     base_url = _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
     return _build_url(base_url, path)
 

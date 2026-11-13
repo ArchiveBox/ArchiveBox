@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     "archivebox.crawls",  # handles Crawl and CrawlSchedule models and management (depends on core)
     "archivebox.importers",  # generic source management; provider behavior belongs to plugins
     "archivebox.automation",
+    "archivebox.domains",
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
     "archivebox.memento",  # read-only datetime negotiation and capture metadata on existing views

@@ -21,6 +21,7 @@ USERNAME="archivebox-screenshots-$$"
 PASSWORD="archivebox-screenshots-$$"
 SERVER_PID=""
 SETUP_SERVER_PID=""
+SITE_EXPORT_SERVER_PID=""
 ARCHIVE_PID=""
 CREATED_TEMP_USER=0
 CREATE_API_TOKEN=0
@@ -43,6 +44,13 @@ stop_background_runner() {
 
 cleanup() {
     local cleanup_status=$?
+    if [[ -n "$SITE_EXPORT_SERVER_PID" ]]; then
+        for child_pid in $(pgrep -P "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true); do
+            kill "$child_pid" 2>/dev/null || true
+        done
+        kill "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true
+        wait "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true
+    fi
     if [[ -n "$SETUP_SERVER_PID" ]]; then
         setup_server_children="$(pgrep -P "$SETUP_SERVER_PID" 2>/dev/null || true)"
         for child_pid in $setup_server_children; do
@@ -426,6 +434,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
     preview_wait_for_text=""
     [[ "$capture_mode" != wait-preview-text:* ]] || preview_wait_for_text="${capture_mode#wait-preview-text:}"
+    export SCREENSHOT_REPLAY_URL=""
+    [[ "$capture_mode" != wait-replay-url:* ]] || export SCREENSHOT_REPLAY_URL="${capture_mode#wait-replay-url:}"
     config_selector=""
     config_click_selector=""
     if [[ "$capture_mode" == plugin-config:* ]]; then
@@ -617,6 +627,14 @@ PY
         UI_LIBRARY_CRAWL_ID="$(cat "$CAPTURE_ROOT/library-crawl-id.txt")"
 
         echo "[*] Populating empty configuration views through the real Django admin UI"
+        # ReplayWeb.page uses service workers, so the exported files need an
+        # actual HTTP localhost origin. The small gallery recordings do not
+        # require range support from this standard-library static server.
+        mkdir -p "$CAPTURE_ROOT/site-exports"
+        SITE_EXPORT_PORT="$(uv run --no-sync --project "$REPO_DIR" python -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
+        uv run --no-sync --project "$REPO_DIR" python -m http.server "$SITE_EXPORT_PORT" --bind 127.0.0.1 \
+            --directory "$CAPTURE_ROOT/site-exports" >"$CAPTURE_ROOT/site-export-server.log" 2>&1 &
+        SITE_EXPORT_SERVER_PID=$!
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
             SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
@@ -624,6 +642,7 @@ PY
             UI_LIBRARY_PUBLIC_URL="$PUBLIC_BASE_URL" \
             UI_LIBRARY_DATA_DIR="$DATA_DIR" \
             UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/library-views.txt" \
+            UI_SITE_EXPORT_BASE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/" \
             CREATE_API_TOKEN="$CREATE_API_TOKEN" \
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
