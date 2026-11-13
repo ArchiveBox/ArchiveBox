@@ -121,6 +121,33 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
       if (await cardHandle.evaluate((iframe) => iframe.isConnected)) throw error;
     }
   }));
+
+  const selectedViewer = await page.$('.thumb-card.selected-card[data-full-preview="1"]');
+  const previewHandle = selectedViewer && await page.$('#main-frame');
+  if (!previewHandle) return;
+  const preview = await previewHandle.contentFrame();
+  if (!preview) throw new Error('Selected plugin viewer has no loaded document');
+  await preview.waitForFunction((url) => location.href === url && document.readyState === 'complete',
+    {timeout}, await previewHandle.evaluate((iframe) => iframe.src));
+  for (const pdfHandle of await preview.$$('iframe')) {
+    const visiblePdf = await pdfHandle.evaluate((iframe) => {
+      const rect = iframe.getBoundingClientRect();
+      return new URL(iframe.src, location.href).pathname.toLowerCase().endsWith('.pdf')
+        && iframe.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})
+        && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth;
+    });
+    if (!visiblePdf) continue;
+    const pdfFrame = await pdfHandle.contentFrame();
+    if (!pdfFrame) throw new Error('Visible PDF preview has no loaded document');
+    const viewer = await page.waitForFrame((frame) => frame.parentFrame() === pdfFrame
+      && frame.url().startsWith('chrome-extension://'), {timeout});
+    // The native viewer element exists before its PDF pages have rendered.
+    await viewer.waitForFunction(() => {
+      const pdf = document.querySelector('pdf-viewer');
+      return pdf?.loadState_ === 'success' && pdf.initialLoadComplete_
+        && pdf.documentDimensions?.pageDimensions?.length > 0;
+    }, {timeout});
+  }
 }
 
 async function liveProgressState(readyOnly = false, rejectedFrameUrl = '') {
@@ -475,6 +502,8 @@ async function main() {
     const screenshotPaths = [];
     if (requireLiveProgress) checks.liveProgressCaptures = [];
     const capture = async (screenshotPath) => {
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'folder') await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'import') await require('../archivebox/core/library_gallery.js').openImportMenu(page);
       // Resizing can move the target to a different row/column. Re-anchor each
       // gallery variant so it photographs the requested controls at every width.
       if (process.env.SCREENSHOT_SCROLL_SELECTOR) {

@@ -21,41 +21,16 @@ _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 def build_snapshot_export_urls(filters) -> dict[str, str]:
     """Keyless exports of an existing snapshot filter, independent of page size."""
-    from django.http import QueryDict
+    from django.apps import apps
     from django.urls import reverse
+    from archivebox.core.exports import normalize_export_query
 
-    omitted = {
-        "api_key",
-        "key",
-        "token",
-        "api_token",
-        "access_token",
-        "password",
-        "auth",
-        "authorization",
-        "csrfmiddlewaretoken",
-        "csrf_token",
-        "sessionid",
-        "cookie",
-        "p",
-        "page",
-        "per_page",
-        "limit",
-        "offset",
-        "_popup",
-        "_to_field",
-        "_embedded",
-    }
-    query = QueryDict(mutable=True)
-    entries = filters.lists() if hasattr(filters, "lists") else filters.items()
-    for key, values in entries:
-        if key.lower() in omitted or values is None:
-            continue
-        query.setlist(key, [str(value) for value in (values if isinstance(values, (list, tuple)) else [values])])
+    query = normalize_export_query(filters)
     suffix = "?" + query.urlencode() if query else ""
+    formats = ("csv", "jsonl", "html_zip", "wacz") if apps.is_installed("archivebox.domains") else ("csv", "jsonl")
     return {
         "rss": reverse("admin:core_snapshot_feed") + suffix,
-        **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in ("csv", "jsonl")},
+        **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in formats},
     }
 
 

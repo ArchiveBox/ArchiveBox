@@ -14,10 +14,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from archivebox.config import CONSTANTS
-from archivebox.config.common import get_config
 from archivebox.machine.models import Machine, Process
-from .export_service import FORMATS, export_jobs, export_log_prefix, launch_export
-from .scope import crawl_site_scope, normalize_site_scope
+from .scope import crawl_site_scope, normalize_site_scope, site_snapshot_filters
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.models import Snapshot
 from archivebox.core.routes_util import build_admin_url, build_snapshot_detail_url
@@ -42,6 +40,8 @@ def clone_admin(view):
 @clone_admin
 @require_http_methods(["GET", "POST"])
 def index(request):
+    from archivebox.core.exports import ALL_EXPORT_FORMATS
+
     form = DomainCrawlForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         crawl = form.save(request.user)
@@ -139,7 +139,7 @@ def index(request):
             "form": form,
             "domains": domains,
             "domain_scopes": [row["scope"] for row in rows],
-            "export_formats": FORMATS.items(),
+            "export_formats": ALL_EXPORT_FORMATS.items(),
             "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
             "domain_headers": headers,
             "domain_query": query,
@@ -210,31 +210,26 @@ def action(request, clone_id, action):
 @clone_admin
 @require_http_methods(["GET", "POST"])
 def export(request, clone_id=None):
+    from archivebox.core.exports import snapshot_export_view
+    from archivebox.config.common import get_config
+
     crawl, scope = _site_context(request, clone_id)
-    if request.method == "GET":
-        jobs = export_jobs(scope=scope)
-        for job in jobs:
-            job.cancel_url = _site_url("cancel_export", crawl, scope, process_id=job.pk)
-        return render(
-            request,
-            "domains/export.html",
-            {
-                **archivebox_admin.each_context(request),
-                "title": "Export " + scope,
-                "site_scope": scope,
-                "export_url": _site_url("export", crawl, scope),
-                "export_formats": FORMATS.items(),
-                "replay_settings_url": _site_url("replay_settings", crawl, scope),
-                "export_jobs": jobs,
-                "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
-                "rewrite_archived_links": get_config().REWRITE_ARCHIVED_LINKS,
-            },
-        )
-    try:
-        launch_export(crawl, scope=scope, directory=request.POST.get("directory", ""), format=request.POST.get("format", ""))
-    except (ValueError, OSError) as error:
-        messages.error(request, str(error))
-    return redirect(_site_url("export", crawl, scope))
+    format = request.POST.get("format") or request.GET.get("format") or "html_zip"
+    selected = copy(request)
+    selected.GET = site_snapshot_filters(scope)
+    selected.path = reverse("admin:core_snapshot_export", args=[format])
+    selected.path_info = selected.path
+    if format in {"rss", "csv", "jsonl"}:
+        selected.method = "GET"
+    return snapshot_export_view(
+        selected,
+        format=format,
+        session_authorized=True,
+        extra_context={
+            "replay_settings_url": _site_url("replay_settings", crawl, scope),
+            "rewrite_archived_links": get_config().REWRITE_ARCHIVED_LINKS,
+        },
+    )
 
 
 @clone_admin
@@ -251,7 +246,14 @@ def replay_settings(request, clone_id=None):
 @clone_admin
 @require_POST
 def cancel_export(request, process_id, clone_id=None):
-    crawl, scope = _site_context(request, clone_id)
-    process = get_object_or_404(Process, pk=process_id, worker_type="site-export", pwd__startswith=export_log_prefix(scope))
-    process.kill()
-    return redirect(_site_url("export", crawl, scope))
+    from archivebox.core.exports import snapshot_export_job_view
+    from .export_service import export_log_prefix
+
+    _crawl, scope = _site_context(request, clone_id)
+    get_object_or_404(
+        Process,
+        pk=process_id,
+        worker_type="site-export",
+        pwd__startswith=export_log_prefix(query=site_snapshot_filters(scope), user=request.user),
+    )
+    return snapshot_export_job_view(request, process_id, action="cancel")

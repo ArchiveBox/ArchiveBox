@@ -135,9 +135,11 @@
     if (select.value === 'settings') { location.href = select.dataset.siteUrl; return; }
     override.value = select.dataset.domain || '';
     if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
-    const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
-    if (directory === null) { select.value = ''; return; }
-    form.elements.directory.value = directory;
+    if (!['rss', 'csv', 'jsonl'].includes(select.value)) {
+      const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
+      if (directory === null) { select.value = ''; return; }
+      form.elements.directory.value = directory;
+    }
     form.querySelector('[name="export_format"]').value = select.value;
     form.requestSubmit(document.getElementById('site-export-submit'));
   }));

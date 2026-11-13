@@ -183,14 +183,16 @@ def group_extensions(groups):
                 inodes.add(entry["inode"])
         for extension, files in members.items():
             row = extensions.setdefault(
-                extension, {"extension": extension, "file_count": 0, "group_count": 0, "potential_bytes": 0, "groups": []}
+                extension,
+                {"extension": extension, "file_count": 0, "group_count": 0, "potential_bytes": 0, "groups": []},
             )
             row["file_count"] += len(files)
             row["group_count"] += 1
             row["potential_bytes"] += savings[extension]
             row["groups"].append(group)
     return sorted(
-        (row for row in extensions.values() if row["potential_bytes"]), key=lambda row: (-row["potential_bytes"], row["extension"])
+        (row for row in extensions.values() if row["potential_bytes"]),
+        key=lambda row: (-row["potential_bytes"], row["extension"]),
     )
 
 

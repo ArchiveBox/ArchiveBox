@@ -59,3 +59,20 @@ def site_snapshots(scope: str):
     if prefix:
         snapshots = snapshots.filter(url__regex=rf"^[a-zA-Z]+://[^/?#]+{prefix}(?:/|\?|#|$)")
     return snapshots
+
+
+def site_snapshot_filters(scope: str):
+    from django.http import QueryDict
+
+    scope = normalize_site_scope(scope)
+    query = QueryDict(mutable=True)
+    if "," in scope and "/" not in scope:
+        query["domain"] = scope
+        return query
+    wildcard = scope.startswith("*.")
+    parts = urlsplit("//" + (scope[2:] if wildcard else scope))
+    query["domain"] = ("*." if wildcard else "") + parts.netloc
+    prefix = re.escape(parts.path.rstrip("/"))
+    if prefix:
+        query["url__regex"] = rf"^[a-zA-Z]+://[^/?#]+{prefix}(?:/|\?|#|$)"
+    return query

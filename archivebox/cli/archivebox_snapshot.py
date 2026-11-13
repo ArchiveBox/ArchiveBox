@@ -31,6 +31,8 @@ __package__ = "archivebox.cli"
 __command__ = "archivebox snapshot"
 
 import sys
+import json
+from pathlib import Path
 from collections.abc import Iterable, Iterator
 from itertools import islice
 
@@ -269,6 +271,14 @@ def snapshot_filter_options(*, default_filter_type: str):
 def snapshot_output_options(func):
     for decorator in reversed(
         (
+            click.option(
+                "--format",
+                "export_format",
+                type=click.Choice(["rss", "csv", "jsonl", "html_zip", "wacz"]),
+                help="Export the selected snapshots.",
+            ),
+            click.option("--output", type=click.Path(path_type=Path), help="Metadata file or absolute archive destination directory."),
+            click.option("--export-query", help="Snapshot view filters as a URL query string, e.g. folder=ID&q=research."),
             click.option("--csv", "-C", type=str, help="Print output as CSV with the provided fields, e.g.: timestamp,url,title"),
             click.option("--json", "as_json", is_flag=True, help="Print output as a JSON array"),
             click.option("--html", "as_html", is_flag=True, help="Print output as HTML"),
@@ -292,6 +302,9 @@ def list_snapshots(
     as_json: bool = False,
     as_html: bool = False,
     with_headers: bool = False,
+    export_format: str | None = None,
+    output: Path | None = None,
+    export_query: str | None = None,
     **kwargs,
 ) -> int:
     """
@@ -301,22 +314,57 @@ def list_snapshots(
         0: Success (even if no results)
     """
     from archivebox.misc.jsonl import write_records
+    from django.contrib.admin.options import IncorrectLookupParameters
+    from django.core.exceptions import SuspiciousOperation, ValidationError
 
-    output_formats = sum(bool(output_format) for output_format in (csv, as_json, as_html))
+    output_formats = sum(bool(output_format) for output_format in (csv, as_json, as_html, export_format))
     if output_formats > 1:
-        rprint("[red]Choose only one output format: --csv, --json, or --html[/red]", file=sys.stderr)
+        rprint("[red]Choose only one output format: --format, --csv, --json, or --html[/red]", file=sys.stderr)
         return 2
     if with_headers and not output_formats:
         rprint("[red]--with-headers requires --csv, --json, or --html[/red]", file=sys.stderr)
         return 2
 
+    if output is not None and not export_format:
+        rprint("[red]--output requires --format[/red]", file=sys.stderr)
+        return 2
     is_tty = sys.stdout.isatty() and not output_formats
 
     try:
-        queryset = build_snapshot_queryset(**kwargs)
-    except ValueError as err:
+        if export_query is not None or export_format:
+            from archivebox.core.exports import get_export_queryset
+
+            queryset = get_export_queryset(export_query or "", public_only=False).search(**kwargs)
+        else:
+            queryset = build_snapshot_queryset(**kwargs)
+    except (ValueError, IncorrectLookupParameters, SuspiciousOperation, ValidationError) as err:
         rprint(f"[red]{err}[/red]", file=sys.stderr)
         return 2
+
+    if export_format:
+        from archivebox.core.exports import ARCHIVE_FORMATS, write_snapshot_metadata
+
+        try:
+            if export_format in ARCHIVE_FORMATS:
+                if output is None or not output.is_absolute():
+                    raise ValueError("Archive exports require --output with an absolute destination directory.")
+                from django.apps import apps
+
+                if not apps.is_installed("archivebox.domains"):
+                    raise ValueError("Archive exports require the domains app.")
+                from archivebox.domains.exports import export_snapshots_to_directory
+
+                result = export_snapshots_to_directory(queryset, destination=output, format=export_format)
+                sys.stdout.write(json.dumps(result, default=str) + "\n")
+            elif output is not None:
+                with output.open("x", encoding="utf-8", newline="") as destination:
+                    write_snapshot_metadata(queryset, export_format, destination)
+            else:
+                write_snapshot_metadata(queryset, export_format, sys.stdout)
+        except (ValueError, OSError) as error:
+            rprint(f"[red]{error}[/red]", file=sys.stderr)
+            return 2
+        return 0
 
     count = 0
     if as_json:

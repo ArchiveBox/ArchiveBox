@@ -22,7 +22,7 @@ async function prepare(page, adminBaseUrl) {
   await fill('#id_concurrency', '2');
   await fill('#id_timeout_minutes', '30');
   await page.click('#siteclone-form .url-filter-patterns > summary');
-  await fill('#id_url_filters_denylist', '/(?:login|logout|submit|vote|hide|fave)(?:/|[?]|$)');
+  await fill('#id_url_filters_denylist', '/(?:login|logout|submit|vote|hide|fave)(?:/|[?]|$)'); // codespell:ignore fave
   for (const tag of ['hacker-news', 'site-clone', 'screenshot-gallery']) {
     await page.type('#id_tags_input', tag);
     await page.keyboard.press('Enter');

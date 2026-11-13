@@ -56,7 +56,9 @@ def test_runner_bounds_existing_tag_count_and_environment_bytes(admin_user, pref
 
     Tag.objects.bulk_create([Tag(name=f"{prefix}{index:03}", created_by=admin_user) for index in range(150)])
     crawl = Crawl.objects.create(
-        urls="https://news.ycombinator.com/", created_by=admin_user, config={"PLUGINS": "autotag", "AUTOTAG_ENABLED": True}
+        urls="https://news.ycombinator.com/",
+        created_by=admin_user,
+        config={"PLUGINS": "autotag", "AUTOTAG_ENABLED": True},
     )
     snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
     runner = CrawlRunner(crawl)

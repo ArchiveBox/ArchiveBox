@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from archivebox.config.common import get_request_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
+from archivebox.core.routes_util import build_snapshot_export_urls
 from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.plugins.discovery import get_plugin_catalog
@@ -167,7 +168,16 @@ def action(request, source_id, action):
 @require_GET
 def run_detail(request, run_id):
     run = get_object_or_404(ImporterRun.objects.select_related("source__persona", "crawl").defer("request"), pk=run_id)
-    return page(request, "importers/run.html", {"title": run.get_action_display(), "run": run, "active": run.status in ACTIVE_STATUSES})
+    return page(
+        request,
+        "importers/run.html",
+        {
+            "title": run.get_action_display(),
+            "run": run,
+            "active": run.status in ACTIVE_STATUSES,
+            "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {},
+        },
+    )
 
 
 @importer_admin
@@ -206,7 +216,10 @@ def run_activity(request, run_id):
     run.diagnostics = diagnostics(run)
     return JsonResponse(
         {
-            "html": render_to_string("importers/run_body.html", {"run": run}),
+            "html": render_to_string(
+                "importers/run_body.html",
+                {"run": run, "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {}},
+            ),
             "active": run.status in ACTIVE_STATUSES,
         },
     )

@@ -26,6 +26,7 @@
       {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
       <div class="changelist-footer">
         {% pagination cl %}
+        {% if list_export_urls and cl.opts.model_name == "snapshot" and not embedded_changelist %}{% include "core/snapshot_export_links.html" with export_urls=list_export_urls export_caption=True export_class="snapshot-list-exports" %}{% endif %}
         {% if cl.formset and cl.result_count %}<input type="submit" name="_save" class="default" value="{% translate 'Save' %}">{% endif %}
       </div>
       </form>

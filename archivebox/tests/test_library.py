@@ -35,6 +35,16 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert 'class="library-context"' not in html
     assert '<span class="folder-current">Papers</span>' in html
     assert f'aria-label="Add folder in Research" title="Add folder in Research" data-parent="{parent.pk}"' in html
+    from html import unescape
+    from urllib.parse import parse_qs, urlsplit
+    import re
+
+    response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk, "q": "A paper"}, HTTP_HOST=ADMIN_TEST_HOST)
+    menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
+    links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
+    assert {format for _, format in links} == {"rss", "csv", "jsonl", "html_zip", "wacz"}
+    for url, _format in links:
+        assert parse_qs(urlsplit(unescape(url)).query) == {"folder": [str(parent.pk)], "q": ["A paper"]}
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
@@ -142,10 +152,10 @@ def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token)
     link = urlsplit(links["rss"])
     assert link.path == "/admin/core/snapshot/feed/"
     assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
+    assert set(links) == {"rss", "csv", "jsonl", "html_zip", "wacz"}
     for format, url in links.items():
         assert api_token.token not in url
         assert parse_qs(urlsplit(url).query) == parse_qs(link.query)
-        assert format in {"rss", "csv", "jsonl"}
     assert APIToken.objects.count() == tokens_before
     assert not apps.is_installed("archivebox.feeds")
 
@@ -369,6 +379,18 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         )
         expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to Research")
         page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
+        page.get_by_role("button", name="Actions for Research", exact=True).click()
+        menu = page.locator(f"#folder-menu-{parent.pk}")
+        expect(menu).to_be_visible()
+        expect(menu.get_by_role("menuitem", name="Rename / move")).to_be_focused()
+        page.keyboard.press("ArrowDown")
+        expect(menu.locator('[data-export-format="rss"]')).to_be_focused()
+        page.keyboard.press("Escape")
+        expect(menu).to_be_hidden()
+        page.get_by_role("button", name="Actions for Research", exact=True).click()
+        menu.get_by_role("menuitem", name="Rename / move").click()
+        expect(page.locator("#folder-name")).to_have_value("Research")
+        page.locator(".folder-dialog-close").first.click()
         page.get_by_role("button", name="Add folder in Research", exact=True).click()
         expect(page.locator("#folder-parent")).to_have_value(str(parent.pk))
         page.locator("#folder-name").fill("Design inspiration")

@@ -33,8 +33,12 @@ def public_folder_data(admin_user, settings):
     ]:
         snapshots.append(
             Snapshot.objects.create(
-                url=f"https://example.com/{name}", title=name, crawl=crawl, folder=folder, config={"PERMISSIONS": permission}
-            )
+                url=f"https://example.com/{name}",
+                title=name,
+                crawl=crawl,
+                folder=folder,
+                config={"PERMISSIONS": permission},
+            ),
         )
     return parent, child, private, unlisted, empty, other, snapshots
 
