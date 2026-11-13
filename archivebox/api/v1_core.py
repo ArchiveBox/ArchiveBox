@@ -62,6 +62,57 @@ from archivebox.core.snapshot_status import filter_snapshots_by_status, normaliz
 
 router = Router(tags=["Core Models"])
 
+
+class SnapshotExportRequest(Schema):
+    query: str | None = None
+    directory: str | None = None
+
+
+@router.get("/snapshots/export/{format}", auth=None, url_name="snapshot_export")
+def snapshot_export(request: HttpRequest, format: str):
+    from archivebox.core.exports import snapshot_export_view
+
+    return snapshot_export_view(request, format=format, api=True)
+
+
+@router.post("/snapshots/export/{format}", auth=None, url_name="start_snapshot_export")
+def start_snapshot_export(request: HttpRequest, format: str, data: SnapshotExportRequest):
+    from django.http import QueryDict
+    from archivebox.core.exports import snapshot_export_view
+
+    # Preserve explicit credentials in headers/GET for authentication, never in job arguments.
+    if data.query is not None:
+        query = QueryDict(data.query, mutable=True)
+        for key, values in request.GET.lists():
+            query.setlist(key, values)
+        request.GET = query
+    request.POST = QueryDict(mutable=True)
+    if data.directory is not None:
+        request.POST["directory"] = data.directory
+    return snapshot_export_view(request, format=format, api=True)
+
+
+@router.get("/snapshots/exports/{process_id}", auth=None, url_name="snapshot_export_job")
+def snapshot_export_job(request: HttpRequest, process_id: str):
+    from archivebox.core.exports import snapshot_export_job_view
+
+    return snapshot_export_job_view(request, process_id, api=True)
+
+
+@router.get("/snapshots/exports/{process_id}/download/", auth=None, url_name="download_snapshot_export")
+def download_snapshot_export(request: HttpRequest, process_id: str):
+    from archivebox.core.exports import snapshot_export_job_view
+
+    return snapshot_export_job_view(request, process_id, action="download", api=True)
+
+
+@router.post("/snapshots/exports/{process_id}/cancel/", auth=None, url_name="cancel_snapshot_export")
+def cancel_snapshot_export(request: HttpRequest, process_id: str):
+    from archivebox.core.exports import snapshot_export_job_view
+
+    return snapshot_export_job_view(request, process_id, action="cancel", api=True)
+
+
 ARCHIVERESULT_UPLOAD_HOOK_NAME = Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME
 ARCHIVERESULT_UPLOAD_PLUGIN_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 
@@ -840,9 +891,12 @@ def _snapshots_rss_response(
     title: str = "ArchiveBox Snapshots",
 ) -> HttpResponse:
     web_base_url = build_web_url("/", request=request).rstrip("/")
+    from archivebox.core.exports import CREDENTIAL_PARAMETERS
+
     feed_query = request.GET.copy()
-    for sensitive_param in ("api_key", "token", "password"):
-        feed_query.pop(sensitive_param, None)
+    for key in list(feed_query):
+        if key.lower() in CREDENTIAL_PARAMETERS:
+            feed_query.pop(key)
     feed_path = request.path
     feed_url = request.build_absolute_uri(f"{feed_path}?{feed_query.urlencode()}" if feed_query else feed_path)
 
