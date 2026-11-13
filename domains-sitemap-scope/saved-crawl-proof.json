@@ -1,0 +1,48 @@
+{
+  "cases": [
+    {
+      "mode": "default",
+      "crawl_id": "06af752632977b8c80008f8243df9f12",
+      "urls": "https://news.ycombinator.com/newest\r\nhttps://news.ycombinator.com/sitemap.xml",
+      "filters": {
+        "URL_ALLOWLIST": "^(?i:https?://news\\.ycombinator\\.com(?::(?:80|443))?)/newest(?:/|[?#]|$)\n^https://news\\.ycombinator\\.com/sitemap\\.xml$",
+        "URL_DENYLIST": "\\.(css|otf|ttf|woff|woff2|gstatic\\.com|googleapis\\.com/css)(\\?.*)?$|^https?://news\\.ycombinator\\.com/(?:vote|hide)/?(?:[?#]|$)",
+        "ONLY_NEW": true
+      },
+      "native_matcher_results": {
+        "https://news.ycombinator.com/newest": true,
+        "https://news.ycombinator.com/sitemap.xml": true,
+        "https://news.ycombinator.com/newest/child": true,
+        "https://news.ycombinator.com/news": false,
+        "https://news.ycombinator.com/sitemap.xml/child": false,
+        "https://example.com/newest": false,
+        "https://news.ycombinator.com.evil.example/newest": false,
+        "https://news.ycombinator.com@evil.example/newest": false
+      },
+      "persona": "Default",
+      "max_depth": 3,
+      "tags": "sitemap-scope-default"
+    },
+    {
+      "mode": "manual",
+      "crawl_id": "06af7526453676d780006f05b9345543",
+      "urls": "https://news.ycombinator.com/newest\r\nhttps://news.ycombinator.com/sitemap.xml",
+      "filters": {
+        "URL_ALLOWLIST": "/newest|/sitemap",
+        "URL_DENYLIST": "/login",
+        "ONLY_NEW": true
+      },
+      "native_matcher_results": {
+        "https://news.ycombinator.com/newest": true,
+        "https://news.ycombinator.com/sitemap.xml": true,
+        "https://news.ycombinator.com/newest/child": true,
+        "https://news.ycombinator.com/newest/login": false
+      },
+      "persona": "Default",
+      "max_depth": 3,
+      "tags": "sitemap-scope-manual"
+    }
+  ],
+  "sqlite_integrity_check": "ok",
+  "real_hn_snapshots": 8
+}
