@@ -11,6 +11,7 @@ from django.utils.html import format_html
 
 from archivebox.config import CONSTANTS_CONFIG
 from archivebox.config.common import ArchiveBoxConfig, get_config
+from archivebox.plugins.documentation import get_plugin_documentation
 from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_catalog, get_plugin_icon, get_plugins
 
 
@@ -67,6 +68,8 @@ def _plugin_config_input_name(plugin_name: str, config_key: str) -> str:
 
 
 def _schema_types(schema: Mapping[str, Any]) -> list[str]:
+    if "anyOf" in schema:
+        return [kind for option in schema["anyOf"] for kind in _schema_types(option)]
     raw_type = schema.get("type") or "string"
     if isinstance(raw_type, list):
         return [str(item) for item in raw_type]
@@ -85,6 +88,8 @@ def _same_config_value(left: Any, right: Any) -> bool:
 
 def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> Any:
     schema_types = _schema_types(schema)
+    if raw_value == "" and "null" in schema_types:
+        return None
 
     if "boolean" in schema_types:
         if isinstance(raw_value, bool):
@@ -152,11 +157,90 @@ class PluginConfigFormMixin:
     plugin_groups: list[dict[str, Any]]
     plugin_group_specs = PLUGIN_GROUPS
     allow_crawl_execution_config_fields = True
+    settings_scopes = None
+
+    def settings_schemas(self):
+        derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
+        schemas = {
+            name: {
+                **schema,
+                "properties": {
+                    key: prop
+                    for key, prop in (schema.get("properties") or {}).items()
+                    if key not in derived and (self.settings_scopes is None or ArchiveBoxConfig.scope_for_key(key) in self.settings_scopes)
+                },
+            }
+            for name, schema in discover_plugin_configs().items()
+        }
+        if getattr(self, "include_core_settings", False):
+            from archivebox.config.common import config_field_metadata
+
+            schemas["archivebox"] = {
+                "properties": {
+                    key: meta["schema"]
+                    for key, meta in config_field_metadata(include_execution=True).items()
+                    if meta["plugin"] == "archivebox"
+                    and key.isupper()
+                    and key not in CONSTANTS_CONFIG
+                    and key not in derived
+                    and key != "SECRET_KEY"
+                    and (key != "PERMISSIONS" or getattr(self, "system_settings", False))
+                    and (getattr(self, "system_settings", False) or meta["scope"] in {"crawl_frozen", "crawl_execution"})
+                },
+            }
+        return schemas
+
+    def merge_settings(self, config, inherited):
+        """Patch only edited fields; opening and saving never pins inherited defaults."""
+        merged = dict(config or {})
+        changed = self.data.getlist("settings_changed") if "settings_editor" in self.data else None
+        overrides = self.clean_plugin_config_overrides(inherited, omit_inherited=False)
+        for plugin, schema in self.settings_schemas().items():
+            for key, prop in schema.get("properties", {}).items():
+                name = _plugin_config_input_name(plugin, key)
+                if name not in self.data or (changed is not None and key not in changed):
+                    continue
+                from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED, is_sensitive_config_key
+
+                if (prop.get("x-sensitive") or is_sensitive_config_key(key)) and self.data.get(name) in (
+                    "",
+                    SENSITIVE_CONFIG_VALUE_REDACTED,
+                ):
+                    continue
+                if changed is None and key in merged:
+                    try:
+                        if _same_config_value(_coerce_plugin_config_value(self.data.get(name), prop), merged[key]):
+                            overrides.pop(key, None)
+                            continue
+                    except (TypeError, ValueError, forms.ValidationError):
+                        pass  # The field cleaner reports this error.
+                merged.pop(key, None)
+        merged.update(overrides)
+        from pydantic import ValidationError
+
+        try:
+            for key, value in overrides.items():
+                without_key = {name: item for name, item in merged.items() if name != key}
+                baseline = self.resolve_settings(without_key)
+                if _same_config_value(value, baseline.get(key)) or (value == "" and baseline.get(key) is None):
+                    merged.pop(key, None)
+            self.resolve_settings(merged)
+        except ValidationError as err:
+            for error in err.errors(include_url=False, include_input=False):
+                self.add_error("config", f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}")
+        from archivebox.config.rule_views import url_rule_errors
+
+        for error in url_rule_errors(
+            merged.get("URL_ALLOWLIST", inherited.get("URL_ALLOWLIST")) or "",
+            merged.get("URL_DENYLIST", inherited.get("URL_DENYLIST")) or "",
+        ):
+            self.add_error("config", f"URL_{error['field'].upper()}: {error['message']}")
+        return merged
 
     def build_plugin_groups(self, runtime_config: Mapping[str, Any] | None = None) -> None:
         catalog = get_plugin_catalog()
         all_plugins = set(catalog)
-        plugin_configs = discover_plugin_configs()
+        plugin_configs = self.settings_schemas()
         runtime_config = runtime_config or get_config()
         binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config, binary_url_lookup)
@@ -192,6 +276,54 @@ class PluginConfigFormMixin:
             for field_name, title, note, dom_id, select_all_group, plugin_names in group_specs
             if any(plugin in all_plugins for plugin in plugin_names)
         ]
+        if getattr(self, "include_core_settings", False):
+            from archivebox.config.common import find_config_section
+
+            grouped = {card["name"] for group in self.plugin_groups for card in group["plugins"]}
+            ungrouped = sorted(all_plugins - grouped)
+            cards = self._build_plugin_cards("shared_settings", ungrouped, plugin_configs, runtime_config, binary_url_lookup)
+            cards = [card for card in cards if card["config_fields"]]
+            if cards:
+                self.plugin_groups.append({"field_name": "shared_settings", "title": "Other", "plugins": cards})
+            sections = {}
+            for key, schema in self.settings_schemas()["archivebox"]["properties"].items():
+                sections.setdefault(find_config_section(key), []).append(
+                    self._build_plugin_config_field("archivebox", key, schema, runtime_config),
+                )
+            self.plugin_groups.insert(
+                0,
+                {
+                    "field_name": "system",
+                    "title": "" if getattr(self, "system_settings", False) else "Capture defaults",
+                    "plugins": [
+                        {
+                            "name": section.lower(),
+                            "is_core": True,
+                            "label": _config_label(section.removesuffix("_CONFIG")),
+                            "config_fields": fields,
+                            "description": "",
+                            "config_count": len(fields),
+                            "system_default": getattr(self, "system_settings", False)
+                            and all(
+                                ArchiveBoxConfig.scope_for_key(field["key"]) in {"crawl_frozen", "crawl_execution"} for field in fields
+                            ),
+                        }
+                        for section, fields in sorted(sections.items(), key=lambda item: item[0] != "ARCHIVING_CONFIG")
+                    ],
+                },
+            )
+        if getattr(self, "system_settings", False):
+            for group in self.plugin_groups:
+                for card in group["plugins"]:
+                    if not card.get("is_core"):
+                        card["system_default"] = True
+        if self.plugin_groups:
+            self.plugin_groups[0]["changed_keys"] = self.data.getlist("settings_changed") if self.is_bound else []
+        for group in self.plugin_groups:
+            for card in group["plugins"]:
+                fields = [field for field in card["config_fields"] if field["key"] != card.get("enabled_config_key")]
+                card["primary_fields"] = [field for field in fields if not field["advanced"]]
+                card["advanced_fields"] = [field for field in fields if field["advanced"]]
 
     def _build_plugin_cards(
         self,
@@ -241,7 +373,7 @@ class PluginConfigFormMixin:
                     "enabled_field": next((field for field in config_fields if field["key"] == enabled_config_key), None),
                     "description": str(schema.get("description") or "").strip(),
                     "source_url": f"https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/{plugin_name}",
-                    "docs_url": f"https://plugins.archivebox.io/#{plugin_name}",
+                    **get_plugin_documentation(str(plugin_name)),
                     "required_plugins": [str(item) for item in schema.get("required_plugins") or []],
                     "required_binary_links": _build_required_binary_links(
                         schema.get("required_binaries") or [],
@@ -261,6 +393,8 @@ class PluginConfigFormMixin:
         prop_schema: Mapping[str, Any],
         runtime_config: Mapping[str, Any],
     ) -> dict[str, Any]:
+        if "anyOf" in prop_schema:
+            prop_schema = {**next((part for part in prop_schema["anyOf"] if part.get("type") != "null"), {}), **prop_schema}
         schema_types = _schema_types(prop_schema)
         enum = prop_schema.get("enum")
         input_name = _plugin_config_input_name(plugin_name, config_key)
@@ -319,10 +453,26 @@ class PluginConfigFormMixin:
                     unit = "ms" if re.search(r"\b(?:milliseconds?|ms)\b", description, re.I) or config_key.endswith("_MS") else "s"
         elif field_kind == "text" and prop_schema.get("pattern") == r"^\d+[kmgKMG]?$":
             quantity_kind, unit, quantity_format = "bytes", "B", "size-suffix"
+        elif config_key == "DELETE_AFTER":
+            quantity_kind, unit, quantity_format = "duration", "s", "retention"
+
+        plugin_choices = []
+        if config_key in {"PLUGINS", "CRAWL_DISCOVERY_PLUGINS"}:
+            plugin_choices = [
+                {"value": name, "label": str(plugin.manifest.get("title") or _config_label(name))}
+                for name, plugin in get_plugin_catalog().items()
+                if not plugin.config.hidden and plugin.config.category != "importers"
+            ]
+        placeholder = str((prop_schema.get("examples") or [None])[0] or input_value or _jsonish(default_value))
+        if plugin_choices and not input_value:
+            enabled = [item["value"] for item in plugin_choices if runtime_config.get(f"{item['value'].upper()}_ENABLED", True)]
+            placeholder = ", ".join(enabled[:3])
 
         return {
             "key": config_key,
-            "label": str(prop_schema.get("title") or _config_label(config_key.removeprefix(f"{plugin_name.upper()}_"))),
+            "label": _config_label(config_key)
+            if plugin_name == "archivebox"
+            else str(prop_schema.get("title") or _config_label(config_key.removeprefix(f"{plugin_name.upper()}_"))),
             "input_name": input_name,
             "kind": field_kind,
             "is_timeout": field_kind == "number" and "TIMEOUT" in config_key,
@@ -345,9 +495,21 @@ class PluginConfigFormMixin:
             "maximum": prop_schema.get("maximum"),
             "pattern": prop_schema.get("pattern"),
             "type_label": " / ".join(schema_types),
+            "placeholder": "" if is_sensitive else placeholder,
+            "plugin_choices": plugin_choices,
+            "source": getattr(self, "settings_sources", {}).get(config_key, ""),
+            "advanced": bool(prop_schema.get("x-advanced"))
+            or bool(re.search(r"(?:_BINARY(?:_ARGS)?|_ARGS|_DIR|_PATH|_PORT|_ENDPOINT)$", config_key)),
+            "range_max": prop_schema.get("maximum", 100 * 1024**3 if quantity_kind == "bytes" else (86400000 if unit == "ms" else 86400)),
+            "exclusive_minimum": prop_schema.get("exclusiveMinimum"),
         }
 
-    def clean_plugin_config_overrides(self, effective_config: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    def clean_plugin_config_overrides(
+        self,
+        effective_config: Mapping[str, Any] | None = None,
+        *,
+        omit_inherited: bool = True,
+    ) -> dict[str, Any]:
         if not self.is_bound:
             return {}
 
@@ -355,13 +517,16 @@ class PluginConfigFormMixin:
         overrides: dict[str, Any] = {}
         sources: dict[str, str] = {}
 
-        for plugin_name, schema in discover_plugin_configs().items():
+        changed = self.data.getlist("settings_changed") if "settings_editor" in self.data else None
+        for plugin_name, schema in self.settings_schemas().items():
             for config_key, prop_schema in (schema.get("properties") or {}).items():
                 if not isinstance(prop_schema, dict):
                     continue
 
                 input_name = _plugin_config_input_name(plugin_name, config_key)
                 if input_name not in self.data:
+                    continue
+                if changed is not None and config_key not in changed:
                     continue
                 if str(config_key) in CONSTANTS_CONFIG:
                     continue
@@ -378,6 +543,8 @@ class PluginConfigFormMixin:
                     "",
                     SENSITIVE_CONFIG_VALUE_REDACTED,
                 ):
+                    if raw_value == "" and changed is not None and config_key in changed:
+                        self.add_error("config", forms.ValidationError(f"{config_key}: enter the value again."))
                     continue
 
                 try:
@@ -390,9 +557,9 @@ class PluginConfigFormMixin:
                     continue
 
                 base_value = effective_config.get(config_key, prop_schema.get("default", ""))
-                if base_value is None and coerced_value == "":
+                if omit_inherited and base_value is None and coerced_value == "":
                     continue
-                if _same_config_value(coerced_value, base_value):
+                if omit_inherited and _same_config_value(coerced_value, base_value):
                     continue
 
                 existing_value = overrides.get(config_key)

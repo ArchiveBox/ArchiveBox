@@ -1,0 +1,6 @@
+{% extends 'plugins/config_field.html' %}
+{% block label %}Concurrent snapshots{% endblock %}
+{% block widget %}
+{% include 'config/concurrency_control.html' %}
+{% endblock %}
+{% block help %}Automatic uses available resources. A fixed limit caps simultaneous snapshots in each crawl.{% endblock %}

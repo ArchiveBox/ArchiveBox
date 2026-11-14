@@ -361,6 +361,7 @@ class Machine(ModelWithHealthStats):
         return None
 
     def save(self, *args, **kwargs):
+        strict_config_mirror = kwargs.pop("strict_config_mirror", False)
         if kwargs.get("update_fields") is None or "config" in kwargs["update_fields"]:
             from archivebox.config.collection import preserve_db_secret
 
@@ -388,15 +389,17 @@ class Machine(ModelWithHealthStats):
         # save fields we don't need to disk-mirror, which keeps hot paths
         # zero-IO). Errors during mirroring are swallowed: the DB write
         # already succeeded and we don't want a config-file write hiccup to
-        # turn a routine save into a 500.
+        # turn a routine save into a 500. Settings editors opt into strict
+        # reporting so they can accurately show a partial save.
         if update_fields is not None and "config" not in update_fields:
             return
         try:
             from archivebox.config.collection import mirror_machine_config_to_file
 
-            mirror_machine_config_to_file(self.config)
+            mirror_machine_config_to_file(self.config, strict=strict_config_mirror)
         except Exception:
-            pass
+            if strict_config_mirror:
+                raise
 
 
 class NetworkInterfaceManager(models.Manager):

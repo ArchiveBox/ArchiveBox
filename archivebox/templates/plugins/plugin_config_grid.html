@@ -2,8 +2,9 @@
 {% include 'plugins/config_styles.html' %}
 {% include 'plugins/config_quantity.html' %}
 <section id="plugin-settings" class="plugin-config-form" aria-label="Plugin settings">
+    {% for key in plugin_groups.0.changed_keys %}<input type="hidden" name="settings_changed" value="{{ key }}">{% endfor %}
     <aside class="plugin-settings-sidebar">
-        <div class="plugin-settings-sidebar-heading">Plugins</div>
+        {% if not hide_settings_heading %}<div class="plugin-settings-sidebar-heading">Settings</div>{% endif %}
         <div class="plugin-settings-search">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg>
             <input type="search" aria-label="Search plugin settings" placeholder="Search settings" autocomplete="off">
@@ -11,7 +12,7 @@
         <div class="plugin-settings-tabs" role="tablist" aria-label="Plugins" aria-orientation="vertical">
             {% for group in plugin_groups %}{% if group.plugins %}
             <div class="plugin-settings-nav-group">
-                <div class="plugin-settings-category">{{ group.title }}</div>
+                {% if group.title %}<div class="plugin-settings-category">{{ group.title }}</div>{% endif %}
                 {% for plugin in group.plugins %}
                 <div class="plugin-settings-nav-row">
                 <button type="button" role="tab" id="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" aria-controls="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-selected="false" tabindex="-1" data-plugin="{{ plugin.name }}">
@@ -31,9 +32,9 @@
         {% for group in plugin_groups %}{% if group.plugins %}
         <div class="plugin-group"{% if group.dom_id %} id="{{ group.dom_id }}"{% endif %}>
             {% for plugin in group.plugins %}
-            <section class="plugin-card" role="tabpanel" tabindex="0" id="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-labelledby="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" data-plugin-name="{{ plugin.name }}"{% if plugin.enabled_config_key %} data-plugin-enabled-key="{{ plugin.enabled_config_key }}"{% endif %}>
+            <section class="plugin-card{% if plugin.system_default %} system-defaults{% endif %}" role="tabpanel" tabindex="0" id="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-labelledby="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" data-plugin-name="{{ plugin.name }}"{% if plugin.enabled_config_key %} data-plugin-enabled-key="{{ plugin.enabled_config_key }}"{% endif %}>
                 <header class="plugin-card-main">
-                    <div class="plugin-settings-breadcrumb">{{ group.title }} <span aria-hidden="true">/</span> Plugin settings</div>
+                    {% if group.title %}<div class="plugin-settings-breadcrumb">{{ group.title }}</div>{% endif %}
                     <div class="plugin-title-row">
                         <div class="plugin-card-label">{{ plugin.label }}</div>
                         {% if group.show_selectors %}
@@ -45,13 +46,19 @@
                         {% endwith %}{% endif %}
                     </div>
                     <p class="plugin-choice-description">{{ plugin.description }}</p>
-                    <div class="plugin-settings-links"><a href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Documentation ↗</a><a href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a></div>
+                    {% if plugin.system_default %}<p class="system-default-note">System-wide defaults · <a href="/admin/personas/persona/">Customize a Persona</a></p>{% endif %}
+                    {% if plugin.docs_url %}<div class="plugin-settings-links"><a href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Docs ↗</a><a href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a></div>{% endif %}
+                    {% include 'plugins/config_preview.html' %}
                 </header>
                 <div class="plugin-config-details">
                     {% if plugin.config_fields %}
                     <div class="plugin-config-grid">
-                        {% for field in plugin.config_fields %}{% if field.key != plugin.enabled_config_key %}{% plugin_config_field plugin field %}{% endif %}{% endfor %}
+                        {% for field in plugin.primary_fields %}{% plugin_config_field plugin field %}{% endfor %}
                     </div>
+                    {% if plugin.advanced_fields %}<details class="plugin-advanced"{% if not plugin.primary_fields %} open{% endif %}>
+                        <summary>Advanced · {{ plugin.advanced_fields|length }}</summary>
+                        <div class="plugin-config-grid">{% for field in plugin.advanced_fields %}{% plugin_config_field plugin field %}{% endfor %}</div>
+                    </details>{% endif %}
                     {% endif %}
                     {% if plugin.required_binary_links %}
                     <div class="plugin-config-uses">Uses {% for binary in plugin.required_binary_links %}<a href="{{ binary.url }}" target="_blank" rel="noopener"><code>{{ binary.name }}</code></a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
@@ -63,6 +70,7 @@
         {% endif %}{% endfor %}
     </div>
 </section>
+{% include 'plugins/settings_changes.html' %}
 <script>
 (function() {
     if (window.archiveboxPluginConfigSyncLoaded) return;
@@ -99,6 +107,7 @@
                     field.hidden = !pluginMatches && !`${field.dataset.search} ${field.querySelector('label').textContent}`.toLowerCase().includes(query);
                     matches ||= !field.hidden;
                 });
+                if (query) panel.querySelectorAll('.plugin-advanced').forEach(details => { details.open = Boolean(details.querySelector('.plugin-config-field:not([hidden])')); });
                 tab.hidden = !matches;
                 tab.closest('.plugin-settings-nav-row').hidden = !matches;
             });
@@ -137,6 +146,8 @@
             search.value = '';
             filter();
             select(tabs.find(tab => panelFor(tab) === panel));
+            const advanced = event.target.closest('.plugin-advanced');
+            if (advanced) advanced.open = true;
         }, true);
         function updateStatus() {
             tabs.forEach(tab => {
@@ -168,11 +179,22 @@
             if (counter) counter.textContent = `${input.value.length} characters`;
             const slider = field.querySelector('.config-range-slider');
             if (slider) {
+                if (slider.matches('.config-limit-slider')) {
+                    const max = Number(input.max) || Math.max(Number(slider.dataset.defaultMax), Number(input.value) || 0);
+                    slider.max = max;
+                    const label = field.querySelector('[data-limit-max]');
+                    const units = [[1, 'B'], [1024, 'KiB'], [1048576, 'MiB'], [1073741824, 'GiB'], [1099511627776, 'TiB']];
+                    const [factor, unit] = label.dataset.unit === 'B' ? units.filter(([factor]) => factor <= max).at(-1) || units[0] : [1, label.dataset.unit];
+                    label.textContent = `${(max / factor).toLocaleString()} ${unit}`;
+                }
                 if (slider.matches('.config-timeout-slider')) {
                     const value = Number(input.value);
                     if (!input.hasAttribute('max') && Number.isFinite(value)) slider.max = Math.max(Number(slider.dataset.defaultMax), value);
                     const unit = slider.dataset.unit;
-                    const durationLabel = seconds => unit === 's' && seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} ${unit}`;
+                    const durationLabel = value => {
+                        const seconds = unit === 'ms' ? value / 1000 : value;
+                        return seconds >= 3600 && seconds % 3600 === 0 ? `${seconds / 3600} hr` : seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60} min` : `${value} ${unit}`;
+                    };
                     field.querySelector('[data-timeout-min]').textContent = durationLabel(Number(slider.min));
                     field.querySelector('[data-timeout-max]').textContent = durationLabel(Number(slider.max));
                 }

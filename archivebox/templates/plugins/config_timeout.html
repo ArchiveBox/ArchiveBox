@@ -1,5 +1,5 @@
 <div class="config-range">
-    <input type="range" class="config-range-slider config-timeout-slider" aria-label="{{ field.label }} slider" min="{{ field.minimum|default_if_none:'0' }}" max="{{ field.maximum|default_if_none:'300' }}" data-default-max="{{ field.maximum|default_if_none:'300' }}" data-unit="{{ field.unit }}" step="{{ field.step }}" value="{{ field.value }}">
+    <input type="range" class="config-range-slider config-timeout-slider" aria-label="{{ field.label }} slider" min="{{ field.minimum|default_if_none:'0' }}" max="{{ field.range_max }}" data-default-max="{{ field.range_max }}" data-unit="{{ field.unit }}" step="{{ field.step }}" value="{{ field.value }}">
     <input class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} type="number" name="{{ field.input_name }}" id="id_{{ field.input_name }}"{% if field.minimum != None %} min="{{ field.minimum }}"{% endif %}{% if field.maximum != None %} max="{{ field.maximum }}"{% endif %} step="{{ field.step }}" value="{{ field.value }}" aria-describedby="help_{{ field.input_name }}">
 </div>
 <div class="config-range-ends"><span data-timeout-min></span><span data-timeout-max></span></div>

@@ -1,0 +1,76 @@
+<style>
+.config-url-rules { display: grid; gap: 9px; }
+.config-url-rules textarea, .config-url-rules select { box-sizing: border-box; width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid #d5d6dc; border-radius: 6px; background: #fff; color: #36383d; font: inherit; }
+.config-url-rules textarea { height: auto !important; min-height: 0 !important; resize: vertical; }
+.config-rule-builder { padding: 10px; border: 1px solid #dedee5; border-radius: 8px; background: #f7f7fa; }
+.config-rule-toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.config-rule-toolbar select { width: auto; flex: 1 1 160px; }
+.config-rule-toolbar button, .config-rule-preview > button { border: 1px solid #d5d6dc; border-radius: 6px; padding: 6px 9px; background: #fff; color: #0066cc; cursor: pointer; white-space: nowrap; }
+.config-rule-toolbar button:disabled, .config-rule-preview > button:disabled { opacity: .6; cursor: wait; }
+.config-url-rules .config-rule-caption { display: block; float: none; width: auto; padding: 0; font-size: 11px; color: #6e7078; }
+.config-url-rules .config-rule-raw { font: 11px/1.6 ui-monospace, monospace; }
+.config-rule-preview summary { color: #0066cc; cursor: pointer; font-size: 12px; }
+.config-rule-preview > textarea { margin-top: 8px !important; margin-bottom: 8px !important; }
+.config-rule-results { list-style: none; padding: 0 !important; margin: 9px 0 0 !important; font-size: 12px; }
+.config-rule-results li { list-style: none; overflow-wrap: anywhere; padding: 5px 0; }
+.config-rule-results strong { display: inline-block; min-width: 67px; color: #247449; }
+.config-rule-results [data-allowed="false"] strong, .config-rule-message { color: #ab3037; }
+.config-rule-message:empty { display: none; }
+</style>
+<script>
+(() => {
+    if (window.archiveboxURLRulesInstalled) return;
+    window.archiveboxURLRulesInstalled = true;
+    document.addEventListener('click', async event => {
+        const button = event.target.closest('[data-rule-action]');
+        if (!button) return;
+        const widget = button.closest('.config-url-rules');
+        if (!widget) return;
+        const form = widget.closest('form');
+        const raw = widget.querySelector('.config-rule-raw');
+        const message = widget.querySelector('.config-rule-message');
+        const results = widget.querySelector('.config-rule-results');
+        const action = button.dataset.ruleAction;
+        const csrf = form?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+        let payload;
+        if (action === 'preview') {
+            const setting = key => form?.querySelector(`.plugin-config-input[data-config-key="${key}"]`)?.value || '';
+            payload = {allowlist: setting('URL_ALLOWLIST'), denylist: setting('URL_DENYLIST'), urls: widget.querySelector('[data-rule-urls]').value};
+        } else {
+            payload = {entries: widget.querySelector('[data-rule-entries]').value, mode: widget.querySelector('[data-rule-mode]').value};
+        }
+        message.textContent = '';
+        button.disabled = true;
+        try {
+            const response = await fetch(widget.dataset.previewUrl, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf || ''}, body: JSON.stringify(payload)});
+            if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Unable to test rules. Refresh this page and try again.');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Unable to update rules.');
+            if (action === 'preview') {
+                results.replaceChildren();
+                for (const row of data.results) {
+                    const item = document.createElement('li');
+                    const status = document.createElement('strong');
+                    item.dataset.allowed = String(row.allowed);
+                    status.textContent = row.allowed ? 'Included' : 'Excluded';
+                    item.append(status, document.createTextNode(row.url));
+                    const matches = row.deny_matches.length ? row.deny_matches : row.allow_matches;
+                    item.title = matches.length ? matches.join('\n') : row.allowed ? 'No include rules' : 'No include rule matched';
+                    results.append(item);
+                }
+                message.textContent = data.errors.map(error => `${error.field === 'allowlist' ? 'Include' : 'Exclude'}: ${error.pattern} — ${error.message}`).join('\n');
+            } else {
+                const lines = action === 'append' ? [raw.value, data.generated].join('\n').split('\n').filter(line => line.trim()) : data.generated.split('\n');
+                raw.value = [...new Set(lines)].join('\n');
+                raw.dispatchEvent(new Event('input', {bubbles: true}));
+                raw.dispatchEvent(new Event('change', {bubbles: true}));
+                raw.focus();
+            }
+        } catch (error) {
+            message.textContent = error.message;
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>

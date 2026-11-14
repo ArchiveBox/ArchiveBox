@@ -1,0 +1,3 @@
+{% extends 'plugins/config_field.html' %}
+{% block label %}Crawl size limit{% endblock %}
+{% block widget %}{% include 'config/number_range.html' with slider_max=107374182400 slider_step=1048576 slider_label='100 GiB' slider_unit='B' preferred_unit='GiB' placeholder='107374182400' %}{% endblock %}

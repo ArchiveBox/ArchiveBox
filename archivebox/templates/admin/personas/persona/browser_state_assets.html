@@ -1,0 +1,62 @@
+<style>
+.persona-browser-state { width:100%; font-family:var(--font-family-primary); }
+.persona-state-cards { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px; }
+.persona-state-card { padding:18px;border:1px solid #dfe3eb;border-radius:14px;background:#fff;min-width:0; }
+.persona-state-card header { display:flex;align-items:center;gap:10px;margin-bottom:14px; }
+.persona-state-card header>span { display:grid;place-items:center;background:#eff5ff;color:#1670d8;border-radius:10px;width:34px;height:34px;font-size:24px; }
+.persona-state-card h3 { margin:0;font-size:15px;color:#253046; }
+.persona-state-count { font-size:13px;color:#647084; }.persona-state-count strong { font-size:30px;line-height:1.2;color:#253046;font-weight:600; }
+.persona-state-card p { margin:8px 0;font-size:12px;color:#647084; }.persona-state-card small { display:block;margin:12px 0;color:#798395;font-size:11px; }
+.persona-state-domains { display:flex;flex-wrap:wrap;gap:5px; }.persona-state-domains span { max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:4px 7px;border-radius:6px;background:#f0f4f9;font-size:11px;color:#455369; }
+.persona-state-editor>summary,.persona-extension-setup>summary { cursor:pointer;color:#1665c1;font-size:13px; }
+.persona-state-editor textarea { box-sizing:border-box!important;width:100%!important;min-height:100px;margin:12px 0 8px;padding:9px!important;border:1px solid #ccd5e1!important;border-radius:8px;font:12px/1.5 monospace!important; }
+.persona-state-editor input[type=file] { width:100%;font-size:12px; }.persona-state-actions { display:flex;flex-wrap:wrap;gap:8px;margin-top:12px; }
+.persona-state-actions button { padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;color:#185ca9;font-size:12px;cursor:pointer; }.persona-state-actions .persona-state-clear { color:#b42318;background:white; }
+.persona-state-message { margin-top:8px;font-size:12px;color:#197341;white-space:pre-wrap; }.persona-state-message[data-error=true] { color:#b42318; }
+.persona-extension-setup { margin-top:16px;padding:16px 18px;background:#f7f9fc;border:1px solid #dfe3eb;border-radius:12px; }.persona-extension-setup summary { font-weight:600; }.persona-extension-setup summary span { color:#7c8798;font-weight:400;margin-left:12px; }
+.persona-extension-downloads { display:flex;flex-wrap:wrap;gap:9px;margin:16px 0; }.persona-extension-downloads a { display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #dfe3eb;background:white;border-radius:9px;font-size:12px; }.persona-extension-downloads img { width:24px;height:24px;object-fit:contain; }.persona-extension-setup ol { padding-left:20px;font-size:13px;line-height:1.8; }.persona-extension-setup code { overflow-wrap:anywhere; }.persona-extension-setup>a { font-size:12px; }
+@media(max-width:800px){.persona-state-cards { grid-template-columns:1fr; }}
+</style>
+<script>
+(() => {
+    if (window.archiveboxPersonaStateInstalled) return;
+    window.archiveboxPersonaStateInstalled = true;
+    document.addEventListener('change', async event => {
+        if (!event.target.matches('[data-state-file]')) return;
+        const file = event.target.files[0];
+        if (file) event.target.closest('.persona-state-card').querySelector('[data-state-payload]').value = await file.text();
+    });
+    document.addEventListener('click', async event => {
+        const button = event.target.closest('[data-state-action]');
+        if (!button) return;
+        const card = button.closest('.persona-state-card');
+        const state = card.closest('.persona-browser-state');
+        const message = card.querySelector('.persona-state-message');
+        const data = new FormData();
+        data.set('artifact', card.dataset.stateCard);
+        data.set('action', button.dataset.stateAction);
+        if (button.dataset.stateAction === 'merge') data.set('payload', card.querySelector('[data-state-payload]').value);
+        data.set('csrfmiddlewaretoken', state.closest('form').querySelector('[name=csrfmiddlewaretoken]').value);
+        button.disabled = true;
+        message.textContent = ''; message.dataset.error = 'false';
+        try {
+            const response = await fetch(state.dataset.stateUrl, {method:'POST', body:data, credentials:'same-origin'});
+            if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Unable to update browser state. Refresh and try again.');
+            const result = await response.json();
+            if (!response.ok) throw new Error(Object.values(result.errors).flat().map(error => error.message).join('\n'));
+            for (const summary of result.cards) {
+                const target = state.querySelector(`[data-state-card="${summary.key}"]`);
+                target.querySelector('[data-state-count]').textContent = summary.count;
+                target.querySelector('[data-state-detail]').textContent = summary.detail;
+                const domains = target.querySelector('[data-state-domains]'); domains.replaceChildren();
+                summary.domains.forEach(domain => { const badge=document.createElement('span');badge.textContent=domain;domains.append(badge); });
+                target.querySelector('[data-state-updated]').textContent = summary.updated ? `Updated ${new Date(summary.updated).toLocaleString()}` : 'No saved state';
+            }
+            card.querySelector('[data-state-payload]').value = '';
+            card.querySelector('[data-state-file]').value = '';
+            message.textContent = button.dataset.stateAction === 'clear' ? 'Cleared.' : 'Saved.';
+        } catch (error) { message.dataset.error = 'true'; message.textContent = error.message; }
+        finally { button.disabled = false; }
+    });
+})();
+</script>

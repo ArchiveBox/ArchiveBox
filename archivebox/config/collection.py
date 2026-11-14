@@ -40,6 +40,10 @@ _MIRROR_IN_PROGRESS: bool = False
 _INITIAL_SYNC_DONE: bool = False
 
 
+class ConfigMirrorError(RuntimeError):
+    """The database config was saved, but its ArchiveBox.conf mirror failed."""
+
+
 def preserve_db_secret(machine) -> None:
     """Ordinary Machine.config replacement must not erase or rotate an adopted key."""
     try:
@@ -130,7 +134,7 @@ def _render_config_file_content(config: dict[str, str]) -> str:
     return buf.getvalue()
 
 
-def _write_file_if_changed(content: str) -> bool:
+def _write_file_if_changed(content: str, *, strict: bool = False) -> bool:
     """Atomic-write ``ArchiveBox.conf`` only when contents actually differ.
 
     Skipping unchanged writes is the difference between every Machine.save in
@@ -148,16 +152,18 @@ def _write_file_if_changed(content: str) -> bool:
     try:
         atomic_write(config_path, content)
     except (Exception, SystemExit) as err:
+        if strict:
+            raise ConfigMirrorError("Settings were saved to the database, but ArchiveBox.conf could not be updated.") from err
         logging.getLogger(__name__).warning("Unable to update ArchiveBox.conf; keeping existing file (%s)", type(err).__name__)
         return False
     return True
 
 
-def mirror_machine_config_to_file(config: Any) -> None:
+def mirror_machine_config_to_file(config: Any, *, strict: bool = False) -> None:
     """Rewrite ``ArchiveBox.conf`` so it mirrors ``Machine.config`` exactly.
 
-    Called from ``Machine.save`` after the row is committed. Recursion-guarded
-    so the matching write_config_file -> Machine.save bounce doesn't loop.
+    Write after the transaction commits. With ``strict=True``, failure raises
+    ConfigMirrorError from save (autocommit) or from the enclosing commit.
     """
     global _MIRROR_IN_PROGRESS
     if _MIRROR_IN_PROGRESS:
@@ -167,7 +173,15 @@ def mirror_machine_config_to_file(config: Any) -> None:
         flat = _coerce_to_str_dict(config)
         from django.db import transaction
 
-        transaction.on_commit(lambda: _write_file_if_changed(_render_config_file_content(flat)), robust=True)
+        def write_mirror():
+            try:
+                _write_file_if_changed(_render_config_file_content(flat), strict=strict)
+            except (Exception, SystemExit) as err:
+                if strict:
+                    raise ConfigMirrorError("Settings were saved to the database, but ArchiveBox.conf could not be updated.") from err
+                raise
+
+        transaction.on_commit(write_mirror, robust=not strict)
     finally:
         _MIRROR_IN_PROGRESS = False
 

@@ -42,6 +42,7 @@
             name="{{ field.input_name }}"
             id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
             value="{{ field.value }}"
+            {% if not field.is_sensitive %}placeholder="{{ field.placeholder }}"{% endif %}
         {% if field.kind == "number" %}step="{{ field.step }}"{% if field.minimum != None %} min="{{ field.minimum }}"{% endif %}{% if field.maximum != None %} max="{{ field.maximum }}"{% endif %}{% endif %}
             {% if field.pattern %}pattern="{{ field.pattern }}"{% endif %}
             {% if field.is_sensitive %}autocomplete="off" placeholder="Leave blank to keep current value"{% endif %}
@@ -54,6 +55,7 @@
     {% endif %}
     <details class="plugin-config-meta"><summary>Details</summary>
     <code>{{ field.key }}</code>
+    {% if field.source %}<div>Source: {{ field.source }}</div>{% endif %}
     <div class="plugin-config-default">
         Current:
         <span class="plugin-config-current" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %}>

@@ -6,6 +6,7 @@ import hashlib
 from django import forms
 from django.db.models.manager import BaseManager
 from django.db.models.query import QuerySet
+from django.template.loader import render_to_string
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
@@ -411,12 +412,25 @@ class URLFiltersWidget(forms.Widget):
         widget_id_raw = attrs.get("id", name) if attrs else name
         widget_id = re.sub(r"[^A-Za-z0-9_]", "_", str(widget_id_raw)) or name
         value = value or {}
-        allowlist = escape(value.get("allowlist", "") or "")
-        denylist = escape(value.get("denylist", "") or "")
+        rule_editors = {
+            key: render_to_string(
+                "config/url_rules_control.html",
+                {
+                    "field": {
+                        "key": f"URL_{key.upper()}",
+                        "label": "Include URLs" if key == "allowlist" else "Exclude URLs",
+                        "input_name": f"{name}_{key}",
+                        "input_id": f"{widget_id}_{key}",
+                        "value": value.get(key, "") or "",
+                    },
+                },
+            )
+            for key in ("allowlist", "denylist")
+        }
         same_domain_checked = " checked" if value.get("same_domain_only") else ""
         subpaths_checked = " checked" if value.get("subpaths_only") else ""
         only_new_checked = " checked" if value.get("only_new") else ""
-        patterns_help = '<div class="help-text">These values can be one regex pattern or domain per line. URL_DENYLIST takes precedence over URL_ALLOWLIST.</div>'
+        patterns_help = '<div class="help-text">One regex or domain per line. Exclude rules take priority.</div>'
         patterns_start = '<details class="url-filter-patterns"><summary>URL filters</summary>' if self.collapse_patterns else ""
         patterns_end = patterns_help + "</details>" if self.collapse_patterns else ""
 
@@ -427,23 +441,15 @@ class URLFiltersWidget(forms.Widget):
             <div class="url-filters-grid">
                 <div class="url-filters-column">
                     <div class="url-filter-label-row">
-                        <label for="{widget_id}_allowlist" class="url-filter-label"><span class="url-filter-label-main">🟢 URL_ALLOWLIST</span></label>
-                        <span class="url-filter-label-note">Regex patterns or domains to include, one pattern per line.</span>
+                        <label for="{widget_id}_allowlist" class="url-filter-label"><span class="url-filter-label-main">Include URLs</span></label>
                     </div>
-                    <textarea id="{widget_id}_allowlist"
-                              name="{name}_allowlist"
-                              rows="2"
-                              placeholder="^https?://([^/]+\\.)?(example\\.com|example\\.org)([:/]|$)">{allowlist}</textarea>
+                    {rule_editors["allowlist"]}
                 </div>
                 <div class="url-filters-column">
                     <div class="url-filter-label-row">
-                        <label for="{widget_id}_denylist" class="url-filter-label"><span class="url-filter-label-main">⛔ URL_DENYLIST</span></label>
-                        <span class="url-filter-label-note">Regex patterns or domains to exclude, one pattern per line.</span>
+                        <label for="{widget_id}_denylist" class="url-filter-label"><span class="url-filter-label-main">Exclude URLs</span></label>
                     </div>
-                    <textarea id="{widget_id}_denylist"
-                              name="{name}_denylist"
-                              rows="2"
-                              placeholder="^https?://([^/]+\\.)?(cdn\\.example\\.com|analytics\\.example\\.org)([:/]|$)">{denylist}</textarea>
+                    {rule_editors["denylist"]}
                 </div>
             </div>
             {patterns_end}

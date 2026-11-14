@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/admin/">Admin</a></div>{% endblock %}
+{% block content %}
+<form method="post" id="system-settings-form">
+    {% csrf_token %}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px">
+        <div><h1 style="margin:0">System settings</h1><p style="margin:5px 0;color:#697386">{{ machine.hostname }} · ArchiveBox.conf</p></div>
+        <input type="submit" value="Save settings" class="default">
+    </div>
+    {{ form.non_field_errors }}{{ form.config.errors }}
+    {% include 'plugins/plugin_config_grid.html' with plugin_groups=form.plugin_groups hide_settings_heading=True %}
+</form>
+{% endblock %}

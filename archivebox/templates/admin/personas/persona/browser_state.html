@@ -1,0 +1,24 @@
+{% load static %}
+<div class="persona-browser-state" data-state-url="{{ state_url }}">
+    <div class="persona-state-cards">
+    {% for card in cards %}
+        <section class="persona-state-card" data-state-card="{{ card.key }}">
+            <header><span aria-hidden="true">{{ card.icon }}</span><h3>{{ card.title }}</h3></header>
+            <div class="persona-state-count"><strong data-state-count>{{ card.count }}</strong> {{ card.unit }}</div>
+            <p data-state-detail>{{ card.detail }}</p>
+            <div class="persona-state-domains" data-state-domains>{% for domain in card.domains %}<span>{{ domain }}</span>{% endfor %}</div>
+            <small data-state-updated>{% if card.updated %}Updated {{ card.updated|timesince }} ago{% else %}No saved state{% endif %}{% if card.size %} · {{ card.size|filesizeformat }}{% endif %}</small>
+            {% if can_change and card.key != 'profile' %}
+            <details class="persona-state-editor"><summary>Add {{ card.title|lower }}</summary>
+                <textarea data-state-payload rows="5" aria-label="Paste {{ card.title|lower }}" placeholder="{% if card.key == 'cookies' %}Paste Netscape cookies.txt{% else %}Paste auth.json or Playwright storage state{% endif %}" autocomplete="off" spellcheck="false"></textarea>
+                <input type="file" data-state-file accept="{% if card.key == 'cookies' %}.txt{% else %}.json{% endif %},text/plain,application/json" aria-label="Upload {{ card.title|lower }}">
+                <div class="persona-state-actions"><button type="button" data-state-action="merge">Apply {{ card.title|lower }}</button><button type="button" class="persona-state-clear" data-state-action="clear">Clear {{ card.title|lower }}</button></div>
+            </details>
+            {% endif %}
+            <div class="persona-state-message" role="status" aria-live="polite"></div>
+        </section>
+    {% endfor %}
+    </div>
+    {% include 'admin/personas/persona/extension_setup.html' %}
+</div>
+{% include 'admin/personas/persona/browser_state_assets.html' %}
