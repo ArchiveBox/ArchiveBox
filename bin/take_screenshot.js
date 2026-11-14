@@ -303,6 +303,26 @@ async function main() {
   }
   const browser = await puppeteer.launch(launchOptions);
   let page;
+  let exportDownloadDirectory;
+  let exportDownload;
+  if (process.env.SCREENSHOT_LIBRARY_MENU === 'export') {
+    exportDownloadDirectory = fs.mkdtempSync(path.join(require('os').tmpdir(), 'archivebox-export-gallery-'));
+    const downloads = await browser.target().createCDPSession();
+    await downloads.send('Browser.setDownloadBehavior', {behavior: 'allowAndName', downloadPath: exportDownloadDirectory, eventsEnabled: true});
+    exportDownload = new Promise((resolve, reject) => {
+      downloads.once('Browser.downloadWillBegin', (started) => {
+        const progress = (event) => {
+          if (event.guid !== started.guid) return;
+          if (event.state === 'completed' || event.state === 'canceled') {
+            downloads.off('Browser.downloadProgress', progress);
+            if (event.state === 'canceled') reject(new Error('The gallery export download was canceled.'));
+            else resolve({format: 'wacz', bytes: fs.statSync(path.join(exportDownloadDirectory, event.guid)).size});
+          }
+        };
+        downloads.on('Browser.downloadProgress', progress);
+      });
+    });
+  }
   const documentRequests = new Map();
   const pageErrors = [];
   try {
@@ -508,6 +528,8 @@ async function main() {
         await page.waitForSelector('#export-notifications [data-status="exited"],#export-notifications .error', {timeout:120000});
         if (await page.$('#export-notifications .error')) throw new Error('The gallery export failed.');
         if (await page.$('.folder-sidebar .snapshot-export-status,#result_list .snapshot-export-status')) throw new Error('Export notifications must not be embedded in the list.');
+        checks.exportDownload = await exportDownload;
+        if (!checks.exportDownload.bytes) throw new Error('The gallery export download is empty.');
       }
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'folder') await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'import') await require('../archivebox/core/library_gallery.js').openImportMenu(page);
@@ -564,6 +586,7 @@ async function main() {
     throw error;
   } finally {
     await browser.close();
+    if (exportDownloadDirectory) fs.rmSync(exportDownloadDirectory, {recursive: true, force: true});
   }
 }
 
