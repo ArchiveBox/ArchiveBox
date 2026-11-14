@@ -266,6 +266,8 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
             if rejected:
                 return rejected
         directory = request.POST.get("directory") if not public_only else None
+        if directory and not Path(directory).is_absolute():
+            return HttpResponseBadRequest("Enter an absolute server directory path.")
         try:
             process = launch_export(
                 query=query.urlencode(),

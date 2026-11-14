@@ -422,7 +422,8 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
     for snapshot in snapshots:
         snapshot.refresh_from_db()
     assert snapshots[0].folder_id == child.pk
-    assert {snapshot.folder_id for snapshot in snapshots[1:]} == {parent.pk}
+    items = parent.children.get(name="Items")
+    assert {snapshot.folder_id for snapshot in snapshots[1:]} == {items.pk}
     assert Folder.objects.get(name="Design inspiration").parent_id == parent.pk
 
 
