@@ -173,9 +173,17 @@ module.exports.openFolderMenu = openFolderMenu;
 async function openImportMenu(page) {
   if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
   if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
-  await page.click('.library-import-toggle');
-  await page.waitForSelector('#library-import-menu:popover-open');
-  const menu = await page.$eval('#library-import-menu', node => {
+  let id;
+  for (const button of await page.$$('.library-import-toggle')) {
+    if (!await button.boundingBox()) continue;
+    id = await button.evaluate(node => node.getAttribute('popovertarget'));
+    if (!await page.$(`#${id}:popover-open`)) await button.click();
+    break;
+  }
+  if (!id) throw new Error('No visible Import button.');
+  await page.waitForSelector(`#${id}:popover-open`);
+  await page.waitForFunction(id => document.getElementById(id).contains(document.activeElement), {}, id);
+  const menu = await page.$eval(`#${id}`, node => {
     const box = node.getBoundingClientRect();
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,links:[...node.querySelectorAll('a')].map(link=>({text:link.textContent,href:link.getAttribute('href')}))};
   });
