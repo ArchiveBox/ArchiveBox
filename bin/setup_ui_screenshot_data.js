@@ -140,7 +140,6 @@ async function main() {
     featureViews.push({...library, name: 'Folder export menu', mode: 'folder-menu'});
     featureViews.push({...library, name: 'Import sources menu', mode: 'import-menu'});
     featureViews.push(await require('../archivebox/core/public_library_gallery.js').prepare(page, process.env.UI_LIBRARY_PUBLIC_URL, library.url));
-    featureViews.push({name: 'Folder creators', url: `${adminBaseUrl}/admin/core/folder/`, path: '/admin/core/folder/', source: 'archivebox/core/admin_folders.py'});
     featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
     featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
