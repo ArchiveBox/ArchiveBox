@@ -5,13 +5,13 @@ import pytest
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
-@pytest.mark.parametrize("mode,enabled,admin", [("open", True, False), ("approval", True, True), ("open", False, False)])
-def test_allauth_registration_and_login(initialized_archive, mode, enabled, admin):
+@pytest.mark.parametrize("mode,enabled,smtp", [("open", True, ""), ("approval", True, ""), ("open", False, "127.0.0.1")])
+def test_allauth_registration_and_login(initialized_archive, mode, enabled, smtp):
     env = {
         "ALLAUTH_ENABLED": "true",
         "REGISTRATION_ENABLED": str(enabled),
         "REGISTRATION_MODE": mode,
-        "DEFAULT_USER_PERMISSIONS": "admin" if admin else "none",
+        "EMAIL_HOST": smtp,
         "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay",
         "BASE_URL": "http://testserver",
     }
@@ -37,19 +37,21 @@ assert b'<title>Log in | ArchiveBox</title>' in r.content
 assert r.headers.get('X-Frame-Options') == 'DENY'
 assert r.headers.get('Content-Security-Policy') == "frame-ancestors 'none'"
 assert b'Forgot your password?' in r.content
-assert (b'Create an account' in r.content) == settings.CONFIG.REGISTRATION_ENABLED
+reset = fromstring(r.content).xpath('//a[contains(text(), "Forgot your password?")]')[0]
+if settings.EMAIL_HOST:
+    assert reset.get('href') == '/accounts/password/reset/' and reset.get('onclick') is None
+else:
+    assert reset.get('href') == '#password-reset-help'
+    assert 'alert(this.dataset.message)' in reset.get('onclick')
+    assert 'configure SMTP (EMAIL_HOST)' in reset.get('data-message')
+    assert 'archivebox manage changepassword YOUR_USERNAME' in reset.get('data-message')
+    assert 'docker compose exec archivebox archivebox manage changepassword YOUR_USERNAME' in reset.get('data-message')
+assert b'Create an account' not in r.content
 csrf = c.cookies[settings.CSRF_COOKIE_NAME].value
 r = c.post('/accounts/signup/', {'email': 'new@example.com', 'username': 'newuser', 'password1': 'Sufficient-Test-Pass123!', 'password2': 'Sufficient-Test-Pass123!', 'csrfmiddlewaretoken': csrf})
 user = User.objects.filter(username='newuser').first()
-if settings.CONFIG.REGISTRATION_ENABLED:
-    assert user is not None, r.content
-    assert user.is_active == (settings.CONFIG.REGISTRATION_MODE == 'open')
-    assert user.is_superuser == (settings.CONFIG.DEFAULT_USER_PERMISSIONS == 'admin')
-    assert user.is_staff == user.is_superuser
-    assert ('_auth_user_id' in c.session) == user.is_active
-else:
-    assert r.status_code == 200 and b'Sign Up Closed' in r.content, (r.status_code, r.content)
-    assert user is None
+assert r.status_code == 200 and b'Sign Up Closed' in r.content, (r.status_code, r.content)
+assert user is None
 # Existing username/password users retain access even with no EmailAddress migration.
 legacy = User.objects.create_superuser('legacy', 'legacy@example.com', 'Sufficient-Test-Pass123!')
 c = Client(enforce_csrf_checks=True)

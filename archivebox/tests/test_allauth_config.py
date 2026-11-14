@@ -8,7 +8,6 @@ def test_allauth_is_explicit_and_registration_is_closed():
     config = get_config()
     assert config.ALLAUTH_ENABLED is False
     assert config.REGISTRATION_ENABLED is False
-    assert config.DEFAULT_USER_PERMISSIONS == "none"
     sections = get_all_configs()
     assert "ALLAUTH_CONFIG" in sections
     assert all(section.model_dump()["toml_section_header"] == name for name, section in sections.items())

@@ -5,16 +5,16 @@
 
 {% block extrastyle %}{{ block.super }}
 <link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+<link rel="stylesheet" href="{% static 'archivebox/auth/login.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
 {% endblock %}
 
-{% block bodyclass %}{{ block.super }} login{% endblock %}
+{% block bodyclass %}{{ block.super }} login auth-login{% endblock %}
 
 {% block usertools %}{% endblock %}
 {% block nav-global %}{% endblock %}
 
 {% block content_title %}
-  <center>Log in to your archive.</center><br/><br/>
-  <img src="{% static 'archive.png' %}" alt="" style="width: 80px; display: block; margin: auto"/><br/>
+<h1>{% trans "Log in" %}</h1>
 {% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -27,37 +27,57 @@
 {% endif %}
 {{ form.non_field_errors }}
 
-<form method="POST" action="{% url 'account_login' %}">
+<form method="POST" action="{% url 'account_login' %}" class="auth-form">
   {% csrf_token %}
   {% for field in form %}
-  <div class="form-row">
+  {% if field.is_hidden %}
+  {{ field }}
+  {% elif field.field.widget.input_type == 'checkbox' %}
+  <div class="auth-checkbox">
     {{ field.errors }}
-    {{ field.label_tag }}{{ field }}
+    {{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>
   </div>
+  {% else %}
+  <div class="auth-field">
+    {% if field.name == 'login' %}
+    <label for="{{ field.id_for_label }}">{% trans "Username or email" %}</label>
+    {% else %}
+    {{ field.label_tag }}
+    {% endif %}
+    {{ field }}
+    {{ field.errors }}
+  </div>
+  {% endif %}
   {% endfor %}
   {% if redirect_field_value %}
   <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
   {% endif %}
-  <div class="submit-row" style="border: none;">
-    <label>&nbsp;</label><input type="submit" value="{% trans 'Log in' %}">
-  </div>
+  <button type="submit">{% trans "Log in" %}</button>
 </form>
 
 {% get_providers as socialaccount_providers %}
 {% if socialaccount_providers %}
-<hr/>
-<center><strong>{% trans "Or sign in with:" %}</strong></center><br/>
-{% include "socialaccount/snippets/provider_list.html" with process="login" %}
+<div class="auth-providers">
+  <p class="auth-divider">{% trans "or" %}</p>
+  {% include "socialaccount/snippets/provider_list.html" with process="login" %}
+</div>
 {% endif %}
 
-{% if signup_url and registration_open %}
-<hr/>
-<center>
-  <a href="{{ signup_url }}">{% trans "Create an account" %}</a>
+<nav class="auth-links" aria-label="{% trans 'Account help' %}">
+  {% if password_reset_enabled %}
+  <a href="{% url 'account_reset_password' %}">{% trans "Forgot your password?" %}</a>
+  {% else %}
+  {% blocktrans asvar smtp_help %}Email password reset is not configured.
 
-</center>
-{% endif %}
+Ask your ArchiveBox administrator to configure SMTP (EMAIL_HOST), or run this command on the server with your username:
 
-<p><a href="{% url 'account_reset_password' %}">{% trans "Forgot your password?" %}</a></p>
+archivebox manage changepassword YOUR_USERNAME
+
+Docker Compose:
+docker compose exec archivebox archivebox manage changepassword YOUR_USERNAME{% endblocktrans %}
+  <a href="#password-reset-help" data-message="{{ smtp_help }}" onclick="alert(this.dataset.message); return false;">{% trans "Forgot your password?" %}</a>
+  <noscript><p id="password-reset-help">{{ smtp_help|linebreaksbr }}</p></noscript>
+  {% endif %}
+</nav>
 </div>
 {% endblock %}

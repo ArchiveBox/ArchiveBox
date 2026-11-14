@@ -208,7 +208,8 @@ if ALLAUTH_ENABLED:
         for backend in AUTHENTICATION_BACKENDS
     ]
     ACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxAccountAdapter"
-    ACCOUNT_SIGNUP_ENABLED = CONFIG.REGISTRATION_ENABLED
+    ACCOUNT_SIGNUP_ENABLED = False
+    SOCIALACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxSocialAccountAdapter"
     ACCOUNT_LOGIN_METHODS = {"username", "email"}
     ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
     ACCOUNT_EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION

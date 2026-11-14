@@ -17,13 +17,8 @@ def get_static_cache_key() -> str:
 
 
 def archivebox_globals(request):
-    registration_open = False
-    if settings.ALLAUTH_ENABLED:
-        from allauth.account.adapter import get_adapter
-
-        registration_open = get_adapter(request).is_open_for_signup(request)
     return {
         "VERSION": VERSION,
         "STATIC_CACHE_KEY": get_static_cache_key(),
-        "registration_open": registration_open,
+        "password_reset_enabled": settings.ALLAUTH_ENABLED and bool(settings.EMAIL_HOST),
     }

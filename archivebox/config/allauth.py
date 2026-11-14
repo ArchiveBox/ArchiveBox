@@ -14,7 +14,6 @@ class AllauthConfig(BaseConfigSet):
     ALLAUTH_ENABLED: bool = False
     REGISTRATION_ENABLED: bool = False
     REGISTRATION_MODE: Literal["open", "approval"] = "approval"
-    DEFAULT_USER_PERMISSIONS: Literal["none", "admin"] = "none"
     EMAIL_VERIFICATION: Literal["none", "optional", "mandatory"] = "none"
     SOCIALACCOUNT_PROVIDERS: dict = Field(default_factory=dict)
     SOCIALACCOUNT_EMAIL_AUTHENTICATION: bool = False

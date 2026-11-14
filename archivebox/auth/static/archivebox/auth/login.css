@@ -1,0 +1,141 @@
+.auth-login #container {
+    width: min(420px, calc(100% - 32px));
+    min-width: 0;
+    margin: 64px auto;
+    border-radius: 12px;
+}
+
+.auth-login #content {
+    padding: 28px;
+}
+
+.auth-login #header {
+    grid-template-columns: 1fr;
+}
+
+.auth-login #site-name a {
+    width: auto;
+    height: auto;
+    gap: 8px;
+}
+
+.auth-login #branding {
+    justify-self: center;
+    text-align: center;
+}
+
+.auth-login #site-name .branding-label {
+    display: inline;
+}
+
+.auth-login #content h1 {
+    margin: 0 0 24px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.auth-login #content-main .auth-form {
+    display: grid;
+    gap: 18px;
+}
+
+.auth-login #content-main .auth-form > .auth-field {
+    display: grid;
+    gap: 6px;
+}
+
+.auth-login .auth-field label {
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.auth-login #content-main .auth-field input {
+    min-height: 44px;
+}
+
+.auth-login #content-main .auth-form > .auth-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.auth-login .auth-checkbox input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+.auth-login .auth-checkbox label {
+    margin: 0;
+    cursor: pointer;
+}
+
+.auth-login .auth-form button,
+.auth-login #content .auth-providers .button {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+}
+
+.auth-login .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 16px;
+    color: var(--body-quiet-color);
+}
+
+.auth-login .auth-divider::before,
+.auth-login .auth-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--hairline-color);
+}
+
+.auth-login .auth-providers ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.auth-login .auth-providers li {
+    padding: 0;
+    list-style: none;
+}
+
+.auth-login #content .auth-providers .button {
+    white-space: normal;
+    text-align: center;
+    text-decoration: none;
+}
+
+.auth-login .auth-links {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    margin-top: 24px;
+    font-size: 13px;
+}
+
+.auth-login .errorlist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+@media (max-width: 480px) {
+    .auth-login #container {
+        margin: 24px auto;
+    }
+
+    .auth-login #content {
+        padding: 24px;
+    }
+
+    .auth-login #content-main .auth-field input {
+        font-size: 16px;
+    }
+}
