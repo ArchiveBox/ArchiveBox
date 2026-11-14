@@ -34,7 +34,8 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert 'class="library-breadcrumbs"' not in html
     assert 'class="library-context"' not in html
     assert '<span class="folder-current">Papers</span>' in html
-    assert f'aria-label="Add folder in Research" title="Add folder in Research" data-parent="{parent.pk}"' in html
+    assert 'aria-label="Add folder in Research"' not in html
+    assert "Add subfolder" in html
     from html import unescape
     from urllib.parse import parse_qs, urlsplit
     import re
@@ -334,7 +335,9 @@ def test_inline_folder_save_validates_normalized_name(admin_client):
     response = admin_client.post("/admin/core/folder/save/", {"name": "<b></b>"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 400
     assert "name" in response.json()["error"].lower()
-    assert not Folder.objects.exists()
+    assert list(Folder.objects.values_list("name", "rules")) == [
+        ("Inbox", {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]})
+    ]
     response = admin_client.post("/admin/core/folder/save/", {"name": "  <b>Reading list</b>  "}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response.json()["name"] == "Reading list"
@@ -382,26 +385,39 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu = page.locator(f"#folder-menu-{parent.pk}")
         expect(menu).to_be_visible()
-        expect(menu.get_by_role("menuitem", name="Rename / move")).to_be_focused()
+        expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_be_focused()
         page.keyboard.press("ArrowDown")
-        expect(menu.locator('[data-export-format="rss"]')).to_be_focused()
+        expect(menu.get_by_role("menuitem", name="Move...", exact=True)).to_be_focused()
         page.keyboard.press("Escape")
         expect(menu).to_be_hidden()
         page.get_by_role("button", name="Actions for Research", exact=True).click()
-        menu.get_by_role("menuitem", name="Rename / move").click()
+        menu.get_by_role("menuitem", name="Rename", exact=True).click()
         expect(page.locator("#folder-name")).to_have_value("Research")
         page.locator(".folder-dialog-close").first.click()
-        page.get_by_role("button", name="Add folder in Research", exact=True).click()
+        page.get_by_role("button", name="Actions for Research", exact=True).click()
+        menu.get_by_role("menuitem", name="Add subfolder", exact=True).click()
         expect(page.locator("#folder-parent")).to_have_value(str(parent.pk))
         page.locator("#folder-name").fill("Design inspiration")
         page.get_by_role("button", name="Save folder", exact=True).click()
         expect(page.locator(".folder-tree")).to_contain_text("Design inspiration")
+        page.get_by_role("button", name="Find a folder", exact=True).click()
         page.get_by_role("searchbox", name="Find a folder").fill("Design")
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_be_hidden()
         expect(page.locator(f'.folder-row[data-folder-id="{parent.pk}"]')).to_be_visible()
         page.get_by_role("searchbox", name="Find a folder").fill("")
-        page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(page.get_by_role("link", name="All snapshots"))
+        page.keyboard.press("Escape")
+        page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(page.get_by_role("link", name="All Snapshots"))
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_have_attribute("data-parent-id", "")
+        page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
+        page.get_by_role("button", name="Actions for Research", exact=True).click()
+        menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
+        expect(page.locator('input[name="post"][value="yes"]')).to_have_count(1)
+        expect(page.locator(".cancel-link")).to_be_visible()
+        assert set(page.locator('input[name="_selected_action"]').evaluate_all("nodes => nodes.map(node => node.value)")) == {
+            str(snapshot.pk) for snapshot in snapshots[1:]
+        }
+        page.locator(".cancel-link").click()
+        expect(page.locator("#changelist-form")).to_be_visible()
         browser.close()
     for snapshot in snapshots:
         snapshot.refresh_from_db()
@@ -422,7 +438,7 @@ def test_folder_reparent_reorder_and_cycle_protection(admin_client):
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 200
-    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [last.pk, first.pk]
+    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [Folder.objects.get(name="Inbox").pk, last.pk, first.pk]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": first.pk, "target_id": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 400 and "cycle" in response.json()["error"]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": child.pk, "target_id": last.pk}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -440,4 +456,4 @@ def test_folder_tree_counts_descendants_and_labels(admin_user):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
     Snapshot.objects.create(url="https://example.com/paper", folder=child, crawl=crawl)
     tree = Folder.tree()
-    assert [(folder.path_label, folder.snapshot_count) for folder in tree] == [("Research", 1), ("Research / Papers", 1)]
+    assert [(folder.path_label, folder.snapshot_count) for folder in tree] == [("Inbox", None), ("Research", 1), ("Research / Papers", 1)]

@@ -519,6 +519,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         "update_snapshots",
         "overwrite_snapshots",
         "set_snapshot_permissions",
+        "delete_selected",
         "delete_snapshots",
     ]
     inlines = []  # Removed TagInline, using TagEditorWidget instead
@@ -610,7 +611,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         actions = super().get_actions(request)
         if not actions:
             return {}
-        actions.pop("delete_selected", None)
+        if request.POST.get("action") != "delete_snapshots":
+            actions.pop("delete_snapshots", None)
         return actions
 
     def lookup_allowed(self, lookup, value, request=None):
@@ -1604,6 +1606,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             request,
             f"Queued {queued} snapshots for full re-archive (overwriting existing). The background runner will process them.",
         )
+
+    @admin.action(description="🗑️ Delete", permissions=["delete"])
+    def delete_selected(self, request, queryset):
+        from django.contrib.admin.actions import delete_selected
+
+        if request.POST.get("post"):
+            return self.delete_snapshots(request, queryset)
+        return delete_selected(self, request, queryset)
 
     @admin.action(
         description="🗑️ Delete",
