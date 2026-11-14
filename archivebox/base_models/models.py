@@ -375,9 +375,6 @@ class ModelWithOutputDir(ModelWithUUID):
 
     @classmethod
     def validate_output_paths_for_delete(cls, paths) -> tuple[Path, ...]:
-        from archivebox.storage.service import assert_archive_available
-
-        assert_archive_available()
         data_dir = CONSTANTS.DATA_DIR.resolve()
         safe_paths = []
         for raw_path in paths:
@@ -392,29 +389,26 @@ class ModelWithOutputDir(ModelWithUUID):
 
     @classmethod
     def delete_output_paths(cls, paths) -> None:
-        from archivebox.storage.service import archive_access
-
-        with archive_access():
-            existing = []
-            for path in dict.fromkeys(Path(raw_path) for raw_path in paths):
-                try:
-                    mode = path.lstat().st_mode
-                except FileNotFoundError:
-                    continue
-                existing.append((path, mode))
-            cls.validate_output_paths_for_delete(path for path, _mode in existing)
-            for path, mode in existing:
-                if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
-                    path.unlink(missing_ok=True)
-                elif stat.S_ISDIR(mode):
-                    shutil.rmtree(path)
-                # lstat also catches dangling symlinks and propagates mount and
-                # permission errors rather than mistaking them for absence.
-                try:
-                    path.lstat()
-                except FileNotFoundError:
-                    continue
-                raise OSError(f"Output path still exists after deletion: {path}")
+        existing = []
+        for path in dict.fromkeys(Path(raw_path) for raw_path in paths):
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            existing.append((path, mode))
+        cls.validate_output_paths_for_delete(path for path, _mode in existing)
+        for path, mode in existing:
+            if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
+                path.unlink(missing_ok=True)
+            elif stat.S_ISDIR(mode):
+                shutil.rmtree(path)
+            # lstat also catches dangling symlinks and propagates mount and
+            # permission errors rather than mistaking them for absence.
+            try:
+                path.lstat()
+            except FileNotFoundError:
+                continue
+            raise OSError(f"Output path still exists after deletion: {path}")
 
     def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
         """Capture output paths before DB deletion and remove them after commit."""

@@ -3,14 +3,39 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from abx_dl.execution import iter_plugin_command
 from archivebox.plugins.discovery import get_plugin_catalog
-from archivebox.tests.test_storageaudit import hashed_snapshot
+from archivebox.tests.conftest import run_test_hook
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def hashed_snapshot(user, tmp_path, name):
+    from importlib.resources import files
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=user, config={"PLUGINS": "hashes"})
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, status="sealed")
+    root = snapshot.output_dir
+    (root / "original").mkdir(parents=True)
+    source = Path(__file__).parent / "fixtures" / "legacy_proofs" / "opentimestamps" / "stamp-tc1mgx85" / "hashes.json"
+    (root / "original" / name).write_bytes(source.read_bytes())
+    hook = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
+    process = run_test_hook(
+        hook,
+        root / "hashes",
+        config={"SNAP_DIR": str(root), "ABXPKG_LIB_DIR": str(tmp_path / "lib")},
+        url=snapshot.url,
+        timeout=30,
+    )
+    assert process.exit_code == 0, process.stderr
+    assert (root / "hashes" / "hashes.sha256").is_file()
+    return snapshot
 
 
 def test_artifact_apps_import_without_loading_host_runtimes(tmp_path):
