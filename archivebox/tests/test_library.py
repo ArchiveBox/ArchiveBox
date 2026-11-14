@@ -465,3 +465,115 @@ def test_folder_tree_counts_descendants_and_labels(admin_user):
         ("Research / Papers", 1),
         ("📥 Inbox", None),
     ]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("view", ["table", "grid"])
+def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_runtime, view):
+    import re
+    from concurrent.futures import ThreadPoolExecutor
+
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.core.models import Folder
+    from archivebox.machine.models import Machine
+    from urllib.parse import urlsplit
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    first = Folder.objects.create(name="First", position=1)
+    second = Folder.objects.create(name="Second", position=2)
+    smart = Folder.objects.create(name="Smart", position=3, rules={"field": "url", "lookup": "icontains", "value": "news"})
+    child = Folder.objects.create(name="Child", parent=first, position=0)
+    sibling = Folder.objects.create(name="Sibling", parent=first, position=1)
+    inbox = Folder.objects.filter(name="📥 Inbox").first()
+    roots = [inbox] if inbox else []
+    with ThreadPoolExecutor(max_workers=1) as db, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        if view == "grid":
+            page.goto(f"{admin_url}/admin/core/snapshot/grid/")
+
+        def row(folder):
+            return page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
+
+        def drag(source, target, placement):
+            box = row(target).bounding_box()
+            y = {"before": 2, "inside": box["height"] / 2, "after": box["height"] - 2}[placement]
+            with page.expect_navigation():
+                row(source).locator(".folder-link").drag_to(row(target), target_position={"x": 80, "y": y})
+            expect(row(source)).to_have_attribute(
+                "data-parent-id",
+                db.submit(lambda: str(Folder.objects.get(pk=source.pk).parent_id or "")).result(),
+            )
+
+        def order(parent, expected):
+            assert db.submit(lambda: list(Folder.objects.filter(parent=parent).values_list("pk", flat=True))).result() == [
+                f.pk for f in expected
+            ]
+            expect(
+                page.locator(f'.folder-row[data-parent-id="{parent.pk if parent else ""}"] .folder-link>span:not(.folder-title-emoji)'),
+            ).to_have_text(
+                [f.name.removeprefix("📥 ") for f in expected],
+            )
+
+        drag(smart, first, "before")
+        order(None, roots + [smart, first, second])
+        drag(smart, second, "after")
+        order(None, roots + [first, second, smart])
+        drag(sibling, child, "before")
+        order(first, [sibling, child])
+        drag(sibling, child, "after")
+        order(first, [child, sibling])
+        drag(second, child, "inside")
+        order(child, [second])
+        drag(smart, second, "before")
+        order(child, [smart, second])
+        drag(smart, first, "after")
+        order(None, roots + [first, smart])
+        with page.expect_navigation():
+            row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
+        order(None, roots + [first, smart, second])
+        drag(smart, child, "inside")
+        order(child, [smart])
+        drag(second, smart, "inside")
+        assert db.submit(lambda: Folder.objects.get(parent=smart, name="Items").rules).result() == smart.rules
+        with page.expect_navigation():
+            row(smart).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
+        expect(row(second)).to_have_attribute("data-parent-id", str(smart.pk))
+        with page.expect_navigation():
+            row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
+        row(first).locator(".folder-toggle").click()
+        expect(row(child)).to_be_hidden()
+        source = row(second).locator(".folder-link").bounding_box()
+        target = row(first).bounding_box()
+        page.mouse.move(source["x"] + 45, source["y"] + source["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(target["x"] + 80, target["y"] + target["height"] / 2, steps=12)
+        page.mouse.move(target["x"] + 81, target["y"] + target["height"] / 2)
+        expect(row(first)).to_have_class(re.compile("drop-active"))
+        expect(row(child)).to_be_visible()
+        with page.expect_navigation():
+            page.mouse.up()
+        order(first, [child, sibling, second])
+        expect(row(second)).to_be_visible()
+        expect(row(child)).to_be_visible()
+        # The UI must reject a parent dropped into its own subtree, without a request.
+        invalid_moves = []
+        page.on("request", lambda request: invalid_moves.append(request.url) if request.url.endswith("/folder/move/") else None)
+        source = row(first).locator(".folder-link").bounding_box()
+        target = row(child).bounding_box()
+        page.mouse.move(source["x"] + 45, source["y"] + source["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(target["x"] + 80, target["y"] + target["height"] / 2, steps=12)
+        page.mouse.move(target["x"] + 81, target["y"] + target["height"] / 2)
+        expect(row(child)).not_to_have_class(re.compile("drop-active"))
+        page.mouse.up()
+        expect(page.locator(".folder-drop-status")).to_be_empty()
+        assert invalid_moves == []
+        browser.close()
