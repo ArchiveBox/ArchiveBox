@@ -601,7 +601,10 @@ def test_add_view_applies_plugin_config_overrides(client, admin_user):
     assert "NODE_BINARY" not in crawl.config
 
 
-def test_add_view_public_submission_ignores_plugin_and_custom_config(client, admin_user, public_add_enabled):
+@pytest.mark.parametrize("empty_filters", [False, True])
+def test_add_view_public_submission_ignores_plugin_and_custom_config(client, admin_user, public_add_enabled, empty_filters):
+    public_add_enabled.config.update({"URL_ALLOWLIST": "example.com", "URL_DENYLIST": "example.com/global-blocked"})
+    public_add_enabled.save(update_fields=["config"])
 
     response = client.post(
         reverse("add"),
@@ -615,8 +618,8 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
             "snapshot_max_size": "5mb",
             "delete_after": "2h",
             "crawl_max_concurrent_snapshots": "2",
-            "url_filters_allowlist": "example.com",
-            "url_filters_denylist": "cdn.example.com",
+            "url_filters_allowlist": "" if empty_filters else "example.com",
+            "url_filters_denylist": "" if empty_filters else "cdn.example.com",
             "url_filters_only_new": "1",
             "notes": "public add",
             "schedule": "daily",
@@ -640,7 +643,9 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert crawl.config["DELETE_AFTER"] == "2h"
     assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 2
     assert crawl.config["URL_ALLOWLIST"] == "example.com"
-    assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
+    assert crawl.config["URL_DENYLIST"] == ("example.com/global-blocked" if empty_filters else "cdn.example.com")
+    assert not crawl.url_passes_filters("https://other.example/public-safe")
+    assert not crawl.url_passes_filters("https://example.com/global-blocked" if empty_filters else "https://cdn.example.com/")
     assert crawl.config.get("PLUGINS", "") == ""
     assert crawl.config.get("WGET_TIMEOUT") != 77
     assert crawl.config.get("NODE_BINARY") != "/tmp/node"
@@ -648,6 +653,19 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert crawl.config.get("INDEX_ONLY") is not True
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.schedule is None
+
+    if empty_filters:
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("add"),
+            data={**ADD_FORM_DEFAULTS, "url": "https://other.example/admin-cleared", "crawl_max_concurrent_snapshots": "2"},
+            HTTP_HOST=ADMIN_HOST,
+        )
+        assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+        cleared = Crawl.objects.order_by("-created_at").first()
+        assert cleared.config["URL_ALLOWLIST"] == ""
+        assert cleared.config["URL_DENYLIST"] == ""
+        assert cleared.url_passes_filters("https://other.example/admin-cleared")
 
 
 def test_add_view_creates_scheduled_crawl_in_inline_created_folder(client, admin_user):
