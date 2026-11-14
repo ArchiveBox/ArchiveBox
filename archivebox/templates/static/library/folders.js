@@ -4,19 +4,176 @@ document.addEventListener('DOMContentLoaded', () => {
   const folderForm = dialog?.querySelector('form');
   if (dialog) {
     const picker = sidebar ? null : document.querySelector('#id_folder');
-    function openFolder(button) {
+    async function openFolder(button) {
       button.closest('.folder-menu:popover-open')?.hidePopover();
       folderForm.reset();
+      dialog.dataset.mode=button.dataset.mode || 'edit';
+      const moving=dialog.dataset.mode==='move';
+      dialog.querySelector('.folder-name-field').hidden=moving;
+      dialog.querySelector('.folder-move-field').hidden=!moving;
+      dialog.querySelector('.folder-save').textContent=moving ? 'Move folder' : 'Save folder';
       folderForm.elements.folder_id.value = button.dataset.id || '';
       folderForm.elements.name.value = button.dataset.name || '';
       folderForm.elements.parent.value = button.dataset.parent || picker?.value || '';
-      document.querySelector('#folder-dialog-title').textContent = button.dataset.id ? 'Edit folder' : 'New folder';
+      document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? 'Edit folder' : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
       dialog.querySelector('.folder-form-error').textContent = '';
+      dialog.querySelector('.folder-delete').hidden=true;
       dialog.showModal();
-      folderForm.elements.name.focus();
+      (moving ? folderForm.elements.parent : folderForm.elements.name).focus();
+      const kind = dialog.querySelector('#folder-kind');
+      kind.disabled = true;
+      folderForm.querySelector('[type=submit]').disabled = true;
+      try {
+        const url = new URL(folderForm.dataset.rulesUrl, location.href);
+        if (button.dataset.id) url.searchParams.set('folder_id', button.dataset.id);
+        const response = await fetch(url, {credentials:'same-origin'});
+        if (!response.ok) throw new Error('Could not load folder rules.');
+        const schema = await response.json();
+        setupRules(schema, button.dataset.smart === 'true');
+        folderForm.querySelector('[type=submit]').disabled = false;
+      } catch (error) {dialog.querySelector('.folder-form-error').textContent = error.message;}
+
+    }
+    function setupRules(schema, smart) {
+      const kind = dialog.querySelector('#folder-kind');
+      const root = dialog.querySelector('.folder-rules');
+      dialog.querySelector('.folder-delete').hidden=!schema.can_delete || dialog.dataset.mode==='move';
+      const defaultRule = () => ({field:'url', lookup:'icontains', value:''});
+      let rules = schema.rules || {op:'AND', rules:[defaultRule()]};
+      const specs = new Map(schema.fields.map(field => [field.name, field]));
+      const unavailable = new Set(schema.unavailable_parents);
+      [...folderForm.elements.parent.options].forEach(option => option.disabled=unavailable.has(option.value));
+      kind.value = smart ? 'smart' : 'normal';
+      kind.disabled = schema.container || Boolean(picker);
+      if (schema.rules !== null) smart = true;
+      function element(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+      function select(options, value, label, change) {
+        const control = element('select');
+        control.setAttribute('aria-label', label);
+        options.forEach(([key, text]) => control.add(new Option(text, key)));
+        control.value = String(value ?? '');
+        control.addEventListener('change', () => {change(control.value); serialize();});
+        return control;
+      }
+      function button(label, action, className='') {
+        const control = element('button', className, label);
+        control.type = 'button';
+        control.addEventListener('click', action);
+        return control;
+      }
+      function serialize() {folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify(rules) : '';}
+      function input(type, value, label, change) {
+        const control = element('input'); control.type = type; control.value = value ?? '';
+        control.setAttribute('aria-label', label); control.required = true;
+        if (type === 'number') {control.step='any';control.inputMode='decimal';}
+        control.addEventListener('input', () => {change(control.value); serialize();});
+        return control;
+      }
+      function renderValue(row, node, spec) {
+        if (['isnull','present'].includes(node.lookup)) return;
+        if (spec.type === 'folder') {
+          const options = node.lookup === 'in_children' ? [['self','This folder']] : [['*','ANY']];
+          options.push(...schema.folders.map(folder => [folder.id, folder.name]));
+          node.value ??= options[0][0];
+          row.append(select(options, node.value, 'Folder', value => node.value=value));
+        } else if (['in','not_in'].includes(node.lookup)) {
+          row.append(input('text', Array.isArray(node.value) ? node.value.join(', ') : node.value, 'Values, separated by commas', value => node.value=value.split(',').map(part => part.trim())));
+        } else if (node.lookup === 'past_days') {
+          row.append(input('number', node.value, 'Days', value => node.value=value));
+        } else if (spec.type === 'boolean' || spec.choices.length) {
+          const options = spec.type === 'boolean' ? [['true','Yes'],['false','No']] : spec.choices;
+          node.value ??= spec.type === 'boolean' ? true : options[0][0];
+          row.append(select(options, node.value, 'Value', value => node.value=spec.type === 'boolean' ? value==='true' : value));
+        } else if (spec.units.length) {
+          if (typeof node.value !== 'object' || node.value === null) node.value={amount:node.value || '', unit:'B'};
+          const quantity = element('div','rule-quantity');
+          quantity.append(input('number', node.value.amount, 'Amount', value => node.value.amount=value),
+            select(spec.units.map(unit => [unit,unit]), node.value.unit, 'Unit', value => node.value.unit=value));
+          row.append(quantity);
+        } else {
+          const type = spec.type === 'number' ? 'number' : spec.type === 'date' ? 'date' : 'text';
+          const value = spec.type === 'json' && typeof node.value === 'object' ? JSON.stringify(node.value) : node.value;
+          row.append(input(type, value, 'Value', value => {
+            if (spec.type === 'json' && node.lookup !== 'has_key') {
+              try {node.value=JSON.parse(value);} catch (_) {node.value=value;}
+            } else node.value=value;
+          }));
+        }
+      }
+      function renderNode(node, remove) {
+        const row = element('div',node.op ? 'rule-group' : 'rule-condition');
+        if (node.op) {
+          const negated=node.op === 'NOT';
+          if (negated && !node.rules[0].op) node.rules=[{op:'AND',rules:node.rules}];
+          const group=negated ? node.rules[0] : node;
+          row.classList.toggle('is-negated',negated);
+          group.rules.forEach((child,index) => {
+            if (index) {
+              const join=element('div','rule-join');
+              join.append(select([['AND','AND'],['OR','OR']],group.op,'Join rules',value => {group.op=value;render();}));
+              row.append(join);
+            }
+            row.append(renderNode(child,group.rules.length > 1 ? () => {group.rules.splice(index,1);render();} : null));
+          });
+          const toolbar=element('div','rule-group-toolbar');
+          toolbar.append(
+            button('+ Rule',() => {group.rules.push(defaultRule());render();}),
+            button('+ Group',() => {group.rules.push({op:'AND',rules:[defaultRule()]});render();}));
+          const negate=button('NOT',() => {
+            if (negated) {node.op=group.op;node.rules=group.rules;}
+            else {const original={op:node.op,rules:node.rules};node.op='NOT';node.rules=[original];}
+            render();
+          },'rule-negate');
+          negate.setAttribute('aria-label','Negate group');
+          negate.setAttribute('aria-pressed',String(negated));
+          toolbar.append(negate);
+          if (remove) toolbar.append(button('×',remove,'rule-remove'));
+          row.append(toolbar);
+        } else {
+          const spec=specs.get(node.field) || specs.get('url');
+          row.append(select(schema.fields.map(field => [field.name,field.label]), node.field, 'Field', value => {
+            node.field=value; node.lookup=specs.get(value).operators[0]; node.value=null; render();
+          }));
+          row.append(select(spec.operators.map(op => [op,schema.operators[op]]), node.lookup, 'Comparison', value => {
+            node.lookup=value; node.value=null; render();
+          }));
+          renderValue(row,node,spec);
+          if (remove) row.append(button('×',remove,'rule-remove'));
+        }
+        return row;
+      }
+      function render() {
+        root.replaceChildren(); root.hidden=kind.value !== 'smart' || dialog.dataset.mode==='move';
+        dialog.classList.toggle('has-rules', !root.hidden);
+        if (!root.hidden) {
+          if (!rules.op && !schema.container) rules={op:'AND',rules:[rules]};
+          root.append(renderNode(rules));
+          if (schema.container) root.querySelectorAll('input,select,button').forEach(control => control.disabled=true);
+        }
+        serialize();
+      }
+      kind.onchange = render;
+      render();
     }
     document.querySelectorAll('.folder-new,.folder-edit').forEach(button => button.addEventListener('click', () => openFolder(button)));
     dialog.querySelectorAll('.folder-dialog-close').forEach(button => button.addEventListener('click', () => dialog.close()));
+    dialog.querySelector('.folder-delete').addEventListener('click', async event => {
+      if (!window.confirm(`Delete “${folderForm.elements.name.value}”?`)) return;
+      event.currentTarget.disabled=true;
+      try {
+        const response=await fetch(folderForm.dataset.deleteUrl,{method:'POST',body:new FormData(folderForm),credentials:'same-origin'});
+        const result=await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not delete folder.');
+        const url=new URL(location.href);
+        if (url.searchParams.get('folder')===folderForm.elements.folder_id.value) url.searchParams.delete('folder');
+        location.assign(url.href);
+      } catch (error) {dialog.querySelector('.folder-form-error').textContent=error.message;event.currentTarget.disabled=false;}
+    });
     folderForm.addEventListener('submit', async event => {
       event.preventDefault();
       const save = folderForm.querySelector('[type=submit]');
@@ -38,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       finally {save.disabled = false;}
     });
   }
-  document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle').forEach(button => {
+  document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
     const menu = document.getElementById(button.getAttribute('popovertarget'));
     const items = [...menu.querySelectorAll('[role=menuitem]')];
     function positionMenu() {
@@ -95,6 +252,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const status = sidebar.querySelector('.folder-drop-status');
   const rows = [...sidebar.querySelectorAll('.folder-row')];
+  const segments = new Intl.Segmenter(undefined, {granularity:'grapheme'});
+  function leadingEmoji(name) {
+    const first = segments.segment(name).containing(0)?.segment;
+    return first && /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u.test(first) ? first : '';
+  }
+  rows.forEach(row => {
+    const first = leadingEmoji(row.dataset.folderName);
+    if (!first) return;
+    const label = row.querySelector('.folder-link>span');
+    const emoji = document.createElement('span');
+    emoji.className='folder-title-emoji'; emoji.textContent=first; emoji.setAttribute('aria-hidden','true');
+    const icon=row.querySelector('.folder-link>svg');
+    if (icon) icon.replaceWith(emoji);
+    else {
+      const toggle=row.querySelector('.folder-toggle');
+      toggle.classList.add('has-title-emoji'); toggle.append(emoji);
+    }
+    label.textContent=row.dataset.folderName.slice(first.length).trimStart();
+    row.querySelector('.folder-link').setAttribute('aria-label', row.dataset.folderName);
+  });
+  const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
   const search = sidebar.querySelector('.folder-search');
   const collapsed = new Set();
   try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
@@ -154,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const mobileToggle = sidebar.querySelector('.folder-mobile-toggle');
   const reopenToggle = document.querySelector('.folder-sidebar-reopen');
-  const currentFolder = sidebar.querySelector('[aria-current="page"] span')?.textContent.trim() || 'All snapshots';
+  const currentFolder = current?.dataset.folderName || 'All snapshots';
   reopenToggle.querySelector('span').textContent = currentFolder;
   reopenToggle.title = `Show folders · ${currentFolder}`;
   const library = sidebar.closest('.snapshot-library');
@@ -241,7 +419,8 @@ document.addEventListener('DOMContentLoaded', () => {
     row.draggable = true;
     row.addEventListener('dragstart', event => {
       if (event.target.closest('button,input,select,.tag-editor-container,.tag-editor-inline')) {event.preventDefault(); return;}
-      if (!checkbox.checked) {
+      const across = form.querySelector('input.select-across')?.value === '1';
+      if (!checkbox.checked && !across) {
         form.querySelectorAll('input.action-select').forEach(item => {item.checked = item === checkbox;});
         form.querySelectorAll('input.select-across').forEach(item => {item.value = '0';});
         checkbox.dispatchEvent(new Event('change', {bubbles:true}));
@@ -253,7 +432,6 @@ document.addEventListener('DOMContentLoaded', () => {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('application/x-archivebox-snapshots', JSON.stringify(checked.map(item => item.value)));
       badge = document.createElement('div'); badge.className = 'snapshot-drag-badge';
-      const across = form.querySelector('input.select-across')?.value === '1';
       badge.textContent = across ? 'Move all matching snapshots' : `Move ${checked.length} snapshot${checked.length === 1 ? '' : 's'}`;
       document.body.appendChild(badge); event.dataTransfer.setDragImage(badge, 16, 16);
       status.textContent = 'Drop on a folder to move.';
@@ -284,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
   sidebar.querySelectorAll('.folder-drop-target').forEach(target => {
     target.addEventListener('dragover', event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && target === rootTarget) return;
+      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.inbox !== 'true' && target.dataset.container !== 'true'))) return;
       if (movingFolder && (target.dataset.folderId === movingFolder || target.getAttribute('href') === '?folder=unfiled')) return;
       event.preventDefault(); event.dataTransfer.dropEffect = 'move';
       const position = placement(target, event);
@@ -298,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
     target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget)) {target.classList.remove('drop-active','drop-before','drop-after'); clearTimeout(expandTimer); expandTimer = null;}});
     target.addEventListener('drop', async event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && target === rootTarget) return;
+      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.inbox !== 'true' && target.dataset.container !== 'true'))) return;
       event.preventDefault();
       if (movingFolder) {
         const data = new FormData();
@@ -316,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const destination = form.querySelector('[name=folder_destination]');
       const action = form.querySelector('select[name=action]');
       if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
-      destination.value = target.dataset.folderId;
+      destination.value = target.dataset.inbox === 'true' ? '' : target.dataset.folderId;
       action.value = 'move_to_folder';
       clearDrag(); status.textContent = 'Moving snapshots…';
       form.requestSubmit(form.querySelector('button[name=index]'));

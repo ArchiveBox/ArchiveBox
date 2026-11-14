@@ -310,8 +310,8 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
 
         self.folder_tree = Folder.tree() if self.can_override_crawl_config else []
         if self.can_override_crawl_config:
-            self.fields["folder"].queryset = Folder.objects.all()
-            self.fields["folder"].choices = [("", "Inbox"), *((folder.pk, folder.path_label) for folder in self.folder_tree)]
+            self.fields["folder"].queryset = Folder.objects.filter(pk__in=[folder.pk for folder in self.folder_tree if not folder.is_smart or folder.is_container])
+            self.fields["folder"].choices = [("", "Inbox"), *((folder.pk, folder.path_label) for folder in self.folder_tree if not folder.is_smart or folder.is_container)]
         else:
             self.fields.pop("folder")
 
