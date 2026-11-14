@@ -110,6 +110,8 @@ ldap = [
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
+allauth = ["django-allauth[socialaccount]>=65.22.1,<66"]
+saml = ["archivebox[allauth]", "django-allauth[saml]>=65.22.1,<66"]
 debug = [
     # packages needed for running with DEBUG=True
     "django-debug-toolbar>=4.4.6",
@@ -119,7 +121,7 @@ debug = [
     "django-autotyping>=0.5.1",
 ]
 all = [
-    "archivebox[sonic,ldap,debug]"
+    "archivebox[sonic,ldap,debug,allauth,saml]"
 ]
 
 [dependency-groups]
@@ -170,7 +172,7 @@ package = true
 exclude-newer = "5 days"
 # Published certifi, uv, setuptools, and Twisted security fixes are newer than the
 # default age window; allow only the published fixes.
-exclude-newer-package = { setuptools = "2026-10-23T00:00:00Z", twisted = "2026-10-23T00:00:00Z", certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
+exclude-newer-package = { setuptools = "2026-10-23T00:00:00Z", twisted = "2026-10-23T00:00:00Z", certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second", django-allauth = "2026-11-14T00:00:00Z" }
 # compile-bytecode = true
 
 [build-system]

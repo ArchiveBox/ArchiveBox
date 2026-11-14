@@ -1,6 +1,6 @@
 __package__ = "archivebox.core"
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from admin_data_views.admin import (
     admin_data_index_view as adv_admin_data_index_view,
@@ -11,6 +11,7 @@ from admin_data_views.admin import (
 from admin_data_views.admin import (
     get_app_list as adv_get_app_list,
 )
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model, login as auth_login
 from django.contrib.auth.decorators import login_not_required
@@ -29,19 +30,21 @@ from archivebox.core.context_processors import get_static_cache_key
 from archivebox.core.routes_util import is_allowed_archivebox_redirect_url
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from admin_data_views.typing import AppDict
-    from django.http import HttpRequest
+    from django.http import HttpRequest, HttpResponse
     from django.template.response import TemplateResponse
     from django.urls import URLPattern, URLResolver
 
 
 class ArchiveBoxLoginView(LoginView):
-    def get_redirect_url(self) -> str:
-        redirect_to = self.request.POST.get(
+    def get_redirect_url(self, request: "HttpRequest | None" = None) -> str:
+        request = request or self.request
+        redirect_to = request.POST.get(
             self.redirect_field_name,
-            self.request.GET.get(self.redirect_field_name),
+            request.GET.get(self.redirect_field_name),
         )
-        if is_allowed_archivebox_redirect_url(redirect_to, request=self.request):
+        if redirect_to and is_allowed_archivebox_redirect_url(redirect_to, request=request):
             return redirect_to
         return ""
 
@@ -99,7 +102,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
     @method_decorator(never_cache)
     @login_not_required
-    def login(self, request: "HttpRequest", extra_context: dict[str, Any] | None = None) -> "TemplateResponse":
+    def login(self, request: "HttpRequest", extra_context: dict[str, Any] | None = None) -> "HttpResponse":
         if request.method == "GET" and self.has_permission(request):
             return HttpResponseRedirect(reverse("admin:index", current_app=self.name))
 
@@ -107,6 +110,13 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
         User = get_user_model()
         first_admin_setup = not User.objects.filter(is_superuser=True).exclude(username="system").exists()
+        if settings.ALLAUTH_ENABLED and not first_admin_setup:
+            from allauth.account.decorators import secure_admin_login
+
+            # Keep bootstrap available, then use allauth's login policy for
+            # password and provider login alike (verification, rate limits).
+            login_view = cast("Callable[..., HttpResponse]", secure_admin_login(super().login))
+            return login_view(request, extra_context=extra_context)
         context = {
             **self.each_context(request),
             "title": _("Set up ArchiveBox") if first_admin_setup else _("Log in"),
@@ -135,7 +145,12 @@ class ArchiveBoxAdmin(admin.AdminSite):
                         user.is_staff = True
                         user.is_superuser = True
                         user.save()
-                        auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+                        backend = (
+                            "allauth.account.auth_backends.AuthenticationBackend"
+                            if settings.ALLAUTH_ENABLED
+                            else "django.contrib.auth.backends.ModelBackend"
+                        )
+                        auth_login(request, user, backend=backend)
                         return HttpResponseRedirect(index_path)
 
             context["form"] = form
@@ -145,15 +160,19 @@ class ArchiveBoxAdmin(admin.AdminSite):
                 context,
             )
 
-        return ArchiveBoxLoginView.as_view(
-            extra_context=context,
-            authentication_form=self.login_form or AdminAuthenticationForm,
-            template_name=self.login_template or "admin/login.html",
-            next_page=index_path,
-        )(request)
+        return cast(
+            "HttpResponse",
+            ArchiveBoxLoginView.as_view(
+                extra_context=context,
+                authentication_form=self.login_form or AdminAuthenticationForm,
+                template_name=self.login_template or "admin/login.html",
+                next_page=index_path,
+            )(request),
+        )
 
     def index(self, request: "HttpRequest", extra_context: dict[str, Any] | None = None) -> "TemplateResponse":
         response = super().index(request, extra_context)
+        assert response.context_data is not None
 
         models_by_table: dict[str, list[dict[str, Any]]] = {}
         for app in response.context_data.get("app_list", []):
@@ -228,5 +247,21 @@ def register_admin_site():
     register_machine_admin(archivebox_admin)
     register_personas_admin(archivebox_admin)
     register_workers_admin(archivebox_admin)
+
+    if settings.ALLAUTH_ENABLED:
+        from allauth.account.admin import EmailAddressAdmin
+        from allauth.account.models import EmailAddress
+        from allauth.socialaccount.admin import SocialAccountAdmin, SocialAppAdmin, SocialTokenAdmin
+        from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
+
+        # Django autodiscovery registered these on the site we just replaced.
+        for model, model_admin in (
+            (EmailAddress, EmailAddressAdmin),
+            (SocialAccount, SocialAccountAdmin),
+            (SocialApp, SocialAppAdmin),
+            (SocialToken, SocialTokenAdmin),
+        ):
+            if not archivebox_admin.is_registered(model):
+                archivebox_admin.register(model, model_admin)
 
     return archivebox_admin

@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}{% block head_title %}{% endblock %}{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/login.css' %}">
+{% block extra_head %}{% endblock %}
+{% endblock %}
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+{% block breadcrumbs %}
+{% if user.is_authenticated %}
+<nav class="breadcrumbs" aria-label="{% trans 'Account' %}">
+  <a href="{% url 'Home' %}">{% trans 'Archive' %}</a> /
+  <a href="{% url 'account_email' %}">{% trans 'Email' %}</a> /
+  <a href="{% url 'account_change_password' %}">{% trans 'Password' %}</a> /
+  <a href="{% url 'socialaccount_connections' %}">{% trans 'Connections' %}</a>
+</nav>
+{% endif %}
+{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block usertools %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block footer %}{{ block.super }}{% block extra_body %}{% endblock %}{% endblock %}

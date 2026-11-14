@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from django.conf import settings
+
 from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 
@@ -15,7 +17,13 @@ def get_static_cache_key() -> str:
 
 
 def archivebox_globals(request):
+    registration_open = False
+    if settings.ALLAUTH_ENABLED:
+        from allauth.account.adapter import get_adapter
+
+        registration_open = get_adapter(request).is_open_for_signup(request)
     return {
         "VERSION": VERSION,
         "STATIC_CACHE_KEY": get_static_cache_key(),
+        "registration_open": registration_open,
     }

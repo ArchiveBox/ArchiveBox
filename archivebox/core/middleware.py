@@ -35,7 +35,7 @@ from archivebox.core.routes_util import (
     is_public_host,
     split_host_port,
 )
-from archivebox.core.views import HealthCheckView, OriginalDomainHostView, SnapshotHostView
+from archivebox.core.views import REPLAY_COOKIE_PREFIX, HealthCheckView, OriginalDomainHostView, SnapshotHostView
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
 
 ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
@@ -116,7 +116,7 @@ def AdminCookieIsolationMiddleware(get_response):
     def middleware(request):
         response = get_response(request)
 
-        if request.path == "/admin" or request.path.startswith("/admin/"):
+        if request.path in {"/admin", "/accounts"} or request.path.startswith(("/admin/", "/accounts/")):
             if not getattr(response, "xframe_options_exempt", False):
                 response.headers["X-Frame-Options"] = "DENY"
                 response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
@@ -149,8 +149,12 @@ def AdminCookieIsolationMiddleware(get_response):
                     response.cookies.pop(cookie_name, None)
             return response
 
-        response.cookies.pop(settings.SESSION_COOKIE_NAME, None)
-        response.cookies.pop(settings.CSRF_COOKIE_NAME, None)
+        # Provider integrations can introduce temporary cookies beyond Django's
+        # session/CSRF pair (e.g. SAML's cross-site ACS handoff). None belong on
+        # isolated content/API hosts. Preserve only the existing replay grants.
+        for cookie_name in tuple(response.cookies.keys()):
+            if cookie_name != ADMIN_LOGIN_HINT_COOKIE and not cookie_name.startswith(REPLAY_COOKIE_PREFIX):
+                response.cookies.pop(cookie_name, None)
         return response
 
     return middleware

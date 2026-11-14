@@ -31,7 +31,11 @@
             <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
         {% endblock %}
         {% block userlinks %}
-            {% if user.has_usable_password %}
+            {% url 'socialaccount_connections' as connections_url %}
+            {% if connections_url %}
+                <a href="{{ connections_url }}" class="navbar-item navbar-account">{% trans 'Account' %}</a>
+                <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
+            {% elif user.has_usable_password %}
                 <a href="{% url 'admin:password_change' %}" class="navbar-item navbar-account" title="Change your account password">Account</a>
                 <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
             {% endif %}
