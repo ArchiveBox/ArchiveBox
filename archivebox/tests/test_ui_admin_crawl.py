@@ -485,7 +485,7 @@ def test_crawl_admin_exclude_domain_action_prunes_urls_and_pending_snapshots(cli
     assert preserved_file.read_text() == "preserved capture"
 
 
-def test_snapshot_from_json_trims_markdown_suffixes_on_discovered_urls(crawl):
+def test_snapshot_from_json_preserves_punctuation_in_structured_urls(crawl):
     snapshot = Snapshot.from_json(
         {"url": "https://docs.sweeting.me/s/youtube-favorites)**"},
         overrides={"crawl": crawl},
@@ -493,7 +493,7 @@ def test_snapshot_from_json_trims_markdown_suffixes_on_discovered_urls(crawl):
     )
 
     assert snapshot is not None
-    assert snapshot.url == "https://docs.sweeting.me/s/youtube-favorites"
+    assert snapshot.url == "https://docs.sweeting.me/s/youtube-favorites)**"
 
 
 def test_create_snapshots_from_urls_skips_invalid_and_archivebox_internal_urls(admin_user):

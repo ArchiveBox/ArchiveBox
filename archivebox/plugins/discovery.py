@@ -559,7 +559,7 @@ def get_plugin_icon(plugin: str) -> str:
 # once per page as <symbol>s (get_plugin_icon_sprite) and each row <use>s them.
 # The <span> wrapper (classes, tooltip) and outer <svg> box stay per icon, and
 # the symbol carries the drawing attributes, so the rendered icon is unchanged.
-_ICON_SVG_RE = re.compile(r"(<span [^<>]*>)<svg ([^<>]*)>((?:(?!<svg\b|</svg>).)*)</svg></span>", re.S)
+_ICON_SVG_RE = re.compile(r"(?:<!--.*?-->\s*)*(<span [^<>]*>)<svg ([^<>]*)>((?:(?!<svg\b|</svg>).)*)</svg></span>", re.S)
 _ICON_SVG_ATTR_RE = re.compile(r'\s*([a-zA-Z][\w:-]*)="([^"<>]*)"')
 _ICON_BOX_ATTRS = ("width", "height", "aria-hidden", "focusable")
 _ICON_SYMBOL_ATTRS = frozenset(("viewBox", "preserveAspectRatio", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"))
