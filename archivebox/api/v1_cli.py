@@ -149,7 +149,9 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
     from archivebox.misc.util import validate_url
 
     if args.folder_id is not None:
-        get_object_or_404(Folder, pk=args.folder_id)
+        folder = get_object_or_404(Folder, pk=args.folder_id)
+        if folder.is_smart and not (folder.is_container or folder.is_inbox):
+            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
@@ -254,7 +256,9 @@ def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
     from archivebox.cli.archivebox_schedule import schedule
 
     if args.folder_id is not None:
-        get_object_or_404(Folder, pk=args.folder_id)
+        folder = get_object_or_404(Folder, pk=args.folder_id)
+        if folder.is_smart and not (folder.is_container or folder.is_inbox):
+            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)

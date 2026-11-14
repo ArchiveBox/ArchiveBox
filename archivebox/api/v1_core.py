@@ -1075,7 +1075,10 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
         raise HttpError(400, "depth must be between 0 and 4")
 
     if data.folder_id is not None:
-        data.folder_id = get_object_or_404(Folder, pk=data.folder_id).pk
+        folder = get_object_or_404(Folder, pk=data.folder_id)
+        if folder.is_smart and not (folder.is_container or folder.is_inbox):
+            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
+        data.folder_id = folder.pk
     if data.crawl_id:
         crawl = get_crawl_by_ref(data.crawl_id)
         crawl_tags = normalize_tag_list(crawl.tags_str.split(","))
