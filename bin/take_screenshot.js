@@ -557,26 +557,22 @@ async function main() {
         const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
         checks.liveProgressCaptures.push({path: screenshotPath, viewport: page.viewport(), ...liveProgress});
       }
-      const columnAlignment = await page.evaluate(() => {
-        const link = document.querySelector('.snapshot-library:not(.sidebar-hidden) .library-primary>a:first-child');
-        const header = document.querySelector('.snapshot-library #table-bookmarks thead,.snapshot-library #result_list thead');
-        if (innerWidth < 768 || !link || !header || !header.getBoundingClientRect().height) return null;
-        const left = link.getBoundingClientRect(), right = header.getBoundingClientRect();
-        const style = getComputedStyle(header.querySelector('th'));
-        return {linkTop:left.top, headerTop:right.top, linkBottom:left.bottom, headerBottom:right.bottom, borderTop:style.borderTopWidth, borderBottom:style.borderBottomWidth};
+      const libraryAlignment = await page.evaluate(() => {
+        const library = document.querySelector('.snapshot-library:not(.sidebar-hidden)');
+        if (innerWidth < 768 || !library) return null;
+        const rect = selector => library.querySelector(selector).getBoundingClientRect();
+        // All Snapshots now shares one row with search and the sidebar toggle.
+        // The compact toggle is smaller than search, but their centers must align.
+        const header = rect('.folder-section-heading');
+        const toolbar = rect('.public-snapshot-toolbar,#changelist #toolbar');
+        const toggle = rect('.folder-mobile-toggle');
+        const search = rect('.public-search-input,#changelist .search-input-wrap');
+        const column = library.querySelector('#table-bookmarks thead th,#result_list thead th');
+        const style = column && getComputedStyle(column);
+        return {headerTop:header.top, toolbarTop:toolbar.top, headerBottom:header.bottom, toolbarBottom:toolbar.bottom, toggleCenter:toggle.top + toggle.height / 2, searchCenter:search.top + search.height / 2, borderTop:style?.borderTopWidth, borderBottom:style?.borderBottomWidth};
       });
-      if (columnAlignment && (columnAlignment.linkTop !== columnAlignment.headerTop || columnAlignment.linkBottom !== columnAlignment.headerBottom || columnAlignment.borderTop !== '0px' || columnAlignment.borderBottom !== '1px')) {
-        throw new Error(`All snapshots is misaligned with the column headings: ${JSON.stringify(columnAlignment)}`);
-      }
-      const publicAlignment = await page.evaluate(() => {
-        if (innerWidth < 768 || !document.querySelector('.public-library:not(.sidebar-hidden)')) return null;
-        const rect = selector => document.querySelector(selector).getBoundingClientRect();
-        const header = rect('.library-heading'), toolbar = rect('.public-snapshot-toolbar');
-        const toggle = rect('.folder-mobile-toggle'), search = rect('.public-search-input');
-        return {headerBottom: header.bottom, toolbarBottom: toolbar.bottom, toggleTop: toggle.top, searchTop: search.top, toggleHeight: toggle.height, searchHeight: search.height};
-      });
-      if (publicAlignment && (Math.abs(publicAlignment.headerBottom - publicAlignment.toolbarBottom) > 0.5 || Math.abs(publicAlignment.toggleTop - publicAlignment.searchTop) > 0.5 || publicAlignment.toggleHeight !== publicAlignment.searchHeight)) {
-        throw new Error(`Public library controls are misaligned: ${JSON.stringify(publicAlignment)}`);
+      if (libraryAlignment && (Math.abs(libraryAlignment.headerTop - libraryAlignment.toolbarTop) > 0.5 || Math.abs(libraryAlignment.headerBottom - libraryAlignment.toolbarBottom) > 0.5 || Math.abs(libraryAlignment.toggleCenter - libraryAlignment.searchCenter) > 0.5 || (libraryAlignment.borderTop !== undefined && (libraryAlignment.borderTop !== '0px' || libraryAlignment.borderBottom !== '1px')))) {
+        throw new Error(`Library controls are misaligned: ${JSON.stringify(libraryAlignment)}`);
       }
       await page.screenshot({path: screenshotPath, fullPage});
       screenshotPaths.push(screenshotPath);
