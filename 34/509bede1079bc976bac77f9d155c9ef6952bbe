@@ -1,0 +1,22 @@
+docs/codeblocks.toml
+  s_f5c35d4ee4a9bd::t_177b9ab0535cfd 236-238
+docs/Setting-up-Authentication.md
+  s_f5c35d4ee4a9bd::t_1db7130f2d7ece 357-358
+  s_f5c35d4ee4a9bd::t_ba32152f716945 121,133,163-165,185,222-225,263,268-269,334-336,338-341,349-356,359-360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34509bede1079bc976bac77f9d155c9ef6952bbe",
+  "prompts": {},
+  "sessions": {
+    "s_f5c35d4ee4a9bd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d615-8774-70f0-8ab0-38a338791bea",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
