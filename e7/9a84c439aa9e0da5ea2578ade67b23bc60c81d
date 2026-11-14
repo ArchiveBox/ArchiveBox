@@ -1,0 +1,56 @@
+archivebox/tests/test_importer_source_persistence.py
+  s_a46618ba6633c7::t_94e37dec13d226 61,73
+  s_a46618ba6633c7::t_921711b90c0680 124-126,128
+  s_a46618ba6633c7::t_36cd2297eb7688 17-24,85-93
+  s_a46618ba6633c7::t_8bc5f09a92d046 1-16,25-60,62-72,74-84,94-123,127,129-135
+archivebox/importers/README.md
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 88
+archivebox/tests/test_snapshot_serialization.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 1-69,71-72,74-104
+  s_a46618ba6633c7::t_4b09876a9f81b7 105-114
+  s_a46618ba6633c7::t_b442f30fef765e 70,73
+archivebox/importers/service.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 185,187,382
+archivebox/importers/views.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 87-90
+archivebox/mcp/server.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 462-463
+archivebox/tests/test_cli_model_errors.py
+  s_a46618ba6633c7::t_c0dd7d3d0ef14d 63-75
+  s_a46618ba6633c7::t_679d8f35a1ac32 1-62,76-86,88-160
+  s_a46618ba6633c7::t_48d22905b60360 87
+archivebox/cli/archivebox_mcp.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 6,22
+archivebox/mcp/README.md
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 3,7,11-12,72,88,91,93,115-116
+archivebox/cli/archivebox_folder.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 30-34,71,80-81,98-99,121-124,126-128
+  s_a46618ba6633c7::t_f77e3f8233c66f 75-76
+archivebox/importers/forms.py
+  s_a46618ba6633c7::t_36cd2297eb7688 121-124
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 2,7,9,28-31,119-120,125-126,129,134-137,139-152
+archivebox/mcp/__init__.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 6
+archivebox/cli/archivebox_importer.py
+  s_a46618ba6633c7::t_3e97d4d7ffb4fc 42-46,112-113,129-130,146-147,160,164-165,176-180
+archivebox/cli/archivebox_snapshot.py
+  s_a46618ba6633c7::t_c9b2770241fd5f 48-50,61
+archivebox/core/models.py
+  s_a46618ba6633c7::t_810d7d9024ee75 2973,3663-3691,3693-3695,3697-3721,3723-3725,4297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e79a84c439aa9e0da5ea2578ade67b23bc60c81d",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
