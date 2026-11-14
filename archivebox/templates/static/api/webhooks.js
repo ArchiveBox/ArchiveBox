@@ -100,7 +100,7 @@
   }
   const $ = (id) => document.getElementById(id);
   const icons = (name) =>
-    '<svg class="icon" aria-hidden="true"><use href="#' + name + '"/></svg>';
+    '<svg class="icon" aria-hidden="true"><use href="#' + esc(name) + '"/></svg>';
   const esc = (value) =>
     String(value ?? "").replace(
       /[&<>"']/g,
@@ -151,14 +151,14 @@
           current?.id === h.id ? "selected" : ""
         }"><td><button class="switch row-switch" role="switch" aria-label="Enable ${esc(
           h.name,
-        )}" aria-checked="${h.enabled}" data-id="${esc(
+        )}" aria-checked="${esc(h.enabled)}" data-id="${esc(
           h.id,
         )}"></button></td><td><button class="webhook-name" style="border:0;background:none;padding:0;text-align:left;font:inherit;font-weight:550">${esc(
           h.name,
         )}</button><span class="scope-label">${
           f
             ? icons("folder") + esc(f.name)
-            : modelIcon(h.ref) + " " + esc(modelName(h.ref))
+            : esc(modelIcon(h.ref)) + " " + esc(modelName(h.ref))
         }</span></td><td class="event-cell">${esc(e.label)}<span>${esc(
           modelName(h.ref),
         )}</span></td><td class="delivery-column delivery">${
@@ -182,11 +182,11 @@
           `<label class="event-option ${
             e.section ? "section-start" : ""
           }" style="--event-color:${
-            e.color
-          }"><input type="radio" name="event" value="${e.key}" ${
+            esc(e.color)
+          }"><input type="radio" name="event" value="${esc(e.key)}" ${
             current.signal === e.key ? "checked" : ""
           }><span class="event-icon">${icons(e.icon)}</span><span>${
-            e.label
+            esc(e.label)
           }</span>${
             e.blocking ? '<span class="event-note">Blocking</span>' : ""
           }</label>`,
@@ -199,7 +199,7 @@
     $("scope-field").hidden = !e.membership;
     $("scope-label").textContent = "Folder";
     $("scope").innerHTML = items
-      .map((f) => `<option value="${f.id}">${esc(f.name)}</option>`)
+      .map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`)
       .join("");
     if (!items.some((f) => f.id === current.folder_id))
       current.folder_id = items[0]?.id || "";
@@ -208,7 +208,7 @@
   }
   function selectHTML(options, value, label, cls = "") {
     return (
-      `<select class="${cls}" aria-label="${esc(label)}">` +
+      `<select class="${esc(cls)}" aria-label="${esc(label)}">` +
       options
         .map(
           ([v, l]) =>
@@ -381,7 +381,7 @@
   $("object-type").innerHTML = models
     .map(
       ([name, emoji, ref]) =>
-        `<option value="${ref}">${emoji} ${name}</option>`,
+        `<option value="${esc(ref)}">${esc(emoji)} ${esc(name)}</option>`,
     )
     .join("");
   $("event-rows").innerHTML = models
@@ -389,8 +389,8 @@
       eventsFor(ref).map(
         (e) =>
           `<tr><td>${icons(e.icon)} ${
-            e.label
-          }</td><td>${emoji} ${model}</td><td>${
+            esc(e.label)
+          }</td><td>${esc(emoji)} ${esc(model)}</td><td>${
             e.blocking
               ? "Blocking"
               : e.membership
@@ -851,7 +851,7 @@
       value = fieldValue(a, field);
     const label = schema.title || field.name.replaceAll("_", " ");
     const attrs = `data-api-field="${esc(key)}" aria-label="${esc(field.name)} (${
-      field.location
+      esc(field.location)
     })" title="${esc(field.description || schema.description || "")}"`;
     let input;
     if (schema.enum) {
@@ -891,13 +891,13 @@
     return `<label class="api-field"><span>${esc(label)}${
       field.required ? '<b aria-label="required"> *</b>' : ""
     }<small>${
-      field.location === "body_raw" ? "body" : field.location
+      field.location === "body_raw" ? "body" : esc(field.location)
     }</small></span>${input}</label>`;
   }
   function apiFields(a) {
     if (!apiSchema)
       return `<div class="small muted">${
-        apiError || "Loading API operations…"
+        esc(apiError || "Loading API operations…")
       }</div>`;
     const op = operationOf(a),
       groups = [...new Set(apiOperations.map((o) => o.group))];
@@ -913,7 +913,7 @@
                 (o) =>
                   `<option value="${esc(o.id)}" ${
                     o.id === a.operation ? "selected" : ""
-                  }>${o.method} · ${esc(o.summary || o.path)}</option>`,
+                  }>${esc(o.method)} · ${esc(o.summary || o.path)}</option>`,
               )
               .join("") +
             "</optgroup>",
@@ -921,7 +921,7 @@
         .join("") +
       "</select></label>";
     if (!op) return html;
-    html += `<div class="api-route"><span>${op.method}</span><code>${esc(
+    html += `<div class="api-route"><span>${esc(op.method)}</span><code>${esc(
       op.path,
     )}</code></div>`;
     const fields = fieldsFor(op),
