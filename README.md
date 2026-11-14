@@ -1563,6 +1563,6 @@ CSV/JSONL snapshot records include folder, owner, and persona IDs alongside name
 Snapshot REST responses expose `persona_name`; `persona` contains the same value.
 
 `archivebox importer` exposes source CRUD, catalog discovery, queued actions, and
-run history. See [Importers](archivebox/importers/README.md) for commands and REST
+run history. See [Importers](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/importers/README.md) for commands and REST
 endpoints. MCP exposes `folder` and `importer` as native action tools; snapshot
 export options are available through its existing `snapshot` list action.

@@ -108,6 +108,8 @@ autodoc2_packages = [
 
 autodoc2_output_dir = "apidocs"
 autodoc2_render_plugin = "myst"
+# Builtin annotations must not resolve to model fields also named `type`.
+autodoc2_replace_annotations = [("type", "builtins.type")]
 autodoc2_skip_module_regexes = [
     r".*migrations.*",
     r".*vendor.*",
