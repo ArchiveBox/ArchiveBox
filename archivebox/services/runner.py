@@ -255,6 +255,7 @@ class CrawlRunner:
         self._resource_deferred = False
         self._initial_snapshot_admitted = False
         self.persona = None
+        self.runtime_persona = None
         self.base_config: ArchiveBoxBaseConfig | dict[str, Any] = {}
         self.derived_config: dict[str, Any] = {}
         self.primary_url = ""
@@ -839,7 +840,10 @@ class CrawlRunner:
             current_process.iface = current_iface
             current_process.machine = current_iface.machine
             current_process.save(update_fields=["iface", "machine", "modified_at"])
+        from archivebox.personas.models import Persona
+
         self.persona = self.crawl.resolve_persona()
+        self.runtime_persona = self.persona or Persona(name="Default")
         self.base_config = get_config(crawl=self.crawl, overrides=self.config_overrides)
         # The merged user payload owns auth paths and binary selections. The
         # install phase publishes resolved binaries; stale machine paths must
@@ -894,11 +898,12 @@ class CrawlRunner:
         # Parse and deduplicate before copying browser state. An empty import
         # has no capture runtime to prepare; a large persona otherwise blocks
         # the collection scheduler just to be deleted during finalization.
-        if snapshot_ids and self.persona:
+        if snapshot_ids:
             self.base_config.update(
-                self.persona.prepare_runtime_for_crawl(
+                self.runtime_persona.prepare_runtime_for_crawl(
                     self.crawl,
                     chrome_binary=self.base_config["CHROME_BINARY"],
+                    use_template=self.persona is not None,
                 ),
             )
         return snapshot_ids
@@ -971,8 +976,8 @@ class CrawlRunner:
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot
 
-        if self.persona:
-            self.persona.cleanup_runtime_for_crawl(self.crawl)
+        if self.runtime_persona:
+            self.runtime_persona.cleanup_runtime_for_crawl(self.crawl)
         crawl = Crawl.objects.get(id=self.crawl.id)
         if crawl.status == Crawl.StatusChoices.SEALED:
             return
@@ -1063,15 +1068,21 @@ class CrawlRunner:
 
         def load_context():
             snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
-            persona = snapshot.crawl.persona
-            base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=persona, overrides=self.config_overrides)
-            crawl_local_root = persona.local_runtime_root_for_crawl(snapshot.crawl) if persona else None
-            local_root = None
-            if persona and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
-                local_root = crawl_local_root.parent.parent / "snapshots" / str(snapshot.id) / ".persona" / persona.name
-            return snapshot, persona, base_config, snapshot.tags_str(), local_root, crawl_local_root
+            from archivebox.personas.models import Persona
 
-        snapshot, persona, base_config, tags, local_root, crawl_local_root = await sync_to_async(load_context, thread_sensitive=True)()
+            persona = snapshot.crawl.persona
+            runtime_persona = persona or Persona(name="Default")
+            base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=persona, overrides=self.config_overrides)
+            crawl_local_root = runtime_persona.local_runtime_root_for_crawl(snapshot.crawl)
+            local_root = None
+            if str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
+                local_root = crawl_local_root.parent.parent / "snapshots" / str(snapshot.id) / ".persona" / runtime_persona.name
+            return snapshot, persona, runtime_persona, base_config, snapshot.tags_str(), local_root, crawl_local_root
+
+        snapshot, persona, runtime_persona, base_config, tags, local_root, crawl_local_root = await sync_to_async(
+            load_context,
+            thread_sensitive=True,
+        )()
 
         def prepare_payload(*, create_outputs: bool = True):
             # Persona copies and remote archive metadata must not occupy the one
@@ -1080,25 +1091,25 @@ class CrawlRunner:
             if create_outputs:
                 snapshot.crawl.migrate_legacy_output_dir()
             runtime_chrome_overrides = {}
-            if persona:
-                if create_outputs and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
-                    runtime_chrome_overrides.update(
-                        persona.prepare_runtime_for_snapshot(
-                            snapshot,
-                            chrome_binary=base_config["CHROME_BINARY"],
-                            local_root=local_root,
-                        ),
-                    )
-                else:
-                    crawl_downloads_dir = crawl_local_root / "chrome_downloads"
-                    if create_outputs:
-                        crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
-                    runtime_chrome_overrides.update(
-                        {
-                            "PERSONAS_DIR": str(crawl_local_root.parent),
-                            "ACTIVE_PERSONA": persona.name,
-                        },
-                    )
+            if create_outputs and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
+                runtime_chrome_overrides.update(
+                    runtime_persona.prepare_runtime_for_snapshot(
+                        snapshot,
+                        chrome_binary=base_config["CHROME_BINARY"],
+                        local_root=local_root,
+                        use_template=persona is not None,
+                    ),
+                )
+            else:
+                crawl_downloads_dir = crawl_local_root / "chrome_downloads"
+                if create_outputs:
+                    crawl_downloads_dir.mkdir(parents=True, exist_ok=True)
+                runtime_chrome_overrides.update(
+                    {
+                        "PERSONAS_DIR": str(crawl_local_root.parent),
+                        "ACTIVE_PERSONA": runtime_persona.name,
+                    },
+                )
             snapshot_output_dir = str(snapshot.output_dir)
             if create_outputs:
                 Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)

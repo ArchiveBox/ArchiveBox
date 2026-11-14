@@ -583,3 +583,116 @@ def test_persona_profile_io_uses_local_storage_and_preserves_archive_link(initia
     assert payload["local_removed"] is True
     assert payload["link_removed"] is True
     assert payload["template_preserved"] is True
+
+
+@pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
+@pytest.mark.parametrize("persona_selection", ["null", "deleted", "explicit"])
+def test_cli_capture_without_persona_never_uses_default_template(
+    initialized_archive,
+    browser_runtime,
+    httpserver,
+    isolation,
+    persona_selection,
+):
+    import hashlib
+    from pathlib import Path
+
+    from playwright.sync_api import sync_playwright
+
+    from .conftest import cli_env, run_archivebox_cmd
+
+    httpserver.expect_request("/favicon.ico").respond_with_data("", content_type="image/x-icon")
+    httpserver.expect_request("/seed").respond_with_data(
+        "<script>document.cookie='template_secret=private; path=/; max-age=3600'; "
+        "localStorage.setItem('template_secret', 'private');</script>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/capture").respond_with_data(
+        "<body><script>document.body.textContent = 'A captured page must preserve the selected browser identity without inheriting any unselected saved authentication state. cookie=' + document.cookie + "
+        "'; storage=' + localStorage.getItem('template_secret'); "
+        "document.cookie='capture_write=runtime; path=/; max-age=3600'; "
+        "localStorage.setItem('capture_write', 'runtime');</script></body>",
+        content_type="text/html",
+    )
+    env = cli_env(
+        ABXPKG_LIB_DIR=str(browser_runtime["lib_dir"]),
+        CHROME_BINARY=str(browser_runtime["chrome_binary"]),
+        CHROME_HEADLESS="True",
+        CHROME_ISOLATION=isolation,
+        PLUGINS="dom",
+        DOM_ENABLED="True",
+        PERSONAS_DIR=str(initialized_archive / "personas"),
+    )
+    prepare = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            "import json; from archivebox.personas.models import Persona; from archivebox.crawls.models import Crawl; "
+            "p=Persona.get_or_create_default(); p.ensure_dirs(); "
+            "selected = p if " + repr(persona_selection) + " == 'explicit' else "
+            "Persona.objects.create(name='DeletedCapturePersona') if " + repr(persona_selection) + " == 'deleted' else None; "
+            "c=Crawl.objects.create(urls="
+            + repr(httpserver.url_for("/capture"))
+            + ", persona=selected, config={'PLUGINS':'dom','CHROME_ISOLATION':"
+            + repr(isolation)
+            + "}); "
+            "selected.delete() if " + repr(persona_selection) + " == 'deleted' else None; "
+            "print(json.dumps({'crawl_id':str(c.pk),'template':p.CHROME_USER_DATA_DIR}))",
+        ],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert prepare.returncode == 0, prepare.stdout + prepare.stderr
+    prepared = json.loads(prepare.stdout.strip().splitlines()[-1])
+    template = Path(prepared["template"])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch_persistent_context(
+            str(template),
+            executable_path=str(browser_runtime["chrome_binary"]),
+            headless=True,
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page()
+        page.goto(httpserver.url_for("/seed"))
+        assert page.evaluate("localStorage.getItem('template_secret')") == "private"
+        browser.close()
+
+    def profile_bytes():
+        return {
+            str(path.relative_to(template)): hashlib.sha256(path.read_bytes()).hexdigest() for path in template.rglob("*") if path.is_file()
+        }
+
+    original_profile = profile_bytes()
+    captured = run_archivebox_cmd(["run", "--crawl-id=" + prepared["crawl_id"]], cwd=initialized_archive, env=env, timeout=120)
+    assert captured.returncode == 0, captured.stdout + captured.stderr
+    output = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            "import json; from archivebox.crawls.models import Crawl; c=Crawl.objects.get(pk=" + repr(prepared["crawl_id"]) + "); "
+            "from archivebox.personas.models import Persona; s=c.snapshot_set.get(); runtime=(c.persona or Persona(name='Default')).local_runtime_root_for_crawl(c); "
+            "print(json.dumps({'persona_id':str(c.persona_id),'output':str(s.output_dir), 'status':s.status, 'crawl_output':str(c.output_dir), 'runtime':str(runtime)}))",
+        ],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert output.returncode == 0, output.stdout + output.stderr
+    result = json.loads(output.stdout.strip().splitlines()[-1])
+    saved = (Path(result["output"]) / "dom" / "output.html").read_text()
+    assert result["status"] == "sealed"
+    crawl_output = Path(result["crawl_output"])
+    browser_output = Path(result["output"]) if isolation == "snapshot" else crawl_output
+    assert str(template) not in (browser_output / "chrome" / "cmd.sh").read_text()
+    assert not (Path(result["output"]) / ".persona").is_symlink()
+    assert not (crawl_output / ".persona").exists()
+    assert not (crawl_output / ".persona").is_symlink()
+    assert not Path(result["runtime"]).parent.parent.exists()
+    if persona_selection == "explicit":
+        assert "cookie=template_secret=private; storage=private" in saved
+    else:
+        assert result["persona_id"] == "None"
+        assert "cookie=; storage=null" in saved
+        assert "template_secret=private" not in saved
+    assert profile_bytes() == original_profile, "Capture modified the saved Default browser template"

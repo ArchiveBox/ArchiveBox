@@ -13,7 +13,7 @@ __package__ = "archivebox.personas"
 import shutil
 import os
 import tempfile
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Mapping
@@ -381,35 +381,40 @@ class Persona(ModelWithConfig):
             ignore=profile_copy_ignore,
         )
 
-    def prepare_runtime_for_crawl(self, crawl, chrome_binary: str = "") -> dict[str, str]:
-        self.ensure_dirs()
+    def prepare_runtime_for_crawl(self, crawl, chrome_binary: str = "", *, use_template: bool = True) -> dict[str, str]:
+        if use_template:
+            self.ensure_dirs()
 
-        template_dir = Path(self.CHROME_USER_DATA_DIR)
+        template_dir = Path(self.CHROME_USER_DATA_DIR) if use_template else None
         # Traversing the archive-side symlink still invokes FUSE for every file.
         # Keep that compatibility link, but perform profile I/O directly locally.
         runtime_root = self.local_runtime_root_for_crawl(crawl)
         runtime_profile_dir = runtime_root / "chrome_profile"
         runtime_downloads_dir = runtime_root / "chrome_downloads"
 
-        with self.lock_runtime_for_crawl():
+        # Anonymous captures use the same runtime lifecycle without accessing
+        # any saved persona, including its lock or authentication files.
+        with self.lock_runtime_for_crawl() if use_template else nullcontext():
             runtime_root.parent.mkdir(parents=True, exist_ok=True)
             self.link_runtime_for_output(crawl.output_dir, runtime_root)
             if runtime_root.exists():
                 shutil.rmtree(runtime_root, ignore_errors=True)
-            if template_dir.exists() and any(template_dir.iterdir()):
+            if template_dir is not None and template_dir.exists() and any(template_dir.iterdir()):
                 self.copy_chrome_profile(template_dir, runtime_profile_dir)
             else:
                 runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
-            for filename in ("cookies.txt", "auth.json"):
-                source = self.path / filename
-                if source.is_file():
-                    shutil.copy2(source, runtime_root / filename)
+            if use_template:
+                for filename in ("cookies.txt", "auth.json"):
+                    source = self.path / filename
+                    if source.is_file():
+                        shutil.copy2(source, runtime_root / filename)
             runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
             self.cleanup_chrome_profile(runtime_profile_dir)
 
             (runtime_root / "persona_name.txt").write_text(self.name)
-            (runtime_root / "template_dir.txt").write_text(str(template_dir))
+            if template_dir is not None:
+                (runtime_root / "template_dir.txt").write_text(str(template_dir))
             if chrome_binary:
                 (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
 
@@ -417,12 +422,21 @@ class Persona(ModelWithConfig):
         # Use the same optional auth discovery as the template persona.
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
-    def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "", *, local_root: Path | None = None) -> dict[str, str]:
+    def prepare_runtime_for_snapshot(
+        self,
+        snapshot,
+        chrome_binary: str = "",
+        *,
+        local_root: Path | None = None,
+        use_template: bool = True,
+    ) -> dict[str, str]:
         # Resolve once, rather than traversing the archive mount for every source
         # file. This also supports an existing runtime from before local storage.
         crawl_runtime_root = self.runtime_root_for_crawl(snapshot.crawl).resolve()
         crawl_runtime_profile_dir = crawl_runtime_root / "chrome_profile"
-        template_dir = crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else Path(self.CHROME_USER_DATA_DIR)
+        template_dir = (
+            crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else (Path(self.CHROME_USER_DATA_DIR) if use_template else None)
+        )
 
         # The async runner resolves config/ORM paths before entering its filesystem
         # worker; other callers retain the existing local-runtime path resolution.
@@ -437,14 +451,14 @@ class Persona(ModelWithConfig):
         runtime_downloads_dir = runtime_root / "chrome_downloads"
         if runtime_root.exists():
             shutil.rmtree(runtime_root, ignore_errors=True)
-        if template_dir.exists() and any(template_dir.iterdir()):
+        if template_dir is not None and template_dir.exists() and any(template_dir.iterdir()):
             self.copy_chrome_profile(template_dir, runtime_profile_dir)
         else:
             runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
         for filename in ("cookies.txt", "auth.json"):
             source = crawl_runtime_root / filename
-            if not source.is_file():
+            if use_template and not source.is_file():
                 source = self.path / filename
             if source.is_file():
                 shutil.copy2(source, runtime_root / filename)
@@ -452,7 +466,8 @@ class Persona(ModelWithConfig):
         self.cleanup_chrome_profile(runtime_profile_dir)
 
         (runtime_root / "persona_name.txt").write_text(self.name)
-        (runtime_root / "template_dir.txt").write_text(str(template_dir))
+        if template_dir is not None:
+            (runtime_root / "template_dir.txt").write_text(str(template_dir))
         if chrome_binary:
             (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
 
