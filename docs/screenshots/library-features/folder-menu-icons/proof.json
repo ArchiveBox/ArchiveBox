@@ -1,0 +1,519 @@
+[
+  {
+    "kind": "admin",
+    "width": 1600,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "Rename",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "Move...",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "Add subfolder",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "Add smart folder",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "Delete snapshots",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 768,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "Rename",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "Move...",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "Add subfolder",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "Add smart folder",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "Delete snapshots",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 390,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "Rename",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "Move...",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "Add subfolder",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "Add smart folder",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "Delete snapshots",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 320,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "Rename",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "Move...",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "Add subfolder",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "Add smart folder",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "Delete snapshots",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 1600,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 32,
+        "textX": 56,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 768,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 21,
+        "textX": 45,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 390,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 179,
+        "textX": 203,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 320,
+    "label": "Export as",
+    "items": [
+      {
+        "label": "RSS",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "CSV",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "JSONL",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true
+      },
+      {
+        "label": "Static HTML",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      },
+      {
+        "label": "All-in-one WACZ",
+        "icon": true,
+        "iconX": 109,
+        "textX": 133,
+        "aligned": true,
+        "limit": "MAX 4GB"
+      }
+    ],
+    "bounds": true,
+    "overflow": false
+  },
+  {
+    "deleteSnapshots": {
+      "confirmation": true,
+      "folderSnapshotCount": 10,
+      "selectAcross": true,
+      "cancelled": true,
+      "unchangedSnapshotIds": true
+    }
+  }
+]
