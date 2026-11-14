@@ -13,7 +13,7 @@ PROVIDERS = "onedrive microsoft365 notion figma tldraw excalidraw drawio miro ca
 TEXT_PROVIDERS = {"microsoft365", "notion", "protondocs", "iwork"}
 
 
-def test_provider_config_grids_in_browser(initialized_archive, browser_runtime):
+def test_provider_config_settings_in_browser(initialized_archive, browser_runtime):
     root = initialized_archive
     port = get_free_port()
     env = cli_env(
@@ -36,7 +36,8 @@ def test_provider_config_grids_in_browser(initialized_archive, browser_runtime):
             page.get_by_label("Username:", exact=True).fill(env["DJANGO_SUPERUSER_USERNAME"])
             page.get_by_label("Password:", exact=True).fill(env["DJANGO_SUPERUSER_PASSWORD"])
             page.get_by_role("button", name="Log in", exact=True).click()
-            expect(page.get_by_role("button", name="Log out", exact=True)).to_be_visible()
+            expect(page.locator(".navbar-username")).to_have_text(env["DJANGO_SUPERUSER_USERNAME"])
+            expect(page.locator(".navbar-username")).to_be_visible()
             for form in ("add", "persona"):
                 if form == "add":
                     page.goto(base + "/add/")
@@ -46,19 +47,22 @@ def test_provider_config_grids_in_browser(initialized_archive, browser_runtime):
                 for plugin in PROVIDERS:
                     config = json.loads((Path(get_plugins_dir()) / plugin / "config.json").read_text())
                     card = page.locator(f'.plugin-card[data-plugin-name="{plugin}"]')
+                    tab = page.locator(f'[role="tab"][data-plugin="{plugin}"]')
+                    tab.click()
                     expect(card).to_be_visible()
-                    group = card.locator("xpath=ancestor::details[contains(@class, 'plugin-group')]")
-                    expect(group.locator("summary")).to_contain_text("Text" if plugin in TEXT_PROVIDERS else "Media")
+                    expect(
+                        tab.locator("xpath=ancestor::div[contains(@class, 'plugin-settings-nav-group')]").locator(
+                            ".plugin-settings-category"
+                        )
+                    ).to_have_text("Text" if plugin in TEXT_PROVIDERS else "Media")
                     expect(card.locator(".plugin-choice-description")).to_have_text(config["description"])
                     logo = card.locator(".plugin-choice-icon svg").first
                     expect(logo).to_be_visible()
                     assert logo.locator("path, circle, rect, polygon, ellipse, polyline").count() > 0
-                    card.locator(".plugin-config-marker").click()
                     timeout = card.locator(f'[name="plugin_config__{plugin}__{plugin.upper()}_TIMEOUT"]')
-                    expect(timeout).to_be_visible()
+                    expect(timeout.locator("..").locator(".config-quantity-value")).to_be_visible()
                     assert timeout.input_value()
-                    card.locator(".plugin-config-marker").click()
-                page.locator('.plugin-card[data-plugin-name="onedrive"]').scroll_into_view_if_needed()
+                page.locator('[role="tab"][data-plugin="onedrive"]').click()
                 page.screenshot(path=str(root / f"provider-grid-{form}.png"))
             browser.close()
     finally:

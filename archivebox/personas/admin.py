@@ -44,7 +44,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
         (
             "Persona",
             {
-                "fields": ("name", "created_by", "permissions"),
+                "fields": (("name", "created_by", "permissions"),),
                 "classes": ("card", "wide", "persona-card-primary"),
             },
         ),
@@ -67,7 +67,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
             "Advanced",
             {
                 "fields": ("config",),
-                "classes": ("card", "wide"),
+                "classes": ("card", "wide", "collapse", "persona-card-config"),
             },
         ),
     )
@@ -75,18 +75,18 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
     change_fieldsets = (
         add_fieldsets[0],
         (
-            "Timestamps",
+            "Browser state",
             {
-                "fields": ("id", "created_at"),
-                "classes": ("card", "persona-card-timestamps"),
+                "fields": ("import_artifact_status", "persona_paths"),
+                "classes": ("card", "wide", "persona-card-browser"),
             },
         ),
         add_fieldsets[2],
         (
-            "Artifacts",
+            "Details",
             {
-                "fields": ("persona_paths", "import_artifact_status"),
-                "classes": ("card", "wide"),
+                "fields": (("id", "created_at"),),
+                "classes": ("card", "wide", "collapse", "persona-card-timestamps"),
             },
         ),
     )
@@ -106,13 +106,14 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Persona Paths")
     def persona_paths(self, obj: Persona) -> str:
         return format_html(
+            "<details class='abx-persona-storage'><summary>Storage locations</summary>"
             "<div class='abx-persona-path-list'>"
             "<div><strong>Persona root</strong><code>{}</code></div>"
             "<div><strong>chrome_profile</strong><code>{}</code></div>"
             "<div><strong>chrome_downloads</strong><code>{}</code></div>"
             "<div><strong>cookies.txt</strong><code>{}</code></div>"
             "<div><strong>auth.json</strong><code>{}</code></div>"
-            "</div>",
+            "</div></details>",
             obj.path,
             obj.CHROME_USER_DATA_DIR,
             obj.CHROME_DOWNLOADS_DIR,

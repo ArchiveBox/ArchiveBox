@@ -32,6 +32,15 @@ def get_plugin_choices():
     return [(name, name) for name in get_plugins()]
 
 
+def _config_label(name: str) -> str:
+    acronyms = {"api", "css", "fps", "html", "http", "https", "id", "json", "pdf", "ssl", "ui", "url", "urls"}
+    words = name.replace("_", " ").split()
+    return " ".join(
+        word.upper() if word.lower() in acronyms else (word.capitalize() if index == 0 else word.lower())
+        for index, word in enumerate(words)
+    )
+
+
 def get_plugin_choice_label(plugin_name: str, plugin_configs: dict[str, dict]) -> str:
     schema = plugin_configs.get(plugin_name, {})
     description = str(schema.get("description") or "").strip()
@@ -42,7 +51,7 @@ def get_plugin_choice_label(plugin_name: str, plugin_configs: dict[str, dict]) -
     return format_html(
         '<span class="plugin-choice-icon">{}</span><span class="plugin-choice-name">{}</span>',
         icon_html,
-        plugin_name,
+        str(schema.get("title") or _config_label(plugin_name)),
     )
 
 
@@ -130,6 +139,9 @@ def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> An
         return parsed
 
     value = str(raw_value)
+    pattern = schema.get("pattern")
+    if pattern and not re.search(pattern, value):
+        raise forms.ValidationError("Does not match the required format.")
     enum = schema.get("enum")
     if isinstance(enum, list) and enum and value not in {str(item) for item in enum}:
         raise forms.ValidationError(f"Must be one of: {', '.join(str(item) for item in enum)}.")
@@ -150,14 +162,23 @@ class PluginConfigFormMixin:
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config, binary_url_lookup)
         grouped_plugins = catalog.groups()
 
+        category_specs = list(self.plugin_group_specs)
+        known_categories = {category for category, _field_name, _title in category_specs}
+        # Importers are source commands rather than capture selections. Pages
+        # that expose their settings opt in through plugin_group_specs.
+        extra_categories = sorted(set(grouped_plugins) - known_categories - {"importers"})
+        category_specs.extend((category, "other_plugins", _config_label(category)) for category in extra_categories)
         group_specs = []
-        for category, field_name, title in self.plugin_group_specs:
+        field_choices: dict[str, list[tuple[str, str]]] = {}
+        for category, field_name, title in category_specs:
             plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []))
             group_specs.append((field_name, title, "", "", "", plugin_names))
             if field_name in self.fields:
-                get_choice_field(self, field_name).choices = [
+                field_choices.setdefault(field_name, []).extend(
                     (p, get_plugin_choice_label(p, plugin_configs)) for p in plugin_names if p in all_plugins
-                ]
+                )
+        for field_name, choices in field_choices.items():
+            get_choice_field(self, field_name).choices = choices
         self.plugin_groups = [
             {
                 "field_name": field_name,
@@ -180,6 +201,7 @@ class PluginConfigFormMixin:
         runtime_config: Mapping[str, Any],
         binary_url_lookup: Mapping[str, str] | None = None,
     ) -> list[dict[str, Any]]:
+        plugin_names = tuple(plugin_names)
         if field_name in self.fields:
             choices = list(get_choice_field(self, field_name).choices)
             selected_values = set(self.data.getlist(field_name)) if self.is_bound else set(get_choice_field(self, field_name).initial or [])
@@ -190,6 +212,10 @@ class PluginConfigFormMixin:
 
         cards = []
         for index, (plugin_name, label) in enumerate(choices):
+            # New categories share other_plugins on /add/, but each panel only
+            # includes its own plugins. Keep aggregate indices for unique IDs.
+            if plugin_name not in plugin_names:
+                continue
             schema = plugin_configs.get(str(plugin_name), {})
             properties = schema.get("properties") or {}
             enabled_config_key = f"{str(plugin_name).upper()}_ENABLED"
@@ -212,6 +238,7 @@ class PluginConfigFormMixin:
                     "checked": str(plugin_name) in selected_values,
                     "checkbox_id": f"id_{field_name}_{index}",
                     "enabled_config_key": enabled_config_key,
+                    "enabled_field": next((field for field in config_fields if field["key"] == enabled_config_key), None),
                     "description": str(schema.get("description") or "").strip(),
                     "source_url": f"https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/{plugin_name}",
                     "docs_url": f"https://plugins.archivebox.io/#{plugin_name}",
@@ -279,10 +306,29 @@ class PluginConfigFormMixin:
         else:
             input_value = "" if current_value is None else str(current_value)
 
+        description = str(prop_schema.get("description") or "").strip()
+        quantity_kind = ""
+        unit = "s"
+        quantity_format = "base"
+        if field_kind == "number":
+            if config_key.endswith("_BYTES") or re.search(r"\bbytes\b", description, re.I):
+                quantity_kind, unit = "bytes", "B"
+            elif "TIMEOUT" in config_key or re.search(r"_(?:DELAY|WAIT|INTERVAL|BUDGET)(?:_|$)", config_key):
+                if "TIMEOUT" in config_key or re.search(r"\b(?:seconds?|milliseconds?|ms)\b", description, re.I):
+                    quantity_kind = "duration"
+                    unit = "ms" if re.search(r"\b(?:milliseconds?|ms)\b", description, re.I) or config_key.endswith("_MS") else "s"
+        elif field_kind == "text" and prop_schema.get("pattern") == r"^\d+[kmgKMG]?$":
+            quantity_kind, unit, quantity_format = "bytes", "B", "size-suffix"
+
         return {
             "key": config_key,
+            "label": str(prop_schema.get("title") or _config_label(config_key.removeprefix(f"{plugin_name.upper()}_"))),
             "input_name": input_name,
             "kind": field_kind,
+            "is_timeout": field_kind == "number" and "TIMEOUT" in config_key,
+            "unit": unit,
+            "quantity_kind": quantity_kind,
+            "quantity_format": quantity_format,
             "input_type": input_type,
             "value": input_value,
             "checked": bool(current_value),
@@ -294,6 +340,7 @@ class PluginConfigFormMixin:
             else (("" if current_value is None else str(current_value)) if "string" in schema_types else _jsonish(current_value)),
             "current_url": self.plugin_config_binary_urls.get(config_key, "") if str(config_key).endswith("_BINARY") else "",
             "is_sensitive": is_sensitive,
+            "step": "any" if "number" in schema_types else "1",
             "minimum": prop_schema.get("minimum"),
             "maximum": prop_schema.get("maximum"),
             "pattern": prop_schema.get("pattern"),

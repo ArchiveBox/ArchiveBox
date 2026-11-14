@@ -1,0 +1,3 @@
+<div class="config-range"><input type="range" class="config-range-slider" aria-label="{{ field.label }} slider" min="{{ field.minimum }}" max="{{ field.maximum }}" step="{{ step|default:'1' }}" value="{{ field.value }}">
+<input class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} type="number" name="{{ field.input_name }}" id="id_{{ field.input_name }}" min="{{ field.minimum }}" max="{{ field.maximum }}" step="{{ field.step }}" value="{{ field.value }}" aria-describedby="help_{{ field.input_name }}">{% if not field.quantity_kind %}<span>{{ unit }}</span>{% endif %}</div>
+<div class="config-range-ends"><span>{{ low }}</span><span>{{ high }}</span></div>
