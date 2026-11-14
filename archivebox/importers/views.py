@@ -1,4 +1,3 @@
-import json
 from functools import wraps
 from pathlib import Path
 
@@ -11,13 +10,12 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.routes_util import build_snapshot_export_urls
+from archivebox.core.models import Snapshot
 from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.plugins.discovery import get_plugin_catalog
 
@@ -142,31 +140,6 @@ def action(request, source_id, action):
     return redirect(source)
 
 
-def run_context(run):
-    keys = list(
-        dict.fromkeys(key for item in run.items for key, value in item.get("metadata", {}).items() if value not in (None, "", [], {}))
-    )
-    rows = []
-    for item in run.items:
-        cells = []
-        for key in keys:
-            value = item.get("metadata", {}).get(key)
-            if key == "bookmarked_at" and isinstance(value, str):
-                value = parse_datetime(value) or value
-            elif isinstance(value, list):
-                value = ", ".join(str(part) for part in value)
-            elif isinstance(value, dict):
-                value = json.dumps(value, ensure_ascii=False)
-            cells.append({"value": value, "date": key == "bookmarked_at" and hasattr(value, "strftime")})
-        rows.append({**item, "cells": cells})
-    return {
-        "run": run,
-        "columns": ["Saved" if key == "bookmarked_at" else key.replace("_", " ").capitalize() for key in keys],
-        "rows": rows,
-        "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {},
-    }
-
-
 @importer_admin
 @require_GET
 def run_detail(request, run_id):
@@ -176,7 +149,12 @@ def run_detail(request, run_id):
         "importers/run.html",
         {
             "title": run.get_action_display(),
-            **run_context(run),
+            "run": run,
+            "snapshots_changelist": archivebox_admin._registry[Snapshot].render_embedded_changelist(
+                request, {"crawl_id": str(run.crawl_id)}
+            )
+            if run.crawl_id
+            else "",
             "active": run.status in ACTIVE_STATUSES,
         },
     )
@@ -220,11 +198,12 @@ def run_activity(request, run_id):
     return JsonResponse(
         {
             "html": render_to_string(
-                "importers/run_body.html",
-                run_context(run),
+                "importers/activity.html",
+                {"run": run},
                 request=request,
             ),
             "active": run.status in ACTIVE_STATUSES,
+            "crawl_id": str(run.crawl_id) if run.crawl_id else None,
         },
     )
 

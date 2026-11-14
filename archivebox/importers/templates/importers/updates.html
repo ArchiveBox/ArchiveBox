@@ -21,6 +21,7 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (stopped) return;
+      if (result.crawl_id && !document.querySelector(".snapshot-changelist-widget")) { location.reload(); return; }
       // Templates escape all plugin text; this is same-origin rendered HTML.
       pending = result.html;
       renderPending();

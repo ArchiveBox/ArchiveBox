@@ -3135,8 +3135,8 @@ body.change-list #changelist #changelist-form > .actions-top .action-summary {
     text-align: right;
 }
 
-body.change-list #changelist #changelist-form > .actions-top .action-selected-count,
-body.change-list #changelist #changelist-form > .actions-top .action-total-count {
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-selected-count,
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-total-count {
     display: inline-flex;
     flex: 0 0 auto !important;
     align-items: baseline;
@@ -3959,6 +3959,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a,
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary span {
+    flex: 0 0 auto !important;
     font-family: inherit;
     font-size: inherit !important;
     line-height: inherit !important;
@@ -4214,3 +4215,9 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .prog
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .tree-container { max-height: calc(100vh - 80px) !important; }
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .header-bar { pointer-events: none; }
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #progress-collapse { display: none !important; }
+
+.snapshot-changelist-widget{width:100%;min-width:0;overflow:hidden;background:var(--body-bg,#fff)}
+.snapshot-changelist-toolbar{display:flex;align-items:center;gap:12px;min-height:38px;padding:4px 10px;border-bottom:1px solid var(--hairline-color,#e4e7ec);font-size:12px}
+.snapshot-changelist-toolbar>strong{margin-right:auto;font-weight:600}
+.snapshot-changelist-toolbar>.snapshot-export-block{min-width:100px}
+.snapshot-changelist-toolbar .library-export-toggle{font-size:12px}

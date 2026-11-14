@@ -1,0 +1,14 @@
+{% load i18n static %}
+<link rel="stylesheet" href="{% static 'admin/css/changelists.css' %}">
+<link rel="stylesheet" href="{% static 'library/folders.css' %}">
+<script src="{% url 'admin:jsi18n' %}"></script>
+{{ media }}
+<script src="{% static 'library/folders.js' %}" defer></script>
+<div class="snapshot-changelist-widget model-snapshot change-list embedded-change-list">
+  <div class="snapshot-changelist-toolbar">
+    <strong>{% translate "Snapshots" %}</strong>
+    <a href="{{ snapshot_changelist_url }}">{% translate "Open full list" %}</a>
+    {% include "core/snapshot_export_links.html" with export_urls=list_export_urls export_caption=True export_hide_import=True %}
+  </div>
+  {% include "admin/change_list_panel.html" %}
+</div>
