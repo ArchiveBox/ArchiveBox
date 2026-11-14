@@ -1,0 +1,61 @@
+archivebox/cli/archivebox_add.py
+  s_784d0e5fa3aa29::t_7a12da3938ee3a 369-372
+  s_784d0e5fa3aa29::t_6fdb3b7654633f 60-63,81-86,172-175,362-368,373-378,421-422,426-427
+archivebox/tests/test_capture_limit_defaults.py
+  s_784d0e5fa3aa29::t_6fdb3b7654633f 12-14,29-30
+  s_784d0e5fa3aa29::t_cdc2c354532f8e 1-11,15-28,31-41
+archivebox/config/common.py
+  s_784d0e5fa3aa29::t_c32627c9614db3 512-514,516,520
+archivebox/core/forms.py
+  s_784d0e5fa3aa29::t_48a5c009df0a4b 363-369
+archivebox/plugins/forms.py
+  s_784d0e5fa3aa29::t_591f6fd02227b0 490-492
+archivebox/templates/config/concurrency_control.html
+  s_784d0e5fa3aa29::t_83429086a81409 3
+archivebox/templates/config/concurrency_script.html
+  s_784d0e5fa3aa29::t_78cc1d672e1464 6,16-20,22-27,30
+archivebox/templates/config/fields/CRAWL_MAX_SIZE.html
+  s_784d0e5fa3aa29::t_8875f3fdc048d4 3-4
+archivebox/templates/config/fields/CRAWL_MAX_URLS.html
+  s_784d0e5fa3aa29::t_c17c27f2df081f 3
+archivebox/templates/config/fields/CRAWL_TIMEOUT.html
+  s_784d0e5fa3aa29::t_e1afb49bef1ae5 1-4
+archivebox/templates/config/fields/DELETE_AFTER.html
+  s_784d0e5fa3aa29::t_dca08c01081b99 1-3
+archivebox/templates/config/fields/SNAPSHOT_MAX_SIZE.html
+  s_784d0e5fa3aa29::t_1e0f71bcc7566b 3-4
+archivebox/templates/core/add.html
+  s_784d0e5fa3aa29::t_7bc65c83038c2a 183,195,207,231
+archivebox/templates/plugins/config_editor.html
+  s_784d0e5fa3aa29::t_809eece8041799 9
+archivebox/templates/plugins/config_quantity.html
+  s_784d0e5fa3aa29::t_eddea29f079d47 8,16-18,20,25,39,52-60,80-90,92,97-103,112-113,116,119,132,135-136,147-177,182-183,185-188
+archivebox/templates/plugins/config_range.html
+  s_784d0e5fa3aa29::t_eef5fe2abe823f 1
+archivebox/templates/plugins/config_timeout.html
+  s_784d0e5fa3aa29::t_9aa17a88fda3d1 2
+archivebox/templates/plugins/plugin_config_grid.html
+  s_784d0e5fa3aa29::t_626fddfe21ac67 186-187,198
+archivebox/tests/test_settings_review_regressions.py
+  s_784d0e5fa3aa29::t_551d75725b8faf 1-213
+archivebox/tests/test_ui_add_view.py
+  s_784d0e5fa3aa29::t_f42c78ccacf8fd 168-169,368,380
+archivebox/tests/test_ui_system_settings.py
+  s_784d0e5fa3aa29::t_204a7eef35c3f4 113-160,229,237,267-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b0687981161d2ef7a077137c1e2f53fcf1f1c3fb",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
