@@ -1,0 +1,25 @@
+{
+  "views": [
+    {
+      "width": 1600,
+      "arrows": [
+        "▾",
+        "▾",
+        "▾",
+        "▾"
+      ],
+      "menusOpened": true
+    },
+    {
+      "width": 390,
+      "arrows": [
+        "▾",
+        "▾",
+        "▾",
+        "▾"
+      ],
+      "menusOpened": true
+    }
+  ],
+  "errors": []
+}
