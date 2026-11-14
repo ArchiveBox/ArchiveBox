@@ -1,0 +1,140 @@
+<style>
+.config-quantity { display: flex; align-items: center; gap: 0; flex-wrap: wrap; min-width: 0; }
+#plugin-settings .config-quantity input.config-quantity-value, #add-form .config-quantity input.config-quantity-value { flex: 1; min-width: 60px; width: 80px; height: 34px; padding: 6px 9px; border: 1px solid #d5d6dc; border-radius: 6px 0 0 6px; font: inherit; font-size: 12px; background: white; color: #36383d; box-shadow: none; }
+#plugin-settings .config-quantity select.config-quantity-unit, #add-form .config-quantity select.config-quantity-unit { flex: 0 0 72px; width: 72px; height: 34px; min-height: 34px; margin: 0; padding: 5px; border: 1px solid #d5d6dc; border-left: 0; border-radius: 0 6px 6px 0; background: #f6f7fa; font: inherit; font-size: 12px; color: #555963; }
+.config-quantity-error { flex: 1 0 100%; margin-top: 5px; color: #b42318; font-size: 11px; }
+.config-quantity-error:empty { display: none; }
+.config-quantity input[aria-invalid="true"] { border-color: #d92d20 !important; }
+.config-range .config-quantity { flex: 0 1 160px; }
+.config-quantity-slider { width: 100%; flex: 1 0 100%; margin-bottom: 8px; accent-color: #007aff; }
+</style>
+<script>
+(() => {
+    if (window.archiveboxRefreshQuantities) return;
+    const widgets = new Map();
+    const durationUnits = [['ms', 'ms', .001], ['s', 'sec', 1], ['min', 'min', 60], ['h', 'hours', 3600], ['d', 'days', 86400]];
+    const sizeUnits = [['B', 'bytes', 1], ['KiB', 'KiB', 1024], ['MiB', 'MiB', 1048576], ['GiB', 'GiB', 1073741824], ['TiB', 'TiB', 1099511627776]];
+    const retentionUnits = [['h', 'hours', 3600], ['d', 'days', 86400], ['w', 'weeks', 604800], ['mo', 'months', 2592000], ['y', 'years', 31536000]];
+    const tidy = number => Number(number.toPrecision(15));
+    function enhance(input) {
+        const kind = input.dataset.quantityKind;
+        const format = input.dataset.quantityFormat || 'base';
+        const units = format === 'retention' ? retentionUnits : kind === 'bytes' ? sizeUnits : durationUnits;
+        const baseFactor = input.dataset.baseUnit === 'ms' ? .001 : 1;
+        const integer = input.dataset.quantityInteger !== 'false';
+        const min = input.getAttribute('min') ?? (kind === 'bytes' ? '0' : null);
+        const max = input.getAttribute('max');
+        const zeroOrMin = Number(input.dataset.quantityZeroOrMin || 0);
+        const id = input.id;
+        const label = document.querySelector(`label[for="${CSS.escape(id)}"]`)?.textContent.trim() || 'Value';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'config-quantity';
+        const amount = document.createElement('input');
+        amount.type = 'number'; amount.step = 'any'; amount.id = id; amount.className = 'config-quantity-value';
+        amount.required = input.required;
+        amount.setAttribute('aria-label', label);
+        const select = document.createElement('select');
+        select.className = 'config-quantity-unit'; select.setAttribute('aria-label', `${label} unit`);
+        units.forEach(([key, title]) => select.add(new Option(title, key)));
+        select.value = format === 'retention' ? 'd' : (kind === 'bytes' ? 'B' : 's');
+        const error = document.createElement('div');
+        error.id = `${id}_quantity_error`; error.className = 'config-quantity-error'; error.setAttribute('aria-live', 'polite');
+        amount.setAttribute('aria-describedby', `${input.getAttribute('aria-describedby') || ''} ${error.id}`.trim());
+        input.before(wrapper); wrapper.append(input, amount, select, error);
+        input.type = 'hidden'; input.id = `${id}_canonical`;
+        const factor = () => units.find(unit => unit[0] === select.value)[2] / baseFactor;
+        function parse(raw) {
+            if (raw === '') return null;
+            if (format === 'size-text') {
+                const match = raw.match(/^(\d+(?:\.\d+)?)\s*([kmgt])?(?:i?b)?$/i);
+                return match ? Number(match[1]) * ({k:1024,m:1048576,g:1073741824,t:1099511627776}[match[2]?.toLowerCase()] || 1) : NaN;
+            }
+            if (format === 'duration-text') {
+                const match = raw.match(/^(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)?$/i);
+                return match ? Number(match[1]) * (match[2]?.toLowerCase().startsWith('h') ? 3600 : match[2]?.toLowerCase().startsWith('m') ? 60 : 1) : NaN;
+            }
+            if (format === 'size-suffix') {
+                const match = raw.match(/^(\d+)([kmg])?$/i);
+                return match ? Number(match[1]) * ({k:1024,m:1048576,g:1073741824}[match[2]?.toLowerCase()] || 1) : NaN;
+            }
+            if (format === 'retention') {
+                if (raw === '0') return 0;
+                const match = raw.match(/^(\d+)(h|d|w|mo|y)$/);
+                return match ? Number(match[1]) * retentionUnits.find(unit => unit[0] === match[2])[2] : NaN;
+            }
+            return Number(raw);
+        }
+        function message(text) {
+            amount.setCustomValidity(text); error.textContent = text;
+            amount.setAttribute('aria-invalid', String(Boolean(text)));
+        }
+        let slider;
+        if (input.dataset.quantitySlider) {
+            slider = document.createElement('input'); slider.type = 'range'; slider.className = 'config-quantity-slider';
+            slider.min = min || '0'; slider.max = max || '300'; slider.step = integer ? '1' : 'any';
+            slider.setAttribute('aria-label', `${label} slider`); wrapper.prepend(slider);
+            slider.addEventListener('input', () => { input.value = slider.value; input.dispatchEvent(new Event('input', {bubbles:true})); });
+        }
+        let lastRaw;
+        function refresh(force = false) {
+            if (!force && input.value === lastRaw) return;
+            lastRaw = input.value;
+            const raw = parse(input.value);
+            amount.value = raw === null || !Number.isFinite(raw) ? '' : String(tidy(raw / factor()));
+            if (min !== null) amount.min = String(tidy(Number(min) / factor()));
+            if (max !== null) amount.max = String(tidy(Number(max) / factor()));
+            message(raw !== null && !Number.isFinite(raw) ? 'Enter a valid value.' : '');
+            if (slider && raw !== null && Number.isFinite(raw)) {
+                slider.max = max || String(Math.max(300, raw)); slider.value = String(raw);
+            }
+        }
+        // Pick a readable initial unit without rewriting the saved representation.
+        const initial = parse(input.value);
+        if (initial > 0) {
+            const readable = units.filter(unit => unit[0] !== 'ms' && initial * baseFactor >= unit[2] && Number.isInteger(tidy(initial * baseFactor / unit[2]))).at(-1);
+            if (readable) select.value = readable[0];
+        }
+        select.addEventListener('change', () => refresh(true));
+        amount.addEventListener('input', () => {
+            if (amount.value === '') {
+                if (amount.validity.badInput) { message('Enter a valid number.'); return; }
+                input.value = ''; message(''); input.dispatchEvent(new Event('input', {bubbles:true})); return;
+            }
+            const raw = tidy(Number(amount.value) * factor());
+            let problem = '';
+            if (!Number.isFinite(raw)) problem = 'Enter a valid number.';
+            else if (integer && !Number.isSafeInteger(raw)) problem = `Use a whole number of ${kind === 'bytes' ? 'bytes' : input.dataset.baseUnit === 'ms' ? 'milliseconds' : 'seconds'}.`;
+            else if (min !== null && raw < Number(min)) problem = `Minimum: ${tidy(Number(min) / factor())} ${select.selectedOptions[0].text}.`;
+            else if (max !== null && raw > Number(max)) problem = `Maximum: ${tidy(Number(max) / factor())} ${select.selectedOptions[0].text}.`;
+            else if (zeroOrMin && raw !== 0 && raw < zeroOrMin) problem = `Use 0 or at least ${zeroOrMin} seconds.`;
+            else if (format === 'retention' && raw !== 0 && (raw < 3600 || raw % 3600)) problem = 'Use a whole number of hours.';
+            if (problem) { message(problem); return; }
+            if (format === 'retention') {
+                const unit = retentionUnits.find(unit => unit[0] === select.value);
+                input.value = raw === 0 ? '0' : Number.isInteger(raw / unit[2]) ? `${raw / unit[2]}${unit[0]}` : `${raw / 3600}h`;
+            } else if (format === 'size-suffix') {
+                const suffix = {KiB:'k',MiB:'m',GiB:'g'}[select.value];
+                input.value = suffix && Number.isInteger(Number(amount.value)) ? `${amount.value}${suffix}` : String(raw);
+            } else input.value = String(raw);
+            message(''); input.dispatchEvent(new Event('input', {bubbles:true}));
+        });
+        amount.addEventListener('change', () => { if (amount.validity.valid) input.dispatchEvent(new Event('change', {bubbles:true})); });
+        widgets.set(input, {refresh, amount}); refresh();
+    }
+    window.archiveboxRefreshQuantities = () => {
+        document.querySelectorAll('input[data-quantity-kind]').forEach(input => { if (!widgets.has(input)) enhance(input); });
+        widgets.forEach(widget => widget.refresh());
+    };
+    document.addEventListener('input', event => { if (widgets.has(event.target)) widgets.get(event.target).refresh(); });
+    document.addEventListener('change', event => { if (!event.target.closest('.config-quantity')) window.archiveboxRefreshQuantities(); });
+    document.addEventListener('DOMContentLoaded', window.archiveboxRefreshQuantities);
+    // Django admin uses novalidate; quantity widgets still validate their own units before submission.
+    document.addEventListener('submit', event => {
+        for (const [input, widget] of widgets) {
+            if (input.form === event.target && !widget.amount.checkValidity()) {
+                event.preventDefault(); widget.amount.reportValidity(); break;
+            }
+        }
+    }, true);
+})();
+</script>

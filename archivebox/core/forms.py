@@ -145,6 +145,10 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         widget=forms.TextInput(
             attrs={
                 "placeholder": "0 = unlimited, or e.g. 45mb / 1gb",
+                "data-quantity-kind": "bytes",
+                "data-quantity-format": "size-text",
+                "data-base-unit": "B",
+                "min": 0,
             },
         ),
     )
@@ -155,6 +159,12 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         widget=forms.TextInput(
             attrs={
                 "pattern": TIMEOUT_INPUT_PATTERN,
+                "data-quantity-kind": "duration",
+                "data-base-unit": "s",
+                "data-quantity-slider": "true",
+                "data-quantity-format": "duration-text",
+                "data-quantity-zero-or-min": "11",
+                "min": 0,
                 "title": "Use 0, integer seconds, or a duration like 1.5m or 1hr. Non-zero values must be greater than 10 seconds.",
                 "placeholder": "0, 300, 1.5m, or 1hr",
             },
@@ -166,6 +176,12 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         widget=forms.TextInput(
             attrs={
                 "pattern": TIMEOUT_INPUT_PATTERN,
+                "data-quantity-kind": "duration",
+                "data-base-unit": "s",
+                "data-quantity-slider": "true",
+                "data-quantity-format": "duration-text",
+                "data-quantity-zero-or-min": "11",
+                "min": 0,
                 "title": "Use integer seconds or a duration like 1.5m or 1hr. Non-zero values must be greater than 10 seconds.",
                 "placeholder": "60, 1.5m, or 1hr",
             },
@@ -178,6 +194,10 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         widget=forms.TextInput(
             attrs={
                 "placeholder": "0 = unlimited, or e.g. 45mb / 1gb",
+                "data-quantity-kind": "bytes",
+                "data-quantity-format": "size-text",
+                "data-base-unit": "B",
+                "min": 0,
             },
         ),
     )
@@ -188,6 +208,10 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         widget=forms.TextInput(
             attrs={
                 "placeholder": "0 = keep forever, or e.g. 1d / 6mo",
+                "data-quantity-kind": "duration",
+                "data-quantity-format": "retention",
+                "data-base-unit": "s",
+                "min": 0,
             },
         ),
     )

@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block extra_head %}
+    {% if not can_override_crawl_config %}{% include 'plugins/config_quantity.html' %}{% endif %}
     <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}" />
     <link rel="stylesheet" href="{% static 'add.css' %}" />
     {% if can_override_crawl_config %}
@@ -512,6 +513,7 @@
                         if (!sectionToggle) return;
                         sectionToggle.checked = isTruthyConfigValue(effectiveConfig[enabledKey]);
                     });
+                    document.querySelectorAll('.plugin-config-form').forEach(settings => settings.dispatchEvent(new Event('plugin-config-updated')));
                 }
 
                 function updatePersonaButtonHighlights(personaName) {

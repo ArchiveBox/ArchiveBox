@@ -204,26 +204,14 @@
     }
 
     body.model-persona.change-form #content-main form .persona-plugin-config {
+        display: block;
+        grid-column: 1 / -1;
         flex: 1 1 100% !important;
         min-width: 100% !important;
         max-width: 100% !important;
         width: 100% !important;
         box-sizing: border-box;
         margin: 0 0 24px !important;
-    }
-
-    .persona-plugin-config h2 {
-        color: #334155 !important;
-    }
-
-    .persona-plugin-config > p {
-        margin: 12px 16px 0;
-        color: #64748b;
-        font-size: 13px;
-    }
-
-    .persona-plugin-config .plugin-config-grid {
-        padding: 16px;
     }
 
 </style>
@@ -286,9 +274,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {% block after_field_sets %}
 {{ block.super }}
-<fieldset id="plugin-config" class="module aligned wide persona-plugin-config">
-    <h2>Plugin Config</h2>
-    <p>These typed controls update the same Persona config JSON shown above. Shared config keys stay synced across plugin sections.</p>
+<div id="plugin-config" class="persona-plugin-config">
     {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
-</fieldset>
+</div>
 {% endblock %}

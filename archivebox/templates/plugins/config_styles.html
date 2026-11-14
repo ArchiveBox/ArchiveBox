@@ -1,0 +1,124 @@
+<style>
+#plugin-settings {
+    --settings-blue: #007aff;
+    --settings-text: #202124;
+    --settings-muted: #72747b;
+    display: flex;
+    width: 100%; min-width: 0; min-height: 760px; flex: none;
+    border: 1px solid #dcdde2; border-radius: 14px;
+    background: #f7f7f9; color: var(--settings-text);
+    overflow: hidden;
+    text-align: left;
+    font: 14px/1.45 var(--font-family-primary);
+    box-shadow: 0 4px 24px #18203208;
+    container-type: inline-size;
+}
+#plugin-settings *, #plugin-settings *::before, #plugin-settings *::after { box-sizing: border-box; }
+#plugin-settings [hidden] { display: none !important; }
+#plugin-settings button, #plugin-settings input, #plugin-settings select, #plugin-settings textarea { font: inherit; }
+#plugin-settings a { color: #0066cc; text-decoration: none; }
+#plugin-settings a:hover { text-decoration: underline; }
+#plugin-settings :focus-visible { outline: 3px solid #007aff80; outline-offset: 3px; }
+.plugin-settings-sidebar { flex: 0 0 260px; background: #eeeef2; border-right: 1px solid #dcdde2; padding: 22px 12px 14px; display: flex; flex-direction: column; min-width: 0; }
+.plugin-settings-sidebar-heading { padding: 0 10px 14px; font-size: 21px; font-weight: 650; letter-spacing: -.5px; }
+.plugin-settings-search { display: flex; align-items: center; margin: 0 2px 18px; border: 1px solid #d4d4da; border-radius: 7px; background: #e5e5ea; padding: 0 8px; }
+.plugin-settings-search svg { width: 16px; height: 16px; fill: none; stroke: #7e8087; stroke-width: 1.6; flex: none; }
+#plugin-settings .plugin-settings-search input { width: 100%; min-width: 0; border: 0; background: transparent; box-shadow: none; padding: 7px; font-size: 13px; color: var(--settings-text); margin: 0; }
+.plugin-settings-tabs { overflow-y: auto; min-height: 260px; height: 590px; scrollbar-width: thin; }
+.plugin-settings-category { padding: 15px 10px 6px; color: #777981; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }
+.plugin-settings-nav-group:first-child .plugin-settings-category { padding-top: 0; }
+#plugin-settings [role="tab"] { display: flex; align-items: center; justify-content: flex-start; gap: 9px; width: 100%; margin: 2px 0; padding: 8px 10px; background: transparent; border: 0; border-radius: 7px; text-align: left; color: #36383d; font-size: 13px; cursor: pointer; }
+#plugin-settings [role="tab"]:hover { background: #e0e0e6; }
+#plugin-settings [role="tab"][aria-selected="true"] { background: var(--settings-blue); color: white; }
+.plugin-choice-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 25px; height: 25px; border-radius: 6px; background: #fff; box-shadow: 0 1px 3px #00000012; color: #535a65; }
+#plugin-settings .plugin-choice-icon svg { width: 17px; height: 17px; }
+.plugin-choice-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-settings-nav-row { display: flex; align-items: center; gap: 8px; padding-right: 5px; }
+#plugin-settings .plugin-settings-nav-row [role="tab"] { min-width: 0; flex: 1; }
+.plugin-title-row { display: flex; align-items: center; gap: 24px; margin-bottom: 12px; }
+#plugin-settings .plugin-title-row .plugin-card-label { flex: 1; min-width: 0; margin: 0; }
+.plugin-settings-content { flex: 1; min-width: 0; height: 760px; overflow-y: auto; padding: 28px 32px; scrollbar-width: thin; }
+.plugin-card { max-width: 860px; margin: 0 auto; }
+#plugin-settings .plugin-card-main { height: auto; font: inherit; color: inherit; margin-bottom: 24px; }
+.plugin-settings-breadcrumb { color: var(--settings-muted); font-size: 11px; margin-bottom: 18px; }
+.plugin-settings-breadcrumb span { margin: 0 7px; color: #b0b1b8; }
+#plugin-settings .plugin-card-label { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 650; letter-spacing: -.7px; margin: 0 0 12px; width: auto; color: var(--settings-text); }
+.plugin-card-label .plugin-choice-icon { width: 44px; height: 44px; border-radius: 11px; }
+#plugin-settings .plugin-card-label .plugin-choice-icon svg { width: 27px; height: 27px; }
+#plugin-settings .plugin-choice-description { margin: 0 0 10px; font: inherit; font-size: 13px; color: var(--settings-muted); max-width: 620px; }
+.plugin-settings-links { display: flex; gap: 18px; font-size: 11px; }
+
+.plugin-config-grid { background: white; border: 1px solid #e0e1e5; border-radius: 10px; overflow: hidden; }
+.plugin-config-field { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(160px, 1.1fr); column-gap: 26px; padding: 18px; position: relative; }
+.plugin-config-field + .plugin-config-field { border-top: 1px solid #ededf0; }
+#plugin-settings .plugin-config-field > label { grid-column: 1; grid-row: 1; display: block; float: none; width: auto; margin: 0; padding: 0; color: var(--settings-text); font-size: 13px; font-weight: 550; }
+.plugin-config-control { grid-column: 2; grid-row: 1 / span 3; min-width: 0; align-self: center; }
+.plugin-config-help { grid-column: 1; margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--settings-muted); overflow-wrap: anywhere; }
+.plugin-config-meta { grid-column: 1; margin-top: 7px; color: #999ba3; font-size: 10px; }
+.plugin-config-meta summary { cursor: pointer; font-size: 10px; color: #898b93; }
+.plugin-config-default { margin-top: 6px; overflow-wrap: anywhere; }
+.plugin-config-default code { font-size: 10px; color: #777981; background: transparent; padding: 0; }
+#plugin-settings .plugin-config-control input:not([type="checkbox"]):not([type="range"]), #plugin-settings .plugin-config-control select, #plugin-settings .plugin-config-control textarea { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 32px; margin: 0; padding: 6px 9px; border: 1px solid #d5d6dc; border-radius: 6px; color: #36383d; background: #fff; box-shadow: 0 1px 2px #00000005; font-size: 12px; }
+#plugin-settings .plugin-config-control textarea { height: auto !important; min-height: 70px; resize: vertical; font: 11px/1.5 ui-monospace, monospace; }
+#plugin-settings .plugin-config-control .plugin-config-toggle { display: flex; justify-content: flex-end; float: none; width: auto; margin: 0; padding: 0; }
+#plugin-settings input[type="checkbox"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 40px; height: 24px; min-height: 24px; margin: 0; padding: 0; border: 1px solid #ceced5; border-radius: 20px; background: #dedee3; cursor: pointer; transition: background .15s; }
+#plugin-settings input[type="checkbox"]::before { content: ''; display: block; position: absolute; width: 20px; height: 20px; top: 1px; left: 1px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0003; transition: transform .15s; }
+#plugin-settings input[type="checkbox"]:checked { background: var(--settings-blue); border-color: var(--settings-blue); }
+#plugin-settings input[type="checkbox"]:checked::before { transform: translateX(16px); }
+#plugin-settings input.plugin-title-toggle { width: 52px; height: 32px; min-height: 32px; border-radius: 32px; }
+#plugin-settings input.plugin-title-toggle::before { width: 26px; height: 26px; top: 2px; left: 2px; }
+#plugin-settings input.plugin-title-toggle:checked::before { transform: translateX(20px); }
+#plugin-settings input.plugin-sidebar-toggle { width: 36px; height: 24px; min-height: 24px; }
+#plugin-settings input.plugin-sidebar-toggle::before { width: 20px; height: 20px; }
+#plugin-settings input.plugin-sidebar-toggle:checked::before { transform: translateX(12px); }
+#plugin-settings .plugin-config-control:has(.config-timeout-slider) input[type="number"] { flex-basis: 76px; width: 76px; }
+.plugin-config-grid:empty { display: none; }
+.plugin-config-uses { margin: 16px 2px; color: var(--settings-muted); font-size: 11px; }
+.plugin-config-uses code { background: none; font-size: inherit; }
+.config-presets { display: flex; gap: 6px; margin-bottom: 10px; }
+#plugin-settings .config-presets button { flex: 1; min-width: 0; background: #f9f9fb; border: 1px solid #e0e1e6; border-radius: 8px; color: #555963; padding: 12px 4px 8px; cursor: pointer; font-size: 11px; text-align: center; }
+#plugin-settings .config-presets button:hover { background: #f0f5ff; }
+#plugin-settings .config-presets button[aria-pressed="true"] { border-color: #007aff; background: #eef5ff; color: #0066d6; box-shadow: inset 0 0 0 1px #007aff; }
+.config-presets .config-device { display: block; width: 32px; height: 30px; margin: 0 auto 6px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.config-presets small { display: block; margin-top: 3px; font-size: 9px; color: var(--settings-muted); white-space: nowrap; }
+.config-range { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--settings-muted); }
+#plugin-settings .config-range input[type="range"] { flex: 1; min-width: 40px; width: 0; padding: 0; margin: 0; accent-color: var(--settings-blue); height: 20px; border: 0; box-shadow: none; cursor: pointer; }
+#plugin-settings .plugin-config-control .config-range input[type="number"] { flex: 0 0 58px; width: 58px; text-align: right; }
+.config-range-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--settings-muted); margin-top: 8px; }
+.plugin-settings-empty { text-align: center; padding: 140px 20px; color: var(--settings-muted); }
+.plugin-settings-empty > span { display: block; font-size: 48px; color: #b3b6c0; }
+.plugin-settings-empty strong { display: block; font-size: 18px; color: #444; }
+.plugin-settings-empty p { font: inherit; }
+@container (max-width: 800px) {
+    .plugin-settings-content { padding: 22px 20px; }
+    .plugin-config-field { grid-template-columns: 1fr; gap: 0; }
+    .plugin-config-control { grid-column: 1; grid-row: 4; margin-top: 12px; }
+}
+@media (max-width: 700px) {
+    #plugin-settings { flex-direction: column; min-height: 0; border-radius: 10px; }
+    .plugin-settings-sidebar { flex-basis: auto; border-right: 0; border-bottom: 1px solid #dcdde2; padding: 16px 12px 8px; }
+    .plugin-settings-sidebar-heading { font-size: 18px; padding-bottom: 10px; }
+    .plugin-settings-search { margin-bottom: 10px; }
+    .plugin-settings-tabs { height: auto; min-height: 0; max-height: 170px; }
+    .plugin-settings-category { display: none; }
+    .plugin-settings-content { height: auto; max-height: none; padding: 20px 14px; }
+    .plugin-card-label { font-size: 23px; }
+}
+#add-form #plugin-settings label { font-size: 13px; }
+#add-form #plugin-settings .plugin-config-toggle { display: flex; }
+.plugin-config-field--editor .plugin-config-control { grid-column: 1 / -1; grid-row: 4; margin-top: 14px; }
+.plugin-config-field--editor .plugin-config-help { grid-column: 1 / -1; }
+.config-editor { border: 1px solid #d5d6dc; border-radius: 8px; overflow: hidden; background: #fcfcfd; }
+.config-editor-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #e7e7ed; padding: 8px 10px; color: #7a7c85; font-size: 10px; }
+.config-editor-language { margin-right: auto; font-weight: 600; }
+#plugin-settings .config-editor-toolbar button { padding: 3px 7px; border: 1px solid #dedee5; border-radius: 5px; background: white; font-size: 10px; color: #0066cc; cursor: pointer; }
+#plugin-settings .plugin-config-control .config-editor textarea { border: 0; border-radius: 0; padding: 14px; background: transparent; min-height: 170px; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: none; tab-size: 2; }
+#add-form #plugin-settings .config-editor textarea { min-height: 170px; }
+.config-editor-footer { padding: 5px 12px; border-top: 1px solid #e7e7ed; text-align: right; color: #92959d; font-size: 10px; }
+.config-window { display: block; width: 46px; height: 32px; margin: 0 auto 7px; border: 1px solid #b5bac4; border-radius: 5px; position: relative; box-shadow: 0 2px 4px #0000000a; }
+.config-window::before { content: ''; position: absolute; top: 6px; left: 5px; right: 5px; height: 1px; background: #aeb4bf; }
+.config-window::after { content: ''; position: absolute; top: 12px; left: 6px; width: 10px; height: 13px; border-radius: 2px; background: #8da4c44d; }
+.config-window-light { background: #fff; }
+.config-window-dark { background: #2e313b; border-color: #4b505d; }
+.config-window-auto { background: linear-gradient(90deg, #fff 50%, #2e313b 50%); }
+</style>
