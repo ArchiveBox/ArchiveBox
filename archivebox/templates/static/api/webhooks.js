@@ -851,7 +851,7 @@
       value = fieldValue(a, field);
     const label = schema.title || field.name.replaceAll("_", " ");
     const attrs = `data-api-field="${esc(key)}" aria-label="${esc(field.name)} (${
-      field.location
+      esc(field.location)
     })" title="${esc(field.description || schema.description || "")}"`;
     let input;
     if (schema.enum) {
@@ -891,13 +891,13 @@
     return `<label class="api-field"><span>${esc(label)}${
       field.required ? '<b aria-label="required"> *</b>' : ""
     }<small>${
-      field.location === "body_raw" ? "body" : field.location
+      field.location === "body_raw" ? "body" : esc(field.location)
     }</small></span>${input}</label>`;
   }
   function apiFields(a) {
     if (!apiSchema)
       return `<div class="small muted">${
-        apiError || "Loading API operations…"
+        esc(apiError || "Loading API operations…")
       }</div>`;
     const op = operationOf(a),
       groups = [...new Set(apiOperations.map((o) => o.group))];
@@ -913,7 +913,7 @@
                 (o) =>
                   `<option value="${esc(o.id)}" ${
                     o.id === a.operation ? "selected" : ""
-                  }>${o.method} · ${esc(o.summary || o.path)}</option>`,
+                  }>${esc(o.method)} · ${esc(o.summary || o.path)}</option>`,
               )
               .join("") +
             "</optgroup>",
@@ -921,7 +921,7 @@
         .join("") +
       "</select></label>";
     if (!op) return html;
-    html += `<div class="api-route"><span>${op.method}</span><code>${esc(
+    html += `<div class="api-route"><span>${esc(op.method)}</span><code>${esc(
       op.path,
     )}</code></div>`;
     const fields = fieldsFor(op),
