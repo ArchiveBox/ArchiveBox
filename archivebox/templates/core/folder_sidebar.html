@@ -2,7 +2,8 @@
 {% url "domains:index" as domains_url %}
 <svg class="library-symbols" aria-hidden="true"><defs>
 <symbol id="library-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/></symbol>
-<symbol id="library-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="library-books" viewBox="0 0 24 24"><path d="M4 4h4v16H4Zm7 0h4v16h-4Zm7 1 3-1 4 15-3 1Z" transform="translate(-1 0)"/></symbol>
+<symbol id="library-pages" viewBox="0 0 24 24"><rect x="7" y="3" width="13" height="16" rx="2"/><path d="M16 21H5a2 2 0 0 1-2-2V7M11 8h5m-5 4h5"/></symbol>
 <symbol id="library-tray" viewBox="0 0 24 24"><path d="m3 13 3-9h12l3 9v7H3Zm0 0h5l2 3h4l2-3h5"/></symbol>
 <symbol id="library-rss" viewBox="0 0 24 24"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></symbol>
 <symbol id="library-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
@@ -10,9 +11,9 @@
 <symbol id="library-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
 </defs></svg>
 <nav id="folder-sidebar" class="folder-sidebar" aria-label="Folders" {% if not folder_readonly %}data-move-url="{% url 'admin:core_folder_move' %}"{% endif %}>
-  <div class="library-heading"><span class="library-mark"><svg><use href="#library-grid"/></svg></span><div class="library-heading-label"><h2>Library</h2><span class="folder-current">{% with folder=folder_breadcrumbs|last %}{% if folder %}{{ folder.name }}{% elif selected_folder == 'unfiled' %}Inbox{% else %}All snapshots{% endif %}{% endwith %}</span></div><button type="button" class="folder-mobile-toggle icon-button" aria-label="Hide folders" title="Hide folders" aria-controls="folder-sidebar" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m7-12-4 4 4 4"/></svg></button></div>
+  <div class="library-heading"><span class="library-mark"><svg><use href="#library-books"/></svg></span><div class="library-heading-label"><h2>Library</h2><span class="folder-current">{% with folder=folder_breadcrumbs|last %}{% if folder %}{{ folder.name }}{% elif selected_folder == 'unfiled' %}Inbox{% else %}All snapshots{% endif %}{% endwith %}</span></div><button type="button" class="folder-mobile-toggle icon-button" aria-label="Hide folders" title="Hide folders" aria-controls="folder-sidebar" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m7-12-4 4 4 4"/></svg></button></div>
   <div class="library-primary">
-    <a class="library-link" href="{{ library_root_url|default:admin_library_url }}" {% if not selected_folder %}aria-current="page"{% endif %}><svg><use href="#library-grid"/></svg><span>All snapshots</span>{% if not folder_readonly %}<small class="folder-count">{{ library_counts.total }}</small>{% endif %}</a>
+    <a class="library-link" href="{{ library_root_url|default:admin_library_url }}" {% if not selected_folder %}aria-current="page"{% endif %}><svg><use href="#library-pages"/></svg><span>All snapshots</span>{% if not folder_readonly %}<small class="folder-count">{{ library_counts.total }}</small>{% endif %}</a>
 {% if not folder_readonly %}
     <a class="library-link folder-drop-target" data-folder-id="" href="?folder=unfiled" {% if selected_folder == 'unfiled' %}aria-current="page"{% endif %}><svg><use href="#library-tray"/></svg><span>Inbox</span><small class="folder-count">{{ library_counts.unfiled }}</small></a>
     {% if domains_url %}<a class="library-link" href="{{ domains_url }}"><svg><use href="#library-globe"/></svg><span>Domains</span></a>{% endif %}{% endif %}
@@ -40,7 +41,7 @@
       <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection">Watch a site for changes</a>
       <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">Other options...</a>
     </div>
-    <a class="folder-manage" href="{% url 'admin:core_folder_changelist' %}"><svg><use href="#library-folder"/></svg>Manage folders</a>{% endif %}
+{% endif %}
   </div>
 {% if not folder_readonly %}
   <div class="folder-drop-status" role="status" aria-live="polite"></div>
