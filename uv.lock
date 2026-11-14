@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
@@ -21,13 +21,14 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-setuptools = "2026-10-23T00:00:00Z"
-twisted = "2026-10-23T00:00:00Z"
-abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
+abx-plugins = "2100-01-01T00:00:00Z"
+abxbus = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
 abxpkg = "2100-01-01T00:00:00Z"
 certifi = "2026-10-23T00:00:00Z"
-abxbus = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
+django-allauth = "2026-11-14T00:00:00Z"
+setuptools = "2026-10-23T00:00:00Z"
+twisted = "2026-10-23T00:00:00Z"
 uv = "2026-10-23T00:00:00Z"
 
 [[package]]
@@ -268,8 +269,8 @@ requires-dist = [
     { name = "dateparser", specifier = ">=1.2.0" },
     { name = "django", specifier = ">=6.1.2" },
     { name = "django-admin-data-views", specifier = ">=0.4.1" },
-    { name = "django-allauth", extras = ["saml"], marker = "extra == 'saml'", specifier = ">=65.21.1,<66" },
-    { name = "django-allauth", extras = ["socialaccount"], marker = "extra == 'allauth'", specifier = ">=65.21.1,<66" },
+    { name = "django-allauth", extras = ["saml"], marker = "extra == 'saml'", specifier = ">=65.22.1,<66" },
+    { name = "django-allauth", extras = ["socialaccount"], marker = "extra == 'allauth'", specifier = ">=65.22.1,<66" },
     { name = "django-auth-ldap", marker = "extra == 'ldap'", specifier = ">=4.1.0" },
     { name = "django-autotyping", marker = "extra == 'debug'", specifier = ">=0.5.1" },
     { name = "django-debug-toolbar", marker = "extra == 'debug'", specifier = ">=4.4.6" },
@@ -466,7 +467,7 @@ name = "browser-cookie3"
 version = "0.20.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jeepney", marker = "'bsd' in sys_platform or sys_platform == 'linux'" },
+    { name = "jeepney", marker = "sys_platform == 'linux' or 'bsd' in sys_platform" },
     { name = "lz4" },
     { name = "pycryptodomex" },
 ]
@@ -956,15 +957,15 @@ wheels = [
 
 [[package]]
 name = "django-allauth"
-version = "65.21.1"
+version = "65.22.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
     { name = "django" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/36/bf94a4ba9dc77ee289c0ff1bad9c751915fc5b648a986c33ed82a3bb3197/django_allauth-65.21.1.tar.gz", hash = "sha256:128344e260a22b62796747be0a2249ad9488a509c1aa34ab35e3fcf22862dd9e", size = 2309127, upload-time = "2026-10-30T18:27:34.273Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/d7/fd2e9622eeb6f2dffd005fc478a3de22e4bd9e91518dca33c145ce0f514b/django_allauth-65.22.1.tar.gz", hash = "sha256:b05e20b8f511066c97ed98491520a2ca0319ef16d7f27feed9f688cc6877a8ba", size = 2352989, upload-time = "2026-11-13T09:25:16.184Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/8c/b497051da2f3d0727eacaf8e91d0557af3e5d3da2087a08553082e1ef0ff/django_allauth-65.21.1-py3-none-any.whl", hash = "sha256:7bdf018c9f3f0a32c80677f84e7777272d9c833b180bd6734314c4831c802a9e", size = 2078751, upload-time = "2026-10-30T18:27:31.165Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/15/f7bd5323ed1f83869f902033faa1630eb1d4e24d220ac5372e82f7600474/django_allauth-65.22.1-py3-none-any.whl", hash = "sha256:08f7a3ddbd5ff7f1000d685dee9c0678d0da2057e18bed473a6eb2de18bd04e4", size = 2116758, upload-time = "2026-11-13T09:25:13.281Z" },
 ]
 
 [package.optional-dependencies]

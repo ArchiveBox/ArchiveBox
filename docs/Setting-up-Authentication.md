@@ -139,7 +139,7 @@ This walkthrough intentionally creates **inactive administrator accounts pending
 
 Back up an existing database before upgrading. With the same configuration/environment as the server, run `archivebox manage migrate --noinput` inside the collection, then restart the server. In Docker Compose, run `docker compose exec archivebox archivebox manage migrate --noinput`, then `docker compose restart archivebox`.
 
-Existing users and password hashes are preserved. Installing the extra alone changes no routes; `ALLAUTH_ENABLED=True` activates the integration. Disabling it restores the original routes without deleting linked identities.
+The integration requires django-allauth 65.22.1 or newer, including its provider email-verification security fixes. Existing users and password hashes are preserved. Enabling allauth replaces Django's local-password backend, so existing local-password sessions must sign in again; disabling it likewise requires allauth sessions to sign in again. Installing the extra alone changes no routes; `ALLAUTH_ENABLED=True` activates the integration. Disabling it restores the original routes without deleting linked identities.
 
 #### Create an identity-provider realm and user
 
@@ -200,7 +200,7 @@ Provider settings are server credentials: restart after editing, keep the config
 
 #### Test OIDC and approve the new account
 
-1. Log out of ArchiveBox, open `/admin/login/`, and select **Sign in with SSO or email**.
+1. Log out of ArchiveBox and open `/admin/login/`. After initial administrator setup, this redirects directly to the allauth login page with local-password and provider choices.
 2. Choose **Keycloak OIDC**, then **Continue**. This confirmation submits a CSRF-protected POST to start authentication.
 3. Sign in at Keycloak with the demo user. On the first return, ArchiveBox displays **Account Inactive** because approval is enabled.
 4. Sign in locally as the original administrator. In **Admin Users**, open `sso-demo`, check **Active**, and **Save**. Review staff/superuser permissions before approving.
@@ -370,6 +370,18 @@ SP-initiated global logout and OIDC back-channel logout are not implemented here
 An existing IdP session may therefore sign the user back in without another
 password prompt. `LOGOUT_REDIRECT_URL` can send users to a deployment-specific
 logout landing page.
+
+
+Established-administrator login uses allauth's standard admin protection, so the
+old `/admin/login/` password endpoint cannot bypass allauth's email-verification
+or login rate limits. First-administrator setup remains available. Local
+username/password login uses the same allauth page as provider login.
+
+ArchiveBox's default server has one HTTP worker and an in-process Django cache.
+Rate-limit state resets when that process restarts. Custom deployments with
+multiple web workers need a shared Django cache and correctly configured trusted
+proxy/client-IP handling; see [allauth's rate-limit deployment requirements](https://docs.allauth.org/en/latest/common/rate_limits.html#deployment-requirements).
+Do not assume separate processes share the default rate-limit counters.
 
 
 #### Other OAuth social providers

@@ -1,13 +1,16 @@
 # ci-runner: hosted
-# Requires a Docker daemon; stock NAS runners deliberately have no Docker socket.
+# CI starts Keycloak in Docker; stock NAS runners deliberately have no Docker socket.
 # ci-workers: 1
 """Real Keycloak + Chromium acceptance tests for OIDC and signed SAML SSO.
 
-Requires Docker and archivebox[saml]. No provider responses are simulated.
+Requires archivebox[saml] and Docker, or a running Keycloak configured with
+KEYCLOAK_BASE_URL and KEYCLOAK_ADMIN_PASSWORD (bootstrap user: admin).
+No provider responses are simulated. Each case creates and deletes its own realm.
 """
 
 import base64
 import json
+import os
 import secrets
 import subprocess
 import time
@@ -28,6 +31,9 @@ from archivebox.tests.conftest import (
 
 @pytest.fixture(scope="module")
 def keycloak():
+    if base := os.environ.get("KEYCLOAK_BASE_URL"):
+        yield base.rstrip("/"), os.environ["KEYCLOAK_ADMIN_PASSWORD"]
+        return
     port = get_free_port()
     password = secrets.token_urlsafe(24)
     name = f"archivebox-sso-test-{secrets.token_hex(6)}"
@@ -201,7 +207,7 @@ def test_real_provider_login(keycloak, initialized_archive, browser_runtime, pro
         "ALLAUTH_ENABLED": "true",
         "REGISTRATION_ENABLED": str(mode not in {"closed", "connect"}),
         "REGISTRATION_MODE": "approval" if mode == "approval" else "open",
-        "DEFAULT_USER_PERMISSIONS": "admin",
+        "DEFAULT_USER_PERMISSIONS": "none" if mode == "connect" else "admin",
         "SOCIALACCOUNT_PROVIDERS": json.dumps(providers),
         "BASE_URL": f"http://{base_host}:{port}",
         "SERVER_SECURITY_MODE": "auto" if security_mode == "auto-onedomain" else security_mode,
@@ -280,7 +286,7 @@ def test_real_provider_login(keycloak, initialized_archive, browser_runtime, pro
                 expected = "Sign Up Closed" if mode == "closed" else "Sign Up"
                 assert expected in page.content(), page.content()
                 page.goto(f"{origin}/admin/")
-                assert "/admin/login/" in page.url
+                assert urlsplit(page.url).path == ("/admin/login/" if mode == "closed" else "/accounts/login/")
             else:
                 private_replay_url = None
                 page.goto(f"{origin}/admin/")
@@ -348,7 +354,7 @@ print('REPLAY=' + json.dumps({'id': str(snapshot.id), 'host': get_snapshot_host(
                 page.goto(f"{origin}/accounts/logout/")
                 page.get_by_role("button", name="Sign Out").click()
                 page.goto(f"{origin}/admin/")
-                assert "/admin/login/" in page.url
+                assert urlsplit(page.url).path == ("/admin/login/" if mode == "closed" else "/accounts/login/")
                 if private_replay_url:
                     # The host-only grant remains in the browser, but logout
                     # revokes its authority through the server-side session.
@@ -366,7 +372,7 @@ print('REPLAY=' + json.dumps({'id': str(snapshot.id), 'host': get_snapshot_host(
                 )
                 replay_page.goto(response.url)
                 replay_page.goto(f"{origin}/admin/")
-                assert "/admin/login/" in replay_page.url
+                assert urlsplit(replay_page.url).path == ("/admin/login/" if mode == "closed" else "/accounts/login/")
                 replay.close()
             if protocol == "saml" and mode == "open":
                 # Obtain a fresh assertion from the real IdP without submitting its HTML form.

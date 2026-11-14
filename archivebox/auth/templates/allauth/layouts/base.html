@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
-{% block title %}{% block head_title %}{% endblock %} | ArchiveBox{% endblock %}
+{% block title %}{% block head_title %}{% endblock %}{% endblock %}
 {% block extrastyle %}{{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/css/login.css' %}">
 {% block extra_head %}{% endblock %}

@@ -1,1 +1,1 @@
-"""Optional django-allauth integration. See README.md for provider setup."""
+"""Optional django-allauth integration for ArchiveBox's account views."""

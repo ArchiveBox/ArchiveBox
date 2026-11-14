@@ -203,9 +203,12 @@ if ALLAUTH_ENABLED:
             raise ImproperlyConfigured("The SAML provider requires archivebox[saml]")
         INSTALLED_APPS.append(module)
     MIDDLEWARE.append("allauth.account.middleware.AccountMiddleware")
-    AUTHENTICATION_BACKENDS.append("allauth.account.auth_backends.AuthenticationBackend")
+    AUTHENTICATION_BACKENDS = [
+        "allauth.account.auth_backends.AuthenticationBackend" if backend == "django.contrib.auth.backends.ModelBackend" else backend
+        for backend in AUTHENTICATION_BACKENDS
+    ]
     ACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxAccountAdapter"
-    SOCIALACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxSocialAccountAdapter"
+    ACCOUNT_SIGNUP_ENABLED = CONFIG.REGISTRATION_ENABLED
     ACCOUNT_LOGIN_METHODS = {"username", "email"}
     ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
     ACCOUNT_EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION

@@ -1,6 +1,8 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static allauth account socialaccount %}
 
+{% block title %}{% trans "Log in" %}{% endblock %}
+
 {% block extrastyle %}{{ block.super }}
 <link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
 {% endblock %}

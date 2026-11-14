@@ -24,6 +24,7 @@ from django.conf import settings
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
 from archivebox.core.admin_site import archivebox_admin
+from lxml.html import fromstring
 assert EmailAddress in archivebox_admin._registry
 assert SocialAccount in archivebox_admin._registry
 User = get_user_model()
@@ -32,6 +33,7 @@ r = c.get('/admin/login/')
 assert r.status_code == 200 and b'first-admin-form' in r.content
 r = c.get('/accounts/login/')
 assert r.status_code == 200, r.content
+assert b'<title>Log in | ArchiveBox</title>' in r.content
 assert r.headers.get('X-Frame-Options') == 'DENY'
 assert r.headers.get('Content-Security-Policy') == "frame-ancestors 'none'"
 assert b'Forgot your password?' in r.content
@@ -63,12 +65,14 @@ for path in ('/admin/account/emailaddress/', '/admin/socialaccount/socialaccount
     assert r.status_code == 200, (path, r.content)
 r = c.get('/accounts/logout/')
 assert r.status_code == 200 and c.session['_auth_user_id'] == str(legacy.pk)
+assert ' '.join(fromstring(r.content).findtext('.//title').split()) == 'Sign Out | ArchiveBox'
 assert c.post('/accounts/logout/').status_code == 403
 r = c.post('/accounts/logout/', {'csrfmiddlewaretoken': c.cookies[settings.CSRF_COOKIE_NAME].value})
 assert r.status_code == 302 and '_auth_user_id' not in c.session
 r = c.get('/admin/login/')
-assert b'Sign in with SSO or email' in r.content
-assert b'id="login-form"' in r.content
+assert r.status_code == 302 and r.url.startswith('/accounts/login/'), (r.status_code, r.content)
+r = c.get(r.url)
+assert r.status_code == 200 and b'name="login"' in r.content
 print('AUTH_FLOW_OK')
 """
     result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=initialized_archive, env=env, default_cli_env=True)
@@ -95,6 +99,68 @@ print('DISABLED_OK')
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert isinstance(result.stdout, str) and "DISABLED_OK" in result.stdout
+
+
+def test_admin_login_uses_allauth_policy(initialized_archive):
+    env = {
+        "ALLAUTH_ENABLED": "true",
+        "EMAIL_VERIFICATION": "mandatory",
+        "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay",
+        "BASE_URL": "http://testserver",
+    }
+    migrated = run_archivebox_cmd(["manage", "migrate", "--noinput"], cwd=initialized_archive, env=env, default_cli_env=True)
+    assert migrated.returncode == 0, migrated.stderr
+    script = """
+from urllib.parse import parse_qs, urlsplit
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.test import Client
+from allauth.account.models import EmailAddress
+assert 'django.contrib.auth.backends.ModelBackend' not in settings.AUTHENTICATION_BACKENDS
+# The first-admin setup must establish a session using the enabled backend.
+bootstrap = Client(enforce_csrf_checks=True)
+response = bootstrap.get('/admin/login/')
+assert response.status_code == 200 and b'first-admin-form' in response.content
+response = bootstrap.post('/admin/login/', {
+    'username': 'bootstrap', 'password1': 'Sufficient-Test-Pass123!', 'password2': 'Sufficient-Test-Pass123!',
+    'csrfmiddlewaretoken': bootstrap.cookies[settings.CSRF_COOKIE_NAME].value,
+})
+assert response.status_code == 302 and response.url == '/admin/'
+assert bootstrap.session['_auth_user_backend'] == 'allauth.account.auth_backends.AuthenticationBackend'
+assert bootstrap.get('/admin/').status_code == 200
+user = get_user_model().objects.create_superuser('unverified', 'unverified@example.com', 'Sufficient-Test-Pass123!')
+client = Client(enforce_csrf_checks=True)
+response = client.get('/admin/login/?next=/admin/auth/user/')
+assert response.status_code == 302, (response.status_code, response.content)
+assert urlsplit(response.url).path == '/accounts/login/'
+assert parse_qs(urlsplit(response.url).query)['next'] == ['/admin/auth/user/']
+response = client.get(response.url)
+assert response.status_code == 200
+csrf = client.cookies[settings.CSRF_COOKIE_NAME].value
+# Posting to the old password endpoint must not bypass allauth's verification gate.
+response = client.post('/admin/login/', {'username': user.username, 'password': 'Sufficient-Test-Pass123!', 'csrfmiddlewaretoken': csrf})
+assert response.status_code == 302 and urlsplit(response.url).path == '/accounts/login/'
+assert '_auth_user_id' not in client.session
+response = client.post('/accounts/login/', {'login': user.username, 'password': 'Sufficient-Test-Pass123!', 'csrfmiddlewaretoken': csrf})
+assert response.status_code == 302 and response.url == '/accounts/confirm-email/', (response.status_code, response.content)
+assert '_auth_user_id' not in client.session
+email = EmailAddress.objects.get(user=user, email=user.email)
+assert not email.verified
+email.verified = True
+email.save(update_fields=['verified'])
+response = client.post('/accounts/login/', {'login': user.username, 'password': 'Sufficient-Test-Pass123!', 'csrfmiddlewaretoken': csrf, 'next': '/admin/auth/user/'})
+assert response.status_code == 302 and response.url == '/admin/auth/user/'
+assert client.session['_auth_user_id'] == str(user.pk)
+assert client.get('/admin/').status_code == 200
+# Authenticated nonstaff accounts must receive a denial, not a login loop.
+user.is_staff = user.is_superuser = False
+user.save(update_fields=['is_staff', 'is_superuser'])
+assert client.get('/admin/login/').status_code == 403
+print('ADMIN_ALLAUTH_POLICY_OK')
+"""
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=initialized_archive, env=env, default_cli_env=True)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert isinstance(result.stdout, str) and "ADMIN_ALLAUTH_POLICY_OK" in result.stdout
 
 
 def test_noadmin_mode_blocks_sso_and_password_login(initialized_archive):
