@@ -204,7 +204,8 @@ def test_folder_type_is_immutable_and_delete_preserves_snapshots(admin_client, a
     assert not Folder.objects.filter(pk=manual.pk).exists()
 
 
-def test_django_select_across_moves_all_matches_and_preserves_exclusions(admin_client, admin_user):
+@pytest.mark.parametrize("clear_assignment", [False, True])
+def test_django_select_across_moves_all_matches_and_preserves_exclusions(admin_client, admin_user, clear_assignment):
     from archivebox.tests.conftest import ADMIN_TEST_HOST
 
     source = Folder.objects.create(name="Source")
@@ -227,7 +228,7 @@ def test_django_select_across_moves_all_matches_and_preserves_exclusions(admin_c
         f"/admin/core/snapshot/?folder={source.pk}&title__exact=selected",
         {
             "action": "move_to_folder",
-            "folder_destination": str(target.pk),
+            "folder_destination": "" if clear_assignment else str(target.pk),
             "_selected_action": [str(snapshot.pk) for snapshot in snapshots[:50]],
             "select_across": "1",
             "index": "0",
@@ -235,7 +236,7 @@ def test_django_select_across_moves_all_matches_and_preserves_exclusions(admin_c
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 302, response.content
-    assert Snapshot.objects.filter(folder=target, title="selected").count() == 105
+    assert Snapshot.objects.filter(folder=None if clear_assignment else target, title="selected").count() == 105
     assert Snapshot.objects.filter(folder=source, title="excluded").count() == 5
 
 
