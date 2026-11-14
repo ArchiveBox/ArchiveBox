@@ -7,6 +7,7 @@ def create_inbox(apps, schema_editor):
     name = "📥 Inbox"
     if Folder.objects.filter(parent=None, name=name).exists():
         name = "📥 Inbox (smart)"
+    Folder.objects.filter(parent=None).update(position=models.F("position") + 1)
     Folder.objects.create(
         id=uuid7(),
         name=name,

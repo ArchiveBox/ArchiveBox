@@ -62,3 +62,23 @@ def test_database_enforces_root_and_sibling_uniqueness():
         with pytest.raises(IntegrityError), transaction.atomic():
             Folder.objects.bulk_create([Folder(name=name, parent=parent)])
     assert set(Folder.objects.values_list("name", flat=True)) == {"A", "C", "📥 Inbox"}
+
+
+def test_inline_folders_append_and_preserve_manual_order(admin_client):
+    first = Folder.objects.get(name="📥 Inbox")
+    assert first.position == 0
+    ids = []
+    for name in ["Zebra", "Apple"]:
+        response = admin_client.post("/admin/core/folder/save/", {"name": name}, **HOST)
+        assert response.status_code == 200, response.content
+        ids.append(response.json()["id"])
+    assert list(Folder.objects.filter(parent=None).values_list("name", "position")) == [("📥 Inbox", 0), ("Zebra", 1), ("Apple", 2)]
+    response = admin_client.post("/admin/core/folder/move/", {"folder_id": ids[1], "target_id": first.pk, "placement": "before"}, **HOST)
+    assert response.status_code == 200, response.content
+    response = admin_client.post("/admin/core/folder/save/", {"folder_id": ids[1], "name": "Renamed"}, **HOST)
+    assert response.status_code == 200, response.content
+    assert list(Folder.objects.filter(parent=None).values_list("name", "position")) == [("Renamed", 0), ("📥 Inbox", 1), ("Zebra", 2)]
+    for name in ["Z child", "A child"]:
+        response = admin_client.post("/admin/core/folder/save/", {"name": name, "parent": ids[0]}, **HOST)
+        assert response.status_code == 200, response.content
+    assert list(Folder.objects.filter(parent_id=ids[0]).values_list("name", "position")) == [("Z child", 0), ("A child", 1)]
