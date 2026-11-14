@@ -634,12 +634,12 @@ class SnapshotQuerySet(PagedQuerySet):
             self.filter(url__iregex=r"^https?://")
             .alias(_domain_authority=Substr(authority, 1, end - 1))
             .alias(
-                _domain_address=Case(
-                    When(
-                        _domain_authority__contains="@",
-                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
-                    ),
-                    default=F("_domain_authority"),
+                # The sentinel handles missing userinfo without another CASE
+                # around the expanded authority expression. Nested folder
+                # queries otherwise exceed SQLite's parser stack limit.
+                _domain_address=Right(
+                    "_domain_authority",
+                    StrIndex(Concat(Reverse("_domain_authority"), Value("@")), Value("@")) - 1,
                 ),
             )
             .annotate(
@@ -652,7 +652,7 @@ class SnapshotQuerySet(PagedQuerySet):
                         default=Substr(
                             "_domain_address",
                             1,
-                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
+                            StrIndex(Concat("_domain_address", Value(":")), Value(":")) - 1,
                         ),
                     ),
                 ),
