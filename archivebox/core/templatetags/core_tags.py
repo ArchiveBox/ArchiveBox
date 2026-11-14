@@ -1127,7 +1127,10 @@ def write_static_plugin_previews(context):
 
             assets = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "model-viewer"
             if not assets.exists():
-                shutil.copytree(Path(finders.find("model-viewer/viewer.js")).parent, assets)
+                viewer_script = finders.find("model-viewer/viewer.js")
+                if viewer_script is None:
+                    raise FileNotFoundError("model-viewer/viewer.js")
+                shutil.copytree(Path(viewer_script).parent, assets)
             document = render_to_string(
                 "static/model_viewer.html",
                 {
