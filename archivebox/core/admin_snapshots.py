@@ -593,6 +593,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         feed_query = request.GET.copy()
         feed_query.pop("p", None)
         extra_context["list_feed_url"] = reverse("admin:core_snapshot_feed") + "?" + feed_query.urlencode()
+        extra_context["list_export_urls"] = {"rss": extra_context["list_feed_url"]}
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
