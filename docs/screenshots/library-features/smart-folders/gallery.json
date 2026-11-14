@@ -21,6 +21,6 @@
     "selectedSnapshotOutputPlugin": "",
     "status": 200,
     "finalUrl": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7db4cc95735080005737e8ceb852&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
-    "ttfbMs": 100
+    "ttfbMs": 142
   }
 }
