@@ -14,7 +14,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
-from django.db.models import F, Q, QuerySet, Sum, Value
+from django.db.models import Case, Count, F, Q, QuerySet, Sum, Value, When
 from django.db.models.fields.json import KT
 from django.db.models.functions import Coalesce, Greatest
 from django.urls import reverse_lazy
