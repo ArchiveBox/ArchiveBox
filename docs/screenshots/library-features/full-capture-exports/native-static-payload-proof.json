@@ -1,0 +1,63 @@
+{
+  "zip": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/gallery-exports/native-static-published-runtime/site.zip",
+  "zip_sha256": "91ccc5551eefd8296ef0186166809123b060e3a9e489378b2f5d4d701a421460",
+  "zip_bytes": 123437960,
+  "snapshots": [
+    {
+      "id": "06af7a4b4ff575aa800070fc2464d50b",
+      "url": "https://news.ycombinator.com/",
+      "files": 105,
+      "bytes": 5523638,
+      "payload_digest": "ef6fac538078ae02bbb3fe4c481a4289871ca983c919c707b2947dc6ecc39e27"
+    },
+    {
+      "id": "06af7a4b4ff57d328000106533c1768f",
+      "url": "https://news.ycombinator.com/newest",
+      "files": 102,
+      "bytes": 2489640,
+      "payload_digest": "20040e319de160947391f0f7970bb9b9a74b1e37138e0fa5c2e41abcf97c32b2"
+    },
+    {
+      "id": "06af7a4b4ff670618000d8cb91d85cb6",
+      "url": "https://www.fly.faa.gov/adv/adv_otherdis?adv_date=11132026&advn=111",
+      "files": 226,
+      "bytes": 1282067,
+      "payload_digest": "ed8619ebb8f97c531422dbf238bf73b441db9e4eb60bbef285c8b396d31437c7"
+    },
+    {
+      "id": "06af7a4b4ff672678000dcb420632102",
+      "url": "https://www.freightwaves.com/news/11-4-million-in-nvidia-hardware-vanishes-during-shipment-from-california-to-texas",
+      "files": 681,
+      "bytes": 46141431,
+      "payload_digest": "843ffe3a6f8faf1af9e7da24cecf7abab97c66d18e7a36143479ea64eb34b451"
+    },
+    {
+      "id": "06af7a4b4ff6747e8000122f3b1a5ca6",
+      "url": "https://orcasairband.com/",
+      "files": 102,
+      "bytes": 3327876,
+      "payload_digest": "122669b9d8b04942fee77d0a5d5be91dc46bf044489c5fe6e5a6650978cce5eb"
+    },
+    {
+      "id": "06af7a65de1e7d488000ee4617a62523",
+      "url": "https://github.com/ArchiveBox/abxpkg",
+      "files": 961,
+      "bytes": 78945205,
+      "payload_digest": "92f66780cfc22b457f3c4b4be550dfb325c1cde5ad47eacb8e0b396a884875a1"
+    },
+    {
+      "id": "06af7a65de1f73e38000d7657f580f0c",
+      "url": "https://www.w3schools.com/html/html5_video.asp",
+      "files": 627,
+      "bytes": 49654368,
+      "payload_digest": "3f8578746397d85064ec32279427e8577b0b5171f7ee66b1d1ba0687bef90217"
+    },
+    {
+      "id": "06af7a65de1f76b18000d9554d0a68c0",
+      "url": "https://arxiv.org/pdf/1706.03762",
+      "files": 60,
+      "bytes": 11011094,
+      "payload_digest": "e2828d831bcfa94560bba409e67dccb4a4e3f4ac0fb12ee3ca3a0c433d6553cf"
+    }
+  ]
+}

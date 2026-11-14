@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "console": [
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html' because the document's frame is sandboxed and the ",
+    "Blocked script execution in 'http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/wget/news.ycombinator.com/index.html' because the document's frame ",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "pages": [
+    {
+      "plugin": "papersdl",
+      "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/_archivebox/22c27767a0e90daa-full.html",
+      "text": "",
+      "iframes": [
+        {
+          "src": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/papersdl/18e1b007a1dab45b30cc861ba2dfda25.pdf#toolbar=1&navpanes=1&view=FitH",
+          "sandbox": null
+        }
+      ],
+      "pdf": {
+        "pages": 15,
+        "state": "success",
+        "loaded": true
+      },
+      "frames": [
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/index.html#_archivebox/22c27767a0e90daa-full.html",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/responses/all/20261114T000852__GET__6b1d83cf-3da7-4ad7-8af6-4f2cb63c057a__https_3A_2F_2Farxiv.org_2Fpdf_2F1706.03762.pdf#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH",
+          "name": ""
+        },
+        {
+          "url": "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html",
+          "name": "31574552DCC208531F471714DC629760"
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/responses/all/20261114T000852__GET__6b1d83cf-3da7-4ad7-8af6-4f2cb63c057a__https_3A_2F_2Farxiv.org_2Fpdf_2F1706.03762.pdf#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/_archivebox/22c27767a0e90daa-full.html",
+          "name": "preview"
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/papersdl/18e1b007a1dab45b30cc861ba2dfda25.pdf#toolbar=1&navpanes=1&view=FitH",
+          "name": ""
+        },
+        {
+          "url": "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html",
+          "name": "DFCB626DD5931087CB00D303436C9D68"
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/arxiv.org/06af7a65de1f76b18000d9554d0a68c0/papersdl/18e1b007a1dab45b30cc861ba2dfda25.pdf#toolbar=1&navpanes=1&view=FitH",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "plugin": "archivewebpage",
+      "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/_archivebox/dc8cb9cf1fca53df-full.html",
+      "text": "",
+      "iframes": [],
+      "replay": {
+        "ready": true,
+        "title": "Hacker News",
+        "stories": 60
+      },
+      "frames": [
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/index.html#_archivebox/dc8cb9cf1fca53df-full.html",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/singlefile/singlefile.html",
+          "name": ""
+        },
+        {
+          "url": "",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/wget/news.ycombinator.com/index.html",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/dom/output.html",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/responses/all/20261114T000101__GET__ebc2486f-4123-49c9-b8d7-ad564de25bf2__https_3A_2F_2Fnews.ycombinator.com_2F.html?autoplay=0",
+          "name": ""
+        },
+        {
+          "url": "about:srcdoc",
+          "name": ""
+        },
+        {
+          "url": "about:srcdoc",
+          "name": ""
+        },
+        {
+          "url": "about:srcdoc",
+          "name": ""
+        },
+        {
+          "url": "about:srcdoc",
+          "name": ""
+        },
+        {
+          "url": "about:srcdoc",
+          "name": ""
+        },
+        {
+          "url": "",
+          "name": ""
+        },
+        {
+          "url": "",
+          "name": ""
+        },
+        {
+          "url": "",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/readability/content.html?preview=1&titlebar=0",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/_archivebox/dc8cb9cf1fca53df-full.html",
+          "name": "preview"
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/replay/replay.html?source=http%3A%2F%2F127.0.0.1%3A5908%2Fnative-static-full-unpacked-published%2Farchive%2Fusers%2Fsystem%2Fsnapshots%2F20261114%2Fnews.ycombinator.com%2F06af7a4b4ff575aa800070fc2464d50b%2Farchivewebpage%2Farchivewebpage.wacz&customColl=&config=&basePageUrl=http%3A%2F%2F127.0.0.1%3A5908%2Fnative-static-full-unpacked-published%2Farchive%2Fusers%2Fsystem%2Fsnapshots%2F20261114%2Fnews.ycombinator.com%2F06af7a4b4ff575aa800070fc2464d50b%2F_archivebox%2Fdc8cb9cf1fca53df-full.html&baseUrlSourcePrefix=https%3A%2F%2Freplayweb.page%2F&embed=replayonly&noWebWorker=1&noCache=1&swName=sw-index.js#url=https%3A%2F%2Fnews.ycombinator.com%2F&view=pages&ts=20261114000101",
+          "name": ""
+        },
+        {
+          "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/replay/w/id-dd640b35b91a/:37a8eec1ce19687d132fe29051dca629d164e2c4958ba141d5f4133a33f0688f/20261114000101mp_/https://news.ycombinator.com/",
+          "name": "___wb_replay_top_frame"
+        }
+      ]
+    }
+  ]
+}

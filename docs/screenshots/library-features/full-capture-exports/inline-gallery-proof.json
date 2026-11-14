@@ -1,0 +1,110 @@
+{
+  "screenshots": [
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-desktop.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-menu-desktop.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-menu-mobile.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-menu-tablet.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-mobile.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/full-folder-tablet.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/public-full-desktop.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/public-full-mobile.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/public-full-tablet.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/static-0.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/static-1.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/static-2.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/static-3.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/wacz-full-hn.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-gallery-screenshots/wacz-full-story.png"
+  ],
+  "folder_menu": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-folder-menu-proof.json",
+  "full_pipeline_crawl": "06af7a4b3880736b80005b4f57a2e3c7",
+  "native_download_replay": {
+    "selection": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
+    "exportUrl": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.wacz?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f",
+    "downloadUrl": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7a96ae83741f8000af180cafea14/download/",
+    "source": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/gallery-exports/folder-download-jXcvG3/3a8fd588-7682-4104-9d06-9e2527fdcbb2",
+    "player": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/gallery-exports/site-06af7a96c27c7fea8000006e13de70db/site.wacz",
+    "sha256": "4a578a6d40f4cae9c81b487166b4644f3e740e0ea3d8b2cb3c39093f1d098830",
+    "bytes": 5235907,
+    "from": "https://news.ycombinator.com/",
+    "to": "https://orcasairband.com/",
+    "frame": "http://127.0.0.1:5908/site-06af7a96c27c7fea8000006e13de70db/replay/w/id-663481d6ad38/:97e5677440b48da5be32d397f6ae5d70be751a6b161bfe815578d51f4d1da23c/20261114000101mp_/https://orcasairband.com/"
+  },
+  "native_screenshot_proofs": [
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-public-screenshot.log",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-wacz-screenshot.log",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-wacz-story-screenshot.log"
+  ],
+  "streamed_select_all": {
+    "before": {
+      "rows": 5,
+      "checked": 0
+    },
+    "after": {
+      "rows": 5,
+      "checked": 5
+    }
+  },
+  "anonymous_public_export": {
+    "pages": [],
+    "exports": [],
+    "errors": [],
+    "view": {
+      "url": "http://archivebox.localhost:5906/public/?folder=06af7929536d77d9800045972232977f&q=review-full&search_mode=meta"
+    },
+    "ids": [
+      "06af7a4b4ff575aa800070fc2464d50b",
+      "06af7a4b4ff57d328000106533c1768f",
+      "06af7a4b4ff670618000d8cb91d85cb6",
+      "06af7a4b4ff672678000dcb420632102",
+      "06af7a4b4ff6747e8000122f3b1a5ca6"
+    ],
+    "export": {
+      "text": "WACZ \u00b7 Complete \u00b7 5/5 \u00b7 5 MBStopDownload",
+      "format": "wacz",
+      "status": "exited",
+      "jobId": "06af7ab3f6b27f278000d7a1523b5861",
+      "exitCode": "0",
+      "exportPath": "/rss-data/exports/site-06af7ab3f6b27f278000d7a1523b5861"
+    },
+    "downloadUrl": "http://web.archivebox.localhost:5906/api/v1/core/snapshots/exports/06af7ab3f6b27f278000d7a1523b5861/download/",
+    "file": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/public-download-0ogEQ4/10cd5a4e-8c29-4eb8-9b73-c4fe0590f1c7",
+    "bytes": 5235907,
+    "sha256": "8a76fed1fa3149c02435fd9f76efecc703afba8ef97d71414f6749f5935a916a",
+    "matches_full_capture_ids": true
+  },
+  "native_static_gallery": {
+    "pages": [],
+    "exports": [],
+    "errors": [],
+    "views": [
+      {
+        "name": "Static snapshot index",
+        "url": "http://127.0.0.1:5908/site-06af7abe3c6973208000e31a17cb43df/index.html",
+        "path": "/index.html",
+        "source": "archivebox/core/querysets.py"
+      },
+      {
+        "name": "Static snapshot detail",
+        "url": "http://127.0.0.1:5908/site-06af7abe3c6973208000e31a17cb43df/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/index.html#singlefile",
+        "path": "/site-06af7abe3c6973208000e31a17cb43df/archive/users/system/snapshots/20261114/news.ycombinator.com/06af7a4b4ff575aa800070fc2464d50b/index.html",
+        "source": "archivebox/templates/core/snapshot.html"
+      },
+      {
+        "name": "Static site export",
+        "url": "http://127.0.0.1:5908/site-06af7abe3c6973208000e31a17cb43df/pages/06af7a4b4ff575aa800070fc2464d50b/singlefile/singlefile.html",
+        "path": "/site-06af7abe3c6973208000e31a17cb43df/pages/06af7a4b4ff575aa800070fc2464d50b/singlefile/singlefile.html",
+        "source": "archivebox/domains/exports.py"
+      },
+      {
+        "name": "Static export internal navigation",
+        "url": "http://127.0.0.1:5908/site-06af7abe3c6973208000e31a17cb43df/pages/06af7a4b4ff57d328000106533c1768f/singlefile/singlefile.html",
+        "path": "/newest",
+        "source": "archivebox/domains/exports.py"
+      }
+    ],
+    "externalDNS": "blocked"
+  },
+  "native_static_screenshots": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/inline-static-gallery-screenshots.json",
+  "native_static_scope": "Domains export includes saved ycombinator.com history; selected Hacker News and newest details are fresh full-pipeline captures. Separate native-static-full-unpacked-5 proof covers exact full eight snapshots."
+}

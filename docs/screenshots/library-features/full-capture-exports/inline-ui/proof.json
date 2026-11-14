@@ -1,0 +1,26 @@
+{
+  "crawl": "06af7a4b3880736b80005b4f57a2e3c7",
+  "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
+  "results": [
+    {
+      "name": "desktop",
+      "format": "html_zip",
+      "status": "exited",
+      "code": "0",
+      "path": "/rss-data/exports/site-06af7ae5a7d87d618000b7c2c06da82f",
+      "text": "ZIP · Complete · 5/5 · 41.2 MBStopDownload",
+      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7ae5a7d87d618000b7c2c06da82f/download/"
+    },
+    {
+      "name": "mobile",
+      "format": "wacz",
+      "status": "exited",
+      "code": "0",
+      "path": "/rss-data/exports/site-06af7ae6075b78f38000658926eb6d2f",
+      "text": "WACZ · Complete · 5/5 · 5 MBStopDownload",
+      "download": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7ae6075b78f38000658926eb6d2f/download/"
+    }
+  ],
+  "downloads": 2,
+  "errors": []
+}

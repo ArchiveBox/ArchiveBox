@@ -1,0 +1,109 @@
+{
+  "pages": [
+    {
+      "name": "desktop",
+      "width": 1600,
+      "height": 1000,
+      "ids": [
+        "06af7a4b4ff6747e8000122f3b1a5ca6",
+        "06af7a4b4ff672678000dcb420632102",
+        "06af7a4b4ff670618000d8cb91d85cb6",
+        "06af7a4b4ff57d328000106533c1768f",
+        "06af7a4b4ff575aa800070fc2464d50b"
+      ],
+      "links": [
+        {
+          "format": "rss",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/feed/?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "csv",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.csv?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "jsonl",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.jsonl?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "html_zip",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.html_zip?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "wacz",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.wacz?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        }
+      ]
+    },
+    {
+      "name": "tablet",
+      "width": 768,
+      "height": 1024,
+      "ids": [
+        "06af7a4b4ff6747e8000122f3b1a5ca6",
+        "06af7a4b4ff672678000dcb420632102",
+        "06af7a4b4ff670618000d8cb91d85cb6",
+        "06af7a4b4ff57d328000106533c1768f",
+        "06af7a4b4ff575aa800070fc2464d50b"
+      ],
+      "links": [
+        {
+          "format": "rss",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/feed/?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "csv",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.csv?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "jsonl",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.jsonl?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "html_zip",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.html_zip?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "wacz",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.wacz?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        }
+      ]
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "ids": [
+        "06af7a4b4ff6747e8000122f3b1a5ca6",
+        "06af7a4b4ff672678000dcb420632102",
+        "06af7a4b4ff670618000d8cb91d85cb6",
+        "06af7a4b4ff57d328000106533c1768f",
+        "06af7a4b4ff575aa800070fc2464d50b"
+      ],
+      "links": [
+        {
+          "format": "rss",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/feed/?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "csv",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.csv?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "jsonl",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.jsonl?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "html_zip",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.html_zip?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        },
+        {
+          "format": "wacz",
+          "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export.wacz?crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7&folder=06af7929536d77d9800045972232977f"
+        }
+      ]
+    }
+  ],
+  "exports": [],
+  "errors": [],
+  "selection": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7"
+}

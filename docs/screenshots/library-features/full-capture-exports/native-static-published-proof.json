@@ -1,0 +1,23 @@
+{
+  "source_sha": "bab4318c490a5bcaec86e41aa62357907cddbd70",
+  "zip": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/folder-export-menu/gallery-exports/native-static-published-runtime/site.zip",
+  "zip_sha256": "91ccc5551eefd8296ef0186166809123b060e3a9e489378b2f5d4d701a421460",
+  "zip_bytes": 123437960,
+  "snapshots": 8,
+  "unchanged_payload_files": 2864,
+  "external_dns": "blocked",
+  "proofs": [
+    "native-static-payload-proof.json",
+    "native-static-proof.json",
+    "native-static-extra-proof.json",
+    "native-static-responses-proof.json"
+  ],
+  "viewer_checks": [
+    "Git README and Python source",
+    "yt-dlp playback and two-item playlist",
+    "PapersDL native PDF:15 pages",
+    "WACZ native replay:Hacker News,60 title links",
+    "Responses:18 card images,53 full images and filtering",
+    "LiteParse:45980 text chars,15-page original PDF and filtering"
+  ]
+}

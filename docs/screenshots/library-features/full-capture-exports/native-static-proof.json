@@ -1,0 +1,32 @@
+{
+  "base": "http://127.0.0.1:5908/native-static-full-unpacked-published/",
+  "externalDNS": "blocked",
+  "pages": [
+    {
+      "plugin": "git",
+      "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/github.com/06af7a65de1e7d488000ee4617a62523/_archivebox/701f1f03461a17e1-full.html",
+      "files": "136 files",
+      "readme": {
+        "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/github.com/06af7a65de1e7d488000ee4617a62523/_archivebox/2f4c54a264e0b2d1-file.html",
+        "status": 200,
+        "text": "abxpkg         📦 apt  brew  pip  uv  npm  pnpm  yarn  bun  deno  cargo  gem  goget  nix  docker  bash  puppeteer  playwright  chromewebstore  ansible  pyinfra\nAll-in-one multi-package manager CLI + P"
+      },
+      "source": {
+        "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/github.com/06af7a65de1e7d488000ee4617a62523/_archivebox/4db503aada353e5b-file.html",
+        "text": "from __future__ import annotations\n\n__package__ = \"abxpkg\"\n\nimport os\nimport sys\n\n# Keep typing-only imports off the warm CLI path.\nTYPE_CHECKING = False\nif TYPE_CHECKING:\n    from collections.abc imp"
+      }
+    },
+    {
+      "plugin": "ytdlp",
+      "url": "http://127.0.0.1:5908/native-static-full-unpacked-published/archive/users/system/snapshots/20261114/www.w3schools.com/06af7a65de1f73e38000d7657f580f0c/_archivebox/36415ea54f608143-full.html",
+      "playback": {
+        "time": 0.26068,
+        "duration": 10.026667,
+        "width": 320,
+        "height": 176
+      },
+      "playlist": "1 / 2 · Now selected"
+    }
+  ],
+  "errors": []
+}
