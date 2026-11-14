@@ -1,0 +1,39 @@
+<style>
+.config-concurrency { display: grid; gap: 10px; }
+.config-concurrency input { box-sizing: border-box; min-width: 0; }
+.config-concurrency-modes { display: flex; border-radius: 7px; padding: 3px; background: #e8e8ee; gap: 3px; }
+.config-concurrency-modes button { border: 0; border-radius: 5px; color: #555862; background: transparent; padding: 6px 10px; flex: 1; cursor: pointer; }
+.config-concurrency-modes button[aria-pressed="true"] { background: white; color: #222; box-shadow: 0 1px 3px #0002; }
+.config-concurrency-limit { display: flex; gap: 10px; align-items: center; }
+.config-concurrency-limit input[type="range"] { min-width: 60px; width: 100%; accent-color: #007aff; }
+.config-concurrency-limit input[type="number"] { width: 80px; flex: 0 0 80px; }
+.crawl-limit-field .config-concurrency-modes button { font-size: 12px; padding: 6px 4px; }
+.config-concurrency-status { font-size: 11px; color: #6e7078; }
+</style>
+<script>
+(() => {
+    const initialize = () => document.querySelectorAll('.config-concurrency:not([data-ready])').forEach(widget => {
+        widget.dataset.ready = 'true';
+        const input = widget.querySelector('.plugin-config-input');
+        const slider = widget.querySelector('[data-concurrency-slider]');
+        const status = widget.querySelector('.config-concurrency-status');
+        let lastFixed = Number(input.value) > 0 ? input.value : '1';
+        const update = () => {
+            const automatic = Number(input.value) === 0 && input.value !== '';
+            widget.querySelectorAll('[data-concurrency-mode]').forEach(button => button.setAttribute('aria-pressed', String((button.dataset.concurrencyMode === 'auto') === automatic)));
+            slider.disabled = automatic;
+            slider.max = Math.max(16, Number(input.value) || 1);
+            slider.value = Math.max(1, Number(input.value) || 1);
+            status.textContent = automatic ? 'Uses available resources' : input.value === '1' ? 'One snapshot at a time' : input.value ? `Up to ${input.value} snapshots at once` : '';
+            if (Number(input.value) > 0) lastFixed = input.value;
+        };
+        const setValue = value => { input.value = value; input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true})); };
+        widget.querySelectorAll('[data-concurrency-mode]').forEach(button => button.addEventListener('click', () => setValue(button.dataset.concurrencyMode === 'auto' ? '0' : lastFixed)));
+        slider.addEventListener('input', () => setValue(slider.value));
+        input.addEventListener('input', update);
+        input.addEventListener('change', update);
+        update();
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, {once: true}); else initialize();
+})();
+</script>

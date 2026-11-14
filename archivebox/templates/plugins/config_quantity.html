@@ -6,7 +6,7 @@
 .config-quantity-error:empty { display: none; }
 .config-quantity input[aria-invalid="true"] { border-color: #d92d20 !important; }
 .config-range .config-quantity { flex: 0 1 160px; }
-.config-quantity-slider { width: 100%; flex: 1 0 100%; margin-bottom: 8px; accent-color: #007aff; }
+.config-quantity-slider { width: auto; min-width: 90px; flex: 1 1 130px; margin-right: 10px; accent-color: #007aff; }
 </style>
 <script>
 (() => {
@@ -36,7 +36,7 @@
         const select = document.createElement('select');
         select.className = 'config-quantity-unit'; select.setAttribute('aria-label', `${label} unit`);
         units.forEach(([key, title]) => select.add(new Option(title, key)));
-        select.value = format === 'retention' ? 'd' : (kind === 'bytes' ? 'B' : 's');
+        select.value = input.dataset.quantityPreferredUnit || (format === 'retention' ? 'd' : kind === 'bytes' ? 'MiB' : 's');
         const error = document.createElement('div');
         error.id = `${id}_quantity_error`; error.className = 'config-quantity-error'; error.setAttribute('aria-live', 'polite');
         amount.setAttribute('aria-describedby', `${input.getAttribute('aria-describedby') || ''} ${error.id}`.trim());
@@ -69,23 +69,26 @@
             amount.setAttribute('aria-invalid', String(Boolean(text)));
         }
         let slider;
-        if (input.dataset.quantitySlider) {
+        const rangeMax = format === 'retention' ? 31536000 : Number(input.dataset.quantityRangeMax) || (kind === 'bytes' ? 100 * 1024**3 : 86400 / baseFactor);
+        if (input.dataset.quantitySlider && !input.closest('.config-range')) {
             slider = document.createElement('input'); slider.type = 'range'; slider.className = 'config-quantity-slider';
-            slider.min = min || '0'; slider.max = max || '300'; slider.step = integer ? '1' : 'any';
+            slider.min = min || '0'; slider.max = max || String(rangeMax); slider.step = format === 'retention' ? '3600' : integer ? '1' : 'any';
             slider.setAttribute('aria-label', `${label} slider`); wrapper.prepend(slider);
-            slider.addEventListener('input', () => { input.value = slider.value; input.dispatchEvent(new Event('input', {bubbles:true})); });
+            slider.addEventListener('input', () => { amount.value = String(tidy(Number(slider.value) / factor())); amount.dispatchEvent(new Event('input', {bubbles:true})); });
         }
         let lastRaw;
         function refresh(force = false) {
             if (!force && input.value === lastRaw) return;
             lastRaw = input.value;
             const raw = parse(input.value);
+            const example = parse(input.getAttribute('placeholder') || '');
+            if (example !== null && Number.isFinite(example)) amount.placeholder = String(tidy(example / factor()));
             amount.value = raw === null || !Number.isFinite(raw) ? '' : String(tidy(raw / factor()));
             if (min !== null) amount.min = String(tidy(Number(min) / factor()));
             if (max !== null) amount.max = String(tidy(Number(max) / factor()));
             message(raw !== null && !Number.isFinite(raw) ? 'Enter a valid value.' : '');
             if (slider && raw !== null && Number.isFinite(raw)) {
-                slider.max = max || String(Math.max(300, raw)); slider.value = String(raw);
+                slider.max = max || String(Math.max(rangeMax, raw)); slider.value = String(raw);
             }
         }
         // Pick a readable initial unit without rewriting the saved representation.
@@ -105,6 +108,7 @@
             if (!Number.isFinite(raw)) problem = 'Enter a valid number.';
             else if (integer && !Number.isSafeInteger(raw)) problem = `Use a whole number of ${kind === 'bytes' ? 'bytes' : input.dataset.baseUnit === 'ms' ? 'milliseconds' : 'seconds'}.`;
             else if (min !== null && raw < Number(min)) problem = `Minimum: ${tidy(Number(min) / factor())} ${select.selectedOptions[0].text}.`;
+            else if (input.dataset.exclusiveMinimum !== undefined && raw <= Number(input.dataset.exclusiveMinimum)) problem = `Use a value greater than ${Number(input.dataset.exclusiveMinimum) / factor()}.`;
             else if (max !== null && raw > Number(max)) problem = `Maximum: ${tidy(Number(max) / factor())} ${select.selectedOptions[0].text}.`;
             else if (zeroOrMin && raw !== 0 && raw < zeroOrMin) problem = `Use 0 or at least ${zeroOrMin} seconds.`;
             else if (format === 'retention' && raw !== 0 && (raw < 3600 || raw % 3600)) problem = 'Use a whole number of hours.';

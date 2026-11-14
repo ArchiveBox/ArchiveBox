@@ -16,8 +16,8 @@ from django.utils.safestring import mark_safe
 from archivebox.config.common import get_live_config_url
 from archivebox.config.views import get_environment_binary_url, is_superuser
 from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, discover_plugin_configs, iter_plugin_dirs
+from archivebox.plugins.documentation import get_plugin_docs_url
 
-ABX_PLUGINS_DOCS_BASE_URL = "https://plugins.archivebox.io/"
 ABX_PLUGINS_GITHUB_BASE_URL = "https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/"
 LIVE_PLUGIN_BASE_URL = "/admin/environment/plugins/"
 
@@ -61,10 +61,6 @@ def render_code_block(text: str, *, highlighted: bool = False) -> str:
 
 def render_highlighted_json_block(value: Any) -> str:
     return render_code_block(json.dumps(value, indent=2, ensure_ascii=False), highlighted=True)
-
-
-def get_plugin_docs_url(plugin_name: str) -> str:
-    return f"{ABX_PLUGINS_DOCS_BASE_URL}#{plugin_name}"
 
 
 def get_plugin_hook_source_url(plugin_name: str, hook_name: str) -> str:

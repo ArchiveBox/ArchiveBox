@@ -1,0 +1,5 @@
+<div class="config-range">
+    <input type="range" class="config-range-slider config-limit-slider" aria-label="{{ field.label }} slider" min="{{ field.minimum|default_if_none:'0' }}" max="{{ slider_max }}" data-default-max="{{ slider_max }}" step="{{ slider_step|default:'1' }}" value="{{ field.value }}">
+    <input type="number" class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} data-quantity-preferred-unit="{{ preferred_unit }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}" min="{{ field.minimum|default_if_none:'0' }}"{% if field.maximum != None %} max="{{ field.maximum }}"{% endif %} step="{{ field.step }}" value="{{ field.value }}" placeholder="{{ placeholder|default:field.placeholder }}">
+</div>
+<div class="config-range-ends"><span>Unlimited</span><span data-limit-max data-unit="{{ slider_unit }}">{{ slider_label }}</span></div>

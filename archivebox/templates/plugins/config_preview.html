@@ -1,0 +1,33 @@
+{% if plugin.screenshot_url %}
+<a class="config-plugin-preview" href="{{ plugin.screenshot_page_url }}" target="_blank" rel="noopener noreferrer" title="{{ plugin.screenshot_label }}" hidden>
+    <img data-plugin-preview-src="{{ plugin.screenshot_url }}" alt="{{ plugin.screenshot_label }}" width="144" height="90" decoding="async" referrerpolicy="no-referrer">
+</a>
+<style>
+.config-plugin-preview { display: inline-block; margin-top: 12px; border: 1px solid #dce0e7; border-radius: 8px; overflow: hidden; vertical-align: top; background: white; }
+.config-plugin-preview[hidden] { display: none; }
+.config-plugin-preview img { display: block; width: 144px; height: 90px; object-fit: cover; object-position: top; }
+</style>
+<script>
+(() => {
+    if (window.archiveboxPluginPreviewsInstalled) return;
+    window.archiveboxPluginPreviewsInstalled = true;
+    const initialize = () => {
+        const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            observer.unobserve(entry.target);
+            const image = entry.target.querySelector('[data-plugin-preview-src]');
+            if (!image) return;
+            const link = image.closest('.config-plugin-preview');
+            image.addEventListener('load', () => { link.hidden = false; }, {once: true});
+            image.addEventListener('error', () => { link.remove(); }, {once: true});
+            image.src = image.dataset.pluginPreviewSrc;
+        }));
+        document.querySelectorAll('[data-plugin-preview-src]').forEach(image => {
+            const card = image.closest('.plugin-card');
+            if (card) observer.observe(card);
+        });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, {once: true}); else initialize();
+})();
+</script>
+{% endif %}

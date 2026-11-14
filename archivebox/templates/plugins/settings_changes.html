@@ -1,0 +1,35 @@
+<style>
+.system-defaults .plugin-config-field:not(:focus-within):not(.settings-edited) .plugin-config-control { opacity: .55; }
+.system-defaults .plugin-config-control { transition: opacity .15s; }
+.system-default-note { color: #697386; font-size: 13px; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.plugin-config-form').forEach(settings => {
+        const form = settings.closest('form');
+        if (!form) return;
+        const value = input => input.type === 'checkbox' ? input.checked : input.value;
+        const inputs = [...settings.querySelectorAll('.plugin-config-input[name][data-config-key]')];
+        const original = new Map(inputs.map(input => [input, value(input)]));
+        const pending = [...form.querySelectorAll('[name="settings_changed"]')].map(input => input.value);
+        const marker = document.createElement('input');
+        marker.type = 'hidden'; marker.name = 'settings_editor'; marker.value = '1'; form.append(marker);
+        const mark = event => event.target.closest('.plugin-config-field')?.classList.add('settings-edited');
+        settings.addEventListener('input', mark);
+        settings.addEventListener('change', mark);
+        form.addEventListener('submit', () => {
+            form.querySelectorAll('[name="settings_changed"]').forEach(input => input.remove());
+            const changed = new Set([...pending, ...inputs.filter(input => value(input) !== original.get(input)).map(input => input.dataset.configKey)]);
+            changed.forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden'; input.name = 'settings_changed'; input.value = key; form.append(input);
+            });
+        });
+    });
+});
+</script>
+<style>
+.plugin-advanced { margin-top: 18px; }
+.plugin-advanced > summary { cursor: pointer; color: #697386; font-size: 12px; padding: 10px 0; }
+.plugin-config-grid:empty { display: none; }
+</style>

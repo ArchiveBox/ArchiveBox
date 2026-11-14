@@ -244,15 +244,11 @@
                         </div>
 
                         <div class="crawl-limit-field">
-                            <div class="field-label-with-icon">
-                                <span class="field-label-icon" aria-hidden="true">⚡</span>
-                                {{ form.crawl_max_concurrent_snapshots.label_tag }}
-                            </div>
-                            {{ form.crawl_max_concurrent_snapshots }}
+                            {{ form.crawl_max_concurrent_snapshots.label_tag }}
+                            {% include 'config/concurrency_control.html' with field=form.concurrency_config_field %}
                             {% if form.crawl_max_concurrent_snapshots.errors %}
                                 <div class="error">{{ form.crawl_max_concurrent_snapshots.errors }}</div>
                             {% endif %}
-                            <div class="help-text">0 = automatic. Positive numbers set a ceiling.</div>
                         </div>
                     </div>
 
@@ -533,6 +529,7 @@
                     const concurrencyValue = effectiveConfig.CRAWL_MAX_CONCURRENT_SNAPSHOTS;
                     if (concurrencyInput && concurrencyValue !== undefined && concurrencyValue !== null) {
                         concurrencyInput.value = concurrencyValue;
+                        concurrencyInput.dispatchEvent(new Event('input', {bubbles: true}));
                     }
                     const deleteAfterInput = document.querySelector('input[name="delete_after"]');
                     const deleteAfterValue = effectiveConfig.DELETE_AFTER;

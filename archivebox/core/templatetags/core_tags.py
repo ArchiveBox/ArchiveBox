@@ -1471,7 +1471,7 @@ def plugin_config_field(context, plugin, field):
     from django.template.loader import render_to_string
 
     values = {**context.flatten(), "plugin": plugin, "field": field}
-    source = get_plugin_template(plugin["name"], f"config/{field['key']}", fallback=False)
+    source = None if plugin.get("is_core") else get_plugin_template(plugin["name"], f"config/{field['key']}", fallback=False)
     if source is not None:
         return template.engines["django"].from_string(source).render(values)
-    return render_to_string("plugins/config_field.html", values)
+    return render_to_string([f"config/fields/{field['key']}.html", "plugins/config_field.html"], values)

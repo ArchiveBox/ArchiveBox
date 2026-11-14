@@ -383,6 +383,18 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             for category, field_name, _title in PLUGIN_GROUPS:
                 get_choice_field(self, field_name).choices = [(plugin.name, plugin.name) for plugin in grouped_plugins.get(category, [])]
             self.plugin_groups = []
+        from archivebox.config.common import config_field_metadata
+
+        self.concurrency_config_field = self._build_plugin_config_field(
+            "archivebox",
+            "CRAWL_MAX_CONCURRENT_SNAPSHOTS",
+            config_field_metadata(include_execution=True)["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]["schema"],
+            default_config,
+        )
+        self.concurrency_config_field.update(
+            input_name="crawl_max_concurrent_snapshots",
+            value=self["crawl_max_concurrent_snapshots"].value(),
+        )
 
     def clean_persona(self):
         persona = self.cleaned_data.get("persona")
@@ -434,8 +446,12 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
 
     def clean_url_filters(self):
         from archivebox.crawls.models import Crawl
+        from archivebox.config.rule_views import url_rule_errors
 
         value = self.cleaned_data.get("url_filters") or {}
+        errors = url_rule_errors(value.get("allowlist", ""), value.get("denylist", ""))
+        if errors:
+            raise forms.ValidationError([f"URL_{error['field'].upper()}: {error['message']}" for error in errors])
         return {
             "allowlist": "\n".join(Crawl.split_filter_patterns(value.get("allowlist", ""))),
             "denylist": "\n".join(Crawl.split_filter_patterns(value.get("denylist", ""))),

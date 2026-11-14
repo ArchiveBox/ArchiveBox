@@ -461,10 +461,16 @@ class DatabaseConfig(BaseConfigSet):
         default=0 if CONSTANTS.IN_DOCKER else 134217728,
         alias="ARCHIVEBOX_SQLITE_MMAP_SIZE",
         ge=0,
+        description="SQLite memory mapping limit in bytes.",
     )
     SQLITE_BUSY_TIMEOUT: float = Field(default=30.0, alias="ARCHIVEBOX_SQLITE_BUSY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_TIMEOUT: float = Field(default=60.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_TIMEOUT", ge=0)
-    SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
+    SQLITE_LOCK_RETRY_INTERVAL: float = Field(
+        default=5.0,
+        alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL",
+        gt=0,
+        description="Seconds between database lock retries.",
+    )
 
     @model_validator(mode="after")
     def reject_shared_filesystem_sqlite_wal(self):
@@ -492,6 +498,7 @@ class ArchivingConfig(BaseConfigSet):
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
     CRAWL_DISCOVERY_PLUGINS: str = Field(
         default="",
+        json_schema_extra={"x-advanced": True},
         description=(
             "Comma-separated plugins whose discovered URLs may create child snapshots. "
             "Empty accepts every plugin. Does not change explicit seeds, plugin execution, or saved outputs."
@@ -499,21 +506,21 @@ class ArchivingConfig(BaseConfigSet):
     )
 
     ONLY_NEW: bool = Field(default=True)
-    INDEX_ONLY: bool = Field(default=False)
+    INDEX_ONLY: bool = Field(default=False, json_schema_extra={"x-advanced": True})
 
     TIMEOUT: int = Field(default=60)
     CRAWL_MAX_URLS: int = Field(default=0)
-    CRAWL_MAX_SIZE: int = Field(default=0)
+    CRAWL_MAX_SIZE: int = Field(default=0, description="Maximum total capture size in bytes (0 = unlimited).")
     CRAWL_TIMEOUT: int = Field(default=0, description="Maximum total crawl runtime in seconds (0 = unlimited).")
     CRAWL_MAX_CONCURRENT_SNAPSHOTS: int = Field(
         default=0,
         ge=0,
         description="Automatic concurrency based on available resources (0), or an explicit per-crawl ceiling.",
     )
-    SNAPSHOT_MAX_SIZE: int = Field(default=0)
+    SNAPSHOT_MAX_SIZE: int = Field(default=0, description="Maximum size per snapshot in bytes (0 = unlimited).")
 
     RESOLUTION: str = Field(default="1440,2000")
-    CHECK_SSL_VALIDITY: bool = Field(default=True)
+    CHECK_SSL_VALIDITY: bool = Field(default=True, json_schema_extra={"x-advanced": True})
     USER_AGENT: str = Field(
         default="",
         description="HTTP user agent override. Empty uses the identity detected from Chrome during browser setup.",
@@ -799,10 +806,18 @@ class ArchiveBoxBaseConfig(
     @classmethod
     @cache
     def scope_for_key(cls, key: str) -> str:
+        plugin_enabled = False
         for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
             properties = schema.get("properties") if isinstance(schema, dict) else None
-            if isinstance(properties, dict) and key == f"{str(plugin_name).upper()}_ENABLED" and key in properties:
-                return _SCOPE_CRAWL_EXECUTION
+            if not isinstance(properties, dict) or key not in properties:
+                continue
+            prop = properties[key]
+            if isinstance(prop, Mapping) and prop.get("x-scope"):
+                return str(prop["x-scope"])
+            if key == f"{str(plugin_name).upper()}_ENABLED":
+                plugin_enabled = True
+        if plugin_enabled:
+            return _SCOPE_CRAWL_EXECUTION
         if key.endswith("_BINARY"):
             return _SCOPE_CRAWL_EXECUTION
         return cls._core_field_scope(key) or cls._plugin_field_scope(key) or _SCOPE_SERVER
@@ -975,7 +990,7 @@ class ArchiveBoxSourceSettings(ArchiveBoxConfig, BaseSettings):
 _ENV_SOURCE_VALUES: tuple[Mapping[str, str | None], dict[str, Any]] | None = None
 
 
-def load_source_config() -> ArchiveBoxBaseConfig:
+def load_source_config(*, include_file: bool = True) -> ArchiveBoxBaseConfig:
     """Return the same config ``ArchiveBoxSourceSettings()`` loads, with less repeated work.
 
     ``BaseSettings.__init__`` re-derives the env names, aliases and JSON-complexity of
@@ -991,7 +1006,8 @@ def load_source_config() -> ArchiveBoxBaseConfig:
         env_values = _ENV_SOURCE_VALUES = (env_source.env_vars, env_source())
     # Same sources, precedence and nested-dict merge as settings_customise_sources():
     # env over ArchiveBox.conf. Copy so validation can never alias the reused env values.
-    values = deep_update(IniConfigSettingsSource(ArchiveBoxSourceSettings)(), copy.deepcopy(env_values[1]))
+    file_values = IniConfigSettingsSource(ArchiveBoxSourceSettings)() if include_file else {}
+    values = deep_update(file_values, copy.deepcopy(env_values[1]))
     # Validate with the plain model: pydantic routes BaseSettings.model_validate()
     # through BaseSettings.__init__, which would reload every source again.
     return ArchiveBoxConfig.model_validate(values)
@@ -1035,12 +1051,15 @@ def get_live_config_url(key: str) -> str:
     return f"{LIVE_CONFIG_BASE_URL}{quote(key)}/"
 
 
-@lru_cache(maxsize=1)
-def config_field_metadata() -> dict[str, dict[str, Any]]:
+@lru_cache(maxsize=2)
+def config_field_metadata(*, include_execution: bool = False) -> dict[str, dict[str, Any]]:
     """Return one centralized metadata map for core and plugin config fields."""
     metadata: dict[str, dict[str, Any]] = {}
+    properties = ArchiveBoxConfig.model_json_schema(by_alias=False).get("properties", {})
     for key, field in ArchiveBoxConfig.model_fields.items():
-        if ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION or key in ArchiveBoxConfig.computed_config_keys:
+        if (
+            not include_execution and ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION
+        ) or key in ArchiveBoxConfig.computed_config_keys:
             continue
         default = field.default
         try:
@@ -1055,6 +1074,7 @@ def config_field_metadata() -> dict[str, dict[str, Any]]:
             "description": field.description or "",
             "scope": ArchiveBoxConfig.scope_for_key(key),
             "sensitive": is_sensitive_config_key(key),
+            "schema": properties.get(key, {}),
         }
     for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
         properties = schema.get("properties") if isinstance(schema, dict) else None
@@ -1063,7 +1083,7 @@ def config_field_metadata() -> dict[str, dict[str, Any]]:
         for key, prop in properties.items():
             if not isinstance(prop, Mapping):
                 continue
-            if ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION:
+            if not include_execution and ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION:
                 continue
             metadata[key] = {
                 **metadata.get(key, {}),
@@ -1129,25 +1149,76 @@ def find_config_type(key: str) -> str:
     return config_field_type(key)
 
 
-def find_config_source(key: str, merged_config: Mapping[str, Any]) -> str:
-    """Determine where a config value comes from."""
-    from archivebox.machine.models import Machine
+def _config_source_inputs(machine: Any, merged_config: Mapping[str, Any]) -> tuple[tuple[str, Mapping[str, Any]], ...]:
+    from archivebox.machine.models import _sanitize_machine_config
 
-    machine = Machine.current()
-    if machine.config and key in machine.config:
-        return "Machine"
+    machine_config = _sanitize_machine_config(machine.config, lib_dir=merged_config.get("ABXPKG_LIB_DIR")) if machine is not None else {}
+    return (
+        ("Machine", normalize_runtime_config(machine_config, exclude_runtime_derived=True, json_safe=False)),
+        ("Environment", {key.upper(): value for key, value in os.environ.items()}),
+        ("File", BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)),
+    )
 
-    if key in os.environ:
-        return "Environment"
 
-    file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
-    if key in file_config:
-        return "File"
+def find_config_source(
+    key: str,
+    merged_config: Mapping[str, Any],
+    *,
+    machine: Any = None,
+    source_inputs: tuple[tuple[str, Mapping[str, Any]], ...] | None = None,
+) -> str:
+    """Classify current-machine inputs; values remain owned by get_config()."""
+    if source_inputs is None:
+        if machine is None:
+            from archivebox.machine.models import Machine
 
-    if key in _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS):
+            machine = Machine.current_readonly()
+        source_inputs = _config_source_inputs(machine, merged_config)
+
+    properties = _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)
+    prop = properties.get(key)
+    candidate = key
+    visited: set[str] = set()
+    while candidate not in visited:
+        visited.add(candidate)
+        candidate_prop = properties.get(candidate) or {}
+        input_names = [candidate, *candidate_prop.get("x-aliases", [])]
+        field = ArchiveBoxConfig.model_fields.get(candidate)
+        if field is not None and field.alias:
+            input_names.append(field.alias)
+        # Plugin resolution chooses the canonical input before its aliases.
+        for input_name in input_names:
+            for source, inputs in source_inputs:
+                if input_name in inputs:
+                    return source
+        fallback = candidate_prop.get("x-fallback")
+        if not fallback or fallback not in merged_config or merged_config.get(candidate) != merged_config[fallback]:
+            break
+        candidate = str(fallback)
+
+    if key in ArchiveBoxConfig.computed_config_keys or key in ArchiveBoxConfig.runtime_derived_config_keys():
+        return "Derived"
+    if key in _plugin_enabled_config_keys().values() and merged_config.get("PLUGINS"):
+        return find_config_source("PLUGINS", merged_config, source_inputs=source_inputs)
+    if prop is not None:
         return "Plugin Default"
-
     return "Default"
+
+
+def get_config_with_sources(*, machine: Any = None) -> dict[str, dict[str, Any]]:
+    """Resolve current-machine settings and label their existing input sources.
+
+    Returns internal, unredacted values for forms; it does not persist state or
+    introduce another value resolver. Crawl/Persona frozen semantics stay in
+    get_config(), and are deliberately outside this machine-only projection.
+    """
+    if machine is None:
+        from archivebox.machine.models import Machine
+
+        machine = Machine.current_readonly()
+    values = get_config(machine=machine).model_dump(mode="json")
+    source_inputs = _config_source_inputs(machine, values)
+    return {key: {"value": value, "source": find_config_source(key, values, source_inputs=source_inputs)} for key, value in values.items()}
 
 
 def get_request_config(request: Any, *, resolve_plugins: bool = False) -> ArchiveBoxBaseConfig:
@@ -1179,6 +1250,7 @@ def get_config(
     include_machine: bool = True,
     resolve_plugins: bool = True,
     redact_sensitive: bool = False,
+    include_file: bool = True,
 ) -> ArchiveBoxBaseConfig:
     """
     Get merged config from all sources.
@@ -1190,6 +1262,8 @@ def get_config(
 
     Crawl-execution config is not persisted on Crawl.config. It is rederived
     from current Machine/Persona state and hydrated process defaults each time.
+    Set include_file=False and include_machine=False for the inherited process
+    defaults after removing a machine override and its mirrored file entry.
     """
     if crawl is None and snapshot is not None:
         crawl = snapshot.crawl
@@ -1213,8 +1287,8 @@ def get_config(
     config_data: ConfigPayload = dict(defaults or {})
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
-    file_config: dict[str, Any] | None = None
-    base_config_model = load_source_config() if base_config is None else None
+    file_config: dict[str, Any] | None = None if include_file else {}
+    base_config_model = load_source_config(include_file=include_file) if base_config is None else None
 
     if crawl_config_base:
         assert base_config_model is not None
@@ -1233,7 +1307,8 @@ def get_config(
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )
-        file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+        if file_config is None:
+            file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
         legacy_config = {**file_config, **os.environ}
         if "SAVE_ARCHIVE_DOT_ORG" in legacy_config and "SAVE_ARCHIVE_DOT_ORG" not in _WARNED_CONFIG_TYPOS:
             _STDERR_CONSOLE.print(

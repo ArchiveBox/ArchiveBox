@@ -1,0 +1,108 @@
+<style>
+.config-plugin-list { display: grid; gap: 7px; min-width: 0; }
+.config-plugin-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.config-plugin-chips:empty { display: none; }
+.config-plugin-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 7px 4px 9px; border: 1px solid #d8e6fa; border-radius: 6px; background: #edf4ff; color: #185aa1; font-size: 12px; }
+.config-plugin-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.config-plugin-chip button { background: transparent; border: 0; color: inherit; padding: 0 2px; cursor: pointer; line-height: 1; font-size: 16px; }
+.config-plugin-entry { display: flex; gap: 6px; min-width: 0; }
+.config-plugin-entry input { flex: 1; min-width: 0; }
+.config-plugin-add { flex: none; border: 1px solid #d5d6dc; background: white; color: #0066cc; border-radius: 6px; padding: 5px 9px; cursor: pointer; font: inherit; }
+.config-plugin-list-status { font-size: 11px; color: #ab3037; }
+.config-plugin-list-status:empty { display: none; }
+</style>
+<script>
+(() => {
+    const initialize = () => document.querySelectorAll('.config-plugin-list:not([data-ready])').forEach(widget => {
+        widget.dataset.ready = 'true';
+        const canonical = widget.querySelector('.plugin-config-input');
+        const input = widget.querySelector('.config-plugin-autocomplete');
+        const chips = widget.querySelector('.config-plugin-chips');
+        const status = widget.querySelector('.config-plugin-list-status');
+        const options = [...widget.querySelectorAll('datalist option')];
+        const choices = new Map(options.map(option => [option.value, option.label || option.value]));
+        let selected = [];
+        const render = () => {
+            selected = [...new Set(canonical.value.split(',').map(value => value.trim()).filter(Boolean))];
+            chips.replaceChildren();
+            for (const name of selected) {
+                const chip = document.createElement('span');
+                chip.className = 'config-plugin-chip';
+                chip.setAttribute('role', 'listitem');
+                chip.title = name;
+                const label = document.createElement('span');
+                label.textContent = choices.get(name) || name;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.textContent = '×';
+                remove.setAttribute('aria-label', `Remove ${choices.get(name) || name}`);
+                remove.addEventListener('click', () => {
+                    write(selected.filter(value => value !== name));
+                    input.focus();
+                });
+                chip.append(label, remove);
+                chips.append(chip);
+            }
+            options.forEach(option => { option.disabled = selected.includes(option.value); });
+        };
+        const write = names => {
+            const value = [...new Set(names)].join(',');
+            if (canonical.value === value) return;
+            canonical.value = value;
+            canonical.dispatchEvent(new Event('input', {bubbles: true}));
+            canonical.dispatchEvent(new Event('change', {bubbles: true}));
+        };
+        const add = text => {
+            const names = text.split(/[,\n]+/).map(value => value.trim()).filter(Boolean);
+            const unknown = names.find(name => !choices.has(name));
+            if (unknown) {
+                const message = `Choose an installed plugin: ${unknown}`;
+                input.setCustomValidity(message);
+                status.textContent = message;
+                return false;
+            }
+            if (names.length) write([...selected, ...names]);
+            input.value = '';
+            input.setCustomValidity('');
+            status.textContent = '';
+            return true;
+        };
+        widget.querySelector('.config-plugin-add').addEventListener('click', () => {
+            if (!add(input.value)) input.reportValidity();
+            input.focus();
+        });
+        input.addEventListener('input', () => {
+            input.setCustomValidity('');
+            status.textContent = '';
+            if (input.value.endsWith(',')) add(input.value);
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!add(input.value)) input.reportValidity();
+            } else if (event.key === 'Backspace' && !input.value && selected.length) {
+                event.preventDefault();
+                write(selected.slice(0, -1));
+            }
+        });
+        input.addEventListener('paste', event => {
+            const text = event.clipboardData?.getData('text') || '';
+            if (!/[,\n]/.test(text)) return;
+            event.preventDefault();
+            input.value = text;
+            if (!add(text)) input.reportValidity();
+        });
+        widget.closest('form')?.addEventListener('submit', event => {
+            if (!add(input.value)) {
+                event.preventDefault();
+                input.reportValidity();
+            }
+        });
+        canonical.addEventListener('input', render);
+        canonical.addEventListener('change', render);
+        widget.closest('.plugin-config-form')?.addEventListener('plugin-config-updated', render);
+        render();
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, {once: true}); else initialize();
+})();
+</script>

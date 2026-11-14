@@ -1,0 +1,25 @@
+<div class="config-url-rules" data-preview-url="{% url 'config-url-rules-preview' %}">
+    <div class="config-rule-builder">
+        <textarea data-rule-entries rows="2" aria-label="Domains or URLs for {{ field.label }}" placeholder="example.com&#10;https://example.org/docs"></textarea>
+        <div class="config-rule-toolbar">
+            <select data-rule-mode aria-label="Match type for {{ field.label }}">
+                <option value="domain">Exact domain</option>
+                <option value="subdomains">Domain + subdomains</option>
+                <option value="path">Exact path</option>
+                <option value="descendants">Path + descendants</option>
+            </select>
+            <button type="button" data-rule-action="append">Add rules</button>
+            <button type="button" data-rule-action="replace">Replace rules</button>
+        </div>
+    </div>
+    <label class="config-rule-caption" for="{% if field.input_id %}{{ field.input_id }}{% else %}id_{{ field.input_name }}{% endif %}">Regex rules</label>
+    <textarea class="plugin-config-input config-rule-raw" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="{% if field.input_id %}{{ field.input_id }}{% else %}id_{{ field.input_name }}{% endif %}" rows="4" spellcheck="false"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}>{{ field.value }}</textarea>
+    <details class="config-rule-preview">
+        <summary>Test URLs</summary>
+        <textarea data-rule-urls rows="3" aria-label="URLs to test against {{ field.label }}" placeholder="https://example.com/article"></textarea>
+        <button type="button" data-rule-action="preview">Test URLs</button>
+        <ul class="config-rule-results" aria-live="polite"></ul>
+    </details>
+    <div class="config-rule-message" role="status"></div>
+</div>
+{% include 'config/url_rules_script.html' %}

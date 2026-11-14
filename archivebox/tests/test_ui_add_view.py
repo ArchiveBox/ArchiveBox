@@ -895,6 +895,8 @@ def test_tags_autocomplete_allows_authenticated_user_when_public_index_disabled(
 @pytest.mark.parametrize("page", ["add", "persona_change"])
 def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_client, admin_user, page):
     from archivebox.plugins.discovery import get_plugin_catalog
+    from archivebox.config.common import ArchiveBoxConfig, config_field_metadata, find_config_section
+    from archivebox.config import CONSTANTS_CONFIG
 
     if page == "add":
         url = reverse("add")
@@ -913,6 +915,28 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
         assert b'data-plugin-name="importer_rss"' not in response.content
     else:
         assert importer_names <= set(names)
+        derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
+        expected |= {
+            plugin.name
+            for plugin in get_plugin_catalog().values()
+            if plugin.config.hidden
+            and any(
+                key not in CONSTANTS_CONFIG
+                and key not in derived
+                and ArchiveBoxConfig.scope_for_key(key) in {"crawl_frozen", "crawl_execution"}
+                for key in plugin.manifest.get("properties", {})
+            )
+        }
+        expected |= {
+            find_config_section(key).lower()
+            for key, metadata in config_field_metadata(include_execution=True).items()
+            if metadata["plugin"] == "archivebox"
+            and key.isupper()
+            and key not in CONSTANTS_CONFIG
+            and key not in derived
+            and key not in {"SECRET_KEY", "PERMISSIONS"}
+            and metadata["scope"] in {"crawl_frozen", "crawl_execution"}
+        }
     assert set(names) == expected
     assert len(names) == len(expected)
     for name in expected:
@@ -922,7 +946,12 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
     catalog = get_plugin_catalog()
     for group in form.plugin_groups:
         for card in group["plugins"]:
-            assert group["field_name"] == f"{catalog[card['name']].config.category}_plugins"
+            if card.get("is_core"):
+                assert group["field_name"] == "system"
+            elif catalog[card["name"]].config.hidden:
+                assert group["field_name"] == "shared_settings"
+            else:
+                assert group["field_name"] == f"{catalog[card['name']].config.category}_plugins"
             for field in card["config_fields"]:
                 assert f'name="{field["input_name"]}"'.encode() in response.content
     postprocessing = next(group for group in form.plugin_groups if group["field_name"] == "postprocessing_plugins")

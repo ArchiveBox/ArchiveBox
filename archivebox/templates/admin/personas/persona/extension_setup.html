@@ -1,0 +1,17 @@
+{% load static %}
+<details class="persona-extension-setup">
+    <summary>Sync from your browser <span>ArchiveBox extension</span></summary>
+    <div class="persona-extension-downloads">
+        {# Official distribution links and icons: https://extension.archivebox.io/ #}
+        <a href="https://chrome.google.com/webstore/detail/habonpimjphpdnmcfkaockjnffodikoj" target="_blank" rel="noopener"><img src="{% static 'personas/extension-chromium.png' %}" alt="">Chrome / Brave</a>
+        <a href="https://addons.mozilla.org/firefox/addon/archivebox-exporter/" target="_blank" rel="noopener"><img src="{% static 'personas/extension-firefox.png' %}" alt="">Firefox</a>
+        <a href="https://microsoftedge.microsoft.com/addons/detail/archivebox/dmlljpjhnfjgchbkcgheebcffocgooeh" target="_blank" rel="noopener"><img src="{% static 'personas/extension-chromium.png' %}" alt="">Edge</a>
+        <a href="https://app.archivebox.io/" target="_blank" rel="noopener"><img src="{% static 'personas/extension-safari.png' %}" alt="">Safari / iOS</a>
+    </div>
+    <ol>
+        <li>Install the extension. Safari is included in ArchiveBox.app.</li>
+        <li>In extension <strong>Configuration</strong>, enter <code>{{ server_url }}</code> and an <a href="{% url 'admin:api_apitoken_add' %}" target="_blank" rel="noopener">API key</a>. Save and test the connection.</li>
+        <li>Open <strong>Cookies</strong>, select <strong>{{ persona.name }}</strong>, choose sites, then <strong>Add to {{ persona.name }}</strong> and <strong>Sync now</strong>.</li>
+    </ol>
+    <a href="https://extension.archivebox.io/" target="_blank" rel="noopener">Extension setup and downloads ↗</a>
+</details>

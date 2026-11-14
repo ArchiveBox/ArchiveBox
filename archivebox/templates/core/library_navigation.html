@@ -4,6 +4,7 @@
         <a href="/admin/crawls/crawlschedule/">Scheduled Crawls</a>
         <a href="/admin/crawls/crawl/">Crawls</a>
         {% if user.is_superuser %}
+        <a href="{% url 'system-settings' %}">System settings</a>
         <a href="{% url 'importers:index' %}">Importers</a>
         <a href="/admin/domains/">Domains</a>
         {% endif %}

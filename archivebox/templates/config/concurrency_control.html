@@ -1,0 +1,12 @@
+<div class="config-concurrency">
+    <div class="config-concurrency-modes" role="group" aria-label="Concurrency mode">
+        <button type="button" data-concurrency-mode="auto">Automatic</button>
+        <button type="button" data-concurrency-mode="fixed">Fixed limit</button>
+    </div>
+    <div class="config-concurrency-limit">
+        <input type="range" min="1" max="16" step="1" aria-label="Concurrent snapshots slider" data-concurrency-slider>
+        <input class="plugin-config-input" data-config-key="{{ field.key }}" type="number" min="0" step="1" name="{{ field.input_name }}" id="id_{{ field.input_name }}" value="{{ field.value }}" aria-describedby="help_{{ field.input_name }}">
+    </div>
+    <span class="config-concurrency-status" aria-live="polite"></span>
+</div>
+{% include 'config/concurrency_script.html' %}

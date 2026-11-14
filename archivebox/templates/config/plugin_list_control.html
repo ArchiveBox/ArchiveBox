@@ -1,0 +1,13 @@
+<div class="config-plugin-list">
+    <input type="hidden" class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}" value="{{ field.value }}">
+    <div class="config-plugin-chips" role="list" aria-label="Selected {{ field.label }}"></div>
+    <div class="config-plugin-entry">
+        <input type="text" class="config-plugin-autocomplete" list="choices_{{ field.input_name }}" aria-label="Add to {{ field.label }}" placeholder="{{ field.placeholder|default:'Add plugins…' }}" autocomplete="off" spellcheck="false">
+        <button type="button" class="config-plugin-add" aria-label="Add selected plugin">Add</button>
+    </div>
+    <datalist id="choices_{{ field.input_name }}">
+        {% for choice in field.plugin_choices %}<option value="{{ choice.value }}" label="{{ choice.label }}"></option>{% endfor %}
+    </datalist>
+    <span class="config-plugin-list-status" role="status"></span>
+</div>
+{% include 'config/plugin_list_script.html' %}

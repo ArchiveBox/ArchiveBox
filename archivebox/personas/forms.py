@@ -1,6 +1,7 @@
 __package__ = "archivebox.personas"
 
 from typing import Any
+from copy import copy
 
 from django import forms
 from django.utils.safestring import mark_safe
@@ -26,6 +27,17 @@ def _mode_label(title: str, description: str) -> str:
 
 
 class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
+    include_core_settings = True
+    settings_scopes = {"crawl_frozen", "crawl_execution"}
+
+    def resolve_settings(self, config):
+        persona = copy(self.instance)
+        persona.name = self.cleaned_data.get("name") or self.instance.name
+        persona.config = config
+        if not persona.name:
+            return get_config(overrides=config)
+        return get_config(persona=persona)
+
     # Importers are source commands, not extraction hooks on /add/. Their
     # persistent settings can be edited here without adding PLUGINS checkboxes.
     plugin_group_specs = (*PLUGIN_GROUPS, ("importers", "importers_plugins", "Importers"))
@@ -126,7 +138,11 @@ class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
                 "Use the custom path/CDP option if the browser data lives elsewhere."
             )
 
-        self.build_plugin_groups(get_config(persona=self.instance) if not self.instance._state.adding else get_config())
+        runtime = get_config(persona=self.instance) if not self.instance._state.adding else get_config()
+        self.settings_sources = {
+            key: "Persona" if key in (self.instance.config or {}) else "System default" for key in runtime.model_dump()
+        }
+        self.build_plugin_groups(runtime)
 
     def clean_name(self) -> str:
         name = str(self.cleaned_data.get("name") or "").strip()
@@ -144,12 +160,7 @@ class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
         if not isinstance(manual_config, dict):
             manual_config = {}
         manual_config["PERMISSIONS"] = cleaned_data.get("permissions") or "public"
-        plugin_config_overrides = self.clean_plugin_config_overrides(get_config())
-        cleaned_data["plugin_config"] = plugin_config_overrides
-        cleaned_data["config"] = {
-            **{key: value for key, value in manual_config.items() if key not in self.plugin_config_keys()},
-            **plugin_config_overrides,
-        }
+        cleaned_data["config"] = self.merge_settings(manual_config, get_config())
 
         if import_mode == "none":
             return cleaned_data

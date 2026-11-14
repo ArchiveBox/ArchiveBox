@@ -871,13 +871,21 @@ def _parse_netscape_cookies(path: Path) -> dict[tuple[str, str, str], tuple[str,
         return cookies
 
     for line in path.read_text().splitlines():
-        if not line or line.startswith("#"):
+        if not line or (line.startswith("#") and not line.startswith("#HttpOnly_")):
             continue
         parts = line.split("\t")
         if len(parts) < 7:
             continue
         domain, include_subdomains, cookie_path, secure, expiry, name, value = parts[:7]
-        cookies[(domain, cookie_path, name)] = (domain, include_subdomains, cookie_path, secure, expiry, name, value)
+        cookies[(domain.removeprefix("#HttpOnly_"), cookie_path, name)] = (
+            domain,
+            include_subdomains,
+            cookie_path,
+            secure,
+            expiry,
+            name,
+            value,
+        )
     return cookies
 
 
