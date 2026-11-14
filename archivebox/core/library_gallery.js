@@ -15,7 +15,8 @@ async function prepare(page, adminBaseUrl, crawlId) {
     if (parent) {
       const row = `.folder-row[data-folder-id="${parent}"]`;
       await page.hover(row);
-      await page.click(`${row} .folder-new`);
+      await page.click(`${row} .folder-menu-toggle`);
+      await page.click(`${row} .folder-menu .folder-new:not([data-smart])`);
     } else {
       await page.goto(`${adminBaseUrl}/add/?url=https%3A%2F%2Fnews.ycombinator.com%2F`, {waitUntil: 'domcontentloaded'});
       await page.click('.folder-field .folder-new');
