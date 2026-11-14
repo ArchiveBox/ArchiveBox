@@ -589,7 +589,10 @@ class TestPublicIndex:
         assert response.status_code == 200
         assert [snapshot.title for snapshot in response.context["object_list"]] == [f"public {index}" for index in range(100, 150)]
         assert response.context["page_obj"].has_next()
-        snapshot_reads = [query["sql"] for query in queries if re.search(r'FROM "core_snapshot"\s', query["sql"])]
+        # Count page reads separately from the sidebar's correlated visibility probe.
+        snapshot_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_snapshot"\.', query["sql"])]
+        folder_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_folder"\.', query["sql"])]
+        assert len(folder_reads) == 1 and "EXISTS" in folder_reads[0]
         assert len(snapshot_reads) == 2, "A deep page must read one page of IDs, then only its displayed rows"
         if connection.vendor == "sqlite":
             with connection.cursor() as cursor:

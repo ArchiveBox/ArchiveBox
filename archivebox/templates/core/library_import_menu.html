@@ -1,0 +1,9 @@
+{% url "domains:index" as domains_url %}
+<button type="button" class="library-import-toggle" aria-haspopup="menu" aria-expanded="false" popovertarget="library-import-menu-{% if export_class %}list{% else %}sidebar{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/></svg>Import<span aria-hidden="true">▾</span></button>
+    <div id="library-import-menu-{% if export_class %}list{% else %}sidebar{% endif %}" class="folder-menu library-import-menu" popover role="menu" aria-label="Import">
+      <a role="menuitem" href="https://extension.archivebox.io">From Browser History / Bookmarks</a>
+      <a role="menuitem" href="{% url 'importers:index' %}">From RSS or Social Media</a>
+      {% if domains_url %}<a role="menuitem" href="{{ domains_url }}">Clone an entire site</a>{% endif %}
+      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection">Watch a site for changes</a>
+      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">Other options...</a>
+    </div>

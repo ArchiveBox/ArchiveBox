@@ -6,6 +6,8 @@
       {% for field in action_form %}
         {% if field.name == "tags" %}
           <span class="actions-tags">{{ field }}</span>
+        {% elif field.name == "folder_destination" %}
+          <span class="actions-folder" hidden><label>{{ field.label }} {{ field }}</label></span>
         {% else %}
           {% if field.label %}<label>{{ field.label }} {{ field }}</label>{% else %}{{ field }}{% endif %}
         {% endif %}

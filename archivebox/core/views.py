@@ -52,7 +52,7 @@ from archivebox.config.common import (
 )
 from archivebox.config.configset import BaseConfigSet
 from archivebox.core.forms import AddLinkForm
-from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
+from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag
 from archivebox.memento.views import add_memento_headers, timegate_response, timemap_response
 from archivebox.core.permissions import (
     PERMISSIONS_PUBLIC,
@@ -1412,11 +1412,11 @@ class PublicIndexView(ListView):
         # OFFSET must stay ID-only: wide columns and owner joins would also be
         # computed for every skipped row.
         start = (page_number - 1) * page_size
-        page_ids = list(
-            Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
-            .order_by(*self.ordering, "id")
-            .values_list("id", flat=True)[start : start + page_size + 1],
-        )
+        if self.folder_query is not None:
+            page_query = Snapshot.objects.filter(self.folder_query, permissions=PERMISSIONS_PUBLIC)
+        else:
+            page_query = Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
+        page_ids = list(page_query.order_by(*self.ordering, "id").values_list("id", flat=True)[start : start + page_size + 1])
         return list(
             Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
             .select_related("crawl__created_by")
@@ -1449,7 +1449,7 @@ class PublicIndexView(ListView):
         observed_count = (page_number - 1) * page_size + len(snapshots)
         self.public_snapshot_count = observed_count
         if len(snapshots) > page_size:
-            summary = collection_summary(self.request.user, public=True)
+            summary = collection_summary(self.request.user, public=True) if self.folder_query is None else None
             cached_count = summary["snapshots"] if summary is not None else None
             self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
 
@@ -1481,6 +1481,11 @@ class PublicIndexView(ListView):
             "search_mode": search_mode,
             "search_mode_options": get_search_mode_options(config=runtime_config),
             "public_search_stream_pending": public_search_pending,
+            "folder_tree": self.folder_tree,
+            "selected_folder": self.selected_folder,
+            "folder_breadcrumbs": self.folder_breadcrumbs,
+            "folder_readonly": True,
+            "library_root_url": self.request.path,
         }
         context["show_search_index_hint"] = bool(
             query
@@ -1535,11 +1540,27 @@ class PublicIndexView(ListView):
         return context
 
     def get_queryset(self, **kwargs):
+        self.folder_tree = Folder.tree(public=True)
+        self.selected_folder = self.request.GET.get("folder", "")
+        self.folder_query = None
+        self.folder_breadcrumbs = []
+        if self.selected_folder:
+            by_id = {str(folder.pk): folder for folder in self.folder_tree}
+            selected = by_id.get(self.selected_folder)
+            if selected is None:
+                raise Http404("Folder not found")
+            from archivebox.core.smart_folders import RuleQuery
+            self.folder_query = RuleQuery().folder(selected.pk)
+            while selected:
+                self.folder_breadcrumbs.insert(0, selected)
+                selected = by_id.get(str(selected.parent_id))
         qs = (
             public_snapshots_queryset(super().get_queryset(**kwargs))
             .select_related("crawl__created_by")
             .only(*self._base_public_snapshot_fields())
         )
+        if self.folder_query is not None:
+            qs = qs.filter(self.folder_query)
         query = self.request.GET.get("q", default="").strip()
 
         if not query:
@@ -1578,12 +1599,15 @@ class AddView(UserPassesTestMixin, FormView):
 
     def get_initial(self):
         """Prefill the AddLinkForm with the 'url' GET parameter"""
+        initial = super().get_initial()
         if self.request.method == "GET":
             url = self.request.GET.get("url", None)
             if url:
-                return {"url": url if "://" in url else f"https://{url}"}
+                initial["url"] = url if "://" in url else f"https://{url}"
+            if self._can_override_crawl_config() and self.request.GET.get("folder"):
+                initial["folder"] = self.request.GET["folder"]
 
-        return super().get_initial()
+        return initial
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -1665,6 +1689,7 @@ class AddView(UserPassesTestMixin, FormView):
             "persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str),
             "recent_personas": recent_personas,
             "can_override_crawl_config": can_override_crawl_config,
+            "folder_tree": context["form"].folder_tree,
             "stdout": "",
         }
 
@@ -1751,6 +1776,7 @@ class AddView(UserPassesTestMixin, FormView):
             persona=persona.name if persona else "Default",
             bg=True,
             created_by_id=created_by_id,
+            folder_id=form.cleaned_data["folder"].pk if form.cleaned_data.get("folder") else None,
             config=config,
         )
         if notes:

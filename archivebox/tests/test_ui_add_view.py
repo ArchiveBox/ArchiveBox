@@ -615,6 +615,65 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert crawl.schedule is None
 
 
+def test_add_view_creates_scheduled_crawl_in_inline_created_folder(client, admin_user):
+    from archivebox.core.models import Folder
+
+    client.force_login(admin_user)
+    parent = Folder.objects.create(name="News")
+    response = client.post(
+        reverse("admin:core_folder_save"),
+        {"name": "Daily", "parent": parent.pk},
+        HTTP_HOST=ADMIN_HOST,
+    )
+    assert response.status_code == 200
+    folder = Folder.objects.get(pk=response.json()["id"])
+    response = client.get(reverse("add"), {"folder": folder.pk}, HTTP_HOST=ADMIN_HOST)
+    assert response.status_code == 200
+    assert response.context["form"]["folder"].value() == str(folder.pk)
+    assert b"News / Daily" in response.content
+    assert b'id="folder-dialog"' in response.content
+    response = client.post(
+        reverse("add"),
+        {**ADD_FORM_DEFAULTS, "url": "https://news.ycombinator.com/newest", "folder": folder.pk, "schedule": "daily"},
+        HTTP_HOST=ADMIN_HOST,
+    )
+    assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+    crawl = Crawl.objects.get(folder=folder)
+    assert crawl.schedule.template_id == crawl.pk
+    assert crawl.create_snapshots_from_urls()[0].folder_id == folder.pk
+    recurring = crawl.schedule.enqueue()
+    assert recurring.folder_id == folder.pk
+    assert recurring.schedule_id == crawl.schedule_id
+
+
+def test_add_view_rejects_missing_folder_before_creating_crawl(client, admin_user):
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("add"),
+        {**ADD_FORM_DEFAULTS, "url": "https://example.com/missing-folder", "folder": 999999},
+        HTTP_HOST=ADMIN_HOST,
+    )
+    assert response.status_code == 200
+    assert "folder" in response.context["form"].errors
+    assert not Crawl.objects.exists()
+
+
+def test_public_add_does_not_offer_or_accept_private_folder_assignment(client, admin_user, public_add_enabled):
+    from archivebox.core.models import Folder
+
+    folder = Folder.objects.create(name="Private folder name")
+    response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
+    assert response.status_code == 200
+    assert b'"id_folder"' not in response.content and folder.name.encode() not in response.content
+    response = client.post(
+        reverse("add"),
+        {**ADD_FORM_DEFAULTS, "url": "https://example.com/public-folder", "folder": folder.pk},
+        HTTP_HOST=WEB_HOST,
+    )
+    assert response.status_code == 302
+    assert Crawl.objects.get().folder_id is None
+
+
 def test_add_view_queues_crawl_for_background_runner(client, admin_user):
     client.force_login(admin_user)
 

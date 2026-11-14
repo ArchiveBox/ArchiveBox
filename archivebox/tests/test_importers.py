@@ -462,7 +462,11 @@ def test_simple_setup_defaults_and_advanced_errors(admin_client, import_site):
     assert response.status_code == 200
     assert b"Advanced options" in response.content
     assert b"How to connect" in response.content
-    assert [field.name for field in response.context["form"].basic_fields] == ["setting_IMPORTER_RSS_URL"]
+    assert [field.name for field in response.context["form"].basic_fields] == [
+        "setting_IMPORTER_RSS_URL",
+        "setting_IMPORTER_RSS_IMPORT_TAGS",
+    ]
+    assert response.context["form"]["setting_IMPORTER_RSS_IMPORT_TAGS"].value() is False
     response = admin_client.post(path, {"setting_IMPORTER_RSS_URL": f"{url}/feed.xml"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 302
     source = ImporterSource.objects.get()
@@ -543,7 +547,7 @@ def test_importer_minimal_setup_uses_defaults(admin_client, import_site):
     assert source.name == "RSS & Atom · Feed articles"
     assert source.limit == 100
     assert source.schedule == ""
-    assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml"}
+    assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml", "IMPORTER_RSS_IMPORT_TAGS": False}
 
 
 def test_browser_importer_discovers_account_from_selected_persona(admin_client):

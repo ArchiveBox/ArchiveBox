@@ -84,7 +84,7 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
     });
     if (!visible) continue;
 
-    const expectedUrl = await cardHandle.evaluate((iframe) => iframe.src);
+    const expectedUrl = await cardHandle.evaluate((iframe) => iframe.hasAttribute('srcdoc') ? 'about:srcdoc' : iframe.src);
     const frame = await cardHandle.contentFrame();
     if (!frame) {
       // Live card refreshes can detach an owner while its document is loading.
@@ -121,6 +121,33 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
       if (await cardHandle.evaluate((iframe) => iframe.isConnected)) throw error;
     }
   }));
+
+  const selectedViewer = await page.$('.thumb-card.selected-card[data-full-preview="1"]');
+  const previewHandle = selectedViewer && await page.$('#main-frame');
+  if (!previewHandle) return;
+  const preview = await previewHandle.contentFrame();
+  if (!preview) throw new Error('Selected plugin viewer has no loaded document');
+  await preview.waitForFunction((url) => location.href === url && document.readyState === 'complete',
+    {timeout}, await previewHandle.evaluate((iframe) => iframe.src));
+  for (const pdfHandle of await preview.$$('iframe')) {
+    const visiblePdf = await pdfHandle.evaluate((iframe) => {
+      const rect = iframe.getBoundingClientRect();
+      return new URL(iframe.src, location.href).pathname.toLowerCase().endsWith('.pdf')
+        && iframe.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})
+        && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth;
+    });
+    if (!visiblePdf) continue;
+    const pdfFrame = await pdfHandle.contentFrame();
+    if (!pdfFrame) throw new Error('Visible PDF preview has no loaded document');
+    const viewer = await page.waitForFrame((frame) => frame.parentFrame() === pdfFrame
+      && frame.url().startsWith('chrome-extension://'), {timeout});
+    // The native viewer element exists before its PDF pages have rendered.
+    await viewer.waitForFunction(() => {
+      const pdf = document.querySelector('pdf-viewer');
+      return pdf?.loadState_ === 'success' && pdf.initialLoadComplete_
+        && pdf.documentDimensions?.pageDimensions?.length > 0;
+    }, {timeout});
+  }
 }
 
 async function liveProgressState(readyOnly = false, rejectedFrameUrl = '') {
@@ -276,6 +303,26 @@ async function main() {
   }
   const browser = await puppeteer.launch(launchOptions);
   let page;
+  let exportDownloadDirectory;
+  let exportDownload;
+  if (process.env.SCREENSHOT_LIBRARY_MENU === 'export') {
+    exportDownloadDirectory = fs.mkdtempSync(path.join(require('os').tmpdir(), 'archivebox-export-gallery-'));
+    const downloads = await browser.target().createCDPSession();
+    await downloads.send('Browser.setDownloadBehavior', {behavior: 'allowAndName', downloadPath: exportDownloadDirectory, eventsEnabled: true});
+    exportDownload = new Promise((resolve, reject) => {
+      downloads.once('Browser.downloadWillBegin', (started) => {
+        const progress = (event) => {
+          if (event.guid !== started.guid) return;
+          if (event.state === 'completed' || event.state === 'canceled') {
+            downloads.off('Browser.downloadProgress', progress);
+            if (event.state === 'canceled') reject(new Error('The gallery export download was canceled.'));
+            else resolve({format: 'wacz', bytes: fs.statSync(path.join(exportDownloadDirectory, event.guid)).size});
+          }
+        };
+        downloads.on('Browser.downloadProgress', progress);
+      });
+    });
+  }
   const documentRequests = new Map();
   const pageErrors = [];
   try {
@@ -454,6 +501,20 @@ async function main() {
     const screenshotPaths = [];
     if (requireLiveProgress) checks.liveProgressCaptures = [];
     const capture = async (screenshotPath) => {
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'export' && !await page.$('#export-notifications .success')) {
+        await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
+        await page.click('.folder-menu:popover-open [data-export-format="wacz"]');
+        await page.waitForSelector('#export-notifications [data-status="exited"],#export-notifications .error', {timeout:120000});
+        if (await page.$('#export-notifications .error')) throw new Error('The gallery export failed.');
+        if (await page.$('.folder-sidebar .snapshot-export-status,#result_list .snapshot-export-status')) throw new Error('Export notifications must not be embedded in the list.');
+        checks.exportDownload = await exportDownload;
+        if (!checks.exportDownload.bytes) throw new Error('The gallery export download is empty.');
+      }
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'view-export') await require('../archivebox/core/library_gallery.js').openViewExportMenu(page);
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'smart') await require('../archivebox/core/library_gallery.js').openSmartFolder(page);
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'search') await require('../archivebox/core/library_gallery.js').openFolderSearch(page);
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'folder') await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'import') await require('../archivebox/core/library_gallery.js').openImportMenu(page);
       // Resizing can move the target to a different row/column. Re-anchor each
       // gallery variant so it photographs the requested controls at every width.
       if (process.env.SCREENSHOT_SCROLL_SELECTOR) {
@@ -466,6 +527,27 @@ async function main() {
       if (requireLiveProgress) {
         const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
         checks.liveProgressCaptures.push({path: screenshotPath, viewport: page.viewport(), ...liveProgress});
+      }
+      const columnAlignment = await page.evaluate(() => {
+        const link = document.querySelector('.snapshot-library:not(.sidebar-hidden) .library-primary>a:first-child');
+        const header = document.querySelector('.snapshot-library #table-bookmarks thead,.snapshot-library #result_list thead');
+        if (innerWidth < 768 || !link || !header || !header.getBoundingClientRect().height) return null;
+        const left = link.getBoundingClientRect(), right = header.getBoundingClientRect();
+        const style = getComputedStyle(header.querySelector('th'));
+        return {linkTop:left.top, headerTop:right.top, linkBottom:left.bottom, headerBottom:right.bottom, borderTop:style.borderTopWidth, borderBottom:style.borderBottomWidth};
+      });
+      if (columnAlignment && (columnAlignment.linkTop !== columnAlignment.headerTop || columnAlignment.linkBottom !== columnAlignment.headerBottom || columnAlignment.borderTop !== '0px' || columnAlignment.borderBottom !== '1px')) {
+        throw new Error(`All snapshots is misaligned with the column headings: ${JSON.stringify(columnAlignment)}`);
+      }
+      const publicAlignment = await page.evaluate(() => {
+        if (innerWidth < 768 || !document.querySelector('.public-library:not(.sidebar-hidden)')) return null;
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const header = rect('.library-heading'), toolbar = rect('.public-snapshot-toolbar');
+        const toggle = rect('.folder-mobile-toggle'), search = rect('.public-search-input');
+        return {headerBottom: header.bottom, toolbarBottom: toolbar.bottom, toggleTop: toggle.top, searchTop: search.top, toggleHeight: toggle.height, searchHeight: search.height};
+      });
+      if (publicAlignment && (Math.abs(publicAlignment.headerBottom - publicAlignment.toolbarBottom) > 0.5 || Math.abs(publicAlignment.toggleTop - publicAlignment.searchTop) > 0.5 || publicAlignment.toggleHeight !== publicAlignment.searchHeight)) {
+        throw new Error(`Public library controls are misaligned: ${JSON.stringify(publicAlignment)}`);
       }
       await page.screenshot({path: screenshotPath, fullPage});
       screenshotPaths.push(screenshotPath);
@@ -507,6 +589,7 @@ async function main() {
     throw error;
   } finally {
     await browser.close();
+    if (exportDownloadDirectory) fs.rmSync(exportDownloadDirectory, {recursive: true, force: true});
   }
 }
 

@@ -21,7 +21,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.feedgenerator import Rss201rev2Feed
@@ -30,7 +30,7 @@ from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, Uploa
 from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
-from archivebox.core.models import Snapshot, ArchiveResult, Tag
+from archivebox.core.models import Folder, Snapshot, ArchiveResult, Tag
 from archivebox.core.permissions import can_view_snapshot, public_snapshots_queryset
 from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
@@ -668,6 +668,7 @@ class SnapshotSchema(Schema):
     TYPE: str = "core.models.Snapshot"
     id: UUID
     crawl_id: UUID
+    folder_id: UUID | None
     persona: str | None
     created_by_id: str
     created_by_username: str
@@ -739,6 +740,7 @@ class SnapshotUpdateSchema(Schema):
 
 
 class SnapshotCreateSchema(Schema):
+    folder_id: UUID | None = None
     url: str
     crawl_id: str | None = None
     depth: int = 0
@@ -1018,6 +1020,11 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     if data.depth not in (0, 1, 2, 3, 4):
         raise HttpError(400, "depth must be between 0 and 4")
 
+    if data.folder_id is not None:
+        folder = get_object_or_404(Folder, pk=data.folder_id)
+        if folder.is_smart and not folder.is_container:
+            raise HttpError(400, "Choose a regular folder as the destination.")
+        data.folder_id = folder.pk
     if data.crawl_id:
         crawl = get_crawl_by_ref(data.crawl_id)
         crawl_tags = normalize_tag_list(crawl.tags_str.split(","))
@@ -1025,6 +1032,7 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     else:
         crawl = Crawl.objects.create(
             urls=data.url,
+            folder_id=data.folder_id,
             max_depth=max(data.depth, 0),
             tags_str=",".join(tags),
             status=Crawl.StatusChoices.QUEUED,
@@ -1056,6 +1064,7 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             snapshot = Snapshot.objects.create(
                 url=data.url,
                 crawl=crawl,
+                folder_id=data.folder_id,
                 depth=data.depth,
                 title=data.title,
                 timestamp=str(timezone.now().timestamp()),

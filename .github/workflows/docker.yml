@@ -281,8 +281,8 @@ jobs:
           # second cache whose compression can drift from the released image.
           cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
           outputs: |
-            type=docker,name=${{ matrix.local_tag }}
-            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
+            type=docker,name=${{ matrix.local_tag }},compression=zstd,compression-level=8
+            type=oci,dest=${{ runner.temp }}/archivebox-image.tar,compression=zstd,compression-level=8
 
       - name: Image digest
         if: inputs.push_digests

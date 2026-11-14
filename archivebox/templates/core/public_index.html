@@ -3,10 +3,30 @@
 {% load core_tags %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'library/folders.css' %}">
+<script src="{% static 'library/folders.js' %}" defer></script>
 <style>
     #content.flex {
-        display: block;
+        padding: 0;
     }
+    .public-library .public-snapshot-toolbar {box-sizing:border-box;min-height:var(--library-toolbar-height);margin:0;padding:5px 6px;border-radius:0;box-shadow:none;border-width:0 0 1px;border-bottom-color:var(--hairline-color,#e4e7ec);flex-wrap:wrap}
+    .public-library .public-search-input,
+    .public-library .public-snapshot-toolbar input[type="submit"] {box-sizing:border-box;height:var(--library-control-size);border-radius:4px}
+    .public-library .public-search-input {min-width:0}
+    .public-library .public-snapshot-toolbar #searchbar {min-width:0}
+    @media(min-width:768px){
+        .public-library .public-snapshot-toolbar {height:var(--library-toolbar-height);flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px}
+        .public-library .public-snapshot-toolbar form {flex-direction:row;align-items:center;flex:1;gap:8px}
+        .public-library .public-snapshot-count {align-self:center}
+    }
+    .public-library .public-snapshot-table-wrap {border-radius:0;border-width:0 0 1px;box-shadow:none}
+    .public-library .public-snapshot-list {container-type:inline-size}
+    @container (max-width: 1000px) {
+        .snapshot-tags-cell,.snapshot-status-cell,.snapshot-size-cell {display:none}
+        .public-snapshot-toolbar form {flex-basis:100%}
+    }
+    @media(min-width:768px){#content.flex:has(>.snapshot-library){display:flex}}
+    @media(max-width:767px){#content.flex:has(>.snapshot-library){display:block}}
 
     .public-snapshot-list {
         width: 100%;
@@ -651,9 +671,13 @@
 {% endblock %}
 
 {% block body %}
-    <div class="public-snapshot-list">
+    <div class="snapshot-library public-library{% if not folder_tree %} sidebar-hidden{% endif %}">
+        {% if folder_tree %}{% include "core/folder_sidebar.html" %}{% endif %}
+    <div id="content-main" class="public-snapshot-list">
         <div class="public-snapshot-toolbar">
+            {% if folder_tree %}{% include "core/folder_context.html" %}{% endif %}
             <form id="changelist-search" action="{{ request.path }}" method="get">
+                {% if selected_folder %}<input type="hidden" name="folder" value="{{ selected_folder }}">{% endif %}
                 <span class="public-search-input">
                     <span class="public-search-addon">
                         <label class="search-icon" for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
@@ -739,6 +763,7 @@
                 {% endif %}
             </span>
         </div>
+    </div>
     </div>
     <script>
         (function() {

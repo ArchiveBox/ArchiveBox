@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from uuid import UUID
+
 __package__ = "archivebox.cli"
 __command__ = "archivebox add"
 
@@ -70,6 +72,7 @@ def add(
     bg: bool = False,
     created_by_id: int | None = None,
     config: dict[str, Any] | None = None,
+    folder_id: UUID | None = None,
 ) -> tuple[Crawl, QuerySet[Snapshot]]:
     """Add a URL list or imported URL document to a new Crawl."""
 
@@ -112,6 +115,10 @@ def add(
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from django.utils import timezone
 
+    from archivebox.core.models import Folder
+
+    if folder_id is not None and not Folder.objects.filter(pk=folder_id).exists():
+        raise ValueError("Folder does not exist")
     created_by_id = created_by_id or get_or_create_system_user_pk()
     started_at = timezone.now()
 
@@ -178,6 +185,7 @@ def add(
             urls=source_text,
             max_depth=depth,
             tags_str=tag,
+            folder_id=folder_id,
             persona_id=persona_obj.id,
             label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
             created_by_id=created_by_id,
@@ -350,6 +358,7 @@ def add(
 @click.option("--crawl-timeout", type=int, default=0, help="Maximum total crawl runtime in seconds (0 = unlimited)")
 @click.option("--snapshot-max-size", default="0", help="Maximum per-snapshot size in bytes or units like 45mb / 1gb (0 = unlimited)")
 @click.option("--crawl-max-concurrent-snapshots", type=int, default=None, help="Maximum snapshots to archive concurrently within one crawl")
+@click.option("--folder-id", type=click.UUID, default=None, help="Folder for newly created snapshots")
 @click.option("--tag", "-t", default="", help="Comma-separated list of tags to add to each snapshot e.g. tag1,tag2,tag3")
 @click.option("--url-allowlist", "--domain-allowlist", default="", help="Comma-separated URL/domain allowlist for this crawl")
 @click.option("--url-denylist", "--domain-denylist", default="", help="Comma-separated URL/domain denylist for this crawl")

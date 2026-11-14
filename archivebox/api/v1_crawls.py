@@ -6,7 +6,7 @@ from hashlib import sha256
 from uuid import UUID
 from datetime import datetime
 from django.http import FileResponse, HttpRequest
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 
 from django.contrib.auth import get_user_model
@@ -15,7 +15,7 @@ from django.contrib.auth.models import User
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from archivebox.core.models import Snapshot
+from archivebox.core.models import Folder, Snapshot
 from archivebox.core.permissions import (
     PERMISSIONS_PUBLIC,
     PERMISSIONS_UNLISTED,
@@ -50,6 +50,7 @@ class CrawlSchema(Schema):
     max_depth: int
     tags_str: str
     config: dict
+    folder_id: UUID | None
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -86,6 +87,7 @@ class CrawlUpdateSchema(Schema):
 
 
 class CrawlCreateSchema(Schema):
+    folder_id: UUID | None = None
     urls: list[str]
     max_depth: int = 0
     tags: list[str] | None = None
@@ -124,6 +126,11 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
     if data.max_depth not in (0, 1, 2, 3, 4):
         raise HttpError(400, "max_depth must be between 0 and 4")
 
+    if data.folder_id is not None:
+        folder = get_object_or_404(Folder, pk=data.folder_id)
+        if folder.is_smart and not folder.is_container:
+            raise HttpError(400, "Choose a regular folder as the destination.")
+        data.folder_id = folder.pk
     tags = normalize_tag_list(data.tags, data.tags_str)
     config = dict(data.config or {})
     config.setdefault("PARSER", "url_list")
@@ -132,6 +139,7 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
         urls="\n".join(urls),
         max_depth=data.max_depth,
         tags_str=",".join(tags),
+        folder_id=data.folder_id,
         label=data.label,
         notes=data.notes,
         config=config,

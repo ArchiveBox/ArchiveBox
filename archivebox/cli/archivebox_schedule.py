@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from uuid import UUID
+
 __package__ = "archivebox.cli"
 
 import rich_click as click
@@ -21,6 +23,7 @@ def schedule(
     depth: int | str = 0,
     import_path: str | None = None,
     config: dict[str, object] | None = None,
+    folder_id: UUID | None = None,
 ):
     """Manage database-backed scheduled crawls processed by the crawl runner."""
 
@@ -31,6 +34,10 @@ def schedule(
     from archivebox.crawls.schedule_util import validate_schedule
     from archivebox.services.runner import run_pending_crawls
 
+    from archivebox.core.models import Folder
+
+    if folder_id is not None and not Folder.objects.filter(pk=folder_id).exists():
+        raise ValueError("Folder does not exist")
     config_overrides = dict(config or {})
     depth = int(depth)
     result: dict[str, object] = {
@@ -70,6 +77,7 @@ def schedule(
             urls=template_urls,
             max_depth=0 if is_update_schedule else depth,
             tags_str="" if is_update_schedule else tag,
+            folder_id=folder_id,
             label=template_label,
             notes=template_notes,
             created_by_id=created_by_id,
@@ -166,6 +174,7 @@ def schedule(
 @click.option("--quiet", "-q", is_flag=True, help="Return structured results without extra summary output")
 @click.option("--add", is_flag=True, help="Create a new scheduled crawl")
 @click.option("--every", type=str, help='Run on an alias like daily/weekly/monthly or a cron expression such as "0 */6 * * *"')
+@click.option("--folder-id", type=click.UUID, default=None, help="Folder for newly created snapshots")
 @click.option("--tag", "-t", default="", help="Comma-separated tags to apply to scheduled crawl snapshots")
 @click.option(
     "--depth",
