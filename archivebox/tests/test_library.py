@@ -392,3 +392,65 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         expect(page.locator(".folder-drop-status")).to_be_empty()
         assert invalid_moves == []
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("view", ["table", "grid"])
+def test_browser_snapshot_drop_on_smart_folder_clears_assignment(live_server, admin_user, browser_runtime, view):
+    from playwright.sync_api import sync_playwright, expect
+    from urllib.parse import urlsplit
+    from archivebox.core.models import Folder, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    source = Folder.objects.create(name="Saved")
+    target = Folder.objects.create(name="News", rules={"field": "title", "lookup": "icontains", "value": "news"})
+    unassigned, _ = Folder.objects.get_or_create(
+        name="📥 Inbox",
+        defaults={"rules": {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}},
+    )
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshots = [
+        Snapshot.objects.create(url=f"https://news.ycombinator.com/item?id={i}", title=title, crawl=crawl, folder=source)
+        for i, title in enumerate(["News story", "Other story", "Another story", "Leave saved"])
+    ]
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        suffix = "grid/" if view == "grid" else ""
+        page.goto(f"{admin_url}/admin/core/snapshot/{suffix}?folder={source.pk}")
+        row_selector, drag_selector = (".cards .card", ".card-title") if view == "grid" else ("#result_list tbody tr", ".field-title_str")
+
+        def capture(snapshot):
+            return page.locator(row_selector).filter(has=page.locator(f'input.action-select[value="{snapshot.pk}"]'))
+
+        with page.expect_navigation():
+            capture(snapshots[0]).locator(drag_selector).drag_to(page.locator(f'.folder-row[data-folder-id="{target.pk}"]'))
+        expect(page.locator(".messagelist")).to_contain_text("Moved 1 snapshot(s) to No folder")
+        expect(capture(snapshots[0])).to_have_count(0)
+        for snapshot in snapshots[1:3]:
+            page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
+        with page.expect_navigation():
+            capture(snapshots[1]).locator(drag_selector).drag_to(page.locator(f'.folder-row[data-folder-id="{target.pk}"]'))
+        expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to No folder")
+        expect(page.locator(row_selector)).to_have_count(1)
+        page.locator(f'.folder-row[data-folder-id="{unassigned.pk}"] .folder-link').click()
+        for snapshot in snapshots[:3]:
+            expect(capture(snapshot)).to_be_visible()
+        page.locator(f'.folder-row[data-folder-id="{target.pk}"] .folder-link').click()
+        expect(capture(snapshots[0])).to_be_visible()
+        expect(capture(snapshots[1])).to_have_count(0)
+        browser.close()
+    assert list(Snapshot.objects.filter(folder=source).values_list("pk", flat=True)) == [snapshots[3].pk]
+    assert set(Snapshot.objects.filter(folder=None).values_list("pk", flat=True)) == {s.pk for s in snapshots[:3]}
+    target.refresh_from_db()
+    assert target.rules == {"field": "title", "lookup": "icontains", "value": "news"}
+    assert not target.children.exists()
