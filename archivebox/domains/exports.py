@@ -67,6 +67,10 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
         target.parent.mkdir(parents=True, exist_ok=True)
         resources = []
         if source.suffix.lower() in {".html", ".htm", ".css"}:
+            # Reserve the source bytes before reading: capped exports must reject
+            # an oversized document without first allocating the entire file.
+            source_size = source.stat().st_size
+            report_bytes(source_size)
             text = source.read_bytes().decode("utf-8", errors="surrogateescape")
             if source.suffix.lower() == ".css":
                 text, _ = _rewrite_css_sources_to_responses(text, root, relative)
@@ -84,7 +88,7 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
                 script = posixpath.relpath("archivebox-links.js", posixpath.dirname(prefix + relative))
                 text, _ = rewrite_navigation_links(text, page_url, targets, asset_base="./", external_links_script=script)
             content = text.encode("utf-8", errors="surrogateescape")
-            report_bytes(len(content))
+            report_bytes(len(content) - source_size)
             target.write_bytes(content)
         else:
             with source.open("rb") as original, target.open("xb") as exported:
@@ -127,7 +131,7 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
         size += count
         now = time.monotonic()
         if now - reported_at >= 1:
-            progress({"pages": completed, "total_pages": len(pages), "bytes": size})
+            progress({"pages": completed, "total_pages": len(snapshots), "bytes": size})
             reported_at = now
 
     for index, snapshot in enumerate(snapshots):
@@ -186,9 +190,7 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     return len(snapshots)
 
 
-def write_replay_site(destination, snapshots, *, title, config, progress, player=True):
-    # Check player installation before copying a potentially very large site.
-    assets = replay_assets(config) if player else {}
+def write_wacz_site(destination, snapshots, *, title, progress):
     recordings = []
     main_url = ""
     for snapshot in snapshots:
@@ -209,25 +211,10 @@ def write_replay_site(destination, snapshots, *, title, config, progress, player
                     main_url = snapshot.url
     with (destination / "site.wacz").open("xb") as output:
         count = write_site_wacz(output, recordings, title=title, main_url=main_url, progress=progress)
-    if player:
-        for name, data in assets.items():
-            target = destination / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-        (destination / "index.html").write_text(
-            '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
-            f'<title>{html.escape(title)}</title><script src="replay/ui.js"></script>'
-            "<style>html,body{margin:0;height:100%}replay-web-page{display:block;height:100%}</style></head><body>"
-            '<replay-web-page source="./site.wacz" replaybase="./replay/" embed="default" deepLink '
-            f'url="{html.escape(main_url, quote=True)}"></replay-web-page>'
-            '<script>if(location.protocol==="file:")document.body.textContent='
-            '"Upload this folder to an HTTPS website, or use the Static HTML export to open saved pages directly.";</script></body></html>',
-        )
     return count
 
 
-def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=None, progress=None, title="Snapshots", config=None):
-    from archivebox.config.common import get_config
+def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=None, progress=None, title="Snapshots"):
     from archivebox.core.exports import MAX_ARCHIVE_BYTES, selection_digest
     from .export_service import FORMATS
 
@@ -265,14 +252,7 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
         if format in {"html", "html_zip"}:
             write_static_site(destination, snapshots(), title=title, progress=report, max_bytes=max_bytes)
         else:
-            write_replay_site(
-                destination,
-                snapshots(),
-                title=title,
-                config=config or get_config(),
-                progress=report,
-                player=format == "replay",
-            )
+            write_wacz_site(destination, snapshots(), title=title, progress=report)
         if format == "html_zip":
             with zipfile.ZipFile(archive_file, "x", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as bundle:
                 for item in destination.rglob("*"):
@@ -294,7 +274,9 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
         )
         return state
     except Exception as error:
-        if format in {"html_zip", "wacz"} and archive_file.is_file():
-            archive_file.unlink()
+        if format in {"html_zip", "wacz"}:
+            # This directory was created exclusively for this export above.
+            # Failed downloads must not strand their copied staging trees.
+            shutil.rmtree(destination)
         report({"error": str(error), "complete": False})
         raise

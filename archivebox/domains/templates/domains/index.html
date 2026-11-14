@@ -101,7 +101,7 @@
         </tr></thead>
         <tbody>{% for row in domains %}<tr>
           <td class="action-checkbox"><input type="checkbox" class="action-select" name="_selected_action" value="{{ row.scope }}" aria-label="Select {{ row.domain }}"></td>
-          <th scope="row" class="field-domain">{{ row.favicon_html }} <a href="{{ row.snapshot_url }}" title="Snapshots for {{ row.domain }} and subdomains">{{ row.domain }}</a></th>
+          <th scope="row" class="field-domain"><span class="domain-identity">{{ row.favicon_html }}<a href="{{ row.domain_url }}" title="Browse saved {{ row.domain }}">{{ row.domain }}</a></span></th>
           <td class="field-count"><a href="{{ row.snapshot_url }}">{{ row.snapshot_count|intcomma }}</a></td>
           <td class="field-size">{{ row.total_size|file_size }}</td>
           <td class="field-personas"><a href="{{ row.persona_url }}">{{ row.persona_count|intcomma }}</a></td>
@@ -135,7 +135,7 @@ import {startSnapshotExport} from "{% static 'exports.js' %}";
     if (select.value === 'storage') { location.href = '/admin/storage/'; return; }
     override.value = select.dataset.domain || '';
     if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
-    if (['html', 'replay'].includes(select.value)) {
+    if (select.value === 'html') {
       const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
       if (directory === null) { select.value = ''; return; }
       form.elements.directory.value = directory;
@@ -156,7 +156,7 @@ import {startSnapshotExport} from "{% static 'exports.js' %}";
     if (requested === 'export') {
       if (!override.value && form.querySelector('[name="select_across"]').value === '1') domains.forEach(domain => { const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = domain; form.append(input); });
       const format = form.elements.export_format.value;
-      if (['html_zip', 'wacz', 'html', 'replay'].includes(format)) {
+      if (['html_zip', 'wacz', 'html'].includes(format)) {
         event.preventDefault();
         const data = new FormData(form);
         data.set('action', 'export');

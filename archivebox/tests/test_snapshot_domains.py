@@ -99,10 +99,13 @@ def test_native_snapshot_and_persona_admin_domain_filters(admin_client, admin_us
     assert list(personas.context["cl"].queryset.values_list("pk", flat=True)) == [included.pk]
 
 
-def test_domain_click_opens_native_snapshot_list_including_subdomains(admin_client, admin_user):
+def test_domain_name_opens_root_capture_and_count_opens_filtered_list(admin_client, admin_user):
     from html.parser import HTMLParser
+    from archivebox.core.routes_util import build_snapshot_detail_url
 
     pages = create_pages(admin_user, ["https://example.com/", "http://deep.sub.example.com/article", "https://other.com/"])
+    pages[0].config = {"PERMISSIONS": "private"}
+    pages[0].save(update_fields=["config"])
     response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
     row = next(row for row in response.context["domains"] if row["domain"] == "example.com")
 
@@ -123,7 +126,11 @@ def test_domain_click_opens_native_snapshot_list_including_subdomains(admin_clie
 
     parser = DomainLinks()
     parser.feed(response.content.decode())
-    assert row["snapshot_url"] in parser.links
+    assert (
+        row["domain_url"] == build_snapshot_detail_url(pages[0].archive_path_from_db, request=response.wsgi_request) + "?header=collapsed"
+    )
+    assert row["domain_url"] in parser.links
+    assert row["snapshot_url"] not in parser.links
     snapshots = admin_client.get(row["snapshot_url"], HTTP_HOST=ADMIN_TEST_HOST)
     assert snapshots.status_code == 200
     assert set(snapshots.context["cl"].queryset.values_list("pk", flat=True)) == {page.pk for page in pages[:2]}
@@ -138,3 +145,31 @@ def test_snapshot_api_domain_filter(client, api_admin_user, api_headers):
     assert response.status_code == 200, response.content
     assert response.json()["count"] == 2
     assert {item["id"].replace("-", "") for item in response.json()["items"]} == {str(page.pk).replace("-", "") for page in pages[:2]}
+
+
+@pytest.mark.parametrize(
+    ("urls", "expected"),
+    [
+        (["https://example.com/", "https://example.com/news/article"], 0),
+        (["https://example.com/news", "https://example.com/news/article"], 0),
+        (["https://example.com/news/", "https://example.com/latest"], 1),
+        (["https://example.com/?next=/one/two", "https://example.com/news#part/one/two"], 0),
+        (["https://example.com?next=/one/two", "https://example.com/news"], 0),
+        (["https://example.com/news", "https://sub.example.com/", "https://other.example.com/latest"], 1),
+        (["https://example.com/", "https://sub.example.com/"], 1),
+    ],
+)
+def test_domain_summary_selects_nearest_root_then_newest(admin_user, urls, expected):
+    pages = create_pages(admin_user, urls)
+    origin = timezone.now() - timedelta(days=len(pages))
+    for index, page in enumerate(pages):
+        Snapshot.objects.filter(pk=page.pk).update(created_at=origin + timedelta(days=index))
+    with CaptureQueriesContext(connection) as queries:
+        rows = Snapshot.objects.domain_summary()
+    assert len(queries) == 3
+    assert len(rows) == 1
+    assert rows[0]["root_id"] == pages[expected].pk
+    assert rows[0]["oldest_id"] == pages[0].pk
+    assert rows[0]["newest_id"] == pages[-1].pk
+    # A filtered summary must not choose a homepage outside its source queryset.
+    assert Snapshot.objects.filter(pk=pages[-1].pk).domain_summary()[0]["root_id"] == pages[-1].pk

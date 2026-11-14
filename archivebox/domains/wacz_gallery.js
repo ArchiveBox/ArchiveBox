@@ -1,5 +1,5 @@
 // Use the real inline export controls, then browse unchanged recordings using the
-// exported ReplayWeb.page player on an ordinary localhost static file server.
+// installed ReplayWeb.page player in a shared localhost gallery harness.
 function matchesReplayUrl(frameUrl, playerUrl, originalUrl) {
   const replay = URL.parse(frameUrl);
   const prefix = new URL('replay/w/', playerUrl);
@@ -8,11 +8,78 @@ function matchesReplayUrl(frameUrl, playerUrl, originalUrl) {
   return Boolean(embedded) && URL.parse(embedded + replay.search + replay.hash)?.href === new URL(originalUrl).href;
 }
 
-async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'https://news.ycombinator.com/') {
+async function downloadWacz(page, directory, trigger) {
   const fs = require('fs');
   const path = require('path');
-  if (!baseUrl) throw new Error('The WACZ gallery requires its localhost export server.');
   fs.mkdirSync(directory, {recursive: true});
+  const downloadDirectory = fs.mkdtempSync(path.join(directory, 'wacz-download-'));
+  const before = page.url();
+  const cdp = await page.browser().target().createCDPSession();
+  await cdp.send('Browser.setDownloadBehavior', {behavior: 'allowAndName', downloadPath: downloadDirectory, eventsEnabled: true});
+  let downloadUrl, downloadTimeout;
+  const downloaded = new Promise((resolve, reject) => {
+    downloadTimeout = setTimeout(() => reject(new Error('WACZ did not finish downloading.')), 120000);
+    cdp.on('Browser.downloadWillBegin', event => { downloadUrl = event.url; });
+    cdp.on('Browser.downloadProgress', event => {
+      if (event.state === 'completed') { clearTimeout(downloadTimeout); resolve(path.join(downloadDirectory, event.guid)); }
+      if (event.state === 'canceled') { clearTimeout(downloadTimeout); reject(new Error('WACZ download was canceled.')); }
+    });
+  });
+  let file;
+  try {
+    [file] = await Promise.all([
+      downloaded,
+      (async () => {
+        await trigger();
+        await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
+        const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
+        if (status.exitCode !== '0') throw new Error('WACZ export failed; inspect its native Process log.');
+        if (page.url() !== before) throw new Error('WACZ export navigated away from the selected view.');
+      })(),
+    ]);
+  } finally {
+    clearTimeout(downloadTimeout);
+    await cdp.detach();
+  }
+  const expectedDownload = await page.$eval('[data-export-download]', link => link.href);
+  if (downloadUrl !== expectedDownload || !fs.statSync(file).size) throw new Error('The browser did not download the selected WACZ.');
+  return {file, downloadUrl};
+}
+
+async function replayHarness(page, exportedWacz, directory, baseUrl, adminUrl, originalUrl) {
+  const fs = require('fs');
+  const path = require('path');
+  if (!baseUrl) throw new Error('The WACZ gallery requires its localhost static server.');
+  const playerDirectory = fs.mkdtempSync(path.join(directory, 'wacz-player-'));
+  fs.mkdirSync(path.join(playerDirectory, 'replay'));
+  await page.goto(new URL('/admin/domains/', adminUrl).href, {waitUntil: 'domcontentloaded'});
+  const authUrl = await page.$$eval('a[href*="original_domain="]', (links, original) => links.find(link => new URL(link.href).searchParams.get('original_domain') === new URL(original).hostname)?.href, originalUrl);
+  if (!authUrl) throw new Error('The captured site has no native replay authorization link.');
+  // Reuse the installed plugin's real assets through its existing isolated
+  // snapshot route. This harness is gallery infrastructure, not an export mode.
+  const auth = new URL(authUrl);
+  auth.searchParams.delete('original_domain');
+  auth.searchParams.set('next', '/replay/ui.js');
+  const first = await page.goto(auth.href, {waitUntil: 'domcontentloaded'});
+  if (!first || first.status() !== 200 || !new URL(first.url()).pathname.endsWith('/replay/ui.js')) throw new Error('Installed ReplayWeb.page assets are unavailable.');
+  fs.writeFileSync(path.join(playerDirectory, 'replay/ui.js'), await first.buffer());
+  for (const name of ['sw.js', 'sw-index.js', 'replay.html']) {
+    const response = await page.goto(new URL(name, first.url()).href, {waitUntil: 'domcontentloaded'});
+    if (!response || response.status() !== 200) throw new Error(`Installed ReplayWeb.page asset is unavailable: ${name}`);
+    fs.writeFileSync(path.join(playerDirectory, 'replay', name), await response.buffer());
+  }
+  fs.copyFileSync(exportedWacz, path.join(playerDirectory, 'site.wacz'));
+  const escape = value => value.replace(/[&<>"']/g, character => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[character]));
+  fs.writeFileSync(path.join(playerDirectory, 'index.html'),
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+    '<title>ReplayWeb.page</title><script src="replay/ui.js"></script>' +
+    '<style>html,body{margin:0;height:100%}replay-web-page{display:block;height:100%}</style></head><body>' +
+    `<replay-web-page source="./site.wacz" replaybase="./replay/" embed="default" deepLink url="${escape(originalUrl)}"></replay-web-page></body></html>`);
+  const relative = path.relative(directory, playerDirectory);
+  return {directory: playerDirectory, url: new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/index.html`, baseUrl).href};
+}
+
+async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'https://news.ycombinator.com/') {
   const domainsUrl = new URL('/admin/domains/', siteUrl).href;
   await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
   if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
@@ -24,28 +91,8 @@ async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'ht
     })?.dataset.domain;
   }, originalUrl);
   if (!domain) throw new Error('The captured site is missing from Domains.');
-  const before = page.url();
-  const destinationPrompt = new Promise(resolve => page.once('dialog', async dialog => {
-    await dialog.accept(directory);
-    resolve();
-  }));
-  await Promise.all([
-    page.select(`.site-domain-row-export[data-domain="${domain}"]`, 'replay'),
-    destinationPrompt,
-  ]);
-  await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
-  const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
-  if (page.url() !== before) throw new Error('Replay export navigated away from Domains.');
-  if (status.exitCode !== '0') throw new Error('WACZ export failed; inspect its native Process log.');
-  const exported = status.exportPath;
-  const relative = path.relative(directory, exported);
-  if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.statSync(path.join(exported, 'site.wacz')).size) {
-    throw new Error('WACZ export did not write its server-side archive.');
-  }
-  return {
-    directory: exported,
-    url: new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/index.html`, baseUrl).href,
-  };
+  const {file} = await downloadWacz(page, directory, () => page.select(`.site-domain-row-export[data-domain="${domain}"]`, 'wacz'));
+  return replayHarness(page, file, directory, baseUrl, siteUrl, originalUrl);
 }
 
 async function exportViews(page, clone, directory, baseUrl) {
@@ -95,41 +142,10 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
   if (new URL(exportUrl).searchParams.get('folder') !== new URL(libraryUrl).searchParams.get('folder')) {
     throw new Error('The WACZ export lost the selected folder.');
   }
-  fs.mkdirSync(directory, {recursive: true});
-  const downloadDirectory = fs.mkdtempSync(path.join(directory, 'folder-download-'));
-  const cdp = await page.browser().target().createCDPSession();
-  await cdp.send('Browser.setDownloadBehavior', {behavior: 'allowAndName', downloadPath: downloadDirectory, eventsEnabled: true});
-  let downloadUrl, downloadTimeout;
-  const downloaded = new Promise((resolve, reject) => {
-    downloadTimeout = setTimeout(() => reject(new Error('Folder WACZ did not finish downloading.')), 120000);
-    cdp.on('Browser.downloadWillBegin', event => { downloadUrl = event.url; });
-    cdp.on('Browser.downloadProgress', event => {
-      if (event.state === 'completed') { clearTimeout(downloadTimeout); resolve(path.join(downloadDirectory, event.guid)); }
-      if (event.state === 'canceled') { clearTimeout(downloadTimeout); reject(new Error('Folder WACZ download was canceled.')); }
-    });
-  });
-  let exportedWacz;
-  try {
-    [exportedWacz] = await Promise.all([
-      downloaded,
-      (async () => {
-        await page.click(link);
-        await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
-        const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
-        if (status.exitCode !== '0') throw new Error('Folder WACZ export failed; inspect its native Process log.');
-        if (page.url() !== libraryUrl) throw new Error('Folder export navigated away from the selected snapshots.');
-      })(),
-    ]);
-  } finally {
-    clearTimeout(downloadTimeout);
-    await cdp.detach();
-  }
-  const expectedDownload = await page.$eval('[data-export-download]', link => link.href);
-  if (downloadUrl !== expectedDownload || !fs.statSync(exportedWacz).size) throw new Error('The browser did not download the selected folder WACZ.');
+  const {file: exportedWacz, downloadUrl} = await downloadWacz(page, directory, () => page.click(link));
   const sourceDigest = await digest(exportedWacz);
-  const {url, directory: playerDirectory} = await exportPlayer(page, libraryUrl, directory, baseUrl);
+  const {url, directory: playerDirectory} = await replayHarness(page, exportedWacz, directory, baseUrl, libraryUrl, 'https://news.ycombinator.com/');
   const playerWacz = path.join(playerDirectory, 'site.wacz');
-  fs.copyFileSync(exportedWacz, playerWacz);
   if (await digest(playerWacz) !== sourceDigest) throw new Error('The player must use the exact standalone folder WACZ bytes.');
 
   const homepage = `${url}#${new URLSearchParams({url: 'https://news.ycombinator.com/'})}`;

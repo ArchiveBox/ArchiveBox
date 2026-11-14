@@ -14,11 +14,13 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from archivebox.config import CONSTANTS
+from archivebox.config.common import get_request_config
 from archivebox.machine.models import Machine, Process
 from .scope import crawl_site_scope, normalize_site_scope, site_snapshot_filters
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.models import Snapshot
-from archivebox.core.routes_util import build_admin_url, build_snapshot_detail_url
+from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
+from archivebox.core.routes_util import build_admin_url, build_original_url, build_snapshot_detail_url, is_snapshot_subdomain
 
 from .forms import DomainCrawlForm
 from archivebox.crawls.models import Crawl
@@ -67,7 +69,7 @@ def index(request):
         reverse=ordering.startswith("-"),
     )
     domains = Paginator(rows, 50).get_page(request.GET.get("page"))
-    ids = {row[key] for row in domains for key in ("oldest_id", "newest_id") if row[key]}
+    ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
     captures = {
         str(snapshot.pk): snapshot
         for snapshot in Snapshot.objects.filter(pk__in=ids)
@@ -76,23 +78,43 @@ def index(request):
     }
     snapshot_admin = copy(archivebox_admin._registry[Snapshot])
     snapshot_admin.request = request
+    config = get_request_config(request)
     for row in domains:
         latest = captures[str(row["newest_id"])]
         earliest = captures[str(row["oldest_id"])]
-        original = urlsplit(latest.url)
+        root = captures[str(row["root_id"])]
+        original = urlsplit(root.url)
+        domain_url = build_snapshot_detail_url(root.archive_path_from_db, request=request) + "?header=collapsed"
+        # Original-domain replay already rewrites saved links without changing
+        # capture bytes. Private captures keep the trusted detail-page auth flow.
+        if (
+            config.USES_SUBDOMAIN_ROUTING
+            and get_snapshot_permissions(root) == PERMISSIONS_PUBLIC
+            and original.hostname
+            and ":" not in original.hostname
+            and original.hostname not in {"admin", "web", "api"}
+            and not is_snapshot_subdomain(original.hostname)
+            and original.port is None
+        ):
+            domain_url = build_original_url(
+                original.hostname,
+                original.path + ("?" + original.query if original.query else ""),
+                request=request,
+            )
         row.update(
             {
+                "domain_url": domain_url,
                 "snapshot_url": reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]}),
                 "persona_url": reverse("admin:personas_persona_changelist") + "?" + urlencode({"snapshot__domain": row["scope"]}),
                 "site_url": reverse("domains:site_export") + "?" + urlencode({"scope": row["scope"]}),
                 "oldest_url": build_snapshot_detail_url(earliest.archive_path_from_db, request=request),
                 "newest_url": build_snapshot_detail_url(latest.archive_path_from_db, request=request),
-                "favicon_html": snapshot_admin.url_favicon(latest),
+                "favicon_html": snapshot_admin.url_favicon(root),
                 "replay_url": build_admin_url(
                     "/admin/core/snapshot/replay-auth/?"
                     + urlencode(
                         {
-                            "snapshot": str(latest.pk),
+                            "snapshot": str(root.pk),
                             "original_domain": original.hostname,
                             "next": original.path + ("?" + original.query if original.query else ""),
                         },

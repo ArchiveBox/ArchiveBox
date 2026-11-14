@@ -1798,6 +1798,10 @@
                 }
             }
             function loadSnapshotHeaderState() {
+                if (new URLSearchParams(location.search).get('header') === 'collapsed') {
+                    hideSnapshotHeader()
+                    return
+                }
                 // collapse snapshot header if user has previously hidden it
                 let snapshotHeaderIsExpanded = 'true'
                 try {

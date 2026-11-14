@@ -702,7 +702,15 @@ class SnapshotQuerySet(PagedQuerySet):
             except ValueError:
                 scope = f"*.{domain}" if registered else domain
             if domain not in rows:
-                rows[domain] = {"domain": domain, "scope": scope, **stat, "persona_count": 0, "oldest_id": None, "newest_id": None}
+                rows[domain] = {
+                    "domain": domain,
+                    "scope": scope,
+                    **stat,
+                    "persona_count": 0,
+                    "oldest_id": None,
+                    "newest_id": None,
+                    "root_id": None,
+                }
             else:
                 row = rows[domain]
                 row["snapshot_count"] += stat["snapshot_count"]
@@ -713,19 +721,42 @@ class SnapshotQuerySet(PagedQuerySet):
         for host, persona in base.exclude(crawl__persona_id=None).order_by().values_list("_domain_host", "crawl__persona_id").distinct():
             if host in domain_by_host:
                 personas[domain_by_host[host]].add(persona)
+        # Rank paths inside SQL so only one root candidate per host crosses the
+        # DB boundary. Query/fragment slashes are not path segments; a trailing
+        # slash does not make a directory deeper than its slashless spelling.
+        url_without_query = Substr("url", 1, StrIndex(Concat(Replace("url", Value("#"), Value("?")), Value("?")), Value("?")) - 1)
+        authority_and_path = Substr(url_without_query, StrIndex(url_without_query, Value("://")) + 3)
+        path = Substr(authority_and_path, StrIndex(Concat(authority_and_path, Value("/")), Value("/")))
         extremes = (
-            base.annotate(
+            base.alias(_domain_path=path)
+            .annotate(
+                _domain_depth=Length("_domain_path")
+                - Length(Replace("_domain_path", Value("/"), Value("")))
+                - Case(When(_domain_path__endswith="/", then=Value(1)), default=Value(0)),
+            )
+            .annotate(
                 _domain_first=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").asc(), F("pk").asc()]),
                 _domain_last=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").desc(), F("pk").desc()]),
+                _domain_root=Window(
+                    RowNumber(),
+                    partition_by=F("_domain_host"),
+                    order_by=[F("_domain_depth").asc(), F("created_at").desc(), F("pk").desc()],
+                ),
             )
-            .filter(Q(_domain_first=1) | Q(_domain_last=1))
+            .filter(Q(_domain_first=1) | Q(_domain_last=1) | Q(_domain_root=1))
             .order_by()
-            .values_list("_domain_host", "pk", "created_at")
+            .values_list("_domain_host", "pk", "created_at", "_domain_root", "_domain_depth")
         )
-        for host, snapshot_id, created in extremes:
+        root_ranks = {}
+        for host, snapshot_id, created, root_order, depth in extremes:
             if host not in domain_by_host:
                 continue
-            row = rows[domain_by_host[host]]
+            domain = domain_by_host[host]
+            row = rows[domain]
+            rank = (-depth, created, snapshot_id)
+            if root_order == 1 and (domain not in root_ranks or rank > root_ranks[domain]):
+                root_ranks[domain] = rank
+                row["root_id"] = snapshot_id
             if created == row["oldest_at"] and (row["oldest_id"] is None or snapshot_id < row["oldest_id"]):
                 row["oldest_id"] = snapshot_id
             if created == row["newest_at"] and (row["newest_id"] is None or snapshot_id > row["newest_id"]):

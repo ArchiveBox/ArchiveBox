@@ -238,7 +238,7 @@ def test_smart_folder_exports_keep_visibility_and_extra_filters(client, api_head
     assert exported_ids(response, format) == {str(private.pk)}
 
 
-@pytest.mark.parametrize("format", ["html_zip", "wacz", "html", "replay"])
+@pytest.mark.parametrize("format", ["html_zip", "wacz", "html"])
 def test_authorized_archive_export_scope_includes_private_and_unlisted(client, admin_client, admin_user, format):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
     for visibility in ("public", "unlisted", "private"):
@@ -250,7 +250,7 @@ def test_authorized_archive_export_scope_includes_private_and_unlisted(client, a
     from django.test import Client
 
     public = Client().get(url, {"crawl_id": str(crawl.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
-    if format in {"html", "replay"}:
+    if format == "html":
         assert public.status_code == 403
     else:
         assert public.status_code == 200

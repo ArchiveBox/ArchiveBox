@@ -81,6 +81,42 @@ def test_original_domain_links_select_saved_pages_and_preserve_capture_bytes(cli
         assert output.read_bytes() == body
 
 
+@pytest.mark.parametrize(
+    "permissions,mode,isolated",
+    [
+        ("public", "safe-subdomains-fullreplay", True),
+        ("private", "safe-subdomains-fullreplay", False),
+        ("unlisted", "safe-subdomains-fullreplay", False),
+        ("public", "safe-onedomain-nojsreplay", False),
+    ],
+)
+def test_domains_name_browses_saved_site_and_count_lists_snapshots(admin_client, saved_site, permissions, mode, isolated):
+    from archivebox.core.routes_util import build_snapshot_detail_url
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "SERVER_SECURITY_MODE": mode}
+    machine.save(update_fields=["config"])
+    root = saved_site[0][0]
+    root.config = {**root.config, "PERMISSIONS": permissions}
+    root.save(update_fields=["config"])
+    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    row = next(row for row in response.context["domains"] if row["domain"] == "ycombinator.com")
+    assert row["root_id"] == root.pk
+    assert row["snapshot_url"] == "/admin/core/snapshot/?domain=%2A.ycombinator.com"
+    if isolated:
+        assert row["domain_url"] == f"http://{DOMAIN_HOST}/"
+        replay = Client().get("/", HTTP_HOST=DOMAIN_HOST)
+        assert replay.status_code == 200
+        assert f'href="http://{DOMAIN_HOST}/newest"'.encode() in replay.content
+        assert Client().get("/newest", HTTP_HOST=DOMAIN_HOST).status_code == 200
+    else:
+        assert (
+            row["domain_url"] == build_snapshot_detail_url(root.archive_path_from_db, request=response.wsgi_request) + "?header=collapsed"
+        )
+
+
 def test_private_domain_replay_grant_is_host_scoped_and_revoked_by_logout(admin_client, saved_site):
     for snapshot, _output, _body in saved_site:
         snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}

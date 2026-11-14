@@ -19,8 +19,8 @@ from django.urls import resolve, reverse
 from django.views.decorators.cache import never_cache
 
 EXPORT_FORMATS = {"rss": "RSS", "csv": "CSV", "jsonl": "JSONL", "html_zip": "Static HTML ZIP", "wacz": "Unified WACZ"}
-ALL_EXPORT_FORMATS = {**EXPORT_FORMATS, "html": "Static HTML", "replay": "WACZ + ReplayWeb.page"}
-ARCHIVE_FORMATS = {"html_zip", "wacz", "html", "replay"}
+ALL_EXPORT_FORMATS = {**EXPORT_FORMATS, "html": "Static HTML to Disk"}
+ARCHIVE_FORMATS = {"html_zip", "wacz", "html"}
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 EXPORT_FIELDS = (
     "type",
@@ -259,7 +259,7 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
     if error is not None:
         return error
     public_only = not user.is_authenticated or request.GET.get("public_only") == "1"
-    if public_only and format in {"html", "replay"}:
+    if public_only and format == "html":
         return HttpResponse(status=403)
     query = normalize_export_query(request.GET)
     try:

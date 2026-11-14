@@ -10,7 +10,7 @@ from archivebox.machine.models import Machine, Process
 from django.utils import timezone
 from .scope import crawl_site_scope, site_snapshot_filters
 
-FORMATS = {"html_zip": "Static HTML ZIP", "html": "Static HTML", "wacz": "WACZ", "replay": "WACZ + ReplayWeb.page"}
+FORMATS = {"html_zip": "Static HTML ZIP", "html": "Static HTML to Disk", "wacz": "WACZ"}
 
 
 def export_log_prefix(scope=None, *, query=None, user=None, public_only=False):
@@ -92,5 +92,5 @@ def export_jobs(crawl=None, *, scope=None, query=None, user=None, public_only=Fa
         if not process.export_report and "--destination" in process.cmd:
             process.export_report = {"destination": process.cmd[process.cmd.index("--destination") + 1]}
         format = process.cmd[process.cmd.index("--format") + 1]
-        process.export_label = FORMATS[format]
+        process.export_label = FORMATS.get(format, format)
     return jobs

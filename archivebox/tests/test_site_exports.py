@@ -13,7 +13,7 @@ from archivebox.tests.test_original_domain_replay import saved_site  # noqa: F40
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-@pytest.mark.parametrize("format", ["html", "html_zip", "wacz", "replay"])
+@pytest.mark.parametrize("format", ["html", "html_zip", "wacz"])
 def test_main_domain_export_options_validate_server_directory(admin_client, saved_site, format):
     from archivebox.machine.models import Process
 
@@ -105,7 +105,7 @@ def test_static_zip_export_and_size_limit_use_saved_pages(saved_site, tmp_path):
         assert b"newest" in archive.read("archivebox-links.js")
     with pytest.raises(CommandError, match="exceeds"):
         call_command("site_export", scope="news.ycombinator.com", format="html_zip", destination=str(tmp_path / "limited"), max_bytes=100)
-    assert not (tmp_path / "limited/site.zip").exists()
+    assert not (tmp_path / "limited").exists()
     for _, source, original in saved_site:
         assert source.read_bytes() == original
 
@@ -163,7 +163,7 @@ def test_final_archive_size_limit_removes_oversized_output(crawl, tmp_path, form
     limited = tmp_path / "limited"
     with pytest.raises(CommandError, match=rf"{limit} bytes"):
         call_command("site_export", scope="example.com", format=format, destination=str(limited), max_bytes=limit)
-    assert not (limited / ("site.zip" if format == "html_zip" else "site.wacz")).exists()
+    assert not limited.exists()
     assert source.read_bytes() == body
 
 
@@ -229,12 +229,13 @@ def test_query_export_uses_folder_subtree_and_preserves_sources(saved_site, tmp_
             package = json.loads(archive.read("datapackage.json"))
             assert len(package["resources"]) == 2
             assert {archive.read(resource["path"]) for resource in package["resources"]} == set(recordings)
+            assert sorted(path.name for path in destination.iterdir()) == ["site.wacz"]
     for _snapshot, source, original in saved_site:
         assert source.read_bytes() == original
     limited = tmp_path / "limited-folder-export"
     with pytest.raises(CommandError, match="exceeds"):
         call_command("site_export", query=urlencode({"folder": str(folder.pk)}), format=format, destination=str(limited), max_bytes=100)
-    assert not (limited / ("site.zip" if format == "html_zip" else "site.wacz")).exists()
+    assert not limited.exists()
 
 
 def test_query_export_combines_native_filters_and_public_visibility(saved_site, tmp_path):
@@ -491,8 +492,30 @@ def test_native_static_export_accepts_snapshot_without_html(snapshot, tmp_path):
         output_str="screenshot.png",
         output_files={"screenshot.png": {"size": image.stat().st_size, "mimetype": "image/png"}},
     )
+    from io import StringIO
+
     destination = tmp_path / "images"
-    call_command("site_export", query=f"id={snapshot.pk}", format="html", destination=str(destination))
+    stdout = StringIO()
+    call_command("site_export", query=f"id={snapshot.pk}", format="html", destination=str(destination), stdout=stdout)
+    reports = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    totals = [report["total_pages"] for report in reports if "total_pages" in report]
+    assert totals and set(totals) == {1}
+    assert all(report["pages"] <= report["total_pages"] for report in reports if "pages" in report)
+    assert reports[-1]["complete"] is True
     assert (destination / snapshot.static_archive_path / "screenshot/screenshot.png").read_bytes() == image.read_bytes()
     assert 'class="thumb-card' in (destination / snapshot.static_archive_path / "index.html").read_text()
     assert json.loads((destination / "pages.json").read_text()) == []
+
+
+def test_removed_replay_export_is_rejected_across_entry_points(admin_client, saved_site, tmp_path):
+    from archivebox.domains.export_service import launch_export
+    from archivebox.machine.models import Process
+
+    assert admin_client.get("/admin/core/snapshot/export.replay", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+    assert admin_client.get("/api/v1/core/snapshots/export/replay", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+    with pytest.raises(ValueError, match="Select an export format"):
+        launch_export(scope="news.ycombinator.com", directory=str(tmp_path), format="replay")
+    with pytest.raises(CommandError, match="invalid choice: 'replay'"):
+        call_command("site_export", scope="news.ycombinator.com", format="replay", destination=str(tmp_path / "removed"))
+    assert not (tmp_path / "removed").exists()
+    assert not Process.objects.filter(worker_type="site-export").exists()
