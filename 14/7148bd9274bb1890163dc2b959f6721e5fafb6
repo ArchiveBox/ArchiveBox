@@ -1,0 +1,19 @@
+archivebox/templates/static/api/webhooks.js
+  s_aa9901a46a15eb::t_125282f0926e30 854,894,900,916,924
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "147148bd9274bb1890163dc2b959f6721e5fafb6",
+  "prompts": {},
+  "sessions": {
+    "s_aa9901a46a15eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d87d-2dfd-7332-9b15-b2421bc5606a",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
