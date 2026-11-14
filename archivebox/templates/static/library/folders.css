@@ -34,7 +34,9 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .folder-sidebar .folder-count{margin-left:auto;min-width:18px;text-align:right;font-size:10px;font-weight:400;color:var(--body-quiet-color,#667085);font-variant-numeric:tabular-nums}
 .folder-section-heading{display:flex;align-items:center;gap:2px;min-height:28px;padding:0 12px}
 .folder-section-heading h3{flex:1;margin:0;color:var(--body-quiet-color,#667085);font-size:10px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
-.folder-search{box-sizing:border-box;width:calc(100% - 24px);height:28px;margin:4px 12px 6px;padding:4px 8px!important;border:1px solid var(--hairline-color,#e4e7ec)!important;border-radius:4px!important;background:var(--body-bg,#fff)!important;color:var(--body-fg,#1d2939);font-size:11px!important;line-height:18px}
+.folder-search{box-sizing:border-box;flex:1;min-width:0;width:0;height:28px;margin:0;padding:4px 8px!important;border:1px solid var(--hairline-color,#e4e7ec)!important;border-radius:4px!important;background:var(--body-bg,#fff)!important;color:var(--body-fg,#1d2939);font-size:11px!important;line-height:18px}
+.folder-section-heading>[hidden]{display:none!important}
+.folder-search-toggle[aria-expanded=false] .folder-search-close,.folder-search-toggle[aria-expanded=true] .folder-search-open{display:none}
 .folder-tree{padding:0 8px}
 .folder-row{position:relative;display:flex;align-items:center;min-width:0;min-height:32px;padding-left:calc(var(--folder-depth)*14px);border-radius:4px}
 .folder-row[hidden]{display:none}
