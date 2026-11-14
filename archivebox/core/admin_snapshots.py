@@ -28,8 +28,8 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
-from archivebox.core.routes_util import (
 from archivebox.search.query import apply_snapshot_filters
+from archivebox.core.routes_util import (
     build_snapshot_detail_path,
     build_snapshot_detail_url,
     build_snapshot_export_urls,
