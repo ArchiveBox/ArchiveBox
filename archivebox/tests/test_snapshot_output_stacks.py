@@ -946,7 +946,7 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("snapshot_status", ["started", "paused"])
-def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(
+def test_responsive_header_and_expanded_stack_scroll_with_page(
     snapshot,
     live_server,
     tmp_path,
@@ -1121,20 +1121,20 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(
             for file_list in page.locator(".other-files-preview > .loose-items").all():
                 assert file_list.evaluate("e => getComputedStyle(e).overflowY") == "auto"
             stack = page.locator(".header-bottom")
-            assert stack.evaluate("e => getComputedStyle(e).overflowY") == "auto"
+            assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"
             frame = page.locator("#main-frame-wrapper").bounding_box()
             assert frame["y"] >= stack.bounding_box()["y"] + stack.bounding_box()["height"] - 1
             assert frame["height"] > 0
-            assert frame["y"] + frame["height"] <= height + 1
+            assert frame["height"] >= height * 0.4 - 1
+            assert stack.evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
             page.locator("#main-frame-wrapper").scroll_into_view_if_needed()
-            assert page.evaluate("scrollY") == 0
-            assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
-            assert page.locator(".header-top").bounding_box()["y"] == 0
+            assert frame["y"] + frame["height"] <= page.evaluate("document.documentElement.scrollHeight") + 1
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             page.get_by_role("button", name="Collapse stack", exact=True).click()
 
         # Keep the populated tray open while rotating a phone and resizing into
-        # a short window. Its lower cards must remain selectable, while the
-        # persistent header and preview remain separate from its scrolling.
+        # a short window. Its lower cards remain selectable through page
+        # scrolling, without turning the header into a nested scroll area.
         page.set_viewport_size({"width": 390, "height": 844})
         group = page.locator(".output-stack-article_text")
         group.click()
@@ -1144,17 +1144,16 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(
             page.set_viewport_size({"width": width, "height": height})
             assert group.get_attribute("aria-expanded") == "true"
             bottom_card.scroll_into_view_if_needed()
+            assert stack.evaluate("e => e.scrollTop === 0 && e.scrollHeight === e.clientHeight")
             if height <= 844:
-                assert stack.evaluate("e => e.scrollTop") > 0
+                assert page.evaluate("scrollY") > 0
             link = bottom_card.locator('a[target="preview"]').first
             link.click()
             assert "selected-card" in bottom_card.get_attribute("class")
             selected_path = bottom_card.get_attribute("data-output-path")
             assert selected_path in page.locator("#main-frame").get_attribute("src")
-            assert page.evaluate("scrollY") == 0
-            assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            assert page.locator(".header-top").bounding_box()["y"] == 0
+            assert abs(page.locator(".header-top").bounding_box()["y"] + page.evaluate("scrollY")) <= 1
             preview_box = page.locator("#main-frame").bounding_box()
             wrapper_box = page.locator("#main-frame-wrapper").bounding_box()
             assert preview_box["height"] >= (wrapper_box["height"] - 3) / 2 - 1, (width, height, preview_box)
@@ -1173,7 +1172,11 @@ def test_responsive_header_and_expanded_stack_keep_preview_inside_viewport(
                 progress.bounding_box(),
                 expected_progress,
             )
-            assert preview_box["y"] + preview_box["height"] <= height + 1
+            assert wrapper_box["height"] >= height * 0.4 - 1
+            assert (
+                preview_box["y"] + preview_box["height"] + page.evaluate("scrollY")
+                <= page.evaluate("document.documentElement.scrollHeight") + 1
+            )
         page.get_by_role("button", name="Collapse stack", exact=True).click()
         assert group.get_attribute("aria-expanded") == "false"
         assert page.locator(".header-top").bounding_box()["y"] == 0
