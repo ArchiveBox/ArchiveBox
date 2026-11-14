@@ -546,21 +546,26 @@ def test_importer_minimal_setup_uses_defaults(admin_client, import_site):
     assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml"}
 
 
-def test_real_feed_categories_reach_only_their_snapshot(admin_client, import_site):
+@pytest.mark.parametrize("category", ["Technology", "X" * 101, "First\u2028Second\u2029Third"])
+def test_real_feed_categories_reach_only_their_snapshot(admin_client, import_site, category):
+    import json
+    from html import escape
+
+    from archivebox.core.models import Tag
     from archivebox.importers.models import ImporterSource
     from archivebox.importers.service import run_next_importer
+    from archivebox.services.runner import run_crawl
 
     root, url = import_site
+    (root / "untagged.html").write_text("<html><title>Untagged article</title><body>Other content.</body></html>")
     (root / "feed.xml").write_text(
-        '<rss version="2.0"><channel><title>Categories</title><item><guid>one</guid><link>https://example.com/tagged</link><category>Science &amp; Society</category><category>Technology</category></item><item><guid>two</guid><link>https://example.com/untagged</link></item></channel></rss>',
+        '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Categories</title><item><guid>one</guid>'
+        f"<link>{url}/article.html</link><category>Science &amp; Society</category><category>{escape(category)}</category>"
+        f"</item><item><guid>two</guid><link>{url}/untagged.html</link></item></channel></rss>",
     )
     response = admin_client.post(
         "/admin/importers/new/importer_rss/feed/",
-        {
-            "name": "Categories",
-            "setting_IMPORTER_RSS_URL": f"{url}/feed.xml",
-            "tags": "Manual source tag",
-        },
+        {"name": "Categories", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "tags": "Manual source tag"},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 302
@@ -571,14 +576,83 @@ def test_real_feed_categories_reach_only_their_snapshot(admin_client, import_sit
     run = source.runs.get()
     assert run.status == "succeeded", run.message
     assert run.crawl_id
-    assert run.items[0]["metadata"].get("tags", []) == ["Science & Society", "Technology"], run.items
-    assert "Science &amp; Society" in run.crawl.urls, run.crawl.urls
-    snapshots = run.crawl.create_snapshots_from_urls()
+    assert run.items[0]["metadata"].get("tags", []) == ["Science & Society", category], run.items
+    source.refresh_from_db()
+    assert source.checkpoint
+    lines = run.crawl.urls.splitlines()
+    assert len(lines) == 2, lines
+    assert json.loads(lines[0])["tags"] == ["Science & Society", category[:100]]
+    run_crawl(str(run.crawl_id), selected_plugins=["title", "wget"])
+    snapshots = list(run.crawl.snapshot_set.all())
     assert len(snapshots) == 2
-    # Match the native Tag sanitizer: stored names retain escaped HTML entities.
     tags = {snapshot.url: set(snapshot.tags.values_list("name", flat=True)) for snapshot in snapshots}
-    assert tags["https://example.com/tagged"] == {"Science &amp; Society", "Technology", "Manual source tag"}
-    assert tags["https://example.com/untagged"] == {"Manual source tag"}
+    assert tags[f"{url}/article.html"] == {"Science & Society", category[:100], "Manual source tag"}
+    assert tags[f"{url}/untagged.html"] == {"Manual source tag"}
+    for snapshot in snapshots:
+        assert snapshot.archiveresult_set.filter(plugin="wget", status="succeeded").exists()
+    science_tag = Tag.objects.get(name="Science & Society")
+    page = admin_client.get(f"/admin/core/tag/{science_tag.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert page.status_code == 200
+    assert b"Science &amp; Society" in page.content
+    assert b"Science &amp;amp; Society" not in page.content
+
+
+@pytest.mark.parametrize("separator", ["\u2028", "\u2029"])
+def test_imported_url_line_separators_do_not_create_crawl_lines(admin_client, import_site, separator):
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    (root / "feed.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Invalid link</title>'
+        f"<item><guid>one</guid><link>{url}/article.html{separator}https://injected.example/</link></item></channel></rss>",
+    )
+    assert (
+        admin_client.post(
+            "/admin/importers/new/importer_rss/feed/",
+            {"name": "Invalid link", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        ).status_code
+        == 302
+    )
+    source = ImporterSource.objects.get(name="Invalid link")
+    assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    run = source.runs.get()
+    assert run.status == "failed", run.message
+    assert "single line" in run.message
+    assert run.crawl_id is None
+    source.refresh_from_db()
+    assert source.checkpoint == {}
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ('Science <img src=x onerror="alert(1)"> &amp; Society', "Science  & Society"),
+        ("1 &lt; 2 &amp; 3 &gt; 2", "1 < 2 & 3 > 2"),
+    ],
+)
+def test_tag_text_is_decoded_once_and_rendered_safely(admin_client, value, expected):
+    from html import escape
+
+    from archivebox.core.models import Tag
+    from archivebox.crawls.models import Crawl
+
+    parsed = Crawl.parse_tag_names([value])[0]
+    assert parsed == expected
+    assert Crawl.parse_tag_names([parsed]) == [expected]
+    tag = Tag.objects.create(name=parsed)
+    tag.refresh_from_db()
+    assert tag.name == expected
+    tag.save()
+    tag.refresh_from_db()
+    assert tag.name == expected
+    response = admin_client.get(f"/admin/core/tag/{tag.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert escape(expected).encode() in response.content
+    assert escape(escape(expected)).encode() not in response.content
+    assert b'onerror="alert(1)"' not in response.content
 
 
 @pytest.mark.parametrize("kind", ["rss", "atom"])
@@ -592,7 +666,7 @@ def test_normal_feed_crawl_preserves_per_article_tags(initialized_archive, impor
     root, url = import_site
     if kind == "rss":
         feed = (
-            '<rss version="2.0"><channel><title>Categories</title><item><guid>one</guid>'
+            '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Categories</title><item><guid>one</guid>'
             f"<link>{url}/article.html</link><category>Science &amp; Society</category>"
             "<category>Technology</category></item><item><guid>two</guid>"
             f"<link>{url}/untagged.html</link></item></channel></rss>"
@@ -615,8 +689,8 @@ def test_normal_feed_crawl_preserves_per_article_tags(initialized_archive, impor
         snapshots = list(Snapshot.objects.order_by("depth", "url"))
         assert len(snapshots) == 3
         tags = {snapshot.url: set(snapshot.tags.values_list("name", flat=True)) for snapshot in snapshots}
-        assert tags[f"{url}/feed.xml"] == {"Science &amp; Society", "Technology", "Manual source tag"}
-        assert tags[f"{url}/article.html"] == {"Science &amp; Society", "Technology", "Manual source tag"}
+        assert tags[f"{url}/feed.xml"] == {"Science & Society", "Technology", "Manual source tag"}
+        assert tags[f"{url}/article.html"] == {"Science & Society", "Technology", "Manual source tag"}
         assert tags[f"{url}/untagged.html"] == {"Manual source tag"}
         captured_feed = next(snapshot for snapshot in snapshots if snapshot.depth == 0)
         result = captured_feed.archiveresult_set.get(plugin="parse_rss_urls")

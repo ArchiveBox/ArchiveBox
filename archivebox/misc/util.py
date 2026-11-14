@@ -138,7 +138,7 @@ def validate_url_length(url: str) -> str:
 
 def validate_url(url: str) -> str:
     url = (url or "").strip()
-    if "\n" in url or "\r" in url:
+    if len(url.splitlines()) > 1:
         raise ValueError("URL must be a single line.")
     if url.lower().startswith(("webcal://", "webcals://")):
         url = sanitize_plugin_url(url)

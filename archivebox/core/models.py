@@ -371,7 +371,7 @@ class Tag(ModelWithUUID):
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
         if update_fields is None or "name" in update_fields:
-            self.name = sanitize_html_text(self.name).strip()
+            self.name = htmldecode(sanitize_html_text(self.name)).strip()
         super().save(*args, **kwargs)
 
     @property

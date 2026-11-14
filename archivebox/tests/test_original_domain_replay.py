@@ -224,7 +224,10 @@ def test_public_navigation_map_only_queries_page_destinations(client, saved_site
     snapshot = saved_site[0][0]
     for number in range(25):
         Snapshot.objects.create(
-            url=f"https://unrelated.example/{number}", crawl=snapshot.crawl, config={"PERMISSIONS": "public"}, output_size=100
+            url=f"https://unrelated.example/{number}",
+            crawl=snapshot.crawl,
+            config={"PERMISSIONS": "public"},
+            output_size=100,
         )
     machine = Machine.current()
     machine.config = {**machine.config, "REWRITE_ARCHIVED_LINKS": True}

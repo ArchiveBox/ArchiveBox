@@ -1249,6 +1249,8 @@ We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wik
 - [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 
+New SSO accounts are administrators. The legacy `DEFAULT_USER_PERMISSIONS` setting is no longer supported, including `none`. Registration is disabled by default; when enabled, `REGISTRATION_MODE=approval` keeps new accounts inactive until an administrator approves them. `REGISTRATION_MODE=open` activates new administrator accounts immediately.
+
 ## Developers
 
 - [Developer Documentation](https://github.com/ArchiveBox/ArchiveBox#archivebox-development)

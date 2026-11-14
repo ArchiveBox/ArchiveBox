@@ -146,6 +146,85 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
     assert payload["chrome_binary_recorded"] == "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
 
+@pytest.mark.parametrize("use_template", [False, True])
+@pytest.mark.parametrize("existing_crawl_runtime", [False, True])
+def test_snapshot_runtime_authentication_requires_selected_persona(initialized_archive, use_template, existing_crawl_runtime):
+    script = (
+        textwrap.dedent(
+            """
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.get_or_create_default()
+        persona.ensure_dirs()
+        profile = Path(persona.CHROME_USER_DATA_DIR)
+        preferences = profile / 'Default' / 'Preferences'
+        preferences.parent.mkdir(parents=True, exist_ok=True)
+        preferences.write_text('{"profile": {"name": "Saved authenticated profile"}}')
+        cookies = '# Netscape HTTP Cookie File\\n.example.com\\tTRUE\\t/\\tFALSE\\t2147483647\\tsession\\tprivate\\n'
+        auth = json.dumps({'cookies': [], 'origins': [{'origin': 'https://example.com', 'localStorage': [{'name': 'session', 'value': 'private'}]}]})
+        (persona.path / 'cookies.txt').write_text(cookies)
+        (persona.path / 'auth.json').write_text(auth)
+        with persona.lock_runtime_for_crawl():
+            pass
+        def files(root):
+            return {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in root.rglob('*') if path.is_file()}
+        original = files(persona.path)
+        crawl = Crawl.objects.create(urls='https://example.com', persona=persona if USE_TEMPLATE else None)
+        snapshot = Snapshot.objects.create(url='https://example.com', crawl=crawl)
+
+        # Anonymous crawl preparation must ignore every saved authentication source.
+        config = persona.prepare_runtime_for_crawl(crawl, use_template=False)
+        runtime = persona.local_runtime_root_for_crawl(crawl)
+        assert list((runtime / 'chrome_profile').iterdir()) == []
+        assert not (runtime / 'cookies.txt').exists()
+        assert not (runtime / 'auth.json').exists()
+        assert 'COOKIES_FILE' not in config and 'AUTH_STORAGE_FILE' not in config
+        persona.cleanup_runtime_for_crawl(crawl)
+
+        if EXISTING_CRAWL_RUNTIME:
+            # A previously authenticated crawl runtime must not authorize an anonymous snapshot.
+            persona.prepare_runtime_for_crawl(crawl, use_template=True)
+            (runtime / 'chrome_profile' / 'Default' / 'Preferences').write_text('{"profile": {"name": "Existing crawl profile"}}')
+        runtime_before = files(runtime) if runtime.exists() else {}
+        config = persona.prepare_runtime_for_snapshot(snapshot, use_template=USE_TEMPLATE)
+        root = persona.runtime_root_for_snapshot(snapshot).resolve()
+        if USE_TEMPLATE:
+            source = runtime if EXISTING_CRAWL_RUNTIME else persona.path
+            assert (root / 'chrome_profile' / 'Default' / 'Preferences').read_bytes() == (source / 'chrome_profile' / 'Default' / 'Preferences').read_bytes()
+            assert Path(config['COOKIES_FILE']).read_text() == cookies
+            assert Path(config['AUTH_STORAGE_FILE']).read_text() == auth
+        else:
+            assert list((root / 'chrome_profile').iterdir()) == []
+            assert not (root / 'cookies.txt').exists()
+            assert not (root / 'auth.json').exists()
+            assert not (root / 'template_dir.txt').exists()
+            assert 'COOKIES_FILE' not in config and 'AUTH_STORAGE_FILE' not in config
+        assert files(persona.path) == original
+        assert (files(runtime) if runtime.exists() else {}) == runtime_before
+        persona.cleanup_runtime_for_crawl(crawl)
+        assert not root.exists()
+        print('selected-persona-authentication-preserved')
+        """,
+        )
+        .replace("USE_TEMPLATE", repr(use_template))
+        .replace("EXISTING_CRAWL_RUNTIME", repr(existing_crawl_runtime))
+    )
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stdout + stderr
+    assert "selected-persona-authentication-preserved" in stdout
+
+
 @pytest.mark.parametrize("preferences_state", ["valid", "secure", "missing", "malformed"])
 def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialized_archive, preferences_state):
     script = textwrap.dedent(

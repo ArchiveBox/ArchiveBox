@@ -432,11 +432,11 @@ class Persona(ModelWithConfig):
     ) -> dict[str, str]:
         # Resolve once, rather than traversing the archive mount for every source
         # file. This also supports an existing runtime from before local storage.
-        crawl_runtime_root = self.runtime_root_for_crawl(snapshot.crawl).resolve()
-        crawl_runtime_profile_dir = crawl_runtime_root / "chrome_profile"
-        template_dir = (
-            crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else (Path(self.CHROME_USER_DATA_DIR) if use_template else None)
-        )
+        crawl_runtime_root = self.runtime_root_for_crawl(snapshot.crawl).resolve() if use_template else None
+        template_dir = None
+        if crawl_runtime_root is not None:
+            crawl_runtime_profile_dir = crawl_runtime_root / "chrome_profile"
+            template_dir = crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else Path(self.CHROME_USER_DATA_DIR)
 
         # The async runner resolves config/ORM paths before entering its filesystem
         # worker; other callers retain the existing local-runtime path resolution.
@@ -456,12 +456,13 @@ class Persona(ModelWithConfig):
         else:
             runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
-        for filename in ("cookies.txt", "auth.json"):
-            source = crawl_runtime_root / filename
-            if use_template and not source.is_file():
-                source = self.path / filename
-            if source.is_file():
-                shutil.copy2(source, runtime_root / filename)
+        if crawl_runtime_root is not None:
+            for filename in ("cookies.txt", "auth.json"):
+                source = crawl_runtime_root / filename
+                if not source.is_file():
+                    source = self.path / filename
+                if source.is_file():
+                    shutil.copy2(source, runtime_root / filename)
         runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
         self.cleanup_chrome_profile(runtime_profile_dir)
 

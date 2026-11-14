@@ -20,6 +20,7 @@ from archivebox.config.constants import CONSTANTS
 from archivebox.crawls.models import Crawl
 from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.machine.models import Process
+from archivebox.misc.util import validate_url
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .catalog import get_importer
@@ -180,15 +181,12 @@ def _finish(run, items, result):
     if status == "succeeded" and run.action == ImporterRun.Action.IMPORT and items:
         urls = []
         for item in items:
+            url = validate_url(item["url"])
             tags = item.get("metadata", {}).get("tags", []) if source.plugin == "importer_rss" else []
             if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
                 raise ValueError("Feed categories must be a list of tag names.")
-            tags = Crawl.parse_tag_names(tags)
-            if any(len(tag) > 100 for tag in tags):
-                raise ValueError(
-                    "Feed category names must be at most 100 characters.",
-                )
-            urls.append(json.dumps({"url": item["url"], "tags": tags}, ensure_ascii=False) if tags else item["url"])
+            tags = [tag[:100] for tag in Crawl.parse_tag_names(tags)]
+            urls.append(json.dumps({"url": url, "tags": tags}) if tags else url)
         capture_config = build_crawl_config_snapshot(persona=source.persona, overrides={"ONLY_NEW": True})
         crawl = Crawl(
             # Native crawl JSONL preserves per-article tags without an input-parser plugin.

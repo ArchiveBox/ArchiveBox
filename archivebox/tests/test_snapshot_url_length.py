@@ -34,10 +34,11 @@ def test_validate_url_length_accepts_exactly_max():
     assert validate_url(url) == url
 
 
-def test_validate_url_strips_outer_newlines_but_rejects_internal_newlines():
+@pytest.mark.parametrize("separator", ["\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\u0085", "\u2028", "\u2029"])
+def test_validate_url_strips_outer_newlines_but_rejects_internal_newlines(separator):
     assert validate_url("\nhttps://example.com\r\n") == "https://example.com"
     with pytest.raises(ValueError, match="single line"):
-        validate_url("https://example.com\nhttps://example.org")
+        validate_url(f"https://example.com{separator}https://example.org")
 
 
 def test_validate_url_length_rejects_over_max():

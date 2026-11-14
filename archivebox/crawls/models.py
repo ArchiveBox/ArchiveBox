@@ -33,7 +33,7 @@ from archivebox.base_models.models import (
 )
 from archivebox.workers.models import ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
-from archivebox.misc.util import equivalent_urls, iri_to_uri, parse_date, sanitize_html_text, validate_url
+from archivebox.misc.util import equivalent_urls, htmldecode, iri_to_uri, parse_date, sanitize_html_text, validate_url
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
@@ -388,7 +388,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         tag_names: list[str] = []
         seen: set[str] = set()
         for raw_tag in raw_tags:
-            tag_name = sanitize_html_text(raw_tag).strip()
+            tag_name = htmldecode(sanitize_html_text(raw_tag)).strip()
             if not tag_name:
                 continue
             lowered = tag_name.lower()
