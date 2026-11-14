@@ -1,0 +1,138 @@
+archivebox/api/migrations/0003_webhook_signal_choices.py
+  s_40c755f9b98002::t_13a27dd3d44b9e 1-8,10-13,16-18
+  s_a46618ba6633c7::t_873c10e61088ed 9,14-15
+archivebox/tests/test_snapshot_exports.py
+  s_a46618ba6633c7::t_62cc6c8b3fb137 539
+  s_a46618ba6633c7::t_b3e98b578c9885 511-515,517-521
+  s_a46618ba6633c7::t_5d530491007a6b 277-278,516
+  s_a46618ba6633c7::t_23b9085295c71b 490-493
+  s_a46618ba6633c7::t_4c9464069f7db6 497
+  s_a46618ba6633c7::t_4146c29ecb4f82 502-505,509-510,522-527,531-538,540-547
+  s_a46618ba6633c7::t_51e7a97aaee585 528-530
+  s_a46618ba6633c7::t_081cf30306e777 463-489,494-496,498-501,506-508
+archivebox/tests/test_webhook_events.py
+  s_a46618ba6633c7::t_d63d2df0e476a2 122-123,134
+  s_a46618ba6633c7::t_63dd1c2b003f11 158,161,167,219-220
+  s_a46618ba6633c7::t_5cd9bd964b57b2 160,189-191,197-199,212-218,225-265
+  s_a46618ba6633c7::t_0cb5d77f5414ca 146-157,159,162-166,168-188,192-196,200-203,210-211,221-224
+  s_a46618ba6633c7::t_873c10e61088ed 204,209
+  s_a46618ba6633c7::t_131f37c34d1d12 205-208
+archivebox/tests/test_saved_html_resources.py
+  s_40c755f9b98002::t_2fd75d8716631a 207,209,212,227,238-241
+  s_a46618ba6633c7::t_7c9ae7cee5e7c2 175-188,208,215-218,224,226
+  s_40c755f9b98002::t_361e4e890797b1 210-211
+archivebox/api/models.py
+  s_a46618ba6633c7::t_64cced84db3d51 55,57
+archivebox/api/v1_core.py
+  s_a46618ba6633c7::t_278ac39def47b5 31,745-749
+  s_a46618ba6633c7::t_23b9085295c71b 60,955,969-970,972,974-975
+  s_a46618ba6633c7::t_163017a4d41a1c 725,751-772
+  s_784d0e5fa3aa29::t_1a3f6eea653a57 750
+archivebox/crawls/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 8-18
+archivebox/core/models.py
+  s_a46618ba6633c7::t_8e8ec07948cd1e 1644-1647,1650-1653
+  s_a46618ba6633c7::t_4c9464069f7db6 811,829-837
+  s_a46618ba6633c7::t_990768e35c25ea 3121,3165,3261,3282,4568
+archivebox/linkhealth/management/commands/linkhealth.py
+  s_a46618ba6633c7::t_179781bcb11bbe 10,29
+archivebox/core/admin_snapshots.py
+  s_a46618ba6633c7::t_4c9464069f7db6 109-112,123-126,171,189,207,226
+  s_a46618ba6633c7::t_bb6391032ce973 586
+  s_a46618ba6633c7::t_23b9085295c71b 17
+  s_40c755f9b98002::t_771275664f934f 22,31,587,1185,1215
+archivebox/tests/test_snapshot_serialization.py
+  s_a46618ba6633c7::t_163017a4d41a1c 160-163
+  s_a46618ba6633c7::t_0a945d294bfd78 135-145
+  s_a46618ba6633c7::t_48ae313a6d8529 5,116-134,146-159
+archivebox/tests/test_linkhealth.py
+  s_a46618ba6633c7::t_e3126e723662ae 117-130
+archivebox/plugins/discovery.py
+  s_a46618ba6633c7::t_6cdc0298ba414e 57-61
+  s_a46618ba6633c7::t_6b6b1ea55095ca 123-124,127-135,173
+  s_a46618ba6633c7::t_a7f2bdcc0ef915 94-96,106-110
+  s_a46618ba6633c7::t_990768e35c25ea 40-56,62-93,97-105,111-119,122,125-126,136,190-191,198-199,227-231,234,358,521,545,568
+archivebox/api/webhooks.py
+  s_a46618ba6633c7::t_64cced84db3d51 14,117
+archivebox/api/webhook_events.py
+  s_a46618ba6633c7::t_64cced84db3d51 68-75,79,81-83,85,100-108,129,161,174-179,182,196
+  s_a46618ba6633c7::t_873c10e61088ed 66-67,89-94,96
+  s_a46618ba6633c7::t_36b01033c7a2ea 155-158
+  s_a46618ba6633c7::t_131f37c34d1d12 95
+archivebox/api/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 15,19-21
+archivebox/misc/serve_static.py
+  s_40c755f9b98002::t_361e4e890797b1 1256,1260-1262,1270-1271
+  s_40c755f9b98002::t_2fd75d8716631a 1255,1257-1258,1263,1269,1272
+  s_a46618ba6633c7::t_c26cfdfe8eaf20 1259
+  s_a46618ba6633c7::t_946275fb883850 1243-1245,1249,1252-1254,1264-1268,1273-1275,1279
+archivebox/plugins/output_groups.py
+  s_a46618ba6633c7::t_990768e35c25ea 13,25-27,31-32,36-37,41-43,94-95,107
+  s_a46618ba6633c7::t_6cdc0298ba414e 12,108-111
+README.md
+  s_a46618ba6633c7::t_163017a4d41a1c 1563
+archivebox/tests/test_plugin_metadata_contract.py
+  s_a46618ba6633c7::t_2b9ec77095c5d9 11-18,22-43
+  s_a46618ba6633c7::t_6b6b1ea55095ca 19-21
+archivebox/importers/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 7-17
+archivebox/linkhealth/views.py
+  s_a46618ba6633c7::t_62cc6c8b3fb137 39
+  s_a46618ba6633c7::t_179781bcb11bbe 16,36,38,40
+archivebox/personas/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 8-12
+archivebox/core/exports.py
+  s_a46618ba6633c7::t_b3e98b578c9885 188-200
+  s_a46618ba6633c7::t_51e7a97aaee585 383-387
+  s_a46618ba6633c7::t_5d530491007a6b 181-183,187
+  s_a46618ba6633c7::t_014970ced32636 205
+  s_a46618ba6633c7::t_62cc6c8b3fb137 145-147,159-171
+  s_a46618ba6633c7::t_bb6391032ce973 157-158
+  s_a46618ba6633c7::t_23b9085295c71b 15,17,91-97,99,101-102,104-135,137-144,148-156,172-180,184-186,201-204,206-260,382,388
+archivebox/templates/static/thumbnail_fallback.html
+  s_a46618ba6633c7::t_946275fb883850 16,29
+archivebox/core/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 14-15,19-29
+  s_40c755f9b98002::t_f046e4298d4f82 30
+docs/apidocs/archivebox/archivebox.core.admin_snapshots.md
+  s_a46618ba6633c7::t_6d92cda9c03032 699
+archivebox/machine/apps.py
+  s_a46618ba6633c7::t_cb43e5e36d4ca9 13-24
+archivebox/search/query.py
+  s_a46618ba6633c7::t_4c9464069f7db6 19-65,75-80
+  s_a46618ba6633c7::t_23b9085295c71b 66-74
+archivebox/core/settings.py
+  s_a46618ba6633c7::t_b1a143e4efee5f 547
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27d53b130694f46efc1b3281d955c54be09b1d0d",
+  "prompts": {},
+  "sessions": {
+    "s_40c755f9b98002": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c937-cafe-7293-b5ba-de44da79aa7d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
