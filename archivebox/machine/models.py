@@ -2494,66 +2494,6 @@ class Process(ModelWithDeleteAfter, models.Model):
         return cls.get_running_count(process_type=process_type, machine=machine)
 
     @classmethod
-    def cleanup_orphaned_chrome(cls) -> int:
-        """
-        Kill orphaned Chrome processes using chrome_utils.js killZombieChrome.
-
-        Scans DATA_DIR for chrome/*.pid files from stale crawls (>5 min old)
-        and kills any orphaned Chrome processes.
-
-        Called by:
-        - Orchestrator on startup (cleanup from previous crashes)
-        - Orchestrator periodically (every N minutes)
-
-        Returns:
-            Number of zombie Chrome processes killed
-        """
-        import subprocess
-        from importlib.resources import files
-
-        chrome_utils = files("abx_plugins.plugins.chrome").joinpath("chrome_utils.js")
-        if not chrome_utils.is_file():
-            return 0
-
-        node_binary = Binary.objects.get_valid_binary("node")
-        if node_binary is None or not node_binary.is_valid:
-            return 0
-        from archivebox.config.common import get_config
-
-        node_projection = get_config().ABXPKG_LIB_DIR / "env" / "bin" / "node"
-        if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
-            return 0
-
-        crawl_roots = [
-            crawls_dir
-            for user_dir in CONSTANTS.USERS_DIR.iterdir()
-            if user_dir.is_dir()
-            for crawls_dir in [user_dir / "crawls"]
-            if crawls_dir.is_dir()
-        ]
-        if not crawl_roots:
-            return 0
-
-        killed = 0
-        try:
-            for crawl_root in crawl_roots:
-                result = subprocess.run(
-                    [str(node_projection), str(chrome_utils), "killZombieChrome", str(crawl_root)],
-                    capture_output=True,
-                    timeout=30,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    killed += int(result.stdout.strip())
-            if killed > 0:
-                rprint(f"[yellow]🧹 Cleaned up {killed} orphaned Chrome processes[/yellow]")
-            return killed
-        except (subprocess.TimeoutExpired, ValueError, FileNotFoundError) as e:
-            rprint(f"[red]Failed to cleanup orphaned Chrome: {e}[/red]")
-
-        return 0
-
-    @classmethod
     def cleanup_orphaned_workers(cls) -> int:
         """
         Mark orphaned worker/hook processes as EXITED in the DB.

@@ -116,3 +116,38 @@ def test_crawl_file_rejects_paths_outside_crawl_dir(client, api_admin_user, api_
         assert response.status_code == 404, path
         assert response.json() == {"detail": "Crawl file not found"}, path
     assert outside.read_text() == "outside secret"
+
+
+@pytest.mark.parametrize("permissions", ["private", "unlisted", "public"])
+@pytest.mark.parametrize("path", ["basic.txt", "chrome_screencast/latest.jpg"])
+def test_crawl_files_and_plugin_previews_share_access_rules(client, django_user_model, api_headers, permissions, path):
+    owner = django_user_model.objects.create_user(username="capture-owner")
+    stranger = django_user_model.objects.create_user(username="capture-stranger")
+    crawl = Crawl.objects.create(urls="https://example.com/shared-access", created_by=owner, config={"PERMISSIONS": permissions})
+    assert crawl.permissions == permissions
+    output = crawl.output_dir / path
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(b"saved capture")
+    url = f"/api/v1/crawls/crawl/{crawl.pk}/files/{path}"
+    prefix_url = url.replace(str(crawl.pk), crawl.pk.hex[:8])
+
+    for user in (None, stranger, owner):
+        if user is None:
+            client.logout()
+        else:
+            client.force_login(user)
+        allowed = user == owner or permissions in {"public", "unlisted"}
+        response = client.get(url)
+        assert response.status_code == (200 if allowed else 404)
+        if allowed:
+            assert b"".join(response.streaming_content) == b"saved capture"
+        prefix_allowed = user == owner or permissions == "public"
+        response = client.get(prefix_url)
+        assert response.status_code == (200 if prefix_allowed else 404)
+        if prefix_allowed:
+            assert b"".join(response.streaming_content) == b"saved capture"
+    client.logout()
+    for request_url in (url, prefix_url):
+        response = client.get(request_url, **api_headers)
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == b"saved capture"

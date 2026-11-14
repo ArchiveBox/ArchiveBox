@@ -78,12 +78,11 @@ def audit_files(snapshots):
             from archivebox.plugins.discovery import get_snapshot_file_inventory
 
             try:
-                inventory = get_snapshot_file_inventory(snapshot.output_dir, verify=True)
+                entries = get_snapshot_file_inventory(snapshot.output_dir, verify=True)
             except (OSError, ValueError):
                 report["missing_manifests"] += 1
                 continue
-            if inventory is not None:
-                entries = inventory["files"]
+            if entries is not None:
                 report["hashed_snapshots"] += 1
             else:
                 entries = {}

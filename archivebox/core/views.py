@@ -945,6 +945,7 @@ def _plugin_full_preview_response(
         result,
         output_url=output_url,
         snapshot_details_url=build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
+        context={"request": request},
     )
     if request.GET.get("titlebar") == "0":
         from archivebox.core.templatetags.core_tags import CARD_OVERFLOW_STYLE

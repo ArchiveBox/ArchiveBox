@@ -10,27 +10,28 @@ from archivebox.tests.conftest import cli_env, wait_for_log
 
 def test_plugin_preview_access_logs_remain_quiet_without_hiding_errors():
     import logging
-    from archivebox.core.settings_logging import NoisyRequestsFilter
     from archivebox.misc.monkey_patches import ModifiedAccessLogGenerator
 
     stream = io.StringIO()
-    logger = logging.Logger("preview-test", level=logging.INFO)
+    logger = logging.getLogger("django.server")
     handler = logging.StreamHandler(stream)
-    handler.addFilter(NoisyRequestsFilter())
     logger.addHandler(handler)
-    daphne = ModifiedAccessLogGenerator(stream)
-    for path in (
-        "/api/v1/core/snapshot/0123456789abcdef0123456789abcdef/screencast.jpg?after=1",
-        "/api/v1/crawls/crawl/0123456789abcdef0123456789abcdef/files/chrome_screencast/latest.jpg",
-    ):
-        for status in (200, 404):
-            logger.info('"GET %s HTTP/1.1" %s 0', path, status)
-            daphne.write_entry(host="localhost", date=datetime.datetime.now(), request=f"GET {path}", status=status)
-        assert stream.getvalue() == ""
-        logger.error('"GET %s HTTP/1.1" 500 0', path)
-        assert path in stream.getvalue() and "500" in stream.getvalue()
-        stream.seek(0)
-        stream.truncate()
+    try:
+        daphne = ModifiedAccessLogGenerator(stream)
+        for path in (
+            "/api/v1/core/snapshot/0123456789abcdef0123456789abcdef/screencast.jpg?after=1",
+            "/api/v1/crawls/crawl/0123456789abcdef0123456789abcdef/files/chrome_screencast/latest.jpg",
+        ):
+            for status in (200, 404):
+                logger.info('"GET %s HTTP/1.1" %s 0', path, status)
+                daphne.write_entry(host="localhost", date=datetime.datetime.now(), request=f"GET {path}", status=status)
+            assert stream.getvalue() == ""
+            logger.error('"GET %s HTTP/1.1" 500 0', path)
+            assert path in stream.getvalue() and "500" in stream.getvalue()
+            stream.seek(0)
+            stream.truncate()
+    finally:
+        logger.removeHandler(handler)
 
 
 def test_daphne_access_log_redacts_sensitive_query_params():

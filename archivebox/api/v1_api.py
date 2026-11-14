@@ -42,13 +42,6 @@ html_description = f"""
 
 
 def register_urls(api: NinjaAPI) -> NinjaAPI:
-    api.add_router("/auth/", "archivebox.api.v1_auth.router")
-    api.add_router("/core/", "archivebox.api.v1_core.router")
-    api.add_router("/crawls/", "archivebox.api.v1_crawls.router")
-    api.add_router("/cli/", "archivebox.api.v1_cli.router")
-    api.add_router("/machine/", "archivebox.api.v1_machine.router")
-    api.add_router("/personas/", "archivebox.api.v1_personas.router")
-    api.add_router("/importers/", "archivebox.api.v1_importers.router")
     from archivebox.plugins.discovery import get_plugin_apps
     from archivebox.plugins.host import host
 
@@ -56,6 +49,13 @@ def register_urls(api: NinjaAPI) -> NinjaAPI:
         routers = getattr(app, "get_api_routers", None)
         for prefix, router in routers(host) if routers is not None else ():
             api.add_router(prefix, router)
+    api.add_router("/auth/", "archivebox.api.v1_auth.router")
+    api.add_router("/core/", "archivebox.api.v1_core.router")
+    api.add_router("/crawls/", "archivebox.api.v1_crawls.router")
+    api.add_router("/cli/", "archivebox.api.v1_cli.router")
+    api.add_router("/machine/", "archivebox.api.v1_machine.router")
+    api.add_router("/personas/", "archivebox.api.v1_personas.router")
+    api.add_router("/importers/", "archivebox.api.v1_importers.router")
     return api
 
 

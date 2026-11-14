@@ -4,7 +4,7 @@ from django.utils import timezone
 from rich.console import Console
 
 
-def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | None = None) -> dict[str, int]:
+def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str | None = None) -> dict[str, int]:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
@@ -18,7 +18,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
     cleaned = {
         "processes_stale_running": 0 if crawl_id else Process.cleanup_stale_running(),
         "processes_orphaned_workers": 0 if crawl_id else Process.cleanup_orphaned_workers(),
-        "chrome_processes_orphaned": Process.cleanup_orphaned_chrome() if include_chrome and not crawl_id else 0,
+        "plugin_processes_orphaned": 0,
         "crawls_queued_without_retry_at": 0,
         "snapshots_queued_without_retry_at": 0,
         "snapshots_sealed_with_extension_uploads_only": 0,
@@ -27,6 +27,33 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "crawls_started_waiting_on_future_snapshots": 0,
         "crawls_started_without_active_snapshots": 0,
     }
+
+    if include_plugins and not crawl_id:
+        import json
+        import subprocess
+        from abx_dl.execution import iter_plugin_command
+        from abx_dl.models import PluginEnv
+        from archivebox.config.common import get_config
+        from archivebox.config.constants import CONSTANTS
+        from archivebox.plugins.discovery import get_plugin_catalog
+
+        paths = [str(path) for path in CONSTANTS.USERS_DIR.glob("*/crawls") if path.is_dir()]
+        config = get_config().model_dump(mode="json")
+        env = PluginEnv(**config).to_env()
+        catalog = get_plugin_catalog()
+        for plugin in catalog:
+            command = catalog.command(plugin, "recover")
+            if command is None or not paths:
+                continue
+            try:
+                lines = list(iter_plugin_command(command, stdin=[json.dumps({"config": config, "paths": paths})], env=env, timeout=30))
+                result = json.loads(lines[0]) if len(lines) == 1 else None
+                count = result.get("processes_orphaned") if isinstance(result, dict) else None
+                if type(count) is not int or count < 0:
+                    raise ValueError("Recovery command must return a nonnegative processes_orphaned count")
+                cleaned["plugin_processes_orphaned"] += count
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                recovery_console.print(f"Plugin {plugin} recovery failed: {error}", style="red", markup=False)
 
     running_hook_processes = Process.objects.filter(
         archiveresult__snapshot_id=OuterRef("pk"),
@@ -162,10 +189,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             "Closing {count} interrupted extractor process(es) "
             "(ArchiveBox may have been interrupted before it was able to record their result; affected extractor results can now be retried)."
         ),
-        "chrome_processes_orphaned": (
-            "Stopping {count} leftover browser process(es) "
-            "(ArchiveBox may have been interrupted before it was able to close them; this frees browser resources and avoids duplicate browser sessions)."
-        ),
+        "plugin_processes_orphaned": "Stopped {count} abandoned plugin process(es).",
         "crawls_queued_without_retry_at": (
             "Starting {count} Crawl(s) that were queued but never started "
             "(ArchiveBox may have been interrupted before it was able to begin archiving them)."

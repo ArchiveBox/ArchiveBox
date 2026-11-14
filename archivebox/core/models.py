@@ -3389,8 +3389,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.plugins.discovery import get_snapshot_file_inventory
 
         try:
-            inventory = get_snapshot_file_inventory(self.output_dir)
-            return inventory["files"] if inventory is not None else {}
+            return get_snapshot_file_inventory(self.output_dir) or {}
         except (OSError, TypeError, ValueError):
             return {}
 
@@ -4349,6 +4348,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
+        from archivebox.plugins.discovery import get_snapshot_role_names
         from archivebox.plugins.output_groups import OUTPUT_GROUPS, order_snapshot_outputs, plugin_card_is_hidden, plugin_output_sizes
 
         runtime_config = get_request_config(request) if request is not None else get_config()
@@ -4358,8 +4358,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # WHY: cards, sizes and folder links share these freshly loaded rows.
         # Normalize once per render, as list views do, without caching live
         # runner-owned results or keeping metadata across subsequent renders.
+        output_files = {}
         for result in archive_results:
             result._render_output_file_map = result.output_file_map()
+            if result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                for key, metadata in result._render_output_file_map.items():
+                    if path := result.output_file_path(key):
+                        output_files[path] = {**metadata, "plugin": result.plugin}
         tags = list(self.tags.all())
         self.__dict__["_admin_archiveresults"] = archive_results
         self.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
@@ -4557,6 +4562,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
             "warc_path": warc_path,
             "archiveresults": ordered_outputs,
+            "output_dir": str(static_export_dir or self.output_dir),
+            "output_files": output_files,
+            "primary_preview_plugins": get_snapshot_role_names("primary_preview"),
             "output_groups": [{"id": group_id, "label": label} for group_id, label, _ in OUTPUT_GROUPS],
             "best_result": best_result,
             "snapshot": self,

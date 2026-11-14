@@ -1055,6 +1055,28 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
     source = get_plugin_template(plugin, "full", fallback=fallback)
     if not source:
         return ""
+    context = context or {}
+    record_urls = {}
+    if not context.get("STATIC_EXPORT"):
+        from django.urls import reverse
+        from archivebox.core.routes_util import build_admin_url
+
+        results = snapshot.__dict__.get("_admin_archiveresults")
+        if results is None:
+            results = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+        pairs = (
+            [(item.pk, item.process_id) for item in results]
+            if results is not None and all("process_id" in item.__dict__ for item in results)
+            else snapshot.archiveresult_set.values_list("id", "process_id")
+        )
+        record_urls = {"ArchiveResult": {}, "Process": {}}
+        for result_id, process_id in pairs:
+            for model, route, record_id in (
+                ("ArchiveResult", "admin:core_archiveresult_change", result_id),
+                ("Process", "admin:machine_process_change", process_id),
+            ):
+                if record_id:
+                    record_urls[model][str(record_id)] = build_admin_url(reverse(route, args=[record_id]), request=context.get("request"))
     catalog = get_plugin_catalog()
     return (
         template.Engine(
@@ -1066,7 +1088,8 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
         .render(
             template.Context(
                 {
-                    **(context or {}),
+                    **context,
+                    "record_urls": record_urls,
                     "result": result,
                     "snapshot": snapshot,
                     "output_path": output_url,
@@ -1185,7 +1208,7 @@ def write_static_plugin_previews(context):
         if plugin_has_custom_full_response(plugin) and source.is_file():
             # The live index transport requires a same-path ?preview=1 URL.
             # Portable viewers let the player read the unchanged WACZ directly.
-            response = render_plugin_full_response(source.name, output_url, fallback_url=snapshot.url)
+            response = render_plugin_full_response(source.name, output_url, fallback_url=snapshot.url, replay_base="../replay/")
             if response is not None:
                 document = response[0]
         elif get_plugin_template(plugin, "full", fallback=False):

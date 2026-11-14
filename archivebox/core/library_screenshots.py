@@ -12,17 +12,35 @@ from django.utils import timezone
 
 
 def configure_provider(model, data_dir):
-    from archivebox.plugins.discovery import get_plugin_apps
+    from archivebox.plugins.discovery import get_plugin_catalog
+    from abx_dl.execution import iter_plugin_command
     from archivebox.plugins.host import host
 
     config = host.request_config()
     if Path(data_dir).resolve() != Path(config["DATA_DIR"]).resolve():
         raise ValueError("Run gallery preparation from its explicit collection directory.")
     configured = False
-    for app in get_plugin_apps().values():
-        configure = getattr(app, "configure_gallery", None)
-        if configure is not None:
-            configured = configure(model, config, data_dir) or configured
+    catalog = get_plugin_catalog()
+    for plugin in catalog:
+        command = catalog.command(plugin, "configure-gallery")
+        if command is None:
+            continue
+        try:
+            result = json.loads(
+                "\n".join(
+                    iter_plugin_command(
+                        command,
+                        stdin=[json.dumps({"model": model, "config": config, "data_dir": str(data_dir)})],
+                        cwd=Path(data_dir),
+                        timeout=config.get("TIMEOUT", 120),
+                    ),
+                ),
+            )
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(error.stderr or str(error)) from error
+        if not isinstance(result, dict) or type(result.get("configured")) is not bool:
+            raise ValueError(f"Invalid configure-gallery result from {plugin}")
+        configured = result["configured"] or configured
     if not configured:
         raise RuntimeError("Enable an agent plugin in the screenshot collection before preparing AI screenshots.")
 

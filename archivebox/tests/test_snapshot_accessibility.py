@@ -238,3 +238,28 @@ def test_plugin_ui_discovers_snapshot_head_fragments(snapshot):
     assert fromstring(discovered).xpath('//meta[@property="og:title"]/@content') == ["Registered SEO fragment"]
     assert context["title"] == original_title
     assert Template('{% load core_tags %}{% plugin_ui "nonexistent_slot" %}').render(context) == ""
+
+
+def test_seo_presentation_uses_plain_snapshot_context(snapshot, django_assert_num_queries):
+    from abx_plugins.plugins.seo.presentation import template_context
+
+    save_output(snapshot, "seo", "seo.json", '{"og:title":"Plain artifact title"}', "application/json")
+    failed = save_output(snapshot, "htmltotext", "htmltotext.txt", "Failed capture text", "text/plain")
+    failed.status = "failed"
+    failed.save(update_fields=["status"])
+    image = Path(snapshot.output_dir) / "capture.png"
+    image.write_bytes((Path(__file__).parents[1] / "templates/static/archive.png").read_bytes())
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="chrome_extension_viewport",
+        status="succeeded",
+        output_str="capture.png",
+        output_files={"capture.png": {"size": image.stat().st_size, "mimetype": "image/png", "root_relative": True}},
+    )
+    context = snapshot.get_html_details_context()
+    plain = json.loads(json.dumps({key: context[key] for key in ("url", "title", "output_dir", "output_files", "primary_preview_plugins")}))
+    assert "htmltotext/htmltotext.txt" not in plain["output_files"]
+    assert plain["output_files"]["capture.png"]["plugin"] == "chrome_extension_viewport"
+    with django_assert_num_queries(0):
+        metadata = template_context("snapshot_head", plain)["social"]
+    assert metadata == {"title": "Plain artifact title", "description": f"Archived snapshot of {snapshot.url}", "image_path": "capture.png"}

@@ -2,6 +2,7 @@ __package__ = "archivebox"
 
 
 import datetime
+import logging
 import re
 import warnings
 
@@ -41,8 +42,6 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
         return super().__call__(protocol, action, details)
 
     def write_entry(self, host, date, request, status=None, length=None, ident=None, user=None, time_taken=None):
-        from archivebox.plugins.discovery import get_plugin_ignorable_url_patterns
-
         request = SENSITIVE_QUERY_PARAM_RE.sub(r"\1[REDACTED]", request)
 
         # Ignore noisy requests to staticfiles / favicons / etc.
@@ -52,8 +51,6 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
         if "GET /progress.json" in request and (time_taken is None or time_taken < 1.0):
             return
-        if request.startswith("GET ") and any(pattern.fullmatch(request[4:]) for pattern in get_plugin_ignorable_url_patterns()):
-            return
         if "GET /admin/jsi18n/" in request:
             return
         if request.endswith("/favicon.ico") or request.endswith("/robots.txt") or request.endswith("/screenshot.png"):
@@ -61,6 +58,11 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
         if request.endswith(".css") or request.endswith(".js") or request.endswith(".woff") or request.endswith(".ttf"):
             return
         if str(status) in ("404", "304"):
+            return
+
+        logger = logging.getLogger("daphne.access")
+        record = logger.makeRecord(logger.name, logging.INFO, __file__, 0, '"%s HTTP/1.1" %s %s', (request, status, length or 0), None)
+        if not logger.filter(record):
             return
 
         # clean up the log format to mostly match the same format as django.conf.settings.LOGGING rich formats

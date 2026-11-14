@@ -41,38 +41,66 @@ class ArchiveBoxHost:
             return user
         return request.user
 
-    def snapshot_context(self, request, snapshot_id):
+    def capture_context(self, request, *, snapshot_id=None, crawl_id=None):
         from django.http import Http404
+        from ninja.errors import HttpError
         from archivebox.api.auth import authenticated_user_from_request
         from archivebox.config.common import get_config
         from archivebox.core.models import Snapshot
-        from archivebox.core.permissions import can_view_snapshot
+        from archivebox.core.permissions import (
+            PERMISSIONS_PUBLIC,
+            PERMISSIONS_UNLISTED,
+            can_view_snapshot,
+            is_admin_user,
+            normalize_permissions,
+        )
+        from archivebox.crawls.models import Crawl
+        from archivebox.misc.util import filter_queryset_by_uuid_substring
 
-        try:
-            snapshot = Snapshot.objects.select_related("crawl__created_by").get(pk=UUID(str(snapshot_id)))
-        except (ValueError, Snapshot.DoesNotExist) as error:
-            raise Http404("Snapshot not found") from error
-        authenticated_user_from_request(request)
-        if not can_view_snapshot(request, snapshot):
-            raise Http404("Snapshot not found")
-        directory = snapshot.get_storage_path_for_version(snapshot.fs_version)
-        directories = [directory]
-        if directory.name == snapshot.pk.hex:
-            directories.append(directory.with_name(str(UUID(snapshot.pk.hex))))
+        if (snapshot_id is None) == (crawl_id is None):
+            raise ValueError("Select exactly one snapshot or crawl")
+        if snapshot_id is not None:
+            try:
+                snapshot = Snapshot.objects.select_related("crawl__created_by").get(pk=UUID(str(snapshot_id)))
+            except (ValueError, Snapshot.DoesNotExist) as error:
+                raise Http404("Snapshot not found") from error
+            authenticated_user_from_request(request)
+            if not can_view_snapshot(request, snapshot):
+                raise Http404("Snapshot not found")
+            directory = snapshot.get_storage_path_for_version(snapshot.fs_version)
+            directories = [directory]
+            if directory.name == snapshot.pk.hex:
+                directories.append(directory.with_name(str(UUID(snapshot.pk.hex))))
+            config = get_config(snapshot=snapshot, resolve_plugins=False)
+            context = {
+                "id": str(snapshot.id),
+                "url": snapshot.url,
+                "title": snapshot.title,
+                "crawl_id": str(snapshot.crawl_id) if snapshot.crawl_id else None,
+                "tags": snapshot.tags_str(),
+            }
+        else:
+            try:
+                crawl = filter_queryset_by_uuid_substring(Crawl.objects.all(), crawl_id).get()
+            except Crawl.DoesNotExist:
+                raise HttpError(404, "Crawl not found")
+            user = authenticated_user_from_request(request)
+            if not is_admin_user(request):
+                permissions = normalize_permissions(crawl.permissions)
+                is_owner = bool(user and crawl.created_by_id == user.id)
+                # UUIDv7 prefixes are guessable timestamps, not unlisted links.
+                ref, full_id = crawl_id.replace("-", "").lower(), str(crawl.id).replace("-", "")
+                by_prefix = ref != full_id and full_id.startswith(ref)
+                if not is_owner and not (permissions == PERMISSIONS_PUBLIC or (permissions == PERMISSIONS_UNLISTED and not by_prefix)):
+                    raise HttpError(404, "Crawl not found")
+            directories = crawl.output_dir_candidates
+            config = get_config(crawl=crawl, resolve_plugins=False)
+            context = {"id": str(crawl.id)}
         return {
-            "id": str(snapshot.id),
-            "url": snapshot.url,
-            "title": snapshot.title,
-            "crawl_id": str(snapshot.crawl_id) if snapshot.crawl_id else None,
-            "tags": snapshot.tags_str(),
+            **context,
             "output_dirs": [str(path) for path in directories],
-            "tmp_dir": str(get_config(snapshot=snapshot, resolve_plugins=False).TMP_DIR),
+            "tmp_dir": str(config.TMP_DIR),
         }
-
-    def get_template(self, plugin, slot):
-        from archivebox.plugins.discovery import get_plugin_template
-
-        return get_plugin_template(plugin, slot, fallback=False)
 
     def websocket_request(self, scope):
         from django.contrib.auth.middleware import AuthenticationMiddleware

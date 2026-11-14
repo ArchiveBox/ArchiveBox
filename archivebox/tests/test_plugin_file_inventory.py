@@ -36,10 +36,9 @@ def test_inventory_provider_normalizes_and_verifies_saved_hashes(admin_user, tmp
 
     snapshot = hashed_snapshot(admin_user, tmp_path, "page.json")
     inventory = get_snapshot_file_inventory(snapshot.output_dir, verify=True)
-    assert inventory["schema_version"] == 1
     saved = json.loads((snapshot.output_dir / "hashes/hashes.json").read_text())
     expected = next(item for item in saved["files"] if item["path"] == "original/page.json")
-    assert inventory["files"]["original/page.json"]["hash"] == expected["hash"]
+    assert inventory["original/page.json"] == {"hash": expected["hash"], "size": expected["size"], "is_dir": False}
     assert snapshot.hashes_index["original/page.json"]["size"] == expected["size"]
     assert _load_file_inventory(snapshot.output_dir)["original/page.json"]["hash"] == expected["hash"]
     (snapshot.output_dir / "hashes/hashes.sha256").write_text("0" * 64)

@@ -251,17 +251,7 @@ def get_plugin_apps() -> dict[str, ModuleType]:
     return {name: app for name in get_plugin_catalog() if (app := get_plugin_app(name)) is not None}
 
 
-@lru_cache(maxsize=1)
-def get_plugin_ignorable_url_patterns() -> tuple[re.Pattern, ...]:
-    patterns = []
-    for app in get_plugin_apps().values():
-        get_patterns = getattr(app, "get_ignorable_url_patterns", None)
-        if get_patterns is not None:
-            patterns.extend(get_patterns())
-    return tuple(patterns)
-
-
-def get_snapshot_file_inventory(snapshot_dir: Path, *, verify: bool = False) -> dict[str, Any] | None:
+def get_snapshot_file_inventory(snapshot_dir: Path, *, verify: bool = False) -> dict[str, dict[str, Any]] | None:
     """Read the first available declared inventory without rescanning outputs."""
     seen = set()
     for name in get_snapshot_role_names("file_inventory"):
@@ -274,13 +264,8 @@ def get_snapshot_file_inventory(snapshot_dir: Path, *, verify: bool = False) -> 
             raise ValueError(f"{name}: file inventory role requires read_snapshot_inventory")
         inventory = read(snapshot_dir, verify=verify)
         if inventory is not None:
-            if (
-                not isinstance(inventory, dict)
-                or type(inventory.get("schema_version")) is not int
-                or inventory["schema_version"] != 1
-                or not isinstance(inventory.get("files"), dict)
-            ):
-                raise ValueError(f"{name}: read_snapshot_inventory must return a version 1 file inventory or None")
+            if not isinstance(inventory, dict):
+                raise ValueError(f"{name}: read_snapshot_inventory must return a file metadata mapping or None")
             return inventory
     return None
 

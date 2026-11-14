@@ -41,3 +41,30 @@ def test_plugin_commands_are_native_cli_commands(initialized_archive):
     invalid = run_archivebox_cmd(["plugin", "opencode", "context", "--limit", "0"])
     assert invalid.returncode != 0
     assert "Traceback" not in invalid.stderr
+
+
+def test_plugin_apps_use_django_app_registry():
+    from django.apps import apps
+
+    for name in ("opencode", "chrome_screencast"):
+        app = apps.get_app_config(f"abx_{name}")
+        assert app.name == f"abx_plugins.plugins.{name}"
+        assert app.path.endswith(f"/plugins/{name}")
+
+
+def test_gallery_setup_uses_plugin_command_without_starting_disabled_provider(tmp_path):
+    import json
+    from abx_dl.execution import iter_plugin_command
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    command = get_plugin_catalog().command("opencode", "configure-gallery")
+    assert command is not None
+    result = list(
+        iter_plugin_command(
+            command,
+            stdin=[json.dumps({"model": "openai/test", "config": {"OPENCODE_ENABLED": False}, "data_dir": str(tmp_path)})],
+            cwd=tmp_path,
+        ),
+    )
+    assert [json.loads(line) for line in result] == [{"configured": False}]
+    assert not (tmp_path / "opencode").exists()

@@ -14,18 +14,12 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from archivebox.core.models import Folder, Snapshot
-from archivebox.core.permissions import (
-    PERMISSIONS_PUBLIC,
-    PERMISSIONS_UNLISTED,
-    is_admin_user,
-    normalize_permissions,
-)
 from archivebox.config.common import get_config
 from archivebox.crawls.models import Crawl
 from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url
 
-from .auth import API_AUTH_METHODS, authenticated_user_from_request
+from .auth import API_AUTH_METHODS
 
 router = Router(tags=["Crawl Models"], auth=API_AUTH_METHODS)
 
@@ -181,25 +175,9 @@ def get_crawl(request: HttpRequest, crawl_id: str, as_rss: bool = False, with_sn
 
 
 def crawl_file(request: HttpRequest, crawl_id: str, path: str):
-    # Try to resolve the crawl first; if it doesn't exist, return 404.
-    try:
-        crawl = get_crawl_by_ref(crawl_id)
-    except Crawl.DoesNotExist:
-        raise HttpError(404, "Crawl not found")
+    from archivebox.plugins.host import host
 
-    user = authenticated_user_from_request(request)
-
-    # Gate access using the same model as SnapshotView/can_view_snapshot:
-    # admins always pass; owners can see their own crawls; otherwise the crawl
-    # must be PUBLIC or UNLISTED. Don't disclose existence of private crawls.
-    if not is_admin_user(request):
-        permissions = normalize_permissions(crawl.permissions)
-        is_owner = bool(user and crawl.created_by_id == user.id)
-        # UUIDv7 prefixes are guessable timestamps: not an unlisted link (suffixes are random).
-        ref, full_id = crawl_id.replace("-", "").lower(), str(crawl.id).replace("-", "")
-        by_prefix = ref != full_id and full_id.startswith(ref)
-        if not is_owner and not (permissions == PERMISSIONS_PUBLIC or (permissions == PERMISSIONS_UNLISTED and not by_prefix)):
-            raise HttpError(404, "Crawl not found")
+    context = host.capture_context(request, crawl_id=crawl_id)
 
     # WHY: .persona holds the crawl's browser logins (cookies.txt, auth.json,
     # chrome_profile). Older crawls kept it as a real directory inside the crawl
@@ -208,20 +186,7 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
     if any(part.casefold() == ".persona" for part in Path(path).parts):
         raise HttpError(404, "Crawl file not found")
 
-    from archivebox.plugins.discovery import get_plugin_app
-
-    plugin = path.partition("/")[0]
-    app = get_plugin_app(plugin)
-    serve = getattr(app, "serve_crawl_file", None)
-    if serve is not None:
-        context = {
-            "output_dirs": [str(directory) for directory in crawl.output_dir_candidates],
-            "tmp_dir": str(get_config(crawl=crawl, resolve_plugins=False).TMP_DIR),
-        }
-        if (response := serve(request, context, path)) is not None:
-            return response
-
-    crawl_root = Path(crawl.output_dir).resolve()
+    crawl_root = Path(context["output_dirs"][0]).resolve()
     file_path = (crawl_root / path).resolve()
     if crawl_root not in file_path.parents:
         raise HttpError(404, "Crawl file not found")

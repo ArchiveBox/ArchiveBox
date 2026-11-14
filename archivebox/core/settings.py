@@ -17,6 +17,7 @@ import archivebox
 from archivebox.config.django import CONFIG
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.routes_util import get_admin_base_url, get_api_base_url, get_base_url, normalize_base_url
+from archivebox.plugins.discovery import get_plugin_apps
 
 # DATABASE_ENGINE config selects the backend (sqlite by default); the
 # sqlite-vs-postgres helpers live in archivebox.misc.db.
@@ -89,6 +90,8 @@ INSTALLED_APPS = [
     "admin_data_views",  # handles rendering some convenient automatic read-only views of data in Django admin
     "django_extensions",  # provides Django Debug Toolbar (and other non-debug helpers)
 ]
+
+INSTALLED_APPS += [f"{module.__name__}.AppConfig" for module in get_plugin_apps().values() if hasattr(module, "AppConfig")]
 
 DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 
