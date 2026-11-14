@@ -10,7 +10,6 @@ from django.db.models import Q, Exists, OuterRef
 from django.utils import timezone
 
 CHILDREN_RULES = {"field": "folder", "lookup": "in_children", "value": "self"}
-INBOX_RULES = {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}
 OPERATORS = {
     "exact": "is",
     "not_exact": "is not",

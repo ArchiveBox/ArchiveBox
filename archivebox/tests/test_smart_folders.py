@@ -234,3 +234,54 @@ def test_django_select_across_moves_all_matches_and_preserves_exclusions(admin_c
     assert response.status_code == 302, response.content
     assert Snapshot.objects.filter(folder=target, title="selected").count() == 105
     assert Snapshot.objects.filter(folder=source, title="excluded").count() == 5
+
+
+def test_seeded_smart_folder_uses_normal_rules_ordering_and_destinations(admin_user):
+    folder = Folder.objects.get(name="📥 Inbox")
+    folder.name = "Unassigned"
+    folder.position = 10
+    folder.save()
+    regular = Folder.objects.create(name="Saved", position=1)
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, folder=regular)
+    assert list(Folder.select_snapshots(Snapshot.objects.all(), folder.pk)) == []
+    with pytest.raises(ValidationError, match="Choose a regular folder"):
+        Folder.destination(folder.pk)
+    assert Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), None) == 1
+    assert list(Folder.select_snapshots(Snapshot.objects.all(), folder.pk)) == [snapshot]
+    assert [item.pk for item in Folder.tree()] == [regular.pk, folder.pk]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("field,lookup,value", [("folder", "in_folder", "*"), ("title", "icontains", "news")])
+def test_browser_rename_preserves_negated_smart_folder_rules(live_server, admin_user, browser_runtime, field, lookup, value):
+    from playwright.sync_api import sync_playwright, expect
+    from urllib.parse import urlsplit
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    rules = group("NOT", leaf(field, lookup, value))
+    folder = Folder.objects.create(name="Unread", rules=rules)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        row = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
+        row.hover()
+        row.get_by_role("button", name="Actions for Unread", exact=True).click()
+        row.get_by_role("menuitem", name="Rename", exact=True).click()
+        expect(page.locator(".folder-save")).to_be_enabled()
+        page.locator("#folder-name").fill("📥 Reading")
+        page.locator(".folder-save").click()
+        expect(row).to_have_attribute("data-folder-name", "📥 Reading")
+        expect(row.locator(".folder-title-emoji")).to_have_text("📥")
+        browser.close()
+    folder.refresh_from_db()
+    assert folder.name == "📥 Reading"
+    assert folder.rules == rules

@@ -198,11 +198,12 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
 def test_smart_folder_exports_keep_visibility_and_extra_filters(client, api_headers, api_admin_user, format):
     from archivebox.tests.test_smart_folders import leaf
     from archivebox.tests.conftest import API_TEST_HOST
-    from archivebox.core.smart_folders import INBOX_RULES
+
+    inbox_rules = {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}
 
     folder = Folder.objects.create(name="News", rules=leaf("domain", "exact", "news.ycombinator.com"))
     hidden = Folder.objects.create(name="Private matches", rules=leaf("title", "exact", "secret"))
-    inbox = Folder.objects.filter(rules=INBOX_RULES).first() or Folder.objects.create(name="Inbox", rules=INBOX_RULES)
+    inbox = Folder.objects.filter(rules=inbox_rules).first() or Folder.objects.create(name="📥 Inbox", rules=inbox_rules)
     crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
     public = Snapshot.objects.create(url=crawl.urls, title="news", crawl=crawl, config={"PERMISSIONS": "public"})
     private = Snapshot.objects.create(
