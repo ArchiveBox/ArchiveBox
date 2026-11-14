@@ -1,0 +1,31 @@
+.pre-commit-config.yaml
+  s_10bc94d001be49::t_9047576547c4fa 14-15
+archivebox/importers/gallery.py
+  s_10bc94d001be49::t_36de94a1b05643 45
+archivebox/tests/test_provider_plugin_config_ui.py
+  s_10bc94d001be49::t_36de94a1b05643 55-56
+bin/generate_ui_screenshot_gallery.py
+  s_10bc94d001be49::t_36de94a1b05643 144,160
+archivebox/importers/views.py
+  s_10bc94d001be49::t_36de94a1b05643 154-155
+archivebox/tests/test_plugin_config_widgets.py
+  s_10bc94d001be49::t_36de94a1b05643 79,108,146,150
+archivebox/templates/static/model-viewer/LICENSE.fflate.txt
+  s_10bc94d001be49::t_36de94a1b05643 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d0a47c77bd2b71a1660c81af9f1b04c0ef1a69c",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
