@@ -150,8 +150,8 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
 
     if args.folder_id is not None:
         folder = get_object_or_404(Folder, pk=args.folder_id)
-        if folder.is_smart and not (folder.is_container or folder.is_inbox):
-            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
+        if folder.is_smart and not folder.is_container:
+            raise HttpError(400, "Choose a regular folder as the destination.")
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
@@ -257,8 +257,8 @@ def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
 
     if args.folder_id is not None:
         folder = get_object_or_404(Folder, pk=args.folder_id)
-        if folder.is_smart and not (folder.is_container or folder.is_inbox):
-            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
+        if folder.is_smart and not folder.is_container:
+            raise HttpError(400, "Choose a regular folder as the destination.")
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
