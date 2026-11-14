@@ -315,3 +315,110 @@ def test_nested_binary_domain_and_status_rules(admin_user):
     assert set(Snapshot.objects.filter(RuleQuery().compile(rule))) == set(included)
     status = next(field for field in RuleQuery.schema() if field["name"] == "status")
     assert dict(status["choices"]) == dict(Snapshot._meta.get_field("status").flatchoices)
+
+
+@pytest.mark.parametrize("sort", ["-created_at", "title", "-title", "?"])
+@pytest.mark.parametrize("limit", [601, 1101])
+def test_sort_limit_apply_to_parent_exports_and_bulk_selection(admin_client, admin_user, sort, limit):
+    import json
+    from archivebox.tests.conftest import ADMIN_TEST_HOST
+    from archivebox.core.exports import get_export_queryset
+
+    source = Folder.objects.create(name="Option source")
+    parent = Folder.objects.create(name="Option parent")
+    target = Folder.objects.create(name="Option destination")
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshots = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://news.ycombinator.com/item?id={index}",
+                timestamp=str(1800000000 + index),
+                title=f"{1200 - index:04d}" if index % 3 else None,
+                crawl=crawl,
+                folder=source,
+            )
+            for index in range(1200)
+        ],
+    )
+    response = admin_client.post(
+        "/admin/core/folder/save/",
+        {
+            "name": "Limited",
+            "parent": str(parent.pk),
+            "rules": json.dumps({**leaf("folder", "in_folder", str(source.pk)), "sort": sort, "limit": limit}),
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200, response.content
+    folder = Folder.objects.get(pk=response.json()["id"])
+    expected = list(Snapshot.objects.filter(folder=source).order_by(*RuleQuery.ordering(folder)).values_list("pk", flat=True)[:limit])
+    actual = Folder.select_snapshots(Snapshot.objects.all(), folder.pk)
+    assert list(actual.values_list("pk", flat=True)) == expected
+    assert set(Folder.select_snapshots(Snapshot.objects.all(), parent.pk).values_list("pk", flat=True)) == set(expected)
+    assert (
+        list(get_export_queryset({"folder": str(folder.pk)}, user=admin_user, public_only=False).values_list("pk", flat=True)) == expected
+    )
+    if sort == "?":
+        assert expected != [snapshot.pk for snapshot in snapshots[:limit]]
+        assert list(Folder.select_snapshots(Snapshot.objects.all(), folder.pk).values_list("pk", flat=True)) == expected
+    page = admin_client.get(f"/admin/core/snapshot/?folder={folder.pk}", HTTP_HOST=ADMIN_TEST_HOST)
+    assert page.status_code == 200, page.content
+    assert [row.pk for row in page.context["cl"].result_list] == expected[: page.context["cl"].list_per_page]
+    response = admin_client.post(
+        f"/admin/core/snapshot/?folder={parent.pk}",
+        {
+            "action": "move_to_folder",
+            "folder_destination": str(target.pk),
+            "_selected_action": [str(expected[0])],
+            "select_across": "1",
+            "index": "0",
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302, response.content
+    assert set(Snapshot.objects.filter(folder=target).values_list("pk", flat=True)) == set(expected)
+    assert Snapshot.objects.filter(folder=source).count() == 1200 - limit
+
+
+def test_optional_sort_limit_defaults_validation_and_container_options(admin_user):
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshots = [Snapshot.objects.create(url=f"https://news.ycombinator.com/{index}", crawl=crawl) for index in range(3)]
+    folder = Folder.objects.create(name="Unlimited", rules=leaf("url", "icontains", "news.ycombinator.com"))
+    assert list(Folder.select_snapshots(Snapshot.objects.all(), folder.pk)) == snapshots[::-1]
+    for options in ({"limit": 0}, {"limit": -1}, {"limit": True}, {"limit": 1.5}, {"sort": "tags__name"}, {"sort": "nope"}):
+        folder.rules = {**leaf("url", "icontains", "news.ycombinator.com"), **options}
+        with pytest.raises(ValidationError):
+            folder.full_clean()
+    parent = Folder.objects.create(name="Limited container")
+    Folder.objects.create(name="First", parent=parent)
+    parent.refresh_from_db()
+    parent.rules = {**parent.rules, "limit": 1, "sort": "title"}
+    parent.save()
+    Folder.objects.create(name="Second", parent=parent)
+    parent.refresh_from_db()
+    assert parent.is_container and parent.rules["limit"] == 1 and parent.rules["sort"] == "title"
+
+
+def test_public_smart_folder_preserves_limit_order_and_visibility(client, admin_user):
+    from django.test import override_settings
+    from archivebox.tests.conftest import WEB_TEST_HOST
+
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshots = [
+        Snapshot.objects.create(url=f"https://news.ycombinator.com/{i}", title=str(i), crawl=crawl, config={"PERMISSIONS": "public"})
+        for i in range(4)
+    ]
+    folder = Folder.objects.create(
+        name="First three",
+        rules={**leaf("url", "icontains", "news.ycombinator.com"), "sort": "title", "limit": 3},
+    )
+    with override_settings(PUBLIC_INDEX=True):
+        response = client.get("/public/", {"folder": str(folder.pk)}, HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    assert list(response.context["object_list"]) == snapshots[:3]
+    snapshots[1].config = {"PERMISSIONS": "private"}
+    snapshots[1].save(update_fields=["config"])
+    with override_settings(PUBLIC_INDEX=True):
+        response = client.get("/public/", {"folder": str(folder.pk)}, HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    assert list(response.context["object_list"]) == [snapshots[0], snapshots[2]]

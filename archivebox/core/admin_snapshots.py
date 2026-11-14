@@ -6,7 +6,7 @@ from html import escape
 from typing import Any
 
 from django.contrib import admin, messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
@@ -585,6 +585,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_ordering(self, request):
         if request.GET.get("o"):
             return []
+        if folder_id := request.GET.get("folder"):
+            from archivebox.core.smart_folders import RuleQuery
+
+            try:
+                folder = Folder.objects.filter(pk=folder_id).first()
+            except (ValueError, ValidationError):
+                folder = None
+            if folder and folder.is_smart:
+                return RuleQuery.ordering(folder)
         return super().get_ordering(request)
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):

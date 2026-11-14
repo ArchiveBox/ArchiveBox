@@ -73,6 +73,7 @@ class FolderAdmin(admin.ModelAdmin):
         return JsonResponse(
             {
                 "fields": RuleQuery.schema(),
+                "sort_fields": RuleQuery.sort_fields(),
                 "operators": OPERATORS,
                 "folders": [{"id": str(folder.pk), "name": folder.path_label} for folder in folders],
                 "unavailable_parents": [str(pk) for pk in Folder.subtree_ids(current.pk)] if current else [],

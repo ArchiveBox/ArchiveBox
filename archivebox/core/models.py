@@ -133,7 +133,9 @@ class Folder(models.Model):
     def is_container(self):
         from archivebox.core.smart_folders import CHILDREN_RULES
 
-        return self.rules == CHILDREN_RULES
+        return (
+            self.rules is not None and {key: value for key, value in self.rules.items() if key not in {"limit", "sort"}} == CHILDREN_RULES
+        )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -168,8 +170,9 @@ class Folder(models.Model):
                     break
                 suffix += 1
                 name = f"Items ({suffix})"
-        cls.objects.filter(pk=self.pk).update(rules=CHILDREN_RULES)
-        self.rules = CHILDREN_RULES
+        rules = parent.rules if parent.is_container else CHILDREN_RULES
+        cls.objects.filter(pk=self.pk).update(rules=rules)
+        self.rules = rules
 
         def move_items():
             target = destination
@@ -205,7 +208,10 @@ class Folder(models.Model):
     @classmethod
     def move_snapshots(cls, queryset, destination_id, *, notify=True):
         from archivebox.core.signals import snapshot_folders_changed
+        from archivebox.core.smart_folders import RuleQuery
 
+        if source := getattr(queryset.query, "_folder_selection", None):
+            queryset = queryset.filter(RuleQuery(freeze_limits=True).folder(source))
         destination_id = cls.destination(destination_id)
         # Correlate membership so the outer keyset walk uses the existing PK
         # index, rather than sorting the entire source folder again per page.
@@ -230,7 +236,14 @@ class Folder(models.Model):
     def select_snapshots(cls, queryset, folder_id):
         from archivebox.core.smart_folders import RuleQuery
 
-        return queryset.filter(RuleQuery().folder(compact_uuid(folder_id)))
+        compiler = RuleQuery()
+        folder_id = compact_uuid(folder_id)
+        queryset = queryset.filter(compiler.folder(folder_id))
+        folder = compiler.folders.get(str(folder_id))
+        if folder and folder.is_smart:
+            queryset = queryset.order_by(*compiler.ordering(folder))
+        queryset.query._folder_selection = folder_id
+        return queryset
 
     @classmethod
     def tree(cls, *, public=False):
@@ -255,7 +268,7 @@ class Folder(models.Model):
                 matches = public_snapshots_queryset(Snapshot.objects.filter(compiler.folder(folder.pk)))
                 summary = snapshot_list_count(matches, first_match=True)
                 witness = summary.get("snapshot_id") if summary else None
-                candidates = [witness] if witness else recent_ids
+                candidates = [witness, *recent_ids] if witness else recent_ids
                 # Revalidate cached witnesses against current permissions and
                 # rules. Cold/empty smart folders must not scan the collection
                 # on every public page; later loads can use the background result.

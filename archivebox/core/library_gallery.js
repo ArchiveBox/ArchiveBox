@@ -302,6 +302,8 @@ async function openSmartFolder(page) {
   await (await row.$('.folder-menu-toggle')).click();
   await page.click('.folder-menu:popover-open .folder-edit');
   await page.waitForSelector('#folder-dialog.has-rules[open] .folder-save:not([disabled])');
+  if (!await page.$('.folder-options select[aria-label="Sort by"] option[value="?"]') ||
+      !await page.$('.folder-options input[aria-label="Limit"]:not([required])')) throw new Error('Smart-folder sort and optional limit controls are missing.');
   const values=await page.$$eval('.rule-condition select[aria-label="Field"]',nodes=>nodes.map(node=>node.value));
   if (!values.includes('domain') || !values.includes('archiveresult__output_size')) throw new Error('Reopening the smart folder lost its rules.');
   const checks=await page.evaluate(()=>({

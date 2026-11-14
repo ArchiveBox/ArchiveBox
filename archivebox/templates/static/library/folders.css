@@ -129,6 +129,14 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog input:not([type=hidden]),#folder-dialog select{border-radius:4px;padding:7px 8px;min-width:0}
 .folder-rules{margin-top:16px}
 .folder-rules[hidden]{display:none}
+.folder-options{display:flex;align-items:end;gap:10px;flex-shrink:0;border-top:1px solid var(--hairline-color,#e4e7ec);margin-top:14px;padding-top:2px}
+.folder-options[hidden]{display:none}
+#folder-dialog .folder-options label{flex:1;min-width:0}
+#folder-dialog .folder-options label:first-child{flex:2}
+#folder-dialog .folder-options label:has([aria-label="Sort direction"]){flex:0 0 108px}
+#folder-dialog .folder-options label:last-child{flex:0 0 86px}
+#folder-dialog .folder-options input,#folder-dialog .folder-options select{display:block;margin-top:4px}
+@media(max-width:360px){.folder-options:has([aria-label="Sort direction"]){flex-wrap:wrap}#folder-dialog .folder-options:has([aria-label="Sort direction"]) label:first-child{flex-basis:100%}}
 .rule-group{border-left:2px dotted var(--border-color,#d0d5dd);padding:0 0 0 10px;margin:8px 0}
 .rule-group .rule-group{margin-left:8px}
 .rule-group-toolbar{display:flex;align-items:center;gap:6px;margin-top:8px}

@@ -50,7 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
         while (members.length>2) members.splice(0,2,{op:node.op,rules:members.slice(0,2)});
         return {...node,rules:members};
       }
-      let rules = normalize(schema.rules || {op:'AND', rules:[defaultRule()]});
+      const {limit: savedLimit, sort: savedSort, ...predicate} = schema.rules || {};
+      let limit = savedLimit ?? '', sort = savedSort || '-created_at';
+      let rules = normalize(schema.rules ? predicate : {op:'AND', rules:[defaultRule()]});
       const specs = new Map(schema.fields.map(field => [field.name, field]));
       const unavailable = new Set(schema.unavailable_parents);
       [...folderForm.elements.parent.options].forEach(option => option.disabled=unavailable.has(option.value));
@@ -84,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const children=node.rules.map(compact);
           return node.op!=='NOT' && children.length===1 ? children[0] : {...node,rules:children};
         }
-        folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify(compact(rules)) : '';
+        const options = {...(limit !== '' ? {limit:Number(limit)} : {}), ...(sort !== '-created_at' ? {sort} : {})};
+        folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify({...compact(rules), ...options}) : '';
       }
       function input(type, value, label, change) {
         const control = element('input'); control.type = type; control.value = value ?? '';
@@ -175,12 +178,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       function render() {
         root.replaceChildren(); root.hidden=kind.value !== 'smart' || dialog.dataset.mode==='move';
+        const options = dialog.querySelector('.folder-options');
+        options.replaceChildren(); options.hidden=root.hidden;
         dialog.classList.toggle('has-rules', !root.hidden);
         if (!root.hidden) {
           const group=rules.op==='NOT' ? rules.rules[0] : rules;
           if (!group.op && !schema.container) rules={op:'AND',rules:[rules]};
           root.append(renderNode(rules,value => {rules=value;}));
           if (schema.container) root.querySelectorAll('input,select,button').forEach(control => control.disabled=true);
+          function option(label, control) {
+            const wrapper=element('label','folder-option',label); wrapper.append(control); options.append(wrapper);
+          }
+          option('Sort by', select([...Object.entries(schema.sort_fields), ['?','Random']], sort.replace(/^-/, ''), 'Sort by', value => {
+            sort=value==='?' ? '?' : (sort.startsWith('-') ? '-' : '')+value; render();
+          }));
+          if (sort!=='?') option('Order', select([['desc','Descending'],['asc','Ascending']],sort.startsWith('-') ? 'desc' : 'asc','Sort direction', value => {
+            sort=(value==='desc' ? '-' : '')+sort.replace(/^-/, '');
+          }));
+          const maximum=input('number',limit,'Limit',value => limit=value);
+          maximum.required=false;maximum.min='1';maximum.step='1';maximum.inputMode='numeric';maximum.placeholder='No limit';
+          option('Limit',maximum);
         }
         serialize();
       }

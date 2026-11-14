@@ -125,6 +125,8 @@ def test_public_smart_witness_is_rechecked_after_visibility_changes(admin_user):
     older.config = {"PERMISSIONS": "private"}
     older.save(update_fields=["config"])
     assert smart.pk not in {folder.pk for folder in Folder.tree(public=True)}
+    Snapshot.objects.create(url="https://news.ycombinator.com/new-match", title="older", crawl=crawl, config={"PERMISSIONS": "public"})
+    assert smart.pk in {folder.pk for folder in Folder.tree(public=True)}
 
 
 def test_public_smart_folder_with_deleted_reference_is_empty():

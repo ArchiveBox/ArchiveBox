@@ -1659,6 +1659,8 @@ class PublicIndexView(ListView):
             from archivebox.core.smart_folders import RuleQuery
 
             self.folder_query = RuleQuery().folder(selected.pk)
+            if selected.is_smart:
+                self.ordering = RuleQuery.ordering(selected)
             while selected:
                 self.folder_breadcrumbs.insert(0, selected)
                 selected = by_id.get(str(selected.parent_id))

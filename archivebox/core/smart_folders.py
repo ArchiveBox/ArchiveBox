@@ -6,7 +6,8 @@ from functools import lru_cache
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Q, Exists, OuterRef, F, Value
+from django.db.models.functions import Cast, Concat, MD5
 from django.utils import timezone
 
 CHILDREN_RULES = {"field": "folder", "lookup": "in_children", "value": "self"}
@@ -98,13 +99,82 @@ def field_spec(name, field):
 
 
 class RuleQuery:
-    def __init__(self, folders=None, *, validate=False):
+    def __init__(self, folders=None, *, validate=False, freeze_limits=False):
         from archivebox.core.models import Folder
 
         self.folders = {str(f.pk): f for f in (folders if folders is not None else Folder.objects.all())}
         self.validate = validate
+        self.freeze_limits = freeze_limits
         self.cache = {}
         self.specs = {spec["name"]: spec for spec in self.schema()}
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def sort_fields():
+        from archivebox.core.models import Snapshot
+
+        return {
+            field.name: str(field.verbose_name).capitalize()
+            for field in Snapshot._meta.concrete_fields
+            if not field.is_relation and not isinstance(field, (models.JSONField, models.BinaryField))
+        }
+
+    @classmethod
+    def ordering(cls, folder):
+        from archivebox.core.models import Snapshot
+
+        sort = (folder.rules or {}).get("sort", "-created_at")
+        if sort == "?":
+            # Stable shuffle: pagination, exports and bulk moves see the same set.
+            return [MD5(Concat(Cast("pk", models.CharField()), Value(str(folder.pk)))).asc(), "pk"]
+        if not isinstance(sort, str) or sort.removeprefix("-") not in cls.sort_fields():
+            raise ValidationError("Choose a supported sort field.")
+        field, descending = sort.removeprefix("-"), sort.startswith("-")
+        order = sort
+        if Snapshot._meta.get_field(field).null:
+            order = F(field).desc(nulls_last=True) if descending else F(field).asc(nulls_last=True)
+        return [order, "-pk" if descending else "pk"]
+
+    def limit(self, folder, query):
+        from archivebox.core.models import Snapshot
+
+        ordering = self.ordering(folder)
+        limit = folder.rules.get("limit")
+        if limit is None:
+            return query
+        if type(limit) is not int or not 1 <= limit <= 2**63 - 1:
+            raise ValidationError("Limit must be a positive whole number, or blank.")
+        if self.validate:
+            return query
+        matches = Snapshot.objects.filter(query).order_by(*ordering)
+        if limit <= 1000:
+            from archivebox.misc.paginators import snapshot_page
+
+            # Reuse the bounded order-index probe for small playlists, avoiding
+            # a full sort of a large folder before applying its limit.
+            ids = snapshot_page(
+                matches.values_list("pk", flat=True),
+                base_queryset=Snapshot.objects.values_list("pk", flat=True),
+                start=0,
+                size=limit,
+            )
+            return Q(pk__in=ids)
+        if not self.freeze_limits:
+            return Q(pk__in=matches.values("pk")[:limit])
+        # Freeze a scalar boundary before writes so a limited folder cannot
+        # refill and move more than the initially selected set. No ID list/lock.
+        first = ordering[0]
+        expression = F(first.lstrip("-")) if isinstance(first, str) else first.expression
+        descending = first.startswith("-") if isinstance(first, str) else first.descending
+        matches = matches.alias(_folder_order=expression)
+        boundary = list(matches.annotate(_value=expression).values_list("_value", "pk")[limit - 1 : limit])
+        if not boundary:
+            return query
+        value, pk = boundary[0]
+        comparison = "gte" if descending else "lte"
+        cutoff = Q(_folder_order=value, **{f"pk__{comparison}": pk})
+        cutoff |= Q(_folder_order__isnull=False) if value is None else Q(**{f"_folder_order__{'gt' if descending else 'lt'}": value})
+        return Q(pk__in=matches.filter(cutoff).order_by().values("pk"))
 
     @staticmethod
     @lru_cache(maxsize=1)
@@ -151,6 +221,8 @@ class RuleQuery:
         if children and not folder.is_container:
             for child in children:
                 query |= self.folder(child.pk, (*stack, key))
+        if folder.is_smart:
+            query = self.limit(folder, query)
         self.cache[key] = query
         return query
 
@@ -210,7 +282,7 @@ class RuleQuery:
                             physical.append(key)
                         for child in self.folders.values():
                             if str(child.parent_id) == key:
-                                if child.is_container:
+                                if child.is_container and not child.rules.get("limit"):
                                     pending.append(str(child.pk))
                                 else:
                                     result |= self.folder(child.pk, stack) if child.is_smart else Q(pk__in=[])
@@ -263,7 +335,8 @@ class RuleQuery:
                     result = Q(
                         Exists(
                             Snapshot.objects.with_hostname(allow_empty=True).filter(
-                                pk=OuterRef("pk"), **{f"_domain_host__{lookup}": value}
+                                pk=OuterRef("pk"),
+                                **{f"_domain_host__{lookup}": value},
                             ),
                         ),
                     )
