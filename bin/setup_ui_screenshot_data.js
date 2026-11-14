@@ -137,6 +137,8 @@ async function main() {
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
+    featureViews.push({...library, name: 'Navigation tools menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-tools'});
+    featureViews.push({...library, name: 'Navigation account menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-account'});
     const smart = await require('../archivebox/core/library_gallery.js').prepareSmartFolder(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(smart, {...smart, name: 'Smart folder rule editor', mode: 'smart-folder'});
     featureViews.push({...library, name: 'Current view export menu', mode: 'view-export-menu'});

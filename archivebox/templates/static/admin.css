@@ -1,3 +1,7 @@
+/* One shared UI family; monospace remains for code and identifiers. */
+:root { --font-family-primary: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+html body, input, textarea, select, button { font-family: var(--font-family-primary); }
+
 /* * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -30,34 +34,6 @@
 }
 #content {
     padding: 8px 8px;
-}
-#user-tools {
-    font-size: 13px;
-
-}
-#user-tools .navbar-logout-form {
-    display: inline;
-    margin: 0;
-}
-#user-tools button.navbar-logout {
-    appearance: none;
-    background: none;
-    border: 0;
-    color: var(--header-link-color);
-    cursor: pointer;
-    font: inherit;
-    padding: 0;
-}
-#user-tools a.navbar-add-link,
-#user-tools a.navbar-add-link:link,
-#user-tools a.navbar-add-link:visited {
-    border: 1px solid #fff;
-    border-radius: 4px;
-    padding: 2px 6px;
-}
-.navbar-separator-wide {
-    display: inline-block;
-    width: 1em;
 }
 
 div.breadcrumbs {
@@ -633,281 +609,62 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 }
 
 @media (max-width: 520px) {
-    #container {
-        width: 100%;
-        min-width: 0 !important;
-    }
-
-    #header {
-        height: auto !important;
-        min-height: 0;
-        flex-shrink: 0 !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 4px;
-    }
-
-    #branding {
-        flex: none !important;
-        width: 100%;
-        text-align: center;
-    }
-
-    #user-tools {
-        width: 100%;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.8;
-        text-align: center;
-        white-space: normal !important;
-        overflow-wrap: anywhere;
-}
-
-@media (max-width: 430px) {
-    #user-tools {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        line-height: 1.2;
-        overflow-wrap: normal;
-    }
-
-    #user-tools .navbar-item {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 32px;
-        padding: 5px 8px;
-        border-radius: 5px;
-        white-space: nowrap;
-    }
-
-    #user-tools a.navbar-add-link,
-    #user-tools a.navbar-add-link:link,
-    #user-tools a.navbar-add-link:visited {
-        padding: 5px 8px;
-    }
-
-    #user-tools .navbar-item:where(
-        .navbar-log,
-        .navbar-tags,
-        .navbar-docs,
-        .navbar-api,
-        .navbar-admin,
-        .navbar-user,
-        .navbar-account
-    ),
-    #user-tools .navbar-separator {
-        display: none;
-    }
-}
-
-body.change-list:not(.model-snapshot) #changelist #toolbar,
+    #container { width: 100%; min-width: 0 !important; }
+    body.change-list:not(.model-snapshot) #changelist #toolbar,
     body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search,
-    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
-        width: 100%;
-        min-width: 0;
-    }
-
-    body.change-list:not(.model-snapshot) #changelist #toolbar .search-input-wrap {
-        height: 40px;
-    }
-
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar #searchbar {
-        height: 100%;
-    }
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div { width: 100%; min-width: 0; }
+    body.change-list:not(.model-snapshot) #changelist #toolbar .search-input-wrap { height: 40px; }
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar #searchbar { height: 100%; }
 }
 
-/* Keep the global admin navigation on one compact row at tablet/mobile sizes. */
+/* Shared public/admin navigation. Dropdowns remain outside the table's scrolling area. */
+#header { display: flex; flex-direction: row; flex-wrap: nowrap; height: auto; align-items: center; gap: 12px; box-sizing: border-box; min-height: 52px; }
+#branding { flex: 0 0 auto; width: auto; }
+#site-name { margin: 0; }
+#site-name a { display: flex; align-items: center; gap: 8px; }
+#site-name img { max-height: 30px; width: auto; padding: 0; }
+#user-tools { display: flex; flex: 1; width: auto; float: none; align-items: center; gap: 8px; min-width: 0; margin: 0; padding: 0; font-family: var(--font-family-primary); font-size: 14px; font-weight: 500; line-height: 1.3; letter-spacing: 0; text-transform: none; overflow: visible; }
+#user-tools .navbar-item { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; min-height: 36px; padding: 6px 8px; border: 0; border-radius: 5px; color: var(--header-link-color, #fff); font: inherit; text-decoration: none; white-space: nowrap; cursor: pointer; }
+#user-tools .navbar-item:hover, #user-tools details[open] > summary { background: #ffffff18; }
+#user-tools .navbar-item:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+#user-tools .navbar-add-link { border: 1px solid #ffffff80; margin-right: auto; }
+#user-tools .navbar-separator { opacity: .4; }
+#user-tools .navbar-spacer { width: 12px; }
+#user-tools .navbar-dropdown { position: relative; text-align: left; }
+#user-tools summary { list-style: none; }
+#user-tools summary::-webkit-details-marker { display: none; }
+#user-tools .navbar-username { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+#user-tools .navbar-chevron { width: 14px; height: 14px; flex: 0 0 14px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+#user-tools .navbar-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1100; min-width: 210px; padding: 5px; border: 1px solid var(--hairline-color, #ddd); border-radius: 7px; background: var(--body-bg, #fff); color: var(--body-fg, #222); box-shadow: 0 8px 24px #0003; }
+#user-tools .navbar-menu a, #user-tools .navbar-menu button { display: block; box-sizing: border-box; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; line-height: 1.4; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer; font-weight: 400; }
+#user-tools .navbar-menu a:hover, #user-tools .navbar-menu button:hover { background: var(--darkened-bg, #f3f4f6); }
+#user-tools .navbar-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--hairline-color, #ddd); background: none; }
+#user-tools .navbar-menu form { margin: 0; }
+#user-tools .navbar-menu-pair { display: grid; grid-template-columns: 1fr 1fr; }
+#user-tools .navbar-menu .navbar-mobile-admin { display: none; }
 @media (max-width: 1180px) {
-    #archivebox-system-warning-banner {
-        position: relative !important;
-        inset: auto !important;
-        transform: none !important;
-        width: 100%;
-        max-width: none !important;
-        padding: 6px 8px !important;
-        border-radius: 0 !important;
-        box-sizing: border-box;
-        text-align: center;
-    }
-
-    #header {
-        display: grid !important;
-        grid-template-columns: 30px minmax(0, 1fr);
-        align-items: center !important;
-        column-gap: clamp(4px, 1vw, 12px);
-        width: 100%;
-        height: auto !important;
-        min-height: 42px;
-        padding: 5px 8px;
-        box-sizing: border-box;
-    }
-
-    #branding {
-        width: auto !important;
-        min-width: 0;
-        margin: 0;
-        padding: 0;
-        text-align: left;
-    }
-
-    #site-name {
-        margin: 0;
-        line-height: 1;
-    }
-
-    #site-name a {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        overflow: hidden;
-    }
-
-    #site-name .branding-label {
-        display: none;
-    }
-
-    #site-name #logo,
-    #site-name img {
-        display: block;
-        width: auto;
-        height: auto !important;
-        max-width: 28px;
-        max-height: 28px;
-        margin: 0;
-        padding: 0;
-        object-fit: contain;
-    }
-
-    #user-tools {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        align-items: center;
-        justify-content: flex-end;
-        gap: clamp(3px, 0.7vw, 10px);
-        width: 100%;
-        min-width: 0;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden;
-        line-height: 1.2;
-        text-align: right;
-        white-space: nowrap !important;
-        container: admin-navigation / inline-size;
-    }
-
-    #user-tools .navbar-item {
-        flex: 0 0 auto;
-        min-width: 0;
-        white-space: nowrap;
-    }
-
-    #user-tools .navbar-user {
-        display: inline-flex;
-        flex: 0 1 min(18vw, 180px);
-        min-width: 0;
-        max-width: min(18vw, 180px);
-        gap: 4px;
-        overflow: hidden;
-    }
-
-    #user-tools .navbar-user-label {
-        display: none;
-    }
-
-    #user-tools .navbar-username {
-        display: block;
-        flex: 1 1 auto;
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    #user-tools .navbar-separator {
-        display: none;
-    }
+    #archivebox-system-warning-banner { position: relative !important; inset: auto !important; transform: none !important; width: 100%; max-width: none !important; padding: 6px 8px !important; border-radius: 0 !important; box-sizing: border-box; text-align: center; }
+    #header { gap: 12px; padding: 5px 10px; }
+    #branding .branding-label { display: none; }
+    #user-tools { flex: 1; justify-content: flex-end; gap: 4px; }
+    #user-tools .navbar-username { max-width: 120px; }
 }
-
-@media (max-width: 520px) {
-    #header {
-        grid-template-columns: 26px minmax(0, 1fr);
-        column-gap: 4px;
-        min-height: 38px;
-        padding: 4px 6px;
-    }
-
-    #site-name a,
-    #site-name #logo,
-    #site-name img {
-        width: 26px;
-        height: 26px !important;
-    }
-
-    #site-name #logo,
-    #site-name img {
-        width: auto;
-        height: auto !important;
-        max-width: 24px;
-        max-height: 24px;
-    }
-
-    #user-tools {
-        justify-content: space-between;
-        gap: 2px;
-        font-size: 11px;
-    }
-
-    #user-tools .navbar-item {
-        min-height: 28px;
-        padding: 4px 3px;
-        border-radius: 4px;
-    }
-
-    #user-tools a.navbar-add-link,
-    #user-tools a.navbar-add-link:link,
-    #user-tools a.navbar-add-link:visited {
-        padding: 4px 5px;
-    }
-
-    #user-tools .navbar-item:where(
-        .navbar-log,
-        .navbar-tags,
-        .navbar-docs,
-        .navbar-api,
-        .navbar-admin,
-        .navbar-user,
-        .navbar-account
-    ) {
-        display: none;
-    }
+@media (max-width: 700px) {
+    #header { gap: 6px; padding: 4px 6px; }
+    #site-name img, #site-name #logo { max-height: 26px; max-width: 26px; margin: 0; }
+    #user-tools { gap: 2px; font-size: 13px; }
+    #user-tools .navbar-item { min-height: 40px; min-width: 36px; padding: 6px; }
+    #user-tools .navbar-separator, #user-tools .navbar-spacer,
+    #user-tools .navbar-username, #user-tools .navbar-agent-label { display: none; }
+    #user-tools .navbar-menu { position: fixed; top: 52px; right: 8px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 64px); overflow-y: auto; }
+    #user-tools .navbar-menu a, #user-tools .navbar-menu button { min-height: 44px; display: flex; align-items: center; }
 }
-
-/* Drop secondary links before they crowd the primary archive actions. Use the
-   navigation's available width, including space taken by the branding. */
-@container admin-navigation (max-width: 760px) {
-    #user-tools :is(.navbar-user, .navbar-docs, .navbar-api) {
-        display: none;
-    }
+@media (max-width: 430px) {
+    #user-tools .navbar-add-label { display: none; }
 }
-
-@container admin-navigation (max-width: 640px) {
-    #user-tools .navbar-account {
-        display: none;
-    }
-}
-
-@container admin-navigation (max-width: 560px) {
-    #user-tools :is(.navbar-log, .navbar-tags, .navbar-admin) {
-        display: none;
-    }
+@media (max-width: 380px) {
+    #user-tools:has(.library-tools) .navbar-admin { display: none; }
+    #user-tools .navbar-menu .navbar-mobile-admin { display: flex; }
 }
 
 /* Filter Sidebar - Improved Layout */
@@ -1082,7 +839,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 
 #result_list tbody .field-title_str > a {
     color: #1e293b;
-    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     font-size: 15px;
     line-height: 1.4;
     position: relative;
@@ -1129,7 +886,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 
 #result_list .snapshot-original-url code {
     display: block;
-    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     font-size: 11.5px;
     font-weight: 400;
     line-height: 1.25;
@@ -2916,7 +2673,7 @@ body.model-snapshot.change-list #changelist-form > .results {
     outline: 0;
     background: transparent;
     color: #475569;
-    font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font: 600 12px/1.2 var(--font-family-primary);
     letter-spacing: 0;
 }
 
@@ -2978,7 +2735,7 @@ body.model-snapshot.change-list #changelist-form > .results {
    and tag-widget rules cannot leak inconsistent type styles into the row. */
 .model-snapshot.change-list #changelist #changelist-form > .actions-top,
 .model-snapshot.change-list #changelist #changelist-form > .actions-top * {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     letter-spacing: 0;
 }
 
@@ -3135,8 +2892,8 @@ body.change-list #changelist #changelist-form > .actions-top .action-summary {
     text-align: right;
 }
 
-body.change-list #changelist #changelist-form > .actions-top .action-selected-count,
-body.change-list #changelist #changelist-form > .actions-top .action-total-count {
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-selected-count,
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-total-count {
     display: inline-flex;
     flex: 0 0 auto !important;
     align-items: baseline;
@@ -3959,6 +3716,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a,
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary span {
+    flex: 0 0 auto !important;
     font-family: inherit;
     font-size: inherit !important;
     line-height: inherit !important;
@@ -4172,7 +3930,7 @@ html.archivebox-native-app #header.archivebox-app-header {
     flex-shrink: 0;
     background: #a51c50 !important;
     color: #fff !important;
-    font: 500 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+    font: 500 13px/1.5 var(--font-family-primary);
 }
 html.archivebox-native-app #header.archivebox-app-header > :not(#branding):not(.breadcrumbs),
 html.archivebox-native-app #header.archivebox-app-header .branding-label,
@@ -4214,3 +3972,9 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .prog
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .tree-container { max-height: calc(100vh - 80px) !important; }
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .header-bar { pointer-events: none; }
 html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #progress-collapse { display: none !important; }
+
+.snapshot-changelist-widget{width:100%;min-width:0;overflow:hidden;background:var(--body-bg,#fff)}
+.snapshot-changelist-toolbar{display:flex;align-items:center;gap:12px;min-height:38px;padding:4px 10px;border-bottom:1px solid var(--hairline-color,#e4e7ec);font-size:12px}
+.snapshot-changelist-toolbar>strong{margin-right:auto;font-weight:600}
+.snapshot-changelist-toolbar>.snapshot-export-block{min-width:100px}
+.snapshot-changelist-toolbar .library-export-toggle{font-size:12px}

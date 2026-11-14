@@ -253,33 +253,6 @@ body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .
     line-height: inherit !important;
 }
 
-.crawl-snapshots-embed {
-    width: 100%;
-    overflow: hidden;
-    border-radius: 0 0 12px 12px;
-    background: #fff;
-}
-
-.crawl-snapshots-embed__toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 14px;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
-}
-
-.crawl-snapshots-embed__toolbar strong {
-    color: #334155;
-    font-size: 13px;
-}
-
-.crawl-snapshots-embed__toolbar .button {
-    padding: 6px 10px;
-    font-size: 12px;
-}
-
 @media (max-width: 900px) {
     body.model-crawl.change-form #content .object-tools .archivebox-crawl-resume-tool {
         display: flex;

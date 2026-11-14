@@ -17,6 +17,7 @@ from django.utils.safestring import mark_safe
 from django.db.models import Count, Prefetch
 from django import forms
 from django.template import Context, Template, RequestContext
+from django.template.loader import render_to_string
 from django.contrib.admin.helpers import ActionForm
 
 from django.contrib.admin.options import ActionLocation
@@ -542,6 +543,33 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             context["progress_endpoint"] = progress_endpoint("snapshot", obj.id)
         context.update(GLOBAL_CONTEXT)
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
+
+    def render_embedded_changelist(self, request, scoped_params):
+        snapshot_changelist = reverse("admin:core_snapshot_changelist")
+        params = request.GET.copy()
+        for key, value in scoped_params.items():
+            params[key] = value
+        params.pop("_embedded", None)
+        full_url = f"{snapshot_changelist}?{params.urlencode()}"
+        changelist_request = copy(request)
+        changelist_request.method = "GET"
+        changelist_request.path = snapshot_changelist
+        changelist_request.GET = params.copy()
+        changelist_request.GET.update({"_embedded": "crawl", "per_page": params.get("per_page", "200")})
+        changelist_request.POST = request.POST.copy()
+        changelist_request.POST.clear()
+        response = self.changelist_view(changelist_request, extra_context={"embedded_changelist": True})
+        return mark_safe(
+            render_to_string(
+                "admin/core/snapshot/embedded_changelist.html",
+                {
+                    **response.context_data,
+                    "snapshot_changelist_url": full_url,
+                    "changelist_form_action": f"{snapshot_changelist}?{changelist_request.GET.urlencode()}",
+                },
+                request=request,
+            )
+        )
 
     def changelist_view(self, request, extra_context=None):
         # Django shares ModelAdmin instances; deferred rendering must keep its own request.

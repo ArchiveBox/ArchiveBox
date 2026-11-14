@@ -1,10 +1,12 @@
 {% extends "importers/base.html" %}
-{% load static %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% include "importers/run_style.html" %}<script src="{% static 'library/folders.js' %}" defer></script><script type="module" src="{% static 'exports.js' %}"></script>{% endblock %}
-{% block importer_content %}
+{% block extrastyle %}{{ block.super }}{% include "importers/run_style.html" %}{% endblock %}
+{% block content %}
+<main class="importers">
 <div class="run-page">
 <header class="run-heading"><h1><a href="{{ run.source.get_absolute_url }}">{{ run.source.name }}</a><span aria-hidden="true"> / </span>{{ run.get_action_display }}</h1><a class="button" href="{% url 'importers:run-json' run.pk %}">Items JSON</a></header>
-<section data-activity-url="{% url 'importers:run-activity' run.pk %}">{% include "importers/run_body.html" %}</section>
-{% include "importers/updates.html" %}
+<section data-activity-url="{% url 'importers:run-activity' run.pk %}">{% include "importers/activity.html" %}</section>
 </div>
+</main>
+{{ snapshots_changelist }}
+{% include "importers/updates.html" %}
 {% endblock %}

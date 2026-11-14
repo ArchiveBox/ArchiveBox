@@ -3,7 +3,7 @@ __package__ = "archivebox.crawls"
 import json
 from copy import copy
 from typing import ClassVar
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 
 from django import forms
 from django.contrib import admin, messages
@@ -12,7 +12,6 @@ from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
@@ -1136,36 +1135,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="Snapshots")
     def snapshots_changelist(self, obj):
-        request = self.request
-        snapshot_changelist = reverse("admin:core_snapshot_changelist")
-        scoped_params = {"crawl_id": str(obj.pk)}
-        full_url = f"{snapshot_changelist}?{urlencode(scoped_params)}"
-
-        snapshot_admin = self.admin_site._registry[Snapshot]
-        changelist_request = copy(request)
-        changelist_request.method = "GET"
-        changelist_request.path = snapshot_changelist
-        changelist_request.GET = request.GET.copy()
-        changelist_request.GET.update(
-            {
-                **scoped_params,
-                "_embedded": "crawl",
-                "per_page": "200",
-            },
-        )
-        changelist_request.POST = request.POST.copy()
-        changelist_request.POST.clear()
-
-        response = snapshot_admin.changelist_view(
-            changelist_request,
-            extra_context={"embedded_changelist": True},
-        )
-        context = {
-            **response.context_data,
-            "snapshot_changelist_url": full_url,
-            "crawl": obj,
-        }
-        return mark_safe(render_to_string("admin/crawls/crawl/snapshots_changelist.html", context, request=request))
+        return self.admin_site._registry[Snapshot].render_embedded_changelist(self.request, {"crawl_id": str(obj.pk)})
 
     def delete_snapshot_view(self, request: HttpRequest, object_id: str, snapshot_id: str):
         if request.method != "POST":

@@ -239,52 +239,44 @@ document.addEventListener('DOMContentLoaded', () => {
       finally {save.disabled = false;}
     });
   }
-  const initializedMenus = new WeakSet();
-  function initializeMenus() {
-    document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
-      if (initializedMenus.has(button)) return;
-      initializedMenus.add(button);
-      const menu = document.getElementById(button.getAttribute('popovertarget'));
-      const items = [...menu.querySelectorAll('[role=menuitem]')];
-      function positionMenu() {
-        const rect = button.getBoundingClientRect();
-        const box = menu.getBoundingClientRect();
-        menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
-        const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
-        menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
+  document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
+    const menu = document.getElementById(button.getAttribute('popovertarget'));
+    const items = [...menu.querySelectorAll('[role=menuitem]')];
+    function positionMenu() {
+      const rect = button.getBoundingClientRect();
+      const box = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
+      const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
+      menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
+    }
+    menu.addEventListener('toggle', event => {
+      const open = event.newState === 'open';
+      button.setAttribute('aria-expanded', String(open));
+      if (open) {
+        positionMenu();
+        items[0]?.focus({preventScroll:true});
+        window.addEventListener('resize', positionMenu);
+        window.addEventListener('scroll', positionMenu, true);
+      } else {
+        window.removeEventListener('resize', positionMenu);
+        window.removeEventListener('scroll', positionMenu, true);
       }
-      menu.addEventListener('toggle', event => {
-        const open = event.newState === 'open';
-        button.setAttribute('aria-expanded', String(open));
-        if (open) {
-          positionMenu();
-          items[0]?.focus({preventScroll:true});
-          window.addEventListener('resize', positionMenu);
-          window.addEventListener('scroll', positionMenu, true);
-        } else {
-          window.removeEventListener('resize', positionMenu);
-          window.removeEventListener('scroll', positionMenu, true);
-        }
-      });
-      button.addEventListener('keydown', event => {
-        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-          event.preventDefault();
-          if (!menu.matches(':popover-open')) menu.showPopover();
-        }
-      });
-      menu.addEventListener('keydown', event => {
-        const index = items.indexOf(document.activeElement);
-        if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
-          event.preventDefault();
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-          items[next]?.focus();
-        } else if (event.key === 'Tab') menu.hidePopover();
-      });
     });
-  }
-  initializeMenus();
-  const activity = document.querySelector('[data-activity-url]');
-  if (activity) new MutationObserver(initializeMenus).observe(activity, {childList:true, subtree:true});
+    button.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (!menu.matches(':popover-open')) menu.showPopover();
+      }
+    });
+    menu.addEventListener('keydown', event => {
+      const index = items.indexOf(document.activeElement);
+      if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus();
+      } else if (event.key === 'Tab') menu.hidePopover();
+    });
+  });
   if (!sidebar) return;
   const form = document.querySelector('#changelist-form');
   if (location.hash === '#delete-snapshots' && form && new URLSearchParams(location.search).has('folder')) {

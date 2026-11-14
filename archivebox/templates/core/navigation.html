@@ -1,59 +1,54 @@
 {% load i18n static core_tags %}
-
 <nav id="user-tools" aria-label="Main navigation">
-    <a href="{% url 'add' %}" class="navbar-item navbar-add-link">Add ➕</a>
-    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
-    <a href="/admin/crawls/crawl/" class="navbar-item navbar-crawls">Crawls</a>
-    {% if user.is_superuser %}
-    <span class="navbar-separator" aria-hidden="true">|</span>
-    <a href="{% url 'importers:index' %}" class="navbar-item navbar-importers">Importers</a>
-    {% include "core/library_navigation.html" %}
-    {% endif %}
-    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="{% url 'add' %}" class="navbar-item navbar-add-link" aria-label="Add"><span aria-hidden="true">＋</span><span class="navbar-add-label">Add</span></a>
     <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Snapshots</a>
-    <span class="navbar-separator" aria-hidden="true">|</span>
-    <a href="/admin/core/archiveresult/?o=-1" class="navbar-item navbar-log">Log</a>
-    <span class="navbar-separator" aria-hidden="true">|</span>
-    <a href="/admin/core/tag/" class="navbar-item navbar-tags">Tags</a>
-    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
-    {% plugin_ui "navigation" %}
-    <a href="{% url 'Docs' %}" class="navbar-item navbar-docs" target="_blank" rel="noopener noreferrer">Docs</a>
-    <span class="navbar-separator" aria-hidden="true">|</span>
-    <a href="/api/v1/docs" class="navbar-item navbar-api">API</a>
-    <span class="navbar-separator" aria-hidden="true">|</span>
-    <a href="/admin/" class="navbar-item navbar-admin">Admin</a>
-    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     {% if user.is_authenticated %}
-        {% block welcome-msg %}
-            <span class="navbar-item navbar-user">
-                <span class="navbar-user-label">{% trans 'User' %}</span>
-                <strong class="navbar-username" title="{% firstof user.get_short_name user.get_username %}">{% firstof user.get_short_name user.get_username %}</strong>
-            </span>
-            <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
-        {% endblock %}
-        {% block userlinks %}
-            {% url 'socialaccount_connections' as connections_url %}
-            {% if connections_url %}
-                <a href="{{ connections_url }}" class="navbar-item navbar-account">{% trans 'Account' %}</a>
-                <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
-            {% elif user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}" class="navbar-item navbar-account" title="Change your account password">Account</a>
-                <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
-            {% endif %}
-            <form method="post" action="{% url 'admin:logout' %}" class="navbar-logout-form">
-                {% csrf_token %}
-                <button type="submit" class="navbar-item navbar-logout">{% trans 'Log out' %}</button>
-            </form>
-        {% endblock %}
+        <span class="navbar-separator" aria-hidden="true">|</span>
+        {% include "core/library_navigation.html" %}
+    {% endif %}
+    <span class="navbar-separator navbar-admin-separator" aria-hidden="true">|</span>
+    <a href="/admin/" class="navbar-item navbar-admin">Admin</a>
+    <span class="navbar-spacer"></span>
+    {% plugin_ui "navigation" %}
+    {% if user.is_authenticated %}
+        <details class="navbar-dropdown navbar-user-menu">
+            <summary class="navbar-item" aria-label="Account: {% firstof user.get_short_name user.get_username %}">
+                <span aria-hidden="true">👤</span>
+                <span class="navbar-username">{% firstof user.get_short_name user.get_username %}</span>
+                <svg class="navbar-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="navbar-menu">
+                {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">Reset password</a>{% endif %}
+                <a href="{% url 'admin:auth_user_change' user.pk %}">Profile</a>
+                <hr>
+                <div class="navbar-menu-pair"><a href="{% url 'admin:api_apitoken_changelist' %}">API Keys</a><a href="/api/v1/docs">API Docs</a></div>
+                <div class="navbar-menu-pair"><a href="{% url 'Docs' %}" target="_blank" rel="noopener noreferrer">Documentation</a><a href="https://github.com/ArchiveBox/ArchiveBox/issues/new/choose" target="_blank" rel="noopener noreferrer">Report a Bug</a></div>
+                <hr>
+                <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">{% trans 'Log Out' %}</button></form>
+            </div>
+        </details>
     {% elif request.COOKIES.archivebox_admin_logged_in == "1" %}
-        {% comment %}
-        Authenticated on the admin host but the session cookie is admin-host-
-        scoped (security boundary — web.* must NEVER see the session).
-        The hint cookie is the only signal that crosses, so link back to the
-        admin host where the session and CSRF cookie are available.
-        {% endcomment %}
+        {# The hint cookie reveals no identity; the session stays on the admin host. #}
         <a href="/admin/" class="navbar-item navbar-account">Account</a>
     {% else %}
         <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}
 </nav>
+<script>
+(() => {
+    const nav = document.getElementById('user-tools');
+    const menus = nav.querySelectorAll('.navbar-dropdown');
+    nav.addEventListener('toggle', event => {
+        if (event.target.open) menus.forEach(menu => { if (menu !== event.target) menu.open = false; });
+    }, true);
+    document.addEventListener('click', event => {
+        menus.forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        menus.forEach(menu => {
+            if (menu.open) { menu.open = false; menu.querySelector('summary').focus(); }
+        });
+    });
+})();
+</script>

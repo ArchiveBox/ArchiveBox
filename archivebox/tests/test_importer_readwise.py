@@ -16,7 +16,8 @@ def test_readwise_importer_preserves_metadata_and_password(initialized_archive, 
     example["nextPageCursor"] = None
     (root / "reader.json").write_text(json.dumps(example))
     script = """
-import asyncio, json, os
+import asyncio, json, os, re
+from html import unescape
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.core.settings")
 import django
 django.setup()
@@ -72,6 +73,31 @@ for document in examples:
     assert snapshot.title == document["title"], (snapshot.title, document["title"])
     assert snapshot.bookmarked_at == parse_datetime(document["saved_at"])
     assert snapshot.depth == 0
+other_crawl = Crawl.objects.create(urls="https://example.org/unrelated", created_by=user)
+other = Snapshot.objects.create(crawl=other_crawl, url="https://example.org/unrelated", title="Unrelated capture")
+for page_url in (f"/admin/importers/runs/{run.pk}/", f"/admin/crawls/crawl/{run.crawl_id}/change/"):
+    response = client.get(page_url)
+    assert response.status_code == 200, response.content
+    html = response.content.decode()
+    assert 'id="result_list"' in html
+    assert 'class="snapshot-changelist-widget' in html
+    assert 'data-export-format="wacz"' in html
+    for snapshot in Snapshot.objects.filter(crawl=run.crawl):
+        assert f'value="{snapshot.pk}"' in html
+    assert f'value="{other.pk}"' not in html
+filtered = client.get(f"/admin/importers/runs/{run.pk}/", {"q": examples[0]["title"], "search_mode": "meta"})
+assert filtered.status_code == 200
+assert filtered.content.count(b'name="_selected_action"') == 1
+action_url = unescape(re.search(r'<form id="changelist-form"[^>]*action="([^"]+)"', filtered.content.decode())[1])
+selected = Snapshot.objects.get(url=examples[0]["source_url"])
+action = client.post(action_url, {"action": "add_tags", "tags": "inline-action-test", "index": "0", "select_across": "1", "_selected_action": str(selected.pk)})
+assert action.status_code == 302
+assert list(Snapshot.objects.filter(tags__name="inline-action-test").values_list("pk", flat=True)) == [selected.pk]
+scoped = client.get(f"/admin/importers/runs/{run.pk}/", {"crawl_id": str(other_crawl.pk)})
+assert scoped.status_code == 200
+assert scoped.content.count(b'name="_selected_action"') == len(examples)
+assert f'value="{other.pk}"'.encode() not in scoped.content
+assert b'id="result_list"' not in client.get(f"/admin/importers/runs/{preview.pk}/").content
 source.refresh_from_db()
 assert "updated_after" in source.checkpoint
 print("Readwise catalog, form, preview, import, and persisted snapshot metadata verified")
