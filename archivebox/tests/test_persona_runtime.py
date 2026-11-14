@@ -165,6 +165,12 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
         profile = Path(persona.CHROME_USER_DATA_DIR) / 'Default'
         profile.mkdir(parents=True, exist_ok=True)
         installed_id, removed_id = 'a' * 32, 'b' * 32
+        # Public identity from a real Chromium install; lazy extensions can have
+        # no current Preferences entry after their private install path expires.
+        managed_id = 'bpgdakjikjpceenapeanibleafagicgk'
+        keys = profile.parent / 'archivebox-extension-keys'
+        keys.mkdir()
+        (keys / 'managed.pub').write_text('MCowBQYDK2VwAyEAyKayg73K/vV28N0zj7bava/TtQVm7DwGMKlW6uM5/NA=')
         files = [
             f'IndexedDB/chrome-extension_{installed_id}_0.indexeddb.leveldb/000001.log',
             f'IndexedDB/chrome-extension_{removed_id}_0.indexeddb.leveldb/000001.log',
@@ -173,6 +179,8 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
             'Service Worker/ScriptCache/script',
             f'Local Extension Settings/{installed_id}/000001.log',
             f'Local Extension Settings/{removed_id}/000001.log',
+            f'IndexedDB/chrome-extension_{managed_id}_0.indexeddb.leveldb/000001.log',
+            f'Local Extension Settings/{managed_id}/000001.log',
         ]
         for name in files:
             path = profile / name
@@ -207,7 +215,7 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
     assert code == 0, stderr
     payload = json.loads(stdout.strip().splitlines()[-1])
     keep_unknown_extension = preferences_state not in ("valid", "secure")
-    assert payload["copied"] == [True, keep_unknown_extension, keep_unknown_extension, True, True, True, keep_unknown_extension]
+    assert payload["copied"] == [True, keep_unknown_extension, keep_unknown_extension, True, True, True, keep_unknown_extension, True, True]
     assert payload["source_preserved"] is True
     assert payload["retained_contents"] is True
 

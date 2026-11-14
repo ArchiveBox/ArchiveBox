@@ -8,6 +8,8 @@ behavior stays consistent regardless of where it is triggered from.
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 import os
 import platform
 import re
@@ -132,16 +134,38 @@ def profile_copy_ignore(src: str, names: list[str]) -> set[str]:
         # Missing/malformed preferences cannot establish that an origin is
         # orphaned. Preserve unknown state rather than guess from directory size.
         if isinstance(settings, dict):
+            installed_ids = {key for key, value in settings.items() if isinstance(value, dict) and isinstance(value.get("path"), str)}
+            # On-demand extensions retain their identity even when Chrome has
+            # removed a disposable install path from Preferences between runs.
+            try:
+                keys = src_path.parent.parent / "archivebox-extension-keys"
+                try:
+                    key_files = list(keys.iterdir())
+                except FileNotFoundError:
+                    key_files = []
+                for key_file in key_files:
+                    if key_file.suffix != ".pub":
+                        continue
+                    key = base64.b64decode(key_file.read_text().strip(), validate=True)
+                    if not key:
+                        raise ValueError("Empty extension identity")
+                    extension_id = hashlib.sha256(key).hexdigest()[:32].translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
+                    installed_ids.add(extension_id)
+            except (OSError, ValueError):
+                installed_ids = None
             for name in names:
                 extension_id = None
                 if src_path.name == "IndexedDB" and name.startswith("chrome-extension_"):
                     extension_id = name.split("_", 2)[1]
                 elif src_path.name == "Local Extension Settings" and re.fullmatch(r"[a-p]{32}", name):
                     extension_id = name
-                if extension_id:
-                    extension = settings.get(extension_id, {})
-                    if isinstance(extension, dict) and not extension.get("path"):
-                        ignored.add(name)
+                if (
+                    installed_ids is not None
+                    and extension_id
+                    and extension_id not in installed_ids
+                    and isinstance(settings.get(extension_id, {}), dict)
+                ):
+                    ignored.add(name)
     for name in names:
         if name in ignored:
             continue
