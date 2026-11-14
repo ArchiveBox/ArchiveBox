@@ -24,6 +24,11 @@ on:
   schedule:
     - cron: '37 5,17 * * *'
   workflow_dispatch:
+    inputs:
+      plugin_revision:
+        description: Full abx-plugins main revision to capture before its release
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -45,7 +50,7 @@ jobs:
 
   deploy:
     needs: changes
-    if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev'
+    if: (needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-24.04
     environment: provider-capture
     services:
@@ -58,6 +63,32 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 1
+
+      - name: Validate plugin revision
+        if: inputs.plugin_revision != ''
+        env:
+          PLUGIN_REVISION: ${{ inputs.plugin_revision }}
+        run: '[[ "$PLUGIN_REVISION" =~ ^[0-9a-f]{40}$ ]]'
+
+      - name: Checkout plugin revision
+        if: inputs.plugin_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ArchiveBox/abx-plugins
+          ref: ${{ inputs.plugin_revision }}
+          fetch-depth: 0
+          path: .gallery-plugins
+
+      - name: Use plugin revision for this capture
+        if: inputs.plugin_revision != ''
+        env:
+          PLUGIN_REVISION: ${{ inputs.plugin_revision }}
+        run: |
+          set -Eeuo pipefail
+          git -C .gallery-plugins fetch origin main
+          test "$(git -C .gallery-plugins rev-parse HEAD)" = "$PLUGIN_REVISION"
+          git -C .gallery-plugins merge-base --is-ancestor HEAD FETCH_HEAD
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.gallery-plugins" >> "$GITHUB_ENV"
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -267,7 +298,7 @@ jobs:
   complete:
     name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
     needs: [changes, deploy]
-    if: needs.changes.outputs.changed == 'true'
+    if: needs.changes.outputs.changed == 'true' && inputs.plugin_revision == ''
     runs-on: ubuntu-24.04
     steps:
       - run: echo 'Scheduled work completed successfully.'
