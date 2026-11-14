@@ -106,7 +106,9 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
 
 document.addEventListener('click', event => {
   const link = event.target.closest('a[data-export-format]');
-  if (!link || !archiveFormats.has(link.dataset.exportFormat) || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  link.closest('[popover]')?.hidePopover();
+  if (!archiveFormats.has(link.dataset.exportFormat)) return;
   event.preventDefault();
   const controls = link.closest('.snapshot-export-links');
   startSnapshotExport(link.href, {format: link.dataset.exportFormat, anchor: link, csrf: controls?.dataset.exportCsrf, session: controls?.dataset.exportSession === '1', api: controls?.dataset.exportApi === '1'}).catch(() => {});
