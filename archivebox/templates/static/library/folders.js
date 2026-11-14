@@ -38,18 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
       finally {save.disabled = false;}
     });
   }
-  if (!sidebar) return;
-  const form = document.querySelector('#changelist-form');
-  const status = sidebar.querySelector('.folder-drop-status');
-  const rows = [...sidebar.querySelectorAll('.folder-row')];
-  sidebar.querySelectorAll('.folder-menu-toggle,.library-import-toggle').forEach(button => {
+  document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle').forEach(button => {
     const menu = document.getElementById(button.getAttribute('popovertarget'));
     const items = [...menu.querySelectorAll('[role=menuitem]')];
     function positionMenu() {
       const rect = button.getBoundingClientRect();
       const box = menu.getBoundingClientRect();
       menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
-      menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, rect.bottom + 4))}px`;
+      const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
+      menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
     }
     menu.addEventListener('toggle', event => {
       const open = event.newState === 'open';
@@ -79,6 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (event.key === 'Tab') menu.hidePopover();
     });
   });
+  if (!sidebar) return;
+  const form = document.querySelector('#changelist-form');
+  const status = sidebar.querySelector('.folder-drop-status');
+  const rows = [...sidebar.querySelectorAll('.folder-row')];
   const search = sidebar.querySelector('.folder-search');
   const collapsed = new Set();
   try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
@@ -104,7 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       row.hidden = term ? !matching.has(row.dataset.folderId) : hidden;
       const toggle = row.querySelector('.folder-toggle');
-      if (toggle) toggle.setAttribute('aria-expanded', String(!collapsed.has(row.dataset.folderId)));
+      if (toggle) {
+        const expanded = term ? rows.some(child => child.dataset.parentId === row.dataset.folderId && matching.has(child.dataset.folderId)) : !collapsed.has(row.dataset.folderId);
+        toggle.setAttribute('aria-expanded', String(expanded));
+        toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`);
+      }
     });
     sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
   }

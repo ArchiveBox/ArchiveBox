@@ -531,6 +531,7 @@ async function main() {
         checks.exportDownload = await exportDownload;
         if (!checks.exportDownload.bytes) throw new Error('The gallery export download is empty.');
       }
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'view-export') await require('../archivebox/core/library_gallery.js').openViewExportMenu(page);
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'search') await require('../archivebox/core/library_gallery.js').openFolderSearch(page);
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'folder') await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'import') await require('../archivebox/core/library_gallery.js').openImportMenu(page);
