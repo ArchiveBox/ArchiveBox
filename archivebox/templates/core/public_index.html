@@ -9,7 +9,16 @@
     #content.flex {
         padding: 0;
     }
-    .public-library .public-snapshot-toolbar {margin:0;padding:6px 10px;border-radius:0;box-shadow:none;border-width:0 0 1px;flex-wrap:wrap}
+    .public-library .public-snapshot-toolbar {box-sizing:border-box;min-height:var(--library-toolbar-height);margin:0;padding:5px 6px;border-radius:0;box-shadow:none;border-width:0 0 1px;border-bottom-color:var(--hairline-color,#e4e7ec);flex-wrap:wrap}
+    .public-library .public-search-input,
+    .public-library .public-snapshot-toolbar input[type="submit"] {box-sizing:border-box;height:var(--library-control-size);border-radius:4px}
+    .public-library .public-search-input {min-width:0}
+    .public-library .public-snapshot-toolbar #searchbar {min-width:0}
+    @media(min-width:768px){
+        .public-library .public-snapshot-toolbar {height:var(--library-toolbar-height);flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px}
+        .public-library .public-snapshot-toolbar form {flex-direction:row;align-items:center;flex:1;gap:8px}
+        .public-library .public-snapshot-count {align-self:center}
+    }
     .public-library .public-snapshot-table-wrap {border-radius:0;border-width:0 0 1px;box-shadow:none}
     .public-library .public-snapshot-list {container-type:inline-size}
     @container (max-width: 750px) {
