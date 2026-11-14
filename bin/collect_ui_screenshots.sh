@@ -613,12 +613,17 @@ PY
             SCREENSHOT_COLLAPSE_FILTERS=1 \
             node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 
-        echo "[*] Capturing Hacker News and current top stories for the library feature gallery"
+        echo "[*] Capturing Hacker News and current top stories with automatic tag and summary plugins"
         (
             cd "$DATA_DIR"
-            UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"])'
+            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" \
+                UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}" \
+                UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
         )
+        while IFS= read -r ai_view; do
+            [[ -z "$ai_view" ]] || VIEWS+=("$ai_view")
+        done <"$CAPTURE_ROOT/ai-views.txt"
         UI_LIBRARY_CRAWL_ID="$(cat "$CAPTURE_ROOT/library-crawl-id.txt")"
 
         echo "[*] Populating empty configuration views through the real Django admin UI"

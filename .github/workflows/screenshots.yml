@@ -173,6 +173,8 @@ jobs:
       - name: Build UI screenshot gallery
         run: xvfb-run -a bin/collect_ui_screenshots.sh
         env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          UI_SCREENSHOT_AI_MODEL: openai/gpt-5.4-mini
           BASE_URL: http://archivebox.localhost:5797
           AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
           CHROME_HEADLESS: "false"
