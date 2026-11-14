@@ -3,11 +3,7 @@
 .library-symbols{position:absolute;width:0;height:0;overflow:hidden}
 .folder-sidebar{position:relative;display:flex;flex-direction:column;min-width:0;padding:0;background:var(--body-bg,#fff);border-right:1px solid var(--hairline-color,#e4e7ec)}
 .folder-sidebar svg{width:16px;height:16px;flex:0 0 16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.library-heading{box-sizing:border-box;display:flex;align-items:center;gap:8px;height:var(--library-toolbar-height);min-height:var(--library-toolbar-height);padding:5px 8px 5px 12px;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
-.library-mark{display:grid;place-items:center;width:16px;height:16px;color:var(--body-quiet-color,#667085)}
-.library-heading-label{min-width:0}
-.folder-sidebar .library-heading h2{margin:0;padding:0;background:none;color:var(--body-fg,#1d2939);font-size:13px;font-weight:600;line-height:20px;letter-spacing:0}
-.folder-current,.library-current-icon{display:none}
+.folder-current{display:none}
 body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizing:border-box;display:flex!important;align-items:center;height:var(--library-toolbar-height);min-height:var(--library-toolbar-height);padding:5px 6px!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
 body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container>div{gap:0!important}
 .snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:6px;width:100%}
@@ -91,7 +87,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 @media(min-width:768px){
   .snapshot-library{--library-column-header-height:44px}
   .public-library{--library-column-header-height:36px}
-  .folder-section-heading{height:var(--library-column-header-height);min-height:var(--library-column-header-height)}
+  .folder-section-heading{height:var(--library-toolbar-height);min-height:var(--library-toolbar-height)}
   .snapshot-library #result_list thead tr{height:var(--library-column-header-height)}
   body.model-snapshot.change-list .snapshot-library #changelist #result_list thead th{border-top:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
   .public-library #table-bookmarks{border:0;border-collapse:separate;border-spacing:0}
@@ -107,7 +103,6 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 @media(min-width:768px) and (max-width:1100px){.snapshot-library{grid-template-columns:228px minmax(0,1fr)}}
 @media(max-width:767px){
   .snapshot-library{grid-template-columns:minmax(0,1fr)}.folder-sidebar{border-right:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
-  .library-heading{display:none}
   .folder-sidebar.is-collapsed .folder-current{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:16px;font-weight:500;color:var(--body-fg,#1d2939)}
   .folder-sidebar.is-collapsed .folder-current:empty{display:none}
   .folder-sidebar.is-collapsed .folder-section-heading{border-bottom:0}
