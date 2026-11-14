@@ -172,35 +172,59 @@
         color: #991b1b;
     }
 
-    #content-main #persona_form .field-name .flex-container {
-        max-width: 100% !important;
+    #content-main #persona_form .persona-card-primary { display: block; }
+    #content-main #persona_form .persona-card-primary h2 {
+        padding: 14px 18px 0 !important;
+        background: white !important;
+        font-size: 15px !important;
+        text-transform: none;
+        letter-spacing: 0;
     }
-
-    #persona_form .field-name input {
-        width: 100%;
-        max-width: none;
+    #content-main #persona_form .persona-card-primary .form-multiline {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+        max-width: 100% !important;
+        padding: 14px 18px 18px !important;
+        overflow: visible;
         box-sizing: border-box;
     }
-
-    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps {
-        flex: 0 1 300px !important;
-        min-width: 240px !important;
-        max-width: 320px !important;
-        align-self: flex-start;
+    #content-main #persona_form .persona-card-primary .fieldBox {
+        display: flex !important;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        max-width: 100% !important;
+        width: auto !important;
     }
-
-    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps > div {
-        padding: 12px 14px;
+    #content-main #persona_form .persona-card-primary label { margin: 0; font-size: 12px; }
+    #content-main #persona_form .persona-card-primary .help { order: 3; margin: 0; font-size: 11px; line-height: 1.4; }
+    #content-main #persona_form .persona-card-primary input,
+    #content-main #persona_form .persona-card-primary select {
+        width: 100%; height: 36px; min-height: 36px; margin: 0; padding: 6px 10px; border-radius: 7px;
     }
-
-    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps .form-row {
-        padding: 5px 0;
-    }
-
-    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps .readonly {
-        font-size: 12px;
-        line-height: 1.4;
-        overflow-wrap: anywhere;
+    #content-main #persona_form .persona-card-primary .related-widget-wrapper { display: flex; align-items: center; flex-wrap: nowrap; width: 100%; gap: 5px; }
+    #content-main #persona_form .persona-card-primary .related-widget-wrapper select { width: 0; flex: 1; }
+    #content-main #persona_form .persona-card-primary .related-widget-wrapper-link { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; padding: 4px; margin: 0; }
+    #content-main #persona_form .persona-card-primary .related-widget-wrapper-link img { width: 16px; height: 16px; }
+    #content-main #persona_form .persona-card-browser .form-row { padding: 14px 18px; }
+    #content-main #persona_form .persona-card-browser .flex-container { max-width: 100% !important; }
+    #content-main #persona_form .persona-card-browser label { display: none; }
+    #content-main #persona_form .persona-card-browser .readonly { padding: 0; background: transparent; border: 0; }
+    .abx-persona-artifacts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .abx-persona-path-list { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
+    .abx-persona-storage > summary { cursor: pointer; font: 13px/1.5 var(--font-family-primary); color: #475569; }
+    #content-main #persona_form .persona-card-config > details,
+    #content-main #persona_form .persona-card-timestamps > details { width: 100%; }
+    #content-main #persona_form .persona-card-config > details > summary,
+    #content-main #persona_form .persona-card-timestamps > details > summary { padding: 10px 18px; border: 0; cursor: pointer; background: #f8fafc; color: #475569; }
+    #content-main #persona_form .persona-card-config > details > summary h2,
+    #content-main #persona_form .persona-card-timestamps > details > summary h2 { padding: 0 8px !important; background: transparent !important; text-transform: none; letter-spacing: 0; }
+    #content-main #persona_form .persona-card-config > details > .form-row,
+    #content-main #persona_form .persona-card-timestamps > details > .form-row { padding: 12px 18px; }
+    @media (max-width: 800px) {
+        #content-main #persona_form .persona-card-primary .form-multiline { grid-template-columns: 1fr; gap: 14px; }
+        .abx-persona-artifacts, .abx-persona-path-list { grid-template-columns: 1fr; }
     }
 
     body.model-persona.change-form #content-main form .persona-plugin-config {
@@ -211,7 +235,7 @@
         max-width: 100% !important;
         width: 100% !important;
         box-sizing: border-box;
-        margin: 0 0 24px !important;
+        margin: 0 !important;
     }
 
 </style>
@@ -272,9 +296,13 @@ document.addEventListener('DOMContentLoaded', function () {
 {{ block.super }}
 {% endblock %}
 
-{% block after_field_sets %}
-{{ block.super }}
-<div id="plugin-config" class="persona-plugin-config">
-    {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
-</div>
+{% block field_sets %}
+{% for fieldset in adminform %}
+    {% include "admin/includes/fieldset.html" with heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=forloop.counter0 %}
+    {% if not add and 'persona-card-primary' in fieldset.classes or add and 'persona-card-import' in fieldset.classes %}
+        <div id="plugin-config" class="persona-plugin-config">
+            {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
+        </div>
+    {% endif %}
+{% endfor %}
 {% endblock %}

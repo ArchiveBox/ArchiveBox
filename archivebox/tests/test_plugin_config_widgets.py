@@ -54,6 +54,12 @@ def test_config_widget_overrides_in_browser(initialized_archive, browser_runtime
                 else:
                     page.goto(base + "/admin/personas/persona/")
                     page.get_by_role("link", name="Widget Review", exact=True).click()
+                    primary = page.locator(".persona-card-primary").bounding_box()
+                    settings = page.locator("#plugin-settings").bounding_box()
+                    browser_state = page.locator(".field-import_artifact_status").bounding_box()
+                    assert primary["height"] <= 200, "Persona identity fields should form one compact desktop row"
+                    assert primary["y"] < settings["y"] < browser_state["y"], "Plugin settings should precede browser state"
+                    assert page.locator("#id_created_by").bounding_box()["width"] >= 150, "The owner selector must keep its value readable"
                 for plugin in PROVIDERS:
                     card = page.locator(f'.plugin-card[data-plugin-name="{plugin}"]')
                     page.locator(f'[role="tab"][data-plugin="{plugin}"]').click()
