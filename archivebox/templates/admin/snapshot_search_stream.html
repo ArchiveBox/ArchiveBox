@@ -112,6 +112,8 @@
             var currentMain = document.getElementById("content-main");
             if (nextMain && currentMain) {
               currentMain.replaceWith(nextMain);
+              var actionCheckboxes = nextMain.querySelectorAll("tr input.action-select");
+              if (window.Actions && actionCheckboxes.length) window.Actions(actionCheckboxes);
               if (window.archiveboxInitAdminChangelist) window.archiveboxInitAdminChangelist();
               if (window.archiveboxInitChangelistFilters) window.archiveboxInitChangelistFilters();
               setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
