@@ -2576,6 +2576,8 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 .model-snapshot.change-list .cards .tags-inline-editor {
+    display: flex;
+    align-items: center;
     flex: 1;
     min-width: 0;
 }
@@ -2654,6 +2656,10 @@ tbody .output-link:hover {opacity: 1;}
     line-height: 20px;
     padding: 0;
     box-sizing: border-box;
+}
+
+.model-snapshot.change-list .cards .card-tags button {
+    margin: 0;
 }
 
 .model-snapshot.change-list .cards .library-tags-toggle {

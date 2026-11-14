@@ -2141,7 +2141,7 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
 def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime, admin_user, crawl, settings):
     from datetime import timedelta
     from django.utils import timezone
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, expect
     from archivebox.core.models import Snapshot, Tag
     from archivebox.config.common import get_config
 
@@ -2184,7 +2184,7 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     settings.CONFIG = get_config(overrides={"BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
-        page = browser.new_page()
+        page = browser.new_page(has_touch=True)
         page.on("dialog", lambda dialog: dialog.dismiss())
         page.goto(f"{admin_url}/admin/login/")
         page.locator("#id_username").fill(admin_user.username)
@@ -2227,6 +2227,16 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
             assert 0 < card.locator(".tag-pill:visible").count() < 6
             tag_boxes = [tag.bounding_box() for tag in card.locator(".tag-pill:visible").all()]
             assert max(box["y"] for box in tag_boxes) - min(box["y"] for box in tag_boxes) < 1
+            for selector in (".library-tags-toggle", ".tag-inline-input-sm", ".snapshot-row-permission", ".card-date"):
+                control = card.locator(selector)
+                box = control.bounding_box()
+                assert abs(box["y"] + box["height"] / 2 - tag_boxes[0]["y"] - tag_boxes[0]["height"] / 2) < 1, (
+                    width,
+                    selector,
+                    control.evaluate(
+                        "el => {const s=getComputedStyle(el);return {margin:s.margin,padding:s.padding,lineHeight:s.lineHeight,alignSelf:s.alignSelf,transform:s.transform}}",
+                    ),
+                )
             card.locator(".library-tags-toggle").click()
             assert card.locator(".tag-pill:visible").count() == 6
             card.locator(".library-tags-toggle").click()
@@ -2236,6 +2246,19 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
             card.locator(".tag-inline-input-sm").focus()
             assert card.locator(".tag-remove-btn").first.is_visible()
             card.locator(".tag-inline-input-sm").blur()
+        page.set_viewport_size({"width": 390, "height": 900})
+        card = page.locator(".cards .card").filter(has_text=title)
+        tag_input = card.locator(".tag-inline-input-sm")
+        tag_input.tap()
+        assert tag_input.evaluate("el => el === document.activeElement")
+        expect(tag_input).to_have_css("width", "120px")
+        tag_input.fill("mobile-added-tag")
+        with page.expect_response(lambda response: "tags/add-to-snapshot/" in response.url and response.request.method == "POST") as added:
+            tag_input.press("Enter")
+        assert added.value.ok
+        card.locator('.tag-pill[data-tag="mobile-added-tag"]').wait_for(state="visible")
+        page.reload()
+        assert page.locator(".card").filter(has_text=title).locator('.tag-pill[data-tag="mobile-added-tag"]').count() == 1
         page.set_viewport_size({"width": 1920, "height": 1000})
         page.goto(f"{admin_url}/admin/core/snapshot/")
         row = page.locator("#result_list tbody tr").filter(has_text=title)
@@ -2254,3 +2277,4 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
         browser.close()
     today.refresh_from_db()
     assert today.permissions == "private"
+    assert today.tags.filter(name="mobile-added-tag").exists()
