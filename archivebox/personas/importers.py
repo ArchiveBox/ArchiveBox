@@ -727,13 +727,14 @@ def export_profile_cookies(source: PersonaImportSource, staged_profile: Path, ou
 
 def run_browser_profile(**request) -> dict:
     from abx_dl.execution import iter_plugin_command
+    from archivebox.config.constants import CONSTANTS
     from archivebox.plugins.discovery import get_plugin_catalog
 
     command = get_plugin_catalog().find_command("browser-profile")
     result = {}
     try:
         # A profile may contain large offline stores; cancellation still reaps the command.
-        for line in iter_plugin_command(command, stdin=[json.dumps(request)], timeout=None):
+        for line in iter_plugin_command(command, stdin=[json.dumps(request)], cwd=CONSTANTS.DATA_DIR, timeout=None):
             try:
                 payload = json.loads(line)
             except ValueError:

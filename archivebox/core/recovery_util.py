@@ -46,7 +46,15 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
             if command is None or not paths:
                 continue
             try:
-                lines = list(iter_plugin_command(command, stdin=[json.dumps({"config": config, "paths": paths})], env=env, timeout=30))
+                lines = list(
+                    iter_plugin_command(
+                        command,
+                        stdin=[json.dumps({"config": config, "paths": paths})],
+                        env=env,
+                        cwd=CONSTANTS.DATA_DIR,
+                        timeout=30,
+                    ),
+                )
                 result = json.loads(lines[0]) if len(lines) == 1 else None
                 count = result.get("processes_orphaned") if isinstance(result, dict) else None
                 if type(count) is not int or count < 0:

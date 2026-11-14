@@ -333,12 +333,12 @@ def test_pr_image_exports_use_release_compression_and_size_budget():
     steps = docker["jobs"]["build"]["steps"]
     pr_build = next(step for step in steps if step.get("id") == "docker_build_pr")
     release_build = next(step for step in steps if step.get("id") == "docker_build")
-    assert "compression=zstd,compression-level=8" in release_build["with"]["outputs"]
+    assert "compression=zstd,compression-level=10,force-compression=true" in release_build["with"]["outputs"]
     outputs = pr_build["with"]["outputs"].strip().splitlines()
     assert len(outputs) == 2
     assert outputs[0].startswith("type=docker,")
     assert outputs[1].startswith("type=oci,")
-    assert all(output.endswith(",compression=zstd,compression-level=8") for output in outputs)
+    assert all(output.endswith(",compression=zstd,compression-level=10,force-compression=true") for output in outputs)
     validation = next(step for step in steps if step.get("name") == "Validate compressed image size")
     assert "$((1100 * 1024 * 1024))" in validation["run"]
     assert "if total > limit:" in validation["run"]
