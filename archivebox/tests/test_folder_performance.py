@@ -85,3 +85,50 @@ def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user):
     first = snapshot_page(query, base_queryset=base, start=0, size=10)
     second = snapshot_page(query, base_queryset=base, start=10, size=10)
     assert first + second == expected
+
+
+@pytest.mark.django_db(transaction=True)
+def test_public_smart_witness_is_rechecked_after_visibility_changes(admin_user):
+    from threading import enumerate as threads
+
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    smart = Folder.objects.create(name="Older news", rules={"field": "title", "lookup": "exact", "value": "older"})
+    older = Snapshot.objects.create(url="https://news.ycombinator.com/older", title="older", crawl=crawl, config={"PERMISSIONS": "public"})
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://news.ycombinator.com/recent/{i}",
+                timestamp=str(1900300000 + i),
+                crawl=crawl,
+                config={"PERMISSIONS": "private"},
+            )
+            for i in range(150)
+        ],
+        batch_size=100,
+    )
+    # The first request starts discovery without scanning every smart query.
+    Folder.tree(public=True)
+    for thread in threads():
+        if thread.name == "snapshot-list-count":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    # Another smart folder may have owned the shared refresh gate first.
+    from archivebox.progressmonitor.collection import snapshot_list_count
+    from archivebox.core.permissions import public_snapshots_queryset
+
+    snapshot_list_count(public_snapshots_queryset(Folder.select_snapshots(Snapshot.objects.all(), smart.pk)), first_match=True)
+    for thread in threads():
+        if thread.name == "snapshot-list-count":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    assert smart.pk in {folder.pk for folder in Folder.tree(public=True)}
+    older.config = {"PERMISSIONS": "private"}
+    older.save(update_fields=["config"])
+    assert smart.pk not in {folder.pk for folder in Folder.tree(public=True)}
+
+
+def test_public_smart_folder_with_deleted_reference_is_empty():
+    source = Folder.objects.create(name="Removed folder")
+    smart = Folder.objects.create(name="Reference", rules={"field": "folder", "lookup": "in_folder", "value": str(source.pk)})
+    source.delete()
+    assert smart.pk not in {folder.pk for folder in Folder.tree(public=True)}

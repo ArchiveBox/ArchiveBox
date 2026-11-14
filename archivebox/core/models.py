@@ -247,10 +247,20 @@ class Folder(models.Model):
         children, by_id = {}, {folder.pk: folder for folder in folders}
         smart = [folder for folder in folders if folder.is_smart and not folder.is_container]
         if public and smart:
-            checks = [
-                When(pk=folder.pk, then=models.Exists(public_snapshots_queryset(Snapshot.objects.filter(compiler.folder(folder.pk)))))
-                for folder in smart
-            ]
+            from archivebox.progressmonitor.collection import snapshot_list_count
+
+            recent_ids = list(Snapshot.objects.order_by("-pk").values_list("pk", flat=True)[:128])
+            checks = []
+            for folder in smart:
+                matches = public_snapshots_queryset(Snapshot.objects.filter(compiler.folder(folder.pk)))
+                summary = snapshot_list_count(matches, first_match=True)
+                witness = summary.get("snapshot_id") if summary else None
+                candidates = [witness] if witness else recent_ids
+                # Revalidate cached witnesses against current permissions and
+                # rules. Cold/empty smart folders must not scan the collection
+                # on every public page; later loads can use the background result.
+                visible = Snapshot.objects.filter(pk__in=candidates).filter(models.Exists(matches.filter(pk=models.OuterRef("pk"))))
+                checks.append(When(pk=folder.pk, then=models.Exists(visible)))
             visibility = dict(
                 cls.objects.filter(pk__in=[folder.pk for folder in smart])
                 .annotate(matches=Case(*checks, default=False, output_field=models.BooleanField()))

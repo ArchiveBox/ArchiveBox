@@ -81,7 +81,7 @@ def test_public_sidebar_filters_paths_and_paginated_snapshots(client, public_fol
 def test_public_folder_tree_uses_bounded_indexed_exists_queries(public_folder_data):
     with CaptureQueriesContext(connection) as queries:
         tree = Folder.tree(public=True)
-    assert len(queries) == 2
+    assert len(queries) == 3
     assert all("COUNT(" not in query["sql"].upper() for query in queries)
     sql = queries[0]["sql"]
     assert "EXISTS" in sql.upper()

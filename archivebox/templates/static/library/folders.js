@@ -444,7 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
     row.draggable = true;
     row.addEventListener('dragstart', event => {
-      if (event.target.closest('button,input,select,.tag-editor-container,.tag-editor-inline')) {event.preventDefault(); return;}
+      const target = event.target instanceof Element ? event.target : event.target.parentElement;
+      if (target?.closest('button,input,select,.tag-editor-container,.tag-editor-inline')) {event.preventDefault(); return;}
       const across = form.querySelector('input.select-across')?.value === '1';
       if (!checkbox.checked && !across) {
         form.querySelectorAll('input.action-select').forEach(item => {item.checked = item === checkbox;});
@@ -467,7 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
   rows.forEach(row => {
     row.draggable = true;
     row.addEventListener('dragstart', event => {
-      if (event.target.closest('button,input')) {event.preventDefault(); return;}
+      const target = event.target instanceof Element ? event.target : event.target.parentElement;
+      if (target?.closest('button,input')) {event.preventDefault(); return;}
       movingFolder = row.dataset.folderId;
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('application/x-archivebox-folder', movingFolder);

@@ -144,14 +144,18 @@ def collection_summary(user, *, public=False):
     return summary
 
 
-def snapshot_list_count(queryset):
-    """Debounced display-only count. Never used to choose rows for an action."""
+def snapshot_list_count(queryset, *, first_match=False):
+    """Debounced display count or public-sidebar witness; never an action scope."""
     from hashlib import sha256
+    from django.core.exceptions import EmptyResultSet
     from django.db import connections
 
     queryset = queryset.order_by().prefetch_related(None).select_related(None)
-    sql, params = queryset.query.sql_with_params()
-    key = "snapshot-list-count:" + sha256(repr((queryset.db, sql, params)).encode()).hexdigest()
+    try:
+        sql, params = queryset.query.sql_with_params()
+    except EmptyResultSet:
+        return {"count": 0, "snapshot_id": None, "sampled_at": time()}
+    key = "snapshot-list-count:" + sha256(repr((queryset.db, sql, params, first_match)).encode()).hexdigest()
     summary = cache.get(key)
     # Uncommitted test/admin transactions must not launch another connection
     # that waits on their writes or counts a different version of those rows.
@@ -165,12 +169,15 @@ def snapshot_list_count(queryset):
         def refresh():
             try:
                 close_old_connections()
-                count, last = 0, None
+                count, last, snapshot_id = 0, None, None
                 db = connections[queryset.db]
                 # Compile the ORM predicate once, rather than once per batch.
                 # Bounds remain bound parameters, including for UUID keys.
                 query_sql, query_params = queryset.values("pk").query.sql_with_params()
-                count_sql = f'SELECT COUNT(*) FROM ({query_sql}) AS matches WHERE matches."pk" >= %s AND matches."pk" <= %s'
+                selection = 'matches."pk"' if first_match else "COUNT(*)"
+                count_sql = f'SELECT {selection} FROM ({query_sql}) AS matches WHERE matches."pk" >= %s AND matches."pk" <= %s'
+                if first_match:
+                    count_sql += " LIMIT 1"
                 pk_field = queryset.model._meta.pk
                 # Bound each read lock even for unindexed smart predicates.
                 # Materialize PKs before counting; never hold an iterator open.
@@ -182,9 +189,15 @@ def snapshot_list_count(queryset):
                     bounds = [pk_field.get_db_prep_value(value, db) for value in (ids[0], ids[-1])]
                     with db.cursor() as cursor:
                         cursor.execute(count_sql, (*query_params, *bounds))
-                        count += cursor.fetchone()[0]
+                        row = cursor.fetchone()
+                    if first_match:
+                        if row:
+                            snapshot_id = str(row[0])
+                            break
+                    else:
+                        count += row[0]
                     last = ids[-1]
-                cache.set(key, {"count": count, "sampled_at": time()}, timeout=3600)
+                cache.set(key, {"count": count, "snapshot_id": snapshot_id, "sampled_at": time()}, timeout=3600)
             except Exception:
                 logging.getLogger(__name__).exception("Could not refresh snapshot list count")
             finally:
