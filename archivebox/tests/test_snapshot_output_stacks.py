@@ -973,6 +973,8 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         hook_name="on_Snapshot__50_pdf.js",
         status=ArchiveResult.StatusChoices.FAILED,
     )
+    for index in range(40):
+        (Path(snapshot.output_dir) / f"archive-note-{index:02}.txt").write_text(f"Saved attachment {index}")
     expected_size = snapshot.get_html_details_context()["size"]
 
     with sync_playwright() as playwright:
@@ -1115,11 +1117,13 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             year_menu = page.locator(".year-variants").first
             year_menu.locator("summary").click()
             assert year_menu.get_attribute("open") is not None
+            assert year_menu.locator(".snapshot-variants-list").evaluate("e => getComputedStyle(e).overflowY") == "visible"
             assert toggle.get_attribute("aria-expanded") == "true"
             year_menu.locator("summary").click()
             page.locator(".output-stack-article_text").click()
             for file_list in page.locator(".other-files-preview > .loose-items").all():
-                assert file_list.evaluate("e => getComputedStyle(e).overflowY") == "auto"
+                assert file_list.evaluate("e => getComputedStyle(e).overflowY") == "clip"
+                assert file_list.evaluate("e => { e.scrollTop = 50; return e.scrollTop === 0 }")
             stack = page.locator(".header-bottom")
             assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"
             frame = page.locator("#main-frame-wrapper").bounding_box()
@@ -1156,16 +1160,17 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             assert abs(page.locator(".header-top").bounding_box()["y"] + page.evaluate("scrollY")) <= 1
             preview_box = page.locator("#main-frame").bounding_box()
             wrapper_box = page.locator("#main-frame-wrapper").bounding_box()
-            assert preview_box["height"] >= (wrapper_box["height"] - 3) / 2 - 1, (width, height, preview_box)
+            assert preview_box["height"] >= height * 0.4 - 1, (width, height, preview_box)
             progress = page.locator("#snapshot-progress-wrapper")
-            assert progress.bounding_box()["height"] <= wrapper_box["height"] / 2
             monitor = progress.locator("#progress-monitor")
             details = monitor.locator(".progress-content")
             assert monitor.bounding_box()["height"] <= progress.bounding_box()["height"]
-            assert details.evaluate("e => e.scrollHeight > e.clientHeight")
+            assert details.evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
+            assert details.evaluate("e => getComputedStyle(e).overflowY") == "visible"
+            assert monitor.locator(".tree-container").evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
             assert details.bounding_box()["y"] + details.bounding_box()["height"] <= preview_box["y"] + 1
             natural_progress = monitor.locator(".header-bar").bounding_box()["height"] + details.evaluate("e => e.scrollHeight") + 1
-            expected_progress = min(natural_progress, page.locator("#main-frame-wrapper").evaluate("e => e.clientHeight") / 2)
+            expected_progress = natural_progress
             assert abs(progress.bounding_box()["height"] - expected_progress) <= 1, (
                 width,
                 height,
@@ -1189,6 +1194,19 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         assert details.bounding_box()["height"] >= 31
         assert page.locator("#main-frame").bounding_box()["height"] > 0
         assert page.evaluate("scrollY") == 0
+        page.get_by_role("button", name="Toggle saved outputs", exact=True).click()
+        page.locator(".output-stack-other").click()
+        files_card = page.locator("#stack-tray [data-other-files]")
+        file_list = files_card.locator(".loose-items")
+        file_list.get_by_text("archive-note-39.txt", exact=False).wait_for(state="attached")
+        assert file_list.evaluate("e => e.scrollHeight > e.clientHeight && getComputedStyle(e).overflowY === 'clip'")
+        assert file_list.evaluate("e => { e.scrollTop = 100; return e.scrollTop === 0 }")
+        with page.expect_popup() as opened:
+            files_card.get_by_title("Browse all snapshot files", exact=True).click()
+        files_page = opened.value
+        files_page.wait_for_load_state("domcontentloaded")
+        assert files_page.get_by_text("archive-note-39.txt", exact=True).is_visible()
+        files_page.close()
         browser.close()
 
 

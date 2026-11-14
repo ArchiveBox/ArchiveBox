@@ -210,8 +210,7 @@
                 z-index: 50;
                 width: max-content;
                 max-width: calc(100vw - 20px);
-                max-height: 240px;
-                overflow: auto;
+                overflow: visible;
                 padding: 6px;
                 border: 1px solid #ffffff26;
                 border-radius: 8px;
@@ -314,8 +313,7 @@
                 .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
                 .header-title-text { flex: 1 1 auto; max-width: none; font-size: 12px; }
                 .header-text-dot { display: none; }
-                .header-tags { flex: 0 1 auto; max-width: 60%; overflow-x: auto; scrollbar-width: none; }
-                .header-tags::-webkit-scrollbar { display: none; }
+                .header-tags { flex: 0 1 auto; max-width: 60%; overflow: clip; }
                 .header-url-actions { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; }
                 .header-capture-row { grid-column: 3; grid-row: 3; justify-content: flex-end; max-width: 45vw; }
                 .header-top .header-url-action { width: 26px; }
@@ -494,11 +492,11 @@
             #main-frame-wrapper {
                 position: relative;
                 width: 100%;
-                height: 0;
+                height: auto;
                 border-top: 3px solid #aa1e55;
-                overflow: hidden;
+                overflow: visible;
                 order: 2;
-                flex: 1 1 0;
+                flex: 1 0 auto;
                 min-height: 40dvh;
                 display: flex;
                 flex-direction: column;
@@ -512,38 +510,19 @@
                 flex: 0 0 auto;
                 width: 100%;
             }
-            #main-frame-wrapper[data-has-outputs="1"] > #snapshot-progress-wrapper {
-                /* Active capture details must not squeeze the preview to zero
-                   when the output tray is expanded on a small screen. */
-                flex: 0 1 auto;
-                min-height: 0;
-                max-height: 50%;
-                display: flex;
-                flex-direction: column;
-            }
-            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor:not(.hidden) {
-                display: flex;
-                flex-direction: column;
-                min-height: 0;
-            }
-            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .header-bar {
-                flex: 0 0 auto;
-            }
-            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .progress-content {
-                min-height: 0;
+            #snapshot-progress-wrapper #progress-monitor .progress-content {
                 padding-block: 0;
-                overflow: auto;
-                overscroll-behavior: contain;
+                overflow: visible;
             }
-            #main-frame-wrapper[data-has-outputs="1"] #progress-monitor .tree-container {
+            #snapshot-progress-wrapper #progress-monitor .tree-container {
                 max-height: none;
                 overflow: visible;
             }
             #main-frame-wrapper > #main-frame,
             #main-frame-wrapper > #snapshot-empty-state {
-                /* Fill the remainder without height:100% competing with progress. */
-                flex: 1 1 0;
-                min-height: 0;
+                /* Progress grows above the preview; the document owns scrolling. */
+                flex: 1 0 auto;
+                min-height: 40dvh;
             }
             .full-page-wrapper {
                 width: 100%;
@@ -963,7 +942,7 @@
                 min-height: 0;
                 max-height: none;
                 height: auto !important;
-                overflow: auto;
+                overflow: clip;
                 align-content: flex-start;
             }
             .thumb-card .other-files-preview > .loose-items,

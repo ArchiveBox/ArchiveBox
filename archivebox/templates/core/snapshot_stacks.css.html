@@ -263,11 +263,11 @@
     max-height: 130px!important;
 }
 .stack-browser .thumb-card .thumbnail-wrapper.other-files-preview > .loose-items {
+    /* Cards are previews; the folder action opens the complete file listing. */
     flex: 1 1 0;
     min-height: 0;
     max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: clip;
 }
 .stack-empty {
     grid-column: 1/-1;
