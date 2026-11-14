@@ -201,7 +201,7 @@ async function openFolderSearch(page) {
   const aligned = await page.evaluate(() => {
     const box = selector => document.querySelector(selector).getBoundingClientRect();
     const navIcon = box('.library-primary a>svg'), navText = box('.library-primary a>span');
-    const rootIcon = box('.folder-row[data-parent-id=""] .folder-link>svg'), rootText = box('.folder-row[data-parent-id=""] .folder-link>span');
+    const rootIcon = box('.folder-row[data-parent-id=""] .folder-toggle>svg,.folder-row[data-parent-id=""] .folder-link>svg'), rootText = box('.folder-row[data-parent-id=""] .folder-link>span');
     const input = box('.folder-search'), toggle = box('.folder-search-toggle');
     return navIcon.x === rootIcon.x && navText.x === rootText.x
       && rootIcon.y + rootIcon.height / 2 === rootText.y + rootText.height / 2
@@ -211,3 +211,22 @@ async function openFolderSearch(page) {
   if (!aligned) throw new Error('Folder navigation icons, labels or search controls are misaligned.');
 }
 module.exports.openFolderSearch = openFolderSearch;
+
+async function openViewExportMenu(page) {
+  const buttons = await page.$$('.library-export-toggle');
+  for (const button of buttons) {
+    if (!await button.boundingBox()) continue;
+    const id = await button.evaluate(node => node.getAttribute('popovertarget'));
+    if (!await page.$(`#${id}:popover-open`)) await button.click();
+    await page.waitForSelector(`#${id}:popover-open`);
+    await page.waitForFunction(id => document.getElementById(id).contains(document.activeElement), {}, id);
+    const state = await page.$eval(`#${id}`, node => {
+      const rect = node.getBoundingClientRect();
+      return {inside: rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight, formats: [...node.querySelectorAll('[data-export-format]')].map(link => link.dataset.exportFormat)};
+    });
+    if (!state.inside || !state.formats.includes('rss') || !state.formats.includes('jsonl')) throw new Error('The current-view export menu is clipped or missing formats.');
+    return;
+  }
+  throw new Error('No visible current-view Export button.');
+}
+module.exports.openViewExportMenu = openViewExportMenu;
