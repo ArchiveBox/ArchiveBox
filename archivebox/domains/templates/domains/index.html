@@ -132,7 +132,6 @@ import {startSnapshotExport} from "{% static 'exports.js' %}";
   const selected = () => form.querySelector('[name="select_across"]').value === '1' ? JSON.parse(document.getElementById('site-domain-scopes').textContent) : [...form.querySelectorAll('.action-select:checked')].map(input => input.value);
   document.querySelectorAll('.site-domain-export,.site-domain-row-export').forEach(select => select.addEventListener('change', () => {
     if (!select.value) return;
-    if (select.value === 'storage') { location.href = '/admin/storage/'; return; }
     override.value = select.dataset.domain || '';
     if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
     if (select.value === 'html') {

@@ -52,13 +52,14 @@ def test_plugin_apps_use_django_app_registry():
         assert app.path.endswith(f"/plugins/{name}")
 
 
-def test_linkhealth_is_not_installed_or_routed(admin_client):
+@pytest.mark.parametrize("app,route", [("linkhealth", "link-health"), ("storageaudit", "storage-audit"), ("storage", "storage")])
+def test_removed_apps_are_not_installed_or_routed(admin_client, app, route):
     from django.apps import apps
     from django.core.management import get_commands
 
-    assert not apps.is_installed("archivebox.linkhealth")
-    assert "linkhealth" not in get_commands()
-    assert admin_client.get("/admin/link-health/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+    assert not apps.is_installed(f"archivebox.{app}")
+    assert app not in get_commands()
+    assert admin_client.get(f"/admin/{route}/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
 
 
 def test_gallery_setup_uses_plugin_command_without_starting_disabled_provider(tmp_path):

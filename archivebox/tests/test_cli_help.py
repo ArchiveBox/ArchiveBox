@@ -4,6 +4,8 @@ Tests for archivebox help command.
 Verify command runs successfully and produces output.
 """
 
+import pytest
+
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
@@ -27,9 +29,10 @@ def test_help_in_initialized_dir(initialized_archive):
     assert "add" in combined
 
 
-def test_management_commands_exclude_linkhealth(initialized_archive):
+@pytest.mark.parametrize("command", ["linkhealth", "storageaudit", "storage"])
+def test_management_commands_exclude_removed_apps(initialized_archive, command):
     check = run_archivebox_cmd(["manage", "check"])
     assert check.returncode == 0, check.stderr
-    result = run_archivebox_cmd(["manage", "linkhealth", "--help"])
+    result = run_archivebox_cmd(["manage", command, "--help"])
     assert result.returncode != 0
-    assert "Unknown command: 'linkhealth'" in result.stderr
+    assert f"Unknown command: '{command}'" in result.stderr
