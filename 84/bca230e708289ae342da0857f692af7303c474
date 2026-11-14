@@ -1,0 +1,31 @@
+archivebox/personas/importers.py
+  s_511d8b4b4eee26::t_3f3bd3600783d6 588-593,619,728-738
+archivebox/personas/models.py
+  s_a46618ba6633c7::t_e46b4453b451d8 310-314,323-331,364-367,373-381
+archivebox/tests/test_persona_runtime.py
+  s_511d8b4b4eee26::t_60a1a6d6caccd2 12-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "84bca230e708289ae342da0857f692af7303c474",
+  "prompts": {},
+  "sessions": {
+    "s_511d8b4b4eee26": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d988-f98b-72d0-ac52-a9bdfd208121",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
