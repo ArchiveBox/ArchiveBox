@@ -14,7 +14,10 @@ async function prepare(page, publicBaseUrl, libraryUrl) {
   try {
     const visitor = await context.newPage();
     const response = await visitor.goto(url.href, {waitUntil: 'domcontentloaded'});
-    if (response.status() !== 200 || !await visitor.$('.folder-link[aria-current="page"]')) throw new Error('Public folders did not render real captured pages.');
+    if (response.status() !== 200 || !await visitor.$('.folder-link[aria-current="page"]')) {
+      const title = await visitor.title();
+      throw new Error(`Public folders did not render real captured pages: HTTP ${response.status()}, URL ${visitor.url()}, title ${title}`);
+    }
     await visitor.waitForFunction(expected => {
       const ids = [...document.querySelectorAll('#table-bookmarks tbody .snapshot-title')].map(link => new URL(link.href).pathname.match(/\/([a-f0-9]{32})\/?$/)?.[1]).sort();
       return JSON.stringify(ids) === JSON.stringify(expected);
