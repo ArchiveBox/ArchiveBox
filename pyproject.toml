@@ -88,7 +88,7 @@ dependencies = [
     ### Binary/Package Management
     "abxbus==2.5.82",                 # direct imports only; version constrained by abx-dl -> abx-plugins
     "abxpkg==1.13.82",                # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abx-plugins[opencode] @ git+https://github.com/ArchiveBox/abx-plugins.git@516818ba1f7bf6c050b6c601c85e2eb7e6bc0b84", # optional AI runtime clients are owned by the plugin
+    "abx-plugins[opencode] @ git+https://github.com/ArchiveBox/abx-plugins.git@5f02f8a12359473c6da5821ba12b3d3c3557b832", # optional AI runtime clients are owned by the plugin
     "abx-dl==1.13.325",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13

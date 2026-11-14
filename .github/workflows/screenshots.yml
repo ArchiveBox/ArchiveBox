@@ -12,6 +12,7 @@ on:
       - 'archivebox/automation/**'
       - 'archivebox/domains/**'
       - 'archivebox/linkhealth/**'
+      - 'archivebox/storageaudit/**'
       - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'

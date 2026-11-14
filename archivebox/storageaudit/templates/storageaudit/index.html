@@ -1,0 +1,59 @@
+{% extends "storageaudit/base.html" %}
+{% block audit_content %}
+<h1>Storage audit</h1>
+<div class="audit-toolbar">
+  <form method="get"><input type="search" name="q" value="{{ query }}" placeholder="Filter by original URL" aria-label="Filter by original URL">{% if process %}<input type="hidden" name="run" value="{{ process.pk }}">{% endif %} <button>Filter</button></form>
+  <div class="audit-totals"><span><strong>{{ snapshot_count }}</strong> snapshots</span><span><strong>{{ output_count }}</strong> outputs</span><span><strong>{{ snapshot_bytes|filesizeformat }}</strong> recorded size</span></div>
+</div>
+<div class="audit-rankings">
+  <section class="audit-section" aria-labelledby="slowest-heading">
+    <h2 id="slowest-heading">Slowest plugins · top 10</h2>
+    <div class="audit-scroll"><table id="slowest-plugins"><thead><tr><th>Plugin</th><th class="number">Hooks</th><th class="number">Average</th><th class="number">Longest</th></tr></thead><tbody>
+    {% for row in slowest_plugins %}<tr><td><a href="{{ row.review_url }}">{{ row.plugin }}</a></td><td class="number">{{ row.count }}</td><td class="number">{{ row.avg_seconds|floatformat:1 }}s</td><td class="number">{{ row.max_seconds|floatformat:1 }}s</td></tr>{% empty %}<tr><td class="empty" colspan="4">No completed hooks.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section class="audit-section" aria-labelledby="heaviest-heading">
+    <h2 id="heaviest-heading">Heaviest plugins · top 10</h2>
+    <div class="audit-scroll"><table id="heaviest-plugins"><thead><tr><th>Plugin</th><th class="number">Outputs</th><th class="number">Size</th></tr></thead><tbody>
+    {% for row in heaviest_plugins %}<tr><td><a href="{{ row.review_url }}">{{ row.plugin }}</a></td><td class="number">{{ row.count }}</td><td class="number">{{ row.bytes|filesizeformat }}</td></tr>{% empty %}<tr><td class="empty" colspan="3">No outputs.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section class="audit-section" aria-labelledby="largest-heading">
+    <h2 id="largest-heading">Largest snapshots · top 10</h2>
+    <div class="audit-scroll"><table id="largest-snapshots"><thead><tr><th>Snapshot</th><th class="number">Outputs</th><th class="number">Size</th></tr></thead><tbody>
+    {% for row in largest_snapshots %}<tr><td class="audit-title" title="{{ row.url }}"><a href="{{ row.review_url }}">{{ row.title|default:row.url }}</a></td><td class="number">{{ row.output_count }}</td><td class="number">{{ row.bytes|filesizeformat }}</td></tr>{% empty %}<tr><td class="empty" colspan="3">No snapshots.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+<section class="audit-section" aria-labelledby="extensions-heading">
+  <h2 id="extensions-heading">Deduplication by file type · top 10</h2>
+  <div class="audit-meta">
+    <form method="post" action="{% url 'storageaudit:scan' %}">{% csrf_token %}<button>Scan files</button></form>
+    {% if process %}<a class="audit-status" href="/admin/machine/process/{{ process.pk }}/change/">{{ process.created_at|date:"Y-m-d H:i" }} · {{ process.get_status_display }}{% if process.exit_code != None %} · Exit {{ process.exit_code }}{% endif %}</a>{% endif %}
+    {% if report.complete and not report.operation %}<span data-audit-complete>{{ report.files }} files verified</span><span>{{ report.potential_bytes|filesizeformat }} potential savings</span>{% endif %}
+    {% if process and not report.complete and process.exit_code == None %}<span>Scanning…</span><a href="?run={{ process.pk }}&q={{ query|urlencode }}">Refresh</a>{% endif %}
+  </div>
+  {% if process.exit_code %}<pre>{{ process.stderr|truncatechars:3000 }}</pre>{% endif %}
+  {% if report.complete and report.operation %}
+    <div class="audit-meta" data-audit-complete><strong{% if report.result.failed_files %} class="errornote"{% endif %}>{% if report.result.failed_files %}CoW incomplete{% else %}CoW complete{% endif %}</strong><span>{{ report.result.attempted_files }} files attempted</span><span>{{ report.result.extent_bytes_verified|filesizeformat }} extents verified</span><span>{{ report.result.failed_files }} unsupported / failed</span></div>
+  {% elif report.complete %}
+    {% for extension in extensions %}
+    <details class="audit-extension" data-extension="{{ extension.extension }}"{% if request.GET.extension == extension.extension %} open{% endif %}>
+      <summary><span class="audit-extension-label"><strong title="{{ extension.extension }}">{{ extension.extension }}</strong><span class="muted">{{ extension.file_count }} files · {{ extension.group_count }} group{{ extension.group_count|pluralize }}</span><strong>{{ extension.potential_bytes|filesizeformat }}</strong></span></summary>
+      <form method="post" action="{% url 'storageaudit:preview' %}" class="audit-toolbar">{% csrf_token %}<input type="hidden" name="run" value="{{ process.pk }}"><input type="hidden" name="extension" value="{{ extension.extension }}"><input type="hidden" name="q" value="{{ query }}"><button{% if not cow_available %} disabled{% endif %}>Review CoW</button></form>
+      <div class="audit-scroll"><table class="audit-files"><thead><tr><th class="audit-path">File</th><th class="audit-capture">Snapshot</th><th class="audit-size number">Size</th><th class="audit-select number">Copies</th></tr></thead><tbody>
+      {% for group in extension.groups %}{% for file in group.files %}<tr><td class="audit-path"><code>{{ file.path }}</code></td><td class="audit-capture"><a href="/admin/core/snapshot/{{ file.snapshot_id }}/change/" title="{{ file.url }}">{{ file.title }}</a><time class="muted">{{ file.captured_at|slice:":10" }} {{ file.captured_at|slice:"11:16" }}</time></td><td class="number">{{ group.size|filesizeformat }}</td><td class="number">{{ group.files|length }}</td></tr>{% endfor %}{% endfor %}
+      </tbody></table></div>
+    </details>
+    {% empty %}<div class="audit-meta empty">No duplicate files.</div>{% endfor %}
+    <div class="audit-meta muted"><span>{{ report.missing_manifests }} incomplete inventories</span><span>{{ report.stale_files }} changed / unavailable files</span>{% if not cow_available %}<span>CoW unavailable on this platform</span>{% endif %}</div>
+  {% endif %}
+</section>
+<section class="audit-section" aria-labelledby="versions-heading">
+  <h2 id="versions-heading">URLs with multiple snapshots</h2>
+  <div class="audit-scroll"><table id="duplicate-urls"><thead><tr><th>URL</th><th class="number">Snapshots</th><th class="number">Size</th><th>Review</th></tr></thead><tbody>
+  {% for version in versions %}<tr><td><a href="{{ version.review_url }}">{{ version.url }}</a></td><td class="number">{{ version.captures }}</td><td class="number">{{ version.bytes|filesizeformat }}</td><td><a href="{{ version.outputs_url }}">Outputs</a></td></tr>{% empty %}<tr><td class="empty" colspan="4">No repeated URLs.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% if runs %}<details class="audit-section"><summary>Recent audits</summary><div class="audit-scroll"><table><thead><tr><th>Date</th><th>Status</th><th class="number">Exit</th></tr></thead><tbody>{% for run in runs %}<tr><td><a href="?run={{ run.pk }}">{{ run.created_at|date:"Y-m-d H:i" }}</a></td><td>{{ run.get_status_display }}</td><td class="number">{{ run.exit_code|default_if_none:"—" }}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
+{% endblock %}
