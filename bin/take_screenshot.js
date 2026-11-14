@@ -28,6 +28,7 @@ Environment:
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
   SCREENSHOT_WAIT_FOR_TEXT   Wait for this visible page text before capture
   SCREENSHOT_PREVIEW_WAIT_FOR_TEXT Wait for this text in the selected snapshot preview iframe
+  SCREENSHOT_WAIT_FOR_MODEL   Require nonempty rendered model geometry
   SCREENSHOT_REQUIRE_LIVE_PROGRESS  Require active snapshot progress and a nonblank decoded screencast within 60s
   SCREENSHOT_CLICK_SELECTOR  Click this selector before capture
   SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR  Wait for this selector after clicking
@@ -573,6 +574,15 @@ async function main() {
       });
       if (libraryAlignment && (Math.abs(libraryAlignment.headerTop - libraryAlignment.toolbarTop) > 0.5 || Math.abs(libraryAlignment.headerBottom - libraryAlignment.toolbarBottom) > 0.5 || Math.abs(libraryAlignment.toggleCenter - libraryAlignment.searchCenter) > 0.5 || (libraryAlignment.borderTop !== undefined && (libraryAlignment.borderTop !== '0px' || libraryAlignment.borderBottom !== '1px')))) {
         throw new Error(`Library controls are misaligned: ${JSON.stringify(libraryAlignment)}`);
+      }
+      if (process.env.SCREENSHOT_WAIT_FOR_MODEL === '1') {
+        await page.waitForFunction(() => {
+          const canvas = document.querySelector('#model');
+          if (canvas?.dataset.state === 'error') throw new Error(document.getElementById('status').textContent);
+          return canvas?.dataset.state === 'ready' && Number(canvas.dataset.renderedTriangles) > 0 && canvas.clientWidth > 0 && canvas.clientHeight > 0;
+        }, {timeout: 45000});
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        checks.model = await page.$eval('#model', canvas => ({format: document.body.dataset.modelFormat, meshes: Number(canvas.dataset.meshes), triangles: Number(canvas.dataset.triangles), renderedTriangles: Number(canvas.dataset.renderedTriangles)}));
       }
       await page.screenshot({path: screenshotPath, fullPage});
       screenshotPaths.push(screenshotPath);

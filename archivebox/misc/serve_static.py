@@ -25,6 +25,7 @@ from django.core.handlers.asgi import ASGIRequest
 from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
 from django.template import TemplateDoesNotExist, loader
 from django.utils._os import safe_join
+from django.utils.cache import patch_vary_headers
 from django.utils.http import content_disposition_header, http_date
 from django.utils.translation import gettext as _
 from django.views import static
@@ -552,7 +553,12 @@ async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
         await asyncio.to_thread(ranged_file.close)
 
 
-def _render_directory_index(request, path: str, fullpath: Path, document_root: Path) -> HttpResponse:
+MODEL_PREVIEW_EXTENSIONS = frozenset({".stl", ".glb", ".gltf", ".obj", ".ply", ".3mf"})
+
+
+def _render_directory_index(
+    request, path: str, fullpath: Path, document_root: Path, *, static_previews: dict | None = None
+) -> HttpResponse:
     try:
         template = loader.select_template(
             [
@@ -594,11 +600,14 @@ def _render_directory_index(request, path: str, fullpath: Path, document_root: P
                 or entry.suffix.lower() in {".log", ".jsonl", ".toml"}
             ):
                 preview_kind = "text"
+        preview_path = (static_previews or {}).get(entry.relative_to(document_root).as_posix())
         entries.append(
             {
                 "name": url,
                 "url": url,
                 "preview_kind": preview_kind,
+                "model_preview": entry.suffix.lower() in MODEL_PREVIEW_EXTENSIONS,
+                "preview_url": quote(os.path.relpath(document_root / preview_path, fullpath), safe="/") if preview_path else "",
                 "mimetype": "Directory" if entry.is_dir() else mime,
                 "size_bytes": 0 if entry.is_dir() else stat_result.st_size,
                 "is_dir": entry.is_dir(),
@@ -607,18 +616,21 @@ def _render_directory_index(request, path: str, fullpath: Path, document_root: P
             },
         )
 
-    zip_query = request.GET.copy()
-    zip_query["download"] = "zip"
-    zip_url = quote(request.path, safe="/")
-    if zip_query:
-        zip_url = f"{zip_url}?{zip_query.urlencode()}"
+    if static_previews is not None:
+        zip_url = directory_query = ""
+        snapshot_page_url = quote(os.path.relpath(document_root / "index.html", fullpath), safe="/")
+    else:
+        zip_query = request.GET.copy()
+        zip_query["download"] = "zip"
+        zip_url = quote(request.path, safe="/")
+        if zip_query:
+            zip_url = f"{zip_url}?{zip_query.urlencode()}"
 
-    directory_query = "?files=1" if request.GET.get("files") else ""
-    path_suffix = f"{path.strip('/')}/" if path.strip("/") else ""
-    snapshot_page_url = request.path
-    if path_suffix and snapshot_page_url.endswith(path_suffix):
-        snapshot_page_url = snapshot_page_url[: -len(path_suffix)]
-
+        directory_query = "?files=1" if request.GET.get("files") else ""
+        path_suffix = f"{path.strip('/')}/" if path.strip("/") else ""
+        snapshot_page_url = request.path
+        if path_suffix and snapshot_page_url.endswith(path_suffix):
+            snapshot_page_url = snapshot_page_url[: -len(path_suffix)]
     context = {
         "directory": f"{path}/",
         "file_list": file_list,
@@ -626,6 +638,7 @@ def _render_directory_index(request, path: str, fullpath: Path, document_root: P
         "zip_url": zip_url,
         "directory_query": directory_query,
         "snapshot_page_url": snapshot_page_url,
+        "static_export": static_previews is not None,
     }
     return HttpResponse(template.render(context))
 
@@ -1398,6 +1411,9 @@ def _apply_archive_replay_headers(
     config=None,
     **config_kwargs,
 ) -> HttpResponse:
+    if fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS:
+        # A browser must not satisfy a raw Range read from cached viewer HTML.
+        patch_vary_headers(response, ("Range",))
     if not is_archive_replay:
         return response
 
@@ -1559,6 +1575,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         and is_text_like
         and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
+        and not (request.META.get("HTTP_RANGE") and fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS)
     )
     preview_as_image_html = bool(request.GET.get("preview")) and not thumbnail and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
@@ -1577,6 +1594,32 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             not_modified,
             fullpath=fullpath,
             content_type=content_type,
+            is_archive_replay=is_archive_replay,
+            config=config,
+        )
+
+    if (
+        fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS
+        and request.GET.get("preview")
+        and not thumbnail
+        and not request.META.get("HTTP_RANGE")
+    ):
+        raw_query = request.GET.copy()
+        raw_query.pop("preview", None)
+        raw_query["raw"] = "1"
+        wrapped = loader.get_template("static/model_viewer.html").render(
+            {
+                "title": fullpath.name,
+                "model_format": fullpath.suffix.lower().lstrip("."),
+                "output_path": f"{quote(request.path, safe='/')}?{raw_query.urlencode()}",
+            },
+        )
+        response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
+        _set_transformed_response_headers(response, fullpath, statobj, None, cache_policy)
+        return _apply_archive_replay_headers(
+            response,
+            fullpath=fullpath,
+            content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
             config=config,
         )

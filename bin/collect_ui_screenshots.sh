@@ -17,6 +17,8 @@ PUBLIC_OUTPUT_DIR="${UI_SCREENSHOT_PUBLIC_OUTPUT_DIR:-$REPO_DIR/publicsite/scree
 REQUESTED_PORT="${UI_SCREENSHOT_PORT:-}"
 EXAMPLE_URL="https://arstechnica.com/science/2017/04/watch-militarized-microbes-use-some-sophisticated-weapons-to-snare-prey/"
 MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
+# Select gallery coverage only; captures still run every configured plugin.
+PLUGIN_VIEWS="${UI_SCREENSHOT_PLUGINS:-}"
 USERNAME="archivebox-screenshots-$$"
 PASSWORD="archivebox-screenshots-$$"
 SERVER_PID=""
@@ -26,7 +28,6 @@ ARCHIVE_PID=""
 CREATED_TEMP_USER=0
 CREATE_API_TOKEN=0
 CREATE_WEBHOOK=0
-ABXPKG_LIB_DIR=""
 SCREENSHOT_CHROME_BINARY=""
 CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
@@ -208,6 +209,7 @@ echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox install
 )
 
+if [[ -z "$PLUGIN_VIEWS" ]]; then
 SEED_STATE="$( (
     cd "$DATA_DIR"
     UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
@@ -249,6 +251,7 @@ fi
 
 [[ "$HAS_API_TOKEN" == "0" ]] && CREATE_API_TOKEN=1
 [[ "$HAS_WEBHOOK" == "0" ]] && CREATE_WEBHOOK=1
+fi
 
 ROUTE_CONFIG="$( (
     cd "$DATA_DIR"
@@ -281,11 +284,13 @@ echo "[*] Creating a temporary screenshot admin"
 CREATED_TEMP_USER=1
 
 # Configure the optional UI before the server snapshots its startup config.
+if [[ -z "$PLUGIN_VIEWS" ]]; then
 (
     cd "$DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" python -c \
         'from abx_plugins.plugins.opencode.archivebox.screenshots import configure; configure()'
 )
+fi
 
 echo "[*] Starting ArchiveBox on port $PORT"
 (
@@ -416,9 +421,33 @@ add_supplementary_template_capture() {
         capture_mode="$(uv run --no-cache --project "$REPO_DIR" python -c \
             'import json,sys; recipe=json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]; text=recipe.get("wait_for_text", ""); print("wait-preview-text:" + text if text else "")' \
             "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
-        VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html|$capture_mode")
+        if [[ "$source_url" == "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]["url"])' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")" ]]; then
+            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html|$capture_mode")
+        fi
+        while IFS= read -r output_view; do
+            [[ -z "$output_view" ]] || VIEWS+=("$output_view")
+        done < <(uv run --no-cache --project "$REPO_DIR" python - "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin" "$source_url" "$discovered_preview_url" <<'PYVIEWS'
+import json, sys
+from urllib.parse import urljoin, urlsplit
+recipe = json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]
+for output in recipe.get("outputs", []):
+    if output.get("url", recipe["url"]) != sys.argv[3]:
+        continue
+    url = urljoin(sys.argv[4], output["path"])
+    print("|".join((output["name"], url, urlsplit(url).path, "archivebox/misc/serve_static.py", "model" if output.get("model") else "")))
+PYVIEWS
+        )
     done
 }
+
+if [[ -n "$PLUGIN_VIEWS" ]]; then
+    VIEWS=()
+    while IFS='|' read -r example_plugins example_url; do
+        [[ -z "$example_plugins" ]] || add_supplementary_template_capture "$example_plugins" "$example_url"
+    done < <(uv run --no-cache --project "$REPO_DIR" python -c \
+        'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
+        "$PLUGIN_SCREENSHOT_PLAN")
+fi
 
 capture_index=0
 while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
@@ -432,6 +461,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != "snapshot-collapsed" ]] || snapshot_header=collapsed
     wait_for_text=""
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
+    export SCREENSHOT_WAIT_FOR_MODEL=""
+    [[ "$capture_mode" != "model" ]] || export SCREENSHOT_WAIT_FOR_MODEL=1
     preview_wait_for_text=""
     [[ "$capture_mode" != wait-preview-text:* ]] || preview_wait_for_text="${capture_mode#wait-preview-text:}"
     export SCREENSHOT_LIBRARY_MENU=""
@@ -818,7 +849,7 @@ PY
     fi
 done
 
-[[ "$MAX_VIEWS" != "0" ]] && export UI_SCREENSHOT_ALLOW_PARTIAL=1
+[[ "$MAX_VIEWS" == "0" && -z "$PLUGIN_VIEWS" ]] || export UI_SCREENSHOT_ALLOW_PARTIAL=1
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
     "$MANIFEST_FILE" "$REPO_DIR/docs/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
 

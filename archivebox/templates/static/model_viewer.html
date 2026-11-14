@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+    :root{color-scheme:light;--line:#dfe4eb;--ink:#253247;--muted:#667085;--accent:#245dc1}
+    *{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;background:#f4f6f8;color:var(--ink);font:13px/1.4 system-ui,sans-serif}
+    header{display:flex;align-items:center;gap:10px;min-height:44px;padding:7px 12px;background:white;border-bottom:1px solid var(--line)}h1{flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
+    nav{display:flex;gap:6px}button,a{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:4px 9px;border:1px solid var(--line);border-radius:4px;background:white;color:var(--ink);font:inherit;text-decoration:none;cursor:pointer}button:hover,a:hover,button[aria-pressed=true]{background:#f0f5ff;color:var(--accent)}button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    main{position:relative;flex:1;min-height:0;overflow:hidden}canvas{display:block;width:100%;height:100%;touch-action:none}#status{position:absolute;inset:0;display:grid;place-items:center;margin:0;color:var(--muted);pointer-events:none}#status[hidden]{display:none}#model-info{position:absolute;bottom:12px;left:12px;color:var(--muted);font-size:11px;pointer-events:none}
+    @media(max-width:480px){header{gap:6px;padding:7px 8px}nav{gap:4px}button,a{padding:4px 7px}#wireframe{display:none}}
+  </style>
+</head>
+<body data-model-url="{{ output_path }}" data-model-format="{{ model_format }}">
+  <header><h1 title="{{ title }}">{{ title }}</h1><nav aria-label="Model controls"><button id="reset" type="button" aria-label="Reset view" title="Reset view">↺</button><button id="wireframe" type="button" aria-pressed="false">Wireframe</button><a href="{{ output_path }}" download="{{ title }}" aria-label="Download {{ title }}" title="Download {{ title }}">↓</a></nav></header>
+  <main><canvas id="model" aria-label="3D preview of {{ title }}"></canvas><p id="status" role="status">Loading…</p><output id="model-info" aria-live="polite"></output></main>
+  <script type="module" src="{% if viewer_script_url %}{{ viewer_script_url }}{% else %}{% static 'model-viewer/viewer.js' %}{% endif %}"></script>
+</body>
+</html>

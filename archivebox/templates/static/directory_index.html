@@ -62,7 +62,7 @@
           <a class="toolbar-link" href="../{{ directory_query }}">↩ {% translate "Up One Level" %}</a>
         {% endif %}
         <a class="toolbar-link" data-snapshot-page href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
-        <a
+        {% if zip_url %}<a
           class="toolbar-link archivebox-zip-button"
           href="{{ zip_url }}"
           data-loading-label="{% translate "Preparing..." %}"
@@ -70,7 +70,7 @@
         >
           <span class="archivebox-zip-spinner" aria-hidden="true"></span>
           <span class="archivebox-zip-label">⬇ {% translate "Download Zip" %}</span>
-        </a>
+        </a>{% endif %}
       </nav>
 
       <section>
@@ -106,7 +106,7 @@
             {% for entry in entries %}
               {% with f=entry.name %}
               <tr class="directory-entry{% if entry.is_dir %} folder{% endif %}" data-name="{{ f }}" data-size="{{ entry.size_bytes }}" data-type="{{ entry.mimetype }}"><td>
-                <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %}?preview=1&amp;raw=1{% endif %}">
+                <a class="directory-link" href="{% if entry.preview_url %}{{ entry.preview_url }}{% else %}{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif entry.model_preview or f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %}?preview=1&amp;raw=1{% endif %}{% endif %}">
                   {% if entry.preview_kind == "image" %}
                     <img class="entry-preview" src="{{ f|urlencode }}?raw=1" alt="" loading="lazy" decoding="async">
                   {% elif entry.preview_kind == "text" %}
@@ -119,7 +119,7 @@
                   </span>
                 </a>
                 </td><td class="entry-size">{{ entry.size }}</td><td class="entry-type" title="{{ entry.mimetype }}">{{ entry.mimetype }}</td><td>
-                <a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>
+                {% if not static_export or not entry.is_dir %}<a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>{% endif %}
               </td></tr>
               {% endwith %}
             {% endfor %}

@@ -1084,7 +1084,13 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
 def write_static_plugin_previews(context):
     """Materialize existing output viewers beside unchanged saved files."""
     from django.template.loader import render_to_string
-    from archivebox.misc.serve_static import _render_text_preview_document, _render_image_preview_document, _render_markdown_document
+    from archivebox.misc.serve_static import (
+        MODEL_PREVIEW_EXTENSIONS,
+        _render_directory_index,
+        _render_text_preview_document,
+        _render_image_preview_document,
+        _render_markdown_document,
+    )
     from archivebox.plugins.discovery import render_plugin_full_response
 
     snapshot = context["snapshot"]
@@ -1099,6 +1105,7 @@ def write_static_plugin_previews(context):
             viewer.write(document)
         previews[path] = name
 
+    model_directories = set()
     files = {}
     for output in context["archiveresults"]:
         result = output.get("result")
@@ -1114,7 +1121,27 @@ def write_static_plugin_previews(context):
         output_url = "../" + quote(path, safe=_STATIC_URL_SAFE)
         mime = mimetypes.guess_type(source.name)[0] or ""
         document = ""
-        if source.suffix.lower() == ".zip":
+        if source.suffix.lower() in MODEL_PREVIEW_EXTENSIONS:
+            import shutil
+            from django.contrib.staticfiles import finders
+
+            assets = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "model-viewer"
+            if not assets.exists():
+                shutil.copytree(Path(finders.find("model-viewer/viewer.js")).parent, assets)
+            document = render_to_string(
+                "static/model_viewer.html",
+                {
+                    "title": source.name,
+                    "model_format": source.suffix.lower()[1:],
+                    "output_path": output_url,
+                    "viewer_script_url": quote(os.path.relpath(assets / "viewer.js", generated), safe=_STATIC_URL_SAFE),
+                },
+            )
+            parent = source.parent
+            while parent != directory:
+                model_directories.add(parent)
+                parent = parent.parent
+        elif source.suffix.lower() == ".zip":
             document = render_to_string(
                 "static/zip_index.html",
                 {"title": source.name, "output_path": output_url, "archive_size": source.stat().st_size},
@@ -1131,6 +1158,13 @@ def write_static_plugin_previews(context):
             document = _render_image_preview_document(output_url, source.name)
         if document:
             save(path, document, "file")
+
+    # Materialize the same native browser, preserving any original index page.
+    for folder in sorted(model_directories):
+        index = folder / "index.html"
+        if not index.exists():
+            response = _render_directory_index(None, folder.relative_to(directory).as_posix(), folder, directory, static_previews=previews)
+            index.write_bytes(response.content)
 
     full_paths = set()
     for output in context["archiveresults"]:

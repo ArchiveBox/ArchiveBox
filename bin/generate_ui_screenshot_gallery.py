@@ -121,7 +121,10 @@ def plugin_screenshot_plan() -> dict:
     overrides = {}
     config_views = []
     enabled_plugins = []
+    selected = set(filter(None, os.environ.get("UI_SCREENSHOT_PLUGINS", "").split(",")))
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
+        if selected and plugin_dir.name not in selected:
+            continue
         config_path = plugin_dir / "config.json"
         if not config_path.is_file():
             continue
@@ -147,6 +150,12 @@ def plugin_screenshot_plan() -> dict:
             key = recipe["url"]
             example = examples.setdefault(key, {"url": key, "plugins": []})
             example["plugins"].append(plugin)
+            for output in recipe.get("outputs", []):
+                required.append(output["name"])
+                key = output.get("url", recipe["url"])
+                example = examples.setdefault(key, {"url": key, "plugins": []})
+                if plugin not in example["plugins"]:
+                    example["plugins"].append(plugin)
     return {
         "required": required,
         "examples": list(examples.values()),
