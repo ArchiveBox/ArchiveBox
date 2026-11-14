@@ -17,14 +17,20 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
   if (!archiveFormats.has(format)) throw new Error('Unknown archive format');
   const menu = anchor.closest('[popover]');
   menu?.hidePopover();
-  const host = anchor.closest('.folder-row') || anchor.closest('.snapshot-export-block') || anchor.closest('.snapshot-export-links') || anchor.parentElement;
-  const status = document.createElement('span');
-  status.className = 'snapshot-export-status';
+  let notifications = document.getElementById('export-notifications');
+  if (!notifications) {
+    notifications = document.createElement('ul');
+    notifications.id = 'export-notifications';
+    notifications.className = 'messagelist';
+    notifications.setAttribute('aria-label', 'Export notifications');
+    document.body.append(notifications);
+  }
+  const status = document.createElement('li');
+  status.className = 'snapshot-export-status info';
   status.dataset.format = format;
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
-  if (anchor.closest('td')) anchor.closest('td').append(status);
-  else host.after(status);
+  notifications.append(status);
   const text = document.createElement('span');
   status.append(text);
   const stop = document.createElement('button');
@@ -32,6 +38,14 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
   stop.textContent = 'Stop';
   stop.hidden = true;
   status.append(stop);
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'export-notification-dismiss';
+  dismiss.setAttribute('aria-label', 'Dismiss notification');
+  dismiss.textContent = '×';
+  dismiss.hidden = true;
+  dismiss.addEventListener('click', () => status.remove());
+  status.append(dismiss);
   let job;
   let stopping = false;
   const headers = {'Accept': 'application/json', ...(csrf ? {'X-CSRFToken': csrf} : {})};
@@ -42,7 +56,7 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
       stopping = true;
     } catch (error) {text.textContent = error.message; stop.disabled = false;}
   });
-  text.textContent = `${labels[format]} · Starting…`;
+  text.textContent = `Preparing ${labels[format]} export…`;
   data.set('format', format);
   if (session) data.set('session', '1');
   try {
@@ -54,24 +68,24 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
       status.dataset.exitCode = job.exit_code ?? '';
       status.dataset.exportPath = result.destination || '';
       stop.hidden = !job.can_cancel || job.status === 'exited';
-      const count = result.total_pages ? `${result.pages || 0}/${result.total_pages}` : result.total_recordings ? `${result.recordings || 0}/${result.total_recordings}` : '';
-      const bytes = result.bytes || result.total_bytes || 0;
-      const size = bytes ? new Intl.NumberFormat(undefined, {maximumFractionDigits: 1}).format(bytes / 1024 / 1024) + ' MB' : '';
-      text.textContent = [labels[format], stopping ? 'Stopping…' : result.complete ? 'Complete' : job.status === 'exited' ? 'Failed' : 'Exporting…', count, size].filter(Boolean).join(' · ');
+      text.textContent = stopping ? `Stopping ${labels[format]} export…` : `Exporting ${labels[format]}…`;
       if (job.status === 'exited') {
         if (!result.complete || job.exit_code !== 0) throw new Error(result.error || (stopping ? 'Export stopped' : 'Export failed'));
+        status.classList.replace('info', 'success');
+        dismiss.hidden = false;
+        text.textContent = `${labels[format]} export complete`;
         if (format === 'html_zip' || format === 'wacz') {
           const download = document.createElement('a');
           download.href = job.download_url;
-          download.textContent = 'Download';
+          download.textContent = 'Download again';
           download.setAttribute('download', '');
           download.dataset.exportDownload = '';
-          status.append(download);
+          dismiss.before(download);
           download.click();
         } else {
           const path = document.createElement('code');
           path.textContent = result.destination;
-          status.append(path);
+          dismiss.before(path);
         }
         return job;
       }
@@ -80,6 +94,10 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
     }
   } catch (error) {
     status.dataset.status = 'failed';
+    status.classList.remove('info', 'success');
+    status.classList.add('error');
+    status.setAttribute('role', 'alert');
+    dismiss.hidden = false;
     text.textContent = `${labels[format]} · ${error.message}`;
     stop.hidden = true;
     throw error;
