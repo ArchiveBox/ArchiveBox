@@ -59,10 +59,11 @@ def prepare(admin_base_url, recipes):
             print(f"[*] Verifying full importer capture: {crawl_id}", file=sys.stderr)
             command("run", "--crawl-id", crawl_id)
         run = next(run for run in imports if run["items"])
-        for name, path in (
-            (recipe["name"], f"/admin/importers/runs/{run['id']}/"),
-            (recipe["name"] + " history", f"/admin/importers/{source_id}/"),
-            (recipe["name"] + " snapshots", f"/admin/core/snapshot/?crawl_id={run['crawl_id']}"),
+        for name, path, mode in (
+            (recipe["name"], f"/admin/importers/runs/{run['id']}/", ""),
+            (recipe["name"] + " export", f"/admin/importers/runs/{run['id']}/", "view-export-menu"),
+            (recipe["name"] + " history", f"/admin/importers/{source_id}/", ""),
+            (recipe["name"] + " snapshots", f"/admin/core/snapshot/?crawl_id={run['crawl_id']}", ""),
         ):
-            views.append("|".join((name, admin_base_url + path, urlsplit(path).path, "archivebox/importers/views.py")))
+            views.append("|".join((name, admin_base_url + path, urlsplit(path).path, "archivebox/importers/views.py", mode)))
     return views

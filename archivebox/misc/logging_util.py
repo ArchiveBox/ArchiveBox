@@ -212,10 +212,10 @@ def pretty_path(path: Path | str, pwd: Path | str = CONSTANTS.DATA_DIR, color: b
 
 @enforce_types
 def printable_filesize(num_bytes: int | float, decimal_places: int = 1) -> str:
-    """Decimal file sizes: whole B/KB, at most one decimal for MB and above."""
+    """Decimal file sizes: whole B/KB/MB, at most one decimal for GB and above."""
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if abs(num_bytes) < 1000 or unit == "TB":
-            precision = 1 if unit in ("B", "KB") or decimal_places <= 0 else 10
+            precision = 1 if unit in ("B", "KB", "MB") or decimal_places <= 0 else 10
             size = floor(num_bytes * precision + 0.5) / precision
             return f"{size:.1f}".removesuffix(".0") + f" {unit}"
         num_bytes /= 1000

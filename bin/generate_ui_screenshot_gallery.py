@@ -139,7 +139,7 @@ def plugin_screenshot_plan() -> dict:
         if recipe.get("view"):
             required.append(recipe["view"])
             if recipe.get("importer"):
-                required.extend([recipe["view"] + " history", recipe["view"] + " snapshots"])
+                required.extend([recipe["view"] + " history", recipe["view"] + " snapshots", recipe["view"] + " export"])
                 importer_views.append(
                     {"name": recipe["view"], "plugin": plugin, "feed": recipe["importer"], "settings": recipe.get("config_overrides", {})}
                 )

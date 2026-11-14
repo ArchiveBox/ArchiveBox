@@ -1,3 +1,4 @@
+import json
 from functools import wraps
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -140,6 +142,31 @@ def action(request, source_id, action):
     return redirect(source)
 
 
+def run_context(run):
+    keys = list(
+        dict.fromkeys(key for item in run.items for key, value in item.get("metadata", {}).items() if value not in (None, "", [], {}))
+    )
+    rows = []
+    for item in run.items:
+        cells = []
+        for key in keys:
+            value = item.get("metadata", {}).get(key)
+            if key == "bookmarked_at" and isinstance(value, str):
+                value = parse_datetime(value) or value
+            elif isinstance(value, list):
+                value = ", ".join(str(part) for part in value)
+            elif isinstance(value, dict):
+                value = json.dumps(value, ensure_ascii=False)
+            cells.append({"value": value, "date": key == "bookmarked_at" and hasattr(value, "strftime")})
+        rows.append({**item, "cells": cells})
+    return {
+        "run": run,
+        "columns": ["Saved" if key == "bookmarked_at" else key.replace("_", " ").capitalize() for key in keys],
+        "rows": rows,
+        "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {},
+    }
+
+
 @importer_admin
 @require_GET
 def run_detail(request, run_id):
@@ -149,9 +176,8 @@ def run_detail(request, run_id):
         "importers/run.html",
         {
             "title": run.get_action_display(),
-            "run": run,
+            **run_context(run),
             "active": run.status in ACTIVE_STATUSES,
-            "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {},
         },
     )
 
@@ -195,7 +221,7 @@ def run_activity(request, run_id):
         {
             "html": render_to_string(
                 "importers/run_body.html",
-                {"run": run, "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {}},
+                run_context(run),
                 request=request,
             ),
             "active": run.status in ACTIVE_STATUSES,

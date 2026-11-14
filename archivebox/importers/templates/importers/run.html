@@ -1,6 +1,10 @@
 {% extends "importers/base.html" %}
+{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% include "importers/run_style.html" %}<script src="{% static 'library/folders.js' %}" defer></script><script type="module" src="{% static 'exports.js' %}"></script>{% endblock %}
 {% block importer_content %}
-<div class="toolbar"><div><p class="eyebrow"><a href="{{ run.source.get_absolute_url }}">{{ run.source.name }}</a></p><h1>{{ run.get_action_display }}</h1><p><strong>Persona:</strong> {% if run.source.persona_id %}<a href="{% url 'admin:personas_persona_change' run.source.persona_id %}">{{ run.source.persona.name }} ↗</a>{% else %}Server defaults{% endif %}</p><p>{{ run.created_at }}</p></div><a class="button" href="{% url 'importers:run-json' run.pk %}">Download items JSON</a></div>
+<div class="run-page">
+<header class="run-heading"><h1><a href="{{ run.source.get_absolute_url }}">{{ run.source.name }}</a><span aria-hidden="true"> / </span>{{ run.get_action_display }}</h1><a class="button" href="{% url 'importers:run-json' run.pk %}">Items JSON</a></header>
 <section data-activity-url="{% url 'importers:run-activity' run.pk %}">{% include "importers/run_body.html" %}</section>
 {% include "importers/updates.html" %}
+</div>
 {% endblock %}

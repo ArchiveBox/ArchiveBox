@@ -1,9 +1,12 @@
-<section class="card">
-<h2>Run activity <span class="badge {{ run.status }}">{{ run.get_status_display }}</span></h2>
-<p>{{ run.status_message }}</p>
+<section class="run-activity">
+<div class="run-summary"><span class="badge {{ run.status }}">{{ run.get_status_display }}</span><span class="run-message">{{ run.status_message }}</span>
+{% if run.crawl_id %}<div class="run-actions"><a href="{% url 'admin:crawls_crawl_change' run.crawl_id %}">Crawl · {{ run.crawl.get_status_display }}</a><a class="button" href="{% url 'admin:core_snapshot_changelist' %}?crawl_id={{ run.crawl_id }}">Snapshots</a>{% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_hide_import=True %}</div>{% endif %}
+</div>
+<div class="run-metadata">
+<dl><div><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd></div><div><dt>Persona</dt><dd>{% if run.source.persona_id %}<a href="{% url 'admin:personas_persona_change' run.source.persona_id %}">{{ run.source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd></div><div><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd></div><div><dt>Started</dt><dd>{{ run.started_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd></div><div><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd></div>{% if run.diagnostics.sessions %}<div><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd></div>{% endif %}</dl>
+</div>
 {% include "importers/screenshots.html" %}
-<dl><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd><dt>Started</dt><dd>{% if run.started_at %}{{ run.started_at|date:"Y-m-d H:i:s T" }}{% elif run.status == "queued" %}Waiting for worker{% else %}Not started{% endif %}</dd><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd><dt>Captures</dt><dd>{% include "importers/run_links.html" %}</dd></dl>
-{% if run.diagnostics.latest %}<h3 class="section">Last recorded agent activity</h3><p>{{ run.diagnostics.latest }}</p>{% endif %}
-{% if run.diagnostics.error %}<h3 class="section">Failure details</h3><pre>{{ run.diagnostics.error }}</pre>{% endif %}
-{% if run.diagnostics.logs %}<h3 class="section">Private run logs</h3><ul>{% for log in run.diagnostics.logs %}<li><a href="{% url 'importers:run-log' run.pk log.name %}" target="_blank" rel="noopener">{{ log.name }}</a> <span class="muted">{{ log.size|filesizeformat }}</span></li>{% endfor %}</ul>{% endif %}
+{% if run.diagnostics.latest %}<p>{{ run.diagnostics.latest }}</p>{% endif %}
+{% if run.diagnostics.error %}<pre class="run-error">{{ run.diagnostics.error }}</pre>{% endif %}
+{% if run.diagnostics.logs %}<details class="run-logs"><summary>Logs</summary><ul>{% for log in run.diagnostics.logs %}<li><a href="{% url 'importers:run-log' run.pk log.name %}" target="_blank" rel="noopener">{{ log.name }}</a> <span class="muted">{{ log.size|filesizeformat }}</span></li>{% endfor %}</ul></details>{% endif %}
 </section>

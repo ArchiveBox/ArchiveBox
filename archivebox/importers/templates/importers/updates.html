@@ -6,7 +6,7 @@
   if (!region) return;
   let timer, pending, stopped = false;
   function renderPending() {
-    if (!pending || region.contains(document.activeElement) || region.querySelector('details[open]')) return;
+    if (!pending || region.contains(document.activeElement) || region.querySelector('details[open], :popover-open')) return;
     const html = pending;
     pending = null;
     region.innerHTML = html;
@@ -25,9 +25,11 @@
       pending = result.html;
       renderPending();
       document.querySelectorAll('[data-discovery-action]').forEach(button => { button.disabled = result.active; });
-      status.textContent = result.active ? 'Activity updates every 5 seconds.' : 'Activity is up to date.';
+      status.textContent = '';
+      status.hidden = true;
       if (result.active) timer = setTimeout(update, 5000);
     } catch (error) {
+      status.hidden = false;
       status.textContent = `Activity unavailable (${error.message}). Refresh to retry.`;
     }
   }
