@@ -448,8 +448,10 @@ async function main() {
       await page.waitForSelector(process.env.SCREENSHOT_CLICK_SELECTOR, { timeout: 45000 });
       const summaries = await page.evaluateHandle((selector) => {
         const closed = [];
-        for (let parent = document.querySelector(selector)?.parentElement; parent; parent = parent.parentElement) {
-          if (parent.tagName === 'DETAILS' && !parent.open) closed.unshift(parent.querySelector(':scope > summary'));
+        const target = document.querySelector(selector);
+        for (let parent = target?.parentElement; parent; parent = parent.parentElement) {
+          const summary = parent.tagName === 'DETAILS' && parent.querySelector(':scope > summary');
+          if (summary && summary !== target && !parent.open) closed.unshift(summary);
         }
         return closed;
       }, process.env.SCREENSHOT_CLICK_SELECTOR);

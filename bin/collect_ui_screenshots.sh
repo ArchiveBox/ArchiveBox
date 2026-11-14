@@ -523,6 +523,10 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     config_selector=""
     [[ "$name" != "Webhook scripts" ]] || config_selector="#actions"
     config_click_selector=""
+    config_after_click_selector=""
+    [[ "$capture_mode" != "navbar-tools" ]] || config_click_selector=".library-tools > summary"
+    [[ "$capture_mode" != "navbar-account" ]] || config_click_selector=".navbar-user-menu > summary"
+    [[ "$capture_mode" != navbar-* ]] || config_after_click_selector=".navbar-dropdown[open] .navbar-menu"
     if [[ "$capture_mode" == plugin-config:* ]]; then
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="$config_selector .plugin-config-marker"
@@ -653,6 +657,7 @@ PY
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     SCREENSHOT_CLICK_SELECTOR="$config_click_selector" \
+                    SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR="$config_after_click_selector" \
                     SCREENSHOT_SCROLL_SELECTOR="$config_selector" \
                     SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
