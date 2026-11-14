@@ -94,8 +94,6 @@ from archivebox.misc.util import (
 )
 from archivebox.plugins.discovery import (
     discover_plugin_configs,
-    get_plugin_catalog,
-    get_plugin_icon,
     get_plugin_name,
     get_plugin_template,
     get_snapshot_role_names,
@@ -936,28 +934,14 @@ def _plugin_full_preview_response(
     if raw_query:
         output_url = f"{output_url}?{raw_query.urlencode()}"
 
-    catalog = get_plugin_catalog()
-    rendered = (
-        template.Engine(
-            debug=False,
-            dirs=[catalog[plugin].path] if plugin in catalog else [],
-            libraries=template.Engine.get_default().libraries,
-        )
-        .from_string(template_str)
-        .render(
-            template.Context(
-                {
-                    "result": result,
-                    "snapshot": snapshot,
-                    "output_path": output_url,
-                    "output_path_raw": rel_path,
-                    "snapshot_details_url": build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
-                    "plugin": plugin,
-                    "plugin_icon": get_plugin_icon(plugin),
-                    "preview_base": f"{request.path.rsplit('/', 1)[0]}/",
-                },
-            ),
-        )
+    from archivebox.core.templatetags.core_tags import render_plugin_full_document
+
+    rendered = render_plugin_full_document(
+        snapshot,
+        rel_path,
+        result,
+        output_url=output_url,
+        snapshot_details_url=build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
     )
     if request.GET.get("titlebar") == "0":
         from archivebox.core.templatetags.core_tags import CARD_OVERFLOW_STYLE
@@ -1622,12 +1606,10 @@ class PublicIndexView(ListView):
             "folder_breadcrumbs": self.folder_breadcrumbs,
             "folder_readonly": True,
             "library_root_url": self.request.path,
-            "snapshot_export_urls": {
-                format: build_admin_url(url, request=self.request, config=runtime_config)
-                for format, url in build_snapshot_export_urls(
-                    {"q": query, "search_mode": search_mode, "folder": self.selected_folder},
-                ).items()
-            },
+            "snapshot_export_urls": build_snapshot_export_urls(
+                {"q": query, "search_mode": search_mode, "folder": self.selected_folder},
+                api=True,
+            ),
         }
         context["show_search_index_hint"] = bool(
             query
@@ -1684,12 +1666,10 @@ class PublicIndexView(ListView):
     def get_queryset(self, **kwargs):
         self.folder_tree = Folder.tree(public=True)
         for folder in self.folder_tree:
-            folder.export_urls = {
-                format: build_admin_url(url, request=self.request, config=self.request.archivebox_config)
-                for format, url in build_snapshot_export_urls(
-                    {"folder": folder.pk, "q": self.request.GET.get("q", ""), "search_mode": self.request.GET.get("search_mode", "meta")},
-                ).items()
-            }
+            folder.export_urls = build_snapshot_export_urls(
+                {"folder": folder.pk, "q": self.request.GET.get("q", ""), "search_mode": self.request.GET.get("search_mode", "meta")},
+                api=True,
+            )
         self.selected_folder = self.request.GET.get("folder", "")
         self.folder_ids = None
         self.folder_breadcrumbs = []

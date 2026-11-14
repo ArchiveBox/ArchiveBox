@@ -84,7 +84,7 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
     });
     if (!visible) continue;
 
-    const expectedUrl = await cardHandle.evaluate((iframe) => iframe.src);
+    const expectedUrl = await cardHandle.evaluate((iframe) => iframe.hasAttribute('srcdoc') ? 'about:srcdoc' : iframe.src);
     const frame = await cardHandle.contentFrame();
     if (!frame) {
       // Live card refreshes can detach an owner while its document is loading.

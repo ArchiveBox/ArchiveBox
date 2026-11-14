@@ -110,7 +110,7 @@ def replay_assets(config) -> dict[str, bytes]:
     from archivebox.plugins.discovery import serve_plugin_replay_asset
 
     assets = {}
-    for name in ("ui.js", "sw.js", "replay.html"):
+    for name in ("ui.js", "sw.js", "sw-index.js", "replay.html"):
         response = serve_plugin_replay_asset(f"replay/{name}", config, HttpResponse)
         if response is None:
             raise ValueError("ArchiveWeb.page replay assets are not installed. Install the ArchiveWeb.page plugin first.")

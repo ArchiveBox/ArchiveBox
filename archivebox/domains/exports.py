@@ -2,15 +2,16 @@
 
 import html
 import json
+import os
 import posixpath
 import re
 import time
 import shutil
 import zipfile
 from pathlib import Path
-from urllib.parse import quote, unquote, urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
-from archivebox.core.models import ArchiveResult
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import (
     Resources,
@@ -93,7 +94,7 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
         # Stay within the selected output and captured responses, excluding
         # browser profiles, native collection metadata and process logs.
         for resource in resources:
-            parsed_url = urlsplit(resource)
+            parsed_url = urlsplit(html.unescape(resource).strip("\"'"))
             if parsed_url.scheme or parsed_url.netloc or not parsed_url.path or parsed_url.path.startswith("/"):
                 continue
             candidate = (source.parent / unquote(parsed_url.path)).resolve()
@@ -102,9 +103,11 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
 
 
 def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
+    snapshots = list(snapshots)
+    if not snapshots:
+        raise ValueError("No snapshots match these filters.")
+    snapshots_by_id = {snapshot.pk: snapshot for snapshot in snapshots}
     pages = captured_pages(snapshots)
-    if not pages:
-        raise ValueError("No saved HTML pages are available. Capture this site with SingleFile, DOM or wget enabled first.")
     # Prefer the site root as the entry point; snapshots arrive newest-first.
     pages.sort(key=lambda page: (urlsplit(page[1]).path not in {"", "/"}, len(urlsplit(page[1]).path)))
     links = {key: f"pages/{snapshot_id}/{path}" for snapshot_id, _, _, path, key in pages}
@@ -127,18 +130,60 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
             progress({"pages": completed, "total_pages": len(pages), "bytes": size})
             reported_at = now
 
-    for index, (snapshot_id, page_url, root, path, _) in enumerate(pages):
-        _write_page(destination, snapshot_id, page_url, root, path, links, report_bytes)
+    for index, snapshot in enumerate(snapshots):
+        root = snapshot.output_dir.resolve()
+        relative_root = Path(snapshot.static_archive_path)
+        if relative_root.is_absolute() or ".." in relative_root.parts:
+            raise ValueError("Snapshot files must be inside the collection archive.")
+        target_root = destination / relative_root
+        target_root.mkdir(parents=True, exist_ok=True)
+        # Include complete saved plugin output trees, including Git dotfiles.
+        # Never follow directory links or file links outside the snapshot.
+        for current, directories, filenames in os.walk(root):
+            directories.sort()
+            for filename in sorted(filenames):
+                source = Path(current) / filename
+                if source.parent == root and filename in {"index.html", "index.json", "index.jsonl"}:
+                    continue
+                if not source.resolve().is_relative_to(root) or not source.is_file():
+                    continue
+                target = target_root / source.relative_to(root)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with source.open("rb") as original, target.open("xb") as copied:
+                    while chunk := original.read(1024 * 1024):
+                        report_bytes(len(chunk))
+                        copied.write(chunk)
         completed = index + 1
-        progress({"pages": completed, "total_pages": len(pages), "bytes": size})
-    start = links[pages[0][4]]
-    escaped = html.escape(quote(start, safe="/"), quote=True)
-    (destination / "index.html").write_text(
-        f'<!doctype html><meta charset="utf-8"><title>{html.escape(title)}</title>'
-        f'<meta http-equiv="refresh" content="0;url={escaped}"><a href="{escaped}">Open saved site</a>',
-    )
+        progress({"pages": completed, "total_pages": len(snapshots), "bytes": size})
+
+    previews = {}
+    for snapshot_id, page_url, root, path, key in pages:
+        _write_page(destination, snapshot_id, page_url, root, path, links, report_bytes)
+        snapshot = snapshots_by_id[snapshot_id]
+        previews[str(snapshot_id)] = {path: posixpath.relpath(links[key], snapshot.static_archive_path)}
+
+    # The collection index and details are the same renderers used by the CLI
+    # and live snapshot UI; only their destination and relative URLs differ.
+    queryset = Snapshot.objects.filter(pk__in=[snapshot.pk for snapshot in snapshots]).prefetch_related("tags", "archiveresult_set")
+    (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews))
     (destination / "pages.json").write_text(json.dumps([{"url": page_url, "path": links[key]} for _, page_url, _, _, key in pages]))
-    return len(pages)
+    assets = None
+    for snapshot in snapshots:
+        target_root = destination / snapshot.static_archive_path
+        if any(path.suffix.lower() == ".wacz" for path in target_root.rglob("*.wacz")):
+            if assets is None:
+                from archivebox.config.common import get_config
+
+                assets = replay_assets(get_config())
+            for name, data in assets.items():
+                target = target_root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with target.open("xb") as asset:
+                    asset.write(data)
+    final_size = sum(path.stat().st_size for path in destination.rglob("*") if path.is_file())
+    report_bytes(final_size - size)
+    progress({"pages": len(snapshots), "total_pages": len(snapshots), "bytes": final_size})
+    return len(snapshots)
 
 
 def write_replay_site(destination, snapshots, *, title, config, progress, player=True):
@@ -221,7 +266,12 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
             write_static_site(destination, snapshots(), title=title, progress=report, max_bytes=max_bytes)
         else:
             write_replay_site(
-                destination, snapshots(), title=title, config=config or get_config(), progress=report, player=format == "replay"
+                destination,
+                snapshots(),
+                title=title,
+                config=config or get_config(),
+                progress=report,
+                player=format == "replay",
             )
         if format == "html_zip":
             with zipfile.ZipFile(archive_file, "x", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as bundle:
@@ -240,7 +290,7 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
                 "complete": True,
                 "selection_digest": selection_digest(consumed_ids),
                 **({"bytes": archive_file.stat().st_size} if archive_file.is_file() else {}),
-            }
+            },
         )
         return state
     except Exception as error:

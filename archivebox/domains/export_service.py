@@ -31,6 +31,7 @@ def launch_export(crawl=None, *, scope=None, query=None, user=None, public_only=
     query = normalize_export_query(query if query is not None else site_snapshot_filters(scope or crawl_site_scope(crawl)))
     if format not in FORMATS:
         raise ValueError("Select an export format.")
+    format = next(value for value in FORMATS if value == format)
     if format in {"html_zip", "wacz"}:
         max_bytes = min(max_bytes, MAX_ARCHIVE_BYTES) if max_bytes and max_bytes > 0 else MAX_ARCHIVE_BYTES
     parent = Path(directory)

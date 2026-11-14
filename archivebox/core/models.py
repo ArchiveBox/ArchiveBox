@@ -627,7 +627,7 @@ class SnapshotQuerySet(PagedQuerySet):
         row_strs = (s.to_csv(cols=cols, ljust=ljust, separator=separator) for s in self.iterator(chunk_size=500))
         return "\n".join((header_str, *row_strs))
 
-    def to_html(self, with_headers: bool = True) -> str:
+    def to_html(self, with_headers: bool = True, *, out_dir: Path | None = None, preview_paths: dict | None = None) -> str:
         """Generate main index HTML from snapshots"""
         from datetime import datetime
 
@@ -639,20 +639,28 @@ class SnapshotQuerySet(PagedQuerySet):
 
         config = get_config()
 
+        export_root = Path(out_dir) if out_dir is not None else CONSTANTS.DATA_DIR
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        exported_ids = {str(item.pk) for item in snapshot_list}
         list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         manifest_records = []
         for snapshot in snapshot_list:
             # Unarchived snapshots still need an export destination before discovery.
-            snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = export_root / snapshot.static_archive_path
+            output_dir.mkdir(parents=True, exist_ok=True)
             # The list icon is part of the portable export too; an incomplete
             # hash manifest must not hide a file that is still on disk.
             outputs = snapshot.discover_outputs(include_filesystem_fallback=True, filesystem_index={})
             snapshot._public_list_icon_paths = [
                 str(output.get("path") or "") for output in outputs if output.get("name") in list_icon_plugins
             ]
-            snapshot.write_html_details()
+            snapshot.write_html_details(
+                out_dir=output_dir,
+                export_root=export_root if out_dir is not None else None,
+                exported_ids=exported_ids,
+                preview_paths=(preview_paths or {}).get(str(snapshot.pk), {}),
+            )
             if with_headers:
                 # Use the same portable schema as the JSON export. Rendering
                 # above has already populated result-count caches, archive_size
@@ -661,7 +669,7 @@ class SnapshotQuerySet(PagedQuerySet):
 
         if with_headers:
             manifest = "".join(f"{to_json(record, indent=None, sort_keys=True)}\n" for record in manifest_records)
-            atomic_write(str(CONSTANTS.DATA_DIR / CONSTANTS.JSONL_INDEX_FILENAME), manifest)
+            atomic_write(str(export_root / CONSTANTS.JSONL_INDEX_FILENAME), manifest)
 
         return render_to_string(
             template,
@@ -674,7 +682,8 @@ class SnapshotQuerySet(PagedQuerySet):
                 "links": snapshot_list,
                 "FOOTER_INFO": config.FOOTER_INFO,
                 "STATIC_EXPORT": True,
-                "STATIC_EXPORT_DIR": CONSTANTS.DATA_DIR,
+                "STATIC_EXPORT_DIR": export_root,
+                "STATIC_EXPORT_ROOT": export_root,
             },
         )
 
@@ -4275,13 +4284,37 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "STATIC_EXPORT_DIR": static_export_dir,
         }
 
-    def write_html_details(self, out_dir: Path | str | None = None) -> None:
+    def write_html_details(
+        self,
+        out_dir: Path | str | None = None,
+        *,
+        export_root: Path | None = None,
+        exported_ids: set[str] | None = None,
+        preview_paths: dict | None = None,
+    ) -> None:
         """Write the unified snapshot detail page with portable filesystem URLs."""
         from django.template.loader import render_to_string
 
         output_dir = Path(out_dir) if out_dir is not None else self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         context = self.get_html_details_context(static_export_dir=output_dir)
+        if export_root is not None:
+            from archivebox.core.templatetags.core_tags import write_static_plugin_previews
+
+            context["STATIC_EXPORT_ROOT"] = export_root
+            context["STATIC_PREVIEW_PATHS"] = dict(preview_paths or {})
+            if exported_ids is not None:
+                context["url_snapshots"] = [item for item in context["url_snapshots"] if str(item.pk) in exported_ids]
+                context["related_years"] = [
+                    {**year, "snapshots": [item for item in year["snapshots"] if str(item.pk) in exported_ids]}
+                    for year in context["related_years"]
+                    if any(str(item.pk) in exported_ids for item in year["snapshots"])
+                ]
+                for year in context["related_years"]:
+                    year["latest"] = year["snapshots"][0]
+            manifest = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
+            manifest.write_text(to_json(self.to_dict(extended=True, static_export=True), indent=None) + "\n")
+            write_static_plugin_previews(context)
         rendered_html = render_to_string("core/snapshot.html", context)
         atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 
