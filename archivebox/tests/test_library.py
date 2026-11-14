@@ -336,7 +336,7 @@ def test_inline_folder_save_validates_normalized_name(admin_client):
     assert response.status_code == 400
     assert "name" in response.json()["error"].lower()
     assert list(Folder.objects.values_list("name", "rules")) == [
-        ("Inbox", {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}),
+        ("📥 Inbox", {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}),
     ]
     response = admin_client.post("/admin/core/folder/save/", {"name": "  <b>Reading list</b>  "}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
@@ -438,7 +438,11 @@ def test_folder_reparent_reorder_and_cycle_protection(admin_client):
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 200
-    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [last.pk, first.pk, Folder.objects.get(name="Inbox").pk]
+    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [
+        last.pk,
+        first.pk,
+        Folder.objects.get(name="📥 Inbox").pk,
+    ]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": first.pk, "target_id": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 400 and "cycle" in response.json()["error"]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": child.pk, "target_id": last.pk}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -456,4 +460,8 @@ def test_folder_tree_counts_descendants_and_labels(admin_user):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
     Snapshot.objects.create(url="https://example.com/paper", folder=child, crawl=crawl)
     tree = Folder.tree()
-    assert [(folder.path_label, folder.snapshot_count) for folder in tree] == [("Inbox", None), ("Research", 1), ("Research / Papers", 1)]
+    assert [(folder.path_label, folder.snapshot_count) for folder in tree] == [
+        ("Research", 1),
+        ("Research / Papers", 1),
+        ("📥 Inbox", None),
+    ]

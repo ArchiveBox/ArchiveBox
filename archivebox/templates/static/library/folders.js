@@ -109,8 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = element('div',node.op ? 'rule-group' : 'rule-condition');
         if (node.op) {
           const negated=node.op === 'NOT';
-          if (negated && !node.rules[0].op) node.rules=[{op:'AND',rules:node.rules}];
-          const group=negated ? node.rules[0] : node;
+          const group=negated ? (node.rules[0].op ? node.rules[0] : {op:'AND',rules:node.rules}) : node;
           row.classList.toggle('is-negated',negated);
           group.rules.forEach((child,index) => {
             if (index) {
@@ -122,8 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const toolbar=element('div','rule-group-toolbar');
           toolbar.append(
-            button('+ Rule',() => {group.rules.push(defaultRule());render();}),
-            button('+ Group',() => {group.rules.push({op:'AND',rules:[defaultRule()]});render();}));
+            button('+ Rule',() => {if (negated && !node.rules[0].op) node.rules=[group];group.rules.push(defaultRule());render();}),
+            button('+ Group',() => {if (negated && !node.rules[0].op) node.rules=[group];group.rules.push({op:'AND',rules:[defaultRule()]});render();}));
           const negate=button('NOT',() => {
             if (negated) {node.op=group.op;node.rules=group.rules;}
             else {const original={op:node.op,rules:node.rules};node.op='NOT';node.rules=[original];}
@@ -462,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
   sidebar.querySelectorAll('.folder-drop-target').forEach(target => {
     target.addEventListener('dragover', event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.inbox !== 'true' && target.dataset.container !== 'true'))) return;
+      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.container !== 'true'))) return;
       if (movingFolder && (target.dataset.folderId === movingFolder || target.getAttribute('href') === '?folder=unfiled')) return;
       event.preventDefault(); event.dataTransfer.dropEffect = 'move';
       const position = placement(target, event);
@@ -476,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget)) {target.classList.remove('drop-active','drop-before','drop-after'); clearTimeout(expandTimer); expandTimer = null;}});
     target.addEventListener('drop', async event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.inbox !== 'true' && target.dataset.container !== 'true'))) return;
+      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.container !== 'true'))) return;
       event.preventDefault();
       if (movingFolder) {
         const data = new FormData();
@@ -494,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const destination = form.querySelector('[name=folder_destination]');
       const action = form.querySelector('select[name=action]');
       if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
-      destination.value = target.dataset.inbox === 'true' ? '' : target.dataset.folderId;
+      destination.value = target.dataset.folderId;
       action.value = 'move_to_folder';
       clearDrag(); status.textContent = 'Moving snapshots…';
       form.requestSubmit(form.querySelector('button[name=index]'));
