@@ -4,9 +4,9 @@ from archivebox.uuid_compat import uuid7
 
 def create_inbox(apps, schema_editor):
     Folder = apps.get_model("core", "Folder")
-    name = "Inbox"
+    name = "📥 Inbox"
     if Folder.objects.filter(parent=None, name=name).exists():
-        name = "Inbox (smart)"
+        name = "📥 Inbox (smart)"
     Folder.objects.create(
         id=uuid7(),
         name=name,

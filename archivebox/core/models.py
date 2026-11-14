@@ -115,12 +115,6 @@ class Folder(models.Model):
         return self.rules is not None
 
     @property
-    def is_inbox(self):
-        from archivebox.core.smart_folders import INBOX_RULES
-
-        return self.rules == INBOX_RULES
-
-    @property
     def is_container(self):
         from archivebox.core.smart_folders import CHILDREN_RULES
 
@@ -189,10 +183,8 @@ class Folder(models.Model):
         folder = cls.objects.get(pk=folder_id)
         if folder.is_container or folder.children.exists():
             return folder.items_destination().pk
-        if folder.is_inbox:
-            return None
         if folder.is_smart:
-            raise ValidationError({"folder": "Choose a normal folder or Inbox as the destination."})
+            raise ValidationError({"folder": "Choose a regular folder as the destination."})
         return folder.pk
 
     @classmethod
@@ -214,7 +206,8 @@ class Folder(models.Model):
             count += Snapshot.objects.filter(pk__in=[pk for pk, _ in rows]).update(folder_id=destination_id, modified_at=timezone.now())
             if notify:
                 snapshot_folders_changed.send(
-                    sender=Snapshot, changes=[{"snapshot_id": pk, "before": previous, "after": destination_id} for pk, previous in rows]
+                    sender=Snapshot,
+                    changes=[{"snapshot_id": pk, "before": previous, "after": destination_id} for pk, previous in rows],
                 )
         return count
 
@@ -246,7 +239,7 @@ class Folder(models.Model):
             visibility = dict(
                 cls.objects.filter(pk__in=[folder.pk for folder in smart])
                 .annotate(matches=Case(*checks, default=False, output_field=models.BooleanField()))
-                .values_list("pk", "matches")
+                .values_list("pk", "matches"),
             )
             for folder in smart:
                 folder.has_public_snapshots = visibility[folder.pk]
@@ -263,7 +256,7 @@ class Folder(models.Model):
                         by_id[parent_id].has_public_snapshots = True
                         parent_id = by_id[parent_id].parent_id
         for siblings in children.values():
-            siblings.sort(key=lambda f: (not f.is_inbox, f.position, f.name, str(f.pk)))
+            siblings.sort(key=lambda f: (f.position, f.name, str(f.pk)))
         result = []
         pending = [(folder, 0) for folder in reversed(children.get(None, []))]
         while pending:
