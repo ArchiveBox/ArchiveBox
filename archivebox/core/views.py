@@ -1011,6 +1011,7 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
     # There is exactly one plugin card template. The stack cover and expanded
     # tray point at this same document; only their containing card width differs.
     from archivebox.core.templatetags.core_tags import CARD_OVERFLOW_STYLE, render_plugin_card_document
+    from django.template.loader import render_to_string
 
     fragment = render_plugin_card_document(
         template.Context({"request": request, "CONFIG": get_request_config(request, resolve_plugins=False)}),
@@ -1023,7 +1024,7 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
             '<!doctype html><html><head><meta charset="utf-8"><style>'
             "html,body{margin:0;width:100%;height:100%;overflow:hidden}"
             "body>iframe{display:block;width:100%;height:100%;border:0}"
-            f"</style>{CARD_OVERFLOW_STYLE}</head><body>"
+            f"</style>{CARD_OVERFLOW_STYLE}{render_to_string('core/typography.html')}</head><body>"
             f"{fragment}</body></html>"
         )
     response = HttpResponse(card_html, content_type="text/html; charset=utf-8")

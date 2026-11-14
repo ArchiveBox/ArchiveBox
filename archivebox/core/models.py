@@ -936,6 +936,9 @@ class SnapshotQuerySet(PagedQuerySet):
         config = get_config()
 
         export_root = Path(out_dir) if out_dir is not None else CONSTANTS.DATA_DIR
+        from archivebox.core.templatetags.core_tags import write_static_ui_assets
+
+        write_static_ui_assets(export_root)
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
         exported_ids = {str(item.pk) for item in snapshot_list}
@@ -4592,6 +4595,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         output_dir = Path(out_dir) if out_dir is not None else self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
+        from archivebox.core.templatetags.core_tags import write_static_ui_assets
+
+        write_static_ui_assets(export_root or CONSTANTS.DATA_DIR)
         context = self.get_html_details_context(static_export_dir=output_dir)
         if export_root is not None:
             from archivebox.core.templatetags.core_tags import write_static_plugin_previews

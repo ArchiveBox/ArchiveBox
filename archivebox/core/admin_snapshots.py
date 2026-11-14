@@ -1174,8 +1174,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             '<div style="display:flex; gap:16px; align-items:flex-start;">'
             "{}"
             '<div style="min-width:0; flex:1;">'
-            '<div style="font: 600 12px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px;">snap_dir size</div>'
-            '<div style="font: 700 28px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; color:#0f172a; margin-bottom:8px;">{}</div>'
+            '<div style="font: 600 12px/1.4 var(--font-family-primary); color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px;">snap_dir size</div>'
+            '<div style="font: 700 28px/1.1 var(--font-family-primary); color:#0f172a; margin-bottom:8px;">{}</div>'
             '<div style="font-size:13px; line-height:1.5; color:#64748b;">'
             'Open <a href="{}"><code>{}</code></a> to inspect files.'
             "</div>"

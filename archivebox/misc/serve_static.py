@@ -479,6 +479,7 @@ def _render_text_preview_document(text: str, title: str) -> str:
     return f"""<!doctype html>
 <html lang="en">
 <head>
+{loader.render_to_string("core/typography.html")}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{escaped_title}</title>
@@ -498,6 +499,7 @@ def _render_text_preview_document(text: str, title: str) -> str:
             top: 0;
             z-index: 1;
             padding: 10px 14px;
+            font-family: var(--font-family-primary);
             font-size: 12px;
             line-height: 1.4;
             color: #bbb;
@@ -530,6 +532,7 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
     return f"""<!doctype html>
 <html lang="en">
 <head>
+{loader.render_to_string("core/typography.html")}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{escaped_title}</title>
@@ -783,11 +786,12 @@ def _render_markdown_document(markdown_text: str) -> str:
         '<!doctype html><html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         "<style>body{max-width:900px;margin:24px auto;padding:0 16px;"
-        "font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
+        "font-family:var(--font-family-primary);"
         "line-height:1.55;} img{max-width:100%;} pre{background:#f6f6f6;padding:12px;overflow:auto;}"
         ".toc ul{list-style:none;padding-left:0;} .toc li{margin:4px 0;}</style>"
-        "</head><body>"
-        f"{body}"
+        + loader.render_to_string("core/typography.html")
+        + "</head><body>"
+        + f"{body}"
         "</body></html>"
     )
     return wrapped

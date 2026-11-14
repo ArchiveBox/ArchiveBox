@@ -1,5 +1,5 @@
 header {
-    font-family: "Roboto","Lucida Grande","DejaVu Sans","Bitstream Vera Sans",Verdana,Arial,sans-serif;
+    font-family: var(--font-family-primary);
     font-size: 13px;
     color: white;
     height: 30px;

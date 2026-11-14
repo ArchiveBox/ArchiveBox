@@ -1,0 +1,2 @@
+{% load static core_tags %}
+<link rel="stylesheet" href="{% if STATIC_EXPORT %}{% static_export_root_url %}_archivebox/ui/typography.css{% else %}{% static 'typography.css' %}{% endif %}">

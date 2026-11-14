@@ -1,4 +1,4 @@
-#archivebox-setup-wizard { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.68); color:#0f172a; font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; }
+#archivebox-setup-wizard { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.68); color:#0f172a; font:14px/1.5 var(--font-family-primary); }
 #archivebox-setup-wizard .abx-setup-panel { width:min(1040px,100%); max-height:calc(100vh - 48px); overflow:auto; background:#fff; border-radius:12px; box-shadow:0 24px 70px rgba(0,0,0,.38); padding:24px; }
 #archivebox-setup-wizard .abx-setup-eyebrow { color:#aa1e55; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 #archivebox-setup-title { margin:4px 0 6px; font-size:24px; line-height:1.2; }
@@ -28,7 +28,7 @@
 #archivebox-setup-wizard .abx-question.is-invalid legend { background:#fffafa; }
 #archivebox-setup-wizard .abx-question.is-collapsed { padding:8px 12px 10px; }
 #archivebox-setup-wizard .abx-question.is-collapsed .abx-question-status { margin:0; padding:3px 6px 0; background:transparent; }
-#archivebox-setup-wizard .abx-setup-control { box-sizing:border-box; width:100%; height:44px !important; min-height:44px !important; margin:0; padding:0 12px !important; border:1px solid #b8c4d4 !important; border-radius:7px; background:#fff !important; color:#0f172a !important; font:14px/normal -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important; opacity:1 !important; }
+#archivebox-setup-wizard .abx-setup-control { box-sizing:border-box; width:100%; height:44px !important; min-height:44px !important; margin:0; padding:0 12px !important; border:1px solid #b8c4d4 !important; border-radius:7px; background:#fff !important; color:#0f172a !important; font:14px/normal var(--font-family-primary) !important; opacity:1 !important; }
 #archivebox-setup-wizard select.abx-setup-control { appearance:auto !important; -webkit-appearance:menulist !important; }
 #archivebox-setup-wizard select.abx-setup-control option { color:#0f172a !important; background:#fff !important; }
 #archivebox-setup-wizard .abx-mode-list { margin:12px 0 0; padding-left:22px; color:#475569; }

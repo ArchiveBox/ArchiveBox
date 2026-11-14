@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% include "core/typography.html" %}
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Saved files</title>
@@ -20,7 +21,7 @@
         margin: 0;
       }
       body {
-        font: 13px/1.5 system-ui, sans-serif;
+        font: 13px/1.5 var(--font-family-primary);
         color: #253247;
         background: white;
         display: flex;

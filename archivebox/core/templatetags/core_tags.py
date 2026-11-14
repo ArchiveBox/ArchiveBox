@@ -1078,7 +1078,7 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
                 if record_id:
                     record_urls[model][str(record_id)] = build_admin_url(reverse(route, args=[record_id]), request=context.get("request"))
     catalog = get_plugin_catalog()
-    return (
+    document = (
         template.Engine(
             debug=False,
             dirs=[catalog[plugin].path] if plugin in catalog else [],
@@ -1103,6 +1103,28 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
         )
     )
 
+    from django.template.loader import render_to_string
+
+    stylesheet = render_to_string("core/typography.html", context)
+    return document.replace("</head>", stylesheet + "</head>", 1)
+
+
+def write_static_ui_assets(export_root):
+    """Bundle the shared UI stylesheet and fonts with portable HTML."""
+    import shutil
+    from django.contrib.staticfiles import finders
+
+    stylesheet = Path(finders.find("typography.css"))
+    fonts = stylesheet.parent / "fonts" / "open-sans"
+    target = Path(export_root) / "_archivebox" / "ui"
+    # Stable assets are shared by every detail page in this export.
+    if (target / "typography.css").is_file() and (target / "fonts/open-sans/font.css").is_file():
+        if (target / "typography.css").read_bytes() == stylesheet.read_bytes() and (target / "fonts/open-sans/font.css").read_bytes() == (fonts / "font.css").read_bytes():
+            return
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(stylesheet, target / "typography.css")
+    shutil.copytree(fonts, target / "fonts/open-sans", dirs_exist_ok=True)
+
 
 def write_static_plugin_previews(context):
     """Materialize existing output viewers beside unchanged saved files."""
@@ -1123,6 +1145,13 @@ def write_static_plugin_previews(context):
     generated.mkdir(exist_ok=True)
 
     def save(path, document, kind):
+        from django.templatetags.static import static
+
+        base = re.search(r'<base href="([^"]+)"', document)
+        document_base = (generated / unescape(base[1])).resolve() if base else generated
+        stylesheet = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox/ui/typography.css"
+        font_url = quote(os.path.relpath(stylesheet, document_base), safe=_STATIC_URL_SAFE)
+        document = document.replace(static("typography.css"), font_url)
         name = f"_archivebox/{hashlib.sha256(path.encode()).hexdigest()[:16]}-{kind}.html"
         with (directory / name).open("x") as viewer:
             viewer.write(document)
@@ -1190,7 +1219,11 @@ def write_static_plugin_previews(context):
         index = folder / "index.html"
         if not index.exists():
             response = _render_directory_index(None, folder.relative_to(directory).as_posix(), folder, directory, static_previews=previews)
-            index.write_bytes(response.content)
+            from django.templatetags.static import static
+
+            stylesheet = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox/ui/typography.css"
+            font_url = quote(os.path.relpath(stylesheet, folder), safe=_STATIC_URL_SAFE)
+            index.write_text(response.content.decode().replace(static("typography.css"), font_url))
 
     full_paths = set()
     for output in context["archiveresults"]:
@@ -1294,7 +1327,10 @@ def render_plugin_card_document(context, result) -> str:
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
                 if rendered.lstrip().lower().startswith("<!doctype html"):
-                    rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + "</head>", 1)
+                    from django.template.loader import render_to_string
+
+                    stylesheet = render_to_string("core/typography.html", context.flatten())
+                    rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + stylesheet + "</head>", 1)
                 if context.get("STATIC_EXPORT") and rendered.lstrip().lower().startswith("<!doctype html"):
                     # Static exports have no _card route. Keep the same card
                     # document in both stack positions, with relative saved-file

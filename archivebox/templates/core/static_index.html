@@ -2,14 +2,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include "core/typography.html" %}
     <title>Archived Sites</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; background: #f8fafc; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        body { margin: 0; background: #f8fafc; color: #0f172a; font-family: var(--font-family-primary); }
         a { color: inherit; }
-        .static-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: #aa1e55; color: #fff; }
+        .static-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: var(--header-bg); color: var(--header-link-color); }
         .static-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; text-decoration: none; }
         .static-brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: #fff; color: #aa1e55; font-size: 19px; }
         .static-meta { color: rgba(255,255,255,.82); font-size: 12px; }
@@ -36,7 +37,7 @@
         .snapshot-url .link-favicon-empty { display: none; }
         .snapshot-url-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
         .snapshot-title { overflow: hidden; color: #0f172a; font-size: 15px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
-        .snapshot-url { display: flex; align-items: center; gap: 5px; margin-left: 0; overflow: hidden; color: #84909f; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11.5px; font-weight: 400; line-height: 1.25; user-select: all; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+        .snapshot-url { display: flex; align-items: center; gap: 5px; margin-left: 0; overflow: hidden; color: #84909f; font-family: var(--font-family-primary); font-size: 11.5px; font-weight: 400; line-height: 1.25; user-select: all; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
         .snapshot-url .snapshot-url-domain { color: #64748b; font-weight: 400; }
         .snapshot-url :is(.snapshot-url-prefix, .snapshot-url-suffix) { color: #b0b7c0; font-weight: 400; }
         .snapshot-url:hover, .snapshot-title:hover { text-decoration: underline; }

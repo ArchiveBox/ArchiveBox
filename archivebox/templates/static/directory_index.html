@@ -3,6 +3,7 @@
 <!DOCTYPE html>
 <html lang="{{ language_code }}">
   <head>
+    {% include "core/typography.html" %}
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta http-equiv="Content-Language" content="{{ language_code }}">
     <meta name="robots" content="NONE,NOARCHIVE">
@@ -11,7 +12,7 @@
     <style>
       :root { color-scheme: light; --line: #dfe4eb; --text: #253247; --muted: #667085; --accent: #245dc1; }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; min-height: 100%; background: white; color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+      html, body { margin: 0; padding: 0; min-height: 100%; background: white; color: var(--text); font: 13px/1.4 var(--font-family-primary); }
       main { width: 100%; }
       a { color: inherit; text-decoration: none; }
       .directory-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }

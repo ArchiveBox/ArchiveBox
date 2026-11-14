@@ -1,8 +1,5 @@
-@import url("fonts/open-sans/font.css");
+@import url("typography.css");
 
-/* One shared UI family; monospace remains for code and identifiers. */
-:root { --font-family-primary: "Open Sans", Arial, sans-serif; }
-html body, input, textarea, select, button { font-family: var(--font-family-primary); }
 
 /* * {
     -webkit-box-sizing: border-box;
@@ -628,7 +625,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 #site-name { margin: 0; }
 #site-name a { display: flex; align-items: center; gap: 8px; }
 #site-name img { max-height: 30px; width: auto; padding: 0; }
-#user-tools { display: flex; flex: 1; width: auto; float: none; align-items: center; gap: 8px; min-width: 0; margin: 0; padding: 0; font-family: var(--font-family-primary); font-size: 14px; font-size-adjust: .52; font-weight: 500; line-height: 1; letter-spacing: 0; text-transform: none; overflow: visible; }
+#user-tools { display: flex; flex: 1; width: auto; float: none; align-items: center; gap: 8px; min-width: 0; margin: 0; padding: 0; font-family: var(--font-family-primary); font-size: 15px; font-size-adjust: .52; font-weight: 500; line-height: 1; letter-spacing: 0; text-transform: none; overflow: visible; }
 #user-tools .navbar-item { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; height: 36px; min-height: 36px; padding: 6px 8px; border: 0; border-radius: 5px; color: var(--header-link-color, #fff); font: inherit; text-decoration: none; white-space: nowrap; cursor: pointer; }
 #user-tools .navbar-item > span { line-height: 1; }
 #user-tools .navbar-item > span[aria-hidden="true"] { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; }
@@ -659,7 +656,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 @media (max-width: 700px) {
     #header { gap: 6px; padding: 4px 6px; }
     #site-name img, #site-name #logo { max-height: 26px; max-width: 26px; margin: 0; }
-    #user-tools { gap: 2px; font-size: 13px; }
+    #user-tools { gap: 2px; font-size: 14px; }
     #user-tools .navbar-item { height: 40px; min-height: 40px; min-width: 36px; padding: 6px; }
     #user-tools .navbar-separator, #user-tools .navbar-spacer,
     #user-tools .navbar-username, #user-tools .navbar-agent-label { display: none; }

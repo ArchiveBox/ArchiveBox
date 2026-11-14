@@ -1,0 +1,8 @@
+@import url("fonts/open-sans/font.css");
+
+:root {
+    --font-family-primary: "Open Sans", Arial, sans-serif;
+    --header-bg: #862447;
+    --header-link-color: #f7edf1;
+}
+html body, body input, body textarea, body select, body button { font-family: var(--font-family-primary); }
