@@ -429,6 +429,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     export SCREENSHOT_LIBRARY_MENU=""
     [[ "$capture_mode" != "folder-menu" ]] || export SCREENSHOT_LIBRARY_MENU=folder
     [[ "$capture_mode" != "import-menu" ]] || export SCREENSHOT_LIBRARY_MENU=import
+    [[ "$capture_mode" != "export-notification" ]] || export SCREENSHOT_LIBRARY_MENU=export
     config_selector=""
     config_click_selector=""
     if [[ "$capture_mode" == plugin-config:* ]]; then
