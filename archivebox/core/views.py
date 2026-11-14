@@ -66,6 +66,7 @@ from archivebox.core.permissions import (
 )
 from archivebox.core.routes_util import (
     build_admin_url,
+    build_snapshot_export_urls,
     build_snapshot_detail_url,
     build_snapshot_files_url,
     build_snapshot_url,
@@ -1486,6 +1487,12 @@ class PublicIndexView(ListView):
             "folder_breadcrumbs": self.folder_breadcrumbs,
             "folder_readonly": True,
             "library_root_url": self.request.path,
+            "snapshot_export_urls": {
+                format: build_admin_url(url, request=self.request, config=runtime_config)
+                for format, url in build_snapshot_export_urls(
+                    {"q": query, "search_mode": search_mode, "folder": self.selected_folder},
+                ).items()
+            },
         }
         context["show_search_index_hint"] = bool(
             query
@@ -1541,6 +1548,13 @@ class PublicIndexView(ListView):
 
     def get_queryset(self, **kwargs):
         self.folder_tree = Folder.tree(public=True)
+        for folder in self.folder_tree:
+            folder.export_urls = {
+                format: build_admin_url(url, request=self.request, config=self.request.archivebox_config)
+                for format, url in build_snapshot_export_urls(
+                    {"folder": folder.pk, "q": self.request.GET.get("q", ""), "search_mode": self.request.GET.get("search_mode", "meta")},
+                ).items()
+            }
         self.selected_folder = self.request.GET.get("folder", "")
         self.folder_query = None
         self.folder_breadcrumbs = []
@@ -1550,6 +1564,7 @@ class PublicIndexView(ListView):
             if selected is None:
                 raise Http404("Folder not found")
             from archivebox.core.smart_folders import RuleQuery
+
             self.folder_query = RuleQuery().folder(selected.pk)
             while selected:
                 self.folder_breadcrumbs.insert(0, selected)

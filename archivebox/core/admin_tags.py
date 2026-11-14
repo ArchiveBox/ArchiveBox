@@ -25,7 +25,7 @@ from archivebox.core.tag_util import (
     normalize_has_snapshots_filter,
     normalize_tag_sort,
 )
-from archivebox.core.routes_util import build_snapshot_role_output_url
+from archivebox.core.routes_util import build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.plugins.discovery import get_snapshot_role_names
 
 
@@ -167,6 +167,7 @@ class TagAdmin(BaseModelAdmin):
                 "tag_search_api_url": reverse("api-1:search_tags"),
                 "tag_similar_cards": similar_tag_cards,
                 "tag_similar_query": current_name,
+                "snapshot_export_urls": build_snapshot_export_urls({"tag": obj.pk}) if obj else {},
             },
         )
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)

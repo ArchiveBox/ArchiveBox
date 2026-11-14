@@ -101,7 +101,57 @@ async function prepare(page, adminBaseUrl, crawlId) {
   return result;
 }
 
-module.exports = {prepare};
+// Derive exports from saved native filters; never create export records or keys.
+async function prepareExports(page, adminBaseUrl, libraryUrl) {
+  await page.goto(libraryUrl, {waitUntil: 'domcontentloaded'});
+  const snapshotIds = await page.$$eval('#result_list input.action-select', nodes => nodes.map(node => node.value.replaceAll('-', '')));
+  if (!snapshotIds.length) throw new Error('The export gallery folder has no real captures.');
+  const urls = await page.$$eval('.folder-actions [data-export-format]', links => Object.fromEntries(links.map(link => [link.dataset.exportFormat, link.href])));
+  for (const format of ['rss', 'csv', 'jsonl']) {
+    if (!urls[format]) throw new Error(`Missing native ${format} export link.`);
+    const url = new URL(urls[format]);
+    if (['api_key', 'token', 'password'].some(key => url.searchParams.has(key))) throw new Error('Generated export links must not contain credentials.');
+    if (url.searchParams.get('folder') !== new URL(libraryUrl).searchParams.get('folder')) throw new Error('Export lost the selected folder.');
+    const response = await page.evaluate(async url => { const response = await fetch(url, {credentials: 'omit'}); return {status: response.status, text: await response.text()}; }, url.href);
+    if (response.status !== 200) throw new Error(`${format} export failed: ${response.status}`);
+    if (format === 'rss') {
+      const feed = await page.evaluate(text => {
+        const xml = new DOMParser().parseFromString(text, 'application/xml');
+        return {valid: !xml.querySelector('parsererror') && xml.documentElement.tagName === 'rss', ids: [...xml.querySelectorAll('channel > item > guid')].map(item => item.textContent.replaceAll('-', '')), descriptions: [...xml.querySelectorAll('channel > item > description')].map(item => item.textContent.split('\n'))};
+      }, response.text);
+      if (!feed.valid || !snapshotIds.every(id => feed.ids.includes(id))) throw new Error('RSS omitted actual displayed captures.');
+      if (!feed.descriptions.some(lines => lines.some(line => line === 'Original URL: https://news.ycombinator.com/'))) throw new Error('RSS omitted the real Hacker News capture.');
+    } else {
+      const records = format === 'jsonl'
+        ? response.text.trim().split('\n').map(line => JSON.parse(line))
+        : JSON.parse(require('node:child_process').execFileSync('uv', ['run', '--no-sync', '--project', require('node:path').resolve(__dirname, '../..'), 'python', '-c', 'import csv, json, sys; print(json.dumps(list(csv.DictReader(sys.stdin))))'], {input: response.text, encoding: 'utf8'}));
+      if (!snapshotIds.every(id => records.some(record => String(record.id).replaceAll('-', '') === id))) throw new Error(`${format} omitted actual displayed captures.`);
+      if (!records.some(record => record.url === 'https://news.ycombinator.com/')) throw new Error(`${format} omitted the real Hacker News capture.`);
+    }
+    url.searchParams.set('api_key', 'invalid-gallery-key');
+    const invalidStatus = await page.evaluate(async url => (await fetch(url, {credentials: 'include'})).status, url.href);
+    if (invalidStatus !== 401) throw new Error(`Invalid ${format} key inherited browser permissions: ${invalidStatus}`);
+  }
+  await page.goto(`${adminBaseUrl}/admin/importers/`, {waitUntil: 'domcontentloaded'});
+  let sourceUrl = await page.$$eval('table a', links => links.find(link => link.textContent.trim() === 'Hacker News RSS')?.href);
+  if (!sourceUrl) {
+    await page.goto(`${adminBaseUrl}/admin/importers/new/importer_rss/feed/`, {waitUntil: 'domcontentloaded'});
+    await page.type('#id_setting_IMPORTER_RSS_URL', 'https://news.ycombinator.com/rss');
+    await page.click('details.advanced summary');
+    await page.$eval('#id_name', node => { node.value = ''; });
+    await page.type('#id_name', 'Hacker News RSS');
+    await page.type('#id_schedule', 'daily');
+    await submit(page, '.form-card button[type="submit"]');
+    sourceUrl = page.url();
+    if (!/\/admin\/importers\/[0-9a-f-]+\/$/.test(new URL(sourceUrl).pathname)) throw new Error('Native RSS importer was not saved.');
+  }
+  return [
+    {name: 'Filtered snapshot exports', url: libraryUrl, path: new URL(libraryUrl).pathname + new URL(libraryUrl).search, source: 'archivebox/core/admin_snapshots.py'},
+    {name: 'RSS importer settings', url: `${sourceUrl}edit/`, path: `${new URL(sourceUrl).pathname}edit/`, source: 'archivebox/importers/views.py'},
+  ];
+}
+
+module.exports = {prepare, prepareExports};
 
 async function openFolderMenu(page) {
   if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');

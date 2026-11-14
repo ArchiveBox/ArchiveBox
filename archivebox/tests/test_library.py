@@ -14,7 +14,13 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     parent = Folder.objects.create(name="Research")
     child = Folder.objects.create(name="Papers", parent=parent)
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
-    snapshot = Snapshot.objects.create(url="https://example.com/paper", title="A paper", crawl=crawl, folder=child)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/paper",
+        title="A paper",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "public"},
+    )
     Snapshot.objects.create(url="https://example.com/unfiled", title="Unfiled", crawl=crawl)
     response = admin_client.get("/admin/core/snapshot/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
@@ -30,6 +36,16 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert '<span class="folder-current">Papers</span>' in html
     assert 'aria-label="Add folder in Research"' not in html
     assert "Add subfolder" in html
+    from html import unescape
+    from urllib.parse import parse_qs, urlsplit
+    import re
+
+    response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk, "q": "A paper"}, HTTP_HOST=ADMIN_TEST_HOST)
+    menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
+    links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
+    assert {format for _, format in links} == {"rss", "csv", "jsonl"}
+    for url, _format in links:
+        assert parse_qs(urlsplit(unescape(url)).query) == {"folder": [str(parent.pk)], "q": ["A paper"]}
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
@@ -75,10 +91,26 @@ def test_bulk_move_snapshots_to_folder(admin_client, admin_user):
     assert snapshot.folder_id == folder.pk
 
 
-def test_folder_feed_requires_login(client):
-    response = client.get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 302
-    assert "/login/" in response["Location"]
+def test_folder_feed_without_key_is_public_even_with_admin_session(admin_client, admin_user):
+    from xml.etree import ElementTree
+    from django.test import Client
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    for permissions in ("public", "unlisted", "private"):
+        Snapshot.objects.create(
+            url=f"https://example.com/{permissions}",
+            title=permissions,
+            crawl=crawl,
+            config={"PERMISSIONS": permissions},
+        )
+    response = Client().get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
+    response = admin_client.get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
 
 
 def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_user):
@@ -89,7 +121,13 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
 
     folder = Folder.objects.create(name="RSS research")
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
-    matching = Snapshot.objects.create(url="https://example.com/feed-query-match", title="Matching story", crawl=crawl, folder=folder)
+    matching = Snapshot.objects.create(
+        url="https://example.com/feed-query-match",
+        title="Matching story",
+        crawl=crawl,
+        folder=folder,
+        config={"PERMISSIONS": "public"},
+    )
     Snapshot.objects.create(url="https://example.com/unrelated", title="Unrelated story", crawl=crawl, folder=folder)
     Snapshot.objects.create(url="https://example.com/feed-query-match-outside", title="Outside folder", crawl=crawl)
     response = admin_client.get(
@@ -100,6 +138,151 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
     assert response.status_code == 200
     items = ElementTree.fromstring(response.content).findall("./channel/item")
     assert [item.findtext("title") for item in items] == [matching.title]
+
+
+def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token):
+    from django.apps import apps
+    from urllib.parse import parse_qs, urlsplit
+    from archivebox.api.models import APIToken
+
+    admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST)
+    tokens_before = APIToken.objects.count()
+    response = admin_client.get("/admin/core/snapshot/", {"q": "Hacker News", "search_mode": "meta"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    links = response.context["list_export_urls"]
+    link = urlsplit(links["rss"])
+    assert link.path == "/admin/core/snapshot/feed/"
+    assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
+    assert set(links) == {"rss", "csv", "jsonl"}
+    for format, url in links.items():
+        assert api_token.token not in url
+        assert parse_qs(urlsplit(url).query) == parse_qs(link.query)
+    assert APIToken.objects.count() == tokens_before
+    assert not apps.is_installed("archivebox.feeds")
+
+
+def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token, api_admin_user, django_user_model):
+    from xml.etree import ElementTree
+    from django.utils import timezone
+
+    from archivebox.core.models import Folder, Snapshot, Tag
+    from archivebox.crawls.models import Crawl
+
+    parent = Folder.objects.create(name="Research")
+    child = Folder.objects.create(name="News", parent=parent)
+    tag = Tag.objects.create(name="RSS topic", created_by=api_admin_user)
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
+    first = Snapshot.objects.create(
+        url="https://news.ycombinator.com/",
+        title="Matching story",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "private"},
+    )
+    first.tags.add(tag)
+    Snapshot.objects.create(url="https://example.com/outside", title="Matching outside", crawl=crawl)
+    other = django_user_model.objects.create_user("other-rss-owner")
+    other_crawl = Crawl.objects.create(urls="https://example.com/other", created_by=other)
+    wrong_owner = Snapshot.objects.create(url=other_crawl.urls, title="Matching other owner", crawl=other_crawl, folder=child)
+    wrong_owner.tags.add(tag)
+    query = {"folder": parent.pk, "tag": tag.pk, "crawl__created_by__id__exact": api_admin_user.pk, "q": "Matching", "search_mode": "meta"}
+    endpoint = "/admin/core/snapshot/feed/"
+    public_response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST)
+    assert public_response.status_code == 200
+    assert ElementTree.fromstring(public_response.content).findall("./channel/item") == []
+    response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST, HTTP_AUTHORIZATION=f"Bearer {api_token.token}")
+    assert response.status_code == 200
+    assert response["Cache-Control"].find("no-store") >= 0
+    assert response["Referrer-Policy"] == "no-referrer"
+    items = ElementTree.fromstring(response.content).findall("./channel/item")
+    assert [item.findtext("guid") for item in items] == [str(first.pk)]
+    second = Snapshot.objects.create(
+        url="https://news.ycombinator.com/newest",
+        title="Matching new story",
+        crawl=crawl,
+        folder=child,
+        config={"PERMISSIONS": "private"},
+    )
+    second.tags.add(tag)
+    response = client.get(endpoint, {**query, "api_key": api_token.token, "p": "999"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert api_token.token.encode() not in response.content
+    assert {item.findtext("guid") for item in ElementTree.fromstring(response.content).findall("./channel/item")} == {
+        str(first.pk),
+        str(second.pk),
+    }
+    api_token.expires = timezone.now() - timezone.timedelta(seconds=1)
+    api_token.save(update_fields=["expires"])
+    assert client.get(endpoint, {**query, "api_key": api_token.token}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
+
+
+def test_native_rss_rejects_writes_and_invalid_filters(admin_client):
+    endpoint = "/admin/core/snapshot/feed/"
+    assert admin_client.post(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
+    assert admin_client.get(endpoint, {"not_a_snapshot_field": "x"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+
+
+def test_feed_key_does_not_inherit_browser_privileges(admin_client, django_user_model):
+    from archivebox.api.models import APIToken
+
+    user = django_user_model.objects.create_user("no-feed-permission")
+    token = APIToken.objects.create(created_by=user)
+    response = admin_client.get("/admin/core/snapshot/feed/", {"api_key": token.token}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 403
+
+
+def test_public_feed_cannot_query_sensitive_config(client, admin_user):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})
+    response = client.get("/admin/core/snapshot/feed/", {"config__contains": "secret"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("format", ["csv", "jsonl"])
+def test_native_list_downloads_are_complete_filtered_and_public_by_default(admin_client, api_token, api_admin_user, format):
+    import csv
+    import io
+    import json
+
+    from archivebox.core.models import Folder, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    folder = Folder.objects.create(name="Exports")
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    expected_ids = set()
+    title = 'A "quoted", multiline\nUnicode café title'
+    for index in range(501):
+        snapshot = Snapshot.objects.create(
+            url=f"https://example.com/export/{index}",
+            title=title,
+            crawl=crawl,
+            folder=folder,
+            config={"PERMISSIONS": "public", "PRIVATE_VALUE": "not-for-export"},
+            notes="private notes",
+        )
+        expected_ids.add(str(snapshot.pk))
+    private = Snapshot.objects.create(url="https://example.com/private", crawl=crawl, folder=folder, config={"PERMISSIONS": "private"})
+    Snapshot.objects.create(url="https://example.com/outside", crawl=crawl, config={"PERMISSIONS": "public"})
+    endpoint = f"/admin/core/snapshot/export.{format}"
+
+    def records(response):
+        assert response.status_code == 200
+        assert "no-store" in response["Cache-Control"]
+        assert response["Content-Disposition"] == f'attachment; filename="snapshots.{format}"'
+        content = response.content.decode()
+        assert "not-for-export" not in content and "private notes" not in content and api_token.token not in content
+        return list(csv.DictReader(io.StringIO(content))) if format == "csv" else [json.loads(line) for line in content.splitlines()]
+
+    public = records(admin_client.get(endpoint, {"folder": folder.pk, "p": 999}, HTTP_HOST=ADMIN_TEST_HOST))
+    assert {row["id"] for row in public} == expected_ids
+    assert {row["title"] for row in public} == {'A "quoted", multiline Unicode café title'}
+    authorized = records(admin_client.get(endpoint, {"folder": folder.pk, "api_key": api_token.token}, HTTP_HOST=ADMIN_TEST_HOST))
+    assert {row["id"] for row in authorized} == expected_ids | {str(private.pk)}
+    assert admin_client.get(endpoint, {"api_key": "invalid"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
+    assert admin_client.get(endpoint, {"config__contains": "private"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
 
 
 def test_view_only_staff_cannot_move_snapshots_to_folder(client, admin_user, django_user_model):
@@ -203,6 +386,8 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         menu = page.locator(f"#folder-menu-{parent.pk}")
         expect(menu).to_be_visible()
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_be_focused()
+        page.keyboard.press("ArrowDown")
+        expect(menu.get_by_role("menuitem", name="Move...", exact=True)).to_be_focused()
         page.keyboard.press("Escape")
         expect(menu).to_be_hidden()
         page.get_by_role("button", name="Actions for Research", exact=True).click()
@@ -237,7 +422,8 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
     for snapshot in snapshots:
         snapshot.refresh_from_db()
     assert snapshots[0].folder_id == child.pk
-    assert {snapshot.folder_id for snapshot in snapshots[1:]} == {parent.pk}
+    items = parent.children.get(name="Items")
+    assert {snapshot.folder_id for snapshot in snapshots[1:]} == {items.pk}
     assert Folder.objects.get(name="Design inspiration").parent_id == parent.pk
 
 
@@ -392,65 +578,3 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         expect(page.locator(".folder-drop-status")).to_be_empty()
         assert invalid_moves == []
         browser.close()
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("view", ["table", "grid"])
-def test_browser_snapshot_drop_on_smart_folder_clears_assignment(live_server, admin_user, browser_runtime, view):
-    from playwright.sync_api import sync_playwright, expect
-    from urllib.parse import urlsplit
-    from archivebox.core.models import Folder, Snapshot
-    from archivebox.crawls.models import Crawl
-    from archivebox.machine.models import Machine
-
-    machine = Machine.current()
-    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
-    machine.save(update_fields=["config"])
-    source = Folder.objects.create(name="Saved")
-    target = Folder.objects.create(name="News", rules={"field": "title", "lookup": "icontains", "value": "news"})
-    unassigned, _ = Folder.objects.get_or_create(
-        name="📥 Inbox",
-        defaults={"rules": {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}},
-    )
-    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
-    snapshots = [
-        Snapshot.objects.create(url=f"https://news.ycombinator.com/item?id={i}", title=title, crawl=crawl, folder=source)
-        for i, title in enumerate(["News story", "Other story", "Another story", "Leave saved"])
-    ]
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
-        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
-        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
-        page.locator('[name="username"]').fill(admin_user.username)
-        page.locator('[name="password"]').fill("testpassword")
-        page.get_by_role("button", name="Log in", exact=True).click()
-        suffix = "grid/" if view == "grid" else ""
-        page.goto(f"{admin_url}/admin/core/snapshot/{suffix}?folder={source.pk}")
-        row_selector, drag_selector = (".cards .card", ".card-title") if view == "grid" else ("#result_list tbody tr", ".field-title_str")
-
-        def capture(snapshot):
-            return page.locator(row_selector).filter(has=page.locator(f'input.action-select[value="{snapshot.pk}"]'))
-
-        with page.expect_navigation():
-            capture(snapshots[0]).locator(drag_selector).drag_to(page.locator(f'.folder-row[data-folder-id="{target.pk}"]'))
-        expect(page.locator(".messagelist")).to_contain_text("Moved 1 snapshot(s) to No folder")
-        expect(capture(snapshots[0])).to_have_count(0)
-        for snapshot in snapshots[1:3]:
-            page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
-        with page.expect_navigation():
-            capture(snapshots[1]).locator(drag_selector).drag_to(page.locator(f'.folder-row[data-folder-id="{target.pk}"]'))
-        expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to No folder")
-        expect(page.locator(row_selector)).to_have_count(1)
-        page.locator(f'.folder-row[data-folder-id="{unassigned.pk}"] .folder-link').click()
-        for snapshot in snapshots[:3]:
-            expect(capture(snapshot)).to_be_visible()
-        page.locator(f'.folder-row[data-folder-id="{target.pk}"] .folder-link').click()
-        expect(capture(snapshots[0])).to_be_visible()
-        expect(capture(snapshots[1])).to_have_count(0)
-        browser.close()
-    assert list(Snapshot.objects.filter(folder=source).values_list("pk", flat=True)) == [snapshots[3].pk]
-    assert set(Snapshot.objects.filter(folder=None).values_list("pk", flat=True)) == {s.pk for s in snapshots[:3]}
-    target.refresh_from_db()
-    assert target.rules == {"field": "title", "lookup": "icontains", "value": "news"}
-    assert not target.children.exists()

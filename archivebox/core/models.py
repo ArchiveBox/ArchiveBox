@@ -14,9 +14,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
-from django.db.models import F, Q, QuerySet, Sum, Value
+from django.db.models import Case, Count, F, Q, QuerySet, Sum, Value, When
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce, Greatest
+from django.db.models.functions import Coalesce, Greatest, Least, Length, Lower, NullIf, Reverse, Right, StrIndex, Substr
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -457,6 +457,40 @@ class SnapshotQuerySet(PagedQuerySet):
     # =========================================================================
     # Filtering Methods
     # =========================================================================
+
+    def with_hostname(self) -> "SnapshotQuerySet":
+        """Extract hostnames in SQL, without fetching URLs or archive files."""
+        authority = Substr("url", StrIndex("url", Value("://")) + 3)
+        end = Least(*(Coalesce(NullIf(StrIndex(authority, Value(separator)), 0), Length(authority) + 1) for separator in ("/", "?", "#")))
+        return (
+            self.filter(url__iregex=r"^https?://")
+            .alias(_domain_authority=Substr(authority, 1, end - 1))
+            .alias(
+                _domain_address=Case(
+                    When(
+                        _domain_authority__contains="@",
+                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
+                    ),
+                    default=F("_domain_authority"),
+                ),
+            )
+            .annotate(
+                _domain_host=Lower(
+                    Case(
+                        When(
+                            _domain_address__startswith="[",
+                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
+                        ),
+                        default=Substr(
+                            "_domain_address",
+                            1,
+                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
+                        ),
+                    ),
+                ),
+            )
+            .exclude(_domain_host="")
+        )
 
     FILTER_TYPES: ClassVar[dict[str, Any]] = {
         "exact": lambda pattern: models.Q(url=pattern),

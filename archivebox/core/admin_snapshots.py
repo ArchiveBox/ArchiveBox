@@ -29,6 +29,7 @@ from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
     build_snapshot_detail_url,
+    build_snapshot_export_urls,
     build_snapshot_files_url,
     build_snapshot_role_output_url,
     build_snapshot_url,
@@ -61,6 +62,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_META,
     get_snapshot_permissions,
     normalize_permissions,
+    public_snapshots_queryset,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -583,6 +585,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
         extra_context["folder_tree"] = Folder.tree()
+        for folder in extra_context["folder_tree"]:
+            filters = request.GET.copy()
+            filters["folder"] = str(folder.pk)
+            folder.export_urls = build_snapshot_export_urls(filters)
         extra_context["selected_folder"] = request.GET.get("folder", "")
         selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
         folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
@@ -592,10 +598,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             selected = folders_by_id.get(selected.parent_id)
         extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
         extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
-        feed_query = request.GET.copy()
-        feed_query.pop("p", None)
-        extra_context["list_feed_url"] = reverse("admin:core_snapshot_feed") + "?" + feed_query.urlencode()
-        extra_context["list_export_urls"] = {"rss": extra_context["list_feed_url"]}
+        extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET)
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
@@ -633,7 +636,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("feed/", self.admin_site.admin_view(self.feed_view), name="core_snapshot_feed"),
+            path("feed/", self.export_view, name="core_snapshot_feed"),
+            path("export.<str:format>", self.export_view, name="core_snapshot_export"),
+            path("export-jobs/<str:process_id>/", self.export_job_view, name="core_snapshot_export_job"),
+            path(
+                "export-jobs/<str:process_id>/download/",
+                self.export_job_view,
+                {"action": "download"},
+                name="core_snapshot_export_download",
+            ),
+            path("export-jobs/<str:process_id>/cancel/", self.export_job_view, {"action": "cancel"}, name="core_snapshot_export_cancel"),
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
@@ -650,16 +662,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ]
         return custom_urls + urls
 
-    def feed_view(self, request):
-        from archivebox.api.v1_core import _snapshots_rss_response
+    def get_list_queryset(self, request, *, public_only=False):
         from archivebox.search.query import apply_snapshot_search
 
-        if not self.has_view_permission(request):
-            raise PermissionDenied
         self = copy(self)
+        request = copy(request)
+        request.GET = request.GET.copy()
+        for key in ("p", "api_key", "token", "password", "_popup", "_to_field", "_embedded", "per_page"):
+            request.GET.pop(key, None)
         self.request = request
 
         def search(_request, queryset, term):
+            if public_only:
+                queryset = public_snapshots_queryset(queryset)
             if term:
                 queryset = apply_snapshot_search(
                     queryset,
@@ -670,9 +685,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return queryset, True
 
         self.get_search_results = search
-        changelist = self.get_changelist_instance(request)
-        snapshots = changelist.queryset.select_related("crawl__created_by").prefetch_related("tags")[:500]
-        return _snapshots_rss_response(request, snapshots=snapshots)
+        return self.get_changelist_instance(request).queryset
+
+    def export_view(self, request, format="rss"):
+        from archivebox.core.exports import snapshot_export_view
+
+        return snapshot_export_view(request, format=format)
+
+    def export_job_view(self, request, process_id, action="status"):
+        from archivebox.core.exports import snapshot_export_job_view
+
+        return snapshot_export_job_view(request, process_id, action=action)
 
     @admin.action(description="Move to folder", permissions=["change"])
     def move_to_folder(self, request, queryset):

@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return fraction < .25 ? 'before' : fraction > .75 ? 'after' : 'inside';
   }
   function canDrop(target) {
-    if (dragging) return target !== rootTarget;
+    if (dragging) return target !== rootTarget && (target.dataset.smart !== 'true' || target.dataset.container === 'true');
     if (!movingFolder) return false;
     let ancestor = target;
     while (ancestor) {
@@ -556,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const destination = form.querySelector('[name=folder_destination]');
       const action = form.querySelector('select[name=action]');
       if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
-      destination.value = target.dataset.smart === 'true' && target.dataset.container !== 'true' ? '' : target.dataset.folderId;
+      destination.value = target.dataset.folderId;
       action.value = 'move_to_folder';
       clearDrag(); status.textContent = 'Moving snapshots…';
       form.requestSubmit(form.querySelector('button[name=index]'));

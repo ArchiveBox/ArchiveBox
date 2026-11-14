@@ -742,6 +742,7 @@
                 </tbody>
             </table>
         </div>
+        {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}
         <div class="public-pagination">
             Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
             <br>
@@ -879,6 +880,13 @@
                     const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal: controller.signal})
                     const html = await response.text()
                     const doc = new DOMParser().parseFromString(html, 'text/html')
+                    document.querySelectorAll('a[data-export-format]').forEach(link => {
+                        const menu = link.closest('.folder-menu')
+                        const nextGroup = menu ? doc.getElementById(menu.id) : doc
+                        const selector = (menu ? '' : '.snapshot-export-links:not(.snapshot-export-menu) ') + 'a[data-export-format="' + link.dataset.exportFormat + '"]'
+                        const nextLink = nextGroup && nextGroup.querySelector(selector)
+                        if (nextLink) link.setAttribute('href', nextLink.getAttribute('href'))
+                    })
                     replaceRegionFromDocument(doc, '.public-snapshot-count')
                     replaceRegionFromDocument(doc, '#table-bookmarks thead th:nth-child(3)')
                     replaceRegionFromDocument(doc, '#table-bookmarks tbody')
