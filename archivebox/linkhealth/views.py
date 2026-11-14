@@ -1,4 +1,3 @@
-from copy import copy
 from functools import wraps
 import re
 
@@ -14,6 +13,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from archivebox.core.admin_site import archivebox_admin
+from archivebox.core.exports import get_export_queryset
 from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
 from archivebox.machine.models import Process
 from .service import launch_check, report
@@ -33,11 +33,11 @@ def health_admin(view):
 
 
 def selection(request, query):
-    filtered = copy(request)
-    filtered.GET = QueryDict(query).copy()
+    params = QueryDict(query).copy()
     for key in ("run", "page", "p"):
-        filtered.GET.pop(key, None)
-    return archivebox_admin._registry[Snapshot].get_list_queryset(filtered), filtered.GET.urlencode()
+        params.pop(key, None)
+    snapshots = get_export_queryset(params, user=request.user, public_only=False, config=request.archivebox_config, request=request)
+    return snapshots, params.urlencode()
 
 
 @health_admin

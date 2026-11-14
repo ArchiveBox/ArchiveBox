@@ -14,11 +14,12 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
-from django.db.models import Q, Count, Exists, F, OuterRef, Prefetch
+from django.db.models import Count, Prefetch
 from django import forms
 from django.template import Context, Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
 
+from django.contrib.admin.options import ActionLocation
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
@@ -27,6 +28,7 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
+from archivebox.search.query import apply_snapshot_filters
     build_snapshot_detail_path,
     build_snapshot_detail_url,
     build_snapshot_export_urls,
@@ -62,7 +64,6 @@ from archivebox.core.permissions import (
     PERMISSIONS_META,
     get_snapshot_permissions,
     normalize_permissions,
-    public_snapshots_queryset,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -105,12 +106,10 @@ class SnapshotDomainListFilter(admin.SimpleListFilter):
         return [(self.value(), self.value())] if self.value() else []
 
     def queryset(self, request, queryset):
-        if self.value():
-            try:
-                return queryset.filter_by_domain(self.value())
-            except ValueError:
-                return queryset.none()
-        return queryset
+        try:
+            return apply_snapshot_filters(queryset, domain=self.value())
+        except (ValueError, ValidationError):
+            return queryset.none()
 
 
 class SnapshotFolderListFilter(admin.SimpleListFilter):
@@ -121,15 +120,10 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
         return list(Folder.objects.values_list("pk", "name"))
 
     def queryset(self, request, queryset):
-        value = self.value()
-        if value == "unfiled":
-            return queryset.filter(folder__isnull=True)
-        if value:
-            try:
-                return Folder.select_snapshots(queryset, value)
-            except ValueError:
-                return queryset.none()
-        return queryset
+        try:
+            return apply_snapshot_filters(queryset, folder_id=self.value())
+        except (ValueError, ValidationError):
+            return queryset.none()
 
 
 class TagNameListFilter(admin.SimpleListFilter):
@@ -174,9 +168,7 @@ class SnapshotStatusListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value in dict(Snapshot._meta.get_field("status").choices):
-            return queryset.filter(status=value)
-        return queryset
+        return apply_snapshot_filters(queryset, status=value if value in dict(Snapshot._meta.get_field("status").choices) else None)
 
 
 class SnapshotArchiveStateListFilter(admin.SimpleListFilter):
@@ -194,20 +186,7 @@ class SnapshotArchiveStateListFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        value = self.value()
-        if value == "downloaded":
-            return queryset.filter(downloaded_at__isnull=False)
-        if value == "not_downloaded":
-            return queryset.filter(downloaded_at__isnull=True)
-        if value == "has_output":
-            return queryset.filter(output_size__gt=0)
-        if value == "empty_output":
-            return queryset.filter(output_size=0)
-        if value == "has_title":
-            return queryset.exclude(Q(title__isnull=True) | Q(title=""))
-        if value == "missing_title":
-            return queryset.filter(Q(title__isnull=True) | Q(title=""))
-        return queryset
+        return apply_snapshot_filters(queryset, archive_state=self.value())
 
 
 class SnapshotSizeListFilter(admin.SimpleListFilter):
@@ -225,24 +204,12 @@ class SnapshotSizeListFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        value = self.value()
-        thresholds = {
-            "1gb": 1024 * 1024 * 1024,
-            "500mb": 500 * 1024 * 1024,
-            "250mb": 250 * 1024 * 1024,
-            "100mb": 100 * 1024 * 1024,
-            "50mb": 50 * 1024 * 1024,
-            "25mb": 25 * 1024 * 1024,
-        }
-        if value in thresholds:
-            return queryset.filter(output_size__gt=thresholds[value])
-        return queryset
+        return apply_snapshot_filters(queryset, size=self.value())
 
 
 class SnapshotResultHealthListFilter(admin.SimpleListFilter):
     title = "ArchiveResult status"
     parameter_name = "archiveresult_status"
-    SNAPSHOT_FIRST_VALUES = {"succeeded"}
 
     def lookups(self, request, model_admin):
         return (
@@ -256,45 +223,7 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        value = self.value()
-        if value:
-            results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk"))
-            if value == "none":
-                return queryset.annotate(has_results=Exists(results)).filter(has_results=False)
-            if value == "has_results":
-                return queryset.annotate(has_results=Exists(results)).filter(has_results=True)
-            status_by_value = {
-                "succeeded": ArchiveResult.StatusChoices.SUCCEEDED,
-                "failed": ArchiveResult.StatusChoices.FAILED,
-                "running": ArchiveResult.StatusChoices.STARTED,
-                "pending": (ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.BACKOFF),
-                "backoff": ArchiveResult.StatusChoices.BACKOFF,
-                "noresults": ArchiveResult.StatusChoices.NORESULTS,
-            }
-            if value in status_by_value:
-                status = status_by_value[value]
-                if value in self.SNAPSHOT_FIRST_VALUES:
-                    # "succeeded" is overwhelmingly common in large collections.
-                    # Scan Snapshots in admin order and do indexed per-snapshot
-                    # probes so page 1 can stop after list_per_page matches.
-                    # Count both values in one covering-index scan. Separate
-                    # scalar subqueries scan every snapshot's results twice
-                    # when the paginator computes the exact filtered count.
-                    matching = (
-                        results.order_by()
-                        .values("snapshot_id")
-                        .annotate(
-                            total_results=Count("snapshot_id"),
-                            matching_results=Count("snapshot_id", filter=Q(status=status)),
-                        )
-                        .filter(matching_results__gt=F("total_results") / 2)
-                    )
-                    return queryset.filter(Exists(matching))
-
-                # Rare statuses are faster status-first: use the
-                # (status, snapshot_id) index to find candidate snapshots.
-                return queryset.filter(pk__in=ArchiveResult.snapshot_ids_with_majority_status(status))
-        return queryset
+        return apply_snapshot_filters(queryset, archiveresult_status=self.value())
 
 
 class SnapshotChangeList(SearchResultsChangeList):
@@ -654,8 +583,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         finally:
             self.list_per_page = saved_list_per_page
 
-    def get_actions(self, request):
-        actions = super().get_actions(request)
+    def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+        actions = super().get_actions(request, action_location=action_location)
         if not actions:
             return {}
         # Keep the old action endpoint for callers, while the UI uses Django's
@@ -709,32 +638,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             ),
         ]
         return custom_urls + urls
-
-    def get_list_queryset(self, request, *, public_only=False):
-        from archivebox.search.config import get_search_mode
-        from archivebox.search.query import apply_snapshot_search
-
-        self = copy(self)
-        request = copy(request)
-        request.GET = request.GET.copy()
-        for key in ("p", "api_key", "token", "password", "_popup", "_to_field", "_embedded", "per_page"):
-            request.GET.pop(key, None)
-        self.request = request
-
-        def search(_request, queryset, term):
-            if public_only:
-                queryset = public_snapshots_queryset(queryset)
-            if term:
-                queryset = apply_snapshot_search(
-                    queryset,
-                    term,
-                    search_mode=get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config),
-                    config=request.archivebox_config,
-                )
-            return queryset, True
-
-        self.get_search_results = search
-        return self.get_changelist_instance(request).queryset
 
     def export_view(self, request, format="rss"):
         from archivebox.core.exports import snapshot_export_view
@@ -1279,7 +1182,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
         sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
-        icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+        icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         request = self.request
         config = request.archivebox_config
         # Every icon links into this one detail page and differs only in its
@@ -1309,7 +1212,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # CSS variables admin.css/files-icon-piles.js read, left out where they
         # equal their var()/JS fallback. Every icon, link, label and position stays.
         output = []
-        for group_id, label, _ in OUTPUT_GROUPS:
+        for group_id, label in OUTPUT_GROUPS:
             icons = icons_by_group[group_id]
             if not icons:
                 continue

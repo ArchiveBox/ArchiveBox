@@ -16,6 +16,68 @@ from archivebox.search.config import get_search_mode, get_search_mode_backend, g
 MAX_SEARCH_RANK_IDS = 500
 
 
+def apply_snapshot_filters(queryset, *, domain=None, folder_id=None, status=None, archive_state=None, size=None, archiveresult_status=None):
+    """Apply collection predicates shared by admin filters, exports, API and CLI."""
+    from django.db.models import Count, Exists, F, OuterRef
+    from archivebox.core.models import ArchiveResult, Folder
+    from archivebox.core.snapshot_status import filter_snapshots_by_status
+
+    if domain:
+        queryset = queryset.filter_by_domain(domain)
+    if folder_id == "unfiled":
+        queryset = queryset.filter(folder__isnull=True)
+    elif folder_id:
+        if not Folder.objects.filter(pk=folder_id).exists():
+            raise ValueError("Folder does not exist.")
+        queryset = queryset.in_folder(folder_id)
+    queryset = filter_snapshots_by_status(queryset, status)
+    if archive_state == "downloaded":
+        queryset = queryset.filter(downloaded_at__isnull=False)
+    elif archive_state == "not_downloaded":
+        queryset = queryset.filter(downloaded_at__isnull=True)
+    elif archive_state == "has_output":
+        queryset = queryset.filter(output_size__gt=0)
+    elif archive_state == "empty_output":
+        queryset = queryset.filter(output_size=0)
+    elif archive_state == "has_title":
+        queryset = queryset.exclude(Q(title__isnull=True) | Q(title=""))
+    elif archive_state == "missing_title":
+        queryset = queryset.filter(Q(title__isnull=True) | Q(title=""))
+    thresholds = {"1gb": 1024**3, **{f"{amount}mb": amount * 1024**2 for amount in (500, 250, 100, 50, 25)}}
+    if size in thresholds:
+        queryset = queryset.filter(output_size__gt=thresholds[size])
+    if archiveresult_status:
+        results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk"))
+        if archiveresult_status in {"none", "has_results"}:
+            return queryset.annotate(has_results=Exists(results)).filter(has_results=archiveresult_status == "has_results")
+        statuses = {
+            "succeeded": ArchiveResult.StatusChoices.SUCCEEDED,
+            "failed": ArchiveResult.StatusChoices.FAILED,
+            "running": ArchiveResult.StatusChoices.STARTED,
+            "pending": (ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.BACKOFF),
+            "backoff": ArchiveResult.StatusChoices.BACKOFF,
+            "noresults": ArchiveResult.StatusChoices.NORESULTS,
+        }
+        if archiveresult_status in statuses:
+            result_status = statuses[archiveresult_status]
+            if archiveresult_status == "succeeded":
+                # Successful captures dominate large collections. Probe each snapshot
+                # through the covering index so a page can stop at its first matches.
+                matching = (
+                    results.order_by()
+                    .values("snapshot_id")
+                    .annotate(
+                        total_results=Count("snapshot_id"),
+                        matching_results=Count("snapshot_id", filter=Q(status=result_status)),
+                    )
+                    .filter(matching_results__gt=F("total_results") / 2)
+                )
+                return queryset.filter(Exists(matching))
+            # Rare states benefit from finding candidate snapshots by status first.
+            return queryset.filter(pk__in=ArchiveResult.snapshot_ids_with_majority_status(result_status))
+    return queryset
+
+
 def escape_like_query(query: str) -> str:
     """Escape a string for SQL LIKE matching (used with ESCAPE '\\')."""
     return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

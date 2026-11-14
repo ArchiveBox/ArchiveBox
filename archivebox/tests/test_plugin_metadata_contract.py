@@ -8,6 +8,39 @@ from archivebox.crawls.models import Crawl
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("snapshot_output_order", True),
+        ("snapshot_primary_preview", "true"),
+        ("snapshot_thumbnail_cards", [{"archive_result_name": "title", "order": "0"}]),
+        ("default_output_path", "../title.txt"),
+        ("replay_assets", {"wacz": ["../secret"]}),
+        ("archive_result_aliases", ["wget"]),
+        ("archive_result_aliases", ["chrome_extension_viewport"]),
+        ("snapshot_thumbnail_cards", [{"archive_result_name": "screenshot", "order": 0}]),
+    ],
+)
+def test_cli_rejects_invalid_presentation_metadata_at_discovery(initialized_archive, tmp_path, key, value):
+    import json
+    import shutil
+    from pathlib import Path
+
+    from abx_plugins import get_plugins_dir
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+
+    plugins = tmp_path / "plugins"
+    title = shutil.copytree(Path(get_plugins_dir()) / "title", plugins / "title")
+    path = title / "config.json"
+    config = json.loads(path.read_text())
+    config[key] = value
+    path.write_text(json.dumps(config))
+
+    result = run_archivebox_cmd(["plugin", "--help"], env=cli_env(ABX_PLUGINS_DIR=str(plugins)))
+    assert result.returncode != 0, result.stdout
+    assert f"title: {key}" in result.stderr
+
+
 def test_text_result_is_not_treated_as_a_filename():
     assert ArchiveResult.resolve_embed_path("title", "report.html", {}) is None
     assert ArchiveResult.resolve_embed_path("dns", "192.0.2.1", {}) is None

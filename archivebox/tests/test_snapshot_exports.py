@@ -274,8 +274,8 @@ def test_export_controls_preserve_request_and_csrf_context(admin_user, surface):
         crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
         source = ImporterSource.objects.create(name="Export source", plugin="importer_rss", feed="feed", created_by=admin_user)
         run = ImporterRun.objects.create(source=source, crawl=crawl, status="succeeded")
-        response = client.get(reverse("importers:run-activity", args=[run.pk]), HTTP_HOST=ADMIN_TEST_HOST)
-        body = response.json()["html"]
+        response = client.get(reverse("importers:run", args=[run.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+        body = response.content.decode()
     assert response.status_code == 200
     controls = re.search(r'<span class="snapshot-export-links[^>]*>', body).group()
     assert 'data-export-session="1"' in controls
@@ -460,3 +460,88 @@ def test_public_folder_export_links_keep_default_content_search(admin_user, cach
     exported = client.get(url, HTTP_HOST=API_TEST_HOST)
     assert exported.status_code == 200
     assert exported_ids(exported, "jsonl") == {str(snapshots[0].pk)}
+
+
+def test_export_selection_stays_lazy_without_building_admin_results(admin_user):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.config.common import get_config
+    from archivebox.core.exports import get_export_queryset
+
+    crawl = Crawl.objects.create(urls="https://example.com/selection", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, title="selection needle", crawl=crawl)
+    config = get_config()
+    with CaptureQueriesContext(connection) as queries:
+        selection = get_export_queryset({"title__icontains": "needle"}, user=admin_user, public_only=False, config=config)
+    assert len(queries) == 0, [entry["sql"] for entry in queries]
+    assert list(selection.values_list("pk", flat=True)) == [snapshot.pk]
+
+
+@pytest.mark.parametrize("ordering", ["-2", "4.-2", "-7", "-5"])
+def test_exports_preserve_admin_ordering_and_repeated_filters(admin_client, admin_user, ordering):
+    from django.utils import timezone
+    from datetime import timedelta
+    from archivebox.core.models import Tag
+
+    crawl = Crawl.objects.create(urls="https://example.com/selection", created_by=admin_user)
+    snapshots = []
+    for index, title in enumerate(("B", "A", "A")):
+        snapshot = Snapshot.objects.create(
+            url=f"{crawl.urls}/{index}",
+            title=title,
+            crawl=crawl,
+            downloaded_at=None if index == 0 else timezone.now(),
+        )
+        Snapshot.objects.filter(pk=snapshot.pk).update(created_at=timezone.now() - timedelta(days=index))
+        for number in range(index):
+            ArchiveResult.objects.create(snapshot=snapshot, plugin=("screenshot", "title")[number], status="succeeded")
+            snapshot.tags.add(Tag.objects.create(name=f"selection-{index}-{number}"))
+        snapshots.append(snapshot)
+    pairs = [("id__exact", str(snapshot.pk)) for snapshot in snapshots[1:]] + [("o", ordering), ("downloaded_at__isnull", "0")]
+    query = urlencode(pairs)
+    listing = admin_client.get(f"/admin/core/snapshot/?{query}", HTTP_HOST=ADMIN_TEST_HOST)
+    assert listing.status_code == 200
+    expected = [str(snapshot.pk) for snapshot in listing.context["cl"].result_list]
+    exported = admin_client.get(f"/admin/core/snapshot/export.jsonl?{query}", HTTP_HOST=ADMIN_TEST_HOST)
+    assert exported.status_code == 200, exported.content
+    assert [json.loads(line)["id"] for line in exported.content.splitlines()] == expected
+    assert set(expected) == {str(snapshot.pk) for snapshot in snapshots[1:]}
+
+
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        "crawl__created_by__password__icontains",
+        "crawl__created_by_id__password__icontains",
+        "crawl_id__created_by__password__icontains",
+        "crawl__config__icontains",
+        "crawl__persona__config__icontains",
+        "crawl__persona_id__config__icontains",
+    ],
+)
+def test_private_exports_reject_related_credentials(admin_client, admin_user, lookup):
+    crawl = Crawl.objects.create(urls="https://example.com/private-export", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
+    rejected = admin_client.get("/admin/core/snapshot/export.jsonl", {lookup: "secret"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert rejected.status_code == 400
+    allowed = admin_client.get(
+        "/admin/core/snapshot/export.jsonl",
+        {"crawl__created_by__id__exact": str(admin_user.pk)},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert allowed.status_code == 200
+    assert exported_ids(allowed, "jsonl") == {str(snapshot.pk)}
+
+
+def test_exports_preserve_named_filter_last_value_and_invalid_status(admin_client, admin_user):
+    crawl = Crawl.objects.create(urls="https://example.com/permissions", created_by=admin_user)
+    snapshots = [
+        Snapshot.objects.create(url=f"{crawl.urls}/{value}", crawl=crawl, config={"PERMISSIONS": value}) for value in ("public", "private")
+    ]
+    query = urlencode([("permissions", "public"), ("permissions", "private"), ("snapshot_status", "invalid")])
+    listing = admin_client.get(f"/admin/core/snapshot/?{query}", HTTP_HOST=ADMIN_TEST_HOST)
+    assert listing.status_code == 200
+    expected = [str(snapshot.pk) for snapshot in listing.context["cl"].result_list]
+    exported = admin_client.get(f"/admin/core/snapshot/export.jsonl?{query}", HTTP_HOST=ADMIN_TEST_HOST)
+    assert exported.status_code == 200
+    assert [json.loads(line)["id"] for line in exported.content.splitlines()] == expected == [str(snapshots[1].pk)]

@@ -63,33 +63,47 @@ EVENTS = {
     "UPDATE": dict(label="Updated", icon="update", color="#547caa", section=True),
     "DELETE": dict(label="Deleted", icon="delete", color="#b3495a"),
 }
-LIFECYCLE = {
-    "core.Snapshot": ("BEFORE_QUEUE", "BEFORE_CAPTURE", "CAPTURE_COMPLETED", "FOLDER_ENTERED", "FOLDER_LEFT"),
-    "crawls.Crawl": ("BEFORE_QUEUE", "STARTED", "COMPLETED"),
-    "core.ArchiveResult": ("CAPTURE_COMPLETED",),
-    "machine.Process": ("STARTED", "EXITED"),
-    "importers.ImporterRun": ("STARTED", "COMPLETED"),
-}
-STATUS_EVENTS = {
-    "importers.ImporterRun": {"running": "STARTED", **dict.fromkeys(("succeeded", "failed", "needs_login", "cancelled"), "COMPLETED")},
-    "crawls.Crawl": {"started": "STARTED", "sealed": "COMPLETED"},
-    "machine.Process": {"running": "STARTED", "exited": "EXITED"},
-    "core.ArchiveResult": dict.fromkeys(("succeeded", "failed", "skipped", "noresults"), "CAPTURE_COMPLETED"),
-}
-SIGNAL_CHOICES = list(SignalChoices.choices) + [(key, value["label"]) for key, value in EVENTS.items() if key not in SignalChoices.values]
+
+
+def event_options(model, event):
+    return {
+        "label": event.replace("_", " ").capitalize(),
+        "icon": "bolt",
+        "color": "#597bab",
+        **EVENTS.get(event, {}),
+        **getattr(model, "webhook_events", {}).get(event, {}),
+    }
 
 
 def event_catalog():
-    """One registry for model validation and the editor; labels are presentation."""
+    """Read native registrations when used, including apps loaded after API.ready()."""
     result = []
-    for ref in webhook_settings.HOOKS:
+    for ref, handlers in webhook_settings.HOOKS.items():
+        if handlers is None:
+            continue
         model = model_from_reference(ref, check_hooks=False)
-        keys = ["CREATE", *LIFECYCLE.get(model._meta.label, ())]
+        keys = ["CREATE", *getattr(model, "webhook_events", {})]
         if model._meta.many_to_many:
             keys.extend(("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"))
         keys.extend(("UPDATE", "DELETE"))
-        result.append(dict(ref=ref, name=model.__name__, emoji=model.emoji, events=[dict(key=key, **EVENTS[key]) for key in keys]))
+        result.append(
+            dict(
+                ref=ref,
+                name=model.__name__,
+                emoji=getattr(model, "emoji", "📄"),
+                events=[dict(key=key, **event_options(model, key)) for key in dict.fromkeys(keys)],
+            ),
+        )
     return result
+
+
+def signal_choices():
+    # A frozen choices list misses plugins whose ready() follows the API app.
+    choices = dict(SignalChoices.choices)
+    for model in event_catalog():
+        for event in model["events"]:
+            choices.setdefault(event["key"], event["label"])
+    return list(choices.items())
 
 
 def event_payload(instance, signal, *, data=None, **metadata):
@@ -112,7 +126,7 @@ def event_payload(instance, signal, *, data=None, **metadata):
 @contextmanager
 def track_lifecycle_update(queryset, fields):
     """Preserve lifecycle events on existing queryset status projections."""
-    events = STATUS_EVENTS.get(queryset.model._meta.label, {})
+    events = getattr(queryset.model, "webhook_status_events", {})
     previous = {}
     if (
         "status" in fields
@@ -138,10 +152,13 @@ def emit_event(instance, signal, **metadata):
         return
     from archivebox.api.webhooks import deliver_webhooks, transaction_on_commit_task_handler
 
-    if not get_webhook_model().objects.filter(ref=reference_for_model(type(instance)), signal=signal, enabled=True).exists():
+    ref = reference_for_model(type(instance))
+    if webhook_settings.HOOKS.get(ref) is None:
+        return
+    if not get_webhook_model().objects.filter(ref=ref, signal=signal, enabled=True).exists():
         return
     data = webhook_settings.SERIALIZER(instance)
-    if EVENTS[signal].get("blocking"):
+    if event_options(type(instance), signal).get("blocking"):
         # Preparation is called by the runner, outside any write transaction,
         # before it resolves native config or hands the object to the event bus.
         if transaction.get_connection().in_atomic_block:
@@ -154,9 +171,15 @@ def emit_event(instance, signal, **metadata):
 
 def register_lifecycle_signals():
     from django.db.models.signals import pre_save, post_save
+    from abx_plugins.plugins.base.django import webhook_event
+
+    def explicit_event(sender, instance, event, signal, **metadata):
+        emit_event(instance, event, **metadata)
+
+    webhook_event.connect(explicit_event, weak=False, dispatch_uid="archivebox.webhook.explicit")
 
     def before_save(sender, instance, raw=False, **kwargs):
-        if raw or action_in_progress() or sender._meta.label not in STATUS_EVENTS:
+        if raw or action_in_progress() or not getattr(sender, "webhook_status_events", {}):
             return
         instance._webhook_previous_status = (
             None if instance._state.adding else sender.objects.filter(pk=instance.pk).values_list("status", flat=True).first()
@@ -170,7 +193,7 @@ def register_lifecycle_signals():
         status = instance.status
         if status == previous:
             return
-        signal = STATUS_EVENTS[sender._meta.label].get(status)
+        signal = sender.webhook_status_events.get(status)
         if signal:
             emit_event(instance, signal)
 

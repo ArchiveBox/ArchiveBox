@@ -3,14 +3,11 @@ import sys
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django.test import RequestFactory
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.urls import resolve
 
 from archivebox.config.common import get_config
-from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.models import Snapshot
+from archivebox.core.exports import get_export_queryset
 from archivebox.linkhealth.service import check_snapshots
 from archivebox.machine.models import Process
 
@@ -29,11 +26,7 @@ class Command(BaseCommand):
         user = get_user_model().objects.filter(pk=options["user"], is_active=True, is_superuser=True).first()
         if user is None:
             raise CommandError("A current superuser is required.")
-        request = RequestFactory().get("/admin/core/snapshot/?" + options["query"])
-        request.resolver_match = resolve("/admin/core/snapshot/")
-        request.user = user
-        request.archivebox_config = get_config()
-        snapshots = archivebox_admin._registry[Snapshot].get_list_queryset(request)
+        snapshots = get_export_queryset(options["query"], user=user, public_only=False, config=get_config())
         if options["snapshot"]:
             snapshots = snapshots.filter(pk__in=options["snapshot"])
         if options["before"]:

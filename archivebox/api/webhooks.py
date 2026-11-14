@@ -11,7 +11,7 @@ from signal_webhooks.handlers import build_client_kwargs_by_hook_id, default_hoo
 from signal_webhooks.utils import get_webhook_model
 from signal_webhooks.typing import METHOD_SIGNALS
 from signal_webhooks.utils import reference_for_model
-from archivebox.api.webhook_events import EVENTS, executing_webhook, action_in_progress, event_payload
+from archivebox.api.webhook_events import event_options, executing_webhook, action_in_progress, event_payload
 
 
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
             external = not subscription.actions or any(
                 action["type"] in {"http_request", "python", "shell"} for action in subscription.actions
             )
-            if external and not EVENTS.get(method, {}).get("blocking"):
+            if external and not event_options(type(instance), method).get("blocking"):
                 # A post-save callback can still be inside the crawl's lifecycle
                 # lock even after DB commit. Its HTTP/subprocess work may need
                 # that same lock. Preserve ordering/stop_processing by deferring

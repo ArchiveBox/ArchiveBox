@@ -172,8 +172,20 @@ def test_passive_thumbnail_enforces_existing_html_size_limit(tmp_path, extra_byt
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("plugin", [None, "screenshot", "chrome_extension_screenshot", "chrome_extension_viewport"])
-def test_large_thumbnail_reuses_only_its_snapshots_declared_screenshot(snapshot, client, plugin):
+@pytest.mark.parametrize(
+    "plugins,selected",
+    [
+        ((), None),
+        (("screenshot",), "screenshot"),
+        (("chrome_extension_screenshot",), "chrome_extension_screenshot"),
+        (("chrome_extension_viewport",), "chrome_extension_viewport"),
+        (("favicon",), "favicon"),
+        (("seo",), None),
+        (("seo", "favicon"), "favicon"),
+        (("favicon", "screenshot"), "screenshot"),
+    ],
+)
+def test_large_thumbnail_reuses_its_snapshots_declared_image(snapshot, client, plugins, selected):
     from archivebox.core.models import ArchiveResult
     from archivebox.core.routes_util import build_snapshot_url
     from archivebox.machine.models import Machine
@@ -192,20 +204,27 @@ def test_large_thumbnail_reuses_only_its_snapshots_declared_screenshot(snapshot,
     with output.open("wb") as stream:
         stream.write((FIXTURE / "page.html").read_bytes())
         stream.truncate(10 * 1024 * 1024 + 1)
-    screenshot_url = None
-    if plugin:
-        filename = "screenshot-1.png" if plugin == "chrome_extension_screenshot" else "screenshot.png"
+    image_url = None
+    for plugin in plugins:
+        filename = {"chrome_extension_screenshot": "screenshot-1.png", "favicon": "favicon.ico", "seo": "seo.json"}.get(
+            plugin,
+            "screenshot.png",
+        )
         image = snapshot.output_dir / plugin / filename
         image.parent.mkdir(exist_ok=True)
-        shutil.copyfile(LAZY_FIXTURE / "work-1.png", image)
+        if plugin == "seo":
+            image.write_text('{"title": "Saved page"}')
+        else:
+            shutil.copyfile(LAZY_FIXTURE / "work-1.png", image)
         ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin=plugin,
             status="succeeded",
             output_str=filename,
-            output_files={filename: {"size": image.stat().st_size, "mimetype": "image/png"}},
+            output_files={filename: {"size": image.stat().st_size, "mimetype": "application/json" if plugin == "seo" else "image/png"}},
         )
-        screenshot_url = build_snapshot_url(str(snapshot.id), f"{plugin}/{filename}")
+        if plugin == selected:
+            image_url = build_snapshot_url(str(snapshot.id), f"{plugin}/{filename}")
     url = build_snapshot_url(str(snapshot.id), "singlefile/output.html")
     host = urlsplit(url).netloc
     response = client.get(urlsplit(url).path + "?preview=thumbnail", HTTP_HOST=host)
@@ -216,10 +235,10 @@ def test_large_thumbnail_reuses_only_its_snapshots_declared_screenshot(snapshot,
     assert '<svg class="thumbnail-icon"' in body
     assert "thumbnail limit" not in body
     assert "<script" not in body
-    assert ('class="thumbnail-screenshot"' in body) == bool(plugin)
-    if screenshot_url:
-        assert screenshot_url in body
-        image_response = client.get(urlsplit(screenshot_url).path, HTTP_HOST=host)
+    assert ('class="thumbnail-image"' in body) == bool(selected)
+    if image_url:
+        assert image_url in body
+        image_response = client.get(urlsplit(image_url).path, HTTP_HOST=host)
         assert image_response.status_code == 200
         assert b"".join(image_response.streaming_content) == (LAZY_FIXTURE / "work-1.png").read_bytes()
         image_response.close()

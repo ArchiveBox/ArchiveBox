@@ -52,9 +52,9 @@ class OutboundWebhook(WebhookBase):
     endpoint = models.URLField(max_length=2047, blank=True)
     last_success = models.DateTimeField(null=True, blank=True, default=None)
     last_failure = models.DateTimeField(null=True, blank=True, default=None)
-    from archivebox.api.webhook_events import SIGNAL_CHOICES
+    from archivebox.api.webhook_events import signal_choices
 
-    signal = models.CharField(max_length=255, choices=SIGNAL_CHOICES)
+    signal = models.CharField(max_length=255, choices=signal_choices)
     actions = models.JSONField(default=list, blank=True)
     folder = models.ForeignKey("core.Folder", null=True, blank=True, on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0)

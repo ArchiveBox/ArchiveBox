@@ -13,7 +13,7 @@
         .thumbnail-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 .9em monospace; }
         .thumbnail-size { margin-top: .5em; color: #9aa3b8; }
         /* A missing image leaves the icon visible, even in scriptless frames. */
-        .thumbnail-screenshot { position: absolute; inset: 0; background-position: top center; background-repeat: no-repeat; background-size: cover; }
+        .thumbnail-image { position: absolute; inset: 0; background-position: top center; background-repeat: no-repeat; background-size: cover; }
     </style>
 </head>
 <body>
@@ -26,7 +26,7 @@
             <div class="thumbnail-path" title="{{path}}">{{path}}</div>
             <div class="thumbnail-size">{{size|file_size}} &middot; Saved capture</div>
         </div>
-        {% if screenshot_url %}<div class="thumbnail-screenshot" role="img" aria-label="Screenshot of saved page" style="background-image: url('{{screenshot_url}}');"></div>{% endif %}
+        {% if image_url %}<div class="thumbnail-image" role="img" aria-label="Preview of saved page" style="background-image: url('{{image_url}}');"></div>{% endif %}
     </div>
 </body>
 </html>

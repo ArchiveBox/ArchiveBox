@@ -1240,21 +1240,43 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     )
             elif thumbnail:
                 # Keep the source-size guard without turning a valid capture
-                # into an error card. Resolve sibling screenshots from the DB
-                # manifest only; never read the oversized payload to preview it.
+                # into an error card. Plugin declarations choose the preview;
+                # saved MIME metadata excludes non-image thumbnail cards without
+                # opening the oversized payload or scanning sibling files.
                 body = ""
                 if request.method != "HEAD":
                     from archivebox.core.routes_util import build_snapshot_url
+                    from archivebox.plugins.discovery import get_snapshot_role_names, get_snapshot_thumbnail_card_order
 
                     snapshot = request.__dict__.get("archivebox_snapshot")
-                    screenshot_path = snapshot.plugin_output_path("screenshot") if snapshot is not None else None
-                    screenshot_url = (
-                        build_snapshot_url(str(snapshot.id), screenshot_path, request=request, config=config) if screenshot_path else ""
-                    )
+                    image_url = ""
+                    if snapshot is not None:
+                        thumbnail_order = get_snapshot_thumbnail_card_order()
+                        names = list(
+                            dict.fromkeys((*get_snapshot_role_names("primary_preview"), *sorted(thumbnail_order, key=thumbnail_order.get))),
+                        )
+                        results = snapshot.archiveresult_set.filter(plugin__in=names, status="succeeded").only(
+                            "snapshot_id",
+                            "plugin",
+                            "output_str",
+                            "output_files",
+                        )
+                        for result in sorted(results, key=lambda result: names.index(result.plugin)):
+                            files = result.output_file_map()
+                            path = result.embed_path_db(files)
+                            if not path:
+                                continue
+                            mime = next(
+                                (info.get("mimetype") for name, info in files.items() if result.output_file_path(name, files) == path),
+                                None,
+                            )
+                            if (mime or mimetypes.guess_type(path)[0] or "").startswith("image/"):
+                                image_url = build_snapshot_url(str(snapshot.id), path, request=request, config=config)
+                                break
                     body = loader.render_to_string(
                         "static/thumbnail_fallback.html",
                         {
-                            "screenshot_url": screenshot_url,
+                            "image_url": image_url,
                             "path": rel_path,
                             "size": statobj.st_size,
                         },

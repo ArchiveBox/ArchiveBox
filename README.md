@@ -1560,6 +1560,7 @@ and visibility); `folder_id`, `search`, and `status` also accept API spellings.
 Job responses include status, download, and cancellation URLs. ZIP/WACZ exports
 preserve the existing permission checks and native Process lifecycle.
 CSV/JSONL snapshot records include folder, owner, and persona IDs alongside names.
+Snapshot REST responses expose `persona_name`; `persona` contains the same value.
 
 `archivebox importer` exposes source CRUD, catalog discovery, queued actions, and
 run history. See [Importers](archivebox/importers/README.md) for commands and REST

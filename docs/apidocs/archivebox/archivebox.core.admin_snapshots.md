@@ -387,16 +387,6 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 ````
 
-````{py:attribute} SNAPSHOT_FIRST_VALUES
-:canonical: archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.SNAPSHOT_FIRST_VALUES
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.SNAPSHOT_FIRST_VALUES
-```
-
-````
-
 ````{py:method} lookups(request, model_admin)
 :canonical: archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.lookups
 
@@ -706,7 +696,7 @@ Bases: {py:obj}`archivebox.search.admin.SearchResultsAdminMixin`, {py:obj}`archi
 
 ````
 
-````{py:method} get_actions(request)
+````{py:method} get_actions(request, action_location=ActionLocation.CHANGE_LIST)
 :canonical: archivebox.core.admin_snapshots.SnapshotAdmin.get_actions
 
 ````

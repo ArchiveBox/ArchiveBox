@@ -808,8 +808,7 @@ class SnapshotQuerySet(PagedQuerySet):
 
     def search(self, **kwargs) -> "SnapshotQuerySet":
 
-        from archivebox.core.snapshot_status import filter_snapshots_by_status
-        from archivebox.search.query import apply_snapshot_search
+        from archivebox.search.query import apply_snapshot_filters, apply_snapshot_search
 
         queryset = self
         filter_patterns = tuple(str(pattern) for pattern in kwargs.get("filter_patterns") or ())
@@ -827,12 +826,15 @@ class SnapshotQuerySet(PagedQuerySet):
             if value is not None and key not in self.SPECIAL_FILTER_ARG_KEYS and key.split("__", 1)[0] in field_names
         }
         folder_id = field_filters.pop("folder_id", None)
-        if folder_id:
-            if not Folder.objects.filter(pk=folder_id).exists():
-                raise ValueError("Folder does not exist.")
-            queryset = queryset.in_folder(folder_id)
-        status = field_filters.pop("status", None)
-        queryset = filter_snapshots_by_status(queryset, status)
+        queryset = apply_snapshot_filters(
+            queryset,
+            folder_id=folder_id,
+            status=field_filters.pop("status", None),
+            domain=kwargs.get("domain"),
+            archive_state=kwargs.get("archive_state"),
+            size=kwargs.get("size"),
+            archiveresult_status=kwargs.get("archiveresult_status"),
+        )
         if field_filters:
             queryset = queryset.filter(**field_filters)
         if kwargs.get("tag"):
@@ -1639,19 +1641,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             # source crawl's defaults, which may have changed since capture time.
             tag_names = getattr(self, "_imported_tag_names", None)
             if tag_names is None:
-                # CREATE subscriptions must see a complete row/tag insert. Keep
-                # only these DB writes atomic so on_commit actions run after tag
-                # defaults, never get overwritten by them, and hold no DB lock.
+                tag_names = self.crawl.current_tag_names()
+            if tag_names:
+                # WHY: CREATE subscriptions must see the row and copied tags
+                # together, so their actions cannot be overwritten by defaults.
                 with transaction.atomic():
                     super().save(*args, **kwargs)
-                    self.save_tags(self.crawl.current_tag_names())
-                return
-            # Commit the row and tags together so a resumed import never needs to
-            # union stale disk tags over user edits. All archive I/O happens outside
-            # this short transaction; ordinary status/title saves bypass it entirely.
-            with transaction.atomic():
+                    self.save_tags(tag_names)
+            else:
+                # Empty defaults require only one write; browser metadata sync
+                # must not acquire a transaction for tag work that does not exist.
                 super().save(*args, **kwargs)
-                self.save_tags(tag_names)
             self.__dict__.pop("_imported_tag_names", None)
 
     # =========================================================================
@@ -3118,7 +3118,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
 
             archive_path = path or self.archive_path_from_db
-            icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+            icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
 
             for plugin in ordered_plugins:
                 if plugin_icon_is_hidden(plugin):
@@ -3162,7 +3162,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
 
             output = []
-            for group_id, label, _ in OUTPUT_GROUPS:
+            for group_id, label in OUTPUT_GROUPS:
                 icons = icons_by_group[group_id]
                 if icons:
                     top = icons[0]
@@ -3258,7 +3258,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.plugins.output_groups import OUTPUT_GROUPS, display_plugin_name, output_group_for_plugin, plugin_icon_is_hidden
 
         build_path = build_snapshot_index_path if quote_paths else build_snapshot_detail_path
-        icons_by_group: dict[str, list[tuple[str, str, str]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+        icons_by_group: dict[str, list[tuple[str, str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         for plugin in ordered_plugins:
             if plugin_icon_is_hidden(plugin):
                 continue
@@ -3279,7 +3279,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         tag = "a" if linked else "span"
         piles = []
-        for group_id, label, _ in OUTPUT_GROUPS:
+        for group_id, label in OUTPUT_GROUPS:
             icons = icons_by_group[group_id]
             if not icons:
                 continue
@@ -4565,7 +4565,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "output_dir": str(static_export_dir or self.output_dir),
             "output_files": output_files,
             "primary_preview_plugins": get_snapshot_role_names("primary_preview"),
-            "output_groups": [{"id": group_id, "label": label} for group_id, label, _ in OUTPUT_GROUPS],
+            "output_groups": [{"id": group_id, "label": label} for group_id, label in OUTPUT_GROUPS],
             "best_result": best_result,
             "snapshot": self,
             "CONFIG": runtime_config,

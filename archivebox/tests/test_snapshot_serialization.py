@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 
 import pytest
 from django.db import connection
@@ -112,3 +113,51 @@ def test_snapshot_size_serialization_uses_current_saved_metadata(serialized_snap
     expected = list(iter_snapshot_json(Snapshot.objects.filter(pk=snapshot.pk)))[0]
     assert snapshot.to_json() == expected
     assert snapshot.to_dict()["archive_size"] == snapshot.to_dict()["output_size"] == 456
+
+
+@pytest.mark.parametrize("with_relations", [True, False])
+def test_snapshot_rest_and_exports_share_relationship_metadata(serialized_snapshot, client, api_headers, with_relations):
+    snapshot = serialized_snapshot
+    if not with_relations:
+        snapshot.folder = None
+        snapshot.save(update_fields=["folder"])
+        snapshot.crawl.persona = None
+        snapshot.crawl.save(update_fields=["persona"])
+    expected = snapshot.to_json()
+    for url, query in (
+        (f"/api/v1/core/snapshot/{snapshot.pk}", {}),
+        ("/api/v1/core/snapshots", {"crawl_id": str(snapshot.crawl_id)}),
+    ):
+        response = client.get(url, query, **api_headers)
+        assert response.status_code == 200, response.content
+        body = response.json()
+        record = body["items"][0] if "items" in body else body
+        for field in (
+            "id",
+            "crawl_id",
+            "folder_id",
+            "folder_name",
+            "persona_id",
+            "persona_name",
+            "created_by_username",
+            "output_size",
+            "archive_size",
+        ):
+            assert record[field] == expected[field], field
+        assert record["persona"] == expected["persona_name"]
+        assert record["created_by_id"] == str(expected["created_by_id"])
+        assert record["tags"] == ["Comma, tag", "Zulu", "éclair"]
+        assert "config" not in record and "notes" not in record
+    for format in ("csv", "jsonl"):
+        response = client.get(
+            f"/api/v1/core/snapshots/export/{format}",
+            {"crawl_id": str(snapshot.crawl_id)},
+            **api_headers,
+        )
+        assert response.status_code == 200, response.content
+        record = next(csv.DictReader(io.StringIO(response.content.decode()))) if format == "csv" else json.loads(response.content)
+        for field in ("folder_id", "folder_name", "persona_id", "persona_name", "created_by_id", "created_by_username"):
+            value = expected[field]
+            if format == "csv":
+                value = str(value) if value is not None else ""
+            assert record[field] == value, field

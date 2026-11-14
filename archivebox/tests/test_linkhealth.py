@@ -114,6 +114,20 @@ def test_checks_require_superuser(client, django_user_model):
         call_command("linkhealth", user=user.pk)
 
 
+@pytest.mark.parametrize("filters", [{"id__exact": "invalid"}, {"created_at__gte": "not-a-date"}])
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_check_filters_reject_invalid_field_values(admin_client, filters, method):
+    from urllib.parse import urlencode
+    from archivebox.machine.models import Process
+
+    if method == "get":
+        response = admin_client.get("/admin/link-health/", filters, HTTP_HOST=ADMIN_TEST_HOST)
+    else:
+        response = admin_client.post("/admin/link-health/scan/", {"query": urlencode(filters)}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 400
+    assert not Process.objects.filter(worker_type="link-check").exists()
+
+
 def test_scan_launcher_rejects_option_as_snapshot_id_before_starting_process(admin_user):
     from archivebox.config import CONSTANTS
     from archivebox.linkhealth.service import launch_check

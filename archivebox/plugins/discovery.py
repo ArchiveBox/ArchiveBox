@@ -37,9 +37,103 @@ def iter_plugin_dirs() -> list[Path]:
     return [plugin.path for plugin in get_plugin_catalog().values()]
 
 
+def _validate_presentation_metadata(name: str, manifest: dict[str, Any]) -> None:
+    # Validate the declarations once, before requests select different subsets.
+    # Otherwise one invalid plugin can silently disappear from cards but fail exports.
+    string_fields = {"snapshot_output_group", "snapshot_display_name", "snapshot_live_preview_route", "presentation_module", "app_module"}
+    for key, value in manifest.items():
+        if key in string_fields:
+            if not isinstance(value, str):
+                raise ValueError(f"{name}: {key} must be a string")
+        elif key in {"icon_hidden", "card_hidden", "card_interactive"} or (
+            key.startswith("snapshot_") and key != "snapshot_thumbnail_cards" and not key.endswith("_order")
+        ):
+            if type(value) is not bool:
+                raise ValueError(f"{name}: {key} must be boolean")
+        elif key.startswith("snapshot_") and key.endswith("_order"):
+            if type(value) is not int:
+                raise ValueError(f"{name}: {key} must be an integer")
+
+    aliases = manifest.get("archive_result_aliases", [])
+    if not isinstance(aliases, list) or any(not isinstance(value, str) or not value or value != value.strip() for value in aliases):
+        raise ValueError(f"{name}: archive_result_aliases must contain nonempty names")
+    if len(set(aliases)) != len(aliases):
+        raise ValueError(f"{name}: archive_result_aliases contains duplicate names")
+
+    thumbnails = manifest.get("snapshot_thumbnail_cards", [])
+    if not isinstance(thumbnails, list):
+        raise ValueError(f"{name}: snapshot_thumbnail_cards must be a list")
+    for card in thumbnails:
+        if (
+            not isinstance(card, dict)
+            or not isinstance(card.get("archive_result_name"), str)
+            or not card["archive_result_name"].strip()
+            or type(card.get("order")) is not int
+        ):
+            raise ValueError(f"{name}: snapshot_thumbnail_cards requires archive_result_name and integer order")
+
+    def relative_path(key, path):
+        if (
+            not isinstance(path, str)
+            or not path
+            or PurePosixPath(path).is_absolute()
+            or any(part in {"", ".", ".."} for part in path.split("/"))
+            or "\\" in path
+            or ":" in path
+        ):
+            raise ValueError(f"{name}: {key} has an invalid relative path: {path!r}")
+
+    if "default_output_path" in manifest:
+        path = manifest["default_output_path"]
+        relative_path("default_output_path", path)
+        if len(PurePosixPath(path).parts) != 1:
+            raise ValueError(f"{name}: default_output_path must be a filename")
+
+    extensions = manifest.get("output_extension_preference", [])
+    if not isinstance(extensions, list) or any(
+        not isinstance(group, list)
+        or not group
+        or any(not isinstance(extension, str) or not re.fullmatch(r"\.[\w.+-]+", extension) for extension in group)
+        for group in extensions
+    ):
+        raise ValueError(f"{name}: output_extension_preference must contain lists of file extensions")
+
+    for key in ("replay_assets", "replay_document_patterns"):
+        groups = manifest.get(key, {})
+        if not isinstance(groups, dict):
+            raise ValueError(f"{name}: {key} must map formats to path lists")
+        for format, paths in groups.items():
+            if (
+                not isinstance(format, str)
+                or not format
+                or (key == "replay_document_patterns" and not re.fullmatch(r"[\w.+-]+/[\w.+-]+", format))
+            ):
+                raise ValueError(f"{name}: {key} has an invalid format: {format!r}")
+            if not isinstance(paths, list) or not paths:
+                raise ValueError(f"{name}: {key}.{format} must be a nonempty list")
+            for path in paths:
+                relative_path(key, path)
+            if len(set(paths)) != len(paths):
+                raise ValueError(f"{name}: {key}.{format} contains duplicate paths")
+
+
 @lru_cache(maxsize=1)
 def get_plugin_catalog() -> PluginCatalog:
-    return PluginCatalog.discover(extra_plugin_dirs=[USER_PLUGINS_DIR], runtime="archivebox")
+    catalog = PluginCatalog.discover(extra_plugin_dirs=[USER_PLUGINS_DIR], runtime="archivebox")
+    aliases = {}
+    thumbnails = set()
+    for plugin in catalog.values():
+        _validate_presentation_metadata(plugin.name, plugin.manifest)
+        for alias in plugin.manifest.get("archive_result_aliases", []):
+            if alias in aliases or (alias in catalog and alias != plugin.name):
+                raise ValueError(f"{plugin.name}: archive_result_aliases conflicts with another plugin: {alias}")
+            aliases[alias] = plugin.name
+        for card in plugin.manifest.get("snapshot_thumbnail_cards", []):
+            result_name = card["archive_result_name"]
+            if result_name in thumbnails:
+                raise ValueError(f"{plugin.name}: snapshot_thumbnail_cards duplicates {result_name}")
+            thumbnails.add(result_name)
+    return catalog
 
 
 @lru_cache(maxsize=1)
@@ -76,13 +170,7 @@ def get_plugin_name(plugin: str) -> str:
 
 @lru_cache(maxsize=1)
 def get_archive_result_aliases() -> dict[str, str]:
-    aliases: dict[str, str] = {}
-    for plugin in get_plugin_catalog().values():
-        for alias in plugin.manifest.get("archive_result_aliases") or []:
-            alias = str(alias or "").strip()
-            if alias:
-                aliases[alias] = plugin.name
-    return aliases
+    return {alias: plugin.name for plugin in get_plugin_catalog().values() for alias in plugin.manifest.get("archive_result_aliases", [])}
 
 
 def get_archive_result_names(plugin_name: str) -> tuple[str, ...]:
@@ -99,28 +187,16 @@ def plugin_card_is_interactive(plugin_name: str) -> bool:
 
 def get_plugin_output_extension_preference(plugin_name: str) -> tuple[tuple[str, ...], ...] | None:
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
-    raw_groups = plugin.manifest.get("output_extension_preference") if plugin else None
-    if not isinstance(raw_groups, list):
-        return None
-    groups = []
-    for raw_group in raw_groups:
-        if not isinstance(raw_group, list):
-            continue
-        group = tuple(str(extension).lower() for extension in raw_group if str(extension).startswith("."))
-        if group:
-            groups.append(group)
-    return tuple(groups) or None
+    groups = plugin.manifest.get("output_extension_preference") if plugin else None
+    return tuple(tuple(extension.lower() for extension in group) for group in groups) if groups else None
 
 
 def get_plugin_default_output_path(plugin_name: str) -> str | None:
     prefix, separator, base_name = plugin_name.partition("_")
     archive_result_name = base_name if separator and prefix.isdigit() else plugin_name
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
-    raw_path = str(plugin.manifest.get("default_output_path") or "").strip() if plugin else ""
-    path = PurePosixPath(raw_path)
-    if not raw_path or raw_path.startswith("/") or ".." in path.parts or len(path.parts) != 1:
-        return None
-    return f"{archive_result_name}/{raw_path}"
+    path = plugin.manifest.get("default_output_path") if plugin else None
+    return f"{archive_result_name}/{path}" if path else None
 
 
 def plugin_output_is_text(plugin_name: str) -> bool:
@@ -148,23 +224,14 @@ def read_plugin_output_text(plugin_name: str, snapshot_dir: Path, output_str: st
 @lru_cache(maxsize=1)
 def get_snapshot_thumbnail_card_order() -> dict[str, int]:
     """Return plugin-owned ArchiveResult names eligible for snapshot thumbnails."""
-    ordering: dict[str, int] = {}
-    for plugin in get_plugin_catalog().values():
-        declarations = plugin.manifest.get("snapshot_thumbnail_cards") or []
-        if not isinstance(declarations, list):
-            continue
-        for declaration in declarations:
-            if not isinstance(declaration, dict):
-                continue
-            result_name = str(declaration.get("archive_result_name") or "").strip()
-            order = declaration.get("order")
-            if not result_name or isinstance(order, bool) or not isinstance(order, int):
-                continue
-            ordering[result_name] = order
-    return ordering
+    return {
+        card["archive_result_name"]: card["order"]
+        for plugin in get_plugin_catalog().values()
+        for card in plugin.manifest.get("snapshot_thumbnail_cards", [])
+    }
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=32)
 def get_snapshot_role_names(role: str) -> tuple[str, ...]:
     """Return ArchiveResult names for a plugin-owned snapshot presentation role."""
     manifest_key = f"snapshot_{role}"
@@ -172,8 +239,6 @@ def get_snapshot_role_names(role: str) -> tuple[str, ...]:
     for plugin in get_plugin_catalog().values():
         enabled = plugin.manifest.get(manifest_key, False)
         order = plugin.manifest.get(f"{manifest_key}_order", 0)
-        if type(enabled) is not bool or type(order) is not int:
-            raise ValueError(f"{plugin.name}: {manifest_key} must be boolean and its order must be an integer")
         if enabled:
             providers.append((order, plugin.name))
     return tuple(dict.fromkeys(name for _, plugin in sorted(providers) for name in get_archive_result_names(plugin)))
@@ -204,25 +269,9 @@ def get_replay_asset_bundle(format: str, provider: str | None = None) -> tuple[s
         if plugin is None:
             raise ValueError(f"Unknown replay asset provider: {name}")
         bundles = plugin.manifest.get("replay_assets", {})
-        if not isinstance(bundles, dict):
-            raise ValueError(f"{name}: replay_assets must map formats to asset paths")
         if format not in bundles:
             continue
         paths = bundles[format]
-        if not isinstance(paths, list) or not paths:
-            raise ValueError(f"{name}: replay_assets.{format} must be a nonempty list of asset paths")
-        for path in paths:
-            if (
-                not isinstance(path, str)
-                or not path
-                or PurePosixPath(path).is_absolute()
-                or any(part in {"", ".", ".."} for part in path.split("/"))
-                or "\\" in path
-                or ":" in path
-            ):
-                raise ValueError(f"{name}: invalid replay asset path: {path!r}")
-        if len(set(paths)) != len(paths):
-            raise ValueError(f"{name}: duplicate replay asset paths")
         return name, tuple(paths)
     raise ValueError(f"No plugin provides replay assets for {format}")
 
@@ -306,27 +355,11 @@ def serve_plugin_replay_asset(path: str, config, response_class, *, provider: st
 
 @lru_cache(maxsize=1)
 def get_replay_document_providers():
-    """Validate declared document transforms once when loading plugin metadata."""
+    """Load declared document transforms without importing them during catalog discovery."""
     providers = []
     for name, plugin in sorted(get_plugin_catalog().items()):
         declarations = plugin.manifest.get("replay_document_patterns", {})
-        if not isinstance(declarations, dict):
-            raise ValueError(f"{name}: replay_document_patterns must map MIME types to path patterns")
         for content_type, patterns in declarations.items():
-            if not isinstance(content_type, str) or not re.fullmatch(r"[\w.+-]+/[\w.+-]+", content_type):
-                raise ValueError(f"{name}: invalid replay document MIME type: {content_type!r}")
-            if not isinstance(patterns, list) or not patterns:
-                raise ValueError(f"{name}: replay document patterns must be a nonempty list")
-            for pattern in patterns:
-                if (
-                    not isinstance(pattern, str)
-                    or not pattern
-                    or PurePosixPath(pattern).is_absolute()
-                    or any(part in {"", ".", ".."} for part in pattern.split("/"))
-                    or "\\" in pattern
-                    or ":" in pattern
-                ):
-                    raise ValueError(f"{name}: invalid replay document path pattern: {pattern!r}")
             module = get_plugin_presentation_module(name)
             hook = getattr(module, "rewrite_replay_document", None)
             if not callable(hook):
@@ -485,7 +518,7 @@ DEFAULT_TEMPLATES = {
 }
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=2048)
 def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) -> str | None:
     """
     Get a plugin template by plugin name and template type.
@@ -509,7 +542,7 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
     return None
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=512)
 def get_plugin_icon(plugin: str) -> str:
     """
     Get the icon for a plugin from its icon.html template.
@@ -532,7 +565,7 @@ _ICON_BOX_ATTRS = ("width", "height", "aria-hidden", "focusable")
 _ICON_SYMBOL_ATTRS = frozenset(("viewBox", "preserveAspectRatio", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"))
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=512)
 def _plugin_icon_sprite_parts(plugin: str) -> tuple[str, str] | None:
     """(symbol, inline markup using it) for a single-SVG icon; None keeps the icon inline."""
     if not re.fullmatch(r"[a-z0-9_]+", plugin):

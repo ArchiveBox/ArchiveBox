@@ -11,8 +11,22 @@ class CoreConfig(AppConfig):
     def ready(self):
         """Register the archivebox.core.admin_site as the main django admin site"""
         from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
+        from abx_plugins.plugins.base.django import register_webhooks
+        from archivebox.api.webhook_events import EVENTS
 
         from archivebox.core.admin_site import register_admin_site
+
+        register_webhooks(
+            self.get_model("Snapshot"),
+            events={key: EVENTS[key] for key in ("BEFORE_QUEUE", "BEFORE_CAPTURE", "CAPTURE_COMPLETED", "FOLDER_ENTERED", "FOLDER_LEFT")},
+        )
+        register_webhooks(
+            self.get_model("ArchiveResult"),
+            events={"CAPTURE_COMPLETED": EVENTS["CAPTURE_COMPLETED"]},
+            status_events=dict.fromkeys(("succeeded", "failed", "skipped", "noresults"), "CAPTURE_COMPLETED"),
+        )
+        for model in ("Tag", "Folder"):
+            register_webhooks(self.get_model(model))
 
         register_admin_site()
         from archivebox.base_models.models import ModelWithOutputDir

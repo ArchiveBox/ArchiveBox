@@ -7,15 +7,14 @@ import logging
 from copy import copy
 from pathlib import Path
 
-from django.contrib import admin
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import SuspiciousOperation, ValidationError
 from django.apps import apps
 from django.utils.dateparse import parse_datetime
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404
-from django.urls import resolve, reverse
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
 EXPORT_FORMATS = {"rss": "RSS", "csv": "CSV", "jsonl": "JSONL", "html_zip": "Static HTML ZIP", "wacz": "Unified WACZ"}
@@ -89,59 +88,176 @@ def normalize_export_query(query):
     return result
 
 
-def get_export_queryset(query, *, user=None, public_only=True, config=None):
-    from archivebox.config.common import get_config
-    from archivebox.core.admin_site import archivebox_admin
-    from archivebox.core.models import Snapshot
+def get_export_queryset(query, *, user=None, public_only=True, config=None, request=None):
+    from django.contrib.admin.utils import build_q_object_from_lookup_parameters, prepare_lookup_value
+    from django.core.exceptions import FieldDoesNotExist, FieldError
+    from django.db.models import Count
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.permissions import public_snapshots_queryset
+    from archivebox.search.query import apply_snapshot_filters, apply_snapshot_search
 
-    request = HttpRequest()
-    request.path = "/admin/core/snapshot/"
-    request.GET = normalize_export_query(query)
+    params = normalize_export_query(query)
     for api_name, view_name in (("folder_id", "folder"), ("search", "q"), ("status", "snapshot_status")):
-        if api_name in request.GET:
-            if view_name in request.GET and request.GET.getlist(view_name) != request.GET.getlist(api_name):
+        if api_name in params:
+            if view_name in params and params.getlist(view_name) != params.getlist(api_name):
                 raise ValueError(f"Conflicting {api_name} and {view_name} filters.")
-            request.GET.setlist(view_name, request.GET.pop(api_name))
-    request.user = user or AnonymousUser()
-    request.archivebox_config = config or get_config()
-    request.resolver_match = resolve(request.path)
-    model_admin = archivebox_admin._registry[Snapshot]
+            params.setlist(view_name, params.pop(api_name))
+    allowed = {
+        "q",
+        "search_mode",
+        "o",
+        "id__in",
+        "id__exact",
+        "crawl__id__exact",
+        "crawl_id__exact",
+        "crawl_id",
+        "folder_id",
+        "folder_name",
+        "created_by_id",
+        "created_by_username",
+        "persona_id",
+        "persona_name",
+        "url__regex",
+        "url__startswith",
+        "url__icontains",
+        "crawl__created_by__id__exact",
+        "crawl__created_by__isnull",
+        "created_at__gte",
+        "created_at__lt",
+        "created_at__lte",
+        "created_at__isnull",
+        "downloaded_at__gte",
+        "downloaded_at__lt",
+        "downloaded_at__isnull",
+    } | {"domain", "folder", "permissions", "snapshot_status", "archiveresult_status", "archive_state", "size", "tag"}
+    if public_only and set(params) - allowed:
+        raise ValueError("Invalid public snapshot filters.")
+    queryset = Snapshot.objects.all()
     if public_only:
-        allowed = {
-            "q",
-            "search_mode",
-            "o",
-            "id__in",
-            "id__exact",
-            "crawl__id__exact",
-            "crawl_id__exact",
-            "crawl_id",
-            "folder_id",
-            "folder_name",
-            "created_by_id",
-            "created_by_username",
-            "persona_id",
-            "persona_name",
-            "url__regex",
-            "url__startswith",
-            "url__icontains",
-            "crawl__created_by__id__exact",
-            "crawl__created_by__isnull",
-            "created_at__gte",
-            "created_at__lt",
-            "created_at__lte",
-            "created_at__isnull",
-            "downloaded_at__gte",
-            "downloaded_at__lt",
-            "downloaded_at__isnull",
-        } | {
-            spec.parameter_name
-            for spec in model_admin.get_list_filter(request)
-            if isinstance(spec, type) and issubclass(spec, admin.SimpleListFilter)
-        }
-        if set(request.GET) - allowed:
-            raise ValueError("Invalid public snapshot filters.")
-    return model_admin.get_list_queryset(request, public_only=public_only)
+        queryset = public_snapshots_queryset(queryset)
+    # Selection stays lazy: constructing an export must not fetch admin pages,
+    # run counts, or load list-card manifests before the writer consumes it.
+    try:
+        queryset = apply_snapshot_filters(
+            queryset,
+            domain=params.get("domain"),
+            folder_id=params.get("folder"),
+            status=params.get("snapshot_status")
+            if params.get("snapshot_status") in dict(Snapshot._meta.get_field("status").choices)
+            else None,
+            archive_state=params.get("archive_state"),
+            size=params.get("size"),
+            archiveresult_status=params.get("archiveresult_status"),
+        )
+    except (ValueError, ValidationError):
+        # Invalid named list filters historically selected no rows.
+        return queryset.none()
+    if tag := params.get("tag"):
+        queryset = queryset.filter(tags__id=tag)
+    if permissions := params.get("permissions"):
+        queryset = queryset.filter(permissions=permissions)
+    controls = {
+        "q",
+        "search_mode",
+        "o",
+        "domain",
+        "folder",
+        "permissions",
+        "snapshot_status",
+        "archive_state",
+        "size",
+        "archiveresult_status",
+        "tag",
+    }
+    lookup_params = {}
+    for key, values in params.lists():
+        if key in controls:
+            continue
+        lookup = Snapshot.SERIALIZED_FIELDS.get(key, key)
+        try:
+            field = Snapshot._meta.get_field(lookup.split("__", 1)[0])
+        except FieldDoesNotExist as error:
+            raise ValueError(f"Invalid snapshot field: {key}") from error
+        if field.is_relation and "__" in lookup:
+            suffix = lookup.split("__", 1)[1]
+            related_key = suffix.split("__", 1)[0]
+            serialized = tuple(path for path in Snapshot.SERIALIZED_FIELDS.values() if "__" in path)
+            # Related credential/config fields must not become selectable just
+            # because a URL can express an arbitrary Django relation lookup.
+            permitted = key in allowed or field.get_lookup(suffix) is not None or related_key in {"pk", field.related_model._meta.pk.name}
+            for path in serialized:
+                if lookup != path and not lookup.startswith(path + "__"):
+                    continue
+                model = Snapshot
+                for part in path.split("__"):
+                    terminal = model._meta.get_field(part)
+                    model = terminal.related_model
+                # Django permits relation traversal through FK attnames too.
+                # An exported ID supports its scalar lookups, never user secrets.
+                terminal = terminal.target_field if terminal.is_relation else terminal
+                suffix = lookup[len(path) :].removeprefix("__")
+                permitted = permitted or not suffix or terminal.get_lookup(suffix) is not None
+            if not permitted:
+                raise ValueError(f"Invalid related snapshot field: {key}")
+        lookup_params[lookup] = [prepare_lookup_value(lookup, value) for value in values]
+    try:
+        queryset = queryset.filter(build_q_object_from_lookup_parameters(lookup_params))
+    except (FieldError, TypeError, ValueError, ValidationError) as error:
+        raise ValueError("Invalid snapshot filters.") from error
+    ordering = list(queryset.query.order_by or ("-created_at",))
+    if params.get("o"):
+        from django.db.models.expressions import OrderBy
+        from archivebox.core.admin_site import archivebox_admin
+
+        # Numeric o is an admin URL convention. Read its existing column metadata
+        # only at this boundary; the query/search implementation is UI-independent.
+        model_admin = archivebox_admin._registry[Snapshot]
+        selected = copy(request) if request is not None else None
+        if selected is not None:
+            selected.GET = params
+            selected.user = user or request.user
+        columns = list(model_admin.get_list_display(selected))
+        has_actions = (
+            bool(model_admin.get_actions(selected))
+            if selected is not None
+            else bool(user and (user.has_perm("core.change_snapshot") or user.has_perm("core.delete_snapshot")))
+        )
+        if has_actions:
+            columns.insert(0, "action_checkbox")
+        ordering = []
+        for value in params["o"].split("."):
+            try:
+                _, descending, index = value.rpartition("-")
+                name = columns[int(index)]
+            except (IndexError, ValueError):
+                continue
+            attr = getattr(model_admin, name, None) or getattr(Snapshot, name, None)
+            order_field = getattr(attr, "admin_order_field", None)
+            if not order_field:
+                try:
+                    order_field = Snapshot._meta.get_field(name).name
+                except FieldDoesNotExist:
+                    continue
+            if isinstance(order_field, OrderBy):
+                order_field = order_field.copy()
+                if descending:
+                    order_field.reverse_ordering()
+            elif hasattr(order_field, "resolve_expression"):
+                order_field = order_field.desc() if descending else order_field.asc()
+            else:
+                order_field = order_field.removeprefix("-") if descending and order_field.startswith("-") else descending + order_field
+            ordering.append(order_field)
+        ordering.extend(queryset.query.order_by)
+    if any(isinstance(field, str) and field.lstrip("-") == "ar_succeeded_count" for field in ordering):
+        queryset = queryset.annotate(ar_succeeded_count=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED))
+    if any(isinstance(field, str) and field.lstrip("-") == "tag_count" for field in ordering):
+        queryset = queryset.annotate(tag_count=Count("tags", distinct=True))
+    queryset = queryset.order_by(*ordering)
+    if not queryset.totally_ordered:
+        queryset = queryset.order_by(*ordering, "-pk")
+    if params.get("q"):
+        queryset = apply_snapshot_search(queryset, params["q"], search_mode=params.get("search_mode"), config=config)
+    return queryset.distinct()
 
 
 def selection_digest(snapshots):
@@ -263,7 +379,13 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
         return HttpResponse(status=403)
     query = normalize_export_query(request.GET)
     try:
-        snapshots = get_export_queryset(query, user=user, public_only=public_only, config=getattr(request, "archivebox_config", None))
+        snapshots = get_export_queryset(
+            query,
+            user=user,
+            public_only=public_only,
+            config=getattr(request, "archivebox_config", None),
+            request=request,
+        )
     except (IncorrectLookupParameters, SuspiciousOperation, ValidationError, ValueError):
         return HttpResponseBadRequest("Invalid snapshot filters.")
     if format not in ARCHIVE_FORMATS:

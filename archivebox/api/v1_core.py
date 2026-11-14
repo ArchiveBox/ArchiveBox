@@ -28,6 +28,7 @@ from django.utils.http import content_disposition_header
 from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, UploadedFile
 from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
+from pydantic import field_serializer, model_validator
 
 from archivebox.core.models import Folder, Snapshot, ArchiveResult, Tag
 from archivebox.core.permissions import public_snapshots_queryset
@@ -56,7 +57,7 @@ from archivebox.api.v1_crawls import CrawlSchema, get_crawl_by_ref
 from archivebox.api.v1_folders import router as folders_router
 from archivebox.search.config import get_search_mode, get_search_mode_backend
 from archivebox.search.query import apply_snapshot_search
-from archivebox.core.snapshot_status import filter_snapshots_by_status, normalize_snapshot_status
+from archivebox.core.snapshot_status import normalize_snapshot_status
 
 
 router = Router(tags=["Core Models"])
@@ -721,6 +722,7 @@ class SnapshotSchema(Schema):
     folder_id: UUID | None
     folder_name: str | None = None
     persona_id: UUID | None = None
+    persona_name: str | None = None
     persona: str | None
     created_by_id: str
     created_by_username: str
@@ -740,56 +742,34 @@ class SnapshotSchema(Schema):
     num_archiveresults: int
     archiveresults: list[MinimalArchiveResultSchema]
 
-    @staticmethod
-    def resolve_folder_name(obj):
-        return obj.folder.name if obj.folder_id else None
+    @field_serializer("id", "crawl_id", "folder_id", "persona_id")
+    def compact_ids(self, value: UUID | None) -> str | None:
+        # WHY: Pydantic reparses record strings as ordinary UUIDs; the API's
+        # persisted identifiers use CompactUUID's compact spelling.
+        return value.hex if value is not None else None
 
-    @staticmethod
-    def resolve_persona_id(obj):
-        return obj.crawl.persona_id
-
-    @staticmethod
-    def resolve_archive_path(obj):
-        return obj.archive_path_from_db
-
-    @staticmethod
-    def resolve_persona(obj):
-        # A deduplicated submission can reuse a capture from a different
-        # persona. Report its actual DB-backed owner, not the new request's choice.
-        persona = obj.crawl.persona
-        return persona.name if persona else None
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by.pk)
-
-    @staticmethod
-    def resolve_created_by_username(obj):
-        return obj.created_by.username
-
-    @staticmethod
-    def resolve_tags(obj):
-        return sorted(tag.name for tag in obj.tags.all())
-
-    @staticmethod
-    def resolve_archive_size(obj):
-        return int(obj.archive_size or 0)
-
-    @staticmethod
-    def resolve_output_size(obj):
-        return SnapshotSchema.resolve_archive_size(obj)
-
-    @staticmethod
-    def resolve_num_archiveresults(obj, context):
-        # This reverse FK contains each result once. DISTINCT would materialize
-        # wide JSON output columns just to count rows through snapshot_id's index.
-        return obj.archiveresult_set.count()
-
-    @staticmethod
-    def resolve_archiveresults(obj, context):
-        if bool(context["request"].__dict__.get("with_archiveresults", False)):
-            return _with_archiveresult_processes(obj.archiveresult_set.all())
-        return ArchiveResult.objects.none()
+    @model_validator(mode="wrap")
+    @classmethod
+    def serialize_snapshot(cls, value, handler, info):
+        if isinstance(value, Snapshot):
+            # WHY: REST and exports must resolve metadata from the same saved
+            # capture, including its original owner after a deduplicated submission.
+            record = value.serialize_record(value, [tag.name for tag in value.tags.all()])
+            request = (info.context or {}).get("request")
+            include_results = request is not None and request.__dict__.get("with_archiveresults", False)
+            value = {
+                **record,
+                # Keep REST's existing persona spelling and string owner IDs.
+                "persona": record["persona_name"],
+                "created_by_id": str(record["created_by_id"]),
+                "retry_at": value.retry_at,
+                "archive_path": value.archive_path_from_db,
+                # This reverse FK contains each result once; DISTINCT would
+                # materialize wide JSON columns just to count indexed rows.
+                "num_archiveresults": value.archiveresult_set.count(),
+                "archiveresults": _with_archiveresult_processes(value.archiveresult_set.all()) if include_results else [],
+            }
+        return handler(value)
 
 
 class SnapshotUpdateSchema(Schema):
@@ -972,10 +952,7 @@ class SnapshotFilterSchema(FilterSchema):
         return Q()
 
     def filter_domain(self, value: str | None) -> Q:
-        try:
-            return Snapshot.objects.domain_q(value) if value else Q()
-        except ValueError as error:
-            raise HttpError(400, str(error)) from error
+        return Q()
 
     def filter_search_mode(self, value: str | None) -> Q:
         return Q()
@@ -989,10 +966,13 @@ class SnapshotFilterSchema(FilterSchema):
 def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], with_archiveresults: bool = False):
     """List all Snapshot entries matching these filters."""
     setattr(request, "with_archiveresults", with_archiveresults)
+    from archivebox.search.query import apply_snapshot_filters
+
     try:
-        queryset = filter_snapshots_by_status(
+        queryset = apply_snapshot_filters(
             Snapshot.objects.select_related("crawl__created_by", "crawl__persona", "folder").defer("crawl__urls"),
-            filters.status,
+            domain=filters.domain,
+            status=filters.status,
         )
     except ValueError as err:
         raise HttpError(400, str(err)) from err

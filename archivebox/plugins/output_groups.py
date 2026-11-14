@@ -9,7 +9,8 @@ from archivebox.plugins.discovery import (
     get_snapshot_thumbnail_card_order,
 )
 
-_GROUP_LABELS = (
+# Labels belong to the UI; plugin membership and ordering come from the catalog.
+OUTPUT_GROUPS = (
     ("html", "HTML"),
     ("raster", "Raster"),
     ("article_text", "Article text"),
@@ -19,65 +20,27 @@ _GROUP_LABELS = (
 )
 
 
-def _plugin_presentation() -> dict[str, dict[str, Any]]:
-    presentation = {}
-    for plugin in get_plugin_catalog().values():
-        manifest = plugin.manifest
-        order = manifest.get("snapshot_output_order")
-        presentation[plugin.name] = {
-            "group": manifest.get("snapshot_output_group") or "other",
-            "order": order if isinstance(order, int) and not isinstance(order, bool) else None,
-            "display_name": manifest.get("snapshot_display_name"),
-            "icon_hidden": bool(manifest.get("icon_hidden")),
-            "card_hidden": bool(manifest.get("card_hidden")),
-        }
-    return presentation
-
-
-PLUGIN_PRESENTATION = _plugin_presentation()
-OUTPUT_GROUPS = tuple(
-    (
-        group_id,
-        label,
-        tuple(
-            name
-            for name, metadata in sorted(
-                PLUGIN_PRESENTATION.items(),
-                key=lambda item: (item[1]["order"] is None, item[1]["order"] or 0, item[0]),
-            )
-            if metadata["group"] == group_id and metadata["order"] is not None
-        ),
-    )
-    for group_id, label in _GROUP_LABELS
-)
-UNORDERED_OUTPUTS = {
-    group_id: {name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["group"] == group_id and metadata["order"] is None}
-    for group_id, _label in _GROUP_LABELS
-}
-HIDDEN_ICON_PLUGINS = frozenset(name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["icon_hidden"])
-HIDDEN_CARD_PLUGINS = frozenset(name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["card_hidden"])
-
-
 def output_group_for_plugin(plugin: str) -> str:
     """Return the snapshot-detail stack that contains a plugin output."""
-    plugin = get_plugin_name(plugin)
-    for group_id, _, plugins in OUTPUT_GROUPS:
-        if plugin in plugins or plugin in UNORDERED_OUTPUTS.get(group_id, set()):
-            return group_id
-    return "other"
+    item = get_plugin_catalog().get(get_plugin_name(plugin))
+    group = item.manifest.get("snapshot_output_group", "other") if item else "other"
+    return group if any(group == name for name, _ in OUTPUT_GROUPS) else "other"
 
 
 def plugin_icon_is_hidden(plugin: str) -> bool:
-    return get_plugin_name(plugin) in HIDDEN_ICON_PLUGINS
+    item = get_plugin_catalog().get(get_plugin_name(plugin))
+    return bool(item and item.manifest.get("icon_hidden", False))
 
 
 def plugin_card_is_hidden(plugin: str) -> bool:
-    return get_plugin_name(plugin) in HIDDEN_CARD_PLUGINS
+    item = get_plugin_catalog().get(get_plugin_name(plugin))
+    return bool(item and item.manifest.get("card_hidden", False))
 
 
 def display_plugin_name(plugin: str) -> str:
-    canonical = get_plugin_name(plugin)
-    return PLUGIN_PRESENTATION.get(canonical, {}).get("display_name") or plugin.replace("_", " ").replace("-", " ").title()
+    item = get_plugin_catalog().get(get_plugin_name(plugin))
+    name = item.manifest.get("snapshot_display_name") if item else None
+    return name or plugin.replace("_", " ").replace("-", " ").title()
 
 
 def plugin_output_sizes(results) -> dict[str, int]:
@@ -128,14 +91,8 @@ def snapshot_thumbnail_result(results):
 
 def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Annotate and order available cards; unknown plugins stay visible in Other files."""
-    group_order = {group_id: index for index, (group_id, _, _) in enumerate(OUTPUT_GROUPS)}
-    preferences = {}
-    for group_id, _, plugins in OUTPUT_GROUPS:
-        for rank, plugin in enumerate(plugins):
-            preferences[plugin] = (group_id, rank)
-    for group_id, plugins in UNORDERED_OUTPUTS.items():
-        for plugin in plugins:
-            preferences[plugin] = (group_id, None)
+    group_order = {group_id: index for index, (group_id, _) in enumerate(OUTPUT_GROUPS)}
+    catalog = get_plugin_catalog()
 
     if cards := get_extra_snapshot_output_cards(outputs):
         outputs = [*outputs, *cards]
@@ -147,7 +104,11 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
         if declared_group in group_order and isinstance(declared_order, int) and not isinstance(declared_order, bool):
             group_id, rank = declared_group, declared_order
         else:
-            group_id, rank = preferences.get(plugin, ("other", None))
+            item = catalog.get(plugin)
+            group_id = item.manifest.get("snapshot_output_group", "other") if item else "other"
+            rank = item.manifest.get("snapshot_output_order") if item else None
+            if group_id not in group_order:
+                group_id, rank = "other", None
         output["output_group"] = group_id
         return (group_order[group_id], rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
 
