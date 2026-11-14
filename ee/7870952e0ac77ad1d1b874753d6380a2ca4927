@@ -1,0 +1,23 @@
+archivebox/tests/test_release_workflow.py
+  s_784d0e5fa3aa29::t_0ba98f11fc9544 336,341
+archivebox/personas/importers.py
+  s_784d0e5fa3aa29::t_0ba98f11fc9544 730,737
+archivebox/core/recovery_util.py
+  s_784d0e5fa3aa29::t_0ba98f11fc9544 49-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ee7870952e0ac77ad1d1b874753d6380a2ca4927",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
