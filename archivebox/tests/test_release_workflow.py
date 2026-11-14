@@ -189,11 +189,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
             ".github/workflows/screenshots.yml",
             "bin/take_screenshot.js",
             "bin/setup_ui_screenshot_data.js",
-            *[
-                f"archivebox/{app}/**"
-                for app in ("api", "domains", "linkhealth", "storageaudit", "storage")
-                if (REPO_ROOT / "archivebox" / app).is_dir()
-            ],
+            *[f"archivebox/{app}/**" for app in ("api", "domains", "storageaudit", "storage") if (REPO_ROOT / "archivebox" / app).is_dir()],
             "archivebox/core/library*",
             "archivebox/core/admin*",
             "archivebox/core/models.py",
@@ -211,7 +207,9 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert "prepare" not in screenshots["jobs"]
     assert screenshots["jobs"]["changes"]["steps"][0]["uses"] == "ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main"
     assert screenshots["jobs"]["deploy"]["needs"] == "changes"
-    assert screenshots["jobs"]["deploy"]["if"] == "needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev'"
+    assert screenshots["jobs"]["deploy"]["if"] == (
+        "(needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'"
+    )
     assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():

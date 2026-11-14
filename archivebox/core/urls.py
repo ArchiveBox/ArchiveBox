@@ -39,7 +39,6 @@ urlpatterns = [
     path("admin/webhooks/", include("archivebox.api.webhook_urls")),
     path("admin/domains/", include("archivebox.domains.urls")),
     path("admin/storage/", include("archivebox.storage.urls")),
-    path("admin/link-health/", include("archivebox.linkhealth.urls")),
     path("admin/storage-audit/", include("archivebox.storageaudit.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),

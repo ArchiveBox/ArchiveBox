@@ -11,7 +11,6 @@ on:
       - 'bin/setup_ui_screenshot_data.js'
       - 'archivebox/api/**'
       - 'archivebox/domains/**'
-      - 'archivebox/linkhealth/**'
       - 'archivebox/storageaudit/**'
       - 'archivebox/storage/**'
       - 'archivebox/core/library*'

@@ -81,7 +81,6 @@ INSTALLED_APPS = [
     "archivebox.importers",  # generic source management; provider behavior belongs to plugins
     "archivebox.domains",
     "archivebox.storage",
-    "archivebox.linkhealth",
     "archivebox.storageaudit",
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
