@@ -1,0 +1,181 @@
+archivebox/core/widgets.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 9,415-429,433,444,446,450,452
+archivebox/plugins/forms.py
+  s_784d0e5fa3aa29::t_992ec6577f8f41 197,222-227,560,562
+  s_784d0e5fa3aa29::t_61832f57a90e0f 205-208,507,512
+  s_784d0e5fa3aa29::t_6246c1d5c4a308 185
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 189,291,508-511
+  s_784d0e5fa3aa29::t_887225e161f944 163,282-287,546-547
+  s_784d0e5fa3aa29::t_3cccc89f3e0504 164-174,178-184,186-188,190,233-236,290,292-314,473-475
+  s_784d0e5fa3aa29::t_4ed6108092b052 71-72,91-92,160-162,175-177,191-196,198-204,209-212,214-221,228-232,237-238,243,279-281,288-289,315-321,396-397,500,520-521,529-530
+  s_784d0e5fa3aa29::t_c144da33fd1df7 457-469,498-499
+  s_784d0e5fa3aa29::t_1079b62be86099 456
+  s_784d0e5fa3aa29::t_cbb15ef4bc831d 213
+  s_784d0e5fa3aa29::t_80f3a543c958c1 501-502
+  s_784d0e5fa3aa29::t_7904e61b1c96d7 322-326,503-504
+  s_784d0e5fa3aa29::t_ef1e2f4fee0918 14,376
+archivebox/templates/plugins/plugin_config_grid.html
+  s_784d0e5fa3aa29::t_4ed6108092b052 5,35,49,73
+  s_784d0e5fa3aa29::t_cbaf351e48e600 182-189
+  s_784d0e5fa3aa29::t_bcd40b243648e0 50-51,56,58-61,110,149-150,194-197
+  s_784d0e5fa3aa29::t_b6e7fd2ecea0c5 7,15,37
+archivebox/templates/config/plugin_list_script.html
+  s_784d0e5fa3aa29::t_41d230992197f2 1-108
+archivebox/templates/plugins/config_quantity_attrs.html
+  s_784d0e5fa3aa29::t_bcd40b243648e0 1
+archivebox/tests/test_ui_add_view.py
+  s_784d0e5fa3aa29::t_cbb15ef4bc831d 898-899,918-919,926-930,938-939,949-954
+  s_784d0e5fa3aa29::t_61832f57a90e0f 920-925,931-937
+archivebox/templates/config/fields/CRAWL_DISCOVERY_PLUGINS.html
+  s_784d0e5fa3aa29::t_41d230992197f2 1-3
+archivebox/templates/admin/personas/persona/browser_state.html
+  s_784d0e5fa3aa29::t_14437852159d2e 1-24
+archivebox/core/urls.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 31-32,35-36
+archivebox/templates/plugins/config_timeout.html
+  s_784d0e5fa3aa29::t_bcd40b243648e0 2
+archivebox/machine/models.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 364,392-393,399,401-402
+archivebox/templates/plugins/config_quantity.html
+  s_784d0e5fa3aa29::t_44f9870ca7de7a 9,72-73,75,77,91,111
+  s_784d0e5fa3aa29::t_91a8058a39bccb 39,84-85
+archivebox/config/forms.py
+  s_784d0e5fa3aa29::t_992ec6577f8f41 1-31
+archivebox/templates/config/fields/CRAWL_MAX_URLS.html
+  s_784d0e5fa3aa29::t_91a8058a39bccb 3
+  s_784d0e5fa3aa29::t_ecd96753bea109 1-2
+archivebox/templates/admin/personas/persona/browser_state_assets.html
+  s_784d0e5fa3aa29::t_14437852159d2e 1-62
+archivebox/tests/test_machine_settings_backend.py
+  s_784d0e5fa3aa29::t_5990eed7b67774 169
+  s_784d0e5fa3aa29::t_edaa6f4cba6d3d 4-5,207-266
+  s_784d0e5fa3aa29::t_16961ee2c39b90 158-162
+  s_784d0e5fa3aa29::t_b2d20fc445875a 1-3,6-157,163-168,170-206,267-269
+archivebox/templates/config/fields/CRAWL_MAX_SIZE.html
+  s_784d0e5fa3aa29::t_91a8058a39bccb 3
+  s_784d0e5fa3aa29::t_ecd96753bea109 1-2
+archivebox/templates/plugins/config_preview.html
+  s_784d0e5fa3aa29::t_1ad25d9e159f12 1-33
+archivebox/personas/state_forms.py
+  s_784d0e5fa3aa29::t_ad99b6708c90d3 1-96,102-111,117-121,131-141,147-150,156-159
+  s_784d0e5fa3aa29::t_4c61bd53ac781c 97-101,112-116,122-130,142-146,151-155
+archivebox/tests/test_ui_system_settings.py
+  s_784d0e5fa3aa29::t_4b229c3a88b3ae 189
+  s_784d0e5fa3aa29::t_467cdb9fe7d30b 215
+  s_784d0e5fa3aa29::t_1562838d535763 147,149-151,155
+  s_784d0e5fa3aa29::t_a648c499b788ba 1-11,13-32,36-108,112-146,148,152-154,156-159,161-175,219-221
+  s_784d0e5fa3aa29::t_171489b12605fd 12,109-111,176-178,183,185,191,193
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 33-35,160
+  s_784d0e5fa3aa29::t_082cbc39d2b6e3 179-182,184,186-188,190,192,194-214,216-218
+archivebox/templates/core/library_navigation.html
+  s_784d0e5fa3aa29::t_4ed6108092b052 7
+archivebox/tests/test_settings_presentation.py
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 24,66-67
+  s_784d0e5fa3aa29::t_bf082dd6b6b845 1-22,26-54,56-59,61-64,68-71,73-78,80-90,92-93,100-106
+  s_784d0e5fa3aa29::t_ba04373e23b5fe 23,25,55,60,65,72,91,94-99
+  s_784d0e5fa3aa29::t_bcc9c74c765f83 79
+archivebox/templates/plugins/config_field.html
+  s_784d0e5fa3aa29::t_c144da33fd1df7 45
+  s_784d0e5fa3aa29::t_4ed6108092b052 58
+archivebox/core/templatetags/core_tags.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 1474,1477
+archivebox/config/common.py
+  s_784d0e5fa3aa29::t_1079b62be86099 513,520
+  s_784d0e5fa3aa29::t_80f3a543c958c1 468,473
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 469-472
+  s_784d0e5fa3aa29::t_91a8058a39bccb 464,501,509,523
+  s_784d0e5fa3aa29::t_4ed6108092b052 809,812-820,993,1009-1010,1054-1055,1058,1060-1062,1077,1086,1152-1153,1155-1160,1163-1203,1208-1223,1253,1265-1266,1290-1291,1310-1311
+archivebox/personas/forms.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 30-31,141,145,163
+  s_784d0e5fa3aa29::t_992ec6577f8f41 4,32-34,36,39
+  s_784d0e5fa3aa29::t_b3b7c4005db81e 35,37-38
+  s_784d0e5fa3aa29::t_61832f57a90e0f 40
+  s_784d0e5fa3aa29::t_3cccc89f3e0504 142-144
+archivebox/config/settings_views.py
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 25-26
+  s_784d0e5fa3aa29::t_b6e7fd2ecea0c5 1-23,28-30
+  s_784d0e5fa3aa29::t_3cccc89f3e0504 24,27,31-41
+archivebox/templates/config/fields/SNAPSHOT_MAX_SIZE.html
+  s_784d0e5fa3aa29::t_ecd96753bea109 1-2
+  s_784d0e5fa3aa29::t_91a8058a39bccb 3
+archivebox/plugins/views.py
+  s_784d0e5fa3aa29::t_1ad25d9e159f12 19
+archivebox/core/forms.py
+  s_784d0e5fa3aa29::t_80f3a543c958c1 389-392,394,397
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 395-396
+  s_784d0e5fa3aa29::t_0aa0dacdab39ed 386-388,393
+  s_784d0e5fa3aa29::t_caa20c72e0ed11 449,452-454
+archivebox/templates/config/number_range.html
+  s_784d0e5fa3aa29::t_ecd96753bea109 1-2,4
+  s_784d0e5fa3aa29::t_91a8058a39bccb 3
+  s_784d0e5fa3aa29::t_cbaf351e48e600 5
+archivebox/tests/test_config_rule_composer.py
+  s_784d0e5fa3aa29::t_f32008d3afa2d2 1-11,13-18,21-96,101-124,129-250,256,259-261,263,269,274,278,280-281,284-286,294,297,301-303
+  s_784d0e5fa3aa29::t_a64ac0d2b7dd9f 268,290-293
+  s_784d0e5fa3aa29::t_da690ae5faeaec 272-273,287-289
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 97-100,125-128
+  s_784d0e5fa3aa29::t_ef57c172c2fc3f 12,19-20,251-255,257-258,262,264-267,270-271,275-277,279,282-283,295-296,298-300
+archivebox/templates/admin/system_settings.html
+  s_784d0e5fa3aa29::t_b6e7fd2ecea0c5 1-13
+archivebox/templates/plugins/settings_changes.html
+  s_784d0e5fa3aa29::t_b4552db1a0ec4e 1-35
+archivebox/personas/importers.py
+  s_784d0e5fa3aa29::t_4c61bd53ac781c 880-888
+  s_784d0e5fa3aa29::t_ad99b6708c90d3 874
+archivebox/templates/admin/personas/persona/extension_setup.html
+  s_784d0e5fa3aa29::t_14437852159d2e 1-17
+archivebox/config/collection.py
+  s_784d0e5fa3aa29::t_4ed6108092b052 43-46,137,155-156,162,165-166,176-184
+archivebox/personas/admin.py
+  s_784d0e5fa3aa29::t_14437852159d2e 9,11,13,20,177-181,188-205,211-212,260-262
+  s_784d0e5fa3aa29::t_4c61bd53ac781c 135-143,206,210
+  s_784d0e5fa3aa29::t_4ed6108092b052 4-5,8,10,12,14,149-160,162-170,172-176,182-187,213-252
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 161,171,207-209
+  s_784d0e5fa3aa29::t_d8097a5691a503 253
+archivebox/templates/config/url_rules_control.html
+  s_784d0e5fa3aa29::t_19888d49d916d8 1-25
+archivebox/templates/config/fields/PLUGINS.html
+  s_784d0e5fa3aa29::t_41d230992197f2 1-3
+archivebox/templates/config/plugin_list_control.html
+  s_784d0e5fa3aa29::t_41d230992197f2 1-13
+archivebox/tests/test_ui_persona_browser_state.py
+  s_784d0e5fa3aa29::t_6c8a90c0cf875a 35,67-68,160-161,191
+  s_784d0e5fa3aa29::t_72154992695ddc 1-11,20-21,39-47,49,51-54,71-72,75,77,80-81,83-88,90,95,97,103-104,107-110,112,118-119,122-126,135-136,141,143-144,163,174,177,188,198,207-209
+  s_784d0e5fa3aa29::t_4c61bd53ac781c 12-19,22-34,36-38,48,50,55-66,69-70,73-74,76,78-79,82,89,91-94,96,98-102,105-106,111,113-115,117,120-121,127-134,137-140,142,145-159,162,164-173,175-176,178-187,189-190,192-197,199-206
+  s_784d0e5fa3aa29::t_5d88aafebd08a7 116
+archivebox/templates/core/add.html
+  s_784d0e5fa3aa29::t_45c5175b21c4bb 532
+  s_784d0e5fa3aa29::t_4ed6108092b052 247-248
+archivebox/plugins/documentation.py
+  s_784d0e5fa3aa29::t_1ad25d9e159f12 1-54
+archivebox/config/rule_views.py
+  s_784d0e5fa3aa29::t_bb36b41f8e3ef9 1-110
+archivebox/templates/config/concurrency_control.html
+  s_784d0e5fa3aa29::t_cc99a7e9bdb3f5 1-12
+archivebox/templates/config/fields/CRAWL_MAX_CONCURRENT_SNAPSHOTS.html
+  s_784d0e5fa3aa29::t_d67d4bcb3b99eb 1-6
+archivebox/templates/config/fields/URL_ALLOWLIST.html
+  s_784d0e5fa3aa29::t_641ca75242592e 1-3
+archivebox/templates/config/fields/URL_DENYLIST.html
+  s_784d0e5fa3aa29::t_3fea426b424d01 1-3
+archivebox/templates/config/url_rules.html
+  s_784d0e5fa3aa29::t_c752b13bbe2ef4 1-5
+archivebox/tests/test_ui_persona_actions.py
+  s_784d0e5fa3aa29::t_5c68ac7f49044e 1-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1c840619aef1c7aed32b614f8cd1ad1dc9666ac8",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
