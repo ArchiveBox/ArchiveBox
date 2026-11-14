@@ -206,7 +206,9 @@ echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
     if [[ "${#PLUGIN_ENABLED_CONFIG[@]}" != "0" ]]; then
         uv run --no-cache --project "$REPO_DIR" archivebox config --set "${PLUGIN_ENABLED_CONFIG[@]}"
     fi
-    uv run --no-cache --project "$REPO_DIR" archivebox install
+    # Install the gallery browser here. Full captures install their own enabled
+    # plugin dependencies through the ordinary runner's preflight.
+    uv run --no-cache --project "$REPO_DIR" archivebox install chrome
 )
 
 if [[ -z "$PLUGIN_VIEWS" ]]; then
@@ -448,6 +450,35 @@ if [[ -n "$PLUGIN_VIEWS" ]]; then
         'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
         "$PLUGIN_SCREENSHOT_PLAN")
 fi
+
+if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
+    (
+        cd "$DATA_DIR"
+        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" <<'PYIMPORTERS'
+import json, sys
+from archivebox.importers.gallery import prepare
+print("\n".join(prepare(sys.argv[1], json.load(open(sys.argv[2]))["importer_views"])))
+PYIMPORTERS
+    ) >"$CAPTURE_ROOT/importer-views.txt"
+    while IFS= read -r importer_view; do
+        [[ -z "$importer_view" ]] || VIEWS+=("$importer_view")
+    done <"$CAPTURE_ROOT/importer-views.txt"
+fi
+
+if [[ -n "$PLUGIN_VIEWS" ]]; then
+    NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+        CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+        SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+        SCREENSHOT_LOGIN_USERNAME="$USERNAME" SCREENSHOT_LOGIN_PASSWORD="$PASSWORD" \
+        node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
+fi
+
+while IFS='|' read -r config_name config_path config_source config_mode; do
+    [[ -z "$config_path" ]] && continue
+    VIEWS+=("$config_name|$ADMIN_BASE_URL$config_path|$config_path|$config_source|$config_mode")
+done < <(uv run --no-cache --project "$REPO_DIR" python -c \
+    'import json,sys; print("\n".join("|".join(view[key] for key in ("name", "path", "source", "mode")) for view in json.load(open(sys.argv[1]))["config_views"]))' \
+    "$PLUGIN_SCREENSHOT_PLAN")
 
 capture_index=0
 while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
@@ -833,13 +864,6 @@ PY
             add_supplementary_template_capture "$example_plugins" "$example_url"
         done < <(uv run --no-cache --project "$REPO_DIR" python -c \
             'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
-            "$PLUGIN_SCREENSHOT_PLAN")
-
-        while IFS='|' read -r config_name config_plugin; do
-            [[ -z "$config_plugin" ]] && continue
-            VIEWS+=("$config_name|$ADMIN_BASE_URL/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:$config_plugin")
-        done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json,sys; print("\n".join(view["name"] + "|" + view["plugin"] for view in json.load(open(sys.argv[1]))["config_views"]))' \
             "$PLUGIN_SCREENSHOT_PLAN")
 
         VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")

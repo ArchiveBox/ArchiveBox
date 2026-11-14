@@ -58,6 +58,12 @@ class ImporterSourceForm(forms.ModelForm):
                 field = forms.ChoiceField(choices=[(value, value) for value in schema["enum"]], **options)
             elif kind in {"array", "object"}:
                 field = forms.JSONField(**options)
+            elif schema.get("format") == "password":
+                field = forms.CharField(
+                    max_length=schema.get("maxLength", 4096),
+                    widget=forms.PasswordInput(),
+                    **{**options, "required": options["required"] and not self._original_settings.get(key)},
+                )
             elif schema.get("format") == "uri":
                 field = forms.URLField(max_length=4096, assume_scheme="https", **options)
             else:
@@ -112,6 +118,8 @@ class ImporterSourceForm(forms.ModelForm):
         data = super().clean()
         for key, schema in self.definition.fields.items():
             value = data.get(f"setting_{key}")
+            if schema.get("format") == "password" and not value and self._original_settings.get(key):
+                data[f"setting_{key}"] = self._original_settings[key]
             if schema.get("type") in {"array", "object"} and value is not None:
                 expected = list if schema["type"] == "array" else dict
                 if not isinstance(value, expected):

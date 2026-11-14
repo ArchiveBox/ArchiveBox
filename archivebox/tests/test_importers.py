@@ -491,12 +491,12 @@ def test_importer_brands_and_setup_assets(admin_client):
 
     response = admin_client.get("/admin/importers/", HTTP_HOST=ADMIN_TEST_HOST)
     html = response.content.decode()
-    assert html.count('class="provider-card"') == 6
+    assert html.count('class="provider-card"') == 7
     providers = {group["name"]: group for group in response.context["providers"]}
     assert len(providers["Google"]["feeds"]) == 4
     assert len(providers["X"]["feeds"]) == 5
     icons = re.findall(r'class="brand-icon" src="([^"]+)"', html)
-    assert len(icons) == 6
+    assert len(icons) == 7
     for url in icons:
         image = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
         assert image.status_code == 200

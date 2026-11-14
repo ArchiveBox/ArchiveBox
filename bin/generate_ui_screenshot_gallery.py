@@ -120,6 +120,7 @@ def plugin_screenshot_plan() -> dict:
     examples = {}
     overrides = {}
     config_views = []
+    importer_views = []
     enabled_plugins = []
     selected = set(filter(None, os.environ.get("UI_SCREENSHOT_PLUGINS", "").split(",")))
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
@@ -137,8 +138,27 @@ def plugin_screenshot_plan() -> dict:
             enabled = True
         if recipe.get("view"):
             required.append(recipe["view"])
+            if recipe.get("importer"):
+                required.extend([recipe["view"] + " history", recipe["view"] + " snapshots"])
+                importer_views.append(
+                    {"name": recipe["view"], "plugin": plugin, "feed": recipe["importer"], "settings": recipe.get("config_overrides", {})}
+                )
             if recipe.get("config"):
-                config_views.append({"name": recipe["view"], "plugin": plugin})
+                config_name = recipe["view"] + " configuration" if recipe.get("importer") else recipe["view"]
+                if recipe.get("importer"):
+                    required.append(config_name)
+                feed = next(iter(config.get("importers", {})), None)
+                config_views.append(
+                    {
+                        "name": config_name,
+                        "plugin": plugin,
+                        "path": f"/admin/importers/new/{plugin}/{feed}/" if feed else "/add/",
+                        "source": "archivebox/importers/templates/importers/configure.html"
+                        if feed
+                        else "archivebox/templates/plugins/plugin_config_grid.html",
+                        "mode": "" if feed else f"plugin-config:{plugin}",
+                    }
+                )
         elif enabled and (
             recipe.get("url")
             or (plugin_dir / "templates/full.html").is_file()
@@ -162,6 +182,7 @@ def plugin_screenshot_plan() -> dict:
         "overrides": overrides,
         "enabled": enabled_plugins,
         "config_views": config_views,
+        "importer_views": importer_views,
     }
 
 
