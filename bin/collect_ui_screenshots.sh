@@ -294,6 +294,12 @@ if [[ -z "$PLUGIN_VIEWS" ]]; then
 )
 fi
 
+# Do not mistake another collection's server for this gallery's ready process.
+uv run --no-project python - "$PORT" <<'PYPORT'
+import socket, sys
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", int(sys.argv[1])))
+PYPORT
 echo "[*] Starting ArchiveBox on port $PORT"
 (
     cd "$DATA_DIR"
@@ -369,11 +375,19 @@ add_supplementary_template_capture() {
     echo "[*] Capturing real $plugin_names source for template coverage"
     if ! (
         cd "$DATA_DIR"
-        uv run --no-cache --project "$REPO_DIR" archivebox add \
-            --depth=0 \
-            --overwrite \
-            --tag=screenshot-gallery \
-            "$source_url"
+        uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$plugin_names" "$REPO_DIR" "$source_url" <<'PYCAPTURE'
+import json, os, sys
+plan = json.load(open(sys.argv[1]))
+config = {}
+for plugin in sys.argv[2].split(","):
+    for key, value in plan["overrides"][plugin].get("config_overrides", {}).items():
+        if key in config and config[key] != value:
+            raise ValueError(f"Conflicting screenshot config for {key}")
+        config[key] = value
+env = {**os.environ, **{key: json.dumps(value) if isinstance(value, (dict, list)) else str(value) for key, value in config.items()}}
+command = ["uv", "run", "--no-cache", "--project", sys.argv[3], "archivebox", "add", "--depth=0", "--overwrite", "--tag=screenshot-gallery", sys.argv[4]]
+os.execvpe(command[0], command, env)
+PYCAPTURE
     ) >"$capture_log" 2>&1; then
         echo "[!] Supplementary $plugin_names capture failed" >&2
         # Preserve launch/navigation failures before the many downstream hooks;
@@ -406,10 +420,11 @@ add_supplementary_template_capture() {
         SCREENSHOT_HEIGHT=1000 \
         node "$REPO_DIR/bin/take_screenshot.js" "$snapshot_view_url" "$CAPTURE_ROOT/${plugin_names}-output-discovery.png" >"$discovery_report"
 
-    local supplementary_plugin discovered_preview_url capture_mode
+    local supplementary_plugin output_plugin discovered_preview_url capture_mode
     for supplementary_plugin in "${supplementary_plugins[@]}"; do
+        output_plugin="$(uv run --no-project python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]].get("output_plugin", sys.argv[2]))' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
         discovered_preview_url="$(
-            UI_SCREENSHOT_DISCOVERY_REPORT="$discovery_report" UI_SCREENSHOT_EXPECT_PLUGIN="$supplementary_plugin" \
+            UI_SCREENSHOT_DISCOVERY_REPORT="$discovery_report" UI_SCREENSHOT_EXPECT_PLUGIN="$output_plugin" \
                 uv run --no-cache --project "$REPO_DIR" python -c \
                 'import json, os; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); match=next((output for output in report["checks"]["snapshotOutputs"] if output["plugin"] == os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"]), None); print(match["previewUrl"] if match else "")'
         )"
@@ -424,7 +439,7 @@ add_supplementary_template_capture() {
             'import json,sys; recipe=json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]; text=recipe.get("wait_for_text", ""); print("wait-preview-text:" + text if text else "")' \
             "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
         if [[ "$source_url" == "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]["url"])' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")" ]]; then
-            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html|$capture_mode")
+            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$output_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html|$capture_mode")
         fi
         while IFS= read -r output_view; do
             [[ -z "$output_view" ]] || VIEWS+=("$output_view")
@@ -875,8 +890,8 @@ done
 
 [[ "$MAX_VIEWS" == "0" && -z "$PLUGIN_VIEWS" ]] || export UI_SCREENSHOT_ALLOW_PARTIAL=1
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
-    "$MANIFEST_FILE" "$REPO_DIR/docs/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
+    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
 
 echo "[+] Captured $capture_index views at desktop, tablet, and mobile sizes"
-echo "[+] Documentation gallery: $REPO_DIR/docs/Screenshots.md"
+echo "[+] Documentation gallery: $(dirname "$OUTPUT_DIR")/Screenshots.md"
 echo "[+] GitHub Pages gallery: $PUBLIC_OUTPUT_DIR/index.html"
