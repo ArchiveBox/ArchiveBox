@@ -184,7 +184,7 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
                 assert parsed["search_mode"] == ["meta"]
             parsed = parse_qs(urlsplit(menu_link.get_attribute("href")).query)
             assert parsed["folder"] == [str(parent.pk)]
-            ordinary = page.locator('.snapshot-export-links:not(.snapshot-export-menu) a[data-export-format="jsonl"]').first
+            ordinary = page.locator('.folder-actions a[data-export-format="jsonl"]').first
             parsed = parse_qs(urlsplit(ordinary.get_attribute("href")).query)
             assert parsed["folder"] == [str(child.pk)]
             response = page.request.get(ordinary.evaluate("node => node.href"))
@@ -192,3 +192,33 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             assert [json.loads(line)["title"] for line in response.text().splitlines()] == [query]
             page.keyboard.press("Escape")
         browser.close()
+
+
+@pytest.mark.parametrize("format", ["rss", "csv", "jsonl"])
+def test_smart_folder_exports_keep_visibility_and_extra_filters(client, api_headers, api_admin_user, format):
+    from archivebox.tests.test_smart_folders import leaf
+    from archivebox.tests.conftest import API_TEST_HOST
+    from archivebox.core.smart_folders import INBOX_RULES
+
+    folder = Folder.objects.create(name="News", rules=leaf("domain", "exact", "news.ycombinator.com"))
+    hidden = Folder.objects.create(name="Private matches", rules=leaf("title", "exact", "secret"))
+    inbox = Folder.objects.filter(rules=INBOX_RULES).first() or Folder.objects.create(name="Inbox", rules=INBOX_RULES)
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
+    public = Snapshot.objects.create(url=crawl.urls, title="news", crawl=crawl, config={"PERMISSIONS": "public"})
+    private = Snapshot.objects.create(
+        url="https://news.ycombinator.com/newest",
+        title="secret",
+        crawl=crawl,
+        config={"PERMISSIONS": "private"},
+    )
+    visible = {entry.pk for entry in Folder.tree(public=True)}
+    assert folder.pk in visible and inbox.pk in visible and hidden.pk not in visible
+    url = f"/api/v1/core/snapshots/export/{format}"
+    response = client.get(url, {"folder": str(folder.pk)}, HTTP_HOST=API_TEST_HOST)
+    assert response.status_code == 200, response.content
+    assert exported_ids(response, format) == {str(public.pk)}
+    response = client.get(url, {"folder": str(folder.pk)}, **api_headers)
+    assert response.status_code == 200
+    assert exported_ids(response, format) == {str(public.pk), str(private.pk)}
+    response = client.get(url, {"folder": str(folder.pk), "url__icontains": "newest"}, **api_headers)
+    assert exported_ids(response, format) == {str(private.pk)}

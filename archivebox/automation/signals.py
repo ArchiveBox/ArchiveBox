@@ -60,12 +60,16 @@ def folder_changed(sender, instance, created, **kwargs):
 
 @receiver(snapshot_folders_changed)
 def folders_changed(sender, changes, **kwargs):
-    for change in changes:
-        record_event(
-            change["snapshot_id"],
-            "folder_moved",
-            {key: str(change[key]) if change[key] else None for key in ("before", "after")},
-        )
+    from .models import Rule, RuleEvent
+    from .service import _suppress_events
+    if _suppress_events.get() or not Rule.objects.filter(enabled=True, trigger='folder_moved').exists():
+        return
+    RuleEvent.objects.bulk_create([
+        RuleEvent(snapshot_id=change['snapshot_id'], kind='folder_moved',
+                  details={key: str(change[key]) if change[key] else None for key in ('before', 'after')})
+        for change in changes
+    ], batch_size=500)
+
 
 
 @receiver(snapshot_tags_changed)
