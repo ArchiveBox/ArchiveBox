@@ -1,5 +1,6 @@
 """Snapshot model and admin UI tests."""
 
+import csv
 import json
 import os
 import re
@@ -15,6 +16,7 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.paginator import UnorderedObjectListWarning
+from django.template import Context
 from django.test import Client, RequestFactory
 from django.urls import reverse
 
@@ -749,7 +751,7 @@ class TestSnapshotProgressStats:
         assert snapshot.to_json()["archive_size"] == result.output_size
         assert snapshot.to_json()["output_size"] == result.output_size
         assert snapshot.to_csv(cols=["output_size"]) == str(result.output_size)
-        assert snapshot.to_csv(cols=["status"]) == '"started"'
+        assert next(csv.reader([snapshot.to_csv(cols=["status"])])) == ["started"]
 
     def test_is_archived_true_for_sealed_snapshot(self, snapshot):
         """Sealed snapshots should count as archived."""
@@ -1092,7 +1094,7 @@ class TestSnapshotProgressStats:
         embed_path = result.embed_path_db()
         assert embed_path is not None
 
-        html = str(core_tags.plugin_full({"request": None}, result))
+        html = str(core_tags.plugin_full(Context({"request": None}), result))
 
         assert embed_path in html
         assert 'class="abx-output-icon abx-output-icon--hashes"' in html
@@ -1130,7 +1132,7 @@ class TestSnapshotProgressStats:
         assert "handleSnapshotHeaderToggle(event)" in rendered
 
         # Portable exports must retain a working index-only preview and the
-        # same bounded shell as the live view, without external stylesheets.
+        # same document-scrolling shell as the live view, without external stylesheets.
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(
                 executable_path=str(browser_runtime["chrome_binary"]),
@@ -1147,13 +1149,15 @@ class TestSnapshotProgressStats:
                     if toggle.get_attribute("aria-expanded") != str(expanded).lower():
                         toggle.click()
                     expect(toggle).to_have_attribute("aria-expanded", str(expanded).lower())
-                    assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+                    page.evaluate("scrollTo(0, 0)")
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                     assert page.locator(".header-top").bounding_box()["y"] == 0
                     box = frame.bounding_box()
                     assert box["height"] > 0
-                    assert box["y"] + box["height"] <= height + 1
+                    assert box["y"] >= page.locator("header").bounding_box()["height"] - 1
                     expect(toggle).to_be_in_viewport()
+                    frame.scroll_into_view_if_needed()
+                    expect(frame).to_be_in_viewport()
             browser.close()
 
     def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(
@@ -1579,7 +1583,7 @@ class TestAdminSnapshotListView:
         assert snapshot.url.encode() in response.content
 
     def test_grid_card_component_order(self, client, admin_user, snapshot, real_hash_projection):
-        """Snapshot cards should keep metadata, title, URL, preview, and outputs in scan order."""
+        """Snapshot cards keep title and selection above URL, preview, tags, and date."""
         from archivebox.core.models import Tag
 
         _process, result = real_hash_projection
@@ -1596,12 +1600,13 @@ class TestAdminSnapshotListView:
 
         assert response.status_code == 200
         assert "🗄" not in body
-        assert body.index('name="_selected_action"') < body.index('class="timestamp"')
-        assert body.index('class="timestamp"') < body.index('class="card-size"')
-        assert body.index('class="card-size"') < body.index('class="link-favicon"')
-        assert body.index('class="title-text"') < body.index('class="card-url"')
+        assert body.index('class="title-text"') < body.index('name="_selected_action"')
+        assert body.index('name="_selected_action"') < body.index('class="card-url"')
         assert body.index('class="card-url"') < body.index('class="card-media"')
-        assert body.index('class="card-tags"') < body.index('class="card-outputs"')
+        assert body.index('class="card-media"') < body.index('class="card-tags"')
+        assert body.index('class="card-tags"') < body.index('class="card-date"')
+        assert "research" in body
+
 
     def test_view_mode_switcher_present(self, client, admin_user):
         """Test that view mode switcher is present."""
