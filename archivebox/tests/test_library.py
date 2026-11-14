@@ -43,9 +43,14 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk, "q": "A paper"}, HTTP_HOST=ADMIN_TEST_HOST)
     menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
     links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
-    assert {format for _, format in links} == {"rss", "csv", "jsonl", "html_zip", "wacz"}
+    assert {format for _, format in links} == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}
     for url, _format in links:
-        assert parse_qs(urlsplit(unescape(url)).query) == {"folder": [str(parent.pk)], "q": ["A paper"]}
+        parameters = parse_qs(urlsplit(unescape(url)).query)
+        if _format == "rss":
+            assert parameters.pop("api_key")
+        elif _format == "rss_public":
+            assert parameters.pop("public_only") == ["1"]
+        assert parameters == {"folder": [str(parent.pk)], "q": ["A paper"]}
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
@@ -91,7 +96,7 @@ def test_bulk_move_snapshots_to_folder(admin_client, admin_user):
     assert snapshot.folder_id == folder.pk
 
 
-def test_folder_feed_without_key_is_public_even_with_admin_session(admin_client, admin_user):
+def test_public_only_folder_feed_stays_public_even_with_admin_session(admin_client, admin_user):
     from xml.etree import ElementTree
     from django.test import Client
     from archivebox.core.models import Snapshot
@@ -108,7 +113,7 @@ def test_folder_feed_without_key_is_public_even_with_admin_session(admin_client,
     response = Client().get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
-    response = admin_client.get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/core/snapshot/feed/", {"public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
 
@@ -153,10 +158,10 @@ def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token)
     link = urlsplit(links["rss"])
     assert link.path == "/admin/core/snapshot/feed/"
     assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
-    assert set(links) == {"rss", "csv", "jsonl", "html_zip", "wacz"}
+    assert set(links) == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}
     for format, url in links.items():
         assert api_token.token not in url
-        assert parse_qs(urlsplit(url).query) == parse_qs(link.query)
+        assert parse_qs(urlsplit(url).query) == {**parse_qs(link.query), **({"public_only": ["1"]} if format == "rss_public" else {})}
     assert APIToken.objects.count() == tokens_before
     assert not apps.is_installed("archivebox.feeds")
 
@@ -242,7 +247,7 @@ def test_public_feed_cannot_query_sensitive_config(client, admin_user):
 
 
 @pytest.mark.parametrize("format", ["csv", "jsonl"])
-def test_native_list_downloads_are_complete_filtered_and_public_by_default(admin_client, api_token, api_admin_user, format):
+def test_native_list_downloads_are_complete_and_public_only_when_requested(admin_client, api_token, api_admin_user, format):
     import csv
     import io
     import json
@@ -276,13 +281,13 @@ def test_native_list_downloads_are_complete_filtered_and_public_by_default(admin
         assert "not-for-export" not in content and "private notes" not in content and api_token.token not in content
         return list(csv.DictReader(io.StringIO(content))) if format == "csv" else [json.loads(line) for line in content.splitlines()]
 
-    public = records(admin_client.get(endpoint, {"folder": folder.pk, "p": 999}, HTTP_HOST=ADMIN_TEST_HOST))
+    public = records(admin_client.get(endpoint, {"folder": folder.pk, "p": 999, "public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST))
     assert {row["id"] for row in public} == expected_ids
     assert {row["title"] for row in public} == {'A "quoted", multiline Unicode café title'}
     authorized = records(admin_client.get(endpoint, {"folder": folder.pk, "api_key": api_token.token}, HTTP_HOST=ADMIN_TEST_HOST))
     assert {row["id"] for row in authorized} == expected_ids | {str(private.pk)}
     assert admin_client.get(endpoint, {"api_key": "invalid"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
-    assert admin_client.get(endpoint, {"config__contains": "private"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+    assert admin_client.get(endpoint, {"config__contains": "private", "public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
 
 
 def test_view_only_staff_cannot_move_snapshots_to_folder(client, admin_user, django_user_model):

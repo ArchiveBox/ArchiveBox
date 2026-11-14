@@ -28,11 +28,13 @@ def build_snapshot_export_urls(filters, *, api=False) -> dict[str, str]:
     query = normalize_export_query(filters)
     suffix = "?" + query.urlencode() if query else ""
     formats = ("csv", "jsonl", "html_zip", "wacz") if apps.is_installed("archivebox.domains") else ("csv", "jsonl")
-    if api:
-        return {format: reverse("api-1:snapshot_export", args=[format]) + suffix for format in ("rss", *formats)}
+    rss = reverse("api-1:snapshot_export", args=["rss"]) if api else reverse("admin:core_snapshot_feed")
+    public_query = query.copy()
+    public_query["public_only"] = "1"
     return {
-        "rss": reverse("admin:core_snapshot_feed") + suffix,
-        **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in formats},
+        "rss": rss + suffix,
+        "rss_public": rss + "?" + public_query.urlencode(),
+        **{format: reverse("api-1:snapshot_export" if api else "admin:core_snapshot_export", args=[format]) + suffix for format in formats},
     }
 
 

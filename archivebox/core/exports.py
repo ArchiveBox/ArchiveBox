@@ -68,6 +68,7 @@ OMITTED_PARAMETERS = CREDENTIAL_PARAMETERS | {
     "format",
     "directory",
     "session",
+    "public_only",
 }
 
 
@@ -162,8 +163,11 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
             )
             request.user = AnonymousUser()
             request.archivebox_config = get_config()
+        public_only = request.GET.get("public_only") == "1"
         request = copy(request)
         request.GET = normalize_export_query(request.GET)
+        if public_only:
+            request.GET["public_only"] = "1"
         response = _snapshots_rss_response(request, snapshots=snapshots.select_related("crawl__created_by").prefetch_related("tags"))
         output.write(response.content.decode())
         return
@@ -231,11 +235,13 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
         return HttpResponseNotAllowed(allowed_methods)
     user, error = _principal(
         request,
-        session_authorized=session_authorized or (request.method == "POST" and request.POST.get("session") == "1"),
+        session_authorized=session_authorized
+        or (not api and request.user.is_authenticated)
+        or (request.method == "POST" and request.POST.get("session") == "1"),
     )
     if error is not None:
         return error
-    public_only = not user.is_authenticated
+    public_only = not user.is_authenticated or request.GET.get("public_only") == "1"
     if public_only and format in {"html", "replay"}:
         return HttpResponse(status=403)
     query = normalize_export_query(request.GET)

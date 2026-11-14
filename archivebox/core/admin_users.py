@@ -13,7 +13,7 @@ from archivebox.core.routes_util import build_snapshot_export_urls
 
 class CustomUserAdmin(UserAdmin):
     sort_fields = ["id", "email", "username", "is_superuser", "last_login", "date_joined"]
-    list_display = ["username", "snapshot_exports", "snapshot_count_column", "id", "email", "is_superuser", "last_login", "date_joined"]
+    list_display = ["username", "snapshot_count_column", "id", "email", "is_superuser", "last_login", "date_joined"]
     readonly_fields = ("snapshot_set", "archiveresult_set", "tag_set", "apitoken_set", "outboundwebhook_set")
     change_form_template = "admin/auth/user/change_form.html"
 
@@ -27,16 +27,19 @@ class CustomUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(snapshot_count=Count("crawl__snapshot_set", distinct=True))
 
-    @admin.display(description="Export snapshots")
-    def snapshot_exports(self, obj):
-        return mark_safe(
-            render_to_string(
-                "core/snapshot_export_links.html",
-                {
-                    "export_urls": build_snapshot_export_urls({"crawl__created_by__id__exact": obj.pk}),
-                },
-            ),
-        )
+    def get_list_display(self, request):
+        @admin.display(description="Export snapshots")
+        def snapshot_exports(obj):
+            return mark_safe(
+                render_to_string(
+                    "core/snapshot_export_links.html",
+                    {"export_urls": build_snapshot_export_urls({"crawl__created_by__id__exact": obj.pk})},
+                    request=request,
+                ),
+            )
+
+        fields = super().get_list_display(request)
+        return [fields[0], snapshot_exports, *fields[1:]]
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         if obj:

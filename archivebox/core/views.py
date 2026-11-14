@@ -1645,7 +1645,11 @@ class PublicIndexView(ListView):
         self.folder_tree = Folder.tree(public=True)
         for folder in self.folder_tree:
             folder.export_urls = build_snapshot_export_urls(
-                {"folder": folder.pk, "q": self.request.GET.get("q", ""), "search_mode": self.request.GET.get("search_mode", "meta")},
+                {
+                    "folder": folder.pk,
+                    "q": self.request.GET.get("q", ""),
+                    "search_mode": get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config),
+                },
                 api=True,
             )
         self.selected_folder = self.request.GET.get("folder", "")

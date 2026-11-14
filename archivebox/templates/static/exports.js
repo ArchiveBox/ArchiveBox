@@ -113,3 +113,13 @@ document.addEventListener('click', event => {
   const controls = link.closest('.snapshot-export-links');
   startSnapshotExport(link.href, {format: link.dataset.exportFormat, anchor: link, csrf: controls?.dataset.exportCsrf, session: controls?.dataset.exportSession === '1', api: controls?.dataset.exportApi === '1'}).catch(() => {});
 });
+
+// A private RSS subscription carries the user's existing administrator API key.
+for (const type of ['click', 'auxclick', 'contextmenu']) {
+  document.addEventListener(type, event => {
+    if (type === 'auxclick' && event.button !== 1) return;
+    if (event.target.closest('a[data-private-feed]')) {
+      alert('This feed URL contains an API key with full administrator access to this ArchiveBox server—treat it like the server’s admin password. Anyone with the URL can use that key outside this feed.');
+    }
+  });
+}

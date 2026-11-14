@@ -711,6 +711,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return custom_urls + urls
 
     def get_list_queryset(self, request, *, public_only=False):
+        from archivebox.search.config import get_search_mode
         from archivebox.search.query import apply_snapshot_search
 
         self = copy(self)
@@ -727,7 +728,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 queryset = apply_snapshot_search(
                     queryset,
                     term,
-                    search_mode=request.GET.get("search_mode", "meta"),
+                    search_mode=get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config),
                     config=request.archivebox_config,
                 )
             return queryset, True

@@ -198,7 +198,8 @@ def test_query_export_uses_folder_subtree_and_preserves_sources(saved_site, tmp_
     selected = saved_site[:2]
     for index, (snapshot, _source, _body) in enumerate(saved_site):
         snapshot.folder = [folder, child][index] if index < 2 else unrelated
-        snapshot.save(update_fields=["folder"])
+        snapshot.config = {**snapshot.config, "PERMISSIONS": ("private", "unlisted", "public")[index]}
+        snapshot.save(update_fields=["folder", "config"])
     recordings = []
     if format == "wacz":
         fixtures = Path(__file__).parent / "fixtures"
@@ -289,7 +290,7 @@ saved = []
 for index, record in enumerate(json.loads((fixture / "captures.json").read_text())):
     body = gzip.decompress((fixture / record["file"]).read_bytes())
     assert hashlib.sha256(body).hexdigest() == record["sha256"]
-    snapshot = Snapshot.objects.create(url=record["url"], crawl=crawl, folder=child if index == 0 else None, config={"PERMISSIONS": "public"})
+    snapshot = Snapshot.objects.create(url=record["url"], crawl=crawl, folder=child, config={"PERMISSIONS": ("public", "unlisted", "private")[index]})
     output = snapshot.output_dir / "dom/output.html"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(body)
@@ -315,7 +316,7 @@ response = client.get(job["download_url"], **headers)
 assert response.status_code == 200
 with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as bundle:
     pages = json.loads(bundle.read("pages.json"))
-    assert [page["url"] for page in pages] == [saved[0][0].url]
+    assert {page["url"] for page in pages} == {snapshot.url for snapshot, _, _ in saved}
     assert b"archivebox-links.js" in bundle.read(pages[0]["path"])
 response.close()
 # Public jobs use the same worker and become unavailable after visibility changes.
@@ -327,7 +328,8 @@ assert "--public-only" in process.cmd and "--user" not in process.cmd
 assert process.wait(timeout=30) == 0, process.stderr_file.read_text()
 response = client.get(public["download_url"])
 assert response.status_code == 200
-assert b"".join(response.streaming_content)
+with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as bundle:
+    assert [page["url"] for page in json.loads(bundle.read("pages.json"))] == [saved[0][0].url]
 response.close()
 Snapshot.objects.filter(pk=saved[0][0].pk).update(config={"PERMISSIONS": "private"})
 response = client.get(public["download_url"])

@@ -1346,5 +1346,9 @@ def api_token(context) -> str:
     if not user or not user.is_authenticated:
         return ""
 
-    token = get_or_create_api_token(user)
-    return token.token if token else ""
+    cached = getattr(request, "_template_api_token", None)
+    if cached is None or cached[0] != user.pk:
+        token = get_or_create_api_token(user)
+        cached = (user.pk, token.token if token else "")
+        request._template_api_token = cached
+    return cached[1]

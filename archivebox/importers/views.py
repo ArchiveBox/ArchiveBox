@@ -195,6 +195,7 @@ def source_activity(request, source_id):
             "html": render_to_string(
                 "importers/history.html",
                 {"runs": runs, "activity_loaded": True, "source_url": reverse("importers:detail", args=[source_id])},
+                request=request,
             ),
             "active": active,
         },
@@ -219,6 +220,7 @@ def run_activity(request, run_id):
             "html": render_to_string(
                 "importers/run_body.html",
                 {"run": run, "snapshot_export_urls": build_snapshot_export_urls({"crawl_id": run.crawl_id}) if run.crawl_id else {}},
+                request=request,
             ),
             "active": run.status in ACTIVE_STATUSES,
         },
