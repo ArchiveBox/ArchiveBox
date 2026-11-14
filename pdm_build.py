@@ -7,21 +7,6 @@ from pathlib import Path
 from pdm.backend.hooks import Context
 
 
-def pdm_build_initialize(context: Context) -> None:
-    """Make the package description's setup link absolute and release-specific."""
-    metadata = context.config.metadata
-    readme = metadata["readme"]
-    # PDM serializes the inline description into an sdist's pyproject.toml.
-    text = (context.root / readme).read_text(encoding="utf-8") if isinstance(readme, str) else readme["text"]
-    metadata["readme"] = {
-        "text": text.replace(
-            "](archivebox/auth/README.md)",
-            f"](https://github.com/ArchiveBox/ArchiveBox/blob/v{metadata['version']}/archivebox/auth/README.md)",
-        ),
-        "content-type": "text/markdown",
-    }
-
-
 def _current_commit(root: Path) -> str | None:
     try:
         result = subprocess.run(
