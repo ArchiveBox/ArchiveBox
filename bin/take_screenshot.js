@@ -551,9 +551,10 @@ async function main() {
         const header = document.querySelector('.snapshot-library #table-bookmarks thead,.snapshot-library #result_list thead');
         if (innerWidth < 768 || !link || !header || !header.getBoundingClientRect().height) return null;
         const left = link.getBoundingClientRect(), right = header.getBoundingClientRect();
-        return {linkTop:left.top, headerTop:right.top, linkBottom:left.bottom, headerBottom:right.bottom};
+        const style = getComputedStyle(header.querySelector('th'));
+        return {linkTop:left.top, headerTop:right.top, linkBottom:left.bottom, headerBottom:right.bottom, borderTop:style.borderTopWidth, borderBottom:style.borderBottomWidth};
       });
-      if (columnAlignment && (Math.abs(columnAlignment.linkTop - columnAlignment.headerTop) > 0.5 || Math.abs(columnAlignment.linkBottom - columnAlignment.headerBottom) > 0.5)) {
+      if (columnAlignment && (columnAlignment.linkTop !== columnAlignment.headerTop || columnAlignment.linkBottom !== columnAlignment.headerBottom || columnAlignment.borderTop !== '0px' || columnAlignment.borderBottom !== '1px')) {
         throw new Error(`All snapshots is misaligned with the column headings: ${JSON.stringify(columnAlignment)}`);
       }
       const publicAlignment = await page.evaluate(() => {

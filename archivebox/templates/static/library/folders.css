@@ -62,6 +62,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .snapshot-library .changelist-footer:has(.snapshot-list-exports){flex-wrap:wrap}.snapshot-library .changelist-footer>.snapshot-list-exports{flex:0 0 100%;margin:0}
 .snapshot-list-exports .snapshot-export-links{display:flex!important;gap:20px!important}.snapshot-list-exports .snapshot-export-links small{display:none}
 .public-library.sidebar-hidden .snapshot-list-exports{display:block}
+.public-library #table-bookmarks thead th{border-top:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
 .folder-drop-status:empty{display:none}.folder-drop-status{padding:6px 12px;font-size:11px;color:var(--archivebox-accent)}
 .folder-menu{box-sizing:border-box;position:fixed;inset:auto;margin:0;padding:4px;width:216px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;border:1px solid var(--border-color,#d0d5dd);border-radius:6px;background:var(--body-bg,#fff);color:var(--body-fg,#1d2939);box-shadow:0 6px 20px #10182826}
 .folder-menu.library-import-menu{width:290px}.folder-menu .snapshot-export-menu{display:block}
@@ -89,6 +90,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   .public-library .library-primary{padding:0;border-bottom:0}
   .public-library .library-primary>a:first-child{padding-left:28px;padding-right:8px;border-radius:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
   .snapshot-library #result_list thead tr{height:var(--library-column-header-height)}
+  body.model-snapshot.change-list .snapshot-library #changelist #result_list thead th{border-top:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
   .public-library #table-bookmarks{border:0;border-collapse:separate;border-spacing:0}
   .public-library #table-bookmarks thead th{box-sizing:border-box;height:var(--library-column-header-height);padding-top:6px;padding-bottom:6px;line-height:18px;white-space:nowrap}
 
