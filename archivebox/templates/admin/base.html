@@ -2236,8 +2236,8 @@
                     const pageCount = Number(summary.dataset.pageCount || 0)
                     const selectedLimit = selectAcross ? Number(summary.dataset.resultCount || pageCount) : pageCount
                     if (selectedCurrent && pageSelect) {
-                        selectedCurrent.textContent = formatter.format(selected)
-                        pageSelect.textContent = formatter.format(selectedLimit)
+                        selectedCurrent.textContent = selectAcross && summary.dataset.countExact === 'false' ? 'All' : formatter.format(selected)
+                        pageSelect.textContent = selectAcross && summary.dataset.countExact === 'false' ? 'matching' : formatter.format(selectedLimit)
                     } else {
                         selectedCount.textContent = formatter.format(selected) + ' / ' + formatter.format(selectedLimit) + ' selected'
                     }

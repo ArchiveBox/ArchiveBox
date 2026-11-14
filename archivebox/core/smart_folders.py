@@ -177,7 +177,14 @@ class RuleQuery:
                 result = parts[0]
                 for part in parts[1:]:
                     result = result & part if op == "AND" else result | part
-                return ~result if op == "NOT" else result
+                if op == "NOT":
+                    # SQLite can seek IS NULL, but NOT (column IS NOT NULL)
+                    # scans the index. Keep simple null predicates sargable.
+                    if len(result.children) == 1 and isinstance(result.children[0], tuple) and result.children[0][0].endswith("__isnull"):
+                        name, value = result.children[0]
+                        return Q(**{name: not value})
+                    return ~result
+                return result
             name, lookup, value = node.get("field"), node.get("lookup"), node.get("value")
             spec = self.specs.get(name)
             if not spec or lookup not in spec["operators"]:
@@ -213,7 +220,10 @@ class RuleQuery:
                 else:
                     if value != "*" and str(value) not in self.folders and self.validate:
                         raise ValidationError("Choose an existing folder or ANY.")
-                    result = Q(folder__isnull=False) if value == "*" else self.folder(value, stack)
+                    if value == "*":
+                        result, negative = Q(folder__isnull=negative), False
+                    else:
+                        result = self.folder(value, stack)
             else:
                 field, multi = model_fields().get(name, (models.CharField(), False))
                 if lookup in {"isnull", "present"}:
@@ -250,7 +260,13 @@ class RuleQuery:
                             raise ValidationError("Enter a valid value for this field.") from error
                     value = cleaned if lookup == "in" else cleaned[0]
                 if name == "domain":
-                    result = Q(Exists(Snapshot.objects.with_hostname().filter(pk=OuterRef("pk"), **{f"_domain_host__{lookup}": value})))
+                    result = Q(
+                        Exists(
+                            Snapshot.objects.with_hostname(allow_empty=True).filter(
+                                pk=OuterRef("pk"), **{f"_domain_host__{lookup}": value}
+                            ),
+                        ),
+                    )
                 elif multi:
                     result = Q(Exists(Snapshot.objects.filter(pk=OuterRef("pk")).filter(**{f"{name}__{lookup}": value})))
                 else:

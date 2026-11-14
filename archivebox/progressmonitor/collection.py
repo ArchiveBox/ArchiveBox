@@ -142,3 +142,58 @@ def collection_summary(user, *, public=False):
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start collection totals refresh")
     return summary
+
+
+def snapshot_list_count(queryset):
+    """Debounced display-only count. Never used to choose rows for an action."""
+    from hashlib import sha256
+    from django.db import connections
+
+    queryset = queryset.order_by().prefetch_related(None).select_related(None)
+    sql, params = queryset.query.sql_with_params()
+    key = "snapshot-list-count:" + sha256(repr((queryset.db, sql, params)).encode()).hexdigest()
+    summary = cache.get(key)
+    # Uncommitted test/admin transactions must not launch another connection
+    # that waits on their writes or counts a different version of those rows.
+    if connections[queryset.db].in_atomic_block:
+        return summary
+    if (summary is None or time() - summary["sampled_at"] >= 60) and _refresh_lock.acquire(blocking=False):
+        if not cache.add(f"{key}:refresh", True, timeout=60):
+            _refresh_lock.release()
+            return summary
+
+        def refresh():
+            try:
+                close_old_connections()
+                count, last = 0, None
+                db = connections[queryset.db]
+                # Compile the ORM predicate once, rather than once per batch.
+                # Bounds remain bound parameters, including for UUID keys.
+                query_sql, query_params = queryset.values("pk").query.sql_with_params()
+                count_sql = f'SELECT COUNT(*) FROM ({query_sql}) AS matches WHERE matches."pk" >= %s AND matches."pk" <= %s'
+                pk_field = queryset.model._meta.pk
+                # Bound each read lock even for unindexed smart predicates.
+                # Materialize PKs before counting; never hold an iterator open.
+                rows = queryset.model.objects.using(queryset.db).order_by("pk").values_list("pk", flat=True)
+                while True:
+                    ids = list((rows.filter(pk__gt=last) if last else rows)[:1000])
+                    if not ids:
+                        break
+                    bounds = [pk_field.get_db_prep_value(value, db) for value in (ids[0], ids[-1])]
+                    with db.cursor() as cursor:
+                        cursor.execute(count_sql, (*query_params, *bounds))
+                        count += cursor.fetchone()[0]
+                    last = ids[-1]
+                cache.set(key, {"count": count, "sampled_at": time()}, timeout=3600)
+            except Exception:
+                logging.getLogger(__name__).exception("Could not refresh snapshot list count")
+            finally:
+                connections.close_all()
+                _refresh_lock.release()
+
+        try:
+            Thread(target=refresh, name="snapshot-list-count", daemon=True).start()
+        except RuntimeError:
+            _refresh_lock.release()
+            logging.getLogger(__name__).exception("Could not start snapshot list count refresh")
+    return summary

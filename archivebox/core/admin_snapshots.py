@@ -21,7 +21,7 @@ from django.contrib.admin.helpers import ActionForm
 
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
-from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
@@ -118,7 +118,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
     parameter_name = "folder"
 
     def lookups(self, request, model_admin):
-        return [(str(folder.pk), folder.name) for folder in Folder.tree()]
+        return list(Folder.objects.values_list("pk", "name"))
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -343,10 +343,31 @@ class SnapshotChangeList(SearchResultsChangeList):
             obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
 
     def get_results(self, request):
+        from archivebox.progressmonitor.collection import snapshot_list_count
+
+        start = (self.page_num - 1) * self.list_per_page
+        size = self.list_max_show_all if self.show_all else self.list_per_page
+        rows = snapshot_page(self.queryset, base_queryset=self.root_queryset, start=start, size=size + 1)
+        if not rows and start:
+            from django.contrib.admin.options import IncorrectLookupParameters
+
+            raise IncorrectLookupParameters
+        if self.show_all and len(rows) > size:
+            self.show_all = False
+            size = self.list_per_page
+            rows = rows[: size + 1]
+        observed = start + len(rows)
+        self.result_count_exact = len(rows) <= size
+        # Django's paginator needs only a lower bound for next/previous links.
+        # It must never scan the full query just to render the first page.
+        self.queryset.query._archivebox_count_hint = observed
         super().get_results(request)
-        if request.GET.get("_embedded") == "crawl":
-            self.full_result_count = self.result_count
-            self.show_full_result_count = True
+        self.result_list = rows[:size]
+        summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
+        self.display_result_count = max(observed, summary["count"]) if summary else observed
+        self.result_count_cached = summary is not None
+        self.next_page_url = self.get_query_string({"p": self.page_num + 1}) if len(rows) > size else None
+        self.previous_page_url = self.get_query_string({"p": self.page_num - 1}) if self.page_num > 1 else None
         self._attach_archiveresult_summaries()
 
 
@@ -556,7 +577,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     paginator = AcceleratedPaginator
 
     save_on_top = True
-    show_full_result_count = True
+    show_full_result_count = False
 
     def get_changelist(self, request, **kwargs):
         return SnapshotChangeList
@@ -614,7 +635,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             breadcrumbs.append(selected)
             selected = folders_by_id.get(selected.parent_id)
         extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
-        extra_context["library_counts"] = Snapshot.objects.aggregate(total=Count("pk"), unfiled=Count("pk", filter=Q(folder__isnull=True)))
         extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET)
         try:
             try:

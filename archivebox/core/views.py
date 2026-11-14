@@ -81,7 +81,7 @@ from archivebox.core.routes_util import (
     is_snapshot_subdomain,
 )
 from archivebox.crawls.models import Crawl
-from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
@@ -1506,10 +1506,15 @@ class PublicIndexView(ListView):
         # computed for every skipped row.
         start = (page_number - 1) * page_size
         if self.folder_query is not None:
-            page_query = Snapshot.objects.filter(self.folder_query, permissions=PERMISSIONS_PUBLIC)
+            page_query = Snapshot.objects.filter(self.folder_query, config__PERMISSIONS=PERMISSIONS_PUBLIC)
         else:
             page_query = Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
-        page_ids = list(page_query.order_by(*self.ordering, "id").values_list("id", flat=True)[start : start + page_size + 1])
+        page_ids = snapshot_page(
+            page_query.order_by(*self.ordering, "id").values_list("id", flat=True),
+            base_queryset=Snapshot.objects.values_list("id", flat=True),
+            start=start,
+            size=page_size + 1,
+        )
         return list(
             Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
             .select_related("crawl__created_by")

@@ -18,7 +18,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import Case, Count, F, Max, Min, Q, QuerySet, Sum, Value, When, Window
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce, Greatest, Least, Length, Lower, NullIf, Reverse, Right, RowNumber, StrIndex, Substr
+from django.db.models.functions import Coalesce, Concat, Greatest, Length, Lower, NullIf, Replace, Reverse, Right, StrIndex, Substr, Least, Length, Lower, NullIf, Reverse, Right, RowNumber, StrIndex, Substr
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -230,7 +230,7 @@ class Folder(models.Model):
         else:
             folders = list(cls.objects.all())
         compiler = RuleQuery(folders)
-        counts = {} if public else dict(Snapshot.objects.order_by().values_list("folder_id").annotate(total=Count("pk")))
+
         children, by_id = {}, {folder.pk: folder for folder in folders}
         smart = [folder for folder in folders if folder.is_smart and not folder.is_container]
         if public and smart:
@@ -247,9 +247,6 @@ class Folder(models.Model):
                 folder.has_public_snapshots = visibility[folder.pk]
         for folder in folders:
             children.setdefault(folder.parent_id, []).append(folder)
-            # Arbitrary smart predicates are evaluated only for the selected
-            # list, never counted across the entire collection for navigation.
-            folder.snapshot_count = None if folder.is_smart else counts.get(folder.pk, 0)
         if public:
             for folder in folders:
                 if folder.has_public_snapshots:
@@ -270,10 +267,6 @@ class Folder(models.Model):
             folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
             result.append(folder)
             pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
-        for folder in reversed(result):
-            if folder.is_container:
-                totals = [child.snapshot_count for child in children.get(folder.pk, [])]
-                folder.snapshot_count = sum(totals) + counts.get(folder.pk, 0) if all(total is not None for total in totals) else None
         return result
 
     @classmethod
@@ -405,6 +398,44 @@ class SnapshotTag(models.Model):
 
 class SnapshotQuerySet(PagedQuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
+
+    def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
+        """Extract hostnames in SQL, without fetching URLs or archive files."""
+        authority = Substr("url", StrIndex("url", Value("://")) + 3)
+        # Find the first URL separator with one scan. Expanding three MIN/
+        # COALESCE expressions repeatedly through the hostname CASE tree made
+        # Django copy tens of thousands of expression nodes per smart rule.
+        separators = Replace(Replace(authority, Value("?"), Value("/")), Value("#"), Value("/"))
+        end = StrIndex(Concat(separators, Value("/")), Value("/"))
+        queryset = (
+            self.filter(url__iregex=r"^https?://")
+            .alias(_domain_authority=Substr(authority, 1, end - 1))
+            .alias(
+                _domain_address=Case(
+                    When(
+                        _domain_authority__contains="@",
+                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
+                    ),
+                    default=F("_domain_authority"),
+                ),
+            )
+            .annotate(
+                _domain_host=Lower(
+                    Case(
+                        When(
+                            _domain_address__startswith="[",
+                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
+                        ),
+                        default=Substr(
+                            "_domain_address",
+                            1,
+                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
+                        ),
+                    ),
+                ),
+            )
+        )
+        return queryset if allow_empty else queryset.exclude(_domain_host="")
 
     def request_delete(self) -> int:
         # Admin and API deletion share this durable command. Keep the row until

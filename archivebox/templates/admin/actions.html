@@ -18,7 +18,7 @@
       {% endblock %}
       {% block actions-counter %}
       {% if actions_selection_counter %}
-        <span class="action-summary" data-page-count="{{ cl.result_list|length }}" data-result-count="{{ cl.result_count }}" data-full-result-count="{{ cl.full_result_count|default:cl.result_count }}">
+        <span class="action-summary" data-count-exact="{{ cl.result_count_exact|yesno:'true,false' }}" data-page-count="{{ cl.result_list|length }}" data-result-count="{{ cl.result_count }}" data-full-result-count="{{ cl.full_result_count|default:cl.result_count }}">
           <span class="action-selected-count">
             <span class="action-selected-current">0</span>
             /
@@ -27,7 +27,9 @@
           </span>
           <span class="action-counter hidden" data-actions-icnt="{{ cl.result_list|length }}" style="display: none !important;" aria-hidden="true">{{ selection_note }}</span>
           <span class="action-total-count">
-            {% if cl.full_result_count and cl.full_result_count != cl.result_count %}
+            {% if cl.opts.model_name == 'snapshot' %}
+              <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %}</a> total
+            {% elif cl.full_result_count and cl.full_result_count != cl.result_count %}
               <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{{ cl.result_count|intcomma }}</a>
               filtered /
               <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.full_result_count|intcomma }}</a>
@@ -38,9 +40,9 @@
             {% endif %}
           </span>
           {% if cl.result_count != cl.result_list|length %}
-          <span class="all hidden">{{ selection_note_all }}</span>
+          <span class="all hidden">{% if cl.opts.model_name == 'snapshot' %}All matching snapshots selected{% else %}{{ selection_note_all }}{% endif %}</span>
           <span class="question hidden">
-              <a role="button" href="#" title="{% translate "Click here to select the objects across all pages" %}">{% blocktranslate with cl.result_count as total_count %}Select all {{ total_count }} {{ module_name }}{% endblocktranslate %}</a>
+              <a role="button" href="#" title="{% translate "Click here to select the objects across all pages" %}">{% if cl.opts.model_name == 'snapshot' %}Select all matching snapshots{% else %}{% blocktranslate with cl.result_count as total_count %}Select all {{ total_count }} {{ module_name }}{% endblocktranslate %}{% endif %}</a>
           </span>
           <span class="clear hidden"><a role="button" href="#">{% translate "Clear selection" %}</a></span>
           {% endif %}

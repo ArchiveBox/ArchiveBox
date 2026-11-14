@@ -1,0 +1,7 @@
+{% load core_tags %}
+<p class="paginator">
+  {% if cl.previous_page_url %}<a href="{{ cl.previous_page_url }}">Previous</a>{% endif %}
+  <span class="this-page">{{ cl.page_num }}</span>
+  {% if cl.next_page_url %}<a href="{{ cl.next_page_url }}">Next</a>{% endif %}
+  {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %} snapshots
+</p>

@@ -452,7 +452,7 @@ def test_folder_reparent_reorder_and_cycle_protection(admin_client):
     assert child.parent_id == last.pk
 
 
-def test_folder_tree_counts_descendants_and_labels(admin_user):
+def test_folder_tree_labels_without_snapshot_counts(admin_user):
     from archivebox.core.models import Folder, Snapshot
     from archivebox.crawls.models import Crawl
 
@@ -461,11 +461,8 @@ def test_folder_tree_counts_descendants_and_labels(admin_user):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
     Snapshot.objects.create(url="https://example.com/paper", folder=child, crawl=crawl)
     tree = Folder.tree()
-    assert [(folder.path_label, folder.snapshot_count) for folder in tree] == [
-        ("Research", 1),
-        ("Research / Papers", 1),
-        ("📥 Inbox", None),
-    ]
+    assert [folder.path_label for folder in tree] == ["Research", "Research / Papers", "📥 Inbox"]
+    assert all(not hasattr(folder, "snapshot_count") for folder in tree)
 
 
 @pytest.mark.django_db(transaction=True)
