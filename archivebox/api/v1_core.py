@@ -1022,8 +1022,8 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
 
     if data.folder_id is not None:
         folder = get_object_or_404(Folder, pk=data.folder_id)
-        if folder.is_smart and not (folder.is_container or folder.is_inbox):
-            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
+        if folder.is_smart and not folder.is_container:
+            raise HttpError(400, "Choose a regular folder as the destination.")
         data.folder_id = folder.pk
     if data.crawl_id:
         crawl = get_crawl_by_ref(data.crawl_id)

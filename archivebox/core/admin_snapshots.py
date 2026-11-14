@@ -83,7 +83,7 @@ class SnapshotActionForm(ActionForm):
             queryset=Folder.objects.filter(rules__isnull=True) | Folder.objects.filter(rules=CHILDREN_RULES),
             required=False,
             label="Folder",
-            empty_label="Inbox",
+            empty_label="No folder",
         )
 
     def clean_tags(self):
@@ -681,7 +681,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         folder_id = request.POST.get("folder_destination")
         folder = get_object_or_404(Folder, pk=folder_id) if folder_id else None
         count = Folder.move_snapshots(queryset, folder.pk if folder else None)
-        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Inbox'}.")
+        self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'No folder'}.")
 
     def preview_view(self, request, object_id, plugin, filename):
         """Serve a saved image output from the authenticated admin origin."""
