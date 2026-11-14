@@ -1,0 +1,23 @@
+etc/package.json
+  s_a46618ba6633c7::t_c1645731c2d381 3
+pyproject.toml
+  s_a46618ba6633c7::t_c1645731c2d381 3,364
+uv.lock
+  s_a46618ba6633c7::t_95c56f1cccc318 142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bad5b3a39404d10897cdb0aacdff98e339b403c",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
