@@ -2581,15 +2581,8 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 .model-snapshot.change-list .cards .card-date {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2;
-    padding: 3px 10px 4px;
-    border-radius: 0 0 7px 7px;
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 1px 5px rgba(15, 23, 42, 0.08);
+    flex: none;
+    margin-left: 6px;
     color: #73808d;
     font: 11px/1.3 var(--font-family-primary);
     font-variant-numeric: tabular-nums;

@@ -2214,8 +2214,12 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
             date_box = card.locator(".card-date").bounding_box()
             url_text_box = card.locator(".card-url code").bounding_box()
             assert abs(title_box["x"] + 6 - url_text_box["x"]) < 1
-            assert abs(date_box["y"] - preview_box["y"]) < 1
-            assert abs(date_box["x"] + date_box["width"] / 2 - preview_box["x"] - preview_box["width"] / 2) < 1
+            assert abs(date_box["y"] + date_box["height"] / 2 - tags_box["y"] - tags_box["height"] / 2) < 1
+            assert abs(date_box["x"] + date_box["width"] - tags_box["x"] - tags_box["width"] + 5) < 1
+            assert (
+                card.locator(".tags-inline-editor").bounding_box()["x"] + card.locator(".tags-inline-editor").bounding_box()["width"]
+                <= date_box["x"] - 6
+            )
             assert abs(tags_box["y"] + tags_box["height"] - preview_box["y"] - preview_box["height"]) < 1
             assert title_box["y"] < url_box["y"] < preview_box["y"] < tags_box["y"]
             assert 0 <= url_box["y"] - title_box["y"] - title_box["height"] <= 6
