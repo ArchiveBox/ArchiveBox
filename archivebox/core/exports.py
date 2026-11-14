@@ -13,7 +13,7 @@ from django.core.exceptions import SuspiciousOperation, ValidationError
 from django.apps import apps
 from django.utils.dateparse import parse_datetime
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404
 from django.urls import resolve, reverse
 from django.views.decorators.cache import never_cache
 
@@ -211,14 +211,14 @@ def _job_data(process, *, api=False):
         "status": process.status,
         "exit_code": process.exit_code,
         "result": process.export_report,
+        "can_cancel": "--public-only" not in process.cmd,
         **_job_urls(process, api=api),
     }
 
 
 @never_cache
-def snapshot_export_view(request, format="rss", *, api=False, session_authorized=False, extra_context=None):
+def snapshot_export_view(request, format="rss", *, api=False, session_authorized=False):
     from archivebox.config import CONSTANTS
-    from archivebox.core.admin_site import archivebox_admin
 
     format = request.POST.get("format", format) if request.method == "POST" else format
     if format not in ALL_EXPORT_FORMATS or (format in ARCHIVE_FORMATS and not apps.is_installed("archivebox.domains")):
@@ -253,7 +253,7 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
         write_snapshot_metadata(snapshots, format, response, request=request)
         response["Referrer-Policy"] = "no-referrer"
         return response
-    from archivebox.domains.export_service import FORMATS, export_jobs, launch_export
+    from archivebox.domains.export_service import export_jobs, launch_export
 
     if request.method == "POST":
         from archivebox.api.auth import token_from_request
@@ -277,33 +277,10 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
         except (ValueError, OSError) as error:
             return HttpResponseBadRequest(str(error))
         process.export_report = {"destination": process.cmd[process.cmd.index("--destination") + 1], "format": format}
-        if api:
-            return JsonResponse(_job_data(process, api=True), status=202)
-        return redirect(_job_urls(process)["status_url"])
+        return JsonResponse(_job_data(process, api=api), status=202)
     jobs = export_jobs(query=query.urlencode(), user=user if user.is_authenticated else None, public_only=public_only)
-    for job in jobs:
-        for key, value in _job_urls(job).items():
-            setattr(job, key, value)
-    if api:
-        return JsonResponse(
-            {"format": format, "query": query.urlencode(), "count": snapshots.count(), "jobs": [_job_data(job, api=True) for job in jobs]},
-            status=200,
-        )
-    return render(
-        request,
-        "domains/export.html",
-        {
-            **archivebox_admin.each_context(request),
-            **(extra_context or {}),
-            "title": "Export snapshots",
-            "export_query": query.urlencode(),
-            "export_url": reverse("admin:core_snapshot_export", args=[format]) + ("?" + query.urlencode() if query else ""),
-            "export_formats": [(key, value) for key, value in FORMATS.items() if key in ARCHIVE_FORMATS],
-            "selected_format": format,
-            "export_jobs": jobs,
-            "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
-            "authorize_session": bool(request.user.is_authenticated and request.user.is_active and request.user.is_staff),
-        },
+    return JsonResponse(
+        {"format": format, "query": query.urlencode(), "count": snapshots.count(), "jobs": [_job_data(job, api=api) for job in jobs]},
     )
 
 
@@ -311,7 +288,6 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
 def snapshot_export_job_view(request, process_id, *, action="status", api=False):
     if not apps.is_installed("archivebox.domains"):
         return HttpResponse(status=404)
-    from archivebox.core.admin_site import archivebox_admin
     from archivebox.domains.export_service import export_jobs, export_log_prefix
     from archivebox.machine.models import Process
 
@@ -354,7 +330,7 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
             if rejected:
                 return rejected
         process.kill()
-        return JsonResponse(_job_data(process, api=True)) if api else redirect(_job_urls(process)["status_url"])
+        return JsonResponse(_job_data(process, api=api))
     if request.method not in {"GET", "HEAD"}:
         from django.http import HttpResponseNotAllowed
 
@@ -378,23 +354,4 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
         if not file.is_file() or file.is_symlink() or file.stat().st_size > MAX_ARCHIVE_BYTES:
             return HttpResponse(status=404)
         return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
-    if api:
-        return JsonResponse(_job_data(process, api=True))
-    for key, value in _job_urls(process).items():
-        setattr(process, key, value)
-    return render(
-        request,
-        "domains/export.html",
-        {
-            **archivebox_admin.each_context(request),
-            "title": "Export snapshots",
-            "export_query": query,
-            "export_url": reverse("admin:core_snapshot_export", args=[process.cmd[process.cmd.index("--format") + 1]])
-            + ("?" + query if query else ""),
-            "export_formats": [(key, label) for key, label in ALL_EXPORT_FORMATS.items() if key in ARCHIVE_FORMATS],
-            "selected_format": process.cmd[process.cmd.index("--format") + 1],
-            "export_jobs": [process],
-            "export_directory": str(Path(process.cmd[process.cmd.index("--destination") + 1]).parent),
-            "authorize_session": not public_only,
-        },
-    )
+    return JsonResponse(_job_data(process, api=api))

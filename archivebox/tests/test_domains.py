@@ -53,7 +53,7 @@ def test_siteclone_form_creates_bounded_crawl(admin_client):
     page = admin_client.get(response["Location"], HTTP_HOST=ADMIN_TEST_HOST)
     assert page.status_code == 200
     assert page.context["original"].pk == crawl.pk
-    assert b"news.ycombinator.com" in page.content
+    assert page.context["adminform"].form["urls"].value() == crawl.urls
     assert page.content.count(b'id="progress-monitor"') == 1
 
 

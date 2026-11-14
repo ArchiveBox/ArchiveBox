@@ -211,7 +211,6 @@ def action(request, clone_id, action):
 @require_http_methods(["GET", "POST"])
 def export(request, clone_id=None):
     from archivebox.core.exports import snapshot_export_view
-    from archivebox.config.common import get_config
 
     crawl, scope = _site_context(request, clone_id)
     format = request.POST.get("format") or request.GET.get("format") or "html_zip"
@@ -225,10 +224,6 @@ def export(request, clone_id=None):
         selected,
         format=format,
         session_authorized=True,
-        extra_context={
-            "replay_settings_url": _site_url("replay_settings", crawl, scope),
-            "rewrite_archived_links": get_config().REWRITE_ARCHIVED_LINKS,
-        },
     )
 
 
@@ -240,7 +235,7 @@ def replay_settings(request, clone_id=None):
     machine.refresh_from_db(fields=["config"])
     machine.config = {**machine.config, "REWRITE_ARCHIVED_LINKS": request.POST.get("rewrite_archived_links") == "on"}
     machine.save(update_fields=["config"])
-    return redirect(_site_url("export", crawl, scope))
+    return redirect("domains:index")
 
 
 @clone_admin
