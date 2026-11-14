@@ -1,3 +1,7 @@
+/* One shared UI family; monospace remains for code and identifiers. */
+:root { --font-family-primary: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+html body, input, textarea, select, button { font-family: var(--font-family-primary); }
+
 /* * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -619,7 +623,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 #site-name { margin: 0; }
 #site-name a { display: flex; align-items: center; gap: 8px; }
 #site-name img { max-height: 30px; width: auto; padding: 0; }
-#user-tools { display: flex; flex: 1; width: auto; float: none; align-items: center; gap: 8px; min-width: 0; margin: 0; padding: 0; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; font-weight: 600; line-height: 1.3; letter-spacing: 0; text-transform: none; overflow: visible; }
+#user-tools { display: flex; flex: 1; width: auto; float: none; align-items: center; gap: 8px; min-width: 0; margin: 0; padding: 0; font-family: var(--font-family-primary); font-size: 14px; font-weight: 500; line-height: 1.3; letter-spacing: 0; text-transform: none; overflow: visible; }
 #user-tools .navbar-item { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; min-height: 36px; padding: 6px 8px; border: 0; border-radius: 5px; color: var(--header-link-color, #fff); font: inherit; text-decoration: none; white-space: nowrap; cursor: pointer; }
 #user-tools .navbar-item:hover, #user-tools details[open] > summary { background: #ffffff18; }
 #user-tools .navbar-item:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
@@ -632,7 +636,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 #user-tools .navbar-username { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 #user-tools .navbar-chevron { width: 14px; height: 14px; flex: 0 0 14px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 #user-tools .navbar-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1100; min-width: 210px; padding: 5px; border: 1px solid var(--hairline-color, #ddd); border-radius: 7px; background: var(--body-bg, #fff); color: var(--body-fg, #222); box-shadow: 0 8px 24px #0003; }
-#user-tools .navbar-menu a, #user-tools .navbar-menu button { display: block; box-sizing: border-box; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; line-height: 1.4; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer; font-weight: 500; }
+#user-tools .navbar-menu a, #user-tools .navbar-menu button { display: block; box-sizing: border-box; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; line-height: 1.4; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer; font-weight: 400; }
 #user-tools .navbar-menu a:hover, #user-tools .navbar-menu button:hover { background: var(--darkened-bg, #f3f4f6); }
 #user-tools .navbar-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--hairline-color, #ddd); background: none; }
 #user-tools .navbar-menu form { margin: 0; }
@@ -835,7 +839,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 
 #result_list tbody .field-title_str > a {
     color: #1e293b;
-    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     font-size: 15px;
     line-height: 1.4;
     position: relative;
@@ -882,7 +886,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 
 #result_list .snapshot-original-url code {
     display: block;
-    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     font-size: 11.5px;
     font-weight: 400;
     line-height: 1.25;
@@ -2669,7 +2673,7 @@ body.model-snapshot.change-list #changelist-form > .results {
     outline: 0;
     background: transparent;
     color: #475569;
-    font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font: 600 12px/1.2 var(--font-family-primary);
     letter-spacing: 0;
 }
 
@@ -2731,7 +2735,7 @@ body.model-snapshot.change-list #changelist-form > .results {
    and tag-widget rules cannot leak inconsistent type styles into the row. */
 .model-snapshot.change-list #changelist #changelist-form > .actions-top,
 .model-snapshot.change-list #changelist #changelist-form > .actions-top * {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-family-primary);
     letter-spacing: 0;
 }
 
@@ -3926,7 +3930,7 @@ html.archivebox-native-app #header.archivebox-app-header {
     flex-shrink: 0;
     background: #a51c50 !important;
     color: #fff !important;
-    font: 500 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+    font: 500 13px/1.5 var(--font-family-primary);
 }
 html.archivebox-native-app #header.archivebox-app-header > :not(#branding):not(.breadcrumbs),
 html.archivebox-native-app #header.archivebox-app-header .branding-label,
