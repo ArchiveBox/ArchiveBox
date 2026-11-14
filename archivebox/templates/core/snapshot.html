@@ -1830,6 +1830,17 @@
             initializeOutputStacks()
             window.addEventListener('message', (event) => {
                 const frame = document.getElementById('main-frame')
+                if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-preview-height') return
+                if (event.origin !== new URL(snapshotBaseUrl, window.location.href).origin) return
+                const height = event.data.height
+                if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0 || !Number.isSafeInteger(Math.ceil(height))) return
+                // Only the selected isolated viewer can size its own browsing
+                // context; thumbnail and previously selected frames cannot.
+                frame.style.height = `${Math.ceil(height)}px`
+                frame.style.flex = '0 0 auto'
+            })
+            window.addEventListener('message', (event) => {
+                const frame = document.getElementById('main-frame')
                 if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-directory-navigate') return
                 // Plugin previews can redirect their manifest to the file browser.
                 // frame.src retains the original URL after that navigation; validate

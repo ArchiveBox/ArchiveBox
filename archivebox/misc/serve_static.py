@@ -741,6 +741,7 @@ def _render_text_preview_document(text: str, title: str) -> str:
 <body>
     <div class="archivebox-text-preview-header">{escaped_title}</div>
     <pre class="archivebox-text-preview">{escaped_text}</pre>
+{loader.render_to_string("includes/preview_height.html")}
 </body>
 </html>"""
 
@@ -762,16 +763,14 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
             margin: 0;
             padding: 0;
             width: 100%;
-            min-height: 100%;
             background: #fff;
         }}
         body {{
-            overflow: auto;
+            overflow: visible;
         }}
         .archivebox-image-preview {{
             width: 100%;
             min-width: 100%;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -791,6 +790,7 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
     <div class="archivebox-image-preview">
         <img src="{escaped_url}" alt="{escaped_title}">
     </div>
+{loader.render_to_string("includes/preview_height.html")}
 </body>
 </html>"""
 

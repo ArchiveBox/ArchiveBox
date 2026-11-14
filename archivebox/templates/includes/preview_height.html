@@ -1,0 +1,19 @@
+<script id="archivebox-preview-height">
+(() => {
+    if (parent === window || window.name !== 'preview') return;
+    let previousHeight = 0;
+    const reportHeight = () => {
+        // These generated viewers use natural body height, independent of the
+        // iframe viewport, so growing the frame cannot feed back into sizing.
+        const height = Math.ceil(document.body.getBoundingClientRect().height);
+        if (height <= 0 || height === previousHeight) return;
+        previousHeight = height;
+        parent.postMessage({type: 'archivebox-preview-height', height}, '*');
+    };
+    window.addEventListener('resize', reportHeight);
+    const observer = new ResizeObserver(reportHeight);
+    observer.observe(document.body);
+    window.addEventListener('pagehide', () => observer.disconnect(), {once: true});
+    reportHeight();
+})();
+</script>

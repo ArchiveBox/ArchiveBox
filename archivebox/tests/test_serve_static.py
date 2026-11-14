@@ -535,6 +535,22 @@ def test_raw_html_preview_shows_escaped_source_in_text_viewer(tmp_path: Path):
     assert b"archivebox-text-preview" in response.content
     assert b"&lt;script&gt;" in response.content
     assert b"<script>" not in response.content
+    import html
+    from html.parser import HTMLParser
+
+    class ScriptInventory(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.scripts = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "script":
+                self.scripts.append(dict(attrs))
+
+    inventory = ScriptInventory()
+    inventory.feed(response.content.decode())
+    assert inventory.scripts == [{"id": "archivebox-preview-height"}]
+    assert html.escape(source.read_text()) in response.content.decode()
 
 
 @pytest.mark.parametrize("byte_range", [None, "bytes=2-25"])
