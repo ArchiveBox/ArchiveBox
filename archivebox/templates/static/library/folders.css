@@ -8,9 +8,9 @@
 .library-heading-label{min-width:0}
 .folder-sidebar .library-heading h2{margin:0;padding:0;background:none;color:var(--body-fg,#1d2939);font-size:13px;font-weight:600;line-height:20px;letter-spacing:0}
 .folder-current{display:none}
-body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizing:border-box;min-height:var(--library-toolbar-height);padding:5px 6px!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
-body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container>div{row-gap:0!important}
-.snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:6px}
+body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizing:border-box;display:flex!important;align-items:center;height:var(--library-toolbar-height);min-height:var(--library-toolbar-height);padding:5px 6px!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
+body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container>div{gap:0!important}
+.snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:6px;width:100%}
 .snapshot-library #changelist #toolbar #changelist-search{flex:1;min-width:0}
 .snapshot-library #changelist #toolbar :is(.snapshot-view-icon-toggle,.filter-pane-toggle,.search-input-wrap,.folder-sidebar-reopen){box-sizing:border-box;height:var(--library-control-size);min-height:var(--library-control-size);border:1px solid var(--border-color,#d0d5dd);border-radius:4px;background:var(--body-bg,#fff);box-shadow:none}
 .snapshot-library #changelist #toolbar .snapshot-view-icon-toggle{width:var(--library-control-size);min-width:var(--library-control-size);flex:0 0 var(--library-control-size)}
@@ -20,7 +20,7 @@ body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-c
 .snapshot-library #changelist #toolbar .search-input-wrap-with-mode .search-input-addon::before{left:8px;top:50%;width:16px;height:16px;border:0;border-radius:0;background:url('/static/admin/img/search.svg') center/16px no-repeat;transform:translateY(-50%)}
 .snapshot-library #changelist #toolbar .search-input-wrap-with-mode .search-input-addon::after{display:none}
 .snapshot-library #changelist #toolbar .search-mode-caret{right:7px;top:50%;border-left-width:3px;border-right-width:3px;border-top-width:4px;transform:translateY(-50%)}
-.snapshot-library #changelist #changelist-form>.actions-top{height:var(--library-toolbar-height)!important;min-height:var(--library-toolbar-height)!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
+body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.actions-top{height:var(--library-toolbar-height)!important;min-height:var(--library-toolbar-height)!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
 .folder-sidebar .icon-button{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--body-quiet-color,#667085);cursor:pointer}
 .folder-sidebar .icon-button:hover,.folder-sidebar .icon-button[aria-expanded=true]:not(.folder-toggle):not(.folder-mobile-toggle){color:var(--archivebox-accent);background:color-mix(in srgb,var(--archivebox-accent) 8%,var(--body-bg,#fff))}
 .folder-sidebar button:focus-visible,.folder-sidebar a:focus-visible,.folder-sidebar-reopen:focus-visible{outline:2px solid var(--archivebox-accent);outline-offset:1px}
@@ -57,7 +57,7 @@ body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-c
 .folder-actions a:hover,.folder-actions>.library-import-toggle:hover{color:var(--archivebox-accent)!important}.folder-actions a>span{margin-left:auto}
 .folder-actions .snapshot-export-links{display:flex!important;gap:8px!important;justify-content:space-between;font-size:10px!important}
 .folder-actions .snapshot-export-links a{font-size:10px}.folder-actions .snapshot-export-links small{display:none}
-.snapshot-export-caption{display:block;margin:2px 0 4px;color:var(--body-quiet-color,#667085);font-size:11px;line-height:18px}
+.snapshot-export-caption{display:block;text-align:center;margin:2px 0 4px;color:var(--body-quiet-color,#667085);font-size:11px;line-height:18px}
 .snapshot-list-exports{display:none;box-sizing:border-box;width:100%;padding:10px 12px;border-top:1px solid var(--hairline-color,#e4e7ec)}
 .snapshot-library .changelist-footer:has(.snapshot-list-exports){flex-wrap:wrap}.snapshot-library .changelist-footer>.snapshot-list-exports{flex:0 0 100%;margin:0}
 .snapshot-list-exports .snapshot-export-links{display:flex!important;gap:20px!important}.snapshot-list-exports .snapshot-export-links small{display:none}
