@@ -53,6 +53,7 @@ def create_crawl(
     tag: str = "",
     status: str = "queued",
     created_by_id: int | None = None,
+    folder_id=None,
 ) -> int:
     """
     Create a Crawl job from URLs.
@@ -138,6 +139,7 @@ def create_crawl(
             "tags_str": tag,
             "status": status,
             "label": "",
+            "folder_id": str(folder_id) if folder_id else None,
         }
 
         crawl = Crawl.from_json(crawl_record, overrides={"created_by_id": created_by_id})
@@ -359,9 +361,10 @@ def main():
 @click.option("--depth", "-d", type=int, default=0, help="Max crawl depth (default: 0)")
 @click.option("--tag", "-t", default="", help="Comma-separated tags to add")
 @click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
-def create_cmd(urls: tuple, depth: int, tag: str, status: str):
+@click.option("--folder-id", type=click.UUID)
+def create_cmd(urls: tuple, depth: int, tag: str, status: str, folder_id):
     """Create a Crawl job from URLs or stdin."""
-    sys.exit(create_crawl(urls, depth=depth, tag=tag, status=status))
+    sys.exit(create_crawl(urls, depth=depth, tag=tag, status=status, folder_id=folder_id))
 
 
 @main.command("list")

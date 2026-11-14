@@ -512,6 +512,7 @@ def test_importer_brands_and_setup_assets(admin_client):
     assert 'name="setting_IMPORTERS_BROWSER_ACCOUNT"' not in basic
     advanced = advanced.split("</details>", 1)[0]
     assert set(re.findall(r'name="([^"]+)"', advanced)) == {
+        "folder",
         "name",
         "limit",
         "tags",

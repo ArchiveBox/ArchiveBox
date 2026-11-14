@@ -51,6 +51,17 @@ class CrawlSchema(Schema):
     tags_str: str
     config: dict
     folder_id: UUID | None
+    folder_name: str | None = None
+    persona_id: UUID | None = None
+    persona_name: str | None = None
+
+    @staticmethod
+    def resolve_folder_name(obj):
+        return obj.folder.name if obj.folder_id else None
+
+    @staticmethod
+    def resolve_persona_name(obj):
+        return obj.persona.name if obj.persona_id else None
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -79,6 +90,7 @@ class CrawlSchema(Schema):
 
 
 class CrawlUpdateSchema(Schema):
+    folder_id: UUID | None = None
     action: str | None = None
     status: str | None = None
     retry_at: datetime | None = None
@@ -112,7 +124,7 @@ def normalize_tag_list(tags: list[str] | None = None, tags_str: str = "") -> lis
 
 @router.get("/crawls", response=list[CrawlSchema], url_name="get_crawls")
 def get_crawls(request: HttpRequest):
-    return Crawl.objects.all().distinct()
+    return Crawl.objects.select_related("folder", "persona", "created_by").distinct()
 
 
 @router.post("/crawls", response=CrawlSchema, url_name="create_crawl")
@@ -279,6 +291,16 @@ def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
             return crawl
         raise HttpError(400, f"Invalid action: {action}")
 
+    if "folder_id" in payload:
+        if payload["folder_id"] is not None:
+            get_object_or_404(Folder, pk=payload["folder_id"])
+        from django.core.exceptions import ValidationError
+
+        try:
+            crawl.folder_id = Folder.destination(payload["folder_id"])
+        except ValidationError as error:
+            raise HttpError(400, " ".join(error.messages)) from error
+        update_fields.append("folder")
     tags = payload.pop("tags", None)
     tags_str = payload.pop("tags_str", None)
     if tags is not None or tags_str is not None:

@@ -190,6 +190,8 @@ class MachineManager(models.Manager):
 
 
 class Machine(ModelWithHealthStats):
+    emoji: str = "🖥️"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -403,6 +405,8 @@ class NetworkInterfaceManager(models.Manager):
 
 
 class NetworkInterface(ModelWithHealthStats):
+    emoji: str = "🌐"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -515,6 +519,8 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     The database row is the only lifecycle state; there is intentionally no
     second in-memory state machine to reconcile after a worker interruption.
     """
+
+    emoji: str = "🔧"
 
     if TYPE_CHECKING:
         process_set: models.Manager[Process]
@@ -854,7 +860,15 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
+class ProcessQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_lifecycle_update
+
+        with track_lifecycle_update(self, kwargs):
+            return super().update(**kwargs)
+
+
+class ProcessManager(models.Manager.from_queryset(ProcessQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Process model."""
 
     def current(self) -> Process:
@@ -950,6 +964,8 @@ class Process(ModelWithDeleteAfter, models.Model):
     Keeping the DB row as the only lifecycle state makes interrupted subprocess
     recovery observable without reconciling a second in-memory state machine.
     """
+
+    emoji: str = "⚙️"
 
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -2020,18 +2036,22 @@ class Process(ModelWithDeleteAfter, models.Model):
 
         return env
 
-    def launch(self, background: bool = False, cwd: str | None = None) -> Process:
+    def launch(self, background: bool = False, cwd: str | None = None, *, stdin: bytes | None = None) -> Process:
         """
         Spawn the subprocess and update this Process record.
 
         Args:
             background: If True, don't wait for completion (for daemons/bg hooks)
             cwd: Working directory for the subprocess (defaults to self.pwd)
+            stdin: Input bytes for a foreground process; communicate closes the pipe.
 
         Returns:
             self (updated with pid, started_at, etc.)
         """
         import subprocess
+
+        if background and stdin is not None:
+            raise ValueError("stdin requires a foreground Process.launch()")
 
         # Validate pwd is set (required for output files)
         if not self.pwd:
@@ -2055,6 +2075,7 @@ class Process(ModelWithDeleteAfter, models.Model):
                 cwd=working_dir,
                 stdout=out,
                 stderr=err,
+                stdin=subprocess.PIPE if stdin is not None else None,
                 env=self._build_env(),
             )
 
@@ -2077,13 +2098,21 @@ class Process(ModelWithDeleteAfter, models.Model):
 
             if not background:
                 try:
-                    proc.wait(timeout=self.timeout)
+                    if stdin is None:
+                        proc.wait(timeout=self.timeout)
+                    else:
+                        # communicate writes while the child reads, avoiding a full
+                        # pipe deadlock for serialized webhook input larger than 64K.
+                        proc.communicate(input=stdin, timeout=self.timeout)
                     self.exit_code = proc.returncode
                 except subprocess.TimeoutExpired:
                     import signal
 
                     proc.kill()
-                    proc.wait()
+                    if stdin is None:
+                        proc.wait()
+                    else:
+                        proc.communicate()
                     self.exit_code = 128 + signal.SIGKILL
 
                 self.ended_at = timezone.now()

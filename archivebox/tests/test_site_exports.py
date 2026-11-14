@@ -296,6 +296,10 @@ for index, record in enumerate(json.loads((fixture / "captures.json").read_text(
     output.write_bytes(body)
     ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", hook_name="on_Snapshot__53_dom.js", status="succeeded", output_str="dom/output.html", output_files={"dom/output.html": {"size": len(body), "mimetype": "text/html"}}, output_size=len(body))
     saved.append((snapshot, output, body))
+from archivebox.api.models import OutboundWebhook
+hook = OutboundWebhook(name="Export exited", ref="archivebox.machine.models.Process", signal="EXITED", actions=[{"type":"python", "code":"import sys; print(sys.stdin.read())"}])
+hook.full_clean()
+hook.save()
 client = Client(HTTP_HOST="api.archivebox.localhost:5797")
 headers = {"HTTP_X_ARCHIVEBOX_API_KEY": token.token}
 query = urlencode({"folder": str(root.pk)})
@@ -307,6 +311,10 @@ assert token.token not in " ".join(process.cmd)
 assert "--query" in process.cmd and "--user" in process.cmd
 assert process.cmd[process.cmd.index("--max-bytes") + 1] == str(4 * 1024**3)
 assert process.wait(timeout=30) == 0, process.stderr_file.read_text()
+deliveries = [json.loads(row.stdout) for row in Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk))]
+export_events = [row for row in deliveries if row["id"] == str(process.pk)]
+assert len(export_events) == 1, export_events
+assert export_events[0]["worker_type"] == "site-export" and export_events[0]["exit_code"] == 0
 status = client.get(job["status_url"], **headers)
 assert status.status_code == 200, status.content
 assert status.json()["result"]["complete"] is True

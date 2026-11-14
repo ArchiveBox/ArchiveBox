@@ -71,11 +71,13 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     sources_path = _display_data_path(CONSTANTS.SOURCES_DIR, CONSTANTS.DATA_DIR)
     logs_path = _display_data_path(CONSTANTS.LOGS_DIR, CONSTANTS.DATA_DIR)
     print(f"    + {archive_path}, {sources_path}, {logs_path}...")
-    Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
-    CONSTANTS.ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    CONSTANTS.USERS_DIR.mkdir(parents=True, exist_ok=True)
-    Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
-    for path in (Path(CONSTANTS.SOURCES_DIR), CONSTANTS.ARCHIVE_DIR, CONSTANTS.USERS_DIR, Path(CONSTANTS.LOGS_DIR)):
+    from archivebox.config.paths import archive_uses_managed_storage
+
+    local_dirs = [Path(CONSTANTS.SOURCES_DIR), Path(CONSTANTS.LOGS_DIR)]
+    if not archive_uses_managed_storage():
+        local_dirs.extend([CONSTANTS.ARCHIVE_DIR, CONSTANTS.USERS_DIR])
+    for path in local_dirs:
+        path.mkdir(parents=True, exist_ok=True)
         path.chmod(int(config.OUTPUT_PERMISSIONS, base=8) | 0o111)
 
     print(f"    + {_display_data_path(CONSTANTS.CONFIG_FILE, CONSTANTS.DATA_DIR)}...")

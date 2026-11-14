@@ -33,6 +33,26 @@ def _env_path(key: str, default: Path) -> Path:
 ARCHIVE_DIR: Path = DATA_DIR / "archive"  # archivebox snapshot data dir
 USERS_DIR: Path = ARCHIVE_DIR / "users"  # archivebox user-scoped crawl/snapshot data dir
 
+
+def archive_uses_managed_storage() -> bool:
+    """Recognize a configured archive mount without importing Django models.
+
+    CLI preflight must initialize local runtime/DB paths while the archive is
+    disconnected, so the UI and runner can recover it. Never create directories
+    inside the empty underlying mountpoint or a partially switched archive.
+    """
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.collection import _load_file_config_dict
+
+    archive = CONSTANTS.ARCHIVE_DIR
+    if archive.is_symlink():
+        target = Path(os.path.abspath(archive.parent / os.readlink(archive)))
+        if target.parent == CONSTANTS.DATA_DIR / "storage" / "mounts":
+            return True
+    file_config, _mtime = _load_file_config_dict()
+    return bool(file_config.get("ARCHIVE_STORAGE_ACTIVE"))
+
+
 IN_DOCKER = os.environ.get("IN_DOCKER", False) in ("1", "true", "True", "TRUE", "yes")
 
 DATABASE_FILE = DATA_DIR / "index.sqlite3"

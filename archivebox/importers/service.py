@@ -187,6 +187,9 @@ def _finish(run, items, result):
                 raise ValueError("Feed categories must be a list of tag names.")
             tags = [tag[:100] for tag in Crawl.parse_tag_names(tags)]
             urls.append(json.dumps({"url": url, "tags": tags}) if tags else url)
+        from archivebox.core.models import Folder
+
+        folder_id = Folder.destination(source.folder_id)
         capture_config = build_crawl_config_snapshot(persona=source.persona, overrides={"ONLY_NEW": True})
         crawl = Crawl(
             # Native crawl JSONL preserves per-article tags without an input-parser plugin.
@@ -194,6 +197,7 @@ def _finish(run, items, result):
             urls="\n".join(urls),
             config=capture_config,
             persona=source.persona,
+            folder_id=folder_id,
             created_by=source.created_by,
             label=source.name[:64],
             tags_str=source.tags,
@@ -204,18 +208,21 @@ def _finish(run, items, result):
         crawl.set_delete_at_from_config()
 
     with transaction.atomic():
-        # Acquire the write through a CAS before creating a crawl or advancing its source.
+        # The crawl and completion commit together; a lost CAS rolls both back.
+        if crawl is not None:
+            Crawl.objects.bulk_create([crawl])
+            from archivebox.api.webhook_events import emit_event
+
+            emit_event(crawl, "CREATE")
         if not ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.RUNNING, cancel_requested=False).update(
             status=status,
+            crawl=crawl,
             items=items,
             result=result,
             message=str(result.get("message", ""))[:4000],
             finished_at=timezone.now(),
         ):
             raise InterruptedError("Importer cancelled. Progress was not advanced.")
-        if crawl is not None:
-            Crawl.objects.bulk_create([crawl])
-            ImporterRun.objects.filter(pk=run.pk).update(crawl=crawl)
         if status == "succeeded":
             updates = {"account": account}
             if run.action == ImporterRun.Action.IMPORT:
@@ -346,3 +353,79 @@ def tick(*, daemon: bool) -> bool:
         _thread = threading.Thread(target=_background_run, name="archivebox-importers", daemon=True)
         _thread.start()
     return False
+
+
+def save_source(source, values):
+    """Validate native source edits with the UI's plugin-derived form and CAS guard."""
+    from django.core.exceptions import ValidationError
+    from .forms import ImporterSourceForm
+
+    creating = source._state.adding
+    definition = get_importer(values.get("plugin", source.plugin), values.get("feed", source.feed))
+    if not creating and (definition.plugin, definition.feed) != (source.plugin, source.feed):
+        raise ValueError("Create a new source to change the importer plugin or feed.")
+    settings = values.get("settings", source.settings)
+    if not isinstance(settings, dict):
+        raise ValueError("Settings must be a JSON object.")
+    if any(value is None and key not in {"persona_id", "folder_id"} for key, value in values.items()):
+        raise ValueError("Only persona_id and folder_id can be cleared with null.")
+    unknown = set(settings) - set(definition.fields)
+    if unknown:
+        raise ValueError(f"Unknown importer settings: {', '.join(sorted(unknown))}")
+    data = {key: values.get(key, getattr(source, key)) for key in ImporterSourceForm._meta.fields if key not in {"persona", "folder"}}
+    data["persona"] = values.get("persona_id", source.persona_id)
+    data["folder"] = values.get("folder_id", source.folder_id)
+    data.update({f"setting_{key}": settings.get(key, spec.get("default", "")) for key, spec in definition.fields.items()})
+    original_settings, original_persona, original_checkpoint = source.settings, source.persona_id, source.checkpoint
+    form = ImporterSourceForm(data, instance=source, definition=definition)
+    if not form.is_valid():
+        raise ValidationError(form.errors.as_text())
+    source = form.save(commit=False)
+    if original_checkpoint and (source.settings != original_settings or source.persona_id != original_persona):
+        raise ValueError("Reset progress before changing source settings or persona.")
+    if "enabled" in values and type(values["enabled"]) is not bool:
+        raise ValueError("Enabled must be a boolean.")
+    source.enabled = values.get("enabled", source.enabled)
+    source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.enabled and source.schedule else None
+    if creating:
+        source.save()
+    else:
+        changed = (
+            ImporterSource.objects.filter(pk=source.pk, checkpoint=original_checkpoint)
+            .exclude(runs__status__in=ACTIVE_STATUSES)
+            .update(
+                **{key: getattr(source, key) for key in (*form._meta.fields, "settings", "enabled", "next_run_at")},
+            )
+        )
+        if not changed:
+            raise ValueError("The importer is active or its progress changed. Pause it and reload before editing.")
+    source.refresh_from_db()
+    return source
+
+
+def source_action(source, action):
+    """The same queued actions are available to the UI, REST API and CLI."""
+    if action in ImporterRun.Action.values:
+        return enqueue(source, action)
+    if action == "pause":
+        pause(source)
+    elif action == "resume":
+        source.enabled = True
+        source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.schedule else None
+        source.save(update_fields=["enabled", "next_run_at"])
+    elif action == "reset":
+        if not ImporterSource.objects.filter(pk=source.pk).exclude(runs__status__in=ACTIVE_STATUSES).update(checkpoint={}, account={}):
+            raise ValueError("Pause the importer and wait for its active run before resetting progress.")
+    else:
+        raise ValueError("Unknown importer action.")
+    source.refresh_from_db()
+    return source
+
+
+def delete_source(source):
+    # Serialize deletion with enqueue's source write. No browser or filesystem I/O.
+    with transaction.atomic():
+        ImporterSource.objects.filter(pk=source.pk).update(name=F("name"))
+        if source.runs.filter(status__in=ACTIVE_STATUSES).exists():
+            raise ValueError("Pause the importer and wait for its active run before deleting it.")
+        source.delete()

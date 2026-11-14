@@ -9,8 +9,15 @@ class APIConfig(AppConfig):
 
     def ready(self):
         from archivebox.api.webhooks import register_delete_webhook_field_loader
+        from archivebox.api.webhook_events import register_lifecycle_signals
+        from archivebox.api.webhook_membership import register_membership_signals
+        from django.contrib.auth import get_user_model
 
+        # User is supplied by Django; keep its icon on the class like our models.
+        get_user_model().emoji = "👤"
         register_delete_webhook_field_loader()
+        register_lifecycle_signals()
+        register_membership_signals()
 
 
 def register_admin(admin_site):

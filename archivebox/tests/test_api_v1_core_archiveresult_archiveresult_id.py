@@ -1,5 +1,9 @@
+import base64
+import sys
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.uploadhandler import TemporaryFileUploadHandler
 from django.test.client import BOUNDARY, MULTIPART_CONTENT, encode_multipart
 
 from archivebox.core.models import ArchiveResult, Snapshot
@@ -69,9 +73,56 @@ def test_archiveresult_patch_upload_finalizes_queued_result(client, api_admin_us
     assert snapshot.retry_at is not None
 
 
+def base64_multipart_body(filename, payload, fields):
+    body = encode_multipart(BOUNDARY, fields)
+    closing = f"--{BOUNDARY}--\r\n".encode()
+    assert body.endswith(closing)
+    file_header = (
+        f'--{BOUNDARY}\r\nContent-Disposition: form-data; name="files"; filename="{filename}"\r\n'
+        "Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+    ).encode()
+    return body[: -len(closing)] + file_header + base64.b64encode(payload) + b"\r\n" + closing
+
+
+@pytest.mark.parametrize("method", ["POST", "PATCH"])
+@pytest.mark.parametrize("filename", ["a", "ab", "abc", "abcd"])
+def test_base64_upload_reaches_disk_handler_in_bounded_chunks(client, api_admin_user, api_headers, settings, filename, method):
+    # CVE-2026-108147: shift base64 alignment as in Django's upstream regression
+    # (8b435411f11d69a0dd41a8837654323502e6058e), using only 256 KiB of data.
+    settings.FILE_UPLOAD_MAX_MEMORY_SIZE = 1024
+    crawl = Crawl.objects.create(urls="https://example.com/base64-upload", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/base64-upload", crawl=crawl)
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", hook_name="on_Snapshot__upload")
+    payload = bytes(range(256)) * 1024
+    body = base64_multipart_body(filename, payload, {"snapshot_id": str(snapshot.id), "plugin": "dom", "output_paths": "output.bin"})
+    path = "/api/v1/core/archiveresults" if method == "POST" else f"/api/v1/core/archiveresult/{result.id}"
+    chunks = []
+    # Observe the real disk handler without replacing the parser, stream, or
+    # upload handlers. Every recorded chunk is still written by Django itself.
+    handler_code = TemporaryFileUploadHandler.receive_data_chunk.__code__
+
+    def record_chunk(frame, event, arg):
+        if event == "call" and frame.f_code is handler_code:
+            chunks.append(len(frame.f_locals["raw_data"]))
+
+    previous_profile = sys.getprofile()
+    try:
+        sys.setprofile(record_chunk)
+        response = client.generic(method, path, body, content_type=MULTIPART_CONTENT, **api_headers)
+    finally:
+        sys.setprofile(previous_profile)
+    assert response.status_code == 200, response.content
+    uploaded = ArchiveResult.objects.get(pk=response.json()["id"])
+    assert (uploaded.output_dir / "output.bin").read_bytes() == payload
+    assert sum(chunks) == len(payload)
+    assert len(chunks) > 1
+    assert max(chunks) <= TemporaryFileUploadHandler.chunk_size
+
+
+@pytest.mark.parametrize("base64_encoded", [False, True])
 @pytest.mark.parametrize("chunked", [False, True])
 @pytest.mark.parametrize("method", ["POST", "PATCH"])
-def test_live_archiveresult_multipart_upload(tmp_path, chunked, method):
+def test_live_archiveresult_multipart_upload(tmp_path, chunked, method, base64_encoded):
     import requests
 
     from archivebox.tests.conftest import (
@@ -117,11 +168,20 @@ def test_live_archiveresult_multipart_upload(tmp_path, chunked, method):
                 "plugin": "dom",
             },
         )
+        if base64_encoded:
+            # Exceed Django's default 2.5 MiB in-memory threshold; retain the
+            # original small plain upload as the below-threshold case.
+            payload = bytes(range(256)) * 12288
+            body = base64_multipart_body(
+                "output.html",
+                payload,
+                {"output_paths": "output.html", "status": "succeeded", "snapshot_id": snapshot.json()["id"], "plugin": "dom"},
+            )
         path = "/api/v1/core/archiveresults" if method == "POST" else f"/api/v1/core/archiveresult/{result.json()['id']}"
         response = requests.request(
             method,
             f"http://127.0.0.1:{port}{path}",
-            data=iter([body]) if chunked else body,
+            data=(body[start : start + 8192] for start in range(0, len(body), 8192)) if chunked else body,
             headers={**api_auth_headers(token, port=port), "Content-Type": MULTIPART_CONTENT},
             timeout=30,
         )

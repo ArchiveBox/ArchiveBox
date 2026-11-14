@@ -18,6 +18,7 @@ class FolderForm(forms.ModelForm):
 
 
 class FolderAdmin(admin.ModelAdmin):
+    change_list_template = "admin/core/folder/change_list.html"
     list_display = ("name", "parent", "position", "created_by")
     list_select_related = ("parent", "created_by")
     list_editable = ("position",)
@@ -32,12 +33,21 @@ class FolderAdmin(admin.ModelAdmin):
 
     def get_urls(self):
         return [
+            path("export.<str:format>", self.admin_site.admin_view(self.export_folders), name="core_folder_export"),
             path("save/", self.admin_site.admin_view(self.save_folder), name="core_folder_save"),
             path("move/", self.admin_site.admin_view(self.move_folder), name="core_folder_move"),
             path("remove/", self.admin_site.admin_view(self.delete_folder), name="core_folder_remove"),
             path("rules/", self.admin_site.admin_view(self.rule_schema), name="core_folder_rules"),
             *super().get_urls(),
         ]
+
+    def export_folders(self, request, format):
+        from archivebox.core.exports import model_export_response
+
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        folders = self.get_changelist_instance(request).get_queryset(request).select_related("parent", "created_by")
+        return model_export_response((folder.to_json() for folder in folders), format, name="folders")
 
     def delete_folder(self, request):
         if request.method != "POST":
@@ -49,19 +59,26 @@ class FolderAdmin(admin.ModelAdmin):
         folder = get_object_or_404(Folder, pk=folder_id)
         if not self.has_delete_permission(request, folder):
             raise PermissionDenied
-        conflicts = Folder.objects.filter(parent=None, name__in=folder.children.values("name")).exclude(pk=folder.pk)
-        if conflicts.exists():
-            return JsonResponse({"error": "Rename or move child folders that already have a name at the top level."}, status=400)
-        from archivebox.core.models import Snapshot
-        from archivebox.crawls.models import Crawl
-
-        # Preserve snapshots and finish each update before starting the next.
-        Folder.move_snapshots(Snapshot.objects.filter(folder=folder), None)
-        while ids := list(Crawl.objects.filter(folder=folder).values_list("pk", flat=True)[:500]):
-            Crawl.objects.filter(pk__in=ids).update(folder=None)
-        self.log_deletions(request, [folder])
-        self.delete_model(request, folder)
+        try:
+            folder.validate_deletion()
+            self.log_deletions(request, [folder])
+            self.delete_model(request, folder)
+        except ValidationError as error:
+            return JsonResponse({"error": " ".join(error.messages)}, status=400)
         return JsonResponse({"deleted": True})
+
+    def get_deleted_objects(self, objs, request):
+        deleted, counts, perms, protected = super().get_deleted_objects(objs, request)
+        for folder in objs:
+            try:
+                folder.validate_deletion()
+            except ValidationError as error:
+                protected.extend(error.messages)
+        return deleted, counts, perms, protected
+
+    def delete_queryset(self, request, queryset):
+        for folder in queryset:
+            folder.delete()
 
     def rule_schema(self, request):
         from archivebox.core.smart_folders import RuleQuery, OPERATORS

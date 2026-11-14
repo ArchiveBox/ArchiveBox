@@ -79,6 +79,9 @@ INSTALLED_APPS = [
     "archivebox.crawls",  # handles Crawl and CrawlSchedule models and management (depends on core)
     "archivebox.importers",  # generic source management; provider behavior belongs to plugins
     "archivebox.domains",
+    "archivebox.storage",
+    "archivebox.linkhealth",
+    "archivebox.storageaudit",
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
     "archivebox.memento",  # read-only datetime negotiation and capture metadata on existing views
@@ -91,6 +94,7 @@ DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 
 
 MIDDLEWARE = [
+    "archivebox.api.webhook_events.WebhookActionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "archivebox.core.middleware.HealthCheckMiddleware",
     "archivebox.core.middleware.TimezoneMiddleware",
@@ -544,6 +548,12 @@ SIGNAL_WEBHOOKS: dict[str, object] = {
         "archivebox.core.models.Snapshot": ...,
         "archivebox.core.models.ArchiveResult": ...,
         "archivebox.core.models.Tag": ...,
+        "archivebox.core.models.Folder": ...,
+        "archivebox.crawls.models.CrawlSchedule": ...,
+        "archivebox.importers.models.ImporterSource": ...,
+        "archivebox.importers.models.ImporterRun": ...,
+        "archivebox.api.models.OutboundWebhook": ...,
+        "archivebox.machine.models.NetworkInterface": ...,
         "archivebox.api.models.APIToken": ...,
         "archivebox.personas.models.Persona": ...,
         "archivebox.machine.models.Machine": ...,

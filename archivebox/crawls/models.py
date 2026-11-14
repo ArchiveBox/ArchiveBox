@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 
 class CrawlSchedule(ModelWithUUID, ModelWithNotes):
+    emoji: str = "📅"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -147,8 +148,22 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         )
 
 
+class CrawlQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_lifecycle_update
+        from archivebox.api.webhook_membership import track_membership
+        from archivebox.core.models import Snapshot
+
+        with (
+            track_lifecycle_update(self, kwargs),
+            track_membership(lambda: Snapshot.objects.filter(crawl__in=self).values_list("pk", flat=True)),
+        ):
+            return super().update(**kwargs)
+
+
 class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithQueue):
-    objects = PagedQuerySet.as_manager()
+    emoji: str = "🕷️"
+    objects = CrawlQuerySet.as_manager()
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -413,6 +428,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         return {
             "type": "Crawl",
+            "folder_id": str(self.folder_id) if self.folder_id else None,
+            "folder_name": self.folder.name if self.folder_id else None,
+            "persona_id": str(self.persona_id) if self.persona_id else None,
+            "persona_name": self.persona.name if self.persona_id else None,
+            "created_by_id": self.created_by_id,
             "schema_version": VERSION,
             "id": str(self.id),
             "urls": self.urls,
@@ -459,6 +479,9 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             return None
 
         # Create new crawl (status stays QUEUED, not started)
+        for key in ("folder_id", "persona_id"):
+            if key in record and key not in overrides:
+                overrides[key] = record[key]
         crawl = Crawl.objects.create(
             urls=urls,
             max_depth=record.get("max_depth", record.get("depth", 0)),

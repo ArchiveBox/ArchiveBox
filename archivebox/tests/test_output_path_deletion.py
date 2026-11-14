@@ -4,6 +4,9 @@ import pytest
 
 from archivebox.base_models.models import ModelWithOutputDir
 
+# Deletion checks the configured primary archive before touching output files.
+pytestmark = pytest.mark.django_db(transaction=True)
+
 
 def test_delete_unlinks_cyclic_final_symlink_without_resolving_it(tmp_path):
     path = tmp_path / "loop"
@@ -75,7 +78,6 @@ def test_delete_rejects_collection_root_and_parent_traversal(tmp_path, tmp_path_
     assert external.read_bytes() == b"keep external"
 
 
-@pytest.mark.django_db(transaction=True)
 def test_scheduled_deletion_preserves_unsafe_row_and_continues_next_page(admin_user, tmp_path_factory):
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl

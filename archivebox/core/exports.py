@@ -27,6 +27,12 @@ EXPORT_FIELDS = (
     "schema_version",
     "id",
     "crawl_id",
+    "folder_id",
+    "folder_name",
+    "created_by_id",
+    "created_by_username",
+    "persona_id",
+    "persona_name",
     "url",
     "title",
     "tags",
@@ -91,6 +97,11 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None):
     request = HttpRequest()
     request.path = "/admin/core/snapshot/"
     request.GET = normalize_export_query(query)
+    for api_name, view_name in (("folder_id", "folder"), ("search", "q"), ("status", "snapshot_status")):
+        if api_name in request.GET:
+            if view_name in request.GET and request.GET.getlist(view_name) != request.GET.getlist(api_name):
+                raise ValueError(f"Conflicting {api_name} and {view_name} filters.")
+            request.GET.setlist(view_name, request.GET.pop(api_name))
     request.user = user or AnonymousUser()
     request.archivebox_config = config or get_config()
     request.resolver_match = resolve(request.path)
@@ -105,6 +116,12 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None):
             "crawl__id__exact",
             "crawl_id__exact",
             "crawl_id",
+            "folder_id",
+            "folder_name",
+            "created_by_id",
+            "created_by_username",
+            "persona_id",
+            "persona_name",
             "url__regex",
             "url__startswith",
             "url__icontains",
@@ -365,3 +382,17 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
             return HttpResponse(status=404)
         return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
     return JsonResponse(_job_data(process, api=api))
+
+
+def model_export_response(records, format, *, name):
+    """Authenticated model tables share CLI serialization and relationship columns."""
+    from archivebox.misc.jsonl import write_record_table
+
+    content_types = {"csv": "text/csv", "tsv": "text/tab-separated-values", "jsonl": "application/x-ndjson", "json": "application/json"}
+    if format not in content_types:
+        return HttpResponseBadRequest("Choose json, jsonl, csv, or tsv.")
+    response = HttpResponse(content_type=content_types[format] + "; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{name}.{format}"'
+    response["Cache-Control"] = "no-store"
+    write_record_table(records, format=format, stream=response)
+    return response

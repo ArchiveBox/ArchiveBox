@@ -1,0 +1,1091 @@
+.webhooks {
+  --accent: #a51c50;
+  --accent-soft: #f8edf2;
+  --ink: #263440;
+  --quiet: #6d7883;
+  --line: #e2e6ea;
+  --bg: #f7f9fb;
+  --link: #447e9b;
+  --green: #32735a;
+  --font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  color-scheme: light;
+}
+.webhooks * {
+  box-sizing: border-box;
+}
+.webhooks {
+  margin: 0;
+  color: var(--ink);
+  background: var(--bg);
+  font: 13px/1.45 var(--font);
+}
+.webhooks button,
+.webhooks input,
+.webhooks select,
+.webhooks textarea {
+  font: inherit;
+  color: inherit;
+}
+.webhooks button,
+.webhooks a,
+.webhooks input,
+.webhooks select,
+.webhooks textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+.webhooks button,
+.webhooks a {
+  touch-action: manipulation;
+}
+.webhooks button {
+  cursor: pointer;
+}
+.webhooks button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.webhooks a {
+  color: var(--link);
+  text-decoration: none;
+}
+.webhooks button:focus-visible,
+.webhooks a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.webhooks input:focus,
+.webhooks select:focus,
+.webhooks textarea:focus {
+  outline: 2px solid #a51c5024;
+  border-color: var(--accent);
+}
+.webhooks svg.icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.webhooks [hidden] {
+  display: none !important;
+}
+.webhooks .pagebar {
+  height: 55px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: white;
+}
+.webhooks .pagebar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.25px;
+  margin: 0;
+}
+.webhooks .pagebar .spacer {
+  flex: 1;
+}
+.webhooks .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #cfd5dc;
+  background: #fff;
+  border-radius: 4px;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.webhooks .btn:hover {
+  background: #f5f7f9;
+}
+.webhooks .btn.primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.webhooks .btn.primary:hover {
+  background: #901743;
+}
+.webhooks .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--quiet);
+  flex: none;
+  padding: 0;
+}
+.webhooks .icon-btn:hover {
+  background: #edf0f3;
+  color: var(--ink);
+}
+.webhooks .danger:hover {
+  color: #ab2443;
+  background: #f9ebef;
+}
+.webhooks .workspace {
+  margin-right: 480px;
+  transition: margin 0.15s;
+}
+.webhooks .workspace.full {
+  margin-right: 0;
+}
+.webhooks .tabs {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 0 18px;
+  height: 40px;
+  background: #fff;
+}
+.webhooks .tabs button {
+  border: 0;
+  background: transparent;
+  height: 40px;
+  padding: 0 1px;
+  font-size: 12px;
+  color: var(--quiet);
+  border-bottom: 2px solid transparent;
+}
+.webhooks .tabs button[aria-selected="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.webhooks .count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  background: #eef1f4;
+  color: #65717c;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.webhooks .tools {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  align-items: center;
+}
+.webhooks .search {
+  position: relative;
+  flex: 1;
+}
+.webhooks .search svg {
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  color: #8a949c;
+}
+.webhooks .search input {
+  width: 100%;
+  padding-left: 31px;
+}
+.webhooks .tools select {
+  max-width: 120px;
+}
+.webhooks input,
+.webhooks select,
+.webhooks textarea {
+  border: 1px solid #ced5dc;
+  border-radius: 4px;
+  background: #fff;
+  padding: 6px 8px;
+  min-height: 32px;
+  min-width: 0;
+}
+.webhooks textarea {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.55;
+}
+.webhooks .table-wrap {
+  overflow: auto;
+}
+.webhooks table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+}
+.webhooks th {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  color: #77838f;
+  background: #f0f3f6;
+  border-bottom: 1px solid var(--line);
+  height: 31px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.webhooks td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  background: #fff;
+}
+.webhooks th:first-child,
+.webhooks td:first-child {
+  padding-left: 18px;
+  width: 46px;
+}
+.webhooks th:last-child,
+.webhooks td:last-child {
+  padding-right: 18px;
+}
+.webhooks .webhooks-table {
+  min-width: 570px;
+}
+.webhooks .webhooks-table tr[data-id] {
+  cursor: pointer;
+}
+.webhooks .webhooks-table tr:hover td {
+  background: #faf5f7;
+}
+.webhooks .webhooks-table tr.selected td {
+  background: var(--accent-soft);
+}
+.webhooks .webhooks-table tr.selected td:first-child {
+  box-shadow: inset 3px 0 var(--accent);
+}
+.webhooks .webhook-name {
+  font-weight: 550;
+  display: block;
+  color: #263440;
+  white-space: nowrap;
+}
+.webhooks .scope-label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--quiet);
+  margin-top: 3px;
+}
+.webhooks .scope-label svg {
+  width: 13px;
+  height: 13px;
+}
+.webhooks .event-cell {
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.webhooks .event-cell span {
+  display: block;
+  color: var(--quiet);
+  font-size: 10px;
+}
+.webhooks .delivery {
+  white-space: nowrap;
+  color: #697582;
+  font-size: 11px;
+}
+.webhooks .switch {
+  appearance: none;
+  display: inline-block;
+  width: 26px;
+  height: 15px;
+  border: 0;
+  border-radius: 10px;
+  background: #bbc2c9;
+  position: relative;
+  padding: 0;
+  vertical-align: middle;
+  min-height: 0;
+  cursor: pointer;
+}
+.webhooks .switch:after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+.webhooks .switch[aria-checked="true"] {
+  background: var(--accent);
+}
+.webhooks .switch[aria-checked="true"]:after {
+  transform: translateX(11px);
+}
+.webhooks .table-foot {
+  padding: 10px 18px;
+  color: var(--quiet);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+.webhooks .muted {
+  color: var(--quiet);
+}
+.webhooks .mono {
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.webhooks .small {
+  font-size: 11px;
+}
+.webhooks .nowrap {
+  white-space: nowrap;
+}
+.webhooks .editor {
+  position: fixed;
+  right: 0;
+  top: var(--webhook-top, 124px);
+  bottom: 0;
+  width: 480px;
+  background: #fff;
+  border-left: 1px solid #d8dfe5;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 16px #152b3e04;
+  z-index: 2;
+}
+.webhooks .editor-heading {
+  height: 55px;
+  flex: none;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webhooks .editor-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.webhooks .editor-heading .state {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--quiet);
+}
+.webhooks .editor-heading .icon-btn {
+  margin-left: 8px;
+}
+.webhooks .editor-body {
+  padding: 16px 18px 24px;
+  overflow: auto;
+  flex: 1;
+}
+.webhooks .field {
+  margin-bottom: 15px;
+}
+.webhooks .field label,
+.webhooks .field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 550;
+  color: #56626e;
+  margin-bottom: 5px;
+}
+.webhooks .field input,
+.webhooks .field select {
+  width: 100%;
+}
+.webhooks .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 21px 0 10px;
+}
+.webhooks .section-head h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+.webhooks .section-head:first-child {
+  margin-top: 0;
+}
+.webhooks .scope-line {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.webhooks .scope-line select {
+  flex: 1;
+  width: 0;
+}
+.webhooks .scope-open {
+  border: 1px solid #ced5dc;
+  width: 32px;
+  height: 32px;
+  color: var(--link);
+}
+.webhooks .divider {
+  height: 1px;
+  background: var(--line);
+  margin: 18px -18px;
+}
+.webhooks .action-row {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  margin-bottom: 8px;
+  padding: 9px 10px;
+}
+.webhooks .action-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.webhooks .action-number {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  width: 16px;
+  color: #87929c;
+}
+.webhooks .action-type {
+  border: 0;
+  background: transparent;
+  font-weight: 550;
+  padding: 0;
+  min-height: 24px;
+  flex: 1;
+  font-size: 12px;
+}
+.webhooks .action-top .icon-btn {
+  height: 23px;
+  width: 23px;
+}
+.webhooks .action-inputs {
+  display: flex;
+  gap: 7px;
+  padding-left: 22px;
+}
+.webhooks .action-inputs input,
+.webhooks .action-inputs select {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+.webhooks .action-inputs .config-key {
+  flex: 1.5;
+}
+.webhooks .add-action {
+  width: 100%;
+  color: var(--link);
+  background: #f8fafb;
+  border-style: dashed;
+  border-color: #c7d1db;
+  font-size: 11px;
+  height: 32px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.webhooks .execution {
+  margin-top: 19px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--quiet);
+  font-size: 11px;
+}
+.webhooks .execution input {
+  accent-color: var(--accent);
+  min-height: 0;
+  margin: 0;
+}
+.webhooks .editor-footer {
+  flex: none;
+  border-top: 1px solid var(--line);
+  padding: 12px 18px;
+  display: flex;
+  gap: 8px;
+  background: #fff;
+  align-items: center;
+}
+.webhooks .editor-footer .primary {
+  margin-left: auto;
+}
+.webhooks .unsaved {
+  font-size: 10px;
+  color: var(--quiet);
+}
+.webhooks .empty {
+  padding: 40px 18px;
+  text-align: center;
+  color: var(--quiet);
+  font-size: 12px;
+}
+.webhooks .activity-table td {
+  height: 49px;
+}
+.webhooks .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #edf5f0;
+  color: var(--green);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+.webhooks .badge.idle {
+  background: #edf1f5;
+  color: #6b7885;
+}
+.webhooks .event-table td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.webhooks .event-table td:first-child {
+  width: auto;
+}
+.webhooks .event-code {
+  color: var(--link);
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.webhooks .preview {
+  border-top: 1px solid var(--line);
+  margin: 18px -18px -24px;
+  background: #f8fafb;
+  padding: 12px 18px 18px;
+}
+.webhooks .preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.webhooks .preview table {
+  font-size: 11px;
+}
+.webhooks .preview th {
+  font-size: 9px;
+  background: transparent;
+}
+.webhooks .preview th:first-child,
+.webhooks .preview td:first-child {
+  padding-left: 0;
+}
+.webhooks .preview td {
+  background: transparent;
+  vertical-align: top;
+  padding: 7px 4px;
+}
+.webhooks .preview td span {
+  display: block;
+  font-size: 10px;
+  color: var(--quiet);
+}
+.webhooks .preview-output {
+  font:
+    10px/1.7 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #52646e;
+}
+.webhooks .toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: #25313b;
+  color: #fff;
+  box-shadow: 0 4px 20px #152b3e22;
+  border-radius: 5px;
+  padding: 9px 14px;
+  font-size: 12px;
+  z-index: 10;
+}
+@media (min-width: 1500px) {
+  .webhooks .editor {
+    width: 520px;
+  }
+  .webhooks .workspace {
+    margin-right: 520px;
+  }
+}
+@media (max-width: 1050px) {
+  .webhooks .editor {
+    width: 440px;
+  }
+  .webhooks .workspace {
+    margin-right: 440px;
+  }
+  .webhooks .webhooks-table .delivery-column {
+    display: none;
+  }
+  .webhooks .webhooks-table {
+    min-width: 460px;
+  }
+  .webhooks .pagebar,
+  .webhooks .tools,
+  .webhooks .tabs {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+@media (max-width: 760px) {
+  .webhooks .workspace {
+    margin-right: 0;
+  }
+  .webhooks .editor {
+    top: var(--webhook-top, 124px);
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
+  .webhooks .pagebar {
+    height: 50px;
+  }
+  .webhooks .editor-heading {
+    height: 50px;
+    padding: 0 12px;
+  }
+  .webhooks .editor-body {
+    padding: 14px 12px 20px;
+  }
+  .webhooks .editor-footer {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+  .webhooks .divider {
+    margin-left: -12px;
+    margin-right: -12px;
+  }
+  .webhooks .preview {
+    margin: 18px -12px -20px;
+    padding: 12px;
+  }
+  .webhooks .action-row {
+    padding: 8px;
+  }
+  .webhooks .action-inputs {
+    padding-left: 0;
+  }
+  .webhooks .webhooks-table {
+    min-width: 560px;
+  }
+  .webhooks .pagebar .btn {
+    font-size: 11px;
+  }
+  .webhooks .editor-heading h2 {
+    font-size: 13px;
+  }
+  .webhooks .unsaved {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .webhooks * {
+    transition: none !important;
+  }
+}
+.webhooks .event-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.webhooks .event-fieldset legend {
+  font-size: 11px;
+  font-weight: 550;
+  color: #56626e;
+  margin-bottom: 5px;
+  padding: 0;
+}
+.webhooks .event-timeline {
+  position: relative;
+  margin: 0 0 12px;
+}
+.webhooks .event-timeline:before {
+  content: "";
+  position: absolute;
+  left: 39px;
+  top: 15px;
+  bottom: 15px;
+  width: 1px;
+  background: #dfe5eb;
+}
+.webhooks .event-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 29px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  border: 1px solid transparent;
+}
+.webhooks .event-option:hover {
+  background: #f6f8fa;
+}
+.webhooks .event-option:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: #edd7e1;
+  color: var(--accent);
+  font-weight: 550;
+}
+.webhooks .event-option input {
+  appearance: auto;
+  width: 12px;
+  height: 12px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+.webhooks .event-option .event-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: white;
+  color: var(--event-color);
+  border-radius: 4px;
+  flex: none;
+}
+.webhooks .event-option:has(input:checked) .event-icon {
+  background: var(--accent-soft);
+}
+.webhooks .event-option .event-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.webhooks .event-option .event-note {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--quiet);
+}
+.webhooks .event-option.section-start {
+  margin-top: 5px;
+  border-top-color: var(--line);
+  border-radius: 0;
+  padding-top: 7px;
+}
+.webhooks .event-option.section-start:has(input:checked) {
+  border-radius: 4px;
+  border-color: #edd7e1;
+}
+.webhooks .event-arguments {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.webhooks .event-arguments .field {
+  margin: 0;
+}
+.webhooks .execution-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.webhooks .execution-options .execution {
+  margin-top: 0;
+}
+.webhooks .event-option:focus-within {
+  outline: 2px solid #a51c5044;
+  outline-offset: 1px;
+}
+.webhooks .action-inputs.http-action {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+}
+.webhooks .http-action details {
+  grid-column: 1/-1;
+}
+.webhooks .http-action summary {
+  font-size: 10px;
+  color: var(--quiet);
+  cursor: pointer;
+  margin-top: 2px;
+}
+.webhooks .http-action textarea {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.webhooks .preview-output {
+  overflow-wrap: anywhere;
+}
+.webhooks .editor-body {
+  padding-top: 12px;
+}
+.webhooks .editor-body > .field {
+  margin-bottom: 11px;
+}
+.webhooks .divider {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+.webhooks .action-row {
+  padding-top: 6px;
+  padding-bottom: 8px;
+}
+.webhooks .action-top {
+  margin-bottom: 4px;
+}
+.webhooks .scope-label {
+  max-width: 270px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.webhooks .event-arguments .field select {
+  font-size: 12px;
+}
+@media (max-width: 420px) {
+  .webhooks .event-arguments {
+    grid-template-columns: 1fr;
+  }
+  .webhooks .event-option {
+    min-height: 32px;
+  }
+  .webhooks .event-note {
+    font-size: 9px !important;
+  }
+  .webhooks .event-arguments .field {
+    margin-bottom: 2px;
+  }
+}
+.webhooks .action-inputs.api-action {
+  display: block;
+}
+.webhooks .api-operation-label {
+  display: block;
+  font-size: 10px;
+  color: var(--quiet);
+}
+.webhooks .api-operation {
+  width: 100%;
+  display: block;
+  margin-top: 4px;
+}
+.webhooks .api-route {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 10px;
+  margin: 9px 0;
+  color: var(--quiet);
+  overflow-wrap: anywhere;
+}
+.webhooks .api-route span {
+  font-size: 9px;
+  font-weight: 650;
+  color: var(--accent);
+}
+.webhooks .api-route code {
+  min-width: 0;
+  font-size: 10px;
+}
+.webhooks .api-field {
+  display: block;
+  margin-top: 8px;
+}
+.webhooks .api-field > span {
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  margin-bottom: 4px;
+  color: #56626e;
+}
+.webhooks .api-field b {
+  color: var(--accent);
+  font-weight: 400;
+}
+.webhooks .api-field small {
+  margin-left: auto;
+  font-size: 9px;
+  color: #89939c;
+}
+.webhooks .api-field input,
+.webhooks .api-field select,
+.webhooks .api-field textarea {
+  width: 100%;
+}
+.webhooks .api-optional {
+  margin-top: 10px;
+}
+.webhooks .api-optional > summary {
+  font-size: 10px;
+  color: var(--link);
+  cursor: pointer;
+}
+.webhooks .preview-output {
+  white-space: pre-wrap;
+}
+.webhooks .action-inputs.snippet-action {
+  display: block;
+  padding-left: 0;
+}
+.webhooks .code-caption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #77818c;
+  padding: 5px 1px;
+}
+.webhooks .code-editor {
+  position: relative;
+  height: 250px;
+  overflow: hidden;
+  border: 1px solid #dbe1e7;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+.webhooks .code-editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px #a51c5014;
+}
+.webhooks .code-editor pre,
+.webhooks .code-editor textarea {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 12px;
+  font:
+    11px/1.7 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  width: 100%;
+  height: 100%;
+  resize: none;
+}
+.webhooks .code-editor pre {
+  pointer-events: none;
+  color: #304357;
+  background: transparent;
+  scrollbar-width: none;
+}
+.webhooks .code-editor pre::-webkit-scrollbar {
+  display: none;
+}
+.webhooks .code-editor textarea {
+  color: transparent;
+  caret-color: #263440;
+  -webkit-text-fill-color: transparent;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+.webhooks .code-editor textarea::selection {
+  background: #a51c5028;
+}
+.webhooks .code-editor code {
+  font: inherit;
+}
+.webhooks .syntax-comment {
+  color: #7b8894;
+}
+.webhooks .syntax-keyword {
+  color: #a51c50;
+  font-weight: 550;
+}
+.webhooks .syntax-string {
+  color: #397b59;
+}
+.webhooks .syntax-function {
+  color: #366c9b;
+}
+.webhooks .syntax-number {
+  color: #9a6330;
+}
+.webhooks .syntax-variable {
+  color: #7d58a1;
+}
+.webhooks .code-caption {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.webhooks .code-caption span:last-child {
+  font-size: 9px;
+}
+
+body.webhook-page #content {
+  padding: 0;
+  max-width: none;
+  width: 100%;
+}
+body.webhook-page #content > h1 {
+  display: none;
+}
+.webhooks {
+  min-height: calc(100vh - var(--webhook-top, 124px));
+}
+.webhooks .editor {
+  z-index: 30;
+}
+.webhooks .editor-body {
+  scrollbar-gutter: stable;
+}
+.webhooks .btn,
+.webhooks .icon-btn,
+.webhooks .switch,
+.webhooks .tabs button {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.webhooks label,
+.webhooks legend {
+  float: none;
+  width: auto;
+}
+.webhooks .event-option {
+  display: flex;
+}
+.webhooks .code-editor code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.webhooks .preview details pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+}
+.webhooks .activity-table pre {
+  white-space: pre-wrap;
+  max-width: 50vw;
+}

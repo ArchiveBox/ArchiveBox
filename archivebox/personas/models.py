@@ -82,6 +82,7 @@ def derive_persona_config(*, name: str, config: Mapping[str, Any] | None, person
 
 
 class Persona(ModelWithConfig):
+    emoji: str = "🎭"
     """
     Browser persona/profile for archiving sessions.
 

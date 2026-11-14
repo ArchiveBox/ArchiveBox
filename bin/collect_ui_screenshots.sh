@@ -444,6 +444,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     export SCREENSHOT_REPLAY_URL=""
     [[ "$capture_mode" != wait-replay-url:* ]] || export SCREENSHOT_REPLAY_URL="${capture_mode#wait-replay-url:}"
     config_selector=""
+    [[ "$name" != "Webhook scripts" ]] || config_selector="#actions"
     config_click_selector=""
     if [[ "$capture_mode" == plugin-config:* ]]; then
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
@@ -613,12 +614,19 @@ PY
             SCREENSHOT_COLLAPSE_FILTERS=1 \
             node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 
+        (
+            cd "$DATA_DIR"
+            UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
+                UI_LIBRARY_WEBHOOK_IDS_FILE="$CAPTURE_ROOT/webhook-ids.json" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import json, os; from pathlib import Path; from archivebox.api.webhook_screenshots import prepare; ids=prepare(os.environ["UI_LIBRARY_ADMIN_URL"], os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"]); Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).write_text(json.dumps(ids))'
+        )
         echo "[*] Capturing Hacker News and current top stories with automatic tag and summary plugins"
         (
             cd "$DATA_DIR"
-            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" \
+            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" \
                 UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}" \
-                UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
         )
         while IFS= read -r ai_view; do
@@ -650,6 +658,17 @@ PY
         while IFS= read -r library_view; do
             [[ -z "$library_view" ]] || VIEWS+=("$library_view")
         done <"$CAPTURE_ROOT/library-views.txt"
+
+        (
+            cd "$DATA_DIR"
+            UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
+                UI_LIBRARY_WEBHOOK_VIEWS_FILE="$CAPTURE_ROOT/webhook-views.txt" UI_LIBRARY_WEBHOOK_IDS_FILE="$CAPTURE_ROOT/webhook-ids.json" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import json, os; from pathlib import Path; from archivebox.api.webhook_screenshots import gallery_entries, verify_actions; base=os.environ["UI_LIBRARY_ADMIN_URL"]; ids=json.loads(Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).read_text()); verify_actions(base, os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"], ids); Path(os.environ["UI_LIBRARY_WEBHOOK_VIEWS_FILE"]).write_text("\n".join(gallery_entries(base, ids))+"\n")'
+        )
+        while IFS= read -r webhook_view; do
+            [[ -z "$webhook_view" ]] || VIEWS+=("$webhook_view")
+        done <"$CAPTURE_ROOT/webhook-views.txt"
 
         EXAMPLE_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"

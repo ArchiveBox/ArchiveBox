@@ -265,6 +265,7 @@ class CrawlRunner:
         self.root_crawl_event_id: str | None = None
         self.root_crawl_start_event_id: str | None = None
         self._run_task: asyncio.Task[None] | None = None
+        self._prepared_webhook_snapshots: set[str] = set()
         self._run_started = False
         self._skip_wait_until_idle = False
         # This is intentionally a synchronous OS-signal side channel, not bus
@@ -830,6 +831,11 @@ class CrawlRunner:
         from archivebox.plugins.discovery import get_enabled_plugins
         from archivebox.machine.models import Machine, NetworkInterface, Process
 
+        from archivebox.api.webhook_events import emit_event
+
+        if self.crawl.status == self.crawl.StatusChoices.QUEUED:
+            emit_event(self.crawl, "BEFORE_QUEUE")
+            self.crawl.refresh_from_db()
         self.primary_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ""
         # Validate saved binary paths at the execution boundary, including
         # config edited since this process first registered its Machine.
@@ -1068,6 +1074,17 @@ class CrawlRunner:
 
         def load_context():
             snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
+            from archivebox.api.webhook_events import emit_event
+
+            # Once per admission, before native config and Persona preparation.
+            # Existing results mean this is a resume/maintenance pass, not a new
+            # capture. The existing lifecycle owns admission; no event rows are stored.
+            if snapshot_id not in self._prepared_webhook_snapshots and not snapshot.archiveresult_set.exists():
+                if snapshot.status in Snapshot.RUNNABLE_STATES:
+                    emit_event(snapshot, "BEFORE_QUEUE")
+                    emit_event(snapshot, "BEFORE_CAPTURE")
+                    snapshot.refresh_from_db()
+                self._prepared_webhook_snapshots.add(snapshot_id)
             from archivebox.personas.models import Persona
 
             persona = snapshot.crawl.persona
@@ -1512,7 +1529,9 @@ def run_crawl(
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
 ) -> None:
-    with crawl_lifecycle_lock(crawl_id):
+    from archivebox.storage.service import archive_access
+
+    with archive_access(), crawl_lifecycle_lock(crawl_id):
         _run_crawl_locked(
             crawl_id,
             snapshot_ids=snapshot_ids,
@@ -1577,7 +1596,10 @@ def _run_crawl_locked(
         except BaseException as err:
             errors.append(err)
 
-    worker = threading.Thread(target=run_in_worker_thread, name=f"archivebox-crawl-{crawl_id}")
+    # Carry lifecycle ownership into the worker and its sync_to_async calls so
+    # post-event webhooks can wait for the caller to release the crawl lock.
+    context = contextvars.copy_context()
+    worker = threading.Thread(target=lambda: context.run(run_in_worker_thread), name=f"archivebox-crawl-{crawl_id}")
     worker.start()
     worker.join()
     if errors:
@@ -1643,35 +1665,37 @@ def run_binary(binary_id: str) -> None:
 
 def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None) -> bool:
     from archivebox.core.models import Snapshot
+    from archivebox.storage.service import archive_access
 
-    snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
-    if snapshot is None:
-        return False
+    with archive_access():
+        snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
+        if snapshot is None:
+            return False
 
-    # ArchiveBox owns filesystem and metadata maintenance at Snapshot
-    # granularity. ArchiveResult rows are projections and never influence this
-    # scheduler decision.
-    current_retry_at = snapshot.retry_at
-    has_pending_plugin_run = bool((snapshot.config or {}).get("RETRY_PLUGINS"))
-    if snapshot.status == Snapshot.StatusChoices.SEALED and has_pending_plugin_run:
-        next_retry_at = current_retry_at
-    elif snapshot.status in Snapshot.OPEN_STATES:
-        next_retry_at = timezone.now()
-    else:
-        next_retry_at = None
-    if snapshot.fs_migration_needed:
-        snapshot.migrate_filesystem_to_current_version()
-    updated = snapshot.safe_update(
-        {"retry_at": next_retry_at},
-        extra_filter={
-            "status": snapshot.status,
-            "retry_at": current_retry_at,
-        },
-    )
-    if not updated:
-        return False
-    snapshot.write_index_jsonl(output_dir=output_dir)
-    return True
+        # ArchiveBox owns filesystem and metadata maintenance at Snapshot
+        # granularity. ArchiveResult rows are projections and never influence this
+        # scheduler decision.
+        current_retry_at = snapshot.retry_at
+        has_pending_plugin_run = bool((snapshot.config or {}).get("RETRY_PLUGINS"))
+        if snapshot.status == Snapshot.StatusChoices.SEALED and has_pending_plugin_run:
+            next_retry_at = current_retry_at
+        elif snapshot.status in Snapshot.OPEN_STATES:
+            next_retry_at = timezone.now()
+        else:
+            next_retry_at = None
+        if snapshot.fs_migration_needed:
+            snapshot.migrate_filesystem_to_current_version()
+        updated = snapshot.safe_update(
+            {"retry_at": next_retry_at},
+            extra_filter={
+                "status": snapshot.status,
+                "retry_at": current_retry_at,
+            },
+        )
+        if not updated:
+            return False
+        snapshot.write_index_jsonl(output_dir=output_dir)
+        return True
 
 
 def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None, config_overrides=None) -> bool:
@@ -1715,7 +1739,9 @@ def run_due_crawl(
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
 ) -> bool:
-    with crawl_lifecycle_lock(str(crawl.id)):
+    from archivebox.storage.service import archive_access
+
+    with archive_access(), crawl_lifecycle_lock(str(crawl.id)):
         return _run_due_crawl_locked(
             crawl,
             lock_seconds=lock_seconds,
@@ -1844,7 +1870,9 @@ def run_due_snapshot(
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
 ) -> bool:
-    with crawl_lifecycle_lock(str(snapshot.crawl_id)):
+    from archivebox.storage.service import archive_access
+
+    with archive_access(), crawl_lifecycle_lock(str(snapshot.crawl_id)):
         return _run_due_snapshot_locked(
             snapshot,
             lock_seconds=lock_seconds,
@@ -2338,7 +2366,9 @@ def run_pending_crawls(
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
+    from archivebox.storage.service import restore_archive_mount
 
+    restore_archive_mount()
     crawl_claim_lock_seconds = 10
     runtime_config = get_config()
     last_recovery_at = 0.0
