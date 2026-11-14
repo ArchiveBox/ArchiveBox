@@ -152,10 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleFolderSearch(false);
     }
   });
-  sidebar.querySelector('.folder-collapse-all').addEventListener('click', () => {
-    rows.filter(row => row.querySelector('.folder-toggle')).forEach(row => collapsed.add(row.dataset.folderId));
-    renderTree();
-  });
   const mobileToggle = sidebar.querySelector('.folder-mobile-toggle');
   const reopenToggle = document.querySelector('.folder-sidebar-reopen');
   const currentFolder = sidebar.querySelector('[aria-current="page"] span')?.textContent.trim() || 'All snapshots';
