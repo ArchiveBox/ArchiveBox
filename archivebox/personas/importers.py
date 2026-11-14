@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import sqlite3
 import time
@@ -105,8 +106,8 @@ def _is_copyable_profile_entry(path: Path) -> bool:
 def profile_copy_ignore(src: str, names: list[str]) -> set[str]:
     ignored = set(shutil.ignore_patterns(*VOLATILE_PROFILE_COPY_PATTERNS)(src, names))
     src_path = Path(src)
-    if src_path.name == "IndexedDB":
-        # Uninstalled extensions leave their databases behind. In particular,
+    if src_path.name in {"IndexedDB", "Local Extension Settings"}:
+        # Uninstalled extensions leave their databases and settings behind. In particular,
         # old unpacked recorder IDs can retain entire captures that no installed
         # extension can access. Cloning those stores can exhaust the disk
         # before the first hook starts. Never delete the source, and preserve
@@ -132,8 +133,13 @@ def profile_copy_ignore(src: str, names: list[str]) -> set[str]:
         # orphaned. Preserve unknown state rather than guess from directory size.
         if isinstance(settings, dict):
             for name in names:
-                if name.startswith("chrome-extension_"):
-                    extension = settings.get(name.split("_", 2)[1], {})
+                extension_id = None
+                if src_path.name == "IndexedDB" and name.startswith("chrome-extension_"):
+                    extension_id = name.split("_", 2)[1]
+                elif src_path.name == "Local Extension Settings" and re.fullmatch(r"[a-p]{32}", name):
+                    extension_id = name
+                if extension_id:
+                    extension = settings.get(extension_id, {})
                     if isinstance(extension, dict) and not extension.get("path"):
                         ignored.add(name)
     for name in names:
