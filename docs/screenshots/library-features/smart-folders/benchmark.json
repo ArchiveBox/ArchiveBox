@@ -1,0 +1,18 @@
+{
+  "fixture": "isolated synthetic database metadata; no captured content",
+  "measurements": [],
+  "raw_fk_update": {
+    "rows": 1020000,
+    "seconds": 3.739
+  },
+  "parent_conversion": {
+    "seconds": 11.714,
+    "updates": 2040,
+    "max_update_ms": 40.764,
+    "concurrent_writes": 719,
+    "max_concurrent_write_ms": 156.441,
+    "errors": []
+  },
+  "peak_rss_mb": 288.8,
+  "database_bytes": 1557123072
+}

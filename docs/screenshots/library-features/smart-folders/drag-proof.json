@@ -1,0 +1,18 @@
+{
+  "visibleRows": 2,
+  "selectedAcrossPages": 5,
+  "matchingIds": [
+    "06af7a4b4ff6747e8000122f3b1a5ca6",
+    "06af7a4b4ff672678000dcb420632102",
+    "06af7a4b4ff670618000d8cb91d85cb6",
+    "06af7a4b4ff57d328000106533c1768f",
+    "06af7a4b4ff575aa800070fc2464d50b"
+  ],
+  "bulkAction": "move_to_folder",
+  "select_across": "1",
+  "restored": true,
+  "folderDrag": true,
+  "mobileMove": true,
+  "deletePreservedCaptures": true,
+  "errors": []
+}
