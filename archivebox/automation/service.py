@@ -110,9 +110,11 @@ def apply_rule(rule, snapshot, *, automatic=False, event=None):
                     snapshot.tags.add(tag)
                     changes.setdefault("added_tags", []).append(tag.name)
             if rule.folder_id and rule.folder_id != snapshot.folder_id:
-                changes["folder"] = {"before": str(snapshot.folder_id) if snapshot.folder_id else None, "after": str(rule.folder_id)}
-                Snapshot.objects.filter(pk=snapshot.pk).update(folder_id=rule.folder_id, modified_at=timezone.now())
-                snapshot.folder_id = rule.folder_id
+                from archivebox.core.models import Folder
+                destination = Folder.destination(rule.folder_id)
+                changes["folder"] = {"before": str(snapshot.folder_id) if snapshot.folder_id else None, "after": str(destination) if destination else None}
+                Snapshot.objects.filter(pk=snapshot.pk).update(folder_id=destination, modified_at=timezone.now())
+                snapshot.folder_id = destination
             if rule.permissions and rule.permissions != snapshot.permissions:
                 changes["visibility"] = {"before": snapshot.permissions, "after": rule.permissions}
                 config = dict(snapshot.config)
