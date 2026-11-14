@@ -80,13 +80,11 @@ def prepare(evidence_dir, *, model=""):
         raise RuntimeError("The live Hacker News front page did not provide three story links.")
     (evidence / "hacker-news-front.html").write_text(response.text)
     (evidence / "hacker-news-urls.json").write_text(json.dumps(urls, indent=2))
-    plugins = "title,favicon,wget,screenshot,readability"
     capture_env = os.environ.copy()
     if model:
         if not model.startswith("openai/"):
             raise ValueError("Gallery AI captures require an explicitly configured OpenAI model.")
         configure_provider(model, CONSTANTS.DATA_DIR)
-        plugins += ",autotag,autosummary"
         capture_env.update(AUTOTAG_ENABLED="True", AUTOSUMMARY_ENABLED="True", AUTOTAG_MODEL=model, AUTOSUMMARY_MODEL=model)
     started = timezone.now()
     subprocess.run(
@@ -98,7 +96,6 @@ def prepare(evidence_dir, *, model=""):
             "--no-only-new",
             "--tag=screenshot-library,depth=1",
             "--max-urls=4",
-            f"--plugins={plugins}",
             *urls,
         ],
         cwd=CONSTANTS.DATA_DIR,
