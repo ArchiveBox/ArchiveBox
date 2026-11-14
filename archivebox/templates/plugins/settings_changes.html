@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.plugin-config-form').forEach(settings => {
         const form = settings.closest('form');
         if (!form) return;
-        const value = input => input.type === 'checkbox' ? input.checked : input.value;
+        const value = input => input.multiple ? JSON.stringify([...input.selectedOptions].map(option => option.value)) : input.type === 'checkbox' ? input.checked : input.value;
         const inputs = [...settings.querySelectorAll('.plugin-config-input[name][data-config-key]')];
         const original = new Map(inputs.map(input => [input, value(input)]));
         const pending = [...form.querySelectorAll('[name="settings_changed"]')].map(input => input.value);

@@ -17,7 +17,8 @@
             >
         </label>
     {% elif field.kind == "select" %}
-        <select class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} name="{{ field.input_name }}" id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}>
+        {% if field.multiple %}<input type="hidden" name="{{ field.input_name }}" value="">{% endif %}
+        <select class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} name="{{ field.input_name }}" id="id_{{ field.input_name }}"{% if field.multiple %} multiple size="5"{% endif %}{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}>
             {% for option in field.options %}
                 <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
             {% endfor %}

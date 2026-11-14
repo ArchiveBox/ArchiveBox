@@ -251,7 +251,10 @@
 
     function setPluginInputValue(input, value) {
         if (!input) return;
-        if (input.type === 'checkbox') {
+        if (input.multiple) {
+            const selected = new Set((Array.isArray(value) ? value : []).map(String));
+            [...input.options].forEach(option => { option.selected = selected.has(option.value); });
+        } else if (input.type === 'checkbox') {
             input.checked = value === true || value === 'true' || value === '1' || value === 'on';
         } else {
             input.value = valueToFieldString(value);
@@ -259,7 +262,7 @@
     }
 
     function getPluginInputValue(input) {
-        return input.type === 'checkbox' ? input.checked : input.value;
+        return input.multiple ? [...input.selectedOptions].map(option => option.value) : input.type === 'checkbox' ? input.checked : input.value;
     }
 
     function syncMatchingPluginInputs(source) {

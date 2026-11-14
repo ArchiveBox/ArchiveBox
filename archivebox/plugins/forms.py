@@ -76,6 +76,11 @@ def _schema_types(schema: Mapping[str, Any]) -> list[str]:
     return [str(raw_type)]
 
 
+def _schema_enum(schema: Mapping[str, Any]):
+    items = schema.get("items")
+    return schema.get("enum") or (items.get("enum") if isinstance(items, Mapping) else None)
+
+
 def _jsonish(value: Any) -> str:
     if isinstance(value, str):
         return value
@@ -109,6 +114,8 @@ def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> An
             raise forms.ValidationError(f"Must be at least {minimum}.")
         if maximum is not None and value > int(maximum):
             raise forms.ValidationError(f"Must be at most {maximum}.")
+        if schema.get("exclusiveMinimum") is not None and value <= schema["exclusiveMinimum"]:
+            raise forms.ValidationError(f"Must be greater than {schema['exclusiveMinimum']}.")
         return value
 
     if "number" in schema_types:
@@ -119,20 +126,28 @@ def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> An
             raise forms.ValidationError(f"Must be at least {minimum}.")
         if maximum is not None and value > float(maximum):
             raise forms.ValidationError(f"Must be at most {maximum}.")
+        if schema.get("exclusiveMinimum") is not None and value <= schema["exclusiveMinimum"]:
+            raise forms.ValidationError(f"Must be greater than {schema['exclusiveMinimum']}.")
         return value
 
     if "array" in schema_types:
         if isinstance(raw_value, list):
-            return raw_value
-        value = str(raw_value).strip()
-        if not value:
-            return []
-        if value.startswith("["):
-            parsed = json.loads(value)
-            if not isinstance(parsed, list):
-                raise forms.ValidationError("Must be a JSON array.")
-            return parsed
-        return [item.strip() for item in value.replace(",", "\n").splitlines() if item.strip()]
+            values = raw_value
+        else:
+            value = str(raw_value).strip()
+            values = (
+                json.loads(value)
+                if value.startswith("[")
+                else [item.strip() for item in value.replace(",", "\n").splitlines() if item.strip()]
+            )
+        if not isinstance(values, list):
+            raise forms.ValidationError("Must be a JSON array.")
+        if enum := _schema_enum(schema):
+            choices = {str(item): item for item in enum}
+            if any(str(item) not in choices for item in values):
+                raise forms.ValidationError("Choose values from the available options.")
+            return [choices[str(item)] for item in values]
+        return values
 
     if "object" in schema_types:
         value = str(raw_value).strip()
@@ -158,6 +173,11 @@ class PluginConfigFormMixin:
     plugin_group_specs = PLUGIN_GROUPS
     allow_crawl_execution_config_fields = True
     settings_scopes = None
+
+    def submitted_setting(self, name, schema):
+        if "array" in _schema_types(schema) and _schema_enum(schema):
+            return [value for value in self.data.getlist(name) if value != ""]
+        return self.data.get(name)
 
     def settings_schemas(self):
         derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
@@ -209,7 +229,7 @@ class PluginConfigFormMixin:
                     continue
                 if changed is None and key in merged:
                     try:
-                        if _same_config_value(_coerce_plugin_config_value(self.data.get(name), prop), merged[key]):
+                        if _same_config_value(_coerce_plugin_config_value(self.submitted_setting(name, prop), prop), merged[key]):
                             overrides.pop(key, None)
                             continue
                     except (TypeError, ValueError, forms.ValidationError):
@@ -396,12 +416,12 @@ class PluginConfigFormMixin:
         if "anyOf" in prop_schema:
             prop_schema = {**next((part for part in prop_schema["anyOf"] if part.get("type") != "null"), {}), **prop_schema}
         schema_types = _schema_types(prop_schema)
-        enum = prop_schema.get("enum")
+        enum = _schema_enum(prop_schema)
         input_name = _plugin_config_input_name(plugin_name, config_key)
         current_value = runtime_config.get(config_key, prop_schema.get("default", ""))
         if self.is_bound and input_name in self.data:
             try:
-                current_value = _coerce_plugin_config_value(self.data.get(input_name), prop_schema)
+                current_value = _coerce_plugin_config_value(self.submitted_setting(input_name, prop_schema), prop_schema)
             except (TypeError, ValueError, json.JSONDecodeError, forms.ValidationError):
                 current_value = self.data.get(input_name)
 
@@ -425,7 +445,9 @@ class PluginConfigFormMixin:
                 {
                     "value": str(option),
                     "label": str(option),
-                    "selected": str(option) == str(current_value),
+                    "selected": str(option) in {str(item) for item in current_value}
+                    if "array" in schema_types and isinstance(current_value, list)
+                    else str(option) == str(current_value),
                 }
                 for option in enum
             ]
@@ -483,6 +505,7 @@ class PluginConfigFormMixin:
             "value": input_value,
             "checked": bool(current_value),
             "options": options,
+            "multiple": "array" in schema_types and bool(enum),
             "description": str(prop_schema.get("description") or "").strip(),
             "default": _jsonish(default_display),
             "current": "configured"
@@ -490,7 +513,7 @@ class PluginConfigFormMixin:
             else (("" if current_value is None else str(current_value)) if "string" in schema_types else _jsonish(current_value)),
             "current_url": self.plugin_config_binary_urls.get(config_key, "") if str(config_key).endswith("_BINARY") else "",
             "is_sensitive": is_sensitive,
-            "step": "any" if "number" in schema_types else "1",
+            "step": str(prop_schema.get("multipleOf") or ("any" if "number" in schema_types else "1")),
             "minimum": prop_schema.get("minimum"),
             "maximum": prop_schema.get("maximum"),
             "pattern": prop_schema.get("pattern"),
@@ -533,9 +556,7 @@ class PluginConfigFormMixin:
                 if not self.allow_crawl_execution_config_fields and ArchiveBoxConfig.scope_for_key(str(config_key)) != "crawl_frozen":
                     continue
 
-                raw_value: Any = self.data.get(input_name)
-                if "array" in _schema_types(prop_schema) and isinstance(prop_schema.get("enum"), list):
-                    raw_value = self.data.getlist(input_name)
+                raw_value: Any = self.submitted_setting(input_name, prop_schema)
 
                 from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED, is_sensitive_config_key
 
