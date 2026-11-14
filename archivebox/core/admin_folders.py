@@ -2,6 +2,7 @@ from django import forms
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import Max
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.urls import path
@@ -132,6 +133,9 @@ class FolderAdmin(admin.ModelAdmin):
         if not form.is_valid():
             return JsonResponse({"error": " ".join(error for errors in form.errors.values() for error in errors)}, status=400)
         folder = form.save(commit=False)
+        if not folder_id:
+            last_position = Folder.objects.filter(parent=folder.parent).aggregate(last=Max("position"))["last"]
+            folder.position = last_position + 1 if last_position is not None else 0
         self.save_model(request, folder, form, change=bool(folder_id))
         return JsonResponse({"id": str(folder.pk), "name": folder.name})
 
