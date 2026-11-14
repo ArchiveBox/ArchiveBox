@@ -224,7 +224,7 @@ async function openViewExportMenu(page) {
       const rect = node.getBoundingClientRect();
       return {inside: rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight, formats: [...node.querySelectorAll('[data-export-format]')].map(link => link.dataset.exportFormat)};
     });
-    if (!state.inside || !state.formats.includes('rss') || !state.formats.includes('jsonl')) throw new Error('The current-view export menu is clipped or missing formats.');
+    if (!state.inside || !state.formats.includes('rss') || !state.formats.every(format => ['rss', 'csv', 'jsonl', 'html_zip', 'wacz'].includes(format))) throw new Error('The current-view export menu is clipped or missing formats.');
     return;
   }
   throw new Error('No visible current-view Export button.');
