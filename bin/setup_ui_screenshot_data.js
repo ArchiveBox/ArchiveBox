@@ -144,13 +144,12 @@ async function main() {
     featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
     featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
-    runWorker(['config', '--set', 'PLUGINS=wget,title,screenshot,readability,parse_dom_outlinks,archivewebpage']);
     const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl);
     runWorker(['run', '--crawl-id', clone.crawlId]);
     featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
     featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
-    featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports')));
+    featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const stories = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-urls.json'), 'utf8'));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').folderViews(page, library.url, stories, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
