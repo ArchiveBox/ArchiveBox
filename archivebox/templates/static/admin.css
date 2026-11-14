@@ -3946,19 +3946,59 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    gap: 0 !important;
-    color: #475569;
+    gap: 1px !important;
+    color: var(--body-quiet-color, #667085);
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
     font-size: 12px !important;
-    font-weight: 500 !important;
-    line-height: 1.2 !important;
+    font-weight: 400 !important;
+    line-height: 1.25 !important;
     text-align: right !important;
     white-space: nowrap !important;
 }
 
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a,
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary span {
+    font-family: inherit;
     font-size: inherit !important;
     line-height: inherit !important;
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary :is(.action-selected-count, .action-total-count) {
+    color: inherit;
+    font-weight: inherit;
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary :is(a, .action-selected-current) {
+    font-weight: 600;
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary .action-selected-current {
+    color: var(--body-fg, #333);
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary.action-summary-has-selection .action-selected-current {
+    color: var(--archivebox-accent, #a51c50);
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a {
+    color: var(--link-fg, #447e9b);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    border-radius: 2px;
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a:hover {
+    color: var(--link-hover-color, #036);
+    text-decoration-color: currentColor;
+}
+
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    text-decoration-color: currentColor;
 }
 
 @media (max-width: 1180px) {
