@@ -152,7 +152,7 @@ def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, p
     assert b"skip URLs you&#x27;ve previously saved" in response.content or b"skip URLs you've previously saved" in response.content
 
 
-def test_add_view_admin_renders_plugin_config_grid(client, admin_user):
+def test_add_view_admin_renders_plugin_settings(client, admin_user):
     client.force_login(admin_user)
 
     response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
@@ -164,8 +164,8 @@ def test_add_view_admin_renders_plugin_config_grid(client, admin_user):
     assert any(card["config_fields"] for group in form.plugin_groups for card in group["plugins"])
     assert b"Index only dry run" not in response.content
     assert b"Start paused" in response.content
-    assert b">Source</a>" in response.content
-    assert b">Docs</a>" in response.content
+    assert "Source ↗</a>" in response.content.decode()
+    assert "Documentation ↗</a>" in response.content.decode()
     assert b"https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/" in response.content
     assert b"https://plugins.archivebox.io/#" in response.content
     assert not any(
@@ -536,6 +536,8 @@ def test_add_view_local_path_tokens_never_import_file_contents(client, admin_use
     assert secret.read_text() == secret_content
 
 
+# The runner prepares payloads on a separate DB connection, as in the real server.
+@pytest.mark.django_db(transaction=True)
 def test_add_view_selected_persona_wins_over_stale_config_override(client, admin_user):
     client.force_login(admin_user)
     private_persona = Persona.objects.create(name="Private", created_by=admin_user)

@@ -1459,3 +1459,15 @@ def api_token(context) -> str:
         cached = (user.pk, token.token if token else "")
         request._template_api_token = cached
     return cached[1]
+
+
+@register.simple_tag(takes_context=True)
+def plugin_config_field(context, plugin, field):
+    """A conventional field template overrides the shared schema renderer."""
+    from django.template.loader import render_to_string
+
+    values = {**context.flatten(), "plugin": plugin, "field": field}
+    source = get_plugin_template(plugin["name"], f"config/{field['key']}", fallback=False)
+    if source is not None:
+        return template.engines["django"].from_string(source).render(values)
+    return render_to_string("plugins/config_field.html", values)

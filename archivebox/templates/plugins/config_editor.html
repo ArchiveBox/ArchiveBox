@@ -1,0 +1,12 @@
+{% extends 'plugins/config_field.html' %}
+{% block field_class %}plugin-config-field--editor{% endblock %}
+{% block widget %}
+<div class="config-editor">
+    <div class="config-editor-toolbar">
+        <span class="config-editor-language">{% block language %}Plain text{% endblock %}</span>
+        {% block snippets %}{% endblock %}
+    </div>
+    <textarea class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}" aria-describedby="help_{{ field.input_name }}" spellcheck="false" rows="6">{{ field.value }}</textarea>
+    <div class="config-editor-footer"><span data-editor-count></span></div>
+</div>
+{% endblock %}

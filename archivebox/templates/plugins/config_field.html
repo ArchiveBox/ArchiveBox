@@ -1,0 +1,69 @@
+<div class="plugin-config-field {% block field_class %}{% endblock %}" data-search="{{ field.key }} {{ field.label }} {{ field.description }}">
+    <label for="id_{{ field.input_name }}">
+        <span title="{{ field.key }}">{% block label %}{{ field.label }}{% endblock %}</span>
+    </label>
+    <div class="plugin-config-control">
+    {% block widget %}{% if field.kind == "boolean" %}
+        <input type="hidden" name="{{ field.input_name }}" value="false">
+        <label class="plugin-config-toggle">
+            <input
+                type="checkbox"
+                class="plugin-config-input"
+                data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %}
+                name="{{ field.input_name }}"
+                id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
+                value="true"
+                {% if field.checked %}checked{% endif %}
+            >
+        </label>
+    {% elif field.kind == "select" %}
+        <select class="plugin-config-input" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %} name="{{ field.input_name }}" id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}>
+            {% for option in field.options %}
+                <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+        </select>
+    {% elif field.is_timeout %}
+        {% include 'plugins/config_timeout.html' %}
+    {% elif field.kind == "json" %}
+        <textarea
+            class="plugin-config-input"
+            data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %}
+            name="{{ field.input_name }}"
+            id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
+            rows="3"
+            spellcheck="false"
+            {% if field.is_sensitive %}placeholder="Leave blank to keep current value"{% endif %}
+        >{{ field.value }}</textarea>
+    {% else %}
+        <input
+            class="plugin-config-input"
+            data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %}
+            type="{{ field.input_type }}"
+            name="{{ field.input_name }}"
+            id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
+            value="{{ field.value }}"
+        {% if field.kind == "number" %}step="{{ field.step }}"{% if field.minimum != None %} min="{{ field.minimum }}"{% endif %}{% if field.maximum != None %} max="{{ field.maximum }}"{% endif %}{% endif %}
+            {% if field.pattern %}pattern="{{ field.pattern }}"{% endif %}
+            {% if field.is_sensitive %}autocomplete="off" placeholder="Leave blank to keep current value"{% endif %}
+        >
+    {% endif %}
+    {% endblock %}
+    </div>
+    {% if field.description %}
+        <div class="plugin-config-help" id="help_{{ field.input_name }}">{% block help %}{{ field.description }}{% endblock %}</div>
+    {% endif %}
+    <details class="plugin-config-meta"><summary>Details</summary>
+    <code>{{ field.key }}</code>
+    <div class="plugin-config-default">
+        Current:
+        <span class="plugin-config-current" data-config-key="{{ field.key }}"{% include 'plugins/config_quantity_attrs.html' %}>
+            {% if field.current_url %}
+                <a href="{{ field.current_url }}" target="_blank" rel="noopener"><code>{{ field.current }}</code></a>
+            {% else %}
+                <code>{{ field.current }}</code>
+            {% endif %}
+        </span>
+        · Default: <code>{{ field.default }}</code>
+    </div>
+    </details>
+</div>

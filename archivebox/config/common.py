@@ -462,7 +462,7 @@ class DatabaseConfig(BaseConfigSet):
         alias="ARCHIVEBOX_SQLITE_MMAP_SIZE",
         ge=0,
     )
-    SQLITE_BUSY_TIMEOUT: int = Field(default=30000, alias="ARCHIVEBOX_SQLITE_BUSY_TIMEOUT", ge=0)
+    SQLITE_BUSY_TIMEOUT: float = Field(default=30.0, alias="ARCHIVEBOX_SQLITE_BUSY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_TIMEOUT: float = Field(default=60.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
 

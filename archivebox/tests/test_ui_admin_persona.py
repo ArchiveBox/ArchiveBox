@@ -125,9 +125,9 @@ def test_persona_admin_add_view_renders_import_ui(admin_client):
     assert source.source_name.encode() in response.content
     assert b"Persona Template" in response.content
     assert b"auth.json" in response.content
-    assert b"Plugin Config" in response.content
+    assert b'aria-label="Plugin settings"' in response.content
     assert b'name="plugin_config__wget__WGET_TIMEOUT"' in response.content
-    assert b'<fieldset id="plugin-config" class="module aligned wide persona-plugin-config">' in response.content
+    assert b'<div id="plugin-config" class="persona-plugin-config">' in response.content
     assert b'href="https://extension.archivebox.io/"' in response.content
     assert b"import cookies into this persona from another browser" in response.content
     assert "wide" in response.context["adminform"].fieldsets[0][1]["classes"]
@@ -277,3 +277,22 @@ def test_existing_persona_does_not_offer_bootstrap(admin_client, admin_user):
     assert response.status_code == 200
     assert b'name="import_mode"' not in response.content
     assert b"Create a new Persona" not in response.content
+
+
+def test_persona_rejects_schema_pattern_before_saving(admin_client, admin_user):
+    response = admin_client.post(
+        reverse("admin:personas_persona_add"),
+        {
+            "name": "InvalidResolution",
+            "created_by": str(admin_user.pk),
+            "permissions": "public",
+            "config": "{}",
+            "import_mode": "none",
+            "plugin_config__screenshot__SCREENSHOT_RESOLUTION": "not a resolution",
+            "_save": "Save",
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assert "SCREENSHOT_RESOLUTION" in str(response.context["adminform"].form.errors)
+    assert not Persona.objects.filter(name="InvalidResolution").exists()
