@@ -8,6 +8,7 @@ from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory
 from django.urls import reverse
+from lxml.html import fromstring
 import html
 from uuid import uuid4
 from abx_plugins.plugins.opencode.archivebox.host_cases import (
@@ -405,7 +406,11 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     from django.template.loader import render_to_string
 
     cards_html = render_to_string("core/snapshot_output_cards.html", snapshot.get_html_details_context(request=admin.request))
-    assert f'href="{result_admin.get_output_files_url(root_result)}" data-no-preview="1" title="Open output folder"' in cards_html
+    folder_links = fromstring(cards_html).xpath('.//a[@aria-label="Open singlefile output folder"]')
+    assert len(folder_links) == 1
+    assert folder_links[0].get("href") == result_admin.get_output_files_url(root_result)
+    assert folder_links[0].get("data-no-preview") == "1"
+    assert folder_links[0].get("title") == "Open output folder"
 
 
 def test_archiveresult_admin_zip_links():
