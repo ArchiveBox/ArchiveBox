@@ -1,0 +1,154 @@
+[
+  {
+    "kind": "admin",
+    "width": 1600,
+    "height": 28,
+    "treeTop": 284.390625,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 768,
+    "height": 36,
+    "treeTop": 298.390625,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 390,
+    "height": 36,
+    "treeTop": 248,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "admin",
+    "width": 320,
+    "height": 36,
+    "treeTop": 316,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 1600,
+    "height": 28,
+    "treeTop": 156.859375,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 768,
+    "height": 36,
+    "treeTop": 168,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 390,
+    "height": 36,
+    "treeTop": 169,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "kind": "public",
+    "width": 320,
+    "height": 36,
+    "treeTop": 169,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false
+  }
+]

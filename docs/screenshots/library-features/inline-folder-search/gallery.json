@@ -1,0 +1,26 @@
+{
+  "screenshotPath": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/inline-folder-search/gallery-desktop.png",
+  "screenshotPaths": [
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/inline-folder-search/gallery-desktop.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/inline-folder-search/gallery-mobile.png"
+  ],
+  "checks": {
+    "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
+    "title": "Select Snapshot to change | Admin | ArchiveBox",
+    "progressMonitorDisplay": "block",
+    "progressCrawls": 0,
+    "progressSnapshots": 0,
+    "screencastVisible": false,
+    "screencastPlaceholderVisible": false,
+    "screencastImageLoaded": false,
+    "screencastImageSize": "",
+    "addForm": false,
+    "limitFields": [],
+    "snapshotOutputPlugins": [],
+    "snapshotOutputs": [],
+    "selectedSnapshotOutputPlugin": "",
+    "status": 200,
+    "finalUrl": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
+    "ttfbMs": 19
+  }
+}
