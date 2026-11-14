@@ -945,8 +945,7 @@ class CrawlRunner:
 
         parser_catalog = self.catalog
         if parser_name not in {"auto", "url_list"}:
-            if parser_name == "json":
-                parser_name = "jsonl"
+            parser_name = {"json": "jsonl", "atom": "rss", "csv": "txt", "tsv": "txt"}.get(parser_name, parser_name)
             requested = parser_name if parser_name.startswith("parse_") else f"parse_{parser_name}_urls"
             parser_catalog = self.catalog.select([requested])
         assert isinstance(self.base_config, ArchiveBoxBaseConfig)

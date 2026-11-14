@@ -85,7 +85,7 @@ def test_download_url_downloads_content():
     ],
 )
 def test_fix_url_from_markdown_trims_trailing_junk(input_url, expected):
-    assert fix_url_from_markdown(input_url) == expected
+    assert fix_url_from_markdown(input_url, preceding_text="") == expected
 
 
 URL_REGEX_CASES = [
