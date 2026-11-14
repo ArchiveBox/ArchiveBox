@@ -24,7 +24,6 @@ from django.db.models.functions import (
     Greatest,
     Length,
     Lower,
-    NullIf,
     Replace,
     Reverse,
     Right,
