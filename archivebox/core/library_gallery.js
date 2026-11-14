@@ -131,7 +131,7 @@ async function openImportMenu(page) {
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
   const expected = ['From Browser History / Bookmarks', 'From RSS or Social Media'];
-  if (await page.$('.library-primary a[href="/admin/domains/"]')) expected.push('Clone an entire site');
+  if (await page.$('.library-secondary a[href="/admin/domains/"]')) expected.push('Clone an entire site');
   expected.push('Watch a site for changes', 'Other options...');
   if (JSON.stringify(menu.links.map(link => link.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
 }
@@ -148,5 +148,16 @@ async function openFolderSearch(page) {
     await page.type('.folder-search', name);
   }
   if (!await page.$eval('.folder-section-heading h3', node => node.hidden)) throw new Error('Folder search did not replace its label.');
+  const aligned = await page.evaluate(() => {
+    const box = selector => document.querySelector(selector).getBoundingClientRect();
+    const navIcon = box('.library-primary a>svg'), navText = box('.library-primary a>span');
+    const rootIcon = box('.folder-row[data-parent-id=""] .folder-link>svg'), rootText = box('.folder-row[data-parent-id=""] .folder-link>span');
+    const input = box('.folder-search'), toggle = box('.folder-search-toggle');
+    return navIcon.x === rootIcon.x && navText.x === rootText.x
+      && rootIcon.y + rootIcon.height / 2 === rootText.y + rootText.height / 2
+      && input.y + input.height / 2 === toggle.y + toggle.height / 2
+      && (innerWidth >= 768 || box('.library-primary').top === box('.folder-sidebar').top);
+  });
+  if (!aligned) throw new Error('Folder navigation icons, labels or search controls are misaligned.');
 }
 module.exports.openFolderSearch = openFolderSearch;
