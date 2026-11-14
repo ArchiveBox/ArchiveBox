@@ -1911,9 +1911,10 @@ class AddView(UserPassesTestMixin, FormView):
         config.update(custom_config)
         # Native multiline filter fields remain authoritative over their
         # single-line copies in the generic config editor.
-        for field, key in (("allowlist", "URL_ALLOWLIST"), ("denylist", "URL_DENYLIST")):
-            if form.add_prefix(f"url_filters_{field}") in form.data:
-                config[key] = url_filters.get(field, "")
+        if can_override_crawl_config:
+            for field, key in (("allowlist", "URL_ALLOWLIST"), ("denylist", "URL_DENYLIST")):
+                if form.add_prefix(f"url_filters_{field}") in form.data:
+                    config[key] = url_filters.get(field, "")
         if bool(url_filters.get("only_new")) != bool(effective_config.ONLY_NEW):
             config["ONLY_NEW"] = bool(url_filters.get("only_new"))
         crawl, _snapshots = add(
