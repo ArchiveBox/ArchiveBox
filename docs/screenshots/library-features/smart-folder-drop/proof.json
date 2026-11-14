@@ -1,0 +1,11 @@
+{
+  "snapshot_ids": [
+    "06af7a4b4ff575aa800070fc2464d50b",
+    "06af7a4b4ff57d328000106533c1768f"
+  ],
+  "source_folder": "06af7929576578a380009f36912223c0",
+  "target_smart_folder": "06af7d6d6ed07f4580005568502cbb26",
+  "unassigned_by_native_drop": true,
+  "matched_inbox": true,
+  "restored_by_native_drop": true
+}
