@@ -404,9 +404,19 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(
                     cmd__0__endswith="_wget.finite.bg.py",
                 ).first()
                 if hook is not None and hook.pid:
-                    children = psutil.Process(hook.pid).children(recursive=True)
-                    if any(child.name() == "wget" for child in children):
-                        hook_pid = hook.pid
+                    try:
+                        children = psutil.Process(hook.pid).children(recursive=True)
+                    except psutil.NoSuchProcess:
+                        children = []
+                    for child in children:
+                        try:
+                            if child.name() == "wget":
+                                hook_pid = hook.pid
+                                break
+                        except psutil.NoSuchProcess:
+                            # Short-lived launcher children can exit between
+                            # enumerating the hook's tree and reading a name.
+                            continue
             if hook_pid is None:
                 time.sleep(0.1)
         assert hook_pid, "the shipped wget hook never started"
