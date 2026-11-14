@@ -80,27 +80,47 @@ def prepare(evidence_dir, *, model=""):
     (evidence / "hacker-news-front.html").write_text(response.text)
     (evidence / "hacker-news-urls.json").write_text(json.dumps(urls, indent=2))
     capture_env = os.environ.copy()
+    persona = None
+    previous_persona_config = None
     if model:
         if not model.startswith("openai/"):
             raise ValueError("Gallery AI captures require an explicitly configured OpenAI model.")
         configure_provider(model, CONSTANTS.DATA_DIR)
-        capture_env.update(AUTOTAG_ENABLED="True", AUTOSUMMARY_ENABLED="True", AUTOTAG_MODEL=model, AUTOSUMMARY_MODEL=model)
+        from archivebox.personas.models import Persona
+
+        # The crawl worker is launched by an already-running supervisor and
+        # does not inherit environment changes made by this subprocess.
+        persona = Persona.get_or_create_named("Default")
+        previous_persona_config = dict(persona.config or {})
+        persona.config = {
+            **previous_persona_config,
+            "AUTOTAG_ENABLED": True,
+            "AUTOSUMMARY_ENABLED": True,
+            "AUTOTAG_MODEL": model,
+            "AUTOSUMMARY_MODEL": model,
+        }
+        persona.save(update_fields=["config"])
     started = timezone.now()
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "archivebox",
-            "add",
-            "--no-only-new",
-            "--tag=screenshot-library",
-            "--max-urls=4",
-            *urls,
-        ],
-        cwd=CONSTANTS.DATA_DIR,
-        env=capture_env,
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "archivebox",
+                "add",
+                "--no-only-new",
+                "--tag=screenshot-library",
+                "--max-urls=4",
+                *urls,
+            ],
+            cwd=CONSTANTS.DATA_DIR,
+            env=capture_env,
+            check=True,
+        )
+    finally:
+        if persona is not None:
+            persona.config = previous_persona_config
+            persona.save(update_fields=["config"])
     crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
     snapshots = list(Snapshot.objects.filter(crawl=crawl))
     if {snapshot.url for snapshot in snapshots} != set(urls):
