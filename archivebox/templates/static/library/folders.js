@@ -427,14 +427,63 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.type = 'button'; toggle.className = 'library-tags-toggle'; toggle.hidden = true;
     pills.after(toggle);
     function updateTags() {
-      const count = pills.querySelectorAll('.tag-pill').length;
-      const expanded = pills.classList.contains('library-tags-expanded');
+      const tags = [...pills.querySelectorAll('.tag-pill')];
+      const count = tags.length;
+      const editing = pills.closest('.tag-editor-inline').querySelector('.tag-inline-input-sm')?.matches(':focus');
+      const expanded = pills.classList.contains('library-tags-expanded') || editing;
+      const compact = document.body.matches('.model-snapshot.change-list') && window.matchMedia('(max-width: 1500px)').matches;
+      tags.forEach(tag => { tag.hidden = false; tag.style.removeProperty('max-width'); });
       toggle.hidden = !expanded && pills.scrollHeight <= pills.clientHeight;
       toggle.textContent = expanded ? 'Show fewer tags' : `Show all ${count} tags`;
+      if (compact && !expanded) {
+        const editor = pills.closest('.tag-editor-inline');
+        const input = editor.querySelector('.tag-inline-input-sm');
+        const gap = parseFloat(getComputedStyle(editor).columnGap) || 0;
+        const tagGap = parseFloat(getComputedStyle(pills).columnGap) || 0;
+        let available = editor.clientWidth - (input ? input.getBoundingClientRect().width + gap : 0);
+        const widths = tags.map(tag => tag.getBoundingClientRect().width);
+        const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, count - 1) * tagGap;
+        toggle.hidden = total <= available;
+        if (!toggle.hidden) {
+          toggle.textContent = `+${count}`;
+          available -= toggle.getBoundingClientRect().width + gap;
+          let used = 0;
+          let visible = 0;
+          tags.forEach((tag, index) => {
+            const next = widths[index] + (visible ? tagGap : 0);
+            tag.hidden = used + next > available;
+            if (!tag.hidden) { used += next; visible++; }
+          });
+          // Fit complete short labels first, then use the remaining space for
+          // one ellipsized label. Its title still exposes the full tag name.
+          const remaining = Math.floor(available - used - (visible ? tagGap : 0));
+          const extra = tags.find(tag => tag.hidden);
+          if (extra && remaining >= 56) {
+            extra.style.maxWidth = `${remaining}px`;
+            extra.hidden = false;
+            visible++;
+          }
+          toggle.hidden = visible === count;
+          toggle.textContent = `+${count - visible}`;
+        }
+      }
+      toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
       toggle.setAttribute('aria-expanded', String(expanded));
     }
-    toggle.addEventListener('click', () => {pills.classList.toggle('library-tags-expanded'); updateTags();});
+    toggle.addEventListener('click', event => {
+      event.stopPropagation();
+      pills.classList.toggle('library-tags-expanded');
+      updateTags();
+    });
     new MutationObserver(updateTags).observe(pills, {childList:true,subtree:true});
+    const tagResizeObserver = new ResizeObserver(updateTags);
+    tagResizeObserver.observe(pills.closest('.tag-editor-inline'));
+    const tagInput = pills.closest('.tag-editor-inline').querySelector('.tag-inline-input-sm');
+    if (tagInput) {
+      tagResizeObserver.observe(tagInput);
+      tagInput.addEventListener('focus', updateTags);
+      tagInput.addEventListener('blur', updateTags);
+    }
     window.addEventListener('resize', updateTags);
     updateTags();
   });

@@ -19,8 +19,8 @@ from django import forms
 from django.template import Context, Template, RequestContext
 from django.template.loader import render_to_string
 from django.contrib.admin.helpers import ActionForm
-
 from django.contrib.admin.options import ActionLocation
+
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
@@ -497,10 +497,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Date", ordering="created_at")
     def created_at_display(self, obj):
         created_at = timezone.localtime(obj.created_at)
+        minutes_ago = max(0, int((timezone.now() - obj.created_at).total_seconds() // 60))
+        relative_time = "just now" if minutes_ago == 0 else f"{minutes_ago}m ago" if minutes_ago < 60 else f"{minutes_ago // 60}hr ago"
         return format_html(
-            '<span class="snapshot-created-at"><span class="snapshot-created-at__date">{}</span><span class="snapshot-created-at__time">{}</span></span>',
+            '<span class="snapshot-created-at{}"><span class="snapshot-created-at__date">{}</span><span class="snapshot-created-at__time">{}</span>'
+            '<span class="snapshot-created-at__relative" title="{}">{}</span></span>',
+            " snapshot-created-at--today" if created_at.date() == timezone.localdate() else "",
             date_format(created_at, "Y-m-d"),
             date_format(created_at, "g:i A"),
+            date_format(created_at, "Y-m-d g:i A T"),
+            relative_time,
         )
 
     action_form = SnapshotActionForm
@@ -568,7 +574,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     "changelist_form_action": f"{snapshot_changelist}?{changelist_request.GET.urlencode()}",
                 },
                 request=request,
-            )
+            ),
         )
 
     def changelist_view(self, request, extra_context=None):
@@ -1034,10 +1040,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         title_html = ""
         if show_title:
             title_html = format_html(
-                '<a href="{}"><b class="status-{}">{}</b></a>',
+                '<a href="{}" title="{}"><b class="status-{}">{}</b></a>',
                 detail_url,
+                urldecode(htmldecode(title_raw)),
                 css_class,
-                urldecode(htmldecode(title_raw))[:128],
+                urldecode(htmldecode(title_raw)),
             )
 
         favicon = self._get_favicon_data(obj) or {}
@@ -1076,7 +1083,26 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             attrs={"id": f"tags_inline_{obj.pk}"},
             snapshot_id=str(obj.pk),
         )
-        return mark_safe(f'<span class="tags-inline-editor tags-inline-editor--compact">{tags_html}</span>')
+        permissions = normalize_permissions(obj.__dict__.get("snapshot_permissions", obj.permissions))
+        _, permission_label, _, _ = SNAPSHOT_PERMISSION_META[permissions]
+        permission_path = {
+            "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
+            "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
+            "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
+        }[permissions]
+        permission_icon = format_html(
+            '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" '
+            'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
+            permission_path,
+        )
+        return format_html(
+            '<span class="snapshot-row-permission" role="img" title="{}" aria-label="{}">{}</span>'
+            '<span class="tags-inline-editor tags-inline-editor--compact">{}</span>',
+            permission_label,
+            permission_label,
+            permission_icon,
+            tags_html,
+        )
 
     @admin.display(description="Tags")
     def tags_badges(self, obj):
@@ -1349,8 +1375,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # For other statuses, show simple badge
         return format_html(
-            '<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; '
+            '<span class="snapshot-status-{}" style="display: inline-block; padding: 2px 8px; border-radius: 12px; '
             'font-size: 11px; font-weight: 500; background: {}; color: {};">{}</span>',
+            obj.status,
             bg_color,
             fg_color,
             obj.status.upper(),

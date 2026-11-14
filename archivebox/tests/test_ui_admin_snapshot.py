@@ -2001,3 +2001,138 @@ def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):
     source = re.search(rb'data-source="([^"]+)"', response.content)
     assert source is not None
     assert urlsplit(source[1].decode()).path == "/archivewebpage/archivewebpage.wacz"
+
+
+def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime, admin_user, crawl):
+    from datetime import timedelta
+    from django.utils import timezone
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.models import Snapshot, Tag
+
+    today = Snapshot.objects.create(
+        url="https://www.example.com/today",
+        title="Pokémon Legends: Z-A teased for 2025 release",
+        crawl=crawl,
+        status="sealed",
+        permissions="public",
+    )
+    today.tags.set(
+        [
+            Tag.objects.get_or_create(name=name)[0]
+            for name in (
+                "research",
+                "long-term-reference",
+                "software-engineering-and-infrastructure",
+                "read-and-discuss-with-the-team",
+                "saved-for-later",
+            )
+        ],
+    )
+    older = Snapshot.objects.create(
+        url="https://example.com/older",
+        title="Older snapshot",
+        crawl=crawl,
+        status="queued",
+        permissions="private",
+    )
+    Snapshot.objects.filter(pk=older.pk).update(created_at=timezone.now() - timedelta(days=2))
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(f"{live_server.url}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.goto(f"{live_server.url}/admin/core/snapshot/")
+        for width in (320, 390, 800, 1280, 1500, 1501, 1920):
+            page.set_viewport_size({"width": width, "height": 900})
+            today_row = page.locator("#result_list tbody tr").filter(has_text="Pokémon Legends: Z-A")
+            older_row = page.locator("#result_list tbody tr").filter(has_text="Older snapshot")
+            original_url = today_row.locator(".snapshot-original-url")
+            assert original_url.inner_text() == "example.com/today"
+            assert original_url.get_attribute("href") == "https://www.example.com/today"
+            page.evaluate("document.fonts.ready")
+            assert today_row.locator(".field-title_str b").evaluate("(node) => getComputedStyle(node).fontFamily").startswith('"Open Sans"')
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            if width > 1500:
+                assert today_row.evaluate("(row) => getComputedStyle(row).display") == "table-row"
+                for row in (today_row, older_row):
+                    for field in (
+                        "files",
+                        "size_with_stats",
+                        "created_at_display",
+                        "permissions_badge",
+                        "status_with_progress",
+                        "preview_icon",
+                    ):
+                        assert row.locator(f".field-{field}").is_visible()
+                    assert row.locator(".snapshot-created-at__date").is_visible()
+                    assert row.locator(".snapshot-created-at__time").is_visible()
+                    assert not row.locator(".snapshot-created-at__relative").is_visible()
+                    assert not row.locator(".snapshot-row-permission").is_visible()
+                    boxes = [cell.bounding_box() for cell in row.locator("td").all() if cell.is_visible()]
+                    assert all(a["x"] + a["width"] <= b["x"] + 1 for a, b in zip(boxes, boxes[1:]))
+                today_row.locator(".action-select").check()
+                assert today_row.locator(".action-select").is_checked()
+                today_row.locator(".action-select").uncheck()
+                continue
+            assert today_row.locator(".snapshot-created-at__relative").is_visible()
+            assert not today_row.locator(".snapshot-created-at__date").is_visible()
+            assert not older_row.locator(".snapshot-created-at__time").is_visible()
+            assert not today_row.locator(".snapshot-status-sealed").is_visible()
+            assert older_row.locator(".field-status_with_progress").is_visible()
+            assert not today_row.locator(".field-files").is_visible()
+            assert today_row.locator(".field-preview_icon").is_visible()
+            assert today_row.locator(".snapshot-row-permission").is_visible()
+            assert older_row.locator(".snapshot-row-permission").is_visible()
+            assert today_row.locator(".action-select").is_visible()
+            assert today_row.bounding_box()["height"] < 100
+            short_title = older_row.locator(".field-title_str > a:not(.snapshot-title-detail-hitbox)").bounding_box()
+            short_url = older_row.locator(".snapshot-title-url").bounding_box()
+            assert short_title["height"] < 22
+            assert 0 <= short_url["y"] - (short_title["y"] + short_title["height"]) <= 6
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            title_box = today_row.locator(".field-title_str > a:not(.snapshot-title-detail-hitbox)").bounding_box()
+            date_box = today_row.locator(".field-created_at_display").bounding_box()
+            url_box = today_row.locator(".snapshot-title-url").bounding_box()
+            checkbox_box = today_row.locator(".action-select").bounding_box()
+            assert abs((checkbox_box["y"] + checkbox_box["height"] / 2) - (url_box["y"] + url_box["height"] / 2)) < 0.5
+            tags_box = today_row.locator(".field-tags_inline").bounding_box()
+            assert title_box["y"] < url_box["y"] < tags_box["y"]
+            assert abs((tags_box["y"] + tags_box["height"] / 2) - (date_box["y"] + date_box["height"] / 2)) < 2
+            older_date = older_row.locator(".snapshot-created-at__date").bounding_box()
+            permission = older_row.locator(".snapshot-row-permission").bounding_box()
+            assert abs((older_date["y"] + older_date["height"] / 2) - (permission["y"] + permission["height"] / 2)) < 2
+            assert max(abs(title_box["x"] - box["x"]) for box in (url_box, tags_box)) < 2
+            preview_box = today_row.locator(".field-preview_icon").bounding_box()
+            assert preview_box["x"] > title_box["x"]
+            assert abs((preview_box["x"] + preview_box["width"] / 2) - (date_box["x"] + date_box["width"] / 2)) < 2
+            permission_box = today_row.locator(".snapshot-row-permission").bounding_box()
+            assert abs(permission_box["x"] - url_box["x"]) < 2
+            assert today_row.locator(".tag-editor-inline").bounding_box()["x"] >= permission_box["x"] + permission_box["width"]
+            if width == 390:
+                checkbox = today_row.locator(".action-select").bounding_box()
+                assert date_box["x"] > title_box["x"]
+                assert checkbox["x"] >= today_row.bounding_box()["x"]
+            toggle = today_row.locator(".library-tags-toggle")
+            assert 0 < today_row.locator(".tag-pill:visible").count() <= 5
+            tag_text_box = today_row.locator(".tag-pill:visible .tag-link").first.bounding_box()
+            url_text_box = today_row.locator(".snapshot-original-url code").bounding_box()
+            assert abs(tag_text_box["x"] - url_text_box["x"]) < 1
+            if toggle.is_visible():
+                assert today_row.locator(".tag-pill:visible").count() < 5
+                toggle.click()
+                assert today_row.locator(".tag-pill:visible").count() == 5
+                toggle.click()
+                assert 0 < today_row.locator(".tag-pill:visible").count() < 5
+            else:
+                assert today_row.locator(".tag-pill:visible").count() == 5
+            today_row.locator(".action-select").check()
+            assert today_row.locator(".action-select").is_checked()
+            tag_input = today_row.locator(".tag-inline-input-sm")
+            tag_input.focus()
+            assert today_row.locator(".tag-remove-btn").first.is_visible()
+            tag_input.blur()
+            today_row.locator(".action-select").uncheck()
+            today_row.locator(".action-select").blur()
+        browser.close()
