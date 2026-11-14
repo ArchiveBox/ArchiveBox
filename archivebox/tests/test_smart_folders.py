@@ -23,8 +23,7 @@ def test_rules_use_models_and_boolean_set_semantics(admin_user):
     query = RuleQuery()
     rule = group(
         "AND",
-        leaf("tags__name", "exact", "video"),
-        leaf("tags__name", "exact", "saved"),
+        group("AND", leaf("tags__name", "exact", "video"), leaf("tags__name", "exact", "saved")),
         group("NOT", leaf("title", "icontains", "Other")),
     )
     assert list(Snapshot.objects.filter(query.compile(rule))) == [first]
@@ -176,7 +175,11 @@ def test_both_tags_without_excluded_tag(admin_user):
         snapshot = Snapshot.objects.create(url=f"https://news.ycombinator.com/item?id={index}", crawl=crawl)
         snapshot.tags.add(*(tags[name] for name in names))
         examples[names] = snapshot
-    rules = group("AND", leaf("tags__name", "exact", "A"), leaf("tags__name", "exact", "B"), leaf("tags__name", "not_exact", "C"))
+    rules = group(
+        "AND",
+        group("AND", leaf("tags__name", "exact", "A"), leaf("tags__name", "exact", "B")),
+        leaf("tags__name", "not_exact", "C"),
+    )
     assert list(Snapshot.objects.filter(RuleQuery().compile(rules))) == [examples[("A", "B")]]
 
 
@@ -285,3 +288,29 @@ def test_browser_rename_preserves_negated_smart_folder_rules(live_server, admin_
     folder.refresh_from_db()
     assert folder.name == "📥 Reading"
     assert folder.rules == rules
+
+
+@pytest.mark.parametrize("op", ["AND", "OR"])
+def test_groups_reject_more_than_two_members(op):
+    with pytest.raises(ValidationError, match="two"):
+        RuleQuery().compile(group(op, leaf("title", "exact", "A"), leaf("title", "exact", "B"), leaf("title", "exact", "C")))
+
+
+def test_nested_binary_domain_and_status_rules(admin_user):
+    crawl = Crawl.objects.create(urls="https://youtube.com/", created_by=admin_user)
+    included = [
+        Snapshot.objects.create(url=f"https://{domain}/saved", crawl=crawl, status="sealed") for domain in ["youtube.com", "tiktok.com"]
+    ]
+    Snapshot.objects.create(url="https://youtube.com/failed", crawl=crawl, status="paused")
+    Snapshot.objects.create(url="https://tiktok.com/failed", crawl=crawl, status="paused")
+    Snapshot.objects.create(url="https://example.org/saved", crawl=crawl, status="sealed")
+    rule = group(
+        "OR",
+        *[
+            group("AND", leaf("domain", "iendswith", domain), group("NOT", leaf("status", "exact", "paused")))
+            for domain in ["youtube.com", "tiktok.com"]
+        ],
+    )
+    assert set(Snapshot.objects.filter(RuleQuery().compile(rule))) == set(included)
+    status = next(field for field in RuleQuery.schema() if field["name"] == "status")
+    assert dict(status["choices"]) == dict(Snapshot._meta.get_field("status").flatchoices)

@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
       folderForm.elements.folder_id.value = button.dataset.id || '';
       folderForm.elements.name.value = button.dataset.name || '';
       folderForm.elements.parent.value = button.dataset.parent || picker?.value || '';
-      document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? 'Edit folder' : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
+      document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
       dialog.querySelector('.folder-form-error').textContent = '';
       dialog.querySelector('.folder-delete').hidden=true;
       dialog.showModal();
@@ -39,13 +39,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const root = dialog.querySelector('.folder-rules');
       dialog.querySelector('.folder-delete').hidden=!schema.can_delete || dialog.dataset.mode==='move';
       const defaultRule = () => ({field:'url', lookup:'icontains', value:''});
-      let rules = schema.rules || {op:'AND', rules:[defaultRule()]};
+      const negatives={not_exact:'exact',not_contains:'icontains',not_in:'in',not_in_folder:'in_folder'};
+      function normalize(node) {
+        if (!node.op) {
+          if (negatives[node.lookup]) return {op:'NOT',rules:[{...node,lookup:negatives[node.lookup]}]};
+          return node;
+        }
+        const members=node.rules.map(normalize);
+        if (node.op==='NOT') return members[0].op==='NOT' ? members[0].rules[0] : {op:'NOT',rules:members};
+        while (members.length>2) members.splice(0,2,{op:node.op,rules:members.slice(0,2)});
+        return {...node,rules:members};
+      }
+      let rules = normalize(schema.rules || {op:'AND', rules:[defaultRule()]});
       const specs = new Map(schema.fields.map(field => [field.name, field]));
       const unavailable = new Set(schema.unavailable_parents);
       [...folderForm.elements.parent.options].forEach(option => option.disabled=unavailable.has(option.value));
+      smart ||= schema.rules !== null;
       kind.value = smart ? 'smart' : 'normal';
       kind.disabled = schema.container || Boolean(picker);
-      if (schema.rules !== null) smart = true;
+      if (smart && folderForm.elements.folder_id.value && dialog.dataset.mode!=='move') document.querySelector('#folder-dialog-title').textContent='Edit smart folder rules';
       function element(tag, className, text) {
         const node = document.createElement(tag);
         if (className) node.className = className;
@@ -66,7 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
         control.addEventListener('click', action);
         return control;
       }
-      function serialize() {folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify(rules) : '';}
+      function serialize() {
+        function compact(node) {
+          if (!node.op) return node;
+          const children=node.rules.map(compact);
+          return node.op!=='NOT' && children.length===1 ? children[0] : {...node,rules:children};
+        }
+        folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify(compact(rules)) : '';
+      }
       function input(type, value, label, change) {
         const control = element('input'); control.type = type; control.value = value ?? '';
         control.setAttribute('aria-label', label); control.required = true;
@@ -85,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
           row.append(input('text', Array.isArray(node.value) ? node.value.join(', ') : node.value, 'Values, separated by commas', value => node.value=value.split(',').map(part => part.trim())));
         } else if (node.lookup === 'past_days') {
           row.append(input('number', node.value, 'Days', value => node.value=value));
-        } else if (spec.type === 'boolean' || spec.choices.length) {
+        } else if (spec.type === 'boolean' || (spec.choices.length && node.lookup==='exact')) {
           const options = spec.type === 'boolean' ? [['true','Yes'],['false','No']] : spec.choices;
           node.value ??= spec.type === 'boolean' ? true : options[0][0];
           row.append(select(options, node.value, 'Value', value => node.value=spec.type === 'boolean' ? value==='true' : value));
@@ -105,53 +124,62 @@ document.addEventListener('DOMContentLoaded', () => {
           }));
         }
       }
-      function renderNode(node, remove) {
-        const row = element('div',node.op ? 'rule-group' : 'rule-condition');
-        if (node.op) {
-          const negated=node.op === 'NOT';
-          const group=negated ? (node.rules[0].op ? node.rules[0] : {op:'AND',rules:node.rules}) : node;
-          row.classList.toggle('is-negated',negated);
-          group.rules.forEach((child,index) => {
+      function renderNode(node, replace, remove) {
+        const negated=node.op==='NOT';
+        const item=negated ? node.rules[0] : node;
+        const row=element('div',item.op ? 'rule-group' : 'rule-condition');
+        function changePolarity(value) {replace(value==='not' ? {op:'NOT',rules:[item]} : item);render();}
+        function nest() {replace({op:'AND',rules:[node,defaultRule()]});render();}
+        function action(label,title,callback) {
+          const control=button(label,callback,'rule-remove');
+          control.title=title;control.setAttribute('aria-label',title);return control;
+        }
+        if (item.op) {
+          const heading=element('div','rule-group-heading');
+          heading.append(select([['is','Group'],['not','NOT group']],negated ? 'not' : 'is','Group polarity',changePolarity));
+          const actions=element('div','rule-actions');
+          actions.append(action('⊞','Nest group',nest));
+          if (remove) actions.append(action('×','Remove group',remove));
+          heading.append(actions);row.append(heading);
+          item.rules.forEach((child,index) => {
             if (index) {
               const join=element('div','rule-join');
-              join.append(select([['AND','AND'],['OR','OR']],group.op,'Join rules',value => {group.op=value;render();}));
+              join.append(select([['AND','AND'],['OR','OR']],item.op,'Join rules',value => {item.op=value;render();}));
               row.append(join);
             }
-            row.append(renderNode(child,group.rules.length > 1 ? () => {group.rules.splice(index,1);render();} : null));
+            row.append(renderNode(child,value => {item.rules[index]=value;},item.rules.length>1 ? () => {item.rules.splice(index,1);render();} : null));
           });
-          const toolbar=element('div','rule-group-toolbar');
-          toolbar.append(
-            button('+ Rule',() => {if (negated && !node.rules[0].op) node.rules=[group];group.rules.push(defaultRule());render();}),
-            button('+ Group',() => {if (negated && !node.rules[0].op) node.rules=[group];group.rules.push({op:'AND',rules:[defaultRule()]});render();}));
-          const negate=button('NOT',() => {
-            if (negated) {node.op=group.op;node.rules=group.rules;}
-            else {const original={op:node.op,rules:node.rules};node.op='NOT';node.rules=[original];}
-            render();
-          },'rule-negate');
-          negate.setAttribute('aria-label','Negate group');
-          negate.setAttribute('aria-pressed',String(negated));
-          toolbar.append(negate);
-          if (remove) toolbar.append(button('×',remove,'rule-remove'));
-          row.append(toolbar);
+          if (item.rules.length<2) {
+            const toolbar=element('div','rule-group-toolbar');
+            toolbar.append(button('+ Rule',() => {item.rules.push(defaultRule());render();}),
+              button('+ Group',() => {item.rules.push({op:'AND',rules:[defaultRule()]});render();}));
+            row.append(toolbar);
+          }
         } else {
-          const spec=specs.get(node.field) || specs.get('url');
-          row.append(select(schema.fields.map(field => [field.name,field.label]), node.field, 'Field', value => {
-            node.field=value; node.lookup=specs.get(value).operators[0]; node.value=null; render();
+          const spec=specs.get(item.field) || specs.get('url');
+          row.append(select(schema.fields.map(field => [field.name,field.label]),item.field,'Field',value => {
+            item.field=value;item.lookup=specs.get(value).operators[0];item.value=null;render();
           }));
-          row.append(select(spec.operators.map(op => [op,schema.operators[op]]), node.lookup, 'Comparison', value => {
-            node.lookup=value; node.value=null; render();
+          const polarity=select([['is','IS'],['not','IS NOT']],negated ? 'not' : 'is','Condition polarity',changePolarity);
+          polarity.className='rule-polarity';row.append(polarity);
+          row.append(select(spec.operators.filter(op => !negatives[op]).map(op => [op,({exact:'equal to',icontains:'containing',istartswith:'starting with',iendswith:'ending with',in:'one of',isnull:'empty',present:'present',in_folder:'in folder',in_children:'in children of'})[op] || schema.operators[op].replace(/^is /,'')]),item.lookup,'Comparison',value => {
+            item.lookup=value;item.value=null;render();
           }));
-          renderValue(row,node,spec);
-          if (remove) row.append(button('×',remove,'rule-remove'));
+          const value=element('div','rule-value');renderValue(value,item,spec);row.append(value);
+          const actions=element('div','rule-actions');actions.append(action('⊞','Nest condition in group',nest));
+          if (remove) actions.append(action('×','Remove condition',remove));
+          row.append(actions);
         }
+        row.classList.toggle('is-negated',negated);
         return row;
       }
       function render() {
         root.replaceChildren(); root.hidden=kind.value !== 'smart' || dialog.dataset.mode==='move';
         dialog.classList.toggle('has-rules', !root.hidden);
         if (!root.hidden) {
-          if (!rules.op && !schema.container) rules={op:'AND',rules:[rules]};
-          root.append(renderNode(rules));
+          const group=rules.op==='NOT' ? rules.rules[0] : rules;
+          if (!group.op && !schema.container) rules={op:'AND',rules:[rules]};
+          root.append(renderNode(rules,value => {rules=value;}));
           if (schema.container) root.querySelectorAll('input,select,button').forEach(control => control.disabled=true);
         }
         serialize();
@@ -406,8 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearDrag() {
     dragging = false;
     movingFolder = null;
-    clearTimeout(expandTimer);
-    expandTimer = null;
+    clearDropTarget();
     document.body.classList.remove('dragging-snapshots');
     document.querySelectorAll('.snapshot-dragging,.drop-active,.drop-before,.drop-after').forEach(node => node.classList.remove('snapshot-dragging','drop-active','drop-before','drop-after'));
     badge?.remove();
@@ -447,7 +474,11 @@ document.addEventListener('DOMContentLoaded', () => {
       row.classList.add('snapshot-dragging');
       status.textContent = 'Drop inside a folder to nest, or between folders to reorder.';
     });
-    row.addEventListener('dragend', clearDrag);
+    row.addEventListener('dragend', () => {
+      const cancelled = movingFolder;
+      clearDrag();
+      if (cancelled) status.textContent = '';
+    });
   });
   const rootTarget = sidebar.querySelector('.library-root-link');
   rootTarget.dataset.folderId = '';
@@ -458,13 +489,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const fraction = (event.clientY - rect.top) / rect.height;
     return fraction < .25 ? 'before' : fraction > .75 ? 'after' : 'inside';
   }
+  function canDrop(target) {
+    if (dragging) return target !== rootTarget && (target.dataset.smart !== 'true' || target.dataset.container === 'true');
+    if (!movingFolder) return false;
+    let ancestor = target;
+    while (ancestor) {
+      if (ancestor.dataset.folderId === movingFolder) return false;
+      ancestor = rows.find(row => row.dataset.folderId === ancestor.dataset.parentId);
+    }
+    return true;
+  }
+  let hoverTarget = null;
+  let hoverPlacement = null;
+  function clearDropTarget() {
+    hoverTarget?.classList.remove('drop-active','drop-before','drop-after');
+    hoverTarget = null;
+    hoverPlacement = null;
+    clearTimeout(expandTimer);
+    expandTimer = null;
+  }
   sidebar.querySelectorAll('.folder-drop-target').forEach(target => {
     target.addEventListener('dragover', event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.container !== 'true'))) return;
-      if (movingFolder && (target.dataset.folderId === movingFolder || target.getAttribute('href') === '?folder=unfiled')) return;
-      event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+      event.preventDefault();
+      if (!canDrop(target)) {
+        event.dataTransfer.dropEffect = 'none';
+        clearDropTarget();
+        return;
+      }
+      event.dataTransfer.dropEffect = 'move';
       const position = placement(target, event);
+      if (hoverTarget !== target || hoverPlacement !== position) clearDropTarget();
+      hoverTarget = target;
+      hoverPlacement = position;
       target.classList.toggle('drop-before', position === 'before');
       target.classList.toggle('drop-after', position === 'after');
       target.classList.toggle('drop-active', position === 'inside');
@@ -472,11 +529,11 @@ document.addEventListener('DOMContentLoaded', () => {
         expandTimer = setTimeout(() => {collapsed.delete(target.dataset.folderId); renderTree(); expandTimer = null;}, 600);
       }
     });
-    target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget)) {target.classList.remove('drop-active','drop-before','drop-after'); clearTimeout(expandTimer); expandTimer = null;}});
+    target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget) && hoverTarget === target) clearDropTarget();});
     target.addEventListener('drop', async event => {
       if (!dragging && !movingFolder) return;
-      if (dragging && (target === rootTarget || (target.dataset.smart === 'true' && target.dataset.container !== 'true'))) return;
       event.preventDefault();
+      if (!canDrop(target)) {clearDrag(); status.textContent = ''; return;}
       if (movingFolder) {
         const data = new FormData();
         data.set('folder_id', movingFolder); data.set('target_id', target.dataset.folderId); data.set('placement', placement(target,event));
@@ -486,6 +543,12 @@ document.addEventListener('DOMContentLoaded', () => {
           const response = await fetch(sidebar.dataset.moveUrl, {method:'POST',body:data,credentials:'same-origin'});
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Could not move folder.');
+          let ancestor = data.get('placement') === 'inside' ? target : rows.find(row => row.dataset.folderId === target.dataset.parentId);
+          while (ancestor) {
+            collapsed.delete(ancestor.dataset.folderId);
+            ancestor = rows.find(row => row.dataset.folderId === ancestor.dataset.parentId);
+          }
+          try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
           location.reload();
         } catch (error) {status.textContent = error.message;}
         return;
