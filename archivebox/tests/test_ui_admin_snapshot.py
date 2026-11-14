@@ -1607,7 +1607,6 @@ class TestAdminSnapshotListView:
         assert body.index('class="card-tags"') < body.index('class="card-date"')
         assert "research" in body
 
-
     def test_view_mode_switcher_present(self, client, admin_user):
         """Test that view mode switcher is present."""
         client.force_login(admin_user)
