@@ -102,27 +102,23 @@ LDAP_EMAIL_ATTR="mail"
 
 ### SAML / OAuth2 / OpenID Authentication
 
-> **Preview:** Native SSO is implemented in [PR #1962](https://github.com/ArchiveBox/ArchiveBox/pull/1962), replacing the unfinished #1827. It is not yet merged or released. Use the PR branch for these instructions; older releases can use the reverse-proxy or LDAP methods above.
-
-ArchiveBox can use django-allauth for OpenID Connect (OIDC), OAuth social login, and SAML 2.0. Local password, LDAP, and trusted reverse-proxy authentication remain available. ArchiveBox acts as the service provider/relying party; it is not an identity provider or OAuth authorization server.
-
-The screenshots below were captured from a real, manually configured Keycloak 26.4.7 and an installed ArchiveBox PR build on November 13, 2026. They show realm/client creation, new-user approval, successful OIDC login, explicit SAML linking, and successful SAML login after local logout. The demo uses loopback HTTP; use stable HTTPS URLs and your own credentials for a deployed server.
+Single sign-on (SSO) lets users sign in to ArchiveBox with an account managed by Keycloak, Authentik, Okta, or another identity provider. Choose OpenID Connect (OIDC) for a new setup, or SAML if your organization requires it. You can keep local password login enabled alongside SSO.
 
 #### Install and enable native SSO
 
-For this preview, install the PR branch with the SAML extra (which also includes OIDC/OAuth):
+Install the development branch with the SAML extra (which also includes OIDC/OAuth):
 
 ```bash
-uv tool install --python 3.13 'archivebox[saml] @ git+https://github.com/ArchiveBox/ArchiveBox.git@codex/oidc-saml-sso'
+uv tool install --python 3.13 'archivebox[saml] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 ```
 
-After release, install `archivebox[allauth]` for OIDC/OAuth or `archivebox[saml]` for both protocols. Images built from this PR include both extras. On platforms without an xmlsec wheel, SAML requires the system xmlsec/libxml2 development libraries.
+The `allauth` extra adds OIDC/OAuth support; `saml` adds both OIDC/OAuth and SAML. Development Docker images include both. If SAML installation needs to build xmlsec, install your operating system's xmlsec and libxml2 development packages first.
 
 Create a collection with `archivebox init --quick` if needed, start the server, and open `/admin/login/` to create the first local administrator. Keep this local login available while configuring the provider.
 
 ![Create the first local ArchiveBox administrator](screenshots/authentication/04-first-admin.jpg)
 
-Set a stable `BASE_URL` and server security mode before registering callbacks. The demonstrated values are `BASE_URL=http://archivebox.localhost:18000` and `SERVER_SECURITY_MODE=safe-subdomains-fullreplay`; therefore all login endpoints are on `http://admin.archivebox.localhost:18000`. Replace these hosts and ports consistently for your deployment.
+Set `BASE_URL` to your ArchiveBox address and choose `SERVER_SECURITY_MODE` before configuring your identity provider. With `safe-subdomains-fullreplay`, login uses the `admin.` subdomain. Use your server's HTTPS address wherever the instructions below show `http://admin.archivebox.localhost:18000`.
 
 In the collection's `ArchiveBox.conf`, enable SSO and choose your enrollment policy:
 
@@ -135,23 +131,23 @@ DEFAULT_USER_PERMISSIONS = admin
 EMAIL_VERIFICATION = none
 ```
 
-This walkthrough intentionally creates **inactive administrator accounts pending approval**. For a closed deployment, leave `REGISTRATION_ENABLED=False` and explicitly link existing local users instead. `DEFAULT_USER_PERMISSIONS=none` creates users without admin privileges; `admin` gives new users full administration once activated. Do not combine open registration and automatic admin permissions on an unrestricted IdP.
+These settings require an administrator to approve each new account before it can sign in. For a closed deployment, leave `REGISTRATION_ENABLED=False` and explicitly link existing local users instead. `DEFAULT_USER_PERMISSIONS=none` creates users without admin privileges; `admin` gives new users full administration once activated. Do not combine open registration and automatic admin permissions on an unrestricted IdP.
 
 Back up an existing database before upgrading. With the same configuration/environment as the server, run `archivebox manage migrate --noinput` inside the collection, then restart the server. In Docker Compose, run `docker compose exec archivebox archivebox manage migrate --noinput`, then `docker compose restart archivebox`.
 
-The integration requires django-allauth 65.22.1 or newer, including its provider email-verification security fixes. Existing users and password hashes are preserved. Enabling allauth replaces Django's local-password backend, so existing local-password sessions must sign in again; disabling it likewise requires allauth sessions to sign in again. Installing the extra alone changes no routes; `ALLAUTH_ENABLED=True` activates the integration. Disabling it restores the original routes without deleting linked identities.
+Set `ALLAUTH_ENABLED=True` to enable SSO. Existing usernames and passwords continue to work. Users need to sign in again after you enable or disable allauth; linked identities are preserved.
 
 #### Create an identity-provider realm and user
 
-Use an existing Keycloak installation, or follow the [official getting-started guide](https://www.keycloak.org/getting-started/getting-started-zip). The screenshots use its standalone distribution with Java 21, bound to `127.0.0.1:18080` in development mode. That development server and its temporary bootstrap administrator are for local testing only.
+Open your Keycloak administration console. If you need to install Keycloak first, follow its [getting-started guide](https://www.keycloak.org/getting-started/getting-started-zip). A realm is a separate set of users and applications; create one for ArchiveBox or use an existing realm.
 
 1. Sign in to Keycloak's administration console. Choose **Manage realms → Create realm**, name it `archivebox-demo`, and leave it enabled.
-2. In that realm, choose **Users → Create new user**. Enter a username, email, first name, and last name. The demonstration user is `sso-demo`, with email `sso-demo@example.com`.
-3. Open the user's **Credentials → Set password**. Set an initial password; for this local walkthrough, turn **Temporary** off so the first SSO login does not require a password-change step. Use your organization's enrollment policy in production. Do not mark email verified unless ownership has actually been verified.
+2. In that realm, choose **Users → Create new user**. Enter a username, email, first name, and last name. Use `sso-demo` and `sso-demo@example.com`, or enter your own user details.
+3. Open the user's **Credentials → Set password**. Set an initial password. Leave **Temporary** on to require the user to change it at first sign-in, or turn it off to keep that password.
 
-![A real Keycloak realm created for ArchiveBox](screenshots/authentication/01-keycloak-realm.jpg)
+![Create a Keycloak realm for ArchiveBox](screenshots/authentication/01-keycloak-realm.jpg)
 
-![Create the demonstration identity in Keycloak](screenshots/authentication/06-keycloak-user.jpg)
+![Create a user in Keycloak](screenshots/authentication/06-keycloak-user.jpg)
 
 #### OIDC setup with Keycloak
 
@@ -163,17 +159,17 @@ On **Capability config**, turn **Client authentication** on, leave **Standard fl
 
 On **Login settings**, enter:
 
-| Field | Demonstrated value |
+| Field | Value |
 | --- | --- |
 | Root URL | `http://admin.archivebox.localhost:18000` |
 | Home URL | `http://admin.archivebox.localhost:18000/admin/` |
 | Valid redirect URIs | `http://admin.archivebox.localhost:18000/accounts/oidc/keycloak/login/callback/` |
 
-Register the exact callback, including its trailing slash. Save the client, then open **Credentials** and use the copy button beside **Client Secret**. Keep that value out of screenshots and source control.
+Register the exact callback, including its trailing slash. Save the client, then open **Credentials** and copy the **Client Secret**.
 
 ![Exact OIDC callback on the admin hostname](screenshots/authentication/03-oidc-callback.jpg)
 
-![Copy the generated client secret while keeping it masked](screenshots/authentication/05-oidc-credentials.jpg)
+![Copy the client secret from Credentials](screenshots/authentication/05-oidc-credentials.jpg)
 
 Set `SOCIALACCOUNT_PROVIDERS` to the following JSON in your server environment or as a single-line value under `[ALLAUTH_CONFIG]` in `ArchiveBox.conf`. Replace `YOUR_CLIENT_SECRET` with the copied value and restart ArchiveBox.
 
@@ -198,33 +194,31 @@ The issuer must be reachable by both the browser and the ArchiveBox server. In c
 
 Provider settings are server credentials: restart after editing, keep the config private, and do not put them in capture/persona settings. ArchiveBox redacts them in config displays/exports and excludes them from capture-hook environments.
 
-#### Test OIDC and approve the new account
+#### Sign in with OIDC and approve the new account
 
 1. Log out of ArchiveBox and open `/admin/login/`. After initial administrator setup, this redirects directly to the allauth login page with local-password and provider choices.
-2. Choose **Keycloak OIDC**, then **Continue**. This confirmation submits a CSRF-protected POST to start authentication.
-3. Sign in at Keycloak with the demo user. On the first return, ArchiveBox displays **Account Inactive** because approval is enabled.
+2. Choose **Keycloak OIDC**, then **Continue**.
+3. Sign in at Keycloak with the user you created. On the first return, ArchiveBox displays **Account Inactive** because approval is enabled.
 4. Sign in locally as the original administrator. In **Admin Users**, open `sso-demo`, check **Active**, and **Save**. Review staff/superuser permissions before approving.
 5. Log out locally and repeat the OIDC login. ArchiveBox now displays **Successfully signed in as sso-demo** on the admin page.
 
-The provider chooser below already has both examples configured; OIDC alone shows only its own entry.
-
 ![ArchiveBox lists configured login providers](screenshots/authentication/07-provider-login.jpg)
 
-![Actual Keycloak sign-in during the OIDC redirect](screenshots/authentication/08-keycloak-signin.jpg)
+![Sign in to Keycloak](screenshots/authentication/08-keycloak-signin.jpg)
 
 ![The first provider login is blocked pending approval](screenshots/authentication/09-approval-required.jpg)
 
-![Approve the real new user in ArchiveBox](screenshots/authentication/14-user-approval.jpg)
+![Approve the new user in ArchiveBox](screenshots/authentication/14-user-approval.jpg)
 
 ![Successful OIDC sign-in after administrator approval](screenshots/authentication/15-oidc-success.jpg)
 
 #### SAML setup with Keycloak
 
-SAML can be used independently of OIDC. In this walkthrough the same user first signs in with OIDC, then explicitly connects SAML to that existing account. A matching email alone does not link identities.
+You can use SAML on its own or alongside OIDC. To use both with one ArchiveBox account, sign in to that account and connect SAML as described below.
 
 Create another Keycloak client with **Client type: SAML**, name `ArchiveBox SAML`, and the following values:
 
-| Purpose | Demonstrated value |
+| Purpose | Value |
 | --- | --- |
 | Client ID / SP entity ID / metadata | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/metadata/` |
 | Valid redirect URIs | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/acs/` |
@@ -244,9 +238,9 @@ In the saved client's **Settings**:
 - Keep **Sign documents** on and enable **Sign assertions**.
 - Use **RSA_SHA256** and **EXCLUSIVE** canonicalization.
 
-In **Keys**, this example turns **Client signature required** off because it does not configure an SP signing key. IdP assertions remain signed and ArchiveBox requires those signatures. To require signed requests or encrypted assertions, configure the SP certificate/private key using [allauth's SAML settings](https://docs.allauth.org/en/latest/socialaccount/providers/saml.html), import the matching SP metadata, and enable the corresponding Keycloak controls.
+In **Keys**, turn **Client signature required** off. Keep IdP assertion signing enabled. To also sign ArchiveBox's requests or encrypt assertions, configure a certificate and private key using [allauth's SAML settings](https://docs.allauth.org/en/latest/socialaccount/providers/saml.html), import the matching SP metadata into Keycloak, and enable the corresponding controls.
 
-![SAML client key settings for the demonstrated unsigned-request, signed-assertion setup](screenshots/authentication/13-saml-keys.jpg)
+![Set Client signature required to Off](screenshots/authentication/13-saml-keys.jpg)
 
 Open **Client scopes → the dedicated scope → Mappers → Configure a new mapper** (or **Add mapper → By configuration** after the first). Choose **User Property** and create these four mappings, with **SAML Attribute NameFormat: Basic**:
 
@@ -294,22 +288,22 @@ Add the `saml` entry below to the **same** `SOCIALACCOUNT_PROVIDERS` dictionary,
 
 `client_id` is ArchiveBox's URL slug (`keycloak` here); the Keycloak client ID is the full SP entity URL. `provider_id` identifies the IdP and must remain stable. The persistent NameID identifies the user; do not replace it with a mutable email address. For another IdP, match `attribute_mapping` to its actual assertion attributes. Do not map `email_verified` unless that IdP verifies ownership.
 
-Metadata may instead be configured inline with `entity_id`, `sso_url`, `slo_url`, and `x509cert` in `idp`. Signature, issuer, audience, destination, expiry, and initiating-request validation are handled by allauth and its SAML toolkit.
+Metadata may instead be configured inline with `entity_id`, `sso_url`, `slo_url`, and `x509cert` in `idp`.
 
-#### Test SAML linking and sign-in
+#### Connect SAML and sign in
 
 1. While signed in to the approved ArchiveBox account, open **Account → Connections** (`/accounts/3rdparty/`). Select **Keycloak SAML** under **Add a Third-Party Account**, then **Continue**.
 2. Authenticate at Keycloak if prompted. An existing Keycloak session may complete this without another password prompt. ArchiveBox confirms **The third-party account has been connected** and lists both identities.
 3. Return to the admin page and **Log out**. Open the login chooser, select **Keycloak SAML**, and **Continue**.
-4. Verify you return to the admin page as `sso-demo`. This final login uses SAML after the ArchiveBox session was ended, rather than merely displaying an already-authenticated page.
+4. After signing in, ArchiveBox opens the admin page as `sso-demo`.
 
 For a SAML-only new user, use the same inactive-account approval flow shown above instead of linking. With registration closed, sign in locally and link an existing user first.
 
-![Both real provider identities connected to one ArchiveBox account](screenshots/authentication/18-linked-accounts.jpg)
+![OIDC and SAML connected to one ArchiveBox account](screenshots/authentication/18-linked-accounts.jpg)
 
 ![Start a new SAML login after local logout](screenshots/authentication/19-saml-login.jpg)
 
-![Successful standalone SAML sign-in](screenshots/authentication/20-saml-success.jpg)
+![Successful SAML sign-in](screenshots/authentication/20-saml-success.jpg)
 
 #### Server security modes and hostnames
 
@@ -344,8 +338,7 @@ hosts may receive only the shared hint and their own scoped replay grant.
 - `REGISTRATION_ENABLED=True` with `REGISTRATION_MODE=approval` creates inactive
   accounts. An administrator must activate them in `/admin/auth/user/` before
   they can log in. This policy also covers automatic provider signup.
-- `REGISTRATION_MODE=open` activates new accounts immediately. There is no
-  invitation workflow; the previous PR's misleading `invite` option is rejected.
+- `REGISTRATION_MODE=open` activates new accounts immediately.
 - `DEFAULT_USER_PERMISSIONS=none` leaves staff and superuser privileges unset.
   `admin` grants full ArchiveBox administration to every new account. Combine
   this with approval, or restrict enrollment at a trusted IdP. This setting
@@ -408,21 +401,17 @@ Provider login initiation requires CSRF-protected POST confirmation. Access and
 refresh tokens are not stored in the ArchiveBox database.
 
 
-#### Troubleshooting and verification scope
+#### Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
 | Provider is absent | Install the extra, enable allauth, configure its `SOCIALACCOUNT_PROVIDERS` entry, run migrations, and restart. |
 | Redirect URI or SAML destination mismatch | Register the exact admin-host URL, scheme, port, provider slug, and trailing slash. Do not send the ACS POST through a redirect from a replay host. |
 | OIDC third-party login failure | Check IdP/server logs, issuer reachability, copied client secret, callback, and PKCE. A masked password field is not the secret; use the provider's copy button. |
-| SAML signature error | Enable IdP assertion signing, use current IdP metadata/certificate, and keep host clocks synchronized. Do not disable verification to fix it. |
+| SAML signature error | Enable IdP assertion signing, use current IdP metadata/certificate, and keep host clocks synchronized. |
 | Account Inactive | An administrator must activate the new user when approval is enabled. |
 | Existing email / account collision | Log in to the existing account and explicitly connect the provider in Account Connections. |
 | Login immediately returns without a password | Local logout does not terminate the IdP session. This is expected SSO behavior. |
-
-The manual walkthrough verified real OIDC code exchange with PKCE, the approval gate, successful admin login, explicit SAML linking, and SAML login after local logout. Database inspection confirmed two linked identities for the approved user and zero stored provider tokens. Browser inspection confirmed host-only admin session/CSRF cookies; `api.*`, `snap-*.*`, and original-domain replay hosts received only `archivebox_admin_logged_in=1` among ArchiveBox cookies. The local HTTP demonstration has `Secure=False`; use HTTPS for deployed credentials.
-
-The PR also includes real Keycloak/Chromium provider tests and server-mode routing tests in `archivebox/tests/test_allauth_providers.py` and `archivebox/tests/test_allauth_integration.py`. Those cover rejection cases and replay isolation beyond this illustrated setup. This walkthrough does not claim live acceptance against every commercial IdP, every OAuth social provider, or a production TLS deployment.
 
 <br/>
 
