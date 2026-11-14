@@ -1346,6 +1346,10 @@
                 }
 
                 function loadFormState() {
+                    const params = new URLSearchParams(window.location.search);
+                    const prefilled = Array.from(document.querySelectorAll('#add-form input, #add-form textarea, #add-form select'))
+                        .filter(el => params.has(el.name))
+                        .map(el => ({el, value: el.value, checked: el.checked}));
                     try {
                         const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
                         for (const [key, value] of Object.entries(state)) {
@@ -1356,7 +1360,7 @@
                                 if (el) el.checked = Boolean(value);
                             } else {
                                 if (key === 'url' || key === 'config' || key.startsWith('plugin_config__')) continue;
-                                if (key === 'folder' && new URLSearchParams(window.location.search).has('folder')) continue;
+                                if ((key === 'folder' || key === 'persona') && params.has(key)) continue;
                                 const el = document.querySelector(`[name="${key}"]`);
                                 if (el && el.type !== 'checkbox' && el.type !== 'radio') {
                                     if (el.tagName === 'SELECT') {
@@ -1377,6 +1381,17 @@
                         if (personaSelect) {
                             applyPersonaConfig(personaSelect.value);
                         }
+                        // Explicit navigation values take precedence over saved UI
+                        // state and persona defaults on initial load only.
+                        for (const {el, value, checked} of prefilled) {
+                            el.value = value;
+                            if (el.type === 'checkbox' || el.type === 'radio') el.checked = checked;
+                            if (el.type === 'hidden') el.dispatchEvent(new Event('archivebox:sync-tags', {bubbles: true}));
+                        }
+                        if (prefilled.some(({el}) => el.name.startsWith('url_filters_'))) {
+                            document.querySelector('[name="url_filters_allowlist"]')?.dispatchEvent(new Event('change', {bubbles: true}));
+                        }
+                        updateURLPreview();
                         applyRequiredSearchPlugin();
                         syncEnabledPluginsConfig();
                         updateChromeToggleButton();

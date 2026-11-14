@@ -342,6 +342,7 @@ class ServerConfig(BaseConfigSet):
     )
     PUBLIC_INDEX: bool = Field(default=True)
     PUBLIC_ADD_VIEW: bool = Field(default=False)
+    REWRITE_ARCHIVED_LINKS: bool = Field(default=False, description="Link saved pages to available archived URLs during replay.")
 
     ADMIN_USERNAME: str | None = Field(default=None)
     ADMIN_PASSWORD: str | None = Field(default=None)

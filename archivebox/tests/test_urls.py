@@ -1353,8 +1353,10 @@ class TestUrlRouting:
 
             original_response_rel = response_rel.split(f"responses/{snapshot.domain}/", 1)[-1]
             resp = client.get(f"/{original_response_rel}", HTTP_HOST=original_host)
-            assert resp.status_code in (301, 302)
-            assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/{original_response_rel}"
+            assert resp.status_code == 200
+            raw = client.get(f"/{original_response_rel}?raw=1", HTTP_HOST=original_host)
+            assert raw.status_code == 200
+            assert response_body(raw) == response_file.read_bytes()
             resp = client.get(f"/responses/{snapshot.domain}/{original_response_rel}", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             raw = client.get(f"/responses/{snapshot.domain}/{original_response_rel}?raw=1", HTTP_HOST=snapshot_host)
@@ -1459,9 +1461,9 @@ class TestUrlRouting:
                     (responses_root / rel_path).write_bytes(content)
 
                 with CaptureQueriesContext(connection) as root_queries:
-                    resp = client.get("/", HTTP_HOST=original_host)
-                assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[1][0].id))}/responses/example.com/index.html"
+                    resp = client.get("/?raw=1", HTTP_HOST=original_host)
+                assert resp.status_code == 200
+                assert response_body(resp) == real_output_bodies[1]
                 root_snapshot_queries = [
                     query["sql"] for query in root_queries.captured_queries
                     if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
@@ -1469,9 +1471,9 @@ class TestUrlRouting:
                 assert len(root_snapshot_queries) == 1, root_snapshot_queries
 
                 with CaptureQueriesContext(connection) as path_queries:
-                    resp = client.get("/about.html", HTTP_HOST=original_host)
-                assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[3][0].id))}/responses/example.com/about.html"
+                    resp = client.get("/about.html?raw=1", HTTP_HOST=original_host)
+                assert resp.status_code == 200
+                assert response_body(resp) == real_output_bodies[3]
                 path_snapshot_queries = [
                     query["sql"] for query in path_queries.captured_queries
                     if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
@@ -1483,7 +1485,7 @@ class TestUrlRouting:
                 assert auth_client.login(username="testadmin", password="testpassword")
                 private_snapshot = fixtures[4][0]
                 grant = auth_client.get(
-                    f"/admin/core/snapshot/replay-auth/?snapshot={private_snapshot.id}&next=/responses/example.com/about.html",
+                    f"/admin/core/snapshot/replay-auth/?snapshot={private_snapshot.id}&original_domain=example.com&next=/about.html",
                     HTTP_HOST=get_admin_host(),
                 )
                 assert grant.status_code == 302
@@ -1495,8 +1497,8 @@ class TestUrlRouting:
                 )
                 assert auth.status_code == 302
                 replay_resp = replay_client.get("/about.html", HTTP_HOST=original_host)
-                assert replay_resp.status_code in (301, 302)
-                assert replay_resp["Location"] == f"http://{get_snapshot_host(str(private_snapshot.id))}/responses/example.com/about.html"
+                assert replay_resp.status_code == 200
+                assert response_body(replay_resp) == b"private"
 
                 # The candidate subquery must keep root URLs whose first
                 # delimiter is a query or fragment, as well as ordinary paths.
@@ -1509,9 +1511,9 @@ class TestUrlRouting:
                     response_path = Path(boundary_snapshot.output_dir) / "responses" / "example.com" / asset
                     response_path.parent.mkdir(parents=True, exist_ok=True)
                     response_path.write_bytes(real_output_bodies[number])
-                    boundary_response = client.get(f"/{asset}", HTTP_HOST=original_host)
-                    assert boundary_response.status_code == 302
-                    assert boundary_response["Location"] == f"http://{get_snapshot_host(str(boundary_snapshot.id))}/responses/example.com/{asset}"
+                    boundary_response = client.get(f"/{asset}?raw=1", HTTP_HOST=original_host)
+                    assert boundary_response.status_code == 200
+                    assert response_body(boundary_response) == real_output_bodies[number]
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)
@@ -1553,9 +1555,6 @@ class TestUrlRouting:
                 shutil.rmtree(Path(latest_snapshot.output_dir) / "responses", ignore_errors=True)
 
                 resp = client.get("/", HTTP_HOST=original_host)
-                assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{get_snapshot_host(str(latest_snapshot.id))}"
-                resp = client.get("/", HTTP_HOST=get_snapshot_host(str(latest_snapshot.id)), follow=True)
                 assert resp.status_code == 200
                 html = response_body(resp).decode("utf-8", "ignore")
                 assert latest_snapshot.url in html
@@ -1939,7 +1938,7 @@ class TestUrlRouting:
                 assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
                 assert get_web_base_url() == "https://web.archivebox.example"
                 assert build_snapshot_url(snapshot_id, "index.html") == f"https://{snapshot_host}/index.html"
-                assert build_original_url("example.com", "index.html") == "https://web.archivebox.example/original/example.com/index.html"
+                assert build_original_url("example.com", "index.html") == "https://example.com.archivebox.example/index.html"
 
                 print("OK")
                 """,

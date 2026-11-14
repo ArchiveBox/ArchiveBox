@@ -1,0 +1,23 @@
+[
+  {
+    "file": "front.html.gz",
+    "url": "https://news.ycombinator.com/",
+    "sha256": "be5749a749b235a826400e331e1e0e807d102b0af0434dcd3d2b62bb25d4d10f",
+    "captured_at": "2026-11-11",
+    "snapshot_id": "06af419c746572bd8000ec3134f521ce"
+  },
+  {
+    "file": "newest.html.gz",
+    "url": "https://news.ycombinator.com/newest",
+    "sha256": "7eabfcb9c9c708efd5cdd537a92a1dde54711d3e9a7377b340319796122a6183",
+    "captured_at": "2026-11-11",
+    "snapshot_id": "06af419a601478888000197320e6891d"
+  },
+  {
+    "file": "from.html.gz",
+    "url": "https://news.ycombinator.com/from?site=gatezh.com",
+    "sha256": "b51ea2d228c7773d8b131848210acb4a779dd44c786cfca53cccec164f9ed8f7",
+    "captured_at": "2026-11-11",
+    "snapshot_id": "06af4112c46f72948000033025a46026"
+  }
+]

@@ -66,5 +66,10 @@ def prepare(evidence_dir):
             raise RuntimeError(f"Gallery capture is incomplete: {snapshot.url}")
         if not snapshot.archiveresult_set.filter(plugin="screenshot", status=ArchiveResult.StatusChoices.SUCCEEDED).exists():
             raise RuntimeError(f"Gallery capture has no real screenshot: {snapshot.url}")
+        recording = snapshot.archiveresult_set.filter(plugin="archivewebpage", status=ArchiveResult.StatusChoices.SUCCEEDED).first()
+        relative = recording.embed_path_db() if recording else ""
+        archive = snapshot.output_dir / relative if relative else None
+        if archive is None or archive.suffix.lower() != ".wacz" or not archive.is_file() or archive.stat().st_size == 0:
+            raise RuntimeError(f"Gallery capture has no successful WACZ recording: {snapshot.url}")
     (evidence / "library-crawl-id.txt").write_text(str(crawl.pk))
     return str(crawl.pk)

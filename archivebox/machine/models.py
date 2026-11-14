@@ -867,7 +867,7 @@ class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore
 
         IMPORTANT: PIDs are reused by the OS! This method:
         1. Filters by machine (required - PIDs are only unique per machine)
-        2. Filters by time window (processes older than 24h are stale)
+        2. Checks the PID namespace
         3. Validates via psutil that start times match
 
         Args:
@@ -890,12 +890,11 @@ class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore
             # Process doesn't exist - any DB record with this PID is stale
             return None
 
-        # Query candidates: same machine, same PID, recent, still RUNNING
+        # Query candidates: same machine, same PID, still RUNNING
         candidates = self.filter(
             machine=machine,
             pid=pid,
             status=Process.StatusChoices.RUNNING,
-            started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by("-started_at")
 
         current_pid_namespace = get_current_pid_namespace()
@@ -1425,13 +1424,12 @@ class Process(ModelWithDeleteAfter, models.Model):
                 pass
 
         # Try to find existing Process for this PID on this machine
-        # Filter by: machine + PID + RUNNING + recent + start time matches
+        # Filter by: machine + PID + RUNNING + start time matches
         if os_start_time:
             candidates = cls.objects.filter(
                 machine=machine,
                 pid=current_pid,
                 status=cls.StatusChoices.RUNNING,
-                started_at__gte=timezone.now() - PID_REUSE_WINDOW,
             ).order_by("-started_at")
 
             current_pid_namespace = get_current_pid_namespace()
@@ -1514,7 +1512,6 @@ class Process(ModelWithDeleteAfter, models.Model):
             machine=machine,
             pid=ppid,
             status=cls.StatusChoices.RUNNING,
-            started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by("-started_at")
 
         current_pid_namespace = get_current_pid_namespace()
@@ -1579,7 +1576,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         Processes are stale if:
         - Status is RUNNING but OS process no longer exists
         - A bounded HOOK or BINARY process exceeded its timeout plus a small grace margin
-        - Status is RUNNING but started_at is older than PID_REUSE_WINDOW
+        - A process in an unobservable PID namespace is older than PID_REUSE_WINDOW
 
         Returns count of processes cleaned up.
         """
@@ -1609,8 +1606,9 @@ class Process(ModelWithDeleteAfter, models.Model):
                 if timeout_seconds > 0 and timezone.now() >= timeout_deadline:
                     is_stale = True
 
-            # Check if too old (PID definitely reused)
-            if not is_stale and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
+            # A locally verified live process can legitimately run for days.
+            # Age is only a fallback when its PID namespace cannot be inspected.
+            if not is_stale and not shares_pid_namespace and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
                 is_stale = True
             elif not is_stale and shares_pid_namespace and PSUTIL_AVAILABLE and proc.pid is not None:
                 # Check if OS process still exists with matching start time
