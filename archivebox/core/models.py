@@ -71,6 +71,7 @@ class Folder(models.Model):
     name = models.CharField(max_length=100)
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
     position = models.PositiveIntegerField(default=0)
+    rules = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         ordering = ("position", "name", "pk")
@@ -84,7 +85,7 @@ class Folder(models.Model):
 
     def clean(self):
         super().clean()
-        self.name = sanitize_html_text(self.name).strip()
+        self.name = htmldecode(sanitize_html_text(self.name)).strip()
         if not self.name:
             raise ValidationError({"name": "Enter a folder name."})
         parent_id = self.parent_id
@@ -95,43 +96,190 @@ class Folder(models.Model):
             seen.add(parent_id)
             parent_id = type(self).objects.filter(pk=parent_id).values_list("parent_id", flat=True).first()
 
+        if not self._state.adding:
+            previous = type(self).objects.filter(pk=self.pk).values("rules").first()
+            if previous and (previous["rules"] is None) != (self.rules is None):
+                raise ValidationError({"rules": "Folder type cannot be changed."})
+        from archivebox.core.smart_folders import RuleQuery
+
+        folders = {str(folder.pk): folder for folder in type(self).objects.all()}
+        folders[str(self.pk)] = self
+        compiler = RuleQuery(folders.values(), validate=True)
+        for folder in folders.values():
+            compiler.folder(folder.pk)
+        if self.children.exists() and not self.is_container:
+            raise ValidationError({"rules": "A parent folder selects its children."})
+
+    @property
+    def is_smart(self):
+        return self.rules is not None
+
+    @property
+    def is_inbox(self):
+        from archivebox.core.smart_folders import INBOX_RULES
+
+        return self.rules == INBOX_RULES
+
+    @property
+    def is_container(self):
+        from archivebox.core.smart_folders import CHILDREN_RULES
+
+        return self.rules == CHILDREN_RULES
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+        # Only folder metadata is atomic. Never hold that transaction while
+        # moving the (potentially million-row) snapshot membership.
+        if self.parent_id:
+            type(self).objects.get(pk=self.parent_id).collect_children()
+
+    def collect_children(self):
+        """Turn a parent into a dynamic union, keeping its former contents in Items."""
+        from archivebox.core.smart_folders import CHILDREN_RULES
+
+        cls = type(self)
+        parent = cls.objects.get(pk=self.pk)
+        if not parent.children.exists():
+            return
+        old_rules = parent.rules if not parent.is_container else None
+        has_items = Snapshot.objects.filter(folder_id=self.pk).exists() or Crawl.objects.filter(folder_id=self.pk).exists()
+        destination = None
+        if old_rules is not None or has_items:
+            name, suffix = "Items", 1
+            while True:
+                existing = parent.children.filter(name=name).first()
+                if existing is None:
+                    destination = cls(name=name, parent=parent, created_by_id=parent.created_by_id, rules=old_rules)
+                    # This internal child must not recursively normalize its parent.
+                    models.Model.save(destination, force_insert=True)
+                    break
+                if old_rules is None and not existing.is_smart and not existing.children.exists():
+                    destination = existing
+                    break
+                suffix += 1
+                name = f"Items ({suffix})"
+        cls.objects.filter(pk=self.pk).update(rules=CHILDREN_RULES)
+        self.rules = CHILDREN_RULES
+
+        def move_items():
+            target = destination
+            if target and has_items:
+                if target.is_smart:
+                    target = cls.objects.get(pk=self.pk).items_destination()
+                self.move_snapshots(Snapshot.objects.filter(folder_id=self.pk), target.pk, notify=False)
+                while ids := list(Crawl.objects.filter(folder_id=self.pk).values_list("pk", flat=True)[:500]):
+                    Crawl.objects.filter(pk__in=ids, folder_id=self.pk).update(folder_id=target.pk)
+
+        transaction.on_commit(move_items)
+
+    def items_destination(self):
+        name, suffix = "Items", 1
+        while True:
+            item, _ = type(self).objects.get_or_create(parent=self, name=name, defaults={"created_by_id": self.created_by_id})
+            if not item.is_smart and not item.children.exists():
+                return item
+            suffix += 1
+            name = f"Items ({suffix})"
+
+    @classmethod
+    def destination(cls, folder_id):
+        if not folder_id:
+            return None
+        folder = cls.objects.get(pk=folder_id)
+        if folder.is_container or folder.children.exists():
+            return folder.items_destination().pk
+        if folder.is_inbox:
+            return None
+        if folder.is_smart:
+            raise ValidationError({"folder": "Choose a normal folder or Inbox as the destination."})
+        return folder.pk
+
+    @classmethod
+    def move_snapshots(cls, queryset, destination_id, *, notify=True):
+        from archivebox.core.signals import snapshot_folders_changed
+
+        destination_id = cls.destination(destination_id)
+        # Correlate membership so the outer keyset walk uses the existing PK
+        # index, rather than sorting the entire source folder again per page.
+        membership = queryset.exclude(folder_id=destination_id).filter(pk=models.OuterRef("pk"))
+        candidates = Snapshot.objects.filter(models.Exists(membership)).order_by("pk")
+        last, count = None, 0
+        while True:
+            page = candidates.filter(pk__gt=last) if last else candidates
+            rows = list(page.values_list("pk", "folder_id")[:500])
+            if not rows:
+                break
+            last = rows[-1][0]
+            count += Snapshot.objects.filter(pk__in=[pk for pk, _ in rows]).update(folder_id=destination_id, modified_at=timezone.now())
+            if notify:
+                snapshot_folders_changed.send(
+                    sender=Snapshot, changes=[{"snapshot_id": pk, "before": previous, "after": destination_id} for pk, previous in rows]
+                )
+        return count
+
+    @classmethod
+    def select_snapshots(cls, queryset, folder_id):
+        from archivebox.core.smart_folders import RuleQuery
+
+        return queryset.filter(RuleQuery().folder(compact_uuid(folder_id)))
 
     @classmethod
     def tree(cls, *, public=False):
-        """Build the sidebar in one query; public visibility needs existence, not totals."""
-        if public:
-            from archivebox.core.permissions import public_snapshots_queryset
+        from archivebox.core.smart_folders import RuleQuery
+        from archivebox.core.permissions import public_snapshots_queryset
 
-            public_snapshots = public_snapshots_queryset(Snapshot.objects.filter(folder_id=models.OuterRef("pk")))
-            folders = list(
-                cls.objects.only("id", "name", "parent_id", "position").annotate(has_public_snapshots=models.Exists(public_snapshots)),
-            )
+        if public:
+            visible = public_snapshots_queryset(Snapshot.objects.filter(folder_id=models.OuterRef("pk")))
+            folders = list(cls.objects.annotate(has_public_snapshots=models.Exists(visible)))
         else:
-            folders = list(cls.objects.annotate(snapshot_count=models.Count("snapshots")))
-        by_id = {folder.pk: folder for folder in folders}
-        children = {}
+            folders = list(cls.objects.all())
+        compiler = RuleQuery(folders)
+        counts = {} if public else dict(Snapshot.objects.order_by().values_list("folder_id").annotate(total=Count("pk")))
+        children, by_id = {}, {folder.pk: folder for folder in folders}
+        smart = [folder for folder in folders if folder.is_smart and not folder.is_container]
+        if public and smart:
+            checks = [
+                When(pk=folder.pk, then=models.Exists(public_snapshots_queryset(Snapshot.objects.filter(compiler.folder(folder.pk)))))
+                for folder in smart
+            ]
+            visibility = dict(
+                cls.objects.filter(pk__in=[folder.pk for folder in smart])
+                .annotate(matches=Case(*checks, default=False, output_field=models.BooleanField()))
+                .values_list("pk", "matches")
+            )
+            for folder in smart:
+                folder.has_public_snapshots = visibility[folder.pk]
         for folder in folders:
             children.setdefault(folder.parent_id, []).append(folder)
+            # Arbitrary smart predicates are evaluated only for the selected
+            # list, never counted across the entire collection for navigation.
+            folder.snapshot_count = None if folder.is_smart else counts.get(folder.pk, 0)
+        if public:
+            for folder in folders:
+                if folder.has_public_snapshots:
+                    parent_id = folder.parent_id
+                    while parent_id:
+                        by_id[parent_id].has_public_snapshots = True
+                        parent_id = by_id[parent_id].parent_id
+        for siblings in children.values():
+            siblings.sort(key=lambda f: (not f.is_inbox, f.position, f.name, str(f.pk)))
         result = []
         pending = [(folder, 0) for folder in reversed(children.get(None, []))]
         while pending:
             folder, level = pending.pop()
+            if public and not folder.has_public_snapshots:
+                continue
             folder.level = level
-            folder.has_children = bool(children.get(folder.pk))
+            folder.has_children = any(not public or child.has_public_snapshots for child in children.get(folder.pk, []))
             folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
             result.append(folder)
             pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
         for folder in reversed(result):
-            if public:
-                folder.has_children = any(child.has_public_snapshots for child in children.get(folder.pk, []))
-                if folder.parent_id and folder.has_public_snapshots:
-                    by_id[folder.parent_id].has_public_snapshots = True
-            elif folder.parent_id:
-                by_id[folder.parent_id].snapshot_count += folder.snapshot_count
-        return [folder for folder in result if folder.has_public_snapshots] if public else result
+            if folder.is_container:
+                totals = [child.snapshot_count for child in children.get(folder.pk, [])]
+                folder.snapshot_count = sum(totals) + counts.get(folder.pk, 0) if all(total is not None for total in totals) else None
+        return result
 
     @classmethod
     def subtree_ids(cls, folder_id):
@@ -1129,6 +1277,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if creating and self.folder_id is None:
             self.folder_id = Crawl.objects.filter(pk=self.crawl_id).values_list("folder_id", flat=True).first()
         update_fields = kwargs.get("update_fields")
+        if self.folder_id and (creating or update_fields is None or {"folder", "folder_id"}.intersection(update_fields)):
+            self.folder_id = Folder.destination(self.folder_id)
         validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
         if self.ensure_permissions_config() and update_fields is not None:
             kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))

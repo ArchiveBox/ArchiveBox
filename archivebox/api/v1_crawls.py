@@ -127,7 +127,10 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
         raise HttpError(400, "max_depth must be between 0 and 4")
 
     if data.folder_id is not None:
-        data.folder_id = get_object_or_404(Folder, pk=data.folder_id).pk
+        folder = get_object_or_404(Folder, pk=data.folder_id)
+        if folder.is_smart and not (folder.is_container or folder.is_inbox):
+            raise HttpError(400, "Choose a normal folder or Inbox as the destination.")
+        data.folder_id = folder.pk
     tags = normalize_tag_list(data.tags, data.tags_str)
     config = dict(data.config or {})
     config.setdefault("PARSER", "url_list")

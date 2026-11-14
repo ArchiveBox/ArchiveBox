@@ -190,3 +190,53 @@ async function openViewExportMenu(page) {
   throw new Error('No visible current-view Export button.');
 }
 module.exports.openViewExportMenu = openViewExportMenu;
+
+// Create and reopen a smart folder using the ordinary rule editor and real captures.
+async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
+  await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil:'domcontentloaded'});
+  if (await page.$('.folder-sidebar-reopen:not([hidden])')) await page.click('.folder-sidebar-reopen');
+  const name = '📰 Saved news';
+  let id = await page.$$eval('.folder-row', (rows,name) => rows.find(row => row.dataset.folderName === name)?.dataset.folderId, name);
+  if (!id) {
+    await page.click('.library-create-toggle');
+    await page.click('#library-create-menu .folder-new[data-smart]');
+    await page.waitForSelector('#folder-dialog[open] .folder-save:not([disabled])');
+    await page.type('#folder-name',name);
+    await page.select('.rule-condition select[aria-label="Field"]','domain');
+    await page.select('.rule-condition select[aria-label="Comparison"]','iendswith');
+    await page.type('.rule-condition input[aria-label="Value"]','news.ycombinator.com');
+    const buttons = await page.$$('.rule-group-toolbar button');
+    await buttons[0].click();
+    await page.select('.rule-condition:nth-child(3) select[aria-label="Field"]','archiveresult__output_size');
+    await page.select('.rule-condition:nth-child(3) select[aria-label="Comparison"]','gt');
+    await page.type('.rule-condition:nth-child(3) input[aria-label="Amount"]','1');
+    await page.select('.rule-condition:nth-child(3) select[aria-label="Unit"]','KB');
+    const saved=page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method()==='POST');
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('.folder-save')]);
+    const response=await saved;
+    if (!response.ok()) throw new Error(`Saving smart folder failed: HTTP ${response.status()}`);
+    id=await page.$$eval('.folder-row',(rows,name)=>rows.find(row=>row.dataset.folderName===name)?.dataset.folderId,name);
+    if (!id) throw new Error('Saved smart folder is missing from the sidebar.');
+  }
+  const url=`${adminBaseUrl}/admin/core/snapshot/?${new URLSearchParams({folder:id,...(crawlId ? {crawl__id__exact:crawlId} : {})})}`;
+  await page.goto(url,{waitUntil:'domcontentloaded'});
+  if (!await page.$('#result_list input.action-select')) throw new Error('Smart folder omitted the real news captures.');
+  const icon=await page.$eval(`.folder-row[data-folder-id="${id}"] .folder-title-emoji`,node => node.textContent);
+  if (icon !== '📰') throw new Error('The title emoji did not replace the folder icon.');
+  return {name:'Smart folder',url,path:`/admin/core/snapshot/?folder=${id}`,source:'archivebox/core/smart_folders.py'};
+}
+
+async function openSmartFolder(page) {
+  if (await page.$('#folder-dialog[open]')) return;
+  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
+  if (await page.$('.folder-sidebar-reopen:not([hidden])')) await page.click('.folder-sidebar-reopen');
+  const row=await page.$('.folder-row:has(.folder-link[aria-current="page"])');
+  await row.hover();
+  await (await row.$('.folder-menu-toggle')).click();
+  await page.click('.folder-menu:popover-open .folder-edit');
+  await page.waitForSelector('#folder-dialog.has-rules[open] .folder-save:not([disabled])');
+  const values=await page.$$eval('.rule-condition select[aria-label="Field"]',nodes=>nodes.map(node=>node.value));
+  if (values.join(',') !== 'domain,archiveresult__output_size') throw new Error('Reopening the smart folder lost its rules.');
+}
+module.exports.prepareSmartFolder=prepareSmartFolder;
+module.exports.openSmartFolder=openSmartFolder;

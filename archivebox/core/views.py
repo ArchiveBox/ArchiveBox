@@ -1412,8 +1412,8 @@ class PublicIndexView(ListView):
         # OFFSET must stay ID-only: wide columns and owner joins would also be
         # computed for every skipped row.
         start = (page_number - 1) * page_size
-        if self.folder_ids is not None:
-            page_query = Snapshot.objects.filter(folder_id__in=self.folder_ids, permissions=PERMISSIONS_PUBLIC)
+        if self.folder_query is not None:
+            page_query = Snapshot.objects.filter(self.folder_query, permissions=PERMISSIONS_PUBLIC)
         else:
             page_query = Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
         page_ids = list(page_query.order_by(*self.ordering, "id").values_list("id", flat=True)[start : start + page_size + 1])
@@ -1449,7 +1449,7 @@ class PublicIndexView(ListView):
         observed_count = (page_number - 1) * page_size + len(snapshots)
         self.public_snapshot_count = observed_count
         if len(snapshots) > page_size:
-            summary = collection_summary(self.request.user, public=True) if self.folder_ids is None else None
+            summary = collection_summary(self.request.user, public=True) if self.folder_query is None else None
             cached_count = summary["snapshots"] if summary is not None else None
             self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
 
@@ -1542,18 +1542,15 @@ class PublicIndexView(ListView):
     def get_queryset(self, **kwargs):
         self.folder_tree = Folder.tree(public=True)
         self.selected_folder = self.request.GET.get("folder", "")
-        self.folder_ids = None
+        self.folder_query = None
         self.folder_breadcrumbs = []
         if self.selected_folder:
             by_id = {str(folder.pk): folder for folder in self.folder_tree}
             selected = by_id.get(self.selected_folder)
             if selected is None:
                 raise Http404("Folder not found")
-            self.folder_ids = []
-            for folder in self.folder_tree[self.folder_tree.index(selected) :]:
-                if folder != selected and folder.level <= selected.level:
-                    break
-                self.folder_ids.append(folder.pk)
+            from archivebox.core.smart_folders import RuleQuery
+            self.folder_query = RuleQuery().folder(selected.pk)
             while selected:
                 self.folder_breadcrumbs.insert(0, selected)
                 selected = by_id.get(str(selected.parent_id))
@@ -1562,8 +1559,8 @@ class PublicIndexView(ListView):
             .select_related("crawl__created_by")
             .only(*self._base_public_snapshot_fields())
         )
-        if self.folder_ids is not None:
-            qs = qs.filter(folder_id__in=self.folder_ids)
+        if self.folder_query is not None:
+            qs = qs.filter(self.folder_query)
         query = self.request.GET.get("q", default="").strip()
 
         if not query:
