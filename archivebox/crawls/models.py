@@ -310,8 +310,9 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if self.folder_id and (self._state.adding or update_fields is None or {'folder', 'folder_id'}.intersection(update_fields)):
+        if self.folder_id and (self._state.adding or update_fields is None or {"folder", "folder_id"}.intersection(update_fields)):
             from archivebox.core.models import Folder
+
             self.folder_id = Folder.destination(self.folder_id)
         if update_fields is None or "label" in update_fields:
             self.label = sanitize_html_text(self.label).strip()

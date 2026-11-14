@@ -1564,6 +1564,7 @@ class PublicIndexView(ListView):
             if selected is None:
                 raise Http404("Folder not found")
             from archivebox.core.smart_folders import RuleQuery
+
             self.folder_query = RuleQuery().folder(selected.pk)
             while selected:
                 self.folder_breadcrumbs.insert(0, selected)
