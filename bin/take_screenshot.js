@@ -546,6 +546,16 @@ async function main() {
         const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
         checks.liveProgressCaptures.push({path: screenshotPath, viewport: page.viewport(), ...liveProgress});
       }
+      const publicAlignment = await page.evaluate(() => {
+        if (innerWidth < 768 || !document.querySelector('.public-library:not(.sidebar-hidden)')) return null;
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const header = rect('.library-heading'), toolbar = rect('.public-snapshot-toolbar');
+        const toggle = rect('.folder-mobile-toggle'), search = rect('.public-search-input');
+        return {headerBottom: header.bottom, toolbarBottom: toolbar.bottom, toggleTop: toggle.top, searchTop: search.top, toggleHeight: toggle.height, searchHeight: search.height};
+      });
+      if (publicAlignment && (Math.abs(publicAlignment.headerBottom - publicAlignment.toolbarBottom) > 0.5 || Math.abs(publicAlignment.toggleTop - publicAlignment.searchTop) > 0.5 || publicAlignment.toggleHeight !== publicAlignment.searchHeight)) {
+        throw new Error(`Public library controls are misaligned: ${JSON.stringify(publicAlignment)}`);
+      }
       await page.screenshot({path: screenshotPath, fullPage});
       screenshotPaths.push(screenshotPath);
     };
