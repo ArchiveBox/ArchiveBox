@@ -35,7 +35,7 @@ def write_site_wacz(
     """
     paths = list(dict.fromkeys(Path(path).resolve() for path in recordings))
     if not paths:
-        raise ValueError("No WACZ recordings are available. Capture pages with ArchiveWeb.page enabled first.")
+        raise ValueError("No WACZ recordings are available. Capture pages with a WACZ recorder enabled first.")
     total_bytes = sum(path.stat().st_size for path in paths)
     copied_bytes = 0
     reported_at = 0.0
@@ -103,21 +103,22 @@ def write_site_wacz(
     return len(resources)
 
 
-def replay_assets(config) -> dict[str, bytes]:
+def replay_assets(config, format="wacz", *, provider=None) -> dict[str, bytes]:
     """Export the installed replay player, using the normal plugin asset hook."""
     from django.http import HttpResponse
 
-    from archivebox.plugins.discovery import serve_plugin_replay_asset
+    from archivebox.plugins.discovery import get_replay_asset_bundle, serve_plugin_replay_asset
 
+    provider, paths = get_replay_asset_bundle(format, provider=provider)
     assets = {}
-    for name in ("ui.js", "sw.js", "sw-index.js", "replay.html"):
-        response = serve_plugin_replay_asset(f"replay/{name}", config, HttpResponse)
+    for path in paths:
+        response = serve_plugin_replay_asset(path, config, HttpResponse, provider=provider)
         if response is None:
-            raise ValueError("ArchiveWeb.page replay assets are not installed. Install the ArchiveWeb.page plugin first.")
+            raise ValueError(f"Replay asset provider {provider} cannot serve {path}")
         try:
             if response.status_code != 200:
-                raise ValueError(f"ArchiveWeb.page replay asset is unavailable: {name}")
-            assets[f"replay/{name}"] = b"".join(response.streaming_content) if response.streaming else response.content
+                raise ValueError(f"Replay asset provider {provider} returned {response.status_code} for {path}")
+            assets[path] = b"".join(response.streaming_content) if response.streaming else response.content
         finally:
             response.close()
     return assets

@@ -22,13 +22,13 @@ IGNORABLE_URL_PATTERNS = [
     re.compile(r"/admin/jsi18n/"),
     re.compile(r"/health/"),
     re.compile(r"/progress\.json(?:\?.*)?"),
-    re.compile(r"/api/v1/core/snapshot/.*/screencast\.jpg(?:\?.*)?"),
-    re.compile(r"/api/v1/crawls/crawl/.*/files/chrome_screencast/latest\.jpg(?:\?.*)?"),
 ]
 
 
 class NoisyRequestsFilter(logging.Filter):
     def filter(self, record) -> bool:
+        from archivebox.plugins.discovery import get_plugin_ignorable_url_patterns
+
         if record.name == "uvicorn.access" and isinstance(record.args, tuple) and len(record.args) == 5:
             # Apply the existing secret redaction and quiet-route policy to
             # Uvicorn's structured access records before any handler emits them.
@@ -45,7 +45,7 @@ class NoisyRequestsFilter(logging.Filter):
         # '"GET /admin/api/apitoken/0191bbf8-fd5e-0b8c-83a8-0f32f048a0af/change/ HTTP/1.1" 200 28778'
 
         # ignore harmless 404s for the patterns in IGNORABLE_URL_PATTERNS
-        for pattern in IGNORABLE_URL_PATTERNS:
+        for pattern in (*IGNORABLE_URL_PATTERNS, *get_plugin_ignorable_url_patterns()):
             ignorable_GET_request = re.compile(f'"GET {pattern.pattern} HTTP/.*" (2..|30.|404) .+$', re.I | re.M)
             if ignorable_GET_request.match(logline):
                 return False

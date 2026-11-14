@@ -515,11 +515,10 @@ def open_cmd(name: str, headless: bool = False, background: bool = False):
     import tempfile
     import time
 
-    import psutil
-
-    from abx_plugins import get_plugins_dir
     from archivebox.config.common import get_config
+    from archivebox.config import CONSTANTS
     from archivebox.personas.models import Persona
+    from archivebox.plugins.discovery import get_plugin_catalog, get_plugin_special_config
 
     valid, reason = validate_persona_name(name)
     if not valid:
@@ -527,51 +526,28 @@ def open_cmd(name: str, headless: bool = False, background: bool = False):
     persona = Persona.get_or_create_named(name)
     persona.ensure_dirs()
     config = get_config(persona=persona)
-    if os.environ.get("DISPLAY") and not headless:
-        from archivebox.config import CONSTANTS
-
-        for process in psutil.process_iter():
-            try:
-                args = process.cmdline()
-                profile = next((arg.split("=", 1)[1] for arg in args if arg.startswith("--user-data-dir=")), None)
-                if (
-                    not profile
-                    or any(arg.startswith(("--type=", "--headless")) for arg in args)
-                    or not Path(profile).resolve().is_relative_to(CONSTANTS.DATA_DIR.resolve())
-                    or process.environ().get("DISPLAY") != os.environ["DISPLAY"]
-                ):
-                    continue
-                rprint("An ArchiveBox browser is already open on this display; waiting for it to close.")
-                process.wait()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-    plugins_dir = Path(get_plugins_dir()).resolve()
-    env = os.environ.copy()
-    env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(plugins_dir)
-    env["ACTIVE_PERSONA"] = persona.name
-    env["PERSONAS_DIR"] = str(persona.path.parent)
-    env["NODE_MODULES_DIR"] = str(config.ABXPKG_LIB_DIR / "pnpm" / "packages" / "chrome" / "node_modules")
-    payload = config.model_dump(mode="json")
-    payload.update(
-        ACTIVE_PERSONA=persona.name,
-        CHROME_HEADLESS=headless,
-        CHROME_USER_DATA_DIR=str(persona.CHROME_USER_DATA_DIR),
-        AUTH_STORAGE_FILE=str(persona.AUTH_STORAGE_FILE or ""),
-        COOKIES_FILE=str(persona.COOKIES_FILE or ""),
+    try:
+        provider = get_plugin_catalog().find_command("browser-open")
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
+    values = config.model_dump(mode="json")
+    values.update(persona.get_derived_config())
+    values.update(
+        ABX_RUNTIME="archivebox",
+        CHROME_USER_DATA_DIR=persona.CHROME_USER_DATA_DIR,
+        AUTH_STORAGE_FILE=persona.AUTH_STORAGE_FILE,
+        COOKIES_FILE=persona.COOKIES_FILE,
     )
-    script = Path(__file__).parent.parent / "personas" / "open_browser.js"
-    command = [
-        str(Path(sys.executable).with_name("abxpkg")),
-        "run",
-        "--script",
-        "--install",
-        f"--lib={config.ABXPKG_LIB_DIR}",
-        f"--deps-from={plugins_dir / 'chrome' / 'config.json'}:required_binaries",
-        str(config.NODE_BINARY),
-        str(script),
-    ]
-    # Keep one browser-owner process: signals reach Node's existing shutdown
-    # handler, and abxpkg applies its environment instead of treating deltas as values.
+    payload = {
+        "config": values,
+        "name": persona.name,
+        "persona_dir": str(persona.path),
+        "collection_dir": str(CONSTANTS.DATA_DIR),
+        "headless": headless,
+    }
+    env = os.environ.copy()
+    command = [str(provider.path), *provider.args]
+    # Keep one owner process so termination reaches the plugin's shutdown handler.
     with tempfile.TemporaryFile(mode="w+") as payload_file:
         json.dump(payload, payload_file)
         payload_file.seek(0)
@@ -590,15 +566,23 @@ def open_cmd(name: str, headless: bool = False, background: bool = False):
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
                 )
-            ready = f"Browser ready for persona {persona.name}"
-            deadline = time.monotonic() + config.CHROME_TIMEOUT
+            timeout = get_plugin_special_config(provider.plugin_name, config)["timeout"]
+            deadline = time.monotonic() + timeout
             try:
                 while True:
                     output = log_path.read_text(errors="replace")
                     code = owner.poll()
-                    if ready in output.splitlines() and code in (None, 0):
+                    ready = None
+                    for line in output.splitlines():
+                        try:
+                            record = json.loads(line)
+                        except ValueError:
+                            continue
+                        if isinstance(record, dict) and record.get("ready") is True and isinstance(record.get("browser_pid"), int):
+                            ready = record
+                    if ready is not None and code in (None, 0):
                         write_record(
-                            {"name": persona.name, "browser_pid": int((browser_dir / "chrome.pid").read_text()), "log": str(log_path)},
+                            {"name": persona.name, "browser_pid": ready["browser_pid"], "log": str(log_path)},
                         )
                         return
                     if code is not None:
@@ -607,7 +591,7 @@ def open_cmd(name: str, headless: bool = False, background: bool = False):
                         )
                     if time.monotonic() >= deadline:
                         raise click.ClickException(
-                            f"Persona browser did not become ready within {config.CHROME_TIMEOUT}s. Log: {log_path}\n{output[-4000:]}",
+                            f"Persona browser did not become ready within {timeout}s. Log: {log_path}\n{output[-4000:]}",
                         )
                     time.sleep(0.1)
             except BaseException:

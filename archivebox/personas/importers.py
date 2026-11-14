@@ -18,7 +18,6 @@ import sqlite3
 import time
 from http.cookiejar import MozillaCookieJar
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
@@ -864,79 +863,20 @@ def export_browser_state(
     if not user_data_dir and not cdp_url:
         return False, None, "Missing browser source."
 
-    from abx_plugins import get_plugins_dir
     from archivebox.config.common import get_config
+    from archivebox.plugins.discovery import get_plugin_catalog
 
-    state_script = Path(__file__).with_name("export_browser_state.js")
-    if not state_script.exists():
-        return False, None, f"Browser state export script not found at {state_script}"
-
-    chrome_plugin_dir = Path(get_plugins_dir()).resolve()
-    chrome_config = chrome_plugin_dir / "chrome" / "config.json"
-
-    env = os.environ.copy()
-    dependency_config = json.loads(chrome_config.read_text())
-    dependency_config["required_binaries"] = [dep for dep in dependency_config["required_binaries"] if dep["name"] != "{CHROME_BINARY}"]
-    dependency_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-    with dependency_file:
-        json.dump(dependency_config, dependency_file)
     try:
-        dependency_env = subprocess.run(
-            [
-                str(Path(sys.executable).with_name("abxpkg")),
-                "env",
-                "--install",
-                "--json",
-                f"--lib={get_config().ABXPKG_LIB_DIR}",
-                f"--deps-from={dependency_file.name}:required_binaries",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-    finally:
-        Path(dependency_file.name).unlink()
-    if dependency_env.returncode != 0:
-        return False, None, dependency_env.stderr.strip() or "abxpkg could not resolve browser export dependencies."
-    try:
-        resolved_env = json.loads(dependency_env.stdout)
-    except json.JSONDecodeError:
-        return False, None, "abxpkg returned an invalid browser dependency environment."
-    if not isinstance(resolved_env, dict):
-        return False, None, "abxpkg returned an invalid browser dependency environment."
-    abxpkg_lib_dir = get_config().ABXPKG_LIB_DIR
-    node_projection = abxpkg_lib_dir / "env" / "bin" / "node"
-    if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
-        return False, None, f"abxpkg did not resolve Node.js into {node_projection}."
-    env.update({str(key): str(value) for key, value in resolved_env.items()})
-    if chrome_binary:
-        env["CHROME_BINARY"] = chrome_binary
-    env["NODE_MODULES_DIR"] = str(abxpkg_lib_dir / "pnpm" / "packages" / "chrome" / "node_modules")
-    env["NODE_BINARY"] = str(node_projection)
-    env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(chrome_plugin_dir)
-
-    if user_data_dir:
-        env["CHROME_USER_DATA_DIR"] = str(user_data_dir)
-    if cdp_url:
-        env["CHROME_CDP_URL"] = cdp_url
-        env["CHROME_IS_LOCAL"] = "false"
-    if profile_dir:
-        extra_arg = f"--profile-directory={profile_dir}"
-        existing_extra = env.get("CHROME_ARGS_EXTRA", "").strip()
-        args_list: list[str] = []
-        if existing_extra:
-            if existing_extra.startswith("["):
-                try:
-                    parsed = json.loads(existing_extra)
-                    if isinstance(parsed, list):
-                        args_list.extend(str(x) for x in parsed)
-                except Exception:
-                    args_list.extend([s.strip() for s in existing_extra.split(",") if s.strip()])
-            else:
-                args_list.extend([s.strip() for s in existing_extra.split(",") if s.strip()])
-        args_list.append(extra_arg)
-        env["CHROME_ARGS_EXTRA"] = json.dumps(args_list)
-
+        command = get_plugin_catalog().find_command("browser-export-state")
+    except ValueError as error:
+        return False, None, str(error)
+    request = {
+        "config": get_config().model_dump(mode="json"),
+        "user_data_dir": str(user_data_dir) if user_data_dir else "",
+        "cdp_url": cdp_url or "",
+        "profile_dir": profile_dir or "",
+        "browser_binary": chrome_binary or "",
+    }
     temp_dir: Path | None = None
     tmp_cookies_file: Path | None = None
     tmp_auth_file: Path | None = None
@@ -944,25 +884,25 @@ def export_browser_state(
     if cookies_output_file and cookies_output_file.exists():
         temp_dir = Path(tempfile.mkdtemp(prefix="ab_browser_state_"))
         tmp_cookies_file = temp_dir / "cookies.txt"
-        env["COOKIES_OUTPUT_FILE"] = str(tmp_cookies_file)
+        request["cookies_output_file"] = str(tmp_cookies_file)
     elif cookies_output_file:
-        env["COOKIES_OUTPUT_FILE"] = str(cookies_output_file)
+        request["cookies_output_file"] = str(cookies_output_file)
 
     if auth_output_file and auth_output_file.exists():
         temp_dir = temp_dir or Path(tempfile.mkdtemp(prefix="ab_browser_state_"))
         tmp_auth_file = temp_dir / "auth.json"
-        env["AUTH_STORAGE_OUTPUT_FILE"] = str(tmp_auth_file)
+        request["auth_output_file"] = str(tmp_auth_file)
     elif auth_output_file:
-        env["AUTH_STORAGE_OUTPUT_FILE"] = str(auth_output_file)
+        request["auth_output_file"] = str(auth_output_file)
     else:
         temp_dir = temp_dir or Path(tempfile.mkdtemp(prefix="ab_browser_state_"))
         tmp_auth_file = temp_dir / "auth.json"
-        env["AUTH_STORAGE_OUTPUT_FILE"] = str(tmp_auth_file)
+        request["auth_output_file"] = str(tmp_auth_file)
 
     try:
         result = subprocess.run(
-            [str(node_projection), str(state_script)],
-            env=env,
+            [str(command.path), *command.args],
+            input=json.dumps(request),
             capture_output=True,
             text=True,
             timeout=120,
@@ -970,7 +910,7 @@ def export_browser_state(
     except subprocess.TimeoutExpired:
         return False, None, "Browser state export timed out."
     except FileNotFoundError:
-        return False, None, "Node.js was not found, so ArchiveBox could not extract browser state."
+        return False, None, "The browser state command was not found."
     except Exception as err:
         return False, None, f"Browser state export failed: {err}"
 

@@ -13,7 +13,6 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from archivebox.config.common import get_request_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.routes_util import build_snapshot_export_urls
@@ -260,25 +259,6 @@ def brand_icon(request, plugin, feed):
         return plugin_image(request, plugin, get_importer(plugin, feed).icon)
     except (ValueError, KeyError, OSError) as error:
         raise Http404 from error
-
-
-@importer_admin
-@require_POST
-def create_custom(request):
-    config = get_request_config(request).model_dump(mode="json")
-    if not config.get("OPENCODE_ENABLED"):
-        messages.error(request, "Enable the OpenCode plugin in server settings to create an importer with AI.")
-        return redirect("importers:index")
-    from abx_plugins.plugins.opencode.archivebox.views import _runtime_settings
-
-    runtime, settings = _runtime_settings(request, config)
-    prompt = Path(__file__).with_name("create_prompt.md").read_text()
-    try:
-        session = runtime.start_session(settings, title="Create a custom importer", prompt=prompt)
-    except (RuntimeError, OSError, ValueError):
-        messages.error(request, "The AI session could not start. Check the Agent provider settings, then try again.")
-        return redirect("importers:index")
-    return redirect(f"/admin/agent/?session={session}")
 
 
 @importer_admin

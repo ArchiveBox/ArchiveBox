@@ -87,40 +87,14 @@ def _normalize_status(status: str) -> str:
     return status or "failed"
 
 
-def _normalize_snapshot_title(candidate: str, *, snapshot_url: str) -> str:
-    title = " ".join(line.strip() for line in str(candidate or "").splitlines() if line.strip()).strip()
-    if not title:
-        return ""
-    if title.lower() in {"pending...", "no title found"}:
-        return ""
-    if title == snapshot_url:
-        return ""
-    if "/" in title and title.lower().endswith(".txt"):
-        return ""
-    return title
-
-
 def _extract_snapshot_title(snapshot_output_dir: str, plugin: str, output_str: str, *, snapshot_url: str) -> str:
-    if plugin != "title":
+    from archivebox.core.models import Snapshot
+    from archivebox.plugins.discovery import get_snapshot_role_names, read_plugin_output_text
+
+    if plugin not in get_snapshot_role_names("title_source"):
         return ""
-
-    title_file = Path(snapshot_output_dir) / "title" / "title.txt"
-    # The shipped hook already reports the extracted title. Project that fact
-    # without waiting for a second read through remote archive storage (or
-    # accidentally reading a later attempt's file). Older records may report
-    # only the artifact filename; keep their existing saved-file fallback.
-    reported_title = _normalize_snapshot_title(output_str, snapshot_url=snapshot_url)
-    if reported_title and reported_title != title_file.name:
-        return reported_title
-    if title_file.exists():
-        try:
-            file_title = _normalize_snapshot_title(title_file.read_text(encoding="utf-8"), snapshot_url=snapshot_url)
-        except OSError:
-            file_title = ""
-        if file_title:
-            return file_title
-
-    return _normalize_snapshot_title(output_str, snapshot_url=snapshot_url)
+    value = read_plugin_output_text(plugin, Path(snapshot_output_dir), output_str)
+    return Snapshot._normalize_title_candidate(value, snapshot_url=snapshot_url)
 
 
 def _should_update_snapshot_title(current_title: str, next_title: str, *, snapshot_url: str) -> bool:
@@ -249,7 +223,9 @@ def _read_archiveresult_outputs(
     # Discovery already rejects roots at max_depth. Do not stat every hook's
     # archive directory when this capture cannot admit any discovered children.
     can_discover = snapshot.depth < snapshot.crawl.max_depth
-    if event.plugin != "title" and not can_discover:
+    from archivebox.plugins.discovery import get_snapshot_role_names
+
+    if event.plugin not in get_snapshot_role_names("title_source") and not can_discover:
         return "", False
     plugin_dir = (
         Path(process_started.output_dir)

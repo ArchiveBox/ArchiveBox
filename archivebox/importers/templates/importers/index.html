@@ -1,4 +1,5 @@
 {% extends "importers/base.html" %}
+{% load core_tags %}
 {% block importer_content %}
 <div class="toolbar"><div><p class="eyebrow">Collect from your sources</p><h1>Importers</h1><p class="muted">Discover links, preview what is new, and keep your archive up to date.</p></div><a class="button" href="/admin/personas/persona/">Manage personas</a></div>
 {% if sources %}
@@ -12,7 +13,7 @@
 {% for definition in provider.feeds %}<li><a href="{% url 'importers:new' definition.plugin definition.feed %}"><span>{{ definition.title }}</span><span aria-hidden="true">→</span></a></li>{% endfor %}
 </ul></article>{% empty %}<p>No installed plugins currently provide importers.</p>{% endfor %}
 </div>
-<form method="post" action="{% url 'importers:custom' %}" class="custom-importer">{% csrf_token %}<button type="submit"><span class="custom-plus" aria-hidden="true">+</span><span><strong>Create a custom importer</strong><small>Tell the AI what you want to collect.</small></span><span class="custom-arrow" aria-hidden="true">↗</span></button></form>
+{% plugin_ui "importers_actions" %}
 </section>
 <details class="card"><summary>Set up a browser persona for authenticated sources</summary><ol><li>Create a dedicated browser profile and install the ArchiveBox extension.</li><li>Log into the accounts whose activity you want to import.</li><li>Sync the selected cookies and browser settings to a server persona.</li><li>Select that persona here, then use <strong>Check access</strong> to verify the server can read the source.</li></ol><p class="muted">A new account has its own activity. To import an existing account's private saves or bookmarks, use that account. Available importers are supplied by installed plugins.</p><a href="/admin/personas/persona/">Open personas →</a></details>
 {% endblock %}

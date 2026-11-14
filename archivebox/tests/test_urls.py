@@ -99,7 +99,7 @@ def test_archiveresult_relpath_uses_sibling_hook_that_owns_output(admin_user):
 
 
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
+    from abx_plugins.plugins.responses.presentation import _rewrite_html_image_sources_to_responses
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -136,7 +136,7 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
 
 
 def test_html_image_response_index_preserves_first_image_and_last_fallback(tmp_path):
-    from archivebox.misc.serve_static import _encoded_responses_image_url, _index_responses_paths_for_html_images
+    from abx_plugins.plugins.responses.presentation import _encoded_responses_image_url, _index_responses_paths_for_html_images
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -635,6 +635,7 @@ class TestUrlRouting:
             # the WebSocket gate refusing everyone: a same-origin superuser passes.
             from django.core.exceptions import PermissionDenied
             from abx_plugins.plugins.opencode.archivebox.views import _websocket_context
+            from archivebox.plugins.host import host
 
             scope = {
                 "type": "websocket",
@@ -650,10 +651,10 @@ class TestUrlRouting:
                 "client": ("127.0.0.1", 50000),
             }
             if control:
-                assert _websocket_context(scope)[2] == "pty/connect"
+                assert _websocket_context(scope, host=host)[2] == "pty/connect"
             else:
                 try:
-                    _websocket_context(scope)
+                    _websocket_context(scope, host=host)
                 except PermissionDenied:
                     pass
                 else:

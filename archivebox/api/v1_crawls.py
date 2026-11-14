@@ -1,8 +1,6 @@
 __package__ = "archivebox.api"
 
-import os
 from pathlib import Path
-from hashlib import sha256
 from uuid import UUID
 from datetime import datetime
 from django.http import FileResponse, HttpRequest
@@ -210,39 +208,27 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
     if any(part.casefold() == ".persona" for part in Path(path).parts):
         raise HttpError(404, "Crawl file not found")
 
-    started_at = None
-    if path == "chrome_screencast/latest.jpg" and request.GET.get("after"):
-        try:
-            started_at = float(request.GET["after"])
-        except ValueError:
-            raise HttpError(400, "Invalid screencast start time")
+    from archivebox.plugins.discovery import get_plugin_app
 
-    file = None
-    if path == "chrome_screencast/latest.jpg":
-        # Polled every second while a capture runs: open the local TMP_DIR frame
-        # directly. The hook keys it by path.resolve(CRAWL_DIR), which is lexical
-        # like abspath; try the current then legacy hyphenated crawl dir name
-        # instead of probing (possibly remote) archive storage for which exists.
-        live_root = Path(get_config(crawl=crawl, resolve_plugins=False).TMP_DIR) / "chrome_screencast"
-        for crawl_dir in crawl.output_dir_candidates:
-            try:
-                file = open(live_root / sha256(os.path.abspath(crawl_dir).encode()).hexdigest() / "latest.jpg", "rb")
-                break
-            except FileNotFoundError:
-                continue
-    if file is None:
-        crawl_root = Path(crawl.output_dir).resolve()
-        file_path = (crawl_root / path).resolve()
-        if crawl_root not in file_path.parents:
-            raise HttpError(404, "Crawl file not found")
-        try:
-            file = file_path.open("rb")
-        except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
-            raise HttpError(404, "Crawl file not found")
+    plugin = path.partition("/")[0]
+    app = get_plugin_app(plugin)
+    serve = getattr(app, "serve_crawl_file", None)
+    if serve is not None:
+        context = {
+            "output_dirs": [str(directory) for directory in crawl.output_dir_candidates],
+            "tmp_dir": str(get_config(crawl=crawl, resolve_plugins=False).TMP_DIR),
+        }
+        if (response := serve(request, context, path)) is not None:
+            return response
 
-    if started_at is not None and os.fstat(file.fileno()).st_mtime < started_at:
-        file.close()
-        raise HttpError(404, "No frame for this capture yet")
+    crawl_root = Path(crawl.output_dir).resolve()
+    file_path = (crawl_root / path).resolve()
+    if crawl_root not in file_path.parents:
+        raise HttpError(404, "Crawl file not found")
+    try:
+        file = file_path.open("rb")
+    except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
+        raise HttpError(404, "Crawl file not found")
 
     response = FileResponse(file)
     # WHY: Django materializes synchronous FileResponse iterators under ASGI.

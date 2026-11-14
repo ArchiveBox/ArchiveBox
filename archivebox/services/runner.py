@@ -73,7 +73,6 @@ from archivebox.base_models.models import PagedQuerySet
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.plugins.discovery import get_plugin_catalog
-from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
 from archivebox.crawls.locks import crawl_lifecycle_lock
@@ -216,7 +215,6 @@ class CrawlRunner:
             env_filter=filter_crawl_env,
             interrupted_hook_prompt=self._prompt_in_foreground if interactive_interrupts else None,
         )
-        register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
         self.binary_process_service = ArchiveBoxBinaryService(self.bus)
         BinaryService(self.bus)
@@ -240,7 +238,7 @@ class CrawlRunner:
             crawl_id=str(crawl.id),
             interrupted=self.execution_interrupted,
         )
-        HookArchiveResultService(self.bus, emit_jsonl=False)
+        HookArchiveResultService(self.bus, emit_jsonl=False, catalog=self.catalog)
         ArchiveResultService(self.bus)
         self.requested_plugins = selected_plugins
         self.selected_plugins = selected_plugins

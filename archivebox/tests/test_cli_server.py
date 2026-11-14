@@ -6,7 +6,6 @@ Tests for archivebox server command.
 Verify server can start (basic smoke tests only, no full server testing).
 """
 
-import asyncio
 import json
 import os
 import shlex
@@ -444,10 +443,10 @@ def test_runner_worker_hook_uses_its_own_python_environment(tmp_path):
 
 
 def test_archivebox_worker_environment_clears_stale_venv_for_global_executable():
-    from archivebox.workers.supervisord_util import _archivebox_worker_environment, _worker_environment_value
+    from archivebox.workers.supervisord_util import archivebox_worker_environment, _worker_environment_value
 
     executable = Path("/usr/bin/env")
-    worker = {"environment": _archivebox_worker_environment([str(executable)])}
+    worker = {"environment": archivebox_worker_environment([str(executable)])}
     assert _worker_environment_value(worker, "VIRTUAL_ENV") == ""
     assert _worker_environment_value(worker, "PATH").split(os.pathsep)[0] == str(executable.parent)
 
@@ -832,12 +831,8 @@ def test_sonic_worker_is_disabled_when_sonic_disabled(archivebox_daemon_server):
     assert state["worker_sonic"] is None, state
 
 
-def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_archive, archivebox_daemon_server):
-    from abx_dl.events import ProcessStdoutEvent
-    from abx_dl.orchestrator import create_bus
-    from abx_plugins.plugins.search_backend_sonic.daemon import prepare_sonic_daemon
-
-    from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
+def test_plugin_service_reuses_real_running_worker_without_preparing(initialized_archive, archivebox_daemon_server):
+    from archivebox.plugins.services import ensure_plugin_services
 
     sonic_port = get_free_port()
     sonic_env = _resolve_sonic_env(initialized_archive)
@@ -848,8 +843,9 @@ def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_arch
     )
     state = server.wait_for_workers(("worker_sonic",))
     assert state["worker_sonic"]["statename"] == "RUNNING", state
-
-    daemon_event = prepare_sonic_daemon(
+    config_path = server.data_dir / "sonic" / "config.cfg"
+    before = config_path.stat().st_mtime_ns
+    result = ensure_plugin_services(
         SimpleNamespace(
             DATA_DIR=str(server.data_dir),
             SEARCH_BACKEND_SONIC_ENABLED=True,
@@ -858,26 +854,14 @@ def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_arch
             SEARCH_BACKEND_SONIC_PASSWORD="SecretPassword",
             SONIC_BINARY=sonic_env["SONIC_BINARY"],
         ),
+        plugin_names={"search_backend_sonic"},
     )
-
-    async def run_test():
-        bus = create_bus(name="test_sonic_daemon_event_handler_accepts_real_running_worker")
-        try:
-            register_sonic_daemon_event_handler(bus)
-            event = await bus.emit(
-                ProcessStdoutEvent(
-                    line=json.dumps(daemon_event.to_record()),
-                ),
-            ).now()
-            await event.event_results_list()
-        finally:
-            await bus.destroy()
-
-    asyncio.run(run_test())
+    assert result == [{"name": "worker_sonic", "statename": "RUNNING"}]
+    assert config_path.stat().st_mtime_ns == before
 
 
 def test_supervisord_sync_does_not_start_duplicate_sonic_listener(initialized_archive, db):
-    from abx_plugins.plugins.search_backend_sonic.daemon import get_sonic_supervisord_worker
+    from archivebox.plugins.services import get_plugin_services, prepare_service_worker
 
     from archivebox.tests.test_orm_helpers import use_archivebox_db
     from archivebox.workers.supervisord_util import (
@@ -892,7 +876,7 @@ def test_supervisord_sync_does_not_start_duplicate_sonic_listener(initialized_ar
     listener.bind(("127.0.0.1", 0))
     listener.listen()
     sonic_port = listener.getsockname()[1]
-    worker = get_sonic_supervisord_worker(
+    services = get_plugin_services(
         SimpleNamespace(
             DATA_DIR=str(initialized_archive),
             SEARCH_BACKEND_ENGINE="sonic",
@@ -901,7 +885,9 @@ def test_supervisord_sync_does_not_start_duplicate_sonic_listener(initialized_ar
             SEARCH_BACKEND_SONIC_PASSWORD="SecretPassword",
             SONIC_BINARY="sonic",
         ),
+        plugin_names={"search_backend_sonic"},
     )
+    worker = prepare_service_worker(services["worker_sonic"])
     assert worker is not None
 
     try:

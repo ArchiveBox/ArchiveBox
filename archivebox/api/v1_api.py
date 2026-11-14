@@ -49,6 +49,13 @@ def register_urls(api: NinjaAPI) -> NinjaAPI:
     api.add_router("/machine/", "archivebox.api.v1_machine.router")
     api.add_router("/personas/", "archivebox.api.v1_personas.router")
     api.add_router("/importers/", "archivebox.api.v1_importers.router")
+    from archivebox.plugins.discovery import get_plugin_apps
+    from archivebox.plugins.host import host
+
+    for app in get_plugin_apps().values():
+        routers = getattr(app, "get_api_routers", None)
+        for prefix, router in routers(host) if routers is not None else ():
+            api.add_router(prefix, router)
     return api
 
 

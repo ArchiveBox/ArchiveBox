@@ -13,6 +13,24 @@ from archivebox.crawls.models import Crawl
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_live_preview_route_is_declared_by_plugin(client, api_headers):
+    from django.urls import reverse
+    from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
+
+    plugin = get_plugin_catalog()["chrome_screencast"]
+    assert plugin.manifest["snapshot_live_preview"] is True
+    route = plugin.config.snapshot_live_preview_route
+    assert reverse(route, kwargs={"snapshot_id": "0123456789abcdef0123456789abcdef"}) == (
+        "/api/v1/core/snapshot/0123456789abcdef0123456789abcdef/screencast.jpg"
+    )
+    app = get_plugin_app(plugin.name)
+    assert app is not None
+    assert callable(app.get_api_routers)
+    schema = client.get("/api/v1/openapi.json", **api_headers)
+    assert schema.status_code == 200
+    assert "/api/v1/core/snapshot/{snapshot_id}/screencast.jpg" in schema.json()["paths"]
+
+
 def test_snapshot_screencasts_are_isolated_and_private(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(urls="https://example.com/a\nhttps://example.com/b", created_by=api_admin_user, permissions="public")
     snapshots = [

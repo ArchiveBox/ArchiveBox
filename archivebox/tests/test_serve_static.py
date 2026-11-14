@@ -629,13 +629,13 @@ def test_markdown_in_html_fragment_still_renders(tmp_path: Path):
 
 def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     import json
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+    from archivebox.misc.serve_static import _rewrite_replay_document_for_request
 
     source = '<img src="https://example.com/badge.svg">'
     request = RequestFactory().get("/git/README.md")
 
     def rewrite():
-        return _rewrite_html_image_sources_for_request(request, source, tmp_path, "git/README.md")
+        return _rewrite_replay_document_for_request(request, source, tmp_path, "git/README.md")
 
     assert rewrite() == (source, 0)
     responses = tmp_path / "responses"

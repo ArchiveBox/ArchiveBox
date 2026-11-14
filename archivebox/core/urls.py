@@ -26,14 +26,15 @@ from archivebox.core.views import (
 )
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.search.views import public_snapshot_search_stream_view
-from abx_plugins.plugins.opencode.archivebox.urls import urlpatterns as agent_urlpatterns
+from archivebox.plugins.discovery import get_plugin_apps
+from archivebox.plugins.host import host
 
 urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
-    *agent_urlpatterns,
+    *(route for app in get_plugin_apps().values() if (routes := getattr(app, "get_urlpatterns", None)) for route in routes(host)),
     path("admin/importers/", include("archivebox.importers.urls")),
     path("admin/webhooks/", include("archivebox.api.webhook_urls")),
     path("admin/domains/", include("archivebox.domains.urls")),

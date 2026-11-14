@@ -20,6 +20,47 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize("smart", [False, True])
+def test_update_folder_filter_scopes_maintenance_and_search(initialized_archive, smart):
+    env = cli_env(disable_extractors=True)
+    selected_url = "https://example.com/selected-folder"
+    excluded_url = "https://example.com/other-folder"
+    run_archivebox_cmd(["add", "--index-only", selected_url, excluded_url], env=env, check=True)
+    run_queued_crawls(initialized_archive, env)
+    folder_args = ["folder", "create", "Selected"]
+    if smart:
+        folder_args.extend(["--rules", json.dumps({"field": "url", "lookup": "icontains", "value": "selected-folder"})])
+    created = run_archivebox_cmd(folder_args, env=env, check=True)
+    folder_id = json.loads(created.stdout.strip())["id"]
+    with use_archivebox_db(initialized_archive):
+        selected = Snapshot.objects.get(url=selected_url)
+        excluded = Snapshot.objects.get(url=excluded_url)
+        selected_id, excluded_id = selected.pk, excluded.pk
+        excluded_modified_at = excluded.modified_at
+        for snapshot in (selected, excluded):
+            content = snapshot.output_dir / "dom" / "output.html"
+            content.parent.mkdir(parents=True, exist_ok=True)
+            content.write_text("<html><body>foldermaintenanceuniquetext</body></html>")
+    if not smart:
+        run_archivebox_cmd(["folder", "move-snapshots", str(selected_id), "--destination-id", folder_id], env=env, check=True)
+    args = ["update", "--folder-id", folder_id]
+    migrated = run_archivebox_cmd([*args, "--migrate-only"], env=env, check=True)
+    assert "Found 1 matching snapshots" in migrated.stdout
+    search_env = {**env, "PLUGINS": "search_backend_sqlite", "SEARCH_BACKEND_ENGINE": "sqlite"}
+    run_archivebox_cmd([*args, "--index-only"], env=search_env, check=True)
+    with sqlite3.connect(initialized_archive / "search.sqlite3") as conn:
+        assert conn.execute("SELECT snapshot_id FROM search_index WHERE search_index MATCH 'foldermaintenanceuniquetext'").fetchall() == [
+            (str(selected_id),),
+        ]
+    run_archivebox_cmd([*args, "--rescan"], env=env, check=True)
+    restarted = run_archivebox_cmd(args, env=env, check=True)
+    assert "Found 1 matching snapshots" in restarted.stdout
+    with use_archivebox_db(initialized_archive):
+        assert Snapshot.objects.get(pk=selected_id).status == "sealed"
+        assert Snapshot.objects.get(pk=excluded_id).modified_at == excluded_modified_at
+        assert not ArchiveResult.objects.filter(snapshot_id=excluded_id).exists()
+
+
 def test_merged_capture_can_rebuild_destination_search_index(initialized_archive, tmp_path):
     """A source's successful search hook does not mean the destination is indexed (#1915)."""
     env = cli_env(disable_extractors=True)

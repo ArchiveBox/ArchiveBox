@@ -58,8 +58,9 @@ def get_backend(config: dict[str, Any] | None = None, **config_kwargs: Any) -> A
     if backend_name in backends:
         return backends[backend_name]
 
-    if "ripgrep" in backends:
-        return backends["ripgrep"]
+    for backend in backends.values():
+        if backend.config.search_scan:
+            return backend
 
     available = list(backends.keys())
     raise RuntimeError(

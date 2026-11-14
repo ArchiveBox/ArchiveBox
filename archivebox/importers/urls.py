@@ -8,7 +8,6 @@ urlpatterns = [
     path("", views.index, name="index"),
     path("export.<str:format>", views.export_sources, name="export"),
     re_path(rf"^(?P<source_id>{UUID})/runs\.(?P<format>csv|tsv|jsonl|json)$", views.export_runs, name="export-runs"),
-    path("custom/", views.create_custom, name="custom"),
     path("new/<slug:plugin>/<slug:feed>/", views.configure, name="new"),
     path("guide/<slug:plugin>/<slug:feed>/<int:step>/", views.guide_image, name="guide-image"),
     path("icon/<slug:plugin>/<slug:feed>/", views.brand_icon, name="icon"),

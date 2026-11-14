@@ -31,7 +31,19 @@ django_application = ArchiveBoxASGIHandler()
 
 async def application(scope, receive, send):
     if scope["type"] == "websocket":
-        from abx_plugins.plugins.opencode.archivebox.views import websocket_view
+        from django.urls import Resolver404, resolve
+        from archivebox.plugins.discovery import get_plugin_apps
+        from archivebox.plugins.host import host
 
-        return await websocket_view(scope, receive, send)
+        try:
+            name = resolve(scope["path"]).view_name
+        except Resolver404:
+            name = None
+        for app in get_plugin_apps().values():
+            views = getattr(app, "get_websocket_views", None)
+            view = views(host).get(name) if views is not None else None
+            if view is not None:
+                return await view(scope, receive, send)
+        await send({"type": "websocket.close", "code": 1008})
+        return
     return await django_application(scope, receive, send)

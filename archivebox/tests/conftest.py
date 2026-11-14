@@ -1185,7 +1185,8 @@ def start_archivebox_server(
     return proc
 
 
-def stop_archivebox_process(proc: subprocess.Popen[str], sig=signal.SIGTERM, *, timeout: float = 15.0) -> str:
+def stop_archivebox_process(proc: subprocess.Popen[str] | ArchiveBoxCmdResult, sig=signal.SIGTERM, *, timeout: float = 15.0) -> str:
+    assert isinstance(proc.pid, int)
     try:
         os.killpg(proc.pid, sig)
     except (ProcessLookupError, OSError):
@@ -1194,6 +1195,7 @@ def stop_archivebox_process(proc: subprocess.Popen[str], sig=signal.SIGTERM, *, 
         except ProcessLookupError:
             pass
     stdout, _stderr = proc.communicate(timeout=timeout)
+    assert stdout is None or isinstance(stdout, str)
     return stdout or ""
 
 

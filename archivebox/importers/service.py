@@ -133,6 +133,10 @@ def _read_output(run, command, config, output_dir: Path, cancellation):
     payload = config.model_dump(mode="json")
     if run.source.persona is not None:
         payload.update(run.source.persona.get_derived_config())
+        payload.update(
+            AUTH_STORAGE_FILE=run.source.persona.AUTH_STORAGE_FILE,
+            COOKIES_FILE=run.source.persona.COOKIES_FILE,
+        )
     env = PluginEnv(**payload).to_env()
     env["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
     env["IMPORTERS_STATE_DIR"] = str(output_dir.parent / "state")
@@ -186,14 +190,17 @@ def _finish(run, items, result):
             if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
                 raise ValueError("Importer item tags must be a list of tag names.")
             tags = [tag[:100] for tag in Crawl.parse_tag_names(tags)]
-            urls.append(json.dumps({"url": url, "tags": tags}) if tags else url)
+            record = {"url": url, "tags": tags, "title": item.get("title", "")}
+            bookmarked_at = item.get("metadata", {}).get("bookmarked_at")
+            if bookmarked_at:
+                record["bookmarked_at"] = bookmarked_at
+            urls.append(json.dumps(record))
         from archivebox.core.models import Folder
 
         folder_id = Folder.destination(source.folder_id)
-        capture_config = build_crawl_config_snapshot(persona=source.persona, overrides={"ONLY_NEW": True})
+        capture_config = build_crawl_config_snapshot(persona=source.persona, overrides={"ONLY_NEW": True, "PARSER": "jsonl"})
         crawl = Crawl(
-            # Native crawl JSONL preserves per-article tags without an input-parser plugin.
-            # Untagged discovery keeps the ordinary plain-URL submission path.
+            # Structured import records retain field boundaries and source metadata.
             urls="\n".join(urls),
             config=capture_config,
             persona=source.persona,
@@ -275,9 +282,7 @@ def run_next_importer(stop_event=None, *, run_id=None) -> bool:
             return True
         get_importer(run.source.plugin, run.source.feed)
         catalog = get_plugin_catalog()
-        # Optional host commands own persona/framework setup so standalone
-        # importers only consume their declared stdin and browser environment.
-        command = catalog.command(run.source.plugin, "import_archivebox") or catalog.command(run.source.plugin, "import")
+        command = catalog.command(run.source.plugin, "import")
         output_dir = CONSTANTS.DATA_DIR / "importers" / str(run.source_id) / str(run.pk)
         output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         config = get_config(persona=run.source.persona)

@@ -53,7 +53,7 @@ def runtime_stack_owner(*, data_dir: str | Path, exclude_id=None):
 
     for qs in (
         # Only server parents own HTTP runtime leadership. Foreground add/update
-        # commands can own runner/sonic components, but server startup must never
+        # commands can own runner/plugin services components, but server startup must never
         # wait behind them before binding Daphne.
         base_qs.filter(process_type=Process.TypeChoices.SERVER),
         # A foreground `archivebox run` process is allowed to own the runtime
@@ -75,7 +75,7 @@ def command_owns_runtime_stack(command, *, data_dir: str | Path) -> bool:
 
 
 def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
-    """Return the newest live local parent allowed to borrow runner/sonic."""
+    """Return the newest live local parent allowed to borrow runner/plugin services."""
     from django.db.models import Q
 
     from archivebox.machine.models import Machine, Process
@@ -105,66 +105,6 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
 def command_owns_foreground_runner(command, *, data_dir: str | Path) -> bool:
     owner = foreground_runner_owner(data_dir=data_dir)
     return bool(owner and owner.id == command.id)
-
-
-def ensure_daemon_stack(*, reason: str = ""):
-    from archivebox.config.common import get_config
-    from archivebox.workers.supervisord_util import (
-        get_existing_supervisord_process,
-        get_or_create_supervisord_process,
-        get_sonic_supervisord_worker_from_plugin,
-        get_worker,
-        start_worker,
-    )
-
-    try:
-        from abx_plugins.plugins.search_backend_sonic.daemon import SONIC_WORKER_NAME, is_port_listening, is_sonic_backend_enabled
-    except ModuleNotFoundError as err:
-        if err.name != "abx_plugins.plugins.search_backend_sonic.daemon":
-            raise
-        return None
-
-    config = get_config()
-    if not is_sonic_backend_enabled(config):
-        return None
-
-    host = str(config.SEARCH_BACKEND_SONIC_HOST_NAME)
-    port = int(config.SEARCH_BACKEND_SONIC_PORT)
-    # Search only needs the existing server's protocol endpoint. Preparing a
-    # worker installs/resolves its binary and rewrites its config, so reserve
-    # that work for a daemon we actually need to start.
-    if is_port_listening(host, port):
-        return {
-            "name": SONIC_WORKER_NAME,
-            "statename": "RUNNING",
-            "description": f"existing Sonic daemon at tcp://{host}:{port}",
-        }
-
-    sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
-    if sonic_worker is None:
-        return None
-
-    supervisor = get_existing_supervisord_process() or get_or_create_supervisord_process(daemonize=False)
-    worker = get_worker(supervisor, sonic_worker["name"])
-    if not (isinstance(worker, dict) and worker.get("statename") in ("STARTING", "RUNNING")):
-        if reason:
-            rprint(f"[yellow][*] Starting daemon stack for {reason}...[/yellow]")
-        worker = start_worker(supervisor, sonic_worker)
-
-    # Supervisord marks this worker RUNNING with startsecs=0, before Sonic has
-    # opened its search socket. A query launched at that point fails even though
-    # the daemon is about to become ready.
-    deadline = time.monotonic() + 30.0
-    while time.monotonic() < deadline:
-        if is_port_listening(host, port):
-            if time.monotonic() < deadline:
-                return worker
-            break
-        worker = get_worker(supervisor, sonic_worker["name"])
-        if not isinstance(worker, dict) or worker.get("statename") not in ("STARTING", "RUNNING"):
-            raise RuntimeError(f"Sonic search backend worker failed to start: {worker}")
-        time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
-    raise RuntimeError(f"Sonic search backend is not listening at tcp://{host}:{port}")
 
 
 def live_runner_processes(*, data_dir: str | Path):
@@ -335,7 +275,7 @@ def standby_until_foreground_runner_needed(
             owner_pid = owner.pid if owner else "unknown"
             previous_owner_pid = owner_pid
             rprint(
-                f"[yellow][*] A newer archivebox process took over the orchestrator, sonic "
+                f"[yellow][*] A newer archivebox process took over the orchestrator and plugin services "
                 f"(pid={owner_pid}). Work will continue there, and will resume here if that process exits and work still remains.[/yellow]",
                 file=sys.stderr,
             )

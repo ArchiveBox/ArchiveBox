@@ -2404,19 +2404,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Merge ArchiveResults
         self._merge_archive_results_from_index(index_data, update_existing=update_existing_archive_results)
         if not self._normalize_title_candidate(self.title, snapshot_url=self.url):
-            title_results = (
-                self.archiveresult_set.filter(
-                    plugin="title",
-                    status=ArchiveResult.StatusChoices.SUCCEEDED,
-                )
-                .exclude(output_str="")
-                .order_by("-start_ts", "-end_ts", "-created_at")
-            )
-            for title_result in title_results.only("output_str"):
-                result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
-                if result_title:
-                    self.title = result_title
-                    break
+            self.title = self.resolved_title or self.title
 
         # Write back in JSONL format
         self.write_index_jsonl(output_dir=output_dir)
@@ -3367,82 +3355,44 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @property
     def resolved_title(self) -> str:
+        from archivebox.plugins.discovery import get_snapshot_role_names, read_plugin_output_text
+
         stored_title = self._normalize_title_candidate(self.title, snapshot_url=self.url)
         if stored_title:
             return stored_title
-
+        names = get_snapshot_role_names("title_source")
         loaded_results = self.__dict__.get("_admin_archiveresults")
         if loaded_results is None:
-            title_results = (
-                self.archiveresult_set.filter(
-                    plugin="title",
-                    status=ArchiveResult.StatusChoices.SUCCEEDED,
-                )
+            loaded_results = list(
+                self.archiveresult_set.filter(plugin__in=names, status=ArchiveResult.StatusChoices.SUCCEEDED)
                 .exclude(output_str="")
                 .order_by("-start_ts", "-end_ts", "-created_at")
-                .only("output_str")
+                .only("plugin", "output_str", "status"),
             )
         else:
-            title_results = reversed(
-                [
-                    result
-                    for result in loaded_results
-                    if result.plugin == "title" and result.status == ArchiveResult.StatusChoices.SUCCEEDED and result.output_str
-                ],
-            )
-        for title_result in title_results:
-            result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
-            if result_title:
-                return result_title
-
-        title_file = self.output_dir / "title" / "title.txt"
-        if title_file.exists():
-            try:
-                file_title = self._normalize_title_candidate(title_file.read_text(encoding="utf-8"), snapshot_url=self.url)
-            except OSError:
-                file_title = ""
-            if file_title:
-                return file_title
-
+            loaded_results = list(reversed(loaded_results))
+        for name in names:
+            for result in loaded_results:
+                if result.plugin != name or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
+                    continue
+                value = read_plugin_output_text(name, self.output_dir, result.output_str)
+                if title := self._normalize_title_candidate(value, snapshot_url=self.url):
+                    return title
+        for name in names:
+            value = read_plugin_output_text(name, self.output_dir)
+            if title := self._normalize_title_candidate(value, snapshot_url=self.url):
+                return title
         return ""
 
     @cached_property
     def hashes_index(self) -> dict[str, dict[str, Any]]:
-        hashes_path = self.output_dir / "hashes" / "hashes.json"
-        if not hashes_path.exists():
-            return {}
+        from archivebox.plugins.discovery import get_snapshot_file_inventory
 
         try:
-            data = json.loads(hashes_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError, TypeError, ValueError):
+            inventory = get_snapshot_file_inventory(self.output_dir)
+            return inventory["files"] if inventory is not None else {}
+        except (OSError, TypeError, ValueError):
             return {}
-
-        index: dict[str, dict[str, Any]] = {}
-        if isinstance(data, dict) and isinstance(data.get("files"), list):
-            for entry in data["files"]:
-                if not isinstance(entry, dict):
-                    continue
-                path = str(entry.get("path") or "").strip().rstrip("/")
-                if not path:
-                    continue
-                index[path] = {
-                    "size": entry.get("size") or entry.get("num_bytes") or entry.get("bytes") or 0,
-                    "is_dir": bool(entry.get("is_dir")) or str(entry.get("path") or "").endswith("/"),
-                    "hash": entry.get("hash") or entry.get("hash_sha256"),
-                }
-        elif isinstance(data, dict):
-            for path, entry in data.items():
-                if not isinstance(entry, dict) or path == ".":
-                    continue
-                clean_path = str(path).rstrip("/")
-                if not clean_path:
-                    continue
-                index[clean_path] = {
-                    "size": entry.get("size") or entry.get("num_bytes") or 0,
-                    "is_dir": bool(entry.get("mime_type") == "inode/directory" or str(path).endswith("/")),
-                    "hash": entry.get("hash") or entry.get("hash_sha256"),
-                }
-        return index
 
     @property
     def output_dir(self) -> Path:
@@ -4197,7 +4147,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             output_file_map = result.output_file_map()
             embed_path = result.embed_path_db(output_file_map=output_file_map)
             if include_filesystem_fallback and embed_path not in hashes_index:
-                raw_output = str(result.output_str or "")
+                from archivebox.plugins.discovery import plugin_output_is_text
+
+                raw_output = "" if plugin_output_is_text(result.plugin) else str(result.output_str or "")
                 embed_path = raw_output if raw_output in hashes_index else None
             if not embed_path and include_filesystem_fallback:
                 prefix = f"{result.plugin}/"
@@ -5257,8 +5209,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         # attempt's files; only a new result event may replace this row's output.
         if self.status in {self.StatusChoices.QUEUED, self.StatusChoices.STARTED, self.StatusChoices.SKIPPED}:
             return False
-        if self.plugin == "title":
-            return False
 
         snapshot_dir = Path(snapshot_dir or self.snapshot.output_dir)
         exclude_names = {"stdout.log", "stderr.log", "process.pid", "hook.pid", "listener.pid"}
@@ -5275,7 +5225,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 metadata["root_relative"] = True
             output_files[rel_path] = metadata
 
-        for raw_line in str(self.output_str or "").splitlines():
+        from archivebox.plugins.discovery import plugin_output_is_text
+
+        output_lines = () if plugin_output_is_text(self.plugin) else str(self.output_str or "").splitlines()
+        for raw_line in output_lines:
             raw_output = raw_line.strip().lstrip("/")
             if not raw_output or raw_output in {".", "./", "/"} or "://" in raw_output or raw_output.startswith("/"):
                 continue
@@ -5465,7 +5418,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         A classmethod so list pages can resolve plain value rows without
         instantiating a model per result (see archivebox.core.list_results_util).
         """
-        if output_str:
+        from archivebox.plugins.discovery import plugin_output_is_text
+
+        if output_str and not plugin_output_is_text(plugin):
             raw_output = str(output_str).strip()
             if cls._looks_like_output_path(raw_output, plugin):
                 output_path = Path(raw_output)
@@ -5482,14 +5437,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     candidates.append(raw_output)
 
                 if not output_file_map:
-                    from ipaddress import ip_address
-
-                    try:
-                        ip_address(raw_output)
-                    except ValueError:
-                        pass
-                    else:
-                        return None
                     # Legacy rows still have a stored display path. Do not probe
                     # payload storage while rendering a live snapshot page.
                     return candidates[0] if ".." not in output_path.parts else None

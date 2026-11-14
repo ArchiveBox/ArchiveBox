@@ -246,33 +246,32 @@ def iter_query_search_ids(
 
     backends = get_available_backends()
     configured_backend = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
-    fallback_enabled = search_mode_base == "deep" and (not forced_backend or forced_backend == configured_backend == "sonic")
+    fallback_enabled = search_mode_base == "deep" and (
+        not forced_backend
+        or (forced_backend == configured_backend and forced_backend in backends and backends[forced_backend].config.search_fallback)
+    )
+    indexed = [name for name, backend in backends.items() if not backend.config.search_scan]
+    scanners = [name for name, backend in backends.items() if backend.config.search_scan]
     if forced_backend:
         if forced_backend not in backends:
             raise RuntimeError(
                 f'Search backend "{forced_backend}" not found. Available backends: {list(backends) or "none"}',
             )
         backend_names = (
-            [
-                forced_backend,
-                *(name for name in backends if name not in {forced_backend, "ripgrep"}),
-                *(["ripgrep"] if "ripgrep" in backends and forced_backend != "ripgrep" else []),
-            ]
-            if fallback_enabled
-            else [forced_backend]
+            [forced_backend, *(name for name in (*indexed, *scanners) if name != forced_backend)] if fallback_enabled else [forced_backend]
         )
     elif search_mode_base == "deep":
         backend_names = [
-            *([configured_backend] if configured_backend in backends and configured_backend != "ripgrep" else []),
-            *(name for name in backends if name not in {configured_backend, "ripgrep"}),
-            *(["ripgrep"] if "ripgrep" in backends else []),
+            *([configured_backend] if configured_backend in indexed else []),
+            *(name for name in indexed if name != configured_backend),
+            *scanners,
         ]
     elif configured_backend in backends:
         backend_names = [configured_backend]
-    elif "ripgrep" in backends:
-        backend_names = ["ripgrep"]
+    elif scanners:
+        backend_names = scanners[:1]
     else:
-        get_backend()
+        get_backend(config=config)
         return
 
     errors: list[Exception] = []
@@ -284,16 +283,12 @@ def iter_query_search_ids(
                 return
             backend = backends[backend_name]
             try:
-                if backend_name == "sonic":
-                    import sys
-                    from contextlib import redirect_stdout
+                import sys
+                from contextlib import redirect_stdout
+                from archivebox.plugins.services import ensure_plugin_services
 
-                    from archivebox.core.takeover_util import ensure_daemon_stack
-
-                    # Search commands can produce structured stdout such as
-                    # --csv/--json. Keep daemon diagnostics on stderr.
-                    with redirect_stdout(sys.stderr):
-                        ensure_daemon_stack(reason="search query")
+                with redirect_stdout(sys.stderr):
+                    ensure_plugin_services(config, plugin_names={backend.name}, reason="search query")
                 from abx_dl.execution import iter_plugin_command
                 from archivebox.config.constants import CONSTANTS
                 from archivebox.plugins.discovery import get_plugin_catalog

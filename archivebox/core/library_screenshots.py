@@ -12,38 +12,19 @@ from django.utils import timezone
 
 
 def configure_provider(model, data_dir):
-    """Use the collection's real OpenCode server and its protected credential store."""
-    from abx_plugins.plugins.opencode import runtime
-    from archivebox.config import CONSTANTS
-    from archivebox.config.common import get_config
+    from archivebox.plugins.discovery import get_plugin_apps
+    from archivebox.plugins.host import host
 
-    collection = Path(data_dir).resolve()
-    if collection != CONSTANTS.DATA_DIR.resolve():
-        raise ValueError("Run AI gallery preparation from its explicit collection directory.")
-    config = get_config().model_dump(mode="json")
-    if not config.get("OPENCODE_ENABLED"):
-        raise RuntimeError("Enable OpenCode in the screenshot collection before preparing AI screenshots.")
-    settings = runtime._settings(config, collection)
-    if settings["host"] not in {"127.0.0.1", "localhost", "::1"} or any(
-        not settings[key].resolve().is_relative_to(collection) for key in ("opencode_dir", "workdir")
-    ):
-        raise ValueError("AI gallery authentication requires a local OpenCode server scoped to its screenshot collection.")
-    ok, error = runtime._ensure_opencode(settings)
-    if not ok:
-        raise RuntimeError(error)
-    auth = runtime._server_auth(settings)
-    if api_key := os.environ.get("OPENAI_API_KEY"):
-        response = requests.put(f"{settings['origin']}/auth/openai", json={"type": "api", "key": api_key}, auth=auth, timeout=30)
-        response.raise_for_status()
-        credential_store = settings["data_home"] / "opencode" / "auth.json"
-        if credential_store.exists():
-            credential_store.chmod(0o600)
-    response = requests.get(f"{settings['origin']}/provider", auth=auth, timeout=30)
-    response.raise_for_status()
-    providers = response.json()
-    provider = next((provider for provider in providers.get("all", []) if provider.get("id") == "openai"), {})
-    if "openai" not in providers.get("connected", []) or model.removeprefix("openai/") not in provider.get("models", {}):
-        raise RuntimeError("The requested OpenAI model is unavailable. Configure OpenAI in this collection or supply OPENAI_API_KEY.")
+    config = host.request_config()
+    if Path(data_dir).resolve() != Path(config["DATA_DIR"]).resolve():
+        raise ValueError("Run gallery preparation from its explicit collection directory.")
+    configured = False
+    for app in get_plugin_apps().values():
+        configure = getattr(app, "configure_gallery", None)
+        if configure is not None:
+            configured = configure(model, config, data_dir) or configured
+    if not configured:
+        raise RuntimeError("Enable an agent plugin in the screenshot collection before preparing AI screenshots.")
 
 
 class NewsLinks(HTMLParser):

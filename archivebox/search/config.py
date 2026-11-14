@@ -16,8 +16,9 @@ def get_default_search_mode(config: dict[str, Any] | None = None, **config_kwarg
     backends = get_available_backends()
     if backend_name in backends:
         return f"deep:{backend_name}"
-    if "ripgrep" in backends:
-        return "deep:ripgrep"
+    for name, backend in backends.items():
+        if backend.config.search_scan:
+            return f"deep:{name}"
     return "contents"
 
 

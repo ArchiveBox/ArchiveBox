@@ -1,6 +1,4 @@
 import asyncio
-import base64
-import hashlib
 import html
 import json
 import mimetypes
@@ -14,14 +12,11 @@ import threading
 import time
 import zipfile
 from datetime import UTC, datetime
-from functools import lru_cache
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import cast
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
 
 from django.contrib.staticfiles import finders
-from django.core.handlers.asgi import ASGIRequest
 from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
 from django.template import TemplateDoesNotExist, loader
 from django.utils._os import safe_join
@@ -33,7 +28,9 @@ from markdown import markdown
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import render_plugin_full_response
+from abx_plugins.plugins.base.html import Resources
+from abx_plugins.plugins.base.django import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
+from archivebox.plugins.discovery import get_replay_document_hooks, render_plugin_full_response, rewrite_plugin_replay_document
 
 DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
@@ -72,234 +69,21 @@ a > img:not([width]):not([height]) {
 </style>"""
 
 
-def add_replay_archive_fallbacks(response: HttpResponse) -> HttpResponse:
-    """Repair missing responsive images and equivalent recorded X API URLs.
+def _load_file_inventory(snapshot_dir: Path) -> dict | None:
+    from archivebox.plugins.discovery import get_snapshot_file_inventory
 
-    X's client uses api.x.com/graphql without its original CSRF cookie, while
-    authenticated capture uses x.com/i/api/graphql. Repair only GETs for that
-    exact endpoint alias (also twitter.com), with an identical indexed query in
-    the same local archive. Never reuse credentials or fetch a live API.
-
-    WHY: a recorder saves the image Chrome selected, not every srcset candidate.
-    Replaying at another viewport/DPR can select an uncaptured URL (the motivating
-    case was Drive's missing 2x logo with its 1x logo already in the same WACZ).
-    WACZ requests are answered inside Webrecorder's service worker, so a Django
-    404 handler cannot repair them. Append this adapter when serving that worker;
-    do not change captures, request more live assets, or resize the recorded page.
-
-    For images, only a GET that already returned 404 is eligible. The worker reads the
-    referring HTML from the SAME archive and tries src/srcset candidates declared
-    on that img or its enclosing picture. It never guesses filename substitutions
-    or borrows an unrelated nearby image. The original response wins on absent
-    metadata, unsupported worker APIs, parse errors, timeout, or failed candidates.
-    This deliberately does not promise to fix JS-only srcsets, CSS backgrounds,
-    corrupt images returning 200, or pages whose archived HTML is too large.
-
-    Keep this self-contained in the static-file server: it is a replay repair,
-    independent of capture execution. Feature detection makes upstream
-    worker changes disable the repair rather than break ordinary replay. The
-    archive's HTML/ZIP bytes and successful HTTP responses remain untouched.
-    """
-    if (
-        response.status_code != 200
-        or response.streaming
-        or not response.has_header("Service-Worker-Allowed")
-        or "javascript" not in response.get("Content-Type", "")
-    ):
-        return response
-    script = rb"""
-;(() => {
-  try {
-    const replay = self.sw;
-    if (!replay || typeof replay.handleFetch !== "function" ||
-        typeof replay.getResponseFor !== "function" || !replay.collections ||
-        replay.proxyOriginMode || replay.topFramePassthrough || replay.__abxArchiveFallbacks) return;
-    const original = replay.handleFetch;
-    const documents = new Map();
-    const decode = value => value.replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[\da-f]+);/gi, entity => {
-      const named = {"&amp;":"&", "&quot;":'"', "&apos;":"'", "&lt;":"<", "&gt;":">"};
-      return named[entity.toLowerCase()] || String.fromCodePoint(
-        entity[2].toLowerCase() === "x" ? parseInt(entity.slice(3), 16) : parseInt(entity.slice(2), 10));
-    });
-    const attributes = tag => {
-      const attrs = {};
-      for (const m of tag.matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)) {
-        attrs[m[1].toLowerCase()] = decode(m[2] ?? m[3] ?? m[4]);
-      }
-      return attrs;
-    };
-    const sourceSet = value => {
-      // URLs may contain commas (e.g. image-CDN transforms). Like HTML's
-      // srcset tokenizer, consume a URL through whitespace, then descriptors.
-      const urls = [];
-      let rest = value || "";
-      while (rest && urls.length < 64) {
-        rest = rest.replace(/^[\s,]+/, "");
-        const token = rest.match(/^\S+/)?.[0];
-        if (!token) break;
-        urls.push(token.replace(/,+$/, ""));
-        rest = rest.slice(token.length);
-        if (!token.endsWith(",")) rest = rest.replace(/^[^,]*(?:,|$)/, "");
-      }
-      return urls;
-    };
-    const splitReplay = (url, prefix) => {
-      if (!url.startsWith(prefix)) return null;
-      return url.slice(prefix.length).match(/^((?::[^/]+\/)?\d{0,14})(?:[a-z]+_)?\/((?:https?:)?\/\/.+)$/);
-    };
-    replay.handleFetch = async function(event) {
-      // Never catch/retry the original operation: preserve its normal behavior.
-      const response = await original.call(this, event);
-      const request = event.request;
-      if (response.status !== 404 || request.method !== "GET" ||
-          !["image", ""].includes(request.destination)) return response;
-      let expired = false, timer;
-      try {
-        const repair = async () => {
-          if (!request.url.startsWith(this.replayPrefix)) return response;
-          const name = this.collections.root || request.url.slice(this.replayPrefix.length).split("/", 1)[0];
-          const collection = await this.collections.getColl(name);
-          // Do not operate on live/proxy collections or remote source archives.
-          // lookupUrl is the archive index API, absent on the live proxy store.
-          if (!collection || typeof collection.store?.lookupUrl !== "function" || collection.liveRedirectOnNotFound ||
-              new URL(collection.config.sourceUrl).origin !== self.location.origin) return response;
-          const missing = splitReplay(request.url, collection.prefix);
-          const referring = splitReplay(request.referrer, collection.prefix);
-          if (!missing || !referring) return response;
-          const archiveURL = url => collection.prefix + referring[1] + "id_/" + url;
-          const read = url => this.getResponseFor(new Request(archiveURL(url), {
-            credentials: "same-origin", redirect: "manual", signal: request.signal,
-          }), event);
-          if (request.destination !== "image") {
-            const api = missing[2].match(/^https:\/\/api\.(x|twitter)\.com(\/graphql\/[\w-]+\/\w+)(\?.*)?$/);
-            if (!api || new URL(referring[2]).origin !== `https://${api[1]}.com`) return response;
-            const url = `https://${api[1]}.com/i/api${api[2]}${api[3] || ""}`;
-            const alternative = await read(url);
-            // Reading loads the relevant WACZ index block. Require an exact
-            // indexed URL too: upstream fuzzy matching must not substitute a
-            // different GraphQL query, operation, or authenticated response.
-            const indexed = await collection.store.lookupUrl(url, 0);
-            if (expired || !indexed || indexed.url !== url || alternative.status !== 200 ||
-                !alternative.headers.get("content-type")?.includes("application/json")) return response;
-            const headers = new Headers(alternative.headers);
-            headers.set("X-ArchiveBox-API-Alias", url);
-            headers.set("Cache-Control", "no-store");
-            return new Response(alternative.body, {status:200, headers});
-          }
-          const key = archiveURL(referring[2]);
-          if (!documents.has(key)) {
-            // Cache only candidate metadata, never whole HTML or image bodies.
-            // Both entry count and HTML reads are bounded; WACZ range loading
-            // remains the upstream replay engine's responsibility.
-            if (documents.size >= 16) documents.delete(documents.keys().next().value);
-            documents.set(key, (async () => {
-              const html = await read(referring[2]);
-              if (html.status !== 200 || !html.headers.get("content-type")?.includes("text/html")) return [];
-              const reader = html.body.getReader(), decoder = new TextDecoder();
-              let text = "", size = 0;
-              try {
-                while (true) {
-                  const chunk = await reader.read();
-                  if (chunk.done) break;
-                  size += chunk.value.byteLength;
-                  if (expired || size > 2 * 1024 * 1024) return [];
-                  text += decoder.decode(chunk.value, {stream:true});
-                }
-                text += decoder.decode();
-              } finally {await reader.cancel().catch(() => {});}
-              // Ignore tag-shaped strings in scripts/comments. Parsing is
-              // intentionally conservative; an odd/malformed page stays broken
-              // instead of acquiring an unrelated "similar looking" image.
-              text = text.replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
-              const groups = [];
-              let base = referring[2], picture = null;
-              const absolute = value => {
-                try {
-                  const url = new URL(value, base);
-                  if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
-                  url.hash = "";
-                  return url.href;
-                } catch {return null;}
-              };
-              for (const token of text.matchAll(/<\/?(?:base|picture|source|img)\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi)) {
-                const tag = token[0], attrs = attributes(tag);
-                if (/^<base\b/i.test(tag)) {if (attrs.href) base = absolute(attrs.href) || base; continue;}
-                if (/^<picture\b/i.test(tag)) {picture = []; continue;}
-                if (/^<\/picture\b/i.test(tag)) {picture = null; continue;}
-                const urls = [...new Set([attrs.src, ...sourceSet(attrs.srcset)].filter(Boolean).map(absolute).filter(Boolean))];
-                if (/^<source\b/i.test(tag)) {if (picture) picture.push(...urls); continue;}
-                if (!attrs.srcset && !picture?.length) continue;
-                groups.push([...new Set([...urls, ...(picture || [])])].slice(0, 64));
-                if (groups.length >= 512) break;
-              }
-              return groups;
-            })());
-          }
-          const groups = await documents.get(key);
-          const failed = new URL(missing[2], referring[2]); failed.hash = "";
-          const candidates = groups.find(group => group.includes(failed.href));
-          if (!candidates) return response;
-          // Prefer the img's explicit src, then alternatives in declaration
-          // order. Limit extra archive lookups, and never follow redirects.
-          for (const url of candidates.filter(url => url !== failed.href).slice(0, 6)) {
-            if (expired) break;
-            const alternative = await read(url);
-            if (alternative.status !== 200 || !alternative.headers.get("content-type")?.startsWith("image/")) continue;
-            if (expired) break;
-            const headers = new Headers(alternative.headers);
-            headers.set("X-ArchiveBox-Image-Fallback", url);
-            headers.set("Cache-Control", "no-store");
-            return new Response(alternative.body, {status:200, headers});
-          }
-          return response;
-        };
-        return await Promise.race([
-          repair().catch(() => response),
-          new Promise(resolve => {timer = setTimeout(() => {expired = true; resolve(response);}, 1500);}),
-        ]);
-      } catch {return response;}
-      finally {expired = true; clearTimeout(timer);}
-    };
-    replay.__abxArchiveFallbacks = true;
-  } catch { /* Optional repair must never prevent the worker from starting. */ }
-})();
-"""
     try:
-        body = response.content
-        if b"self.sw=" not in body or b"__abxArchiveFallbacks" in body:
-            return response
-        response.content = body + script
-        # Upstream headers describe the unmodified worker. Revalidate this
-        # generated asset so existing captures can receive the repair too.
-        for header in ("ETag", "Last-Modified", "Content-Length"):
-            if response.has_header(header):
-                del response[header]
-        response["Cache-Control"] = "no-cache"
-    except Exception:
-        pass
-    return response
-
-
-def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
-    hashes_path = snapshot_dir / "hashes" / "hashes.json"
-    try:
-        return _read_hash_map(hashes_path, hashes_path.stat().st_mtime_ns)
-    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+        inventory = get_snapshot_file_inventory(snapshot_dir)
+        return inventory["files"] if inventory is not None else None
+    except (OSError, TypeError, ValueError):
         return None
-
-
-@lru_cache(maxsize=32)
-def _read_hash_map(hashes_path: Path, mtime_ns: int) -> dict[str, str]:
-    # Include the file version in the key without retaining every replayed manifest.
-    data = json.loads(hashes_path.read_text(encoding="utf-8"))
-    return {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
 
 
 def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
-    file_map = _load_hash_map(document_root)
+    file_map = _load_file_inventory(document_root)
     if not file_map:
         return None
-    return file_map.get(rel_path)
+    return file_map.get(rel_path, {}).get("hash")
 
 
 def _resolve_contained_path(root: Path, path: Path) -> Path:
@@ -529,35 +313,16 @@ def _build_directory_zip_response(
     )
 
 
-async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
-    iterator = iter(ranged_file)
-    try:
-        while True:
-            read = asyncio.create_task(asyncio.to_thread(next, iterator, None))
-            try:
-                chunk = await asyncio.shield(read)
-            except asyncio.CancelledError:
-                # Cancellation cannot stop the kernel read. Keep its task alive
-                # until it releases BufferedReader's lock before scheduling close:
-                # otherwise every disconnected slow reader consumes TWO executor
-                # workers and can starve unrelated cached-file responses. A read
-                # error after disconnect has no recipient; normal errors propagate.
-                await asyncio.gather(read, return_exceptions=True)
-                raise
-            if chunk is None:
-                break
-            yield chunk
-    finally:
-        # Closing the file can itself perform filesystem work. Keep cleanup
-        # off the event loop too, after the pending read has released its lock.
-        await asyncio.to_thread(ranged_file.close)
-
-
 MODEL_PREVIEW_EXTENSIONS = frozenset({".stl", ".glb", ".gltf", ".obj", ".ply", ".3mf"})
 
 
 def _render_directory_index(
-    request, path: str, fullpath: Path, document_root: Path, *, static_previews: dict | None = None
+    request,
+    path: str,
+    fullpath: Path,
+    document_root: Path,
+    *,
+    static_previews: dict | None = None,
 ) -> HttpResponse:
     try:
         template = loader.select_template(
@@ -809,207 +574,6 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
 </html>"""
 
 
-def _encoded_responses_image_url(image_url: str, page_url: str | None) -> str | None:
-    raw_url = str(image_url or "").strip()
-    if not raw_url or raw_url.startswith(("#", "data:", "blob:", "about:", "javascript:")):
-        return None
-
-    absolute_url = urljoin(page_url or "", raw_url)
-    if not absolute_url.startswith(("http://", "https://")):
-        return None
-
-    return quote(absolute_url, safe="").replace("%", "_")
-
-
-def _saved_response_records(index: Path) -> list[dict]:
-    records = []
-    with index.open(errors="replace") as lines:
-        for line in lines:
-            try:
-                record = json.loads(line)
-                if isinstance(record, dict):
-                    records.append(record)
-            except ValueError:
-                continue
-    return records
-
-
-def _index_responses_paths_for_html_images(
-    snapshot_root: Path,
-    html_rel_path: str,
-    encoded_urls: set[str],
-    records: list[dict] | None = None,
-) -> dict[str, str]:
-    responses_root = snapshot_root / "responses"
-    if not encoded_urls or not responses_root.is_dir():
-        return {}
-
-    best_matches: dict[str, str] = {}
-    image_matches: set[str] = set()
-    # Optional responses plugin file contract: index.jsonl records contain method,
-    # url, status, and a path relative to responses/. No plugin code is imported.
-    # Legacy captures without an index still use the filename lookup below.
-    # The index retains complete URLs even when response filenames are shortened.
-    index = responses_root / "index.jsonl"
-    if index.is_file():
-        resolved_root = responses_root.resolve()
-        if records is None:
-            records = _saved_response_records(index)
-        for record in records:
-            try:
-                if record.get("method") != "GET" or record.get("status") != 200:
-                    continue
-                urls = {_encoded_responses_image_url(record.get("url", ""), None)}
-                # Saved HTML still references the original request after a CDN
-                # redirect. Its recorded GET alias must resolve to the same body.
-                if (record.get("requestMethod") or record.get("method")) == "GET":
-                    urls.add(_encoded_responses_image_url(record.get("requestUrl", ""), None))
-                matches = encoded_urls & urls
-                if not matches:
-                    continue
-                candidate = (responses_root / record.get("path", "")).resolve()
-                if not candidate.is_relative_to(resolved_root) or not candidate.is_file():
-                    continue
-                for encoded in matches:
-                    best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
-                    image_matches.add(encoded)
-            except (ValueError, TypeError, AttributeError):
-                continue
-        # The index lists every saved response, so walking responses/ (thousands
-        # of files on possibly-remote archive storage, on every HTML page view)
-        # is only for legacy captures that predate it.
-        return best_matches
-    image_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
-    for candidate in responses_root.rglob("*"):
-        if not candidate.is_file():
-            continue
-        try:
-            rel_path = candidate.relative_to(snapshot_root)
-        except ValueError:
-            continue
-        relative_match = posixpath.relpath(rel_path.as_posix(), start=posixpath.dirname(html_rel_path) or ".")
-        candidate_name = candidate.name
-        is_image = candidate.suffix.lower() in image_suffixes
-        for encoded_url in encoded_urls:
-            if encoded_url in image_matches or f"__GET__{encoded_url}" not in candidate_name:
-                continue
-            best_matches[encoded_url] = relative_match
-            if is_image:
-                # Preserve the old rglob behavior: the first image match wins,
-                # otherwise the last matching response file is used.
-                image_matches.add(encoded_url)
-    return best_matches
-
-
-class Resources(HTMLParser):
-    # A request-local class closes over every offset and URL span; its class/MRO
-    # cycle keeps that large state alive until cyclic GC. Instances instead own
-    # only this document and release it when the request finishes.
-    def __init__(self, html_text: str, *, passive: bool = False, navigation: bool = False):
-        super().__init__()
-        self.spans: list[tuple[int, int, str]] = []
-        self.inserted_sources: set[int] = set()
-        self.background_styles: dict[int, bool] = {}
-        self.stylesheet_integrities: dict[int, tuple[int, int]] = {}
-        # HTMLParser advances lines only on LF, not CR or Unicode separators.
-        self.offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
-        self.base_href = None
-        self.passive = passive
-        self.navigation = navigation
-        self.base_tags: list[tuple[int, int]] = []
-        self.head_end = 0
-        self.doctype_end = 0
-        self.script_tags: list[tuple[int, int, str]] = []
-
-    attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
-
-    def handle_decl(self, decl):
-        if self.navigation and decl.lower().startswith("doctype"):
-            line, column = self.getpos()
-            self.doctype_end = self.offsets[line - 1] + column + len(decl) + 3
-
-    def handle_starttag(self, tag, attrs):
-        values = dict(attrs)
-        if self.navigation and tag in {"base", "head"}:
-            line, column = self.getpos()
-            start = self.offsets[line - 1] + column
-            end = start + len(self.get_starttag_text())
-            if tag == "base":
-                self.base_tags.append((start, end))
-            elif not self.head_end:
-                self.head_end = end
-        if self.passive:
-            # Browsers keep the first duplicate attribute. Leave the ordinary
-            # resource mapper unchanged; passive selection follows that rule too.
-            passive_values = dict(reversed(attrs))
-            rel = (passive_values.get("rel") or "").lower().split()
-            script_fetch = tag == "script" or (
-                tag == "link" and ("modulepreload" in rel or ("preload" in rel and (passive_values.get("as") or "").lower() == "script"))
-            )
-            if script_fetch:
-                line, column = self.getpos()
-                offset = self.offsets[line - 1] + column
-                omitted = "src" if tag == "script" else "href"
-                if omitted in passive_values:
-                    # Rebuild only these start tags from parsed attributes: HTML
-                    # permits missing spaces after quoted attributes, so regex
-                    # spans requiring whitespace can leave a script URL behind.
-                    attributes = "".join(
-                        f' {name}="{html.escape(value, quote=True)}"' if value is not None else f" {name}"
-                        for name, value in attrs
-                        if name != omitted
-                    )
-                    original_tag = self.get_starttag_text()
-                    closing = "/>" if original_tag.endswith("/>") else ">"
-                    self.script_tags.append((offset, offset + len(original_tag), f"<{tag}{attributes}{closing}"))
-                return
-        if tag == "base" and self.base_href is None:
-            self.base_href = values.get("href")
-        lazy_names = ("data-src", "data-lazy-src", "data-echo")
-        lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
-        names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
-        if self.navigation:
-            names = {"href"} if tag in {"a", "area"} else set()
-        if not self.navigation and values.get("data-echo-background"):
-            names.add("data-echo-background")
-        if not self.navigation and tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
-            names = {"href"}
-        if not names:
-            return
-        line, column = self.getpos()
-        offset = self.offsets[line - 1] + column
-        if lazy_src and "src" not in values:
-            start = offset + len(tag) + 1
-            self.spans.append((start, start, lazy_src))
-            self.inserted_sources.add(start)
-        attributes = list(self.attribute.finditer(self.get_starttag_text()))
-        if not self.navigation and values.get("data-echo-background"):
-            style = next((match for match in attributes if match.group(1).lower() == "style"), None)
-            if style:
-                group = next(i for i in (2, 3, 4) if style.group(i) is not None)
-                start = offset + style.end(group)
-            else:
-                tag_text = self.get_starttag_text()
-                start = offset + len(tag_text) - (2 if tag_text.endswith("/>") else 1)
-            self.spans.append((start, start, values["data-echo-background"]))
-            self.background_styles[start] = style is None
-        integrity = next((match for match in attributes if match.group(1).lower() == "integrity"), None)
-        for match in attributes:
-            if match.group(1).lower() in names:
-                group = next(i for i in (2, 3, 4) if match.group(i) is not None)
-                start = offset + match.start(group)
-                resource_url = html.unescape(match.group(group))
-                if lazy_src and match.group(1).lower() == "src" and (not resource_url or resource_url.startswith(("data:", "about:"))):
-                    # Cards intentionally disable scripts. Resolve an explicit
-                    # lazy image from saved bytes instead of its placeholder.
-                    resource_url = lazy_src
-                self.spans.append((start, offset + match.end(group), resource_url))
-                if tag == "link" and integrity:
-                    self.stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
-
-    handle_startendtag = handle_starttag
-
-
 def rewrite_navigation_links(
     html_text: str,
     page_url: str,
@@ -1165,158 +729,7 @@ def _passive_html_thumbnail(html_text: str) -> str:
     return "".join(chunks)
 
 
-def _rewrite_html_image_sources_to_responses(
-    html_text: str,
-    snapshot_root: Path,
-    html_rel_path: str,
-    page_url: str | None,
-    replay_url: str | None = None,
-    source_html: str | None = None,
-) -> tuple[str, int]:
-    # Parse real start tags, preserving script/comment data and untouched bytes.
-    resources = Resources(html_text)
-    resources.feed(html_text)
-    spans = resources.spans
-    inserted_sources = resources.inserted_sources
-    background_styles = resources.background_styles
-    stylesheet_integrities = resources.stylesheet_integrities
-    base_href = resources.base_href
-    if not any(src and not src.startswith(("#", "data:", "blob:", "about:", "javascript:")) for _, _, src in spans):
-        return html_text, 0
-
-    records = None
-    index = snapshot_root / "responses" / "index.jsonl"
-    if index.is_file():
-        records = _saved_response_records(index)
-        for record in records:
-            # Response HTML can be a different page from the snapshot URL.
-            if posixpath.normpath("responses/" + str(record.get("path", ""))) == html_rel_path:
-                page_url = record.get("url") or page_url
-    page_url = urljoin(page_url or "", base_href) if base_href else page_url
-    encoded_urls_by_src = {src: _encoded_responses_image_url(src, page_url) for _, _, src in spans}
-    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
-    if not wanted:
-        return html_text, 0
-
-    # Optional dom plugin artifact: dom/output.html. Only image src and
-    # data-canonical-src attributes are read; no scripts or plugin code execute.
-    # Absence of this artifact simply disables proxy-to-original aliases.
-    aliases: dict[str, str] = {}
-
-    class ImageAliases(HTMLParser):
-        def handle_starttag(self, tag, attrs):
-            attrs = dict(attrs)
-            original = attrs.get("data-canonical-src")
-            proxy = attrs.get("src")
-            if tag == "img" and original and proxy:
-                original_key = _encoded_responses_image_url(original, page_url)
-                proxy_key = _encoded_responses_image_url(proxy, page_url)
-                if original_key and proxy_key:
-                    aliases[original_key] = proxy_key
-
-    dom = snapshot_root / "dom" / "output.html"
-    if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
-        # Reuse the original decoded DOM when serving that very file. Large DOMs
-        # otherwise get read/decoded twice per request. Display text may already
-        # be HTML-unescaped or rendered Markdown, so it is not an alias source.
-        dom_html = source_html if html_rel_path == "dom/output.html" and source_html is not None else dom.read_text(errors="replace")
-        ImageAliases().feed(dom_html)
-    response_paths = _index_responses_paths_for_html_images(
-        snapshot_root,
-        html_rel_path,
-        wanted | {aliases[key] for key in wanted if key in aliases},
-        records=records,
-    )
-    rewrites = 0
-
-    edits = []
-    for start, end, resource_url in spans:
-        encoded_url = encoded_urls_by_src.get(resource_url)
-        local_path = response_paths.get(encoded_url or "") or response_paths.get(aliases.get(encoded_url or "", ""))
-        if not local_path:
-            continue
-        stylesheet_body, changed_stylesheet = "", 0
-        if start in stylesheet_integrities:
-            stylesheet = snapshot_root / posixpath.normpath(posixpath.join(posixpath.dirname(html_rel_path), local_path))
-            if stylesheet.stat().st_size <= 10 * 1024 * 1024:
-                stylesheet_body, changed_stylesheet = _rewrite_css_sources_to_responses(
-                    stylesheet.read_text(errors="replace"),
-                    snapshot_root,
-                    posixpath.normpath(posixpath.join(posixpath.dirname(html_rel_path), local_path)),
-                )
-        if base_href:
-            # An external <base> must never send a rewritten local asset live.
-            if not replay_url:
-                continue
-            local_path = urljoin(replay_url, local_path)
-        value = html.escape(local_path, quote=True)
-        if start in background_styles:
-            css_url = local_path.replace("\\", "\\\\").replace('"', r"\"")
-            value = html.escape(f';background-image:url("{css_url}")', quote=True)
-            if background_styles[start]:
-                value = f' style="{value}"'
-        elif start in inserted_sources:
-            value = f' src="{value}"'
-        edits.append((start, end, value))
-        if changed_stylesheet:
-            # Preserve integrity checking for the exact enriched representation;
-            # raw downloads and unchanged stylesheet/script digests stay intact.
-            integrity_start, integrity_end = stylesheet_integrities[start]
-            digest = base64.b64encode(hashlib.sha384(stylesheet_body.encode("utf-8")).digest()).decode("ascii")
-            edits.append((integrity_start, integrity_end, f' integrity="sha384-{digest}"'))
-        rewrites += 1
-    chunks = []
-    previous = 0
-    for start, end, value in sorted(edits):
-        chunks.extend((html_text[previous:start], value))
-        previous = end
-    chunks.append(html_text[previous:])
-    return "".join(chunks), rewrites
-
-
-def _rewrite_css_sources_to_responses(css_text: str, snapshot_root: Path, rel_path: str) -> tuple[str, int]:
-    index = snapshot_root / "responses" / "index.jsonl"
-    if not index.is_file():
-        return css_text, 0
-    records = _saved_response_records(index)
-    page_url = next(
-        (record.get("url") for record in records if posixpath.normpath("responses/" + str(record.get("path", ""))) == rel_path),
-        None,
-    )
-    if not page_url:
-        # Mirrored stylesheets already have their own resource layout. Only
-        # recorded response bodies have the original URL needed for resolution.
-        return css_text, 0
-    # Consume comments and ordinary strings as whole tokens so their apparent
-    # url() text is inert. Escaped CSS URLs are left unchanged, never guessed.
-    token = re.compile(
-        r"/\*[\s\S]*?\*/|(?P<prefix>url\(\s*|@import\s+(?=[\"']))(?:\"(?P<double>[^\"\\]*)\"|'(?P<single>[^'\\]*)'|(?P<bare>[^\s()'\"\\]+))"
-        r"|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'",
-        re.IGNORECASE,
-    )
-    matches = [
-        match
-        for match in token.finditer(css_text)
-        if match.group("prefix") and (not match.group("prefix").lower().startswith("url") or re.match(r"\s*\)", css_text[match.end() :]))
-    ]
-    wanted = {_encoded_responses_image_url(next(value for value in match.groups()[1:] if value is not None), page_url) for match in matches}
-    paths = _index_responses_paths_for_html_images(snapshot_root, rel_path, {url for url in wanted if url}, records=records)
-    chunks = []
-    previous = 0
-    for match in matches:
-        value = next(value for value in match.groups()[1:] if value is not None)
-        local = paths.get(_encoded_responses_image_url(value, page_url) or "")
-        if local is None:
-            continue
-        chunks.extend(
-            (css_text[previous : match.start()], match.group("prefix"), '"', local.replace("\\", "\\\\").replace('"', r"\""), '"'),
-        )
-        previous = match.end()
-    chunks.append(css_text[previous:])
-    return "".join(chunks), len(chunks) // 5
-
-
-def _rewrite_html_image_sources_for_request(
+def _rewrite_replay_document_for_request(
     request,
     html_text: str,
     document_root: Path | None,
@@ -1326,13 +739,14 @@ def _rewrite_html_image_sources_for_request(
     if not document_root:
         return html_text, 0
     try:
-        return _rewrite_html_image_sources_to_responses(
+        return rewrite_plugin_replay_document(
             html_text,
-            document_root,
-            html_rel_path,
-            request.__dict__.get("archivebox_snapshot_url"),
-            request.build_absolute_uri(),
-            source_html=source_html,
+            snapshot_root=document_root,
+            rel_path=html_rel_path,
+            content_type="text/html",
+            page_url=request.__dict__.get("archivebox_snapshot_url"),
+            replay_url=request.build_absolute_uri(),
+            source_text=source_html,
         )
     except (OSError, ValueError, TypeError, RecursionError):
         # Saved plugin artifacts are optional and may be incomplete, malformed,
@@ -1451,10 +865,6 @@ def _apply_archive_replay_headers(
     return response
 
 
-def _is_asgi_request(request) -> bool:
-    return isinstance(request, ASGIRequest) or "scope" in request.__dict__
-
-
 def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool = False):
     """
     Overrides Django's built-in django.views.static.serve function to support byte range requests.
@@ -1510,16 +920,17 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     rel_path = path
     # Available captured assets can change without changing the CSS source.
     # Raw/ranges keep stored bytes; HEAD must not fetch a cold payload.
-    enrich_css = bool(
+    content_type, encoding = mimetypes.guess_type(str(fullpath))
+    enrich_document = bool(
         document_root
-        and rel_path.startswith("responses/")
-        and fullpath.suffix.lower() == ".css"
+        and content_type != "text/html"
+        and get_replay_document_hooks(rel_path, content_type or "application/octet-stream")
         and not request.GET.get("raw")
         and not request.META.get("HTTP_RANGE")
         and statobj.st_size <= 10 * 1024 * 1024,
     )
     etag = None
-    if document_root and not enrich_css:
+    if document_root and not enrich_document:
         file_hash = _hash_for_path(document_root, rel_path)
         if file_hash:
             etag = f'"{file_hash}"'
@@ -1544,7 +955,6 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     config=config,
                 )
 
-    content_type, encoding = mimetypes.guess_type(str(fullpath))
     # Captured favicons retain the conventional .ico filename even when a site
     # returns SVG. Browsers cannot decode SVG served as image/x-icon.
     if fullpath.suffix.lower() == ".ico":
@@ -1581,7 +991,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     # Respect the If-Modified-Since header for non-markdown responses.
     if (
         not request.GET.get("preview")
-        and not enrich_css
+        and not enrich_document
         and not content_type.startswith(("text/plain", "text/html"))
         and not static.was_modified_since(
             request.META.get("HTTP_IF_MODIFIED_SINCE"),
@@ -1721,11 +1131,18 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, RuntimeError, ValueError):
             pass
 
-    if enrich_css and request.method != "HEAD":
+    if enrich_document and request.method != "HEAD":
         try:
-            css, count = _rewrite_css_sources_to_responses(fullpath.read_text(errors="replace"), document_root, rel_path)
+            rewritten, count = rewrite_plugin_replay_document(
+                fullpath.read_text(errors="replace"),
+                snapshot_root=document_root,
+                rel_path=rel_path,
+                content_type=content_type,
+                page_url=request.__dict__.get("archivebox_snapshot_url"),
+                replay_url=request.build_absolute_uri(),
+            )
             if count:
-                response = HttpResponse(css, content_type=content_type)
+                response = HttpResponse(rewritten, content_type=content_type)
                 _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                 return _apply_archive_replay_headers(
                     response,
@@ -1762,7 +1179,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     )
                 raw = fullpath.read_bytes()
                 decoded = raw.decode("utf-8", errors="replace")
-                source_html = decoded if content_type.startswith("text/html") and rel_path == "dom/output.html" else None
+                source_html = decoded if content_type.startswith("text/html") else None
                 escaped_count = decoded.count("&lt;") + decoded.count("&gt;")
                 tag_count = decoded.count("<")
                 if escaped_count and escaped_count > tag_count * 2:
@@ -1775,7 +1192,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     decoded = _passive_html_thumbnail(decoded)
                 rewritten_html, rewritten_count = (decoded, 0)
                 if content_type.startswith("text/html") and document_root:
-                    rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(
+                    rewritten_html, rewritten_count = _rewrite_replay_document_for_request(
                         request,
                         decoded,
                         document_root,
@@ -1787,7 +1204,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 markdown_candidate = _extract_markdown_candidate(decoded)
                 if content_type.startswith("text/markdown") or _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)
-                    wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
+                    wrapped, _rewrite_count = _rewrite_replay_document_for_request(request, wrapped, document_root, rel_path)
                     wrapped = _apply_transformed_html_preview_style(wrapped)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
@@ -1931,7 +1348,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 response.status_code = 206
     if encoding:
         response.headers["Content-Encoding"] = encoding
-    if enrich_css:
+    if enrich_document:
         del response.headers["Last-Modified"]
         if request.method == "HEAD":
             # These fields need the transformed body. Omit rather than report
@@ -2015,37 +1432,3 @@ def parse_range_header(header, resource_size):
         ranges.append((start, stop))
 
     return ranges
-
-
-class RangedFileReader:
-    """
-    Wraps a file like object with an iterator that runs over part (or all) of
-    the file defined by start and stop. Blocks of block_size will be returned
-    from the starting position, up to, but not including the stop point.
-    https://github.com/satchamo/django/commit/2ce75c5c4bee2a858c0214d136bfcd351fcde11d
-    """
-
-    block_size = 8192
-
-    def __init__(self, file_like, start=0, stop=float("inf"), block_size=None):
-        self.f = file_like
-        self.block_size = block_size or RangedFileReader.block_size
-        self.start = start
-        self.stop = stop
-
-    def __iter__(self):
-        try:
-            self.f.seek(self.start)
-            position = self.start
-            while position < self.stop:
-                data = self.f.read(min(self.block_size, self.stop - position))
-                if not data:
-                    break
-
-                yield data
-                position += len(data)
-        finally:
-            self.close()
-
-    def close(self):
-        self.f.close()

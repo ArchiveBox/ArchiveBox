@@ -75,21 +75,17 @@ def audit_files(snapshots):
         pending = snapshots.filter(status=Snapshot.StatusChoices.SEALED, pk__gt=batch[-1].pk)
         for snapshot in batch:
             report["snapshots"] += 1
-            manifest = snapshot.output_dir / "hashes" / "hashes.json"
-            if manifest.exists():
-                try:
-                    expected = manifest.with_name("hashes.sha256").read_text().strip()
-                    if not re.fullmatch("[0-9a-f]{64}", expected) or file_digest(manifest) != expected:
-                        raise ValueError("Hash manifest is incomplete or changed.")
-                    entries = snapshot.hashes_index
-                except (OSError, ValueError):
-                    report["missing_manifests"] += 1
-                    continue
+            from archivebox.plugins.discovery import get_snapshot_file_inventory
+
+            try:
+                inventory = get_snapshot_file_inventory(snapshot.output_dir, verify=True)
+            except (OSError, ValueError):
+                report["missing_manifests"] += 1
+                continue
+            if inventory is not None:
+                entries = inventory["files"]
                 report["hashed_snapshots"] += 1
             else:
-                # Older/partial captures may never have run the hashes plugin. Their
-                # normal output manifests still identify retained files; hash those
-                # bytes read-only rather than launching an extractor from an audit.
                 entries = {}
                 for result in snapshot.archiveresult_set.filter(status="succeeded"):
                     for name, metadata in result.output_file_map().items():
@@ -201,12 +197,15 @@ def group_selection_hash(groups):
 
 
 def apply_cow(groups):
-    """Revalidate exact bytes, then use the existing hashes plugin's CoW helper."""
-    if sys.platform != "linux":
-        raise ValueError("Native copy-on-write deduplication currently requires Linux and a supporting filesystem. No files changed.")
-    from abx_plugins.plugins.hashes.files import deduplicate_files
+    """Revalidate exact bytes before invoking the declared maintenance command."""
+    import subprocess
+    from abx_dl.execution import iter_plugin_command
+    from abx_dl.models import PluginEnv
+    from archivebox.config.common import get_config
+    from archivebox.plugins.discovery import get_plugin_catalog
 
-    devices = defaultdict(list)
+    command = get_plugin_catalog().find_command("deduplicate")
+    files = []
     # Validate the entire approved selection before the first extent operation.
     for group in groups:
         for entry in group["files"]:
@@ -216,15 +215,32 @@ def apply_cow(groups):
             path, info = output_file(snapshot, entry["path"])
             if info.st_size != group["size"] or file_digest(path) != group["hash"]:
                 raise ValueError("A selected file changed after the audit. No files changed; run a new audit.")
-            devices[info.st_dev].append(
+            files.append(
                 {"path": str(path.relative_to(CONSTANTS.ARCHIVE_DIR.resolve())), "hash": group["hash"], "size": group["size"]},
             )
-    total = {"supported_platform": True, "attempted_files": 0, "extent_bytes_verified": 0, "failed_files": 0}
-    for files in devices.values():
-        result = deduplicate_files(CONSTANTS.ARCHIVE_DIR.resolve(), files)
-        for key in ("attempted_files", "extent_bytes_verified", "failed_files"):
-            total[key] += result[key]
-    return total
+    request = {"root": str(CONSTANTS.ARCHIVE_DIR.resolve()), "files": files}
+    env = PluginEnv(**get_config().model_dump(mode="json")).to_env()
+    try:
+        lines = list(iter_plugin_command(command, stdin=[json.dumps(request)], env=env, timeout=float("inf")))
+    except subprocess.CalledProcessError as error:
+        raise ValueError(error.stderr or "The deduplication command failed.") from error
+    if len(lines) != 1:
+        raise ValueError("The deduplication command must return one result.")
+    result = json.loads(lines[0])
+    counters = ("attempted_files", "extent_bytes_verified", "failed_files")
+    if (
+        not isinstance(result, dict)
+        or result.get("type") != "DeduplicateResult"
+        or type(result.get("schema_version")) is not int
+        or result.get("schema_version") != 1
+        or type(result.get("supported_platform")) is not bool
+        or ("error" in result and not isinstance(result["error"], str))
+        or any(type(result.get(key)) is not int or result[key] < 0 for key in counters)
+    ):
+        raise ValueError("The deduplication command returned an invalid result.")
+    if not result["supported_platform"]:
+        raise ValueError(result.get("error") or "Deduplication is not supported on this platform.")
+    return {key: result[key] for key in ("supported_platform", *counters)}
 
 
 def launch(*, user_id, source=None, group_ids=None, extension=None, selection_hash=None, query=""):

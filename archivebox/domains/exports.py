@@ -13,17 +13,15 @@ from urllib.parse import unquote, urljoin, urlsplit
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.misc.logging_util import printable_filesize
+from abx_plugins.plugins.base.html import Resources
+from archivebox.plugins.discovery import get_snapshot_role_paths, rewrite_plugin_replay_document
 from archivebox.misc.serve_static import (
-    Resources,
-    _rewrite_css_sources_to_responses,
-    _rewrite_html_image_sources_to_responses,
     rewrite_navigation_links,
 )
 
 from .wacz import replay_assets, write_site_wacz
 
 
-HTML_PLUGINS = ("singlefile", "chrome_extension_singlefile", "dom", "wget", "readability", "defuddle")
 CSS_URL = re.compile(r"(?:url\(\s*|@import\s+)[\"']?([^\s\"'()]+)", re.IGNORECASE)
 
 
@@ -36,12 +34,8 @@ def captured_pages(snapshots):
         if key in seen:
             continue
         results = list(snapshot.archiveresult_set.all())
-        successful = [result for result in results if result.status == ArchiveResult.StatusChoices.SUCCEEDED]
         root = snapshot.output_dir.resolve()
-        for plugin in HTML_PLUGINS:
-            path = snapshot.plugin_output_path(plugin, archive_results=successful)
-            if not path:
-                continue
+        for path in get_snapshot_role_paths(snapshot, results, "html_replay"):
             source = (root / path).resolve()
             if source.is_relative_to(root) and source.is_file() and source.suffix.lower() in {".html", ".htm"}:
                 pages.append((snapshot.pk, snapshot.url, root, source.relative_to(root).as_posix(), key))
@@ -73,10 +67,16 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
             report_bytes(source_size)
             text = source.read_bytes().decode("utf-8", errors="surrogateescape")
             if source.suffix.lower() == ".css":
-                text, _ = _rewrite_css_sources_to_responses(text, root, relative)
+                text, _ = rewrite_plugin_replay_document(text, snapshot_root=root, rel_path=relative, content_type="text/css")
                 resources = CSS_URL.findall(text)
             else:
-                text, _ = _rewrite_html_image_sources_to_responses(text, root, relative, page_url)
+                text, _ = rewrite_plugin_replay_document(
+                    text,
+                    snapshot_root=root,
+                    rel_path=relative,
+                    content_type="text/html",
+                    page_url=page_url,
+                )
                 parsed = Resources(text)
                 parsed.feed(text)
                 resources = [value for _, _, value in parsed.spans] + CSS_URL.findall(text)

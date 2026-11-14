@@ -71,6 +71,7 @@ class ArchiveBoxGroup(click.Group):
         "manage": "archivebox.cli.archivebox_manage.main",
         # Introspection commands
         "pluginmap": "archivebox.cli.archivebox_pluginmap.main",
+        "plugin": "archivebox.cli.archivebox_plugin.main",
     }
     all_subcommands = {
         **meta_commands,

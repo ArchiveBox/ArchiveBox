@@ -100,6 +100,8 @@ from archivebox.plugins.discovery import (
     get_snapshot_role_names,
     plugin_has_custom_full_response,
     serve_plugin_replay_asset,
+    get_snapshot_role_paths,
+    get_plugin_replay_roots,
 )
 from archivebox.plugins.forms import build_required_binary_url_lookup, get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
@@ -1047,7 +1049,7 @@ def _has_original_domain_replay_cookie(request: HttpRequest, domain: str) -> boo
     return False
 
 
-def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) -> list[Snapshot]:
+def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> list[Snapshot]:
     if not domain:
         return []
 
@@ -1084,7 +1086,7 @@ def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) ->
     ]
 
 
-def _latest_response_match(
+def _latest_replay_match(
     snapshots: list[Snapshot],
     domain: str,
     rel_path: str,
@@ -1094,20 +1096,25 @@ def _latest_response_match(
     requested_domain = domain.split(":", 1)[0].lower()
     rel_to_root = Path(rel_path)
     for snapshot in snapshots:
-        responses_root = Path(snapshot.output_dir) / "responses" / requested_domain
-        if (responses_root / rel_to_root).exists():
-            return snapshot, responses_root, rel_to_root
+        snapshot_root = Path(snapshot.output_dir)
+        for replay_root in get_plugin_replay_roots(snapshot_root, f"https://{requested_domain}/"):
+            target = replay_root / rel_to_root
+            try:
+                available = target.resolve().is_relative_to(snapshot_root.resolve()) and target.exists()
+            except (OSError, RuntimeError):
+                continue
+            if available:
+                return snapshot, replay_root, rel_to_root
     return None
 
 
-def _latest_responses_root(snapshots: list[Snapshot], domain: str) -> tuple[Snapshot, Path] | None:
+def _latest_replay_root(snapshots: list[Snapshot], domain: str) -> tuple[Snapshot, Path] | None:
     if not domain:
         return None
     requested_domain = domain.split(":", 1)[0].lower()
     for snapshot in snapshots:
-        responses_root = Path(snapshot.output_dir) / "responses" / requested_domain
-        if responses_root.is_dir():
-            return snapshot, responses_root
+        for replay_root in get_plugin_replay_roots(Path(snapshot.output_dir), f"https://{requested_domain}/"):
+            return snapshot, replay_root
     return None
 
 
@@ -1124,12 +1131,10 @@ def _original_request_url(domain: str, path: str = "", query_string: str = "") -
     return target
 
 
-def _serve_responses_path(request, responses_root: Path, rel_path: str, show_indexes: bool):
-    # URL aliases under responses/<host> point into responses/all. The security
-    # boundary is the authorized snapshot, not that host directory: otherwise
-    # dynamic resource requests reject valid captured files as escaping links.
-    snapshot_root = responses_root.parent.parent
-    response_prefix = responses_root.relative_to(snapshot_root)
+def _serve_replay_path(request, snapshot_root: Path, replay_root: Path, rel_path: str, show_indexes: bool):
+    # A provider's URL aliases may point to sibling outputs in the same snapshot.
+    # Containment and authorization use the complete snapshot as their boundary.
+    response_prefix = replay_root.relative_to(snapshot_root)
     candidates: list[str] = []
     rel_path = rel_path or ""
     if rel_path.endswith("/"):
@@ -1252,10 +1257,9 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
         except Http404:
             continue
 
-    host = urlparse(snapshot.url).hostname or snapshot.domain
-    responses_root = Path(snapshot.output_dir) / "responses" / host
-    if responses_root.exists():
-        response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+    snapshot_root = Path(snapshot.output_dir)
+    for replay_root in get_plugin_replay_roots(snapshot_root, snapshot.url):
+        response = _serve_replay_path(request, snapshot_root, replay_root, rel_path, show_indexes)
         if response is not None:
             return response
 
@@ -1325,7 +1329,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     if rel_path is None:
         raise Http404
 
-    snapshots = _visible_response_snapshots_for_domain(request, domain)
+    snapshots = _visible_replay_snapshots_for_domain(request, domain)
     if snapshots:
         from django.apps import apps
 
@@ -1365,9 +1369,8 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     exact = [item for item in snapshots if (urlsplit(item.url).path or "/") == f"/{path}" and urlsplit(item.url).query == query]
     for snapshot in exact:
         results = list(snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.SUCCEEDED))
-        for plugin in ("singlefile", "dom", "wget", "readability", "defuddle"):
-            output_path = snapshot.plugin_output_path(plugin, archive_results=results)
-            if output_path and Path(output_path).suffix.lower() in {".html", ".htm"}:
+        for output_path in get_snapshot_role_paths(snapshot, results, "html_replay"):
+            if Path(output_path).suffix.lower() in {".html", ".htm"}:
                 try:
                     return _serve_snapshot_replay(request, snapshot, output_path)
                 except Http404:
@@ -1380,37 +1383,37 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
             raise Http404
         snapshots = exact
 
-    match = _latest_response_match(snapshots, domain, rel_path)
+    match = _latest_replay_match(snapshots, domain, rel_path)
     if not match and "." not in Path(rel_path).name:
         index_path = f"{rel_path.rstrip('/')}/index.html"
-        match = _latest_response_match(snapshots, domain, index_path)
+        match = _latest_replay_match(snapshots, domain, index_path)
     if not match and "." not in Path(rel_path).name:
         html_path = f"{rel_path}.html"
-        match = _latest_response_match(snapshots, domain, html_path)
+        match = _latest_replay_match(snapshots, domain, html_path)
 
-    root_match = (match[0], match[1]) if match else _latest_responses_root(snapshots, domain)
-    responses_root = root_match[1] if root_match else None
+    root_match = (match[0], match[1]) if match else _latest_replay_root(snapshots, domain)
+    replay_root = root_match[1] if root_match else None
     if root_match:
         request.archivebox_cache_policy = "public" if root_match[0].permissions == PERMISSIONS_PUBLIC else "private"
     if request_config.USES_SUBDOMAIN_ROUTING and request.path.startswith("/original/"):
         snapshot = root_match[0] if root_match else (snapshots[0] if requested_root_index and snapshots else None)
         if snapshot:
-            snapshot_path = f"responses/{domain}/{match[2]}" if match else path
+            snapshot_path = (match[1].relative_to(Path(snapshot.output_dir)) / match[2]).as_posix() if match else path
             target = build_snapshot_url(str(snapshot.id), snapshot_path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
             return redirect(target)
     show_indexes = bool(request.GET.get("files"))
     if match:
-        snapshot, responses_root, rel_to_root = match
+        snapshot, replay_root, rel_to_root = match
         request.archivebox_snapshot_url = snapshot.url
         request.archivebox_snapshot = snapshot
-        response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
+        response = _serve_replay_path(request, Path(snapshot.output_dir), replay_root, str(rel_to_root), show_indexes)
         if response is not None:
             return response
 
-    if responses_root:
-        response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+    if root_match:
+        response = _serve_replay_path(request, Path(root_match[0].output_dir), replay_root, rel_path, show_indexes)
         if response is not None:
             return response
 

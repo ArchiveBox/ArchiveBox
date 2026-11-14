@@ -12,6 +12,7 @@ from itertools import islice
 from typing import TYPE_CHECKING, Any
 from collections.abc import Iterable
 from pathlib import Path
+from uuid import UUID
 
 import rich_click as click
 
@@ -157,6 +158,7 @@ def update(
     url__istartswith: str | None = None,
     tag: str | None = None,
     crawl_id: str | None = None,
+    folder_id: str | UUID | None = None,
     limit: int | None = None,
     sort: str | None = None,
     search: str | None = None,
@@ -230,6 +232,7 @@ def update(
                     url__istartswith=url__istartswith,
                     tag=tag,
                     crawl_id=crawl_id,
+                    folder_id=folder_id,
                     limit=limit,
                     sort=sort,
                     search=search,
@@ -284,6 +287,7 @@ def update(
             url__istartswith,
             tag,
             crawl_id,
+            folder_id,
             limit,
             sort,
             search,
@@ -315,6 +319,7 @@ def update(
                             url__istartswith=url__istartswith,
                             tag=tag,
                             crawl_id=crawl_id,
+                            folder_id=folder_id,
                             limit=limit,
                             sort=sort,
                             search=search,
@@ -339,19 +344,7 @@ def update(
                     )
 
                 if do_migrate:
-                    if (
-                        filter_patterns
-                        or status
-                        or url__icontains
-                        or url__istartswith
-                        or tag
-                        or crawl_id
-                        or limit
-                        or sort
-                        or search
-                        or before
-                        or after
-                    ):
+                    if is_filtered_update:
                         print("[*] Processing filtered snapshots from database...")
                         stats = process_filtered_snapshots(
                             filter_patterns=filter_patterns,
@@ -361,6 +354,7 @@ def update(
                             url__istartswith=url__istartswith,
                             tag=tag,
                             crawl_id=crawl_id,
+                            folder_id=folder_id,
                             limit=limit,
                             sort=sort,
                             search=search,
@@ -410,6 +404,7 @@ def update(
                         url__istartswith=url__istartswith,
                         tag=tag,
                         crawl_id=crawl_id,
+                        folder_id=folder_id,
                         limit=limit,
                         sort=sort,
                         search=search,
@@ -431,6 +426,7 @@ def update(
                             url__istartswith=url__istartswith,
                             tag=tag,
                             crawl_id=crawl_id,
+                            folder_id=folder_id,
                             limit=limit,
                             sort=sort,
                             search=search,
@@ -488,6 +484,8 @@ def update(
             resume_cmd.extend(["--tag", tag])
         if crawl_id:
             resume_cmd.extend(["--crawl-id", crawl_id])
+        if folder_id:
+            resume_cmd.extend(["--folder-id", str(folder_id)])
         if limit:
             resume_cmd.extend(["--limit", str(limit)])
         if sort:
@@ -775,6 +773,7 @@ def process_filtered_snapshots(
     after: float | None,
     resume: str | None,
     batch_size: int,
+    folder_id: str | UUID | None = None,
     queue_for_archiving: bool = True,
     reverse: bool = False,
     wait_for_turn=None,
@@ -795,6 +794,7 @@ def process_filtered_snapshots(
         url__istartswith=url__istartswith,
         tag=tag,
         crawl_id=crawl_id,
+        folder_id=folder_id,
         limit=limit,
         sort=sort,
         search=search,

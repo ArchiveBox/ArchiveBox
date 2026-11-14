@@ -208,13 +208,20 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
     assert supervisor_pids, result.stderr
     assert all(not pid_is_alive(int(pid)) for pid in supervisor_pids), "Search CLI returned while its owned supervisord was still alive"
     assert result.stdout == "", result.stdout
-    from archivebox.workers.supervisord_util import _sonic_worker_bind_target
+    from archivebox.plugins.services import get_plugin_services
 
-    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": command}) == ("127.0.0.1", sonic_port)
+    services = get_plugin_services(
+        {"DATA_DIR": str(initialized_archive), "SEARCH_BACKEND_SONIC_PORT": sonic_port, "SONIC_BINARY": str(sonic_binary)},
+        plugin_names={"search_backend_sonic"},
+    )
+    assert services["worker_sonic"]["bind"] == ("127.0.0.1", sonic_port)
     renamed_binary = initialized_archive / "renamed-sonic-binary"
     shutil.copy2(sonic_binary, renamed_binary)
-    renamed_command = shlex.join([str(renamed_binary), *shlex.split(command)[1:]])
-    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": renamed_command}) == ("127.0.0.1", sonic_port)
+    renamed = get_plugin_services(
+        {"DATA_DIR": str(initialized_archive), "SEARCH_BACKEND_SONIC_PORT": sonic_port, "SONIC_BINARY": str(renamed_binary)},
+        plugin_names={"search_backend_sonic"},
+    )
+    assert renamed["worker_sonic"]["bind"] == ("127.0.0.1", sonic_port)
 
     relative_binary = pinned_sonic_dir / "sonic-alt"
     shutil.copy2(sonic_binary, relative_binary)

@@ -13,12 +13,20 @@ from django.db import DatabaseError
 from django.db.models import CharField, Count, Q
 from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
+from django.urls import reverse
 from django.utils import timezone
 
 from archivebox.core.permissions import can_view_snapshot, is_admin_user
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, get_api_base_url
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path, get_snapshot_role_result
+from archivebox.plugins.discovery import (
+    discover_plugin_configs,
+    get_plugin_catalog,
+    get_plugin_default_output_path,
+    get_plugin_name,
+    get_snapshot_role_names,
+    get_snapshot_role_result,
+)
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -204,15 +212,24 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         api_base = get_api_base_url(request=request, config=request_config) if scoped_snapshot is not None else ""
 
-        running_screencasts = {}
+        preview_routes = {}
+        for name in get_snapshot_role_names("live_preview"):
+            route = get_plugin_catalog()[get_plugin_name(name)].config.snapshot_live_preview_route
+            if not route.strip():
+                raise ValueError(f"{name}: snapshot_live_preview_route must name a registered route")
+            preview_routes[name] = route
+        preview_order = {name: rank for rank, name in enumerate(preview_routes)}
+        running_previews = {}
 
         def screencast_frame_url(snapshot_id: str) -> str:
-            started_at = running_screencasts.get(snapshot_id)
-            if started_at is None:
+            preview = running_previews.get(snapshot_id)
+            if preview is None:
                 return ""
+            _rank, started_at, plugin = preview
             # File existence/freshness belongs to the image request, never to
             # the one-second JSON poll (archive storage may be remote).
-            rel = f"/api/v1/core/snapshot/{snapshot_id}/screencast.jpg?v={int(now.timestamp())}&after={started_at.timestamp()}"
+            path = reverse(preview_routes[plugin], kwargs={"snapshot_id": snapshot_id})
+            rel = f"{path}?v={int(now.timestamp())}&after={started_at.timestamp()}"
             return f"{api_base}{rel}" if api_base else rel
 
         machine = Machine.current_readonly()
@@ -596,12 +613,13 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         attempt_started_at_by_snapshot.get(snapshot_id, proc["started_at"]),
                     )
             _plugin, _label, phase, _hook_name = _process_label(proc["cmd"])
-            if _plugin == "chrome_screencast" and snapshot_id and proc["started_at"]:
+            if _plugin in preview_routes and snapshot_id and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
                 # frame visible for its live capture, never for a previous run.
                 # This query already selects RUNNING rows; trust the runner's
                 # recorded state instead of probing its PID during every poll.
-                running_screencasts[snapshot_id] = max(proc["started_at"], running_screencasts.get(snapshot_id, proc["started_at"]))
+                preview = (-preview_order[_plugin], proc["started_at"], _plugin)
+                running_previews[snapshot_id] = max(preview, running_previews.get(snapshot_id, preview))
             if crawl_id and proc["pid"]:
                 crawl_process_pids.setdefault(crawl_id, proc["pid"])
             if phase == "snapshot" and snapshot_id and proc["pid"]:

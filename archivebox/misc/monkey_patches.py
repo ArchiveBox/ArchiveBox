@@ -41,6 +41,8 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
         return super().__call__(protocol, action, details)
 
     def write_entry(self, host, date, request, status=None, length=None, ident=None, user=None, time_taken=None):
+        from archivebox.plugins.discovery import get_plugin_ignorable_url_patterns
+
         request = SENSITIVE_QUERY_PARAM_RE.sub(r"\1[REDACTED]", request)
 
         # Ignore noisy requests to staticfiles / favicons / etc.
@@ -50,9 +52,7 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
         if "GET /progress.json" in request and (time_taken is None or time_taken < 1.0):
             return
-        if "GET /api/v1/crawls/crawl/" in request and "/files/chrome_screencast/latest.jpg" in request:
-            return
-        if "GET /api/v1/core/snapshot/" in request and "/screencast.jpg" in request:
+        if request.startswith("GET ") and any(pattern.fullmatch(request[4:]) for pattern in get_plugin_ignorable_url_patterns()):
             return
         if "GET /admin/jsi18n/" in request:
             return

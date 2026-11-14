@@ -738,7 +738,7 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
         page.on("request", lambda request: card_requests.append(request.url) if "/_card/" in request.url else None)
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html")
         assert "{#" not in page.locator("body").inner_text()
-        cover = page.locator(".output-stack-article_text .stack-cover .thumbnail-wrapper > iframe")
+        cover = page.locator(".output-stack-article_text .stack-cover .thumbnail-wrapper iframe")
         cover_viewer = cover.content_frame.locator("iframe")
         cover_viewer.wait_for()
         cover_viewer.content_frame.locator("#reader").wait_for()
@@ -752,7 +752,7 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
         # The parked original must not duplicate its visible cover's work.
         assert card_requests.count(source) == 1
         page.locator(".output-stack-article_text").click()
-        expanded = page.locator('.stack-tray .thumb-card[data-plugin-name="defuddle"] .thumbnail-wrapper > iframe')
+        expanded = page.locator('.stack-tray .thumb-card[data-plugin-name="defuddle"] .thumbnail-wrapper iframe')
         expanded_viewer = expanded.content_frame.locator("iframe")
         expanded_viewer.wait_for()
         expanded_viewer.content_frame.locator("#reader").wait_for()

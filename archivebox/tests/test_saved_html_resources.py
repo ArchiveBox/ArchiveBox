@@ -228,7 +228,7 @@ def test_large_thumbnail_reuses_only_its_snapshots_declared_screenshot(snapshot,
 @pytest.mark.parametrize("attribute", ["data-echo", "data-src", "data-lazy-src"])
 @pytest.mark.parametrize("source_kind", ["placeholder", "missing", "empty"])
 def test_saved_lazy_image_uses_captured_body_without_script(tmp_path, attribute, source_kind):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+    from archivebox.misc.serve_static import _rewrite_replay_document_for_request
     from html.parser import HTMLParser
 
     source = (LAZY_FIXTURE / "image.html").read_text().replace("data-echo", attribute)
@@ -244,7 +244,7 @@ def test_saved_lazy_image_uses_captured_body_without_script(tmp_path, attribute,
     )
     request = RequestFactory().get("/wget/bablosoft.com/shop/BrowserAutomationStudio.html")
     request.archivebox_snapshot_url = "https://bablosoft.com/shop/BrowserAutomationStudio"
-    body, _ = _rewrite_html_image_sources_for_request(request, source, tmp_path, "wget/bablosoft.com/shop/BrowserAutomationStudio.html")
+    body, _ = _rewrite_replay_document_for_request(request, source, tmp_path, "wget/bablosoft.com/shop/BrowserAutomationStudio.html")
     images = []
 
     class Images(HTMLParser):
@@ -499,7 +499,7 @@ def test_recorded_crontab_styles_and_script_render_on_snapshot_origin(
 
 
 def test_resource_mapping_respects_base_and_ignores_markup_in_data(tmp_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+    from archivebox.misc.serve_static import _rewrite_replay_document_for_request
 
     install_responses(tmp_path)
     source = """<!doctype html><html><head><base href="https://crontab.guru/">
@@ -509,7 +509,7 @@ def test_resource_mapping_respects_base_and_ignores_markup_in_data(tmp_path):
 <script src="/index.js"></script></head></html>"""
     request = RequestFactory().get("/web/snapshot/dom/output.html")
     request.archivebox_snapshot_url = "https://archivebox.io/tests/"
-    body, count = _rewrite_html_image_sources_for_request(request, source, tmp_path, "dom/output.html")
+    body, count = _rewrite_replay_document_for_request(request, source, tmp_path, "dom/output.html")
     assert count == 2
     assert 'href="http://testserver/web/snapshot/responses/all/styles.css"' in body
     assert 'src="http://testserver/web/snapshot/responses/all/index.js"' in body
@@ -519,7 +519,7 @@ def test_resource_mapping_respects_base_and_ignores_markup_in_data(tmp_path):
 
 @pytest.mark.parametrize("bad_path", ["../../secret.js", "./all/escape.js"])
 def test_resource_mapping_never_uses_escape_or_failed_response(tmp_path, bad_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+    from archivebox.misc.serve_static import _rewrite_replay_document_for_request
 
     root = tmp_path / "snapshot"
     install_responses(root)
@@ -534,17 +534,18 @@ def test_resource_mapping_never_uses_escape_or_failed_response(tmp_path, bad_pat
     request = RequestFactory().get("/dom/output.html")
     request.archivebox_snapshot_url = "https://crontab.guru/"
     source = '<link rel="stylesheet" href="/css/styles.css?cb=1"><script src="/index.js"></script>'
-    assert _rewrite_html_image_sources_for_request(request, source, root, "dom/output.html") == (source, 0)
+    assert _rewrite_replay_document_for_request(request, source, root, "dom/output.html") == (source, 0)
 
 
 def test_enriched_stylesheet_integrity_and_raw_css(tmp_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request, _rewrite_css_sources_to_responses
+    from archivebox.misc.serve_static import _rewrite_replay_document_for_request
+    from abx_plugins.plugins.responses.presentation import _rewrite_css_sources_to_responses
 
     install_responses(tmp_path)
     request = RequestFactory().get("/dom/output.html")
     request.archivebox_snapshot_url = "https://crontab.guru/"
     source = '<link integrity="sha256-captured" rel="stylesheet" href="/css/styles.css?cb=1"><script integrity="sha256-script" src="/index.js"></script>'
-    body, count = _rewrite_html_image_sources_for_request(request, source, tmp_path, "dom/output.html")
+    body, count = _rewrite_replay_document_for_request(request, source, tmp_path, "dom/output.html")
     assert count == 2
     css_response = serve_static_with_byterange_support(
         RequestFactory().get("/responses/all/styles.css"),
@@ -557,7 +558,7 @@ def test_enriched_stylesheet_integrity_and_raw_css(tmp_path):
     stylesheet = tmp_path / "responses/all/styles.css"
     original_css = stylesheet.read_bytes()
     stylesheet.write_text("html { color: red; }")
-    unchanged, _ = _rewrite_html_image_sources_for_request(request, source, tmp_path, "dom/output.html")
+    unchanged, _ = _rewrite_replay_document_for_request(request, source, tmp_path, "dom/output.html")
     assert 'integrity="sha256-captured"' in unchanged
     stylesheet.write_bytes(original_css)
     css = (FIXTURE / "styles.css").read_text()
