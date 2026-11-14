@@ -137,6 +137,7 @@ async function main() {
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
     featureViews.push(library);
+    featureViews.push({...library, name: 'Current view export menu', mode: 'view-export-menu'});
     featureViews.push({...library, name: 'Folder search', mode: 'folder-search'});
     featureViews.push({...library, name: 'Folder export menu', mode: 'folder-menu'});
     featureViews.push({...library, name: 'Import sources menu', mode: 'import-menu'});
