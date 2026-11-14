@@ -1,0 +1,738 @@
+[
+  {
+    "kind": "admin",
+    "width": 1600,
+    "height": 32,
+    "treeTop": 216.390625,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 149.390625,
+        "width": 16,
+        "height": 16,
+        "center": 157.390625
+      },
+      "navText": {
+        "x": 56,
+        "y": 147.390625,
+        "width": 75.71875,
+        "height": 20,
+        "center": 157.390625
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 224.390625,
+        "width": 16,
+        "height": 16,
+        "center": 232.390625
+      },
+      "rootText": {
+        "x": 56,
+        "y": 222.390625,
+        "width": 77.46875,
+        "height": 20,
+        "center": 232.390625
+      },
+      "input": {
+        "x": 32,
+        "y": 184.390625,
+        "width": 131,
+        "height": 32,
+        "center": 200.390625
+      },
+      "searchToggle": {
+        "x": 163,
+        "y": 188.390625,
+        "width": 24,
+        "height": 24,
+        "center": 200.390625
+      },
+      "collapse": {
+        "x": 187,
+        "y": 188.390625,
+        "width": 24,
+        "height": 24,
+        "center": 200.390625
+      },
+      "all": {
+        "x": 0,
+        "y": 135.390625,
+        "width": 243,
+        "height": 45,
+        "center": 157.890625
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 91.390625,
+        "width": 244,
+        "height": 908.609375,
+        "center": 545.6953125
+      },
+      "tree": {
+        "x": 0,
+        "y": 216.390625,
+        "width": 243,
+        "height": 64,
+        "center": 248.390625
+      },
+      "headerLabelVisible": true
+    }
+  },
+  {
+    "kind": "admin",
+    "width": 768,
+    "height": 36,
+    "treeTop": 218.390625,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 147.390625,
+        "width": 16,
+        "height": 16,
+        "center": 155.390625
+      },
+      "navText": {
+        "x": 56,
+        "y": 145.390625,
+        "width": 75.71875,
+        "height": 20,
+        "center": 155.390625
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 228.390625,
+        "width": 16,
+        "height": 16,
+        "center": 236.390625
+      },
+      "rootText": {
+        "x": 56,
+        "y": 226.390625,
+        "width": 77.46875,
+        "height": 20,
+        "center": 236.390625
+      },
+      "input": {
+        "x": 32,
+        "y": 182.390625,
+        "width": 79,
+        "height": 36,
+        "center": 200.390625
+      },
+      "searchToggle": {
+        "x": 111,
+        "y": 182.390625,
+        "width": 36,
+        "height": 36,
+        "center": 200.390625
+      },
+      "collapse": {
+        "x": 147,
+        "y": 182.390625,
+        "width": 36,
+        "height": 36,
+        "center": 200.390625
+      },
+      "all": {
+        "x": 0,
+        "y": 133.390625,
+        "width": 227,
+        "height": 45,
+        "center": 155.890625
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 85.390625,
+        "width": 228,
+        "height": 914.609375,
+        "center": 542.6953125
+      },
+      "tree": {
+        "x": 0,
+        "y": 218.390625,
+        "width": 227,
+        "height": 72,
+        "center": 254.390625
+      },
+      "headerLabelVisible": true
+    }
+  },
+  {
+    "kind": "admin",
+    "width": 390,
+    "height": 36,
+    "treeTop": 232,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 161,
+        "width": 16,
+        "height": 16,
+        "center": 169
+      },
+      "navText": {
+        "x": 56,
+        "y": 159,
+        "width": 81.046875,
+        "height": 20,
+        "center": 169
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 242,
+        "width": 16,
+        "height": 16,
+        "center": 250
+      },
+      "rootText": {
+        "x": 56,
+        "y": 240,
+        "width": 83.078125,
+        "height": 20,
+        "center": 250
+      },
+      "input": {
+        "x": 32,
+        "y": 196,
+        "width": 242,
+        "height": 36,
+        "center": 214
+      },
+      "searchToggle": {
+        "x": 274,
+        "y": 196,
+        "width": 36,
+        "height": 36,
+        "center": 214
+      },
+      "collapse": {
+        "x": 310,
+        "y": 196,
+        "width": 36,
+        "height": 36,
+        "center": 214
+      },
+      "all": {
+        "x": 0,
+        "y": 147,
+        "width": 390,
+        "height": 45,
+        "center": 169.5
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 147,
+        "width": 390,
+        "height": 283.59375,
+        "center": 288.796875
+      },
+      "tree": {
+        "x": 0,
+        "y": 232,
+        "width": 390,
+        "height": 72,
+        "center": 268
+      },
+      "headerLabelVisible": false
+    }
+  },
+  {
+    "kind": "admin",
+    "width": 320,
+    "height": 36,
+    "treeTop": 232,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 161,
+        "width": 16,
+        "height": 16,
+        "center": 169
+      },
+      "navText": {
+        "x": 56,
+        "y": 159,
+        "width": 81.046875,
+        "height": 20,
+        "center": 169
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 242,
+        "width": 16,
+        "height": 16,
+        "center": 250
+      },
+      "rootText": {
+        "x": 56,
+        "y": 240,
+        "width": 83.078125,
+        "height": 20,
+        "center": 250
+      },
+      "input": {
+        "x": 32,
+        "y": 196,
+        "width": 172,
+        "height": 36,
+        "center": 214
+      },
+      "searchToggle": {
+        "x": 204,
+        "y": 196,
+        "width": 36,
+        "height": 36,
+        "center": 214
+      },
+      "collapse": {
+        "x": 240,
+        "y": 196,
+        "width": 36,
+        "height": 36,
+        "center": 214
+      },
+      "all": {
+        "x": 0,
+        "y": 147,
+        "width": 320,
+        "height": 45,
+        "center": 169.5
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 147,
+        "width": 320,
+        "height": 283.59375,
+        "center": 288.796875
+      },
+      "tree": {
+        "x": 0,
+        "y": 232,
+        "width": 320,
+        "height": 72,
+        "center": 268
+      },
+      "headerLabelVisible": false
+    }
+  },
+  {
+    "kind": "public",
+    "width": 1600,
+    "height": 32,
+    "treeTop": 158.859375,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 96.359375,
+        "width": 16,
+        "height": 16,
+        "center": 104.359375
+      },
+      "navText": {
+        "x": 56,
+        "y": 94.359375,
+        "width": 75.71875,
+        "height": 20,
+        "center": 104.359375
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 166.859375,
+        "width": 16,
+        "height": 16,
+        "center": 174.859375
+      },
+      "rootText": {
+        "x": 56,
+        "y": 164.859375,
+        "width": 77.46875,
+        "height": 20,
+        "center": 174.859375
+      },
+      "input": {
+        "x": 32,
+        "y": 126.859375,
+        "width": 155,
+        "height": 32,
+        "center": 142.859375
+      },
+      "searchToggle": {
+        "x": 187,
+        "y": 130.859375,
+        "width": 24,
+        "height": 24,
+        "center": 142.859375
+      },
+      "collapse": {
+        "x": 211,
+        "y": 130.859375,
+        "width": 24,
+        "height": 24,
+        "center": 142.859375
+      },
+      "all": {
+        "x": 0,
+        "y": 86.859375,
+        "width": 243,
+        "height": 36,
+        "center": 104.859375
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 42.859375,
+        "width": 244,
+        "height": 837.140625,
+        "center": 461.4296875
+      },
+      "tree": {
+        "x": 0,
+        "y": 158.859375,
+        "width": 243,
+        "height": 64,
+        "center": 190.859375
+      },
+      "headerLabelVisible": true
+    }
+  },
+  {
+    "kind": "public",
+    "width": 768,
+    "height": 36,
+    "treeTop": 166,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 99.5,
+        "width": 16,
+        "height": 16,
+        "center": 107.5
+      },
+      "navText": {
+        "x": 56,
+        "y": 97.5,
+        "width": 75.71875,
+        "height": 20,
+        "center": 107.5
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 176,
+        "width": 16,
+        "height": 16,
+        "center": 184
+      },
+      "rootText": {
+        "x": 56,
+        "y": 174,
+        "width": 77.46875,
+        "height": 20,
+        "center": 184
+      },
+      "input": {
+        "x": 32,
+        "y": 130,
+        "width": 115,
+        "height": 36,
+        "center": 148
+      },
+      "searchToggle": {
+        "x": 147,
+        "y": 130,
+        "width": 36,
+        "height": 36,
+        "center": 148
+      },
+      "collapse": {
+        "x": 183,
+        "y": 130,
+        "width": 36,
+        "height": 36,
+        "center": 148
+      },
+      "all": {
+        "x": 0,
+        "y": 90,
+        "width": 227,
+        "height": 36,
+        "center": 108
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 42,
+        "width": 228,
+        "height": 838,
+        "center": 461
+      },
+      "tree": {
+        "x": 0,
+        "y": 166,
+        "width": 227,
+        "height": 72,
+        "center": 202
+      },
+      "headerLabelVisible": true
+    }
+  },
+  {
+    "kind": "public",
+    "width": 390,
+    "height": 36,
+    "treeTop": 123,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 52,
+        "width": 16,
+        "height": 16,
+        "center": 60
+      },
+      "navText": {
+        "x": 56,
+        "y": 50,
+        "width": 81.046875,
+        "height": 20,
+        "center": 60
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 133,
+        "width": 16,
+        "height": 16,
+        "center": 141
+      },
+      "rootText": {
+        "x": 56,
+        "y": 131,
+        "width": 83.078125,
+        "height": 20,
+        "center": 141
+      },
+      "input": {
+        "x": 32,
+        "y": 87,
+        "width": 278,
+        "height": 36,
+        "center": 105
+      },
+      "searchToggle": {
+        "x": 310,
+        "y": 87,
+        "width": 36,
+        "height": 36,
+        "center": 105
+      },
+      "collapse": {
+        "x": 346,
+        "y": 87,
+        "width": 36,
+        "height": 36,
+        "center": 105
+      },
+      "all": {
+        "x": 0,
+        "y": 38,
+        "width": 390,
+        "height": 45,
+        "center": 60.5
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 38,
+        "width": 390,
+        "height": 179,
+        "center": 127.5
+      },
+      "tree": {
+        "x": 0,
+        "y": 123,
+        "width": 390,
+        "height": 72,
+        "center": 159
+      },
+      "headerLabelVisible": false
+    }
+  },
+  {
+    "kind": "public",
+    "width": 320,
+    "height": 36,
+    "treeTop": 123,
+    "rows": [
+      {
+        "name": "Hacker News",
+        "id": "06af7929536d77d9800045972232977f",
+        "parent": ""
+      },
+      {
+        "name": "Recent top stories",
+        "id": "06af7929576578a380009f36912223c0",
+        "parent": "06af7929536d77d9800045972232977f"
+      }
+    ],
+    "overflow": false,
+    "alignment": {
+      "navIcon": {
+        "x": 32,
+        "y": 52,
+        "width": 16,
+        "height": 16,
+        "center": 60
+      },
+      "navText": {
+        "x": 56,
+        "y": 50,
+        "width": 81.046875,
+        "height": 20,
+        "center": 60
+      },
+      "rootIcon": {
+        "x": 32,
+        "y": 133,
+        "width": 16,
+        "height": 16,
+        "center": 141
+      },
+      "rootText": {
+        "x": 56,
+        "y": 131,
+        "width": 83.078125,
+        "height": 20,
+        "center": 141
+      },
+      "input": {
+        "x": 32,
+        "y": 87,
+        "width": 208,
+        "height": 36,
+        "center": 105
+      },
+      "searchToggle": {
+        "x": 240,
+        "y": 87,
+        "width": 36,
+        "height": 36,
+        "center": 105
+      },
+      "collapse": {
+        "x": 276,
+        "y": 87,
+        "width": 36,
+        "height": 36,
+        "center": 105
+      },
+      "all": {
+        "x": 0,
+        "y": 38,
+        "width": 320,
+        "height": 45,
+        "center": 60.5
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 38,
+        "width": 320,
+        "height": 179,
+        "center": 127.5
+      },
+      "tree": {
+        "x": 0,
+        "y": 123,
+        "width": 320,
+        "height": 72,
+        "center": 159
+      },
+      "headerLabelVisible": false
+    }
+  }
+]
