@@ -1,0 +1,56 @@
+{
+  "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/?folder=06af7929536d77d9800045972232977f&crawl__id__exact=06af7a4b3880736b80005b4f57a2e3c7",
+  "source": "Existing full-pipeline captures",
+  "checks": [
+    {
+      "name": "desktop",
+      "format": "html_zip",
+      "bodyChild": true,
+      "fixed": "fixed",
+      "inline": 0,
+      "inside": true,
+      "overflow": false,
+      "text": "ZIP export complete\nDownload again\n×",
+      "code": "0",
+      "automaticDownload": {
+        "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7d72ca96743b80002f57dac41251/download/",
+        "bytes": 43186553
+      }
+    },
+    {
+      "name": "tablet",
+      "format": "wacz",
+      "bodyChild": true,
+      "fixed": "fixed",
+      "inline": 0,
+      "inside": true,
+      "overflow": false,
+      "text": "WACZ export complete\nDownload again\n×",
+      "code": "0",
+      "automaticDownload": {
+        "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7d7319c07d30800037705b8fe19d/download/",
+        "bytes": 5235907
+      }
+    },
+    {
+      "name": "mobile",
+      "format": "wacz",
+      "bodyChild": true,
+      "fixed": "fixed",
+      "inline": 0,
+      "inside": true,
+      "overflow": false,
+      "text": "WACZ export complete\nDownload again\n×",
+      "code": "0",
+      "automaticDownload": {
+        "url": "http://admin.archivebox.localhost:5906/admin/core/snapshot/export-jobs/06af7d733a377b4b8000a2e541bd7319/download/",
+        "bytes": 5235907
+      }
+    }
+  ],
+  "errors": [],
+  "errorNotification": {
+    "text": "HTML · Export failed (400)\n×",
+    "role": "alert"
+  }
+}
