@@ -265,6 +265,7 @@ class CrawlRunner:
         self.root_crawl_event_id: str | None = None
         self.root_crawl_start_event_id: str | None = None
         self._run_task: asyncio.Task[None] | None = None
+        self._prepared_webhook_snapshots: set[str] = set()
         self._run_started = False
         self._skip_wait_until_idle = False
         # This is intentionally a synchronous OS-signal side channel, not bus
@@ -830,6 +831,11 @@ class CrawlRunner:
         from archivebox.plugins.discovery import get_enabled_plugins
         from archivebox.machine.models import Machine, NetworkInterface, Process
 
+        from archivebox.api.webhook_events import emit_event
+
+        if self.crawl.status == self.crawl.StatusChoices.QUEUED:
+            emit_event(self.crawl, "BEFORE_QUEUE")
+            self.crawl.refresh_from_db()
         self.primary_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ""
         # Validate saved binary paths at the execution boundary, including
         # config edited since this process first registered its Machine.
@@ -1068,6 +1074,17 @@ class CrawlRunner:
 
         def load_context():
             snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by", "crawl__persona").get(id=snapshot_id)
+            from archivebox.api.webhook_events import emit_event
+
+            # Once per admission, before native config and Persona preparation.
+            # Existing results mean this is a resume/maintenance pass, not a new
+            # capture. The existing lifecycle owns admission; no event rows are stored.
+            if snapshot_id not in self._prepared_webhook_snapshots and not snapshot.archiveresult_set.exists():
+                if snapshot.status in Snapshot.RUNNABLE_STATES:
+                    emit_event(snapshot, "BEFORE_QUEUE")
+                    emit_event(snapshot, "BEFORE_CAPTURE")
+                    snapshot.refresh_from_db()
+                self._prepared_webhook_snapshots.add(snapshot_id)
             from archivebox.personas.models import Persona
 
             persona = snapshot.crawl.persona
@@ -1577,7 +1594,10 @@ def _run_crawl_locked(
         except BaseException as err:
             errors.append(err)
 
-    worker = threading.Thread(target=run_in_worker_thread, name=f"archivebox-crawl-{crawl_id}")
+    # Carry lifecycle ownership into the worker and its sync_to_async calls so
+    # post-event webhooks can wait for the caller to release the crawl lock.
+    context = contextvars.copy_context()
+    worker = threading.Thread(target=lambda: context.run(run_in_worker_thread), name=f"archivebox-crawl-{crawl_id}")
     worker.start()
     worker.join()
     if errors:

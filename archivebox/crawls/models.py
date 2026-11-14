@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 
 class CrawlSchedule(ModelWithUUID, ModelWithNotes):
+    emoji: str = "📅"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -147,8 +148,22 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         )
 
 
+class CrawlQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_lifecycle_update
+        from archivebox.api.webhook_membership import track_membership
+        from archivebox.core.models import Snapshot
+
+        with (
+            track_lifecycle_update(self, kwargs),
+            track_membership(lambda: Snapshot.objects.filter(crawl__in=self).values_list("pk", flat=True)),
+        ):
+            return super().update(**kwargs)
+
+
 class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithQueue):
-    objects = PagedQuerySet.as_manager()
+    emoji: str = "🕷️"
+    objects = CrawlQuerySet.as_manager()
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)

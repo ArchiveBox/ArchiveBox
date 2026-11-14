@@ -81,6 +81,8 @@ if TYPE_CHECKING:
 class Folder(models.Model):
     """A virtual collection; organizing captures never moves their archived files."""
 
+    emoji: str = "📁"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="folder_set")
     name = models.CharField(max_length=100)
@@ -138,12 +140,15 @@ class Folder(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-        # Only folder metadata is atomic. Never hold that transaction while
-        # moving the (potentially million-row) snapshot membership.
-        if self.parent_id:
-            type(self).objects.get(pk=self.parent_id).collect_children()
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_membership():
+            self.full_clean()
+            super().save(*args, **kwargs)
+            # Only folder metadata is atomic. Never hold that transaction while
+            # moving the (potentially million-row) snapshot membership.
+            if self.parent_id:
+                type(self).objects.get(pk=self.parent_id).collect_children()
 
     def collect_children(self):
         """Turn a parent into a dynamic union, keeping its former contents in Items."""
@@ -234,16 +239,7 @@ class Folder(models.Model):
 
     @classmethod
     def select_snapshots(cls, queryset, folder_id):
-        from archivebox.core.smart_folders import RuleQuery
-
-        compiler = RuleQuery()
-        folder_id = compact_uuid(folder_id)
-        queryset = queryset.filter(compiler.folder(folder_id))
-        folder = compiler.folders.get(str(folder_id))
-        if folder and folder.is_smart:
-            queryset = queryset.order_by(*compiler.ordering(folder))
-        queryset.query._folder_selection = folder_id
-        return queryset
+        return queryset.in_folder(folder_id)
 
     @classmethod
     def tree(cls, *, public=False):
@@ -330,7 +326,17 @@ class UngroupedSubquery(models.Subquery):
         return []
 
 
+class TagQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_membership(lambda: Snapshot.objects.filter(tags__in=self).values_list("pk", flat=True)):
+            return super().update(**kwargs)
+
+
 class Tag(ModelWithUUID):
+    objects = TagQuerySet.as_manager()
+    emoji: str = "🏷️"
     # Keep AutoField for compatibility with main branch migrations
     # Don't use UUIDField here - requires complex FK transformation
     id = models.AutoField(primary_key=True, serialize=False, verbose_name="ID")
@@ -435,6 +441,31 @@ class SnapshotTag(models.Model):
 class SnapshotQuerySet(PagedQuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
 
+    def in_folder(self, folder_id):
+        from archivebox.core.smart_folders import RuleQuery
+
+        compiler = RuleQuery()
+        folder_id = compact_uuid(folder_id)
+        queryset = self.filter(compiler.folder(folder_id))
+        folder = compiler.folders.get(str(folder_id))
+        if folder and folder.is_smart:
+            queryset = queryset.order_by(*compiler.ordering(folder))
+        queryset.query._folder_selection = folder_id
+        return queryset
+
+    def update(self, **kwargs):
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_membership(lambda: self.values_list("pk", flat=True)):
+            return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        from archivebox.api.webhook_membership import track_membership
+
+        objs = list(objs)
+        with track_membership(lambda: [obj.pk for obj in objs]):
+            return super().bulk_update(objs, fields, *args, **kwargs)
+
     def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
         """Extract hostnames in SQL, without fetching URLs or archive files."""
         authority = Substr("url", StrIndex("url", Value("://")) + 3)
@@ -493,35 +524,38 @@ class SnapshotQuerySet(PagedQuerySet):
         return total, counts
 
     def bulk_create(self, objs, *args, **kwargs):
+        from archivebox.api.webhook_membership import track_membership
+
         objs = list(objs)
-        missing_crawl_ids = set()
-        from archivebox.core.permissions import PERMISSIONS_VALUES
+        with track_membership(lambda: [obj.pk for obj in objs]):
+            missing_crawl_ids = set()
+            from archivebox.core.permissions import PERMISSIONS_VALUES
 
-        for obj in objs:
-            if isinstance(obj, self.model):
-                config = dict(obj.config or {})
-                permission = str(config.get("PERMISSIONS") or "").strip().lower()
-                if permission not in PERMISSIONS_VALUES and obj.crawl_id:
-                    crawl = getattr(obj, "crawl", None)
-                    if not getattr(crawl, "permissions", None):
-                        missing_crawl_ids.add(str(obj.crawl_id))
+            for obj in objs:
+                if isinstance(obj, self.model):
+                    config = dict(obj.config or {})
+                    permission = str(config.get("PERMISSIONS") or "").strip().lower()
+                    if permission not in PERMISSIONS_VALUES and obj.crawl_id:
+                        crawl = getattr(obj, "crawl", None)
+                        if not getattr(crawl, "permissions", None):
+                            missing_crawl_ids.add(str(obj.crawl_id))
 
-        crawl_permissions_by_id = {}
-        if missing_crawl_ids:
-            crawl_permissions_by_id = {
-                str(crawl_id): permissions
-                for crawl_id, permissions in Crawl.objects.filter(pk__in=missing_crawl_ids).values_list("pk", "permissions")
-            }
+            crawl_permissions_by_id = {}
+            if missing_crawl_ids:
+                crawl_permissions_by_id = {
+                    str(crawl_id): permissions
+                    for crawl_id, permissions in Crawl.objects.filter(pk__in=missing_crawl_ids).values_list("pk", "permissions")
+                }
 
-        from archivebox.misc.db import truncate_overlong_charfields
+            from archivebox.misc.db import truncate_overlong_charfields
 
-        for obj in objs:
-            if isinstance(obj, self.model):
-                obj.ensure_permissions_config(crawl_permissions=crawl_permissions_by_id.get(str(obj.crawl_id)))
-                # bulk_create bypasses pre_save, so clamp CharFields here too
-                # (e.g. page titles) to stay within postgres VARCHAR limits.
-                truncate_overlong_charfields(obj)
-        return super().bulk_create(objs, *args, **kwargs)
+            for obj in objs:
+                if isinstance(obj, self.model):
+                    obj.ensure_permissions_config(crawl_permissions=crawl_permissions_by_id.get(str(obj.crawl_id)))
+                    # bulk_create bypasses pre_save, so clamp CharFields here too
+                    # (e.g. page titles) to stay within postgres VARCHAR limits.
+                    truncate_overlong_charfields(obj)
+            return super().bulk_create(objs, *args, **kwargs)
 
     # =========================================================================
     # Filtering Methods
@@ -885,6 +919,7 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
 
 
 class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithQueue):
+    emoji: str = "📄"
     BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
     DELETING_STATE = "deleting"
 
@@ -968,25 +1003,46 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     archiveresult_set: models.Manager["ArchiveResult"]
 
     def add_tag_ids(self, tag_ids: Iterable[int | str]) -> None:
-        tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
-        for tag_id in tag_ids:
-            try:
-                SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
-            except IntegrityError:
-                # Only the unique (snapshot, tag) conflict is idempotent. Do
-                # not hide foreign-key or other integrity failures.
-                if SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id=tag_id).exists():
-                    continue
-                raise
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_membership([self.pk]):
+            tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
+            added = []
+            for tag_id in tag_ids:
+                try:
+                    SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
+                    added.append(tag_id)
+                except IntegrityError:
+                    # Only the unique (snapshot, tag) conflict is idempotent. Do
+                    # not hide foreign-key or other integrity failures.
+                    if SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id=tag_id).exists():
+                        continue
+                    raise
+            if added:
+                # Through-table writes bypass Django's related manager signals.
+                # Use the existing webhook serializer/task handler, which delivers
+                # after commit and observes the complete resulting tag set.
+                from signal_webhooks.handlers import webhook_handler
+
+                webhook_handler(instance=self, method="M2M_ADD")
 
     def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
-        tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
-        if not tag_ids:
-            return 0
-        # QuerySet.delete() wraps even a fast through-table DELETE in atomic().
-        # SnapshotTag has no delete hooks or child rows, so issue the same
-        # idempotent DELETE as one autocommit statement.
-        return SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)._raw_delete(SnapshotTag.objects.db)
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_membership([self.pk]):
+            tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
+            if not tag_ids:
+                return 0
+            # QuerySet.delete() wraps even a fast through-table DELETE in atomic().
+            # The surrounding membership diff owns this mutation; through rows
+            # have no child rows, so use one idempotent autocommit DELETE.
+            links = SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)
+            deleted = links._raw_delete(SnapshotTag.objects.db)
+            if deleted:
+                from signal_webhooks.handlers import webhook_handler
+
+                webhook_handler(instance=self, method="M2M_REMOVE")
+            return deleted
 
     class Meta(
         ModelWithDeleteAfter.Meta,
@@ -1297,6 +1353,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             from signal_webhooks.handlers import webhook_handler
 
             webhook_handler(instance=self, method="UPDATE")
+            from archivebox.api.webhook_events import emit_event
+
+            emit_event(self, "CAPTURE_COMPLETED")
         return updated == 1
 
     def advance_lifecycle(self) -> bool:
@@ -1458,51 +1517,56 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             raise ValidationError({"url": "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs."})
 
     def save(self, *args, **kwargs):
-        creating = self._state.adding
-        if creating and self.folder_id is None:
-            self.folder_id = Crawl.objects.filter(pk=self.crawl_id).values_list("folder_id", flat=True).first()
-        update_fields = kwargs.get("update_fields")
-        if self.folder_id and (creating or update_fields is None or {"folder", "folder_id"}.intersection(update_fields)):
-            self.folder_id = Folder.destination(self.folder_id)
-        validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
-        if self.ensure_permissions_config() and update_fields is not None:
-            kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
+        from archivebox.api.webhook_membership import track_membership
 
-        if validate_url_field:
-            self.validate_url_for_archiving()
+        with track_membership([self.pk]):
+            creating = self._state.adding
+            if creating and self.folder_id is None:
+                self.folder_id = Crawl.objects.filter(pk=self.crawl_id).values_list("folder_id", flat=True).first()
+            update_fields = kwargs.get("update_fields")
+            if self.folder_id and (creating or update_fields is None or {"folder", "folder_id"}.intersection(update_fields)):
+                self.folder_id = Folder.destination(self.folder_id)
+            validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
+            if self.ensure_permissions_config() and update_fields is not None:
+                kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
-        if not self.bookmarked_at:
-            self.bookmarked_at = self.created_at or timezone.now()
-        if not self.timestamp:
-            self.timestamp = str(self.bookmarked_at.timestamp())
+            if validate_url_field:
+                self.validate_url_for_archiving()
 
-        if self._state.adding or update_fields is None or "title" in update_fields:
-            self.title = self._normalize_title_candidate(self.title, snapshot_url=self.url or "") or None
-        if self._state.adding or update_fields is None or "notes" in update_fields:
-            self.notes = sanitize_html_text(self.notes)
+            if not self.bookmarked_at:
+                self.bookmarked_at = self.created_at or timezone.now()
+            if not self.timestamp:
+                self.timestamp = str(self.bookmarked_at.timestamp())
 
-        if not creating:
-            super().save(*args, **kwargs)
-            return
+            if self._state.adding or update_fields is None or "title" in update_fields:
+                self.title = self._normalize_title_candidate(self.title, snapshot_url=self.url or "") or None
+            if self._state.adding or update_fields is None or "notes" in update_fields:
+                self.notes = sanitize_html_text(self.notes)
 
-        # Copy defaults once, before callers can edit tags. A deferred callback
-        # would resurrect tags cleared later in the same creation transaction.
-        # Imported captures use their saved tags (even an empty set), not the
-        # source crawl's defaults, which may have changed since capture time.
-        tag_names = getattr(self, "_imported_tag_names", None)
-        if tag_names is None:
-            # Ordinary queue inserts stay in autocommit. Only filesystem
-            # recovery needs the atomic row/tag boundary below for resumability.
-            super().save(*args, **kwargs)
-            self.save_tags(self.crawl.current_tag_names())
-            return
-        # Commit the row and tags together so a resumed import never needs to
-        # union stale disk tags over user edits. All archive I/O happens outside
-        # this short transaction; ordinary status/title saves bypass it entirely.
-        with transaction.atomic():
-            super().save(*args, **kwargs)
-            self.save_tags(tag_names)
-        self.__dict__.pop("_imported_tag_names", None)
+            if not creating:
+                super().save(*args, **kwargs)
+                return
+
+            # Copy defaults once, before callers can edit tags. A deferred callback
+            # would resurrect tags cleared later in the same creation transaction.
+            # Imported captures use their saved tags (even an empty set), not the
+            # source crawl's defaults, which may have changed since capture time.
+            tag_names = getattr(self, "_imported_tag_names", None)
+            if tag_names is None:
+                # CREATE subscriptions must see a complete row/tag insert. Keep
+                # only these DB writes atomic so on_commit actions run after tag
+                # defaults, never get overwritten by them, and hold no DB lock.
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                    self.save_tags(self.crawl.current_tag_names())
+                return
+            # Commit the row and tags together so a resumed import never needs to
+            # union stale disk tags over user edits. All archive I/O happens outside
+            # this short transaction; ordinary status/title saves bypass it entirely.
+            with transaction.atomic():
+                super().save(*args, **kwargs)
+                self.save_tags(tag_names)
+            self.__dict__.pop("_imported_tag_names", None)
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -4549,8 +4613,25 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
 
 
+class ArchiveResultQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_lifecycle_update
+        from archivebox.api.webhook_membership import track_membership
+
+        with track_lifecycle_update(self, kwargs), track_membership(lambda: self.values_list("snapshot_id", flat=True)):
+            return super().update(**kwargs)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        from archivebox.api.webhook_membership import track_membership
+
+        objs = list(objs)
+        with track_membership(lambda: [obj.snapshot_id for obj in objs]):
+            return super().bulk_create(objs, *args, **kwargs)
+
+
 class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
-    objects = PagedQuerySet.as_manager()
+    emoji: str = "📦"
+    objects = ArchiveResultQuerySet.as_manager()
 
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"

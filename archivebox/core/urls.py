@@ -35,6 +35,7 @@ urlpatterns = [
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *agent_urlpatterns,
     path("admin/importers/", include("archivebox.importers.urls")),
+    path("admin/webhooks/", include("archivebox.api.webhook_urls")),
     path("admin/domains/", include("archivebox.domains.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),

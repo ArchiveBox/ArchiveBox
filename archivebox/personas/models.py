@@ -101,6 +101,8 @@ class Persona(ModelWithConfig):
         persona.CHROME_USER_DATA_DIR  # -> Path to chrome_profile
     """
 
+    emoji: str = "🎭"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     name = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)

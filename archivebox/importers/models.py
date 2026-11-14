@@ -9,6 +9,7 @@ from archivebox.uuid_compat import CompactUUIDField, uuid7
 
 
 class ImporterSource(models.Model):
+    emoji: str = "📥"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False)
     created_at = models.DateTimeField(default=timezone.now)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -36,6 +37,8 @@ class ImporterSource(models.Model):
 
 
 class ImporterRun(models.Model):
+    emoji: str = "🔄"
+
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
         RUNNING = "running", "Running"

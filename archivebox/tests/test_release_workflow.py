@@ -189,11 +189,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
             ".github/workflows/screenshots.yml",
             "bin/take_screenshot.js",
             "bin/setup_ui_screenshot_data.js",
-            *[
-                f"archivebox/{app}/**"
-                for app in ("automation", "domains", "linkhealth", "storage")
-                if (REPO_ROOT / "archivebox" / app).is_dir()
-            ],
+            *[f"archivebox/{app}/**" for app in ("api", "domains", "linkhealth", "storage") if (REPO_ROOT / "archivebox" / app).is_dir()],
             "archivebox/core/library*",
             "archivebox/core/admin*",
             "archivebox/core/models.py",

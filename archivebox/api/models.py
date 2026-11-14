@@ -17,6 +17,7 @@ def generate_secret_token() -> str:
 
 
 class APIToken(models.Model):
+    emoji: str = "🔑"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -41,14 +42,52 @@ class APIToken(models.Model):
 
 
 class OutboundWebhook(WebhookBase):
+    emoji: str = "🪝"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
+    # Retain endpoint/token fields for existing HTTP subscriptions. New sequences
+    # use actions; credentials remain in WebhookBase's encrypted TokenField.
+    endpoint = models.URLField(max_length=2047, blank=True)
+    last_success = models.DateTimeField(null=True, blank=True, default=None)
+    last_failure = models.DateTimeField(null=True, blank=True, default=None)
+    from archivebox.api.webhook_events import SIGNAL_CHOICES
+
+    signal = models.CharField(max_length=255, choices=SIGNAL_CHOICES)
+    actions = models.JSONField(default=list, blank=True)
+    folder = models.ForeignKey("core.Folder", null=True, blank=True, on_delete=models.CASCADE)
+    position = models.PositiveIntegerField(default=0)
+    stop_processing = models.BooleanField(default=False)
+    stop_on_failure = models.BooleanField(default=True)
 
     class Meta(WebhookBase.Meta):
         app_label = "api"
         verbose_name = "API Outbound Webhook"
+        ordering = ("position", "created_at", "pk")
+        constraints = []
+
+    def clean(self):
+        super().clean()
+        from django.core.exceptions import ValidationError
+        from signal_webhooks.typing import SignalChoices
+        from archivebox.api.webhook_events import event_catalog
+        from archivebox.api.webhook_actions import validate_actions
+
+        supported = next((model for model in event_catalog() if model["ref"] == self.ref), None)
+        if supported is None:
+            raise ValidationError({"ref": "Choose an available object type."})
+        if self.signal not in {event["key"] for event in supported["events"]} and self.signal not in SignalChoices.values:
+            raise ValidationError({"signal": "Choose an event for this object type."})
+        membership = self.signal in {"FOLDER_ENTERED", "FOLDER_LEFT"}
+        if membership != bool(self.folder_id):
+            raise ValidationError({"folder": "Choose a folder for a folder membership event only."})
+        if membership and self.ref != "archivebox.core.models.Snapshot":
+            raise ValidationError({"signal": "Folder membership events apply to snapshots."})
+        if self.actions:
+            validate_actions(self)
+        elif not self.endpoint:
+            raise ValidationError({"actions": "Choose at least one action."})
 
     def __str__(self) -> str:
-        return f"[{self.id}] {self.ref} -> {self.endpoint}"
+        return self.name

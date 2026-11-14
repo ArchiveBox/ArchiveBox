@@ -437,7 +437,7 @@ class ProcessAdmin(BaseModelAdmin):
         "output_summary",
         "binary_info",
     )
-    search_fields = ("id", "machine__id", "binary__name", "cmd", "pwd", "stdout", "stderr")
+    search_fields = ("id", "machine__id", "binary__name", "cmd", "pwd", "stdout", "stderr", "env")
 
     readonly_fields = (
         "created_at",

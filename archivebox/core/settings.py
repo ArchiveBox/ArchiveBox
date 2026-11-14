@@ -91,6 +91,7 @@ DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 
 
 MIDDLEWARE = [
+    "archivebox.api.webhook_events.WebhookActionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "archivebox.core.middleware.HealthCheckMiddleware",
     "archivebox.core.middleware.TimezoneMiddleware",
@@ -544,6 +545,12 @@ SIGNAL_WEBHOOKS: dict[str, object] = {
         "archivebox.core.models.Snapshot": ...,
         "archivebox.core.models.ArchiveResult": ...,
         "archivebox.core.models.Tag": ...,
+        "archivebox.core.models.Folder": ...,
+        "archivebox.crawls.models.CrawlSchedule": ...,
+        "archivebox.importers.models.ImporterSource": ...,
+        "archivebox.importers.models.ImporterRun": ...,
+        "archivebox.api.models.OutboundWebhook": ...,
+        "archivebox.machine.models.NetworkInterface": ...,
         "archivebox.api.models.APIToken": ...,
         "archivebox.personas.models.Persona": ...,
         "archivebox.machine.models.Machine": ...,
