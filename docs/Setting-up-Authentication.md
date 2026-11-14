@@ -118,7 +118,7 @@ Create a collection with `archivebox init --quick` if needed, start the server, 
 
 ![Create the first local ArchiveBox administrator](screenshots/authentication/04-first-admin.jpg)
 
-Set `BASE_URL` to your ArchiveBox address and choose `SERVER_SECURITY_MODE` before configuring your identity provider. With `safe-subdomains-fullreplay`, login uses the `admin.` subdomain. Use your server's HTTPS address wherever the instructions below show `http://admin.archivebox.localhost:18000`.
+Set `BASE_URL` to your ArchiveBox address and choose `SERVER_SECURITY_MODE` before configuring your identity provider. With `safe-subdomains-fullreplay`, login uses the `admin.` subdomain. Use your server's HTTPS address wherever the instructions below show `http://admin.archivebox.localhost:5797`.
 
 In the collection's `ArchiveBox.conf`, enable SSO and choose your enrollment policy:
 
@@ -127,11 +127,10 @@ In the collection's `ArchiveBox.conf`, enable SSO and choose your enrollment pol
 ALLAUTH_ENABLED = True
 REGISTRATION_ENABLED = True
 REGISTRATION_MODE = approval
-DEFAULT_USER_PERMISSIONS = admin
 EMAIL_VERIFICATION = none
 ```
 
-These settings require an administrator to approve each new account before it can sign in. For a closed deployment, leave `REGISTRATION_ENABLED=False` and explicitly link existing local users instead. `DEFAULT_USER_PERMISSIONS=none` creates users without admin privileges; `admin` gives new users full administration once activated. Do not combine open registration and automatic admin permissions on an unrestricted IdP.
+ArchiveBox accounts are administrators. These settings allow new SSO accounts but require an existing administrator to approve them before they can sign in. To allow only existing accounts, set `REGISTRATION_ENABLED=False` and connect each administrator's SSO identity from **Account → Connections**. Local accounts are created by an administrator; there is no public signup form.
 
 Back up an existing database before upgrading. With the same configuration/environment as the server, run `archivebox manage migrate --noinput` inside the collection, then restart the server. In Docker Compose, run `docker compose exec archivebox archivebox manage migrate --noinput`, then `docker compose restart archivebox`.
 
@@ -161,9 +160,9 @@ On **Login settings**, enter:
 
 | Field | Value |
 | --- | --- |
-| Root URL | `http://admin.archivebox.localhost:18000` |
-| Home URL | `http://admin.archivebox.localhost:18000/admin/` |
-| Valid redirect URIs | `http://admin.archivebox.localhost:18000/accounts/oidc/keycloak/login/callback/` |
+| Root URL | `http://admin.archivebox.localhost:5797` |
+| Home URL | `http://admin.archivebox.localhost:5797/admin/` |
+| Valid redirect URIs | `http://admin.archivebox.localhost:5797/accounts/oidc/keycloak/login/callback/` |
 
 Register the exact callback, including its trailing slash. Save the client, then open **Credentials** and copy the **Client Secret**.
 
@@ -183,7 +182,7 @@ Set `SOCIALACCOUNT_PROVIDERS` to the following JSON in your server environment o
       "client_id": "archivebox",
       "secret": "YOUR_CLIENT_SECRET",
       "settings": {
-        "server_url": "http://127.0.0.1:18080/realms/archivebox-demo"
+        "server_url": "http://127.0.0.1:8080/realms/archivebox-demo"
       }
     }]
   }
@@ -220,10 +219,10 @@ Create another Keycloak client with **Client type: SAML**, name `ArchiveBox SAML
 
 | Purpose | Value |
 | --- | --- |
-| Client ID / SP entity ID / metadata | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/metadata/` |
-| Valid redirect URIs | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/acs/` |
-| Master SAML Processing URL (HTTP POST ACS) | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/acs/` |
-| SLS callback, when configuring IdP logout | `http://admin.archivebox.localhost:18000/accounts/saml/keycloak/sls/` |
+| Client ID / SP entity ID / metadata | `http://admin.archivebox.localhost:5797/accounts/saml/keycloak/metadata/` |
+| Valid redirect URIs | `http://admin.archivebox.localhost:5797/accounts/saml/keycloak/acs/` |
+| Master SAML Processing URL (HTTP POST ACS) | `http://admin.archivebox.localhost:5797/accounts/saml/keycloak/acs/` |
+| SLS callback, when configuring IdP logout | `http://admin.archivebox.localhost:5797/accounts/saml/keycloak/sls/` |
 
 Leave **IDP-Initiated SSO URL name** and its relay state empty: this configuration requires SP-initiated login. The metadata endpoint can also supply your IdP's import workflow.
 
@@ -261,13 +260,13 @@ Add the `saml` entry below to the **same** `SOCIALACCOUNT_PROVIDERS` dictionary,
 {
   "saml": {
     "APPS": [{
-      "provider_id": "http://127.0.0.1:18080/realms/archivebox-demo",
+      "provider_id": "http://127.0.0.1:8080/realms/archivebox-demo",
       "name": "Keycloak SAML",
       "client_id": "keycloak",
       "settings": {
         "idp": {
-          "entity_id": "http://127.0.0.1:18080/realms/archivebox-demo",
-          "metadata_url": "http://127.0.0.1:18080/realms/archivebox-demo/protocol/saml/descriptor"
+          "entity_id": "http://127.0.0.1:8080/realms/archivebox-demo",
+          "metadata_url": "http://127.0.0.1:8080/realms/archivebox-demo/protocol/saml/descriptor"
         },
         "attribute_mapping": {
           "email": "email",
@@ -332,17 +331,14 @@ hosts may receive only the shared hint and their own scoped replay grant.
 
 #### Registration, permissions, and linking
 
-- `REGISTRATION_ENABLED=False` closes both local and provider signup. Already
-  linked users can still log in. To link an existing account, first log in locally
-  and visit `/accounts/3rdparty/`, then explicitly connect a provider.
+- `REGISTRATION_ENABLED=False` allows only existing linked SSO accounts to sign in.
+  To link an existing administrator, first log in locally and open **Account → Connections**
+  (`/accounts/3rdparty/`).
 - `REGISTRATION_ENABLED=True` with `REGISTRATION_MODE=approval` creates inactive
-  accounts. An administrator must activate them in `/admin/auth/user/` before
-  they can log in. This policy also covers automatic provider signup.
-- `REGISTRATION_MODE=open` activates new accounts immediately.
-- `DEFAULT_USER_PERMISSIONS=none` leaves staff and superuser privileges unset.
-  `admin` grants full ArchiveBox administration to every new account. Combine
-  this with approval, or restrict enrollment at a trusted IdP. This setting
-  does not change existing users or map IdP groups to roles.
+  administrator accounts through SSO. An existing administrator must activate them
+  in `/admin/auth/user/` before they can sign in.
+- `REGISTRATION_MODE=open` activates new SSO administrator accounts immediately.
+  Restrict access to the ArchiveBox application at your identity provider before enabling it.
 - A matching email does not link accounts by default. Account linking requires
   an authenticated user's explicit action. To deliberately trust provider-verified
   email for login to existing accounts, enable `SOCIALACCOUNT_EMAIL_AUTHENTICATION`.
@@ -350,12 +346,18 @@ hosts may receive only the shared hint and their own scoped replay grant.
   that association. Unverified provider emails cannot authorize this matching.
   These options grant configured trusted providers authority over local accounts.
 
-For email confirmation and password reset, configure `EMAIL_HOST`, `EMAIL_PORT`
-(default 587), `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL`.
-TLS is enabled by default; for implicit TLS use `EMAIL_USE_SSL=True` and
-`EMAIL_USE_TLS=False`. Without `EMAIL_HOST`, mail is printed to the server console
-for development. Set `EMAIL_VERIFICATION=mandatory` when local email ownership
-must be confirmed. Provider email verification follows allauth's provider rules.
+#### Password recovery
+
+SSO users reset their passwords through their identity provider. For a local administrator,
+run `archivebox manage changepassword USERNAME` inside the collection. With Docker Compose,
+run `docker compose exec archivebox archivebox manage changepassword USERNAME`.
+
+To enable email password resets, configure `EMAIL_HOST`, `EMAIL_PORT` (default 587),
+`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL` in `[ALLAUTH_CONFIG]`.
+**Forgot your password?** opens the email reset form when `EMAIL_HOST` is configured.
+Otherwise, it displays the administrator's SMTP setup and command-line recovery instructions.
+TLS is enabled by default; for implicit TLS set `EMAIL_USE_SSL=True` and `EMAIL_USE_TLS=False`.
+Set `EMAIL_VERIFICATION=mandatory` to require email confirmation for local logins.
 
 Logout clears the local ArchiveBox session and requires POST. It does **not**
 automatically terminate every IdP session. SAML's SLS callback is exposed, but
