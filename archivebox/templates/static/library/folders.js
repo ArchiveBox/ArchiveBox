@@ -78,6 +78,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   if (!sidebar) return;
   const form = document.querySelector('#changelist-form');
+  if (location.hash === '#delete-snapshots' && form && new URLSearchParams(location.search).has('folder')) {
+    history.replaceState(null, '', location.pathname + location.search);
+    const action = form.querySelector('select[name=action]');
+    const selection = form.querySelector('input.action-select');
+    const across = form.querySelector('input[name=select_across]');
+    const submit = form.querySelector('button[name=index]');
+    if (selection && across && submit && action?.querySelector('option[value=delete_selected]')) {
+      selection.checked = true;
+      across.value = '1';
+      action.value = 'delete_selected';
+      // Django's existing action displays confirmation before requesting deletion.
+      form.requestSubmit(submit);
+      return;
+    }
+  }
   const status = sidebar.querySelector('.folder-drop-status');
   const rows = [...sidebar.querySelectorAll('.folder-row')];
   const search = sidebar.querySelector('.folder-search');
@@ -115,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   search.addEventListener('input', renderTree);
   const searchToggle = sidebar.querySelector('.folder-search-toggle');
-  const sectionLabel = sidebar.querySelector('.folder-section-heading h3');
+  const sectionLabel = sidebar.querySelector('.folder-section-label');
   function toggleFolderSearch(open) {
     search.hidden = !open;
     sectionLabel.hidden = open;
@@ -163,7 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
   mobileViewport.addEventListener('change', viewportChanged);
   viewportChanged();
   mobileToggle.addEventListener('click', () => {
-    if (mobileViewport.matches) mobileCollapsed = !mobileCollapsed;
+    if (mobileViewport.matches) {
+      mobileCollapsed = !mobileCollapsed;
+      if (mobileCollapsed && !search.hidden) toggleFolderSearch(false);
+    }
     else {
       desktopHidden = true;
       try {localStorage.setItem('archivebox.sidebar-hidden', 'true');} catch (_) {}
@@ -258,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     row.addEventListener('dragend', clearDrag);
   });
-  const rootTarget = sidebar.querySelector('.library-primary a');
+  const rootTarget = sidebar.querySelector('.library-root-link');
   rootTarget.dataset.folderId = '';
   rootTarget.classList.add('folder-drop-target');
   function placement(target, event) {

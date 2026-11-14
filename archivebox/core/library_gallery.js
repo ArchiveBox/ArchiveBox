@@ -111,6 +111,7 @@ async function openFolderMenu(page) {
   await page.hover(row);
   if (await page.$eval(`${row} .folder-menu-toggle`, node => node.getAttribute('aria-expanded')) !== 'true') await page.click(`${row} .folder-menu-toggle`);
   await page.waitForSelector(`${row} .folder-menu:popover-open`);
+  await page.waitForFunction(row => document.querySelector(`${row} .folder-menu`).contains(document.activeElement), {}, row);
   const menu = await page.$eval(`${row} .folder-menu`, node => {
     const box = node.getBoundingClientRect();
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,formats:[...node.querySelectorAll('[data-export-format]')].map(link=>link.dataset.exportFormat)};
@@ -156,16 +157,16 @@ async function openFolderSearch(page) {
     const name = await page.$eval('.folder-row', node => node.dataset.folderName);
     await page.type('.folder-search', name);
   }
-  if (!await page.$eval('.folder-section-heading h3', node => node.hidden)) throw new Error('Folder search did not replace its label.');
+  if (!await page.$eval('.folder-section-label', node => node.hidden)) throw new Error('Folder search did not replace its label.');
   const aligned = await page.evaluate(() => {
     const box = selector => document.querySelector(selector).getBoundingClientRect();
-    const navIcon = box('.library-primary a>svg'), navText = box('.library-primary a>span');
+    const heading = box('.folder-section-heading');
     const rootIcon = box('.folder-row[data-parent-id=""] .folder-toggle>svg,.folder-row[data-parent-id=""] .folder-link>svg'), rootText = box('.folder-row[data-parent-id=""] .folder-link>span');
     const input = box('.folder-search'), toggle = box('.folder-search-toggle');
-    return navIcon.x === rootIcon.x && navText.x === rootText.x
+    return input.x === rootIcon.x
       && rootIcon.y + rootIcon.height / 2 === rootText.y + rootText.height / 2
       && input.y + input.height / 2 === toggle.y + toggle.height / 2
-      && (innerWidth >= 768 || box('.library-primary').top === box('.folder-sidebar').top);
+      && (innerWidth >= 768 || heading.top === box('.folder-sidebar').top);
   });
   if (!aligned) throw new Error('Folder navigation icons, labels or search controls are misaligned.');
 }
