@@ -1,0 +1,38 @@
+[
+  {
+    "name": "sidebar-desktop",
+    "libraryIcon": "#library-books",
+    "snapshotsIcon": "#library-pages",
+    "manage": false,
+    "caption": "center",
+    "headingBottom": 135.390625,
+    "toolbarBottom": 135.390625,
+    "collapseY": 96.890625,
+    "gridY": 96.890625,
+    "overflow": false
+  },
+  {
+    "name": "sidebar-tablet",
+    "libraryIcon": "#library-books",
+    "snapshotsIcon": "#library-pages",
+    "manage": false,
+    "caption": "center",
+    "headingBottom": 129.390625,
+    "toolbarBottom": 129.390625,
+    "collapseY": 90.890625,
+    "gridY": 90.890625,
+    "overflow": false
+  },
+  {
+    "name": "sidebar-mobile",
+    "libraryIcon": "#library-books",
+    "snapshotsIcon": "#library-pages",
+    "manage": false,
+    "caption": "center",
+    "headingBottom": 191,
+    "toolbarBottom": 240,
+    "collapseY": 151,
+    "gridY": 197.5,
+    "overflow": false
+  }
+]

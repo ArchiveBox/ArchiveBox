@@ -1,0 +1,27 @@
+{
+  "pages": [],
+  "exports": [],
+  "errors": [],
+  "view": {
+    "url": "http://archivebox.localhost:5906/public/?folder=06af7929536d77d9800045972232977f&q=review-full&search_mode=meta"
+  },
+  "ids": [
+    "06af7a4b4ff575aa800070fc2464d50b",
+    "06af7a4b4ff57d328000106533c1768f",
+    "06af7a4b4ff670618000d8cb91d85cb6",
+    "06af7a4b4ff672678000dcb420632102",
+    "06af7a4b4ff6747e8000122f3b1a5ca6"
+  ],
+  "downloadUrl": "http://web.archivebox.localhost:5906/api/v1/core/snapshots/exports/06af7b909b04722a8000b408ea84a22d/download/",
+  "export": {
+    "text": "WACZ export completeStopDownload again×",
+    "format": "wacz",
+    "status": "exited",
+    "jobId": "06af7b909b04722a8000b408ea84a22d",
+    "exitCode": "0",
+    "exportPath": "/rss-data/exports/site-06af7b909b04722a8000b408ea84a22d"
+  },
+  "file": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/export-notifications/public-download-bVVO08/7d83b985-61b5-42d0-9cc2-e44791983ead",
+  "bytes": 5235907,
+  "sha256": "62a5d584091b9d05e3282aff6dbab9419cbd6db03f2465330fde4391a4f6bb15"
+}
