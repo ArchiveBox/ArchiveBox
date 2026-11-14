@@ -1,0 +1,34 @@
+archivebox/services/runner.py
+  s_511d8b4b4eee26::t_f2b130955cab39 1529,1664-1666,1668-1691,1735,1864
+archivebox/base_models/models.py
+  s_511d8b4b4eee26::t_f2b130955cab39 392-411
+archivebox/cli/archivebox_init.py
+  s_511d8b4b4eee26::t_f2b130955cab39 74
+archivebox/misc/checks.py
+  s_511d8b4b4eee26::t_f2b130955cab39 71,76,90
+archivebox/tests/test_release_workflow.py
+  s_511d8b4b4eee26::t_f2b130955cab39 192-193
+Dockerfile
+  s_511d8b4b4eee26::t_f2b130955cab39 135
+.github/workflows/screenshots.yml
+  s_511d8b4b4eee26::t_f2b130955cab39 232
+archivebox/tests/test_plugin_file_inventory.py
+  s_511d8b4b4eee26::t_f2b130955cab39 6,12,17-38
+  s_511d8b4b4eee26::t_d50f2f499b7d69 39-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a66b536c2517ed1a5be2e3a205b890c39450fca",
+  "prompts": {},
+  "sessions": {
+    "s_511d8b4b4eee26": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d988-f98b-72d0-ac52-a9bdfd208121",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
