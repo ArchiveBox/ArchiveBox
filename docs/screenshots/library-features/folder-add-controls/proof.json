@@ -1,0 +1,228 @@
+{
+  "views": [
+    {
+      "width": 1600,
+      "rows": [
+        {
+          "id": "06af7d6d6ed07f4580005568502cbb26",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929536d77d9800045972232977f",
+          "smart": true,
+          "children": true,
+          "count": 10,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7d6d6ef477b88000b4963c763ab7",
+          "smart": false,
+          "children": false,
+          "count": 6,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929576578a380009f36912223c0",
+          "smart": false,
+          "children": false,
+          "count": 4,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7db4cc95735080005737e8ceb852",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "rows": [
+        {
+          "id": "06af7d6d6ed07f4580005568502cbb26",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929536d77d9800045972232977f",
+          "smart": true,
+          "children": true,
+          "count": 10,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7d6d6ef477b88000b4963c763ab7",
+          "smart": false,
+          "children": false,
+          "count": 6,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929576578a380009f36912223c0",
+          "smart": false,
+          "children": false,
+          "count": 4,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7db4cc95735080005737e8ceb852",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "rows": [
+        {
+          "id": "06af7d6d6ed07f4580005568502cbb26",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929536d77d9800045972232977f",
+          "smart": true,
+          "children": true,
+          "count": 10,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7d6d6ef477b88000b4963c763ab7",
+          "smart": false,
+          "children": false,
+          "count": 6,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929576578a380009f36912223c0",
+          "smart": false,
+          "children": false,
+          "count": 4,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7db4cc95735080005737e8ceb852",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "rows": [
+        {
+          "id": "06af7d6d6ed07f4580005568502cbb26",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929536d77d9800045972232977f",
+          "smart": true,
+          "children": true,
+          "count": 10,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7d6d6ef477b88000b4963c763ab7",
+          "smart": false,
+          "children": false,
+          "count": 6,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7929576578a380009f36912223c0",
+          "smart": false,
+          "children": false,
+          "count": 4,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        },
+        {
+          "id": "06af7db4cc95735080005737e8ceb852",
+          "smart": true,
+          "children": false,
+          "count": 0,
+          "plus": false,
+          "menu": "Add subfolder",
+          "draggable": true,
+          "drop": true
+        }
+      ]
+    }
+  ],
+  "emptyFolderPlus": true,
+  "childHidesPlus": true,
+  "realDragOutAndBack": true,
+  "temporaryFoldersRemoved": true
+}
