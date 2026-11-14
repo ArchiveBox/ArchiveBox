@@ -79,6 +79,32 @@ jobs:
           fetch-depth: 0
           path: .gallery-plugins
 
+      # These source revisions match the plugin capture candidate's runtime
+      # interfaces. Published releases continue to use the frozen lock below.
+      - name: Checkout downloader for plugin capture
+        if: inputs.plugin_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ArchiveBox/abx-dl
+          ref: eecebfe07a1c456c29cafa6a7d748b440b1e4ac5
+          path: .gallery-abx-dl
+
+      - name: Checkout package provider for plugin capture
+        if: inputs.plugin_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ArchiveBox/abxpkg
+          ref: e3c20836804ad5775e204afcbf0c2140a4884d6b
+          path: .gallery-abxpkg
+
+      - name: Checkout event bus for plugin capture
+        if: inputs.plugin_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ArchiveBox/abxbus
+          ref: 1fc140bcd3079c640839b237da8e2c7507b17407
+          path: .gallery-abxbus
+
       - name: Use plugin revision for this capture
         if: inputs.plugin_revision != ''
         env:
@@ -88,7 +114,7 @@ jobs:
           git -C .gallery-plugins fetch origin main
           test "$(git -C .gallery-plugins rev-parse HEAD)" = "$PLUGIN_REVISION"
           git -C .gallery-plugins merge-base --is-ancestor HEAD FETCH_HEAD
-          echo "PYTHONPATH=$GITHUB_WORKSPACE/.gallery-plugins" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.gallery-plugins:$GITHUB_WORKSPACE/.gallery-abx-dl:$GITHUB_WORKSPACE/.gallery-abxpkg:$GITHUB_WORKSPACE/.gallery-abxbus" >> "$GITHUB_ENV"
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -103,6 +129,21 @@ jobs:
 
       - name: Install ArchiveBox and screenshot dependencies
         run: uv sync --no-cache --frozen
+
+      - name: Verify plugin capture source imports
+        if: inputs.plugin_revision != ''
+        run: |
+          uv run --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+          import abx_dl.models, abx_plugins, abxpkg, abxbus
+          root = Path(os.environ["GITHUB_WORKSPACE"])
+          for module, folder in ((abx_dl.models, ".gallery-abx-dl"), (abx_plugins, ".gallery-plugins"), (abxpkg, ".gallery-abxpkg"), (abxbus, ".gallery-abxbus")):
+              path = Path(module.__file__).resolve()
+              print(f"{module.__name__}: {path}")
+              assert path.is_relative_to(root / folder), path
+          assert "app_module" in abx_dl.models.PluginConfig.model_fields
+          PY
 
       - name: Install the matching Chrome sandbox helper
         run: |
@@ -216,6 +257,25 @@ jobs:
           CHROME_HEADLESS: "false"
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/provider-gallery-data
           SCREENSHOT_FAILURE_DIR: ${{ runner.temp }}/gallery-failure-diagnostics
+
+      - name: Record plugin capture revisions
+        if: inputs.plugin_revision != ''
+        env:
+          PLUGIN_REVISION: ${{ inputs.plugin_revision }}
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path("publicsite/screenshots/build.json")
+          data = json.loads(path.read_text())
+          data["plugin_capture_revisions"] = {
+              "abx-plugins": os.environ["PLUGIN_REVISION"],
+              "abx-dl": "eecebfe07a1c456c29cafa6a7d748b440b1e4ac5",
+              "abxpkg": "e3c20836804ad5775e204afcbf0c2140a4884d6b",
+              "abxbus": "1fc140bcd3079c640839b237da8e2c7507b17407",
+          }
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
 
       - name: Verify gallery was generated from this exact revision
         run: |
