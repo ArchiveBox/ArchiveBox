@@ -525,6 +525,16 @@ async function main() {
         const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
         checks.liveProgressCaptures.push({path: screenshotPath, viewport: page.viewport(), ...liveProgress});
       }
+      const columnAlignment = await page.evaluate(() => {
+        const link = document.querySelector('.snapshot-library:not(.sidebar-hidden) .library-primary>a:first-child');
+        const header = document.querySelector('.snapshot-library #table-bookmarks thead,.snapshot-library #result_list thead');
+        if (innerWidth < 768 || !link || !header || !header.getBoundingClientRect().height) return null;
+        const left = link.getBoundingClientRect(), right = header.getBoundingClientRect();
+        return {linkTop:left.top, headerTop:right.top, linkBottom:left.bottom, headerBottom:right.bottom};
+      });
+      if (columnAlignment && (Math.abs(columnAlignment.linkTop - columnAlignment.headerTop) > 0.5 || Math.abs(columnAlignment.linkBottom - columnAlignment.headerBottom) > 0.5)) {
+        throw new Error(`All snapshots is misaligned with the column headings: ${JSON.stringify(columnAlignment)}`);
+      }
       const publicAlignment = await page.evaluate(() => {
         if (innerWidth < 768 || !document.querySelector('.public-library:not(.sidebar-hidden)')) return null;
         const rect = selector => document.querySelector(selector).getBoundingClientRect();
