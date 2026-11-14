@@ -125,7 +125,7 @@ def get_plugin_default_output_path(plugin_name: str) -> str | None:
 
 def plugin_output_is_text(plugin_name: str) -> bool:
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
-    return bool(plugin and plugin.config.output_str_type == "text")
+    return bool(plugin and plugin.manifest.get("output_str_type") == "text")
 
 
 def read_plugin_output_text(plugin_name: str, snapshot_dir: Path, output_str: str = "") -> str:
@@ -243,7 +243,8 @@ def get_plugin_presentation_module(plugin_name: str) -> ModuleType | None:
 def get_plugin_app(plugin_name: str) -> ModuleType | None:
     """Load an optional host adapter without importing standalone hook code."""
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
-    return import_module(plugin.config.app_module) if plugin and plugin.config.app_module else None
+    module_name = str(plugin.manifest.get("app_module") or "").strip() if plugin else ""
+    return import_module(module_name) if module_name else None
 
 
 @lru_cache(maxsize=1)
@@ -429,7 +430,7 @@ def get_search_backends():
     catalog = get_plugin_catalog()
     return {
         plugin.name.removeprefix("search_backend_"): plugin
-        for plugin in sorted(catalog.values(), key=lambda plugin: (plugin.config.search_order, plugin.name))
+        for plugin in sorted(catalog.values(), key=lambda plugin: (int(plugin.manifest.get("search_order", 1000)), plugin.name))
         if catalog.command(plugin.name, "search") is not None and catalog.command(plugin.name, "flush") is not None
     }
 
