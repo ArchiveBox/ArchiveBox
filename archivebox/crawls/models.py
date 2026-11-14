@@ -428,6 +428,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         return {
             "type": "Crawl",
+            "folder_id": str(self.folder_id) if self.folder_id else None,
+            "folder_name": self.folder.name if self.folder_id else None,
+            "persona_id": str(self.persona_id) if self.persona_id else None,
+            "persona_name": self.persona.name if self.persona_id else None,
+            "created_by_id": self.created_by_id,
             "schema_version": VERSION,
             "id": str(self.id),
             "urls": self.urls,
@@ -474,6 +479,9 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             return None
 
         # Create new crawl (status stays QUEUED, not started)
+        for key in ("folder_id", "persona_id"):
+            if key in record and key not in overrides:
+                overrides[key] = record[key]
         crawl = Crawl.objects.create(
             urls=urls,
             max_depth=record.get("max_depth", record.get("depth", 0)),

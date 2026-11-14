@@ -25,6 +25,37 @@ archivebox manage importers --source SOURCE_UUID --action import
 archivebox manage importers --due
 ```
 
+Native commands expose source configuration and run history:
+
+```sh
+archivebox importer catalog
+archivebox importer create --plugin importer_rss --feed feed --settings '{"IMPORTER_RSS_URL":"https://example.com/feed.xml"}'
+archivebox importer list --format csv
+archivebox importer update SOURCE_UUID --data '{"folder_id":"FOLDER_UUID","schedule":"daily"}'
+archivebox importer action SOURCE_UUID preview
+archivebox importer action SOURCE_UUID import
+archivebox importer runs --source-id SOURCE_UUID --format jsonl
+archivebox importer action SOURCE_UUID pause
+archivebox importer delete SOURCE_UUID --yes
+```
+
+The optional folder destination applies to newly discovered captures through their
+native Crawl. Parent folders use their Items destination; ordinary smart folders
+cannot receive captures. Sources and run history export CSV, TSV, JSON, and JSONL
+with separate foreign-key IDs and names. The UI includes CSV/JSONL download links.
+
+Authenticated REST endpoints under `/api/v1/importers/` expose `catalog`,
+`sources` (GET/POST), `source/{id}` (GET/PATCH/DELETE),
+`source/{id}/{action}` (POST), `runs` (GET, with `source_id`, `limit`, `offset`),
+and `run/{id}` (GET). Source and run lists accept `format=csv|tsv|jsonl|json`.
+Run status is owned by the worker; use source actions to queue or cancel work.
+Active sources cannot be edited or deleted. Settings/checkpoints remain private.
+
+ImporterSource and ImporterRun emit CREATE/UPDATE/DELETE webhooks; ImporterRun
+also emits STARTED and COMPLETED on status transitions, including conditional
+worker writes and cancellation. Completion payloads include the committed crawl
+relationship. Export jobs use Process STARTED/EXITED events (`worker_type=site-export`).
+
 Pause cancels pending discovery and disables the schedule. Successful batches
 remain committed; starting Import all again resumes from their checkpoint. A
 failed or cancelled batch never advances progress. Reset preserves captures and

@@ -43,6 +43,8 @@ class ArchiveBoxGroup(click.Group):
     }
     # Model commands (CRUD operations via subcommands)
     model_commands = {
+        "folder": "archivebox.cli.archivebox_folder.main",
+        "importer": "archivebox.cli.archivebox_importer.main",
         "crawl": "archivebox.cli.archivebox_crawl.main",
         "snapshot": "archivebox.cli.archivebox_snapshot.main",
         "archiveresult": "archivebox.cli.archivebox_archiveresult.main",

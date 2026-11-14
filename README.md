@@ -1529,3 +1529,39 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <hr/>
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
+
+### Folders, importers, and query exports
+
+`archivebox folder` provides `create`, `get`, `list`, `update`, `delete`, `rules`,
+and `move-snapshots`. Smart folders are native Folder records with a JSON `rules`
+tree; `folder rules` describes the supported fields, operators, and ordering.
+Updates validate cycles and rule references through the same model as the UI.
+Deleting a folder preserves captures. Folder lists support `--format csv|tsv|json|jsonl`.
+
+```bash
+archivebox folder create Reading
+archivebox folder create News --rules '{"field":"domain","lookup":"exact","value":"news.ycombinator.com"}'
+archivebox folder list --format csv
+archivebox list --folder-id FOLDER_UUID --format jsonl
+archivebox list --export-query 'folder=FOLDER_UUID&q=research&search_mode=meta' --format html_zip --output /absolute/path/export
+archivebox list --export-query 'folder=FOLDER_UUID' --format wacz --output /absolute/path/wacz-export
+```
+
+The authenticated REST API exposes `/api/v1/core/folders` (GET/POST),
+`/api/v1/core/folder/{id}` (GET/PATCH/DELETE), `/api/v1/core/folders/rules` (GET),
+and `/api/v1/core/folders/move-snapshots` (POST). Lists accept `format=csv|tsv|jsonl|json`.
+Snapshot lists accept `folder_id` for regular and smart membership. Snapshot and
+Crawl PATCH accept `folder_id`, including explicit `null` to clear it.
+
+Snapshot metadata exports use `/api/v1/core/snapshots/export/{format}`;
+POST to the same route starts a static ZIP or unified WACZ job. Export filters
+accept the snapshot view query string (including folder, search, domain, tags,
+and visibility); `folder_id`, `search`, and `status` also accept API spellings.
+Job responses include status, download, and cancellation URLs. ZIP/WACZ exports
+preserve the existing permission checks and native Process lifecycle.
+CSV/JSONL snapshot records include folder, owner, and persona IDs alongside names.
+
+`archivebox importer` exposes source CRUD, catalog discovery, queued actions, and
+run history. See [Importers](archivebox/importers/README.md) for commands and REST
+endpoints. MCP exposes `folder` and `importer` as native action tools; snapshot
+export options are available through its existing `snapshot` list action.

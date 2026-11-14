@@ -68,8 +68,10 @@ LIFECYCLE = {
     "crawls.Crawl": ("BEFORE_QUEUE", "STARTED", "COMPLETED"),
     "core.ArchiveResult": ("CAPTURE_COMPLETED",),
     "machine.Process": ("STARTED", "EXITED"),
+    "importers.ImporterRun": ("STARTED", "COMPLETED"),
 }
 STATUS_EVENTS = {
+    "importers.ImporterRun": {"running": "STARTED", **dict.fromkeys(("succeeded", "failed", "needs_login", "cancelled"), "COMPLETED")},
     "crawls.Crawl": {"started": "STARTED", "sealed": "COMPLETED"},
     "machine.Process": {"running": "STARTED", "exited": "EXITED"},
     "core.ArchiveResult": dict.fromkeys(("succeeded", "failed", "skipped", "noresults"), "CAPTURE_COMPLETED"),
@@ -154,7 +156,7 @@ def register_lifecycle_signals():
     from django.db.models.signals import pre_save, post_save
 
     def before_save(sender, instance, raw=False, **kwargs):
-        if raw or action_in_progress() or sender._meta.label not in {"crawls.Crawl", "core.ArchiveResult", "machine.Process"}:
+        if raw or action_in_progress() or sender._meta.label not in STATUS_EVENTS:
             return
         instance._webhook_previous_status = (
             None if instance._state.adding else sender.objects.filter(pk=instance.pk).values_list("status", flat=True).first()
@@ -174,3 +176,26 @@ def register_lifecycle_signals():
 
     pre_save.connect(before_save, weak=False, dispatch_uid="archivebox.webhook.lifecycle.before")
     post_save.connect(after_save, weak=False, dispatch_uid="archivebox.webhook.lifecycle.after")
+
+
+@contextmanager
+def track_model_update(queryset, fields):
+    """Deliver UPDATE for changed rows in native conditional queryset writes."""
+    previous = {}
+    if (
+        not action_in_progress()
+        and get_webhook_model()
+        .objects.filter(
+            ref=reference_for_model(queryset.model),
+            signal="UPDATE",
+            enabled=True,
+        )
+        .exists()
+    ):
+        previous = {obj.pk: obj for obj in queryset}
+    yield
+    for instance in list(queryset.model.objects.filter(pk__in=previous)) if previous else ():
+        before = previous[instance.pk]
+        names = [queryset.model._meta.get_field(name).attname for name in fields]
+        if any(getattr(before, name) != getattr(instance, name) for name in names):
+            emit_event(instance, "UPDATE")

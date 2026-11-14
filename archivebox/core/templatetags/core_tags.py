@@ -88,16 +88,27 @@ def snapshot_url_text(url):
 
 
 @register.simple_tag(takes_context=True)
-def plugin_ui(context, plugin: str, slot: str):
-    """Optional plugin UI must never prevent the host page from rendering."""
-    try:
-        source = get_plugin_template(plugin, slot, fallback=False)
-        if not source:
-            return ""
-        return template.engines["django"].from_string(source).render(context.flatten())
-    except Exception:
-        logging.getLogger(__name__).exception("Unable to render optional plugin UI: %s/%s", plugin, slot)
-        return ""
+def plugin_ui(context, plugin: str, slot: str | None = None):
+    """Render a named plugin fragment, or discover all fragments for a UI slot."""
+    from archivebox.plugins.discovery import get_plugin_presentation_module
+
+    plugins = [plugin] if slot is not None else sorted(get_plugin_catalog())
+    slot = slot if slot is not None else plugin
+    fragments = []
+    for name in plugins:
+        try:
+            source = get_plugin_template(name, slot, fallback=False)
+            if not source:
+                continue
+            values = context.flatten()
+            module = get_plugin_presentation_module(name)
+            prepare = getattr(module, "template_context", None)
+            if prepare is not None:
+                values.update(prepare(slot, values) or {})
+            fragments.append(template.engines["django"].from_string(source).render(values))
+        except Exception:
+            logging.getLogger(__name__).exception("Unable to render optional plugin UI: %s/%s", name, slot)
+    return mark_safe("".join(fragments))
 
 
 _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml", ".yaml", ".md", ".log")
@@ -632,20 +643,6 @@ def static_export_root_url(context) -> str:
 @register.simple_tag(takes_context=True)
 def snapshot_base_url(context, snapshot) -> str:
     return _snapshot_base_url_for_context(context, snapshot)
-
-
-@register.inclusion_tag("core/snapshot_meta.html", takes_context=True)
-def snapshot_meta(context, snapshot):
-    from archivebox.core.snapshot_metadata import snapshot_metadata
-
-    metadata = snapshot_metadata(snapshot, output_dir=context.get("STATIC_EXPORT_DIR"))
-    metadata["canonical"] = snapshot.url
-    # Portable exports have no known public hosting origin.
-    if not context.get("STATIC_EXPORT"):
-        metadata["url"] = snapshot_detail_url(context, snapshot)
-        if metadata["image_path"]:
-            metadata["image"] = _snapshot_url_for_context(context, snapshot, metadata["image_path"])
-    return metadata
 
 
 @register.simple_tag(takes_context=True)

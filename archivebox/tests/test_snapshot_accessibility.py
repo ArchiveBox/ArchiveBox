@@ -222,3 +222,19 @@ def test_missing_artifacts_and_static_export_metadata(client, snapshot, tmp_path
     exported = fromstring((tmp_path / "export/index.html").read_text())
     assert exported.xpath('//link[@rel="canonical"]/@href') == [snapshot.url]
     assert not exported.xpath('//meta[@property="og:url"] | //meta[@property="og:image"]')
+
+
+def test_plugin_ui_discovers_snapshot_head_fragments(snapshot):
+    from django.template import Context, Template
+
+    snapshot.title = "Plugin supplied title"
+    snapshot.save()
+    save_output(snapshot, "seo", "seo.json", '{"og:title":"Registered SEO fragment"}', "application/json")
+    context = Context(snapshot.get_html_details_context())
+    original_title = context["title"]
+    discovered = Template('{% load core_tags %}{% plugin_ui "snapshot_head" %}').render(context)
+    explicit = Template('{% load core_tags %}{% plugin_ui "seo" "snapshot_head" %}').render(context)
+    assert discovered == explicit
+    assert fromstring(discovered).xpath('//meta[@property="og:title"]/@content') == ["Registered SEO fragment"]
+    assert context["title"] == original_title
+    assert Template('{% load core_tags %}{% plugin_ui "nonexistent_slot" %}').render(context) == ""

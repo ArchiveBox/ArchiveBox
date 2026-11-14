@@ -166,3 +166,26 @@ def write_records(records: Iterable[dict[str, Any]], stream: TextIO | None = Non
         active_stream.write("".join(lines))
         active_stream.flush()
     return count
+
+
+def write_record_table(records, *, format="jsonl", stream=None):
+    """Write model records with stable FK columns and JSON-encoded nested cells."""
+    import csv
+
+    output = stream if stream is not None else sys.stdout
+    if format == "jsonl":
+        return write_records(records, stream=output)
+    if format == "json":
+        json.dump(list(records), output, ensure_ascii=False)
+        output.write("\n")
+        return
+    if format not in {"csv", "tsv"}:
+        raise ValueError("Choose json, jsonl, csv, or tsv.")
+    writer = None
+    for record in records:
+        if writer is None:
+            writer = csv.DictWriter(output, fieldnames=list(record), delimiter="\t" if format == "tsv" else ",")
+            writer.writeheader()
+        writer.writerow(
+            {key: json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for key, value in record.items()},
+        )

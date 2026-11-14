@@ -13,7 +13,7 @@ from .models import ImporterSource
 class ImporterSourceForm(forms.ModelForm):
     class Meta:
         model = ImporterSource
-        fields = ("name", "persona", "limit", "tags", "schedule")
+        fields = ("name", "persona", "folder", "limit", "tags", "schedule")
         help_texts: ClassVar = {
             "limit": "Items per batch (1–500). Import all continues until the source is exhausted.",
             "tags": "Comma-separated tags to apply to imported captures.",
@@ -67,6 +67,7 @@ class ImporterSourceForm(forms.ModelForm):
     def advanced_names(self):
         return {
             "name",
+            "folder",
             "limit",
             "tags",
             "schedule",
@@ -81,6 +82,12 @@ class ImporterSourceForm(forms.ModelForm):
     @property
     def advanced_errors(self):
         return any(field.errors for field in self.advanced_fields)
+
+    def clean_folder(self):
+        folder = self.cleaned_data["folder"]
+        if folder and folder.is_smart and not folder.is_container:
+            raise forms.ValidationError("Choose a regular folder as the destination.")
+        return folder
 
     def clean_name(self):
         return self.cleaned_data["name"].strip() or f"{self.definition.provider} · {self.definition.title}"

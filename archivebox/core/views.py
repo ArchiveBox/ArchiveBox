@@ -29,6 +29,7 @@ from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import content_disposition_header
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -951,7 +952,7 @@ def _plugin_full_preview_response(
         # output directly keeps the complete viewer and controls.
         rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + "<style>body > header { display: none !important; }</style></head>", 1)
     response = HttpResponse(rendered, content_type="text/html; charset=utf-8")
-    response.headers["Content-Disposition"] = f'inline; filename="{Path(rel_path).stem}.html"'
+    response.headers["Content-Disposition"] = cast(str, content_disposition_header(False, f"{Path(rel_path).stem}.html"))
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-ArchiveBox-Security-Mode"] = request.archivebox_config.SERVER_SECURITY_MODE
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -1262,6 +1263,19 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    from django.apps import apps
+
+    if path != "progress.json" and apps.is_installed("archivebox.storage"):
+        from archivebox.storage.service import StorageUnavailable, assert_archive_available
+
+        try:
+            assert_archive_available()
+        except StorageUnavailable:
+            return HttpResponse(
+                "Archive storage is unavailable. Contact the administrator.",
+                status=503,
+                headers={"Cache-Control": "private, no-store"},
+            )
     started, cpu_started = time.perf_counter(), time.thread_time()
     response = _build_snapshot_replay_response(request, snapshot, path)
     # Response construction only, not body streaming or time queued before the
@@ -1312,6 +1326,20 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         raise Http404
 
     snapshots = _visible_response_snapshots_for_domain(request, domain)
+    if snapshots:
+        from django.apps import apps
+
+        if apps.is_installed("archivebox.storage"):
+            from archivebox.storage.service import StorageUnavailable, assert_archive_available
+
+            try:
+                assert_archive_available()
+            except StorageUnavailable:
+                return HttpResponse(
+                    "Archive storage is unavailable. Contact the administrator.",
+                    status=503,
+                    headers={"Cache-Control": "private, no-store"},
+                )
     request.archivebox_original_links = {
         urlsplit(snapshot.url)._replace(scheme="", fragment="").geturl(): build_original_url(
             domain,

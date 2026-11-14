@@ -57,7 +57,8 @@ def help() -> None:
         + "\n    ".join(f"[green]{cmd.ljust(20)}[/green] {_command_doc(cmd, path)}" for cmd, path in ArchiveBoxGroup.setup_commands.items())
         + "\n\n    "
         + "\n    ".join(
-            f"[green]{cmd.ljust(20)}[/green] {_command_doc(cmd, path)}" for cmd, path in ArchiveBoxGroup.archive_commands.items()
+            f"[green]{cmd.ljust(20)}[/green] {_command_doc(cmd, path)}"
+            for cmd, path in {**ArchiveBoxGroup.model_commands, **ArchiveBoxGroup.archive_commands}.items()
         )
     )
 

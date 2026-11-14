@@ -78,9 +78,18 @@ if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
 
 
+class FolderQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_model_update
+
+        with track_model_update(self, kwargs):
+            return super().update(**kwargs)
+
+
 class Folder(models.Model):
     """A virtual collection; organizing captures never moves their archived files."""
 
+    objects = FolderQuerySet.as_manager()
     emoji: str = "📁"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
@@ -301,6 +310,45 @@ class Folder(models.Model):
             pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
         return result
 
+    def to_json(self):
+        return {
+            "type": "Folder",
+            "id": str(self.pk),
+            "name": self.name,
+            "parent_id": str(self.parent_id) if self.parent_id else None,
+            "parent_name": self.parent.name if self.parent_id else None,
+            "created_by_id": self.created_by_id,
+            "created_by_username": self.created_by.username if self.created_by_id else None,
+            "position": self.position,
+            "rules": self.rules,
+            "is_smart": self.is_smart,
+            "is_container": self.is_container,
+        }
+
+    def validate_deletion(self):
+        conflicts = type(self).objects.filter(parent=None, name__in=self.children.values("name")).exclude(pk=self.pk)
+        if conflicts.exists():
+            raise ValidationError("Rename or move child folders that already have a name at the top level.")
+        for folder in type(self).objects.exclude(pk=self.pk).filter(rules__isnull=False):
+            pending = [folder.rules]
+            while pending:
+                rule = pending.pop()
+                if rule.get("field") == "folder" and str(rule.get("value")).replace("-", "") == str(self.pk):
+                    raise ValidationError(f"Update the rules in {folder.name} before deleting this folder.")
+                pending.extend(rule.get("rules", []))
+
+    def delete(self, *args, **kwargs):
+        self.validate_deletion()
+        self.move_snapshots(Snapshot.objects.filter(folder=self), None)
+        while ids := list(Crawl.objects.filter(folder=self).values_list("pk", flat=True)[:500]):
+            Crawl.objects.filter(pk__in=ids).update(folder=None)
+        self.children.update(parent=None)
+        from django.apps import apps
+
+        if apps.is_installed("archivebox.importers"):
+            self.importer_sources.update(folder=None)
+        return super().delete(*args, **kwargs)
+
     @classmethod
     def subtree_ids(cls, folder_id):
         children = {}
@@ -335,8 +383,8 @@ class TagQuerySet(PagedQuerySet):
 
 
 class Tag(ModelWithUUID):
-    objects = TagQuerySet.as_manager()
     emoji: str = "🏷️"
+    objects = TagQuerySet.as_manager()
     # Keep AutoField for compatibility with main branch migrations
     # Don't use UUIDField here - requires complex FK transformation
     id = models.AutoField(primary_key=True, serialize=False, verbose_name="ID")
@@ -466,44 +514,6 @@ class SnapshotQuerySet(PagedQuerySet):
         with track_membership(lambda: [obj.pk for obj in objs]):
             return super().bulk_update(objs, fields, *args, **kwargs)
 
-    def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
-        """Extract hostnames in SQL, without fetching URLs or archive files."""
-        authority = Substr("url", StrIndex("url", Value("://")) + 3)
-        # Find the first URL separator with one scan. Expanding three MIN/
-        # COALESCE expressions repeatedly through the hostname CASE tree made
-        # Django copy tens of thousands of expression nodes per smart rule.
-        separators = Replace(Replace(authority, Value("?"), Value("/")), Value("#"), Value("/"))
-        end = StrIndex(Concat(separators, Value("/")), Value("/"))
-        queryset = (
-            self.filter(url__iregex=r"^https?://")
-            .alias(_domain_authority=Substr(authority, 1, end - 1))
-            .alias(
-                _domain_address=Case(
-                    When(
-                        _domain_authority__contains="@",
-                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
-                    ),
-                    default=F("_domain_authority"),
-                ),
-            )
-            .annotate(
-                _domain_host=Lower(
-                    Case(
-                        When(
-                            _domain_address__startswith="[",
-                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
-                        ),
-                        default=Substr(
-                            "_domain_address",
-                            1,
-                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
-                        ),
-                    ),
-                ),
-            )
-        )
-        return queryset if allow_empty else queryset.exclude(_domain_host="")
-
     def request_delete(self) -> int:
         # Admin and API deletion share this durable command. Keep the row until
         # the runner stops its writers and verifies removal from remote storage;
@@ -612,6 +622,44 @@ class SnapshotQuerySet(PagedQuerySet):
         queryset = super().filter(*args, **kwargs)
         return queryset.filter_by_domain(domain) if domain is not None else queryset
 
+    def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
+        """Extract hostnames in SQL, without fetching URLs or archive files."""
+        authority = Substr("url", StrIndex("url", Value("://")) + 3)
+        # Find the first URL separator with one scan. Expanding three MIN/
+        # COALESCE expressions repeatedly through the hostname CASE tree made
+        # Django copy tens of thousands of expression nodes per smart rule.
+        separators = Replace(Replace(authority, Value("?"), Value("/")), Value("#"), Value("/"))
+        end = StrIndex(Concat(separators, Value("/")), Value("/"))
+        queryset = (
+            self.filter(url__iregex=r"^https?://")
+            .alias(_domain_authority=Substr(authority, 1, end - 1))
+            .alias(
+                _domain_address=Case(
+                    When(
+                        _domain_authority__contains="@",
+                        then=Right("_domain_authority", StrIndex(Reverse("_domain_authority"), Value("@")) - 1),
+                    ),
+                    default=F("_domain_authority"),
+                ),
+            )
+            .annotate(
+                _domain_host=Lower(
+                    Case(
+                        When(
+                            _domain_address__startswith="[",
+                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
+                        ),
+                        default=Substr(
+                            "_domain_address",
+                            1,
+                            Coalesce(NullIf(StrIndex("_domain_address", Value(":")), 0), Length("_domain_address") + 1) - 1,
+                        ),
+                    ),
+                ),
+            )
+        )
+        return queryset if allow_empty else queryset.exclude(_domain_host="")
+
     @staticmethod
     @lru_cache(maxsize=1)
     def _domain_suffixes():
@@ -705,6 +753,7 @@ class SnapshotQuerySet(PagedQuerySet):
         "url__istartswith",
         "tag",
         "crawl_id",
+        "folder_id",
         "limit",
         "sort",
         "search",
@@ -746,6 +795,11 @@ class SnapshotQuerySet(PagedQuerySet):
             for key, value in kwargs.items()
             if value is not None and key not in self.SPECIAL_FILTER_ARG_KEYS and key.split("__", 1)[0] in field_names
         }
+        folder_id = field_filters.pop("folder_id", None)
+        if folder_id:
+            if not Folder.objects.filter(pk=folder_id).exists():
+                raise ValueError("Folder does not exist.")
+            queryset = queryset.in_folder(folder_id)
         status = field_filters.pop("status", None)
         queryset = filter_snapshots_by_status(queryset, status)
         if field_filters:
@@ -814,7 +868,8 @@ class SnapshotQuerySet(PagedQuerySet):
             else {}
         )
 
-        snapshot_dicts = [s.to_dict(extended=True, static_export=True) for s in self.iterator(chunk_size=500)]
+        snapshots = self.select_related("folder", "crawl__created_by", "crawl__persona")
+        snapshot_dicts = [s.to_dict(extended=True, static_export=True) for s in snapshots.iterator(chunk_size=500)]
 
         if with_headers:
             output = {
@@ -3624,6 +3679,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "schema_version": VERSION,
             "id": str(self.id),
             "crawl_id": str(self.crawl_id),
+            "folder_id": str(self.folder_id) if self.folder_id else None,
+            "folder_name": self.folder.name if self.folder_id else None,
+            "created_by_id": self.crawl.created_by_id,
+            "created_by_username": self.crawl.created_by.username,
+            "persona_id": str(self.crawl.persona_id) if self.crawl.persona_id else None,
+            "persona_name": self.crawl.persona.name if self.crawl.persona_id else None,
             "url": self.url,
             "title": self.title,
             "tags": self.tags_str(),
@@ -3793,6 +3854,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 "title": title,
                 "crawl": crawl,
             }
+            if "folder_id" in record:
+                create_kwargs["folder_id"] = Folder.destination(record["folder_id"])
             if bookmarked_at:
                 create_kwargs["bookmarked_at"] = bookmarked_at
             if created_at:
@@ -3815,6 +3878,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             snapshot.retry_at = timezone.now()
             update_fields.append("retry_at")
 
+        if "folder_id" in record:
+            Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), record["folder_id"])
+            snapshot.refresh_from_db()
         # Update additional fields if provided
         for field_name in ("depth", "parent_snapshot_id", "crawl_id", "bookmarked_at", "created_at", "downloaded_at"):
             value = record.get(field_name)
@@ -4210,6 +4276,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "TYPE": "core.models.Snapshot",
             "id": str(self.id),
             "crawl_id": str(self.crawl_id),
+            "folder_id": str(self.folder_id) if self.folder_id else None,
+            "folder_name": self.folder.name if self.folder_id else None,
+            "created_by_id": self.crawl.created_by_id,
+            "created_by_username": self.crawl.created_by.username,
+            "persona_id": str(self.crawl.persona_id) if self.crawl.persona_id else None,
+            "persona_name": self.crawl.persona.name if self.crawl.persona_id else None,
             "url": self.url,
             "timestamp": self.timestamp,
             "title": self.title,
@@ -4260,7 +4332,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if invalid_cols:
             supported_cols = ", ".join(sorted(data))
             raise ValueError(f"Invalid CSV field(s): {', '.join(invalid_cols)}\nSupported CSV fields: {supported_cols}")
-        return separator.join(to_json(data[col], indent=None).ljust(ljust) for col in cols)
+        import csv
+        from io import StringIO
+
+        output = StringIO(newline="")
+        values = [
+            to_json(data[col], indent=None)
+            if isinstance(data[col], (dict, list, tuple))
+            else str(data[col])
+            if data[col] is not None
+            else ""
+            for col in cols
+        ]
+        csv.writer(output, delimiter=separator, lineterminator="\n").writerow([value.ljust(ljust) for value in values])
+        return output.getvalue().removesuffix("\n")
 
     def write_json_details(self, out_dir: Path | str | None = None) -> None:
         """Write JSON index file for this snapshot to its output directory"""

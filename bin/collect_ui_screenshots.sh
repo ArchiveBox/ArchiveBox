@@ -624,9 +624,9 @@ PY
         echo "[*] Capturing Hacker News and current top stories with automatic tag and summary plugins"
         (
             cd "$DATA_DIR"
-            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" \
+            OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" \
                 UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}" \
-                UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
         )
         while IFS= read -r ai_view; do

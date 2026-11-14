@@ -11,6 +11,9 @@ on:
       - 'bin/setup_ui_screenshot_data.js'
       - 'archivebox/api/**'
       - 'archivebox/domains/**'
+      - 'archivebox/linkhealth/**'
+      - 'archivebox/storageaudit/**'
+      - 'archivebox/storage/**'
       - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'
@@ -157,7 +160,8 @@ jobs:
               path.write_text(json.dumps(original))
           PYAUTH
           sudo apt-get update
-          sudo apt-get install -y xvfb xauth poppler-utils
+          sudo apt-get install -y xvfb xauth poppler-utils fuse3
+          echo user_allow_other | sudo tee -a /etc/fuse.conf
 
       - name: Configure local Wayback submission service
         run: |

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import cast
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
 
 from django.contrib.staticfiles import finders
@@ -24,7 +25,7 @@ from django.core.handlers.asgi import ASGIRequest
 from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
 from django.template import TemplateDoesNotExist, loader
 from django.utils._os import safe_join
-from django.utils.http import http_date
+from django.utils.http import content_disposition_header, http_date
 from django.utils.translation import gettext as _
 from django.views import static
 from markdown import markdown
@@ -514,7 +515,7 @@ def _build_directory_zip_response(
     )
     # Django closes responses even when the body iterator was never started.
     response._resource_closers.append(close_stream)
-    response.headers["Content-Disposition"] = f'attachment; filename="{root_name}.zip"'
+    response.headers["Content-Disposition"] = content_disposition_header(True, f"{root_name}.zip")
     response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
     response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
     response.headers["X-Accel-Buffering"] = "no"
@@ -1343,7 +1344,7 @@ def _set_transformed_response_headers(
 ) -> None:
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
-    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+    response.headers["Content-Disposition"] = cast(str, content_disposition_header(False, fullpath.name))
     if encoding:
         response.headers["Content-Encoding"] = encoding
 
@@ -1854,7 +1855,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     else:
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
     if is_text_like:
-        response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+        response.headers["Content-Disposition"] = cast(str, content_disposition_header(False, fullpath.name))
     if content_type.startswith("image/"):
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=604800, immutable"
     if favicon_cache_control:

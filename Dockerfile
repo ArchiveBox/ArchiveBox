@@ -132,7 +132,10 @@ echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
 export UV_NO_CACHE=true
 rm -f /etc/apt/apt.conf.d/docker-clean
 apt-get update -qq
-apt-get install -qq -y --no-install-recommends x11-utils
+apt-get install -qq -y --no-install-recommends x11-utils fuse3
+# ArchiveBox retains a root real identity while running as its app user.
+# Kernel-enforced 0600/0700 mount permissions keep archive data private.
+printf "user_allow_other\n" >> /etc/fuse.conf
 # Extend abx-dl's existing venv instead of clearing it. Clearing and later
 # copying a complete replacement over the base duplicates every venv byte in
 # the final overlay history even when most packages are unchanged.

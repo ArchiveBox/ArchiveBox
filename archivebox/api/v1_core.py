@@ -25,6 +25,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.feedgenerator import Rss201rev2Feed
+from django.utils.http import content_disposition_header
 
 from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, UploadedFile
 from ninja.pagination import paginate, PaginationBase
@@ -55,6 +56,7 @@ from archivebox.core.tag_util import (
 from archivebox.crawls.models import Crawl
 from archivebox.crawls.locks import crawl_lifecycle_lock
 from archivebox.api.v1_crawls import CrawlSchema, get_crawl_by_ref
+from archivebox.api.v1_folders import router as folders_router
 from archivebox.search.config import get_search_mode, get_search_mode_backend
 from archivebox.search.query import apply_snapshot_search
 from archivebox.core.snapshot_status import filter_snapshots_by_status, normalize_snapshot_status
@@ -428,7 +430,7 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 def _get_snapshot_by_ref(snapshot_id: str):
     # Snapshot metadata needs the owner/persona, not a potentially multi-MB
     # crawl intake. Keep polling an individual snapshot independent of its size.
-    queryset = Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls")
+    queryset = Snapshot.objects.select_related("crawl__created_by", "crawl__persona", "folder").defer("crawl__urls")
     try:
         try:
             full_id = UUID(snapshot_id)
@@ -720,6 +722,8 @@ class SnapshotSchema(Schema):
     id: UUID
     crawl_id: UUID
     folder_id: UUID | None
+    folder_name: str | None = None
+    persona_id: UUID | None = None
     persona: str | None
     created_by_id: str
     created_by_username: str
@@ -738,6 +742,14 @@ class SnapshotSchema(Schema):
     output_size: int
     num_archiveresults: int
     archiveresults: list[MinimalArchiveResultSchema]
+
+    @staticmethod
+    def resolve_folder_name(obj):
+        return obj.folder.name if obj.folder_id else None
+
+    @staticmethod
+    def resolve_persona_id(obj):
+        return obj.crawl.persona_id
 
     @staticmethod
     def resolve_archive_path(obj):
@@ -784,6 +796,7 @@ class SnapshotSchema(Schema):
 
 
 class SnapshotUpdateSchema(Schema):
+    folder_id: UUID | None = None
     action: str | None = None
     status: str | None = None
     retry_at: datetime | None = None
@@ -929,6 +942,14 @@ def _snapshots_rss_response(
 
 
 class SnapshotFilterSchema(FilterSchema):
+    folder_id: UUID | None = None
+
+    def filter_folder_id(self, value):
+        if value is None:
+            return Q()
+        folder = get_object_or_404(Folder, pk=value)
+        return Q(pk__in=Snapshot.objects.in_folder(folder.pk).values("pk"))
+
     domain: str | None = None
     crawl_id: Annotated[UUID | None, FilterLookup("crawl_id")] = None
     id: Annotated[str | None, FilterLookup(["id__istartswith", "id__iendswith", "timestamp__startswith"])] = None
@@ -973,7 +994,7 @@ def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], wi
     setattr(request, "with_archiveresults", with_archiveresults)
     try:
         queryset = filter_snapshots_by_status(
-            Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls"),
+            Snapshot.objects.select_related("crawl__created_by", "crawl__persona", "folder").defer("crawl__urls"),
             filters.status,
         )
     except ValueError as err:
@@ -1195,6 +1216,15 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
                 payload["status"] = normalize_snapshot_status(payload["status"])
             except ValueError as err:
                 raise HttpError(400, str(err)) from err
+
+        if "folder_id" in payload:
+            if payload["folder_id"] is not None:
+                get_object_or_404(Folder, pk=payload["folder_id"])
+            try:
+                Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), payload["folder_id"])
+            except ValidationError as error:
+                raise HttpError(400, " ".join(error.messages)) from error
+            snapshot.refresh_from_db()
 
         if tags is not None:
             snapshot.save_tags(
@@ -1558,7 +1588,7 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
+    response["Content-Disposition"] = content_disposition_header(True, f"tag-{tag.slug}-urls.txt")
     return response
 
 
@@ -1570,7 +1600,7 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
+    response["Content-Disposition"] = content_disposition_header(True, f"tag-{tag.slug}-snapshots.jsonl")
     return response
 
 
@@ -1631,3 +1661,6 @@ def tags_remove_from_snapshot(request: HttpRequest, data: TagSnapshotRequestSche
         "tag_id": tag.pk,
         "tag_name": tag.name,
     }
+
+
+router.add_router("", folders_router)

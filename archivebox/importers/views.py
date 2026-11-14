@@ -26,7 +26,7 @@ from .catalog import get_importer, get_importers
 from .diagnostics import LOG_NAME, SCREENSHOT_NAME, artifact_path, diagnostics
 from .forms import ImporterSourceForm
 from .models import ImporterRun, ImporterSource
-from .service import ACTIVE_STATUSES, enqueue, pause
+from .service import ACTIVE_STATUSES
 
 
 def importer_admin(view):
@@ -142,23 +142,17 @@ def detail(request, source_id):
 def action(request, source_id, action):
     source = get_object_or_404(ImporterSource, pk=source_id)
     try:
-        if action in ImporterRun.Action.values:
-            run = enqueue(source, action)
-            messages.success(request, f"{run.get_action_display()} queued. The ArchiveBox worker will process it.")
-        elif action == "pause":
-            pause(source)
-            messages.success(request, "Schedule paused. Any active importer is being cancelled.")
-        elif action == "resume":
-            source.enabled = True
-            source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.schedule else None
-            source.save(update_fields=["enabled", "next_run_at"])
-            messages.success(request, "Importer resumed.")
-        elif action == "reset":
-            if not ImporterSource.objects.filter(pk=source.pk).exclude(runs__status__in=ACTIVE_STATUSES).update(checkpoint={}, account={}):
-                raise ValueError("Pause the importer and wait for its active run before resetting progress.")
-            messages.success(request, "Progress reset. Existing captures and run history are preserved.")
+        from .service import source_action, delete_source
+
+        if action == "delete":
+            delete_source(source)
+            messages.success(request, "Importer deleted. Existing captures are preserved.")
+            return redirect("importers:index")
+        result = source_action(source, action)
+        if isinstance(result, ImporterRun):
+            messages.success(request, f"{result.get_action_display()} queued. The ArchiveBox worker will process it.")
         else:
-            raise Http404
+            messages.success(request, "Importer updated.")
     except ValueError as error:
         messages.error(request, str(error))
     return redirect(source)
@@ -302,3 +296,24 @@ def create_custom(request):
         messages.error(request, "The AI session could not start. Check the Agent provider settings, then try again.")
         return redirect("importers:index")
     return redirect(f"/admin/agent/?session={session}")
+
+
+@importer_admin
+@require_GET
+def export_sources(request, format):
+    from archivebox.core.exports import model_export_response
+
+    return model_export_response(
+        (source.to_json() for source in ImporterSource.objects.select_related("persona", "created_by", "folder")),
+        format,
+        name="importers",
+    )
+
+
+@importer_admin
+@require_GET
+def export_runs(request, source_id, format):
+    from archivebox.core.exports import model_export_response
+
+    source = get_object_or_404(ImporterSource, pk=source_id)
+    return model_export_response((run.to_json() for run in source.runs.select_related("source")), format, name="importer-runs")

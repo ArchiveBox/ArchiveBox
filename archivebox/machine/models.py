@@ -191,6 +191,7 @@ class MachineManager(models.Manager):
 
 class Machine(ModelWithHealthStats):
     emoji: str = "🖥️"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -405,6 +406,7 @@ class NetworkInterfaceManager(models.Manager):
 
 class NetworkInterface(ModelWithHealthStats):
     emoji: str = "🌐"
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -858,7 +860,15 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
+class ProcessQuerySet(PagedQuerySet):
+    def update(self, **kwargs):
+        from archivebox.api.webhook_events import track_lifecycle_update
+
+        with track_lifecycle_update(self, kwargs):
+            return super().update(**kwargs)
+
+
+class ProcessManager(models.Manager.from_queryset(ProcessQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Process model."""
 
     def current(self) -> Process:

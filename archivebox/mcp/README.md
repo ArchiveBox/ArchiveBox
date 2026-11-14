@@ -63,8 +63,8 @@ assert response["result"]["serverInfo"]["name"] == "archivebox-mcp"
   "id":3,
   "method":"tools/call",
   "params":{
-    "name":"version",
-    "arguments":{"quiet":true}
+    "name":"folder",
+    "arguments":{"action":"list"}
   }
 }
 ```
@@ -77,15 +77,12 @@ assert response["result"]["serverInfo"]["name"] == "archivebox-mcp"
 
 ## Available Tools
 
-The server exposes all ArchiveBox CLI commands:
-
-**Meta**: `help`, `version`, `mcp`
-**Setup**: `init`, `install`
-**Archive**: `add`, `remove`, `update`, `search`, `status`, `config`
-**Workers**: `orchestrator`, `worker`
-**Tasks**: `crawl`, `snapshot`, `extract`
-**Server**: `server`, `schedule`
-**Utilities**: `shell`, `manage`
+The public tools are `add`, `search`, `crawl`, `snapshot`, `archiveresult`,
+`folder`, `importer`, and `shell`. Model tools group their native CLI subcommands
+under an `action` argument. `folder` includes CRUD, rule discovery, and membership
+moves. `importer` includes CRUD, catalog discovery, source actions, and run history.
+The `snapshot` list action exposes folder selection and static ZIP/unified WACZ
+exports using the same options as the CLI.
 
 ## Architecture
 

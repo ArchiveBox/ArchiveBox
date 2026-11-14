@@ -1,6 +1,6 @@
 """Model Context Protocol server for ArchiveBox.
 
-The server exposes five agent-friendly workflow tools backed by ArchiveBox's
+The server exposes agent-friendly workflow tools backed by ArchiveBox's
 existing Click CLI and newline-delimited JSON-RPC.
 """
 
@@ -16,9 +16,9 @@ from click.testing import CliRunner
 from archivebox.config.version import VERSION
 
 PROTOCOL_VERSION = "2025-11-25"
-PUBLIC_TOOLS = ("add", "search", "crawl", "snapshot", "archiveresult", "shell")
-ACTION_TOOLS = {"crawl", "snapshot", "archiveresult"}
-READ_ONLY_ACTIONS = {"help", "list", "search", "status", "version"}
+PUBLIC_TOOLS = ("add", "search", "crawl", "snapshot", "archiveresult", "folder", "importer", "shell")
+ACTION_TOOLS = {"crawl", "snapshot", "archiveresult", "folder", "importer"}
+READ_ONLY_ACTIONS = {"help", "list", "search", "status", "version", "get", "catalog", "rules", "runs", "run"}
 DESTRUCTIVE_ACTIONS = {"delete", "remove"}
 
 
@@ -416,7 +416,7 @@ class MCPServer:
         tools[tool_name] = MCPTool(tool_name, command_path, command)
 
     def get_tools(self) -> dict[str, MCPTool]:
-        """Discover and cache the CLI commands backing the five public tools."""
+        """Discover and cache the CLI commands backing the public tools."""
 
         if self._tools is None:
             tools: dict[str, MCPTool] = {}
@@ -493,7 +493,7 @@ class MCPServer:
                 raise ValueError(
                     f"Unknown {tool_name} action: {action!r}. Choose one of: {', '.join(available_actions)}",
                 )
-            command_name = f"{tool_name}_{action}"
+            command_name = f"{tool_name}_{action}".replace("-", "_")
         tool = self.get_tools().get(command_name)
         if tool is None:
             raise ValueError(f"ArchiveBox CLI command is unavailable: {command_name}")

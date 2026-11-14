@@ -85,6 +85,7 @@ class AddCommandSchema(Schema):
 
 
 class SnapshotFilterCommandSchema(Schema):
+    folder_id: UUID | None = None
     after: float | None = 0
     before: float | None = None
     filter_type: str | None = FilterTypeChoices.substring

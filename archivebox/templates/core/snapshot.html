@@ -5,7 +5,8 @@
     <head>
         <meta charset="utf-8">
         <title>{{title}}</title>
-        {% snapshot_meta snapshot %}
+        <link rel="canonical" href="{{ url }}">
+        {% plugin_ui "snapshot_head" %}
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             /* Keep this inline, don't move to external css file because this template is used to generate static exports that need to be usable as-is without an accompanying staticfiles dir */

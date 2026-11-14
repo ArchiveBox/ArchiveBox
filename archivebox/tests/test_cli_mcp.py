@@ -51,12 +51,12 @@ def test_mcp_stdio_handles_handshake_notification_and_ping(initialized_archive):
     assert responses[1]["result"] == {}
 
 
-def test_mcp_exposes_six_focused_tools():
+def test_mcp_exposes_eight_focused_tools():
     tools = MCPServer().handle_tools_list({})["tools"]
     tools_by_name = {tool["name"]: tool for tool in tools}
 
-    assert set(tools_by_name) == {"add", "search", "crawl", "snapshot", "archiveresult", "shell"}
-    assert len(tools) == 6
+    assert set(tools_by_name) == {"add", "search", "crawl", "snapshot", "archiveresult", "folder", "importer", "shell"}
+    assert len(tools) == 8
     assert all("outputSchema" in tool for tool in tools)
 
     crawl_schema = tools_by_name["crawl"]["inputSchema"]

@@ -82,6 +82,7 @@ def derive_persona_config(*, name: str, config: Mapping[str, Any] | None, person
 
 
 class Persona(ModelWithConfig):
+    emoji: str = "🎭"
     """
     Browser persona/profile for archiving sessions.
 
@@ -100,8 +101,6 @@ class Persona(ModelWithConfig):
         persona = Persona.objects.get(name='Default')
         persona.CHROME_USER_DATA_DIR  # -> Path to chrome_profile
     """
-
-    emoji: str = "🎭"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     name = models.CharField(max_length=64, unique=True)

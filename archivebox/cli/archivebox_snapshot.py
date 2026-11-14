@@ -52,6 +52,12 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
     fields = (
         "id",
         "crawl_id",
+        "folder_id",
+        "folder__name",
+        "crawl__created_by_id",
+        "crawl__created_by__username",
+        "crawl__persona_id",
+        "crawl__persona__name",
         "url",
         "title",
         "bookmarked_at",
@@ -82,6 +88,12 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
                 "schema_version": VERSION,
                 "id": str(row["id"]),
                 "crawl_id": str(row["crawl_id"]),
+                "folder_id": str(row["folder_id"]) if row["folder_id"] else None,
+                "folder_name": row["folder__name"],
+                "created_by_id": row["crawl__created_by_id"],
+                "created_by_username": row["crawl__created_by__username"],
+                "persona_id": str(row["crawl__persona_id"]) if row["crawl__persona_id"] else None,
+                "persona_name": row["crawl__persona__name"],
                 "url": row["url"],
                 "title": row["title"],
                 "tags": ",".join(sorted(tags_by_snapshot[row["id"]])),
@@ -111,6 +123,7 @@ def create_snapshots(
     status: str = "queued",
     depth: int = 0,
     created_by_id: int | None = None,
+    folder_id=None,
 ) -> int:
     """
     Create Snapshots from URLs or stdin JSONL (Crawl or Snapshot records).
@@ -146,6 +159,8 @@ def create_snapshots(
     pass_through_count = 0
 
     for record in records:
+        if folder_id is not None:
+            record["folder_id"] = str(folder_id)
         record_type = record.get("type", "")
 
         try:
@@ -182,10 +197,11 @@ def create_snapshots(
                         "url": url,
                         "tags": merged_tags,
                         "crawl_id": str(crawl.id),
+                        "folder_id": str(folder_id) if folder_id else record.get("folder_id"),
                         "depth": depth,
                         "status": status,
                     }
-                    snapshot = Snapshot.from_json(snapshot_record, overrides={"created_by_id": created_by_id})
+                    snapshot = Snapshot.from_json(snapshot_record, overrides={"created_by_id": created_by_id, "crawl": crawl})
                     if snapshot:
                         created_snapshots.append(snapshot)
                         if not is_tty:
@@ -247,6 +263,7 @@ def snapshot_filter_options(*, default_filter_type: str):
                 click.option("--url__istartswith", help="Filter by URL starts with"),
                 click.option("--tag", "-t", help="Filter by tag name"),
                 click.option("--crawl-id", help="Filter by crawl ID"),
+                click.option("--folder-id", type=click.UUID, help="Select a folder or smart folder"),
                 click.option("--limit", "-n", type=int, help="Limit number of results"),
                 click.option("--sort", "-o", type=str, help="Field to sort by, e.g. url, created_at, bookmarked_at, downloaded_at"),
                 click.option("--search", help="Search mode to use for positional query"),
@@ -368,7 +385,7 @@ def list_snapshots(
 
     count = 0
     if as_json:
-        queryset = queryset.prefetch_related("tags")
+        queryset = queryset.select_related("folder", "crawl__created_by", "crawl__persona").prefetch_related("tags")
         output = queryset.to_json(with_headers=with_headers)
         sys.stdout.write(output)
         if output and not output.endswith("\n"):
@@ -377,7 +394,7 @@ def list_snapshots(
         return 0
 
     if as_html:
-        queryset = queryset.prefetch_related("tags")
+        queryset = queryset.select_related("folder", "crawl__created_by", "crawl__persona").prefetch_related("tags")
         output = queryset.to_html(with_headers=with_headers)
         sys.stdout.write(output)
         if output and not output.endswith("\n"):
@@ -393,7 +410,11 @@ def list_snapshots(
         if with_headers:
             sys.stdout.write(",".join(cols))
             sys.stdout.write("\n")
-        for snapshot in queryset.prefetch_related("tags").iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE):
+        for snapshot in (
+            queryset.select_related("folder", "crawl__created_by", "crawl__persona")
+            .prefetch_related("tags")
+            .iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE)
+        ):
             sys.stdout.write(snapshot.to_csv(cols=cols, separator=","))
             sys.stdout.write("\n")
             count += 1
@@ -426,6 +447,8 @@ def list_snapshots(
 def update_snapshots(
     status: str | None = None,
     tag: str | None = None,
+    folder_id=None,
+    unfile: bool = False,
 ) -> int:
     """
     Update Snapshots from stdin JSONL.
@@ -444,6 +467,8 @@ def update_snapshots(
 
     is_tty = sys.stdout.isatty()
 
+    if folder_id is not None and unfile:
+        raise click.UsageError("Choose --folder-id or --unfile.")
     records = list(read_stdin())
     if not records:
         rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
@@ -480,7 +505,11 @@ def update_snapshots(
                 snapshot.tags.add(tag_obj)
                 snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
 
-            if not status and not tag:
+            if folder_id is not None or unfile:
+                from archivebox.core.models import Folder
+
+                Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), None if unfile else folder_id)
+            if not status and not tag and folder_id is None and not unfile:
                 snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
             updated_count += 1
 
@@ -564,9 +593,10 @@ def main():
 @click.option("--tag", "-t", default="", help="Comma-separated tags to add")
 @click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
 @click.option("--depth", "-d", type=int, default=0, help="Crawl depth (default: 0)")
-def create_cmd(urls: tuple, tag: str, status: str, depth: int):
+@click.option("--folder-id", type=click.UUID)
+def create_cmd(urls: tuple, tag: str, status: str, depth: int, folder_id):
     """Create Snapshots from URLs or stdin JSONL."""
-    sys.exit(create_snapshots(urls, tag=tag, status=status, depth=depth))
+    sys.exit(create_snapshots(urls, tag=tag, status=status, depth=depth, folder_id=folder_id))
 
 
 @main.command("list")
@@ -580,9 +610,11 @@ def list_cmd(**kwargs):
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
 @click.option("--tag", "-t", help="Add tag")
-def update_cmd(status: str | None, tag: str | None):
+@click.option("--folder-id", type=click.UUID)
+@click.option("--unfile", is_flag=True, help="Remove the folder assignment.")
+def update_cmd(status: str | None, tag: str | None, folder_id, unfile):
     """Update Snapshots from stdin JSONL."""
-    sys.exit(update_snapshots(status=status, tag=tag))
+    sys.exit(update_snapshots(status=status, tag=tag, folder_id=folder_id, unfile=unfile))
 
 
 @main.command("delete")
