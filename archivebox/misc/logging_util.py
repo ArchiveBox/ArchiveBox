@@ -145,7 +145,7 @@ def log_list_finished(snapshots):
     print()
     print("---------------------------------------------------------------------------------------------------")
     csv_queryset = cast(Any, Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]))
-    print(csv_queryset.to_csv(cols=["timestamp", "is_archived", "num_outputs", "url"], header=True, ljust=16, separator=" | "))
+    print(csv_queryset.to_csv(cols=["timestamp", "is_archived", "num_outputs", "url"], header=True, ljust=16, separator="|"))
     print("---------------------------------------------------------------------------------------------------")
     print()
 
