@@ -2136,3 +2136,117 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             today_row.locator(".action-select").uncheck()
             today_row.locator(".action-select").blur()
         browser.close()
+
+
+def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime, admin_user, crawl, settings):
+    from datetime import timedelta
+    from django.utils import timezone
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.models import Snapshot, Tag
+    from archivebox.config.common import get_config
+
+    title = "A long snapshot title that remains readable without pushing the URL and tags out of alignment"
+    today = Snapshot.objects.create(
+        url="https://www.example.com/grid",
+        title=title,
+        crawl=crawl,
+        status="sealed",
+        config={"PERMISSIONS": "unlisted"},
+    )
+    now = timezone.localtime()
+    age_minutes = min(5, now.hour * 60 + now.minute)
+    relative_date = f"{age_minutes}m ago" if age_minutes else "just now"
+    Snapshot.objects.filter(pk=today.pk).update(created_at=now - timedelta(minutes=age_minutes))
+    today.tags.set(
+        [
+            Tag.objects.get_or_create(name=name)[0]
+            for name in (
+                "daily",
+                "news",
+                "long-term-reference",
+                "software-engineering-and-infrastructure",
+                "read-and-discuss-with-the-team",
+                "distributed-systems",
+            )
+        ],
+    )
+    older = Snapshot.objects.create(
+        url="https://example.com/older",
+        title="Short title",
+        crawl=crawl,
+        status="queued",
+        config={"PERMISSIONS": "private"},
+    )
+    older.tags.set([Tag.objects.get_or_create(name="reading-list")[0]])
+    old_date = timezone.now() - timedelta(days=2)
+    Snapshot.objects.filter(pk=older.pk).update(created_at=old_date)
+    admin_url = live_server.url
+    settings.CONFIG = get_config(overrides={"BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.on("dialog", lambda dialog: dialog.dismiss())
+        page.goto(f"{admin_url}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.goto(f"{admin_url}{reverse('admin:grid')}")
+        for width in (320, 390, 800, 1280, 1920):
+            page.set_viewport_size({"width": width, "height": 1000})
+            page.evaluate("document.fonts.ready")
+            card = page.locator(".cards .card").filter(has_text=title)
+            old_card = page.locator(".cards .card").filter(has_text="Short title")
+            assert card.locator(".card-date").inner_text() == relative_date
+            assert old_card.locator(".card-date").inner_text() == timezone.localtime(old_date).strftime("%Y-%m-%d")
+            assert card.locator(".card-url").inner_text() == "example.com/grid"
+            assert card.locator(".card-url").get_attribute("href") == today.url
+            assert card.locator(".snapshot-row-permission").get_attribute("aria-label") == "Unlisted"
+            assert card.locator(".snapshot-row-permission svg").is_visible()
+            assert not card.locator(".snapshot-status-sealed").is_visible()
+            assert old_card.locator(".card-status").is_visible()
+            assert card.locator(".card-info").bounding_box()["height"] < 45
+            assert card.locator(".card-media").bounding_box()["height"] > 2 * card.locator(".card-info").bounding_box()["height"]
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            title_box = card.locator(".card-title").bounding_box()
+            url_box = card.locator(".card-url").bounding_box()
+            tags_box = card.locator(".card-tags").bounding_box()
+            preview_box = card.locator(".card-media").bounding_box()
+            date_box = card.locator(".card-date").bounding_box()
+            url_text_box = card.locator(".card-url code").bounding_box()
+            assert abs(title_box["x"] + 6 - url_text_box["x"]) < 1
+            assert abs(date_box["y"] - preview_box["y"]) < 1
+            assert abs(date_box["x"] + date_box["width"] / 2 - preview_box["x"] - preview_box["width"] / 2) < 1
+            assert abs(tags_box["y"] + tags_box["height"] - preview_box["y"] - preview_box["height"]) < 1
+            assert title_box["y"] < url_box["y"] < preview_box["y"] < tags_box["y"]
+            assert 0 <= url_box["y"] - title_box["y"] - title_box["height"] <= 6
+            assert old_card.locator('.tag-pill[data-tag="reading-list"]').is_visible()
+            assert 0 < card.locator(".tag-pill:visible").count() < 6
+            tag_boxes = [tag.bounding_box() for tag in card.locator(".tag-pill:visible").all()]
+            assert max(box["y"] for box in tag_boxes) - min(box["y"] for box in tag_boxes) < 1
+            card.locator(".library-tags-toggle").click()
+            assert card.locator(".tag-pill:visible").count() == 6
+            card.locator(".library-tags-toggle").click()
+            card.locator(".action-select").check()
+            assert "selected-card" in card.get_attribute("class")
+            card.locator(".action-select").uncheck()
+            card.locator(".tag-inline-input-sm").focus()
+            assert card.locator(".tag-remove-btn").first.is_visible()
+            card.locator(".tag-inline-input-sm").blur()
+        page.set_viewport_size({"width": 1920, "height": 1000})
+        page.goto(f"{admin_url}/admin/core/snapshot/")
+        row = page.locator("#result_list tbody tr").filter(has_text=title)
+        button = row.locator(".snapshot-permissions-button")
+        assert button.locator("svg").is_visible()
+        assert button.locator("svg").bounding_box()["width"] == 18
+        assert button.locator(".snapshot-permissions-icon").evaluate("(node) => getComputedStyle(node).color") == "rgb(148, 163, 184)"
+        button.click()
+        with page.expect_response(lambda response: "set-permissions" in response.url and response.request.method == "POST") as saved:
+            row.locator('.snapshot-permissions-menu-item[data-permissions="private"]').click()
+        assert saved.value.ok, (saved.value.status, saved.value.headers)
+        page.wait_for_function("document.querySelectorAll('.snapshot-permissions-quick[data-current-permissions=private]').length === 2")
+        assert button.locator("svg").is_visible()
+        page.set_viewport_size({"width": 390, "height": 900})
+        assert row.locator(".snapshot-row-permission").get_attribute("aria-label") == "Private"
+        browser.close()
+    today.refresh_from_db()
+    assert today.permissions == "private"

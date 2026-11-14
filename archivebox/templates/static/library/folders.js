@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const count = tags.length;
       const editing = pills.closest('.tag-editor-inline').querySelector('.tag-inline-input-sm')?.matches(':focus');
       const expanded = pills.classList.contains('library-tags-expanded') || editing;
-      const compact = document.body.matches('.model-snapshot.change-list') && window.matchMedia('(max-width: 1500px)').matches;
+      const compact = document.body.matches('.model-snapshot.change-list') && (pills.closest('.cards') || window.matchMedia('(max-width: 1500px)').matches);
       tags.forEach(tag => { tag.hidden = false; tag.style.removeProperty('max-width'); });
       toggle.hidden = !expanded && pills.scrollHeight <= pills.clientHeight;
       toggle.textContent = expanded ? 'Show fewer tags' : `Show all ${count} tags`;

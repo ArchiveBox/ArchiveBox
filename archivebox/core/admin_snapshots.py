@@ -74,6 +74,19 @@ GLOBAL_CONTEXT = {}
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
 
 
+def _permission_icon(permissions):
+    permission_path = {
+        "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
+        "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
+        "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
+    }[permissions]
+    return format_html(
+        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" '
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
+        permission_path,
+    )
+
+
 class SnapshotActionForm(ActionForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -846,7 +859,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         return qs
 
-    @admin.display(description="🔒", ordering="permissions")
+    @admin.display(
+        description=format_html('<span title="Visibility" aria-label="Visibility">{}</span>', _permission_icon("private")),
+        ordering="permissions",
+    )
     def permissions_badge(self, obj):
         permissions = obj.__dict__.get("snapshot_permissions")
         if permissions is None:
@@ -857,7 +873,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             "",
             (
                 '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
+                '<span class="snapshot-permissions-icon" aria-hidden="true">{}</span>'
                 "<span>{}</span>"
                 "</button>"
             ),
@@ -865,19 +881,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 (
                     " is-active" if choice_value == permissions else "",
                     choice_value,
-                    choice_fg,
-                    choice_bg,
-                    choice_icon,
+                    _permission_icon(choice_value),
                     choice_label,
                 )
                 for choice_value, choice_label in PERMISSIONS_CHOICES
-                for choice_icon, _choice_title, choice_fg, choice_bg in [SNAPSHOT_PERMISSION_META[choice_value]]
             ),
         )
         return format_html(
             '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
             '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change snapshot permissions: {}" aria-expanded="false">'
-            '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
+            '<span class="snapshot-permissions-icon" aria-hidden="true">{}</span>'
             "</button>"
             '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
             "</span>",
@@ -886,9 +899,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             permissions,
             label,
             label,
-            fg,
-            bg,
-            icon,
+            _permission_icon(permissions),
             menu_items,
         )
 
@@ -1085,16 +1096,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
         permissions = normalize_permissions(obj.__dict__.get("snapshot_permissions", obj.permissions))
         _, permission_label, _, _ = SNAPSHOT_PERMISSION_META[permissions]
-        permission_path = {
-            "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
-            "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
-            "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
-        }[permissions]
-        permission_icon = format_html(
-            '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" '
-            'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
-            permission_path,
-        )
+        permission_icon = _permission_icon(permissions)
         return format_html(
             '<span class="snapshot-row-permission" role="img" title="{}" aria-label="{}">{}</span>'
             '<span class="tags-inline-editor tags-inline-editor--compact">{}</span>',

@@ -493,17 +493,19 @@ def result_list(context, cl):
     if config is not None:
         for obj in results:
             obj._runtime_config = config
-    # Cards of running snapshots hide their icons, so draw the shared icon
-    # sprite once above all cards rather than inside the first card's icons.
-    icon_sprite = ""
-    if request is not None and not request.__dict__.get("_archivebox_icon_sprite_sent"):
-        request._archivebox_icon_sprite_sent = True
-        icon_sprite = get_plugin_icon_sprite()
     return {
         "cl": cl,
         "num_sorted_fields": num_sorted_fields,
-        "results": [(obj, cl.model_admin.files(obj)) for obj in results],
-        "icon_sprite": icon_sprite,
+        "results": [
+            {
+                "snapshot": obj,
+                "date": cl.model_admin.created_at_display(obj),
+                "tags": cl.model_admin.tags_inline(obj),
+                "status": cl.model_admin.status_with_progress(obj) if obj.status != "sealed" else "",
+                "favicon": cl.model_admin._get_favicon_data(obj),
+            }
+            for obj in results
+        ],
         "request": request,
         "CONFIG": config,
     }
@@ -1119,7 +1121,9 @@ def write_static_ui_assets(export_root):
     target = Path(export_root) / "_archivebox" / "ui"
     # Stable assets are shared by every detail page in this export.
     if (target / "typography.css").is_file() and (target / "fonts/open-sans/font.css").is_file():
-        if (target / "typography.css").read_bytes() == stylesheet.read_bytes() and (target / "fonts/open-sans/font.css").read_bytes() == (fonts / "font.css").read_bytes():
+        if (target / "typography.css").read_bytes() == stylesheet.read_bytes() and (target / "fonts/open-sans/font.css").read_bytes() == (
+            fonts / "font.css"
+        ).read_bytes():
             return
     target.mkdir(parents=True, exist_ok=True)
     shutil.copy2(stylesheet, target / "typography.css")

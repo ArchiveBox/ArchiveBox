@@ -2385,10 +2385,19 @@
                             button.classList.toggle('is-active', button.dataset.permissions === data.permissions)
                         })
                         const icon = wrapper.querySelector('.snapshot-permissions-icon')
-                        if (icon) {
+                        const selectedIcon = wrapper.querySelector('.snapshot-permissions-menu-item.is-active svg')
+                        if (icon && selectedIcon) {
+                            icon.replaceChildren(selectedIcon.cloneNode(true))
+                        } else if (icon) {
                             icon.textContent = data.icon
                             icon.style.color = data.fg
                             icon.style.background = data.bg
+                        }
+                        const compactIcon = wrapper.closest('tr')?.querySelector('.snapshot-row-permission')
+                        if (compactIcon && selectedIcon) {
+                            compactIcon.replaceChildren(selectedIcon.cloneNode(true))
+                            compactIcon.title = data.label
+                            compactIcon.setAttribute('aria-label', data.label)
                         }
                         const toggle = wrapper.querySelector('.snapshot-permissions-button')
                         if (toggle) {
