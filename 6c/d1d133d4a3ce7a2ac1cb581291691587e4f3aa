@@ -1,0 +1,20 @@
+archivebox/plugins/discovery.py
+  s_cb1e5966887ec6::t_d041255eaaf470 128,433
+  s_cb1e5966887ec6::t_3a32f04dc5e2c8 246-247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6cd1d133d4a3ce7a2ac1cb581291691587e4f3aa",
+  "prompts": {},
+  "sessions": {
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
