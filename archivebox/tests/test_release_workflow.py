@@ -191,7 +191,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
             "bin/setup_ui_screenshot_data.js",
             *[
                 f"archivebox/{app}/**"
-                for app in ("automation", "siteclones", "linkhealth", "storage")
+                for app in ("automation", "domains", "linkhealth", "storage")
                 if (REPO_ROOT / "archivebox" / app).is_dir()
             ],
             "archivebox/core/library*",

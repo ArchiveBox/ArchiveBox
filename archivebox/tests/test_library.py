@@ -43,7 +43,7 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk, "q": "A paper"}, HTTP_HOST=ADMIN_TEST_HOST)
     menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
     links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
-    assert {format for _, format in links} == {"rss", "csv", "jsonl"}
+    assert {format for _, format in links} == {"rss", "csv", "jsonl", "html_zip", "wacz"}
     for url, _format in links:
         assert parse_qs(urlsplit(unescape(url)).query) == {"folder": [str(parent.pk)], "q": ["A paper"]}
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -153,7 +153,7 @@ def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token)
     link = urlsplit(links["rss"])
     assert link.path == "/admin/core/snapshot/feed/"
     assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
-    assert set(links) == {"rss", "csv", "jsonl"}
+    assert set(links) == {"rss", "csv", "jsonl", "html_zip", "wacz"}
     for format, url in links.items():
         assert api_token.token not in url
         assert parse_qs(urlsplit(url).query) == parse_qs(link.query)

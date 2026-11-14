@@ -1,0 +1,97 @@
+{% extends "admin/base.html" %}
+{% block title %}Domains{% if site_scope %} · {{ site_scope }}{% elif crawl %} · {{ crawl.label }}{% endif %}{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<style>
+
+  .domains {max-width:none;width:100%;margin:0;color:var(--body-fg);font-size:13px}
+  .domains * {box-sizing:border-box}
+  .domains .visually-hidden {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .domains h2 {font-size:13px;margin:0 0 8px}
+  .siteclone-card {border:0;border-radius:0;background:transparent;padding:0;margin:12px 0}
+  .domains .field {margin:0 0 10px;min-width:0}
+  .domains label {display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+  .domains input:not([type=checkbox]):not(.tag-inline-input),.domains select,.domains textarea {width:100%;border:1px solid var(--border-color);border-radius:4px;padding:5px 8px;background:var(--body-bg);color:var(--body-fg);font:inherit;min-height:30px}
+  .domains input[type=checkbox] {margin:0 6px 0 0}
+  .siteclone-grid {display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:12px}
+  body:not(.change-list) #content #siteclone-form > .field {display:block}
+  body:not(.change-list) #content #siteclone-form > .siteclone-grid {display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:12px}
+  .domains .button,.domains button:not(.tag-remove-btn):not(.site-domain-delete) {display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--archivebox-accent,#a51c50);border-radius:4px;padding:5px 9px;font:inherit;font-size:12px;line-height:1.4;background:var(--archivebox-accent,#a51c50);color:#fff;cursor:pointer;text-decoration:none;min-height:28px}
+  .domains .secondary {background:var(--body-bg);border-color:var(--border-color);color:var(--body-fg)}
+  .siteclone-actions,.domain-toolbar,.domain-metrics {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .domain-toolbar {justify-content:space-between;margin:0 0 8px}
+  .siteclone-actions {margin:0}
+  .siteclone-actions form {margin:0}
+  .domain-metrics {gap:16px;font-size:12px;color:var(--body-quiet-color);padding:8px 0;border-top:1px solid var(--hairline-color)}
+  .domain-metrics strong {color:var(--body-fg);font-variant-numeric:tabular-nums}
+  .domains details {border:0;padding:0;margin:8px 0}
+  .domains summary {font-size:12px;font-weight:600;cursor:pointer;margin:0;padding:5px 0}
+  .domains details[open] > summary {margin-bottom:8px}
+  .domains .domain-add {margin:0 0 8px}
+  .domains .domain-add > summary {width:max-content;border:1px solid var(--border-color);border-radius:4px;padding:5px 9px}
+  .siteclone-run {display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--hairline-color)}
+  .siteclone-badge {display:inline-block;border:1px solid var(--border-color);border-radius:4px;padding:2px 6px;font-size:11px;text-transform:capitalize}
+  .domains .results {overflow-x:auto;width:100%}
+  .domains table {width:100%;border-collapse:collapse;table-layout:auto}
+  #content .domains td,#content .domains th {padding:6px 8px;line-height:1.4;font-size:12px;vertical-align:top;border-bottom:1px solid var(--hairline-color)}
+  #content .domains th {text-align:left}
+  #content .domains td a {white-space:normal;overflow-wrap:anywhere}
+  .domains .page-title {font-weight:600;display:block;margin:0}
+  .domains .page-url {font-size:11px;color:var(--body-quiet-color);overflow-wrap:anywhere}
+  .domains .empty {padding:10px 8px;color:var(--body-quiet-color)}
+  .domains .errorlist {color:var(--error-fg,#ba2121);margin:4px 0;padding:0;list-style:none}
+  .domains .paginator {font-size:12px;padding:8px 0}
+  .siteclone-export-fields {display:grid;grid-template-columns:minmax(180px,1fr) minmax(200px,2fr) auto;gap:8px;align-items:end}
+  #content .siteclone-export-fields > label {display:block;margin:0;padding:0}
+  #content .siteclone-export-fields input,#content .siteclone-export-fields select {display:block;margin:4px 0 0}
+  #content .siteclone-export-fields > button {min-height:30px;margin:0}
+  .siteclone-export-job {padding:8px 0;border-bottom:1px solid var(--hairline-color)}
+  .siteclone-export-job div {display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px}
+  .siteclone-export-job code {display:block;overflow-wrap:anywhere;font-size:12px;padding:4px 0}
+  .siteclone-export-job small {color:var(--body-quiet-color)}
+  .siteclone-replay-settings {display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .siteclone-replay-settings label {margin:0;font-weight:400}
+  #siteclone-form {margin:18px 0 22px}
+  #siteclone-form .site-add-entry {display:flex;gap:10px;max-width:850px;margin:0 auto;align-items:center}
+  #siteclone-form .site-add-entry #id_url {height:44px;flex:1;min-width:0;border-color:var(--archivebox-accent,#a51c50);box-shadow:0 0 0 3px color-mix(in srgb,var(--archivebox-accent,#a51c50) 8%,transparent);padding:10px 14px}
+  #siteclone-form #site-add-button {height:44px;min-width:84px;padding:0 22px;font-weight:600;background:linear-gradient(180deg,#bb2861,var(--archivebox-accent,#a51c50));box-shadow:0 2px 5px #a51c5022,inset 0 1px 0 #ffffff33}
+  #siteclone-form .site-add-help {max-width:850px;margin:9px auto 0;font-size:12px;color:var(--body-quiet-color)}
+  #siteclone-form > .url-filters-widget {max-width:850px;margin:10px auto;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:start}
+  #siteclone-form > .url-filters-widget > .url-filter-patterns {flex-basis:100%;order:1;margin:0}
+  #siteclone-form > .url-filters-widget .url-filters-toggle {margin:0}
+  #siteclone-form .url-filter-label-row {flex-wrap:wrap;gap:3px 8px}
+  #siteclone-form .url-filter-label-note {white-space:normal;flex:1 1 180px;margin-left:0;text-align:left}
+  #site-add-options {padding-top:18px}
+  #siteclone-form .site-add-more {display:flex;justify-content:flex-end;margin:8px 0}
+  #site-add-options[hidden] {display:none!important}
+  #siteclone-form .tag-editor-container {height:44px;min-height:44px;flex-wrap:nowrap;overflow-x:auto;padding:4px 8px}
+  #siteclone-form .tag-pills {flex-wrap:nowrap;flex:0 0 auto}
+  #siteclone-form .tag-inline-input {min-width:100px}
+  #siteclone-form .site-add-primary {display:grid;grid-template-columns:minmax(220px,2fr) minmax(160px,1fr) minmax(130px,1fr);gap:12px;align-items:start}
+  #siteclone-form .site-add-primary select {height:44px}
+  #siteclone-form .site-add-settings {display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:12px}
+  #siteclone-form .site-add-advanced {display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:0 12px}
+  .site-domain-list #toolbar {padding:6px 0;background:transparent;border:0}
+  .site-domain-list #toolbar form > div {display:flex;gap:8px;align-items:center}
+  .site-domain-list #result_list {min-width:900px}
+  #content .site-domain-list #result_list td,#content .site-domain-list #result_list th {padding:6px 8px;white-space:nowrap}
+  #changelist #result_list thead .domain-sort-arrow {display:inline;margin-left:4px}
+  .site-domain-export-control {order:-1}
+  .site-domain-list .field-domain-actions {white-space:nowrap}
+  #site-export-submit {display:none!important}
+  .domains .site-domain-row-export {width:auto;max-width:110px;font-size:12px;padding:3px;min-height:26px}
+  .domains .site-domain-delete {border:0;background:none;color:var(--delete-button-bg,#ba2121);padding:0 0 0 8px;min-height:0;font-weight:400}
+  @media(max-width:700px) {body:not(.change-list) #content #siteclone-form > .siteclone-grid,#siteclone-form .site-add-settings,#siteclone-form .site-add-advanced{grid-template-columns:1fr 1fr}.siteclone-export-fields,#siteclone-form .site-add-primary{grid-template-columns:1fr}.domain-metrics{gap:8px 16px}.siteclone-pages{min-width:600px}.siteclone-domains{min-width:700px}}
+  @media(max-width:700px) {
+    body.site-domain-index.change-list.filters-collapsed #changelist .changelist-form-container > div {grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"toolbar" "counts" "results" "footer"!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist #changelist-form > .actions-top {height:auto!important;padding:0!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist #changelist-form > .actions-top .actions-left {flex-direction:row!important;flex-wrap:wrap!important;justify-content:flex-start!important;width:100%!important;height:auto!important;gap:6px!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist .actions-left .action-rearchive-wrapper {width:auto!important;flex:0 0 auto!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist #changelist-form > .actions-top .action-buttons {width:auto!important;flex:0 0 auto!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist #changelist-form > .actions-top .button {flex:0 0 auto!important;width:max-content!important;min-width:max-content!important;padding:5px 9px!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist #changelist-form > .actions-top .action-summary {margin-left:auto!important}
+    body.site-domain-index.change-list.filters-collapsed #changelist .action-rearchive-wrapper > .button > span {width:auto!important;flex:0 0 auto!important}
+  }
+</style>
+{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'domains:index' %}">Domains</a>{% if site_scope %} &rsaquo; {{ site_scope }}{% elif crawl %} &rsaquo; {{ crawl.label }}{% endif %}</div>{% endblock %}
+{% block content %}<main class="domains">{% block clone_content %}{% endblock %}</main>{% endblock %}

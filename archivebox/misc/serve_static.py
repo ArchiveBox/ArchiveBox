@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import quote, urlencode, urljoin
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
 
 from django.contrib.staticfiles import finders
 from django.core.handlers.asgi import ASGIRequest
@@ -891,7 +891,7 @@ class Resources(HTMLParser):
     # A request-local class closes over every offset and URL span; its class/MRO
     # cycle keeps that large state alive until cyclic GC. Instances instead own
     # only this document and release it when the request finishes.
-    def __init__(self, html_text: str, *, passive: bool = False):
+    def __init__(self, html_text: str, *, passive: bool = False, navigation: bool = False):
         super().__init__()
         self.spans: list[tuple[int, int, str]] = []
         self.inserted_sources: set[int] = set()
@@ -901,12 +901,29 @@ class Resources(HTMLParser):
         self.offsets = [0, *(match.end() for match in re.finditer("\n", html_text))]
         self.base_href = None
         self.passive = passive
+        self.navigation = navigation
+        self.base_tags: list[tuple[int, int]] = []
+        self.head_end = 0
+        self.doctype_end = 0
         self.script_tags: list[tuple[int, int, str]] = []
 
     attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
 
+    def handle_decl(self, decl):
+        if self.navigation and decl.lower().startswith("doctype"):
+            line, column = self.getpos()
+            self.doctype_end = self.offsets[line - 1] + column + len(decl) + 3
+
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
+        if self.navigation and tag in {"base", "head"}:
+            line, column = self.getpos()
+            start = self.offsets[line - 1] + column
+            end = start + len(self.get_starttag_text())
+            if tag == "base":
+                self.base_tags.append((start, end))
+            elif not self.head_end:
+                self.head_end = end
         if self.passive:
             # Browsers keep the first duplicate attribute. Leave the ordinary
             # resource mapper unchanged; passive selection follows that rule too.
@@ -937,9 +954,11 @@ class Resources(HTMLParser):
         lazy_names = ("data-src", "data-lazy-src", "data-echo")
         lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
         names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
-        if values.get("data-echo-background"):
+        if self.navigation:
+            names = {"href"} if tag in {"a", "area"} else set()
+        if not self.navigation and values.get("data-echo-background"):
             names.add("data-echo-background")
-        if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
+        if not self.navigation and tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
             names = {"href"}
         if not names:
             return
@@ -950,7 +969,7 @@ class Resources(HTMLParser):
             self.spans.append((start, start, lazy_src))
             self.inserted_sources.add(start)
         attributes = list(self.attribute.finditer(self.get_starttag_text()))
-        if values.get("data-echo-background"):
+        if not self.navigation and values.get("data-echo-background"):
             style = next((match for match in attributes if match.group(1).lower() == "style"), None)
             if style:
                 group = next(i for i in (2, 3, 4) if style.group(i) is not None)
@@ -975,6 +994,148 @@ class Resources(HTMLParser):
                     self.stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
 
     handle_startendtag = handle_starttag
+
+
+def rewrite_navigation_links(
+    html_text: str,
+    page_url: str,
+    links: dict[str, str],
+    *,
+    asset_base: str | None = None,
+    external_links_script: str | None = None,
+) -> tuple[str, int]:
+    """Rewrite a served/exported representation; callers keep captured bytes intact.
+
+    Keys use the existing original-domain replay identity: //host/path?query.
+    Unknown destinations remain live, and fragments never affect capture lookup.
+    """
+    parsed = Resources(html_text, navigation=True)
+    parsed.feed(html_text)
+    if not parsed.get_starttag_text():
+        return html_text, 0
+    original_base = urljoin(page_url, parsed.base_href or "")
+    replacements = [(start, end, "") for start, end in parsed.base_tags] if asset_base is not None else []
+    for start, end, href in parsed.spans:
+        if not href or href.startswith("#"):
+            continue
+        absolute = urlsplit(urljoin(original_base, href))
+        if absolute.scheme not in {"http", "https"}:
+            continue
+        key = absolute._replace(scheme="", fragment="").geturl()
+        target = links.get(key, absolute._replace(fragment="").geturl())
+        if absolute.fragment:
+            target += f"#{absolute.fragment}"
+        replacements.append((start, end, html.escape(target, quote=True)))
+    # Like pywb's server/client split, initial anchors work without JS while an
+    # observer covers links inserted by the saved site's scripts. Unlike full
+    # Wombat virtualization this intentionally leaves fetch/XHR/forms untouched.
+    config = (
+        json.dumps({"base": original_base, "links": {} if external_links_script else links, "external": bool(external_links_script)})
+        .replace("<", "\\u003c")
+        .replace("&", "\\u0026")
+    )
+    injected = f'<base href="{html.escape(asset_base, quote=True)}">' if asset_base is not None else ""
+    if external_links_script:
+        injected += f'<script src="{html.escape(external_links_script, quote=True)}"></script>'
+    injected += (
+        "<script data-archivebox-original-replay>(()=>{const abxReplay="
+        + config
+        + ";"
+        + r"""
+  const exported = abxReplay.external && globalThis.__archiveboxExport;
+  if (exported) abxReplay.links = exported.links;
+  const linkBase = exported ? exported.base : location.href;
+  const destinations = new Set(Object.values(abxReplay.links).map(value => new URL(value, linkBase).href));
+  const map = a => {
+    const raw = a.getAttribute('href');
+    if (!raw || raw.startsWith('#')) return;
+    let local, url;
+    try { local = new URL(raw, location.href); url = new URL(raw, abxReplay.base); } catch { return; }
+    local.hash = '';
+    if (destinations.has(local.href) || !['http:', 'https:'].includes(url.protocol)) return;
+    const key = '//' + url.host + url.pathname + url.search;
+    const destination = abxReplay.links[key];
+    const target = destination ? new URL(destination, linkBase).href + url.hash : url.href;
+    if (raw !== target) a.setAttribute('href', target);
+  };
+  const scan = node => { if (node.nodeType !== 1) return; if (node.matches('a[href],area[href]')) map(node); node.querySelectorAll('a[href],area[href]').forEach(map); };
+  new MutationObserver(changes => changes.forEach(change => {
+    if (change.type === 'attributes') map(change.target);
+    else change.addedNodes.forEach(scan);
+  })).observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['href']});
+  document.addEventListener('click', event => { const link = event.target.closest?.('a[href],area[href]'); if (link) map(link); }, true);
+})();</script>"""
+    )
+    insertion = parsed.head_end or parsed.doctype_end
+    replacements.append((insertion, insertion, injected))
+    for start, end, replacement in sorted(replacements, reverse=True):
+        html_text = html_text[:start] + replacement + html_text[end:]
+    return html_text, len(replacements)
+
+
+def _rewrite_original_domain_links(request, html_text: str, rel_path: str) -> tuple[str, int]:
+    """Apply native replay navigation to original-domain and configured web views."""
+    from archivebox.core.models import Snapshot
+    from archivebox.core.permissions import public_snapshots_queryset
+    from archivebox.core.routes_util import build_original_url
+
+    domain = request.__dict__.get("archivebox_original_domain")
+    snapshot = request.__dict__.get("archivebox_snapshot")
+    config = request.__dict__.get("archivebox_config") or get_config()
+    if snapshot is None or (not domain and not config.REWRITE_ARCHIVED_LINKS):
+        return html_text, 0
+    parsed = Resources(html_text, navigation=True)
+    parsed.feed(html_text)
+    original_base = urljoin(snapshot.url, parsed.base_href or "")
+    links = {}
+    if config.REWRITE_ARCHIVED_LINKS:
+        # Bound the lookup and injected map to this document's destinations, not
+        # the entire archive. Dynamic copies of those links share the same map.
+        candidates = set()
+        for _start, _end, href in parsed.spans:
+            parts = urlsplit(urljoin(original_base, href))
+            if parts.scheme in {"http", "https"} and parts.hostname:
+                candidates.update(parts._replace(scheme=scheme, fragment="").geturl() for scheme in ("http", "https"))
+        # Archived scripts must not receive private or unlisted URLs, even when
+        # an administrator is viewing the page.
+        urls = (
+            public_snapshots_queryset(Snapshot.objects.filter(url__in=candidates))
+            .filter(output_size__gt=0)
+            .values_list("url", flat=True)
+            .distinct()
+        )
+        for url in urls:
+            parts = urlsplit(url)
+            if parts.scheme in {"http", "https"} and parts.hostname:
+                links[parts._replace(scheme="", fragment="").geturl()] = build_original_url(
+                    parts.hostname,
+                    (parts.path or "/") + (f"?{parts.query}" if parts.query else ""),
+                    request=request,
+                )
+    links.update(request.__dict__.get("archivebox_original_links", {}))
+    if not domain:
+        return rewrite_navigation_links(html_text, snapshot.url, links)
+    asset_base = build_original_url(domain, f"_archivebox/files/{snapshot.id}/{posixpath.dirname(rel_path)}/", request=request)
+    replacements = []
+    resources = Resources(html_text)
+    resources.feed(html_text)
+    for start, end, resource in resources.spans:
+        if not resource or urlsplit(resource).scheme in {"data", "blob", "javascript"}:
+            continue
+        if resource.startswith(("/", "http://", "https://", "//")):
+            continue
+        parts = urlsplit(resource)
+        local = posixpath.normpath(posixpath.join(posixpath.dirname(rel_path), parts.path))
+        if not local.startswith("../") and (snapshot.output_dir / local).is_file():
+            target = build_original_url(domain, f"_archivebox/files/{snapshot.id}/{local}", request=request)
+            query = urlencode([(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "raw"])
+            target += (f"?{query}" if query else "") + (f"#{parts.fragment}" if parts.fragment else "")
+        else:
+            target = urljoin(original_base, resource)
+        replacements.append((start, end, html.escape(target, quote=True)))
+    for start, end, replacement in sorted(replacements, reverse=True):
+        html_text = html_text[:start] + replacement + html_text[end:]
+    return rewrite_navigation_links(html_text, snapshot.url, links, asset_base=asset_base)
 
 
 def _passive_html_thumbnail(html_text: str) -> str:
@@ -1577,6 +1738,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         rel_path,
                         source_html=source_html,
                     )
+                    rewritten_html, link_count = _rewrite_original_domain_links(request, rewritten_html, rel_path)
+                    rewritten_count += link_count
                 markdown_candidate = _extract_markdown_candidate(decoded)
                 if content_type.startswith("text/markdown") or _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)

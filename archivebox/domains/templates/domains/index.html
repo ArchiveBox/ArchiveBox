@@ -1,0 +1,179 @@
+{% extends "domains/base.html" %}{% load static core_tags %}
+{% block bodyclass %}{{ block.super }} change-list filters-collapsed site-domain-index{% endblock %}
+{% block extrastyle %}<link rel="stylesheet" href="{% static 'add.css' %}">{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/changelists.css' %}">{% endblock %}
+{% block extrahead %}{{ block.super }}{{ form.media }}<script src="{% url 'admin:jsi18n' %}"></script><script src="{% static 'admin/js/actions.js' %}" defer></script>{% endblock %}
+{% block clone_content %}
+<h1 class="visually-hidden">Domains</h1>
+<form method="post" class="siteclone-card" id="siteclone-form">
+  {% csrf_token %}{{ form.non_field_errors }}
+  <div class="site-add-entry">
+    <label for="{{ form.url.id_for_label }}" class="visually-hidden">{{ form.url.label }}</label>
+    {{ form.url }}
+    <button type="{% if form.errors or request.GET.add %}submit{% else %}button{% endif %}" id="site-add-button" aria-controls="site-add-options" aria-expanded="{% if form.errors or request.GET.add %}true{% else %}false{% endif %}">Add</button>
+  </div>
+  {{ form.url.errors }}
+  <p class="site-add-help">add a domain to clone the entire site.</p>
+  {{ form.url_filters }}{{ form.url_filters.errors }}
+  <div id="site-add-options"{% if not form.errors and not request.GET.add %} hidden{% endif %}>
+  <div class="site-add-primary">
+    {% include "domains/field.html" with field=form.tags %}
+    {% include "domains/field.html" with field=form.persona %}
+    {% include "domains/field.html" with field=form.permissions %}
+  </div>
+  <div class="site-add-settings">
+    {% include "domains/field.html" with field=form.max_depth %}
+    {% include "domains/field.html" with field=form.max_urls %}
+    {% include "domains/field.html" with field=form.concurrency %}
+    {% include "domains/field.html" with field=form.timeout_minutes %}
+    {% include "domains/field.html" with field=form.schedule %}
+  </div>
+  {% include "domains/field.html" with field=form.include_subdomains %}
+  <div class="site-add-more"><a href="/add/" class="button secondary" id="site-more-options">More options</a></div>
+  </div>
+</form>
+<script>
+(() => {
+  const form = document.getElementById('siteclone-form');
+  const button = document.getElementById('site-add-button');
+  const options = document.getElementById('site-add-options');
+  const url = form.elements.url;
+  url.placeholder = 'https://example.com';
+  function expand(event) {
+    if (!options.hidden) return;
+    event.preventDefault();
+    options.hidden = false;
+    button.type = 'submit';
+    button.setAttribute('aria-expanded', 'true');
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) options.animate([{opacity:0,transform:'translateY(-6px)'},{opacity:1,transform:'translateY(0)'}], {duration:180,easing:'ease-out'});
+    if (!url.value) url.focus();
+  }
+  button.addEventListener('click', expand);
+  url.addEventListener('keydown', event => {if (event.key === 'Enter' && options.hidden) expand(event);});
+  const more = document.getElementById('site-more-options');
+  function updateMoreOptions() {
+    const data = new FormData(form), params = new URLSearchParams();
+    const fields = {tags:'tag',persona:'persona',max_depth:'depth',max_urls:'max_urls',concurrency:'crawl_max_concurrent_snapshots',permissions:'permissions',schedule:'schedule'};
+    for (const [source,target] of Object.entries(fields)) params.set(target, data.get(source) || '');
+    params.set('persona', form.elements.persona.value ? form.elements.persona.selectedOptions[0].textContent.trim() : '');
+    params.set('crawl_timeout', String(Number(data.get('timeout_minutes') || 0) * 60));
+    for (const key of ['same_domain_only','subpaths_only','only_new']) params.set('url_filters_' + key, data.has('url_filters_' + key) ? '1' : '0');
+    params.set('url_filters_allowlist', data.get('url_filters_allowlist') || '');
+    params.set('url_filters_denylist', data.get('url_filters_denylist') || '');
+    let seed = String(data.get('url') || '').trim();
+    try {
+      const parsed = new URL(seed.includes('://') ? seed : 'https://' + seed);
+      parsed.hash = '';
+      seed = parsed.href;
+      const sitemap = new URL('/sitemap.xml', parsed); sitemap.protocol = 'https:';
+      params.set('url', [...new Set([seed,sitemap.href])].join('\n'));
+      const escape = value => [...value].map(char => '.+*?^$()[]{}|'.includes(char) || char.charCodeAt(0) === 92 ? String.fromCharCode(92) + char : char).join('');
+      const subdomains = data.has('include_subdomains') && !parsed.hostname.includes(':');
+      const host = (subdomains ? '(?:[a-zA-Z0-9-]+' + String.fromCharCode(92) + '.)*' : '') + escape(parsed.hostname);
+      const port = parsed.port ? ':' + escape(parsed.port) : '(?::(?:80|443))?';
+      const prefix = data.has('url_filters_subpaths_only') ? escape(parsed.pathname.replace(/\/$/, '')) : '';
+      if (!params.get('url_filters_allowlist').trim()) {
+        params.set('url_filters_allowlist', '^(?i:https?://' + host + port + ')' + prefix + '(?:/|[?#]|$)\n^' + escape(sitemap.href) + '$');
+      }
+    } catch (_) {params.set('url', seed);}
+    more.href = '/add/?' + params;
+  }
+  form.addEventListener('input', updateMoreOptions);
+  form.addEventListener('change', event => {
+    if (event.target === form.elements.include_subdomains && event.target.checked) form.elements.url_filters_same_domain_only.checked = false;
+    if (event.target === form.elements.url_filters_same_domain_only && event.target.checked) form.elements.include_subdomains.checked = false;
+    updateMoreOptions();
+  });
+  more.addEventListener('click', updateMoreOptions);
+  updateMoreOptions();
+})();
+</script>
+<div id="changelist" class="module site-domain-list"><div class="changelist-form-container"><div>
+  {% include "admin/search_form.html" with search_var="q" %}
+  <form method="post" id="changelist-form" novalidate action="{% url 'domains:actions' %}" data-snapshot-actions="{% url 'admin:core_snapshot_changelist' %}">
+    {% csrf_token %}<input type="hidden" name="domain" value=""><input type="hidden" name="export_format" value=""><input type="hidden" name="directory" value="{{ export_directory }}">
+    {% include "domains/domain_actions.html" %}
+    <div class="results">
+      <table id="result_list">
+        <thead><tr>
+          <th scope="col" class="action-checkbox-column"><div class="text"><input type="checkbox" id="action-toggle" aria-label="Select all domains on this page"></div></th>
+          {% for header in domain_headers %}<th scope="col" class="sortable column-{{ header.key }}{% if header.active %} sorted {{ header.descending|yesno:'descending,ascending' }}{% endif %}"><div class="text"><a href="{{ header.url }}">{{ header.label }}{% if header.active %}<span class="domain-sort-arrow" aria-hidden="true"> {{ header.descending|yesno:'↓,↑' }}</span>{% endif %}</a></div></th>{% endfor %}
+          <th scope="col"><div class="text">Actions</div></th>
+        </tr></thead>
+        <tbody>{% for row in domains %}<tr>
+          <td class="action-checkbox"><input type="checkbox" class="action-select" name="_selected_action" value="{{ row.scope }}" aria-label="Select {{ row.domain }}"></td>
+          <th scope="row" class="field-domain">{{ row.favicon_html }} <a href="{{ row.snapshot_url }}" title="Snapshots for {{ row.domain }} and subdomains">{{ row.domain }}</a></th>
+          <td class="field-count"><a href="{{ row.snapshot_url }}">{{ row.snapshot_count|intcomma }}</a></td>
+          <td class="field-size">{{ row.total_size|file_size }}</td>
+          <td class="field-personas"><a href="{{ row.persona_url }}">{{ row.persona_count|intcomma }}</a></td>
+          <td class="field-newest"><a href="{{ row.newest_url }}" title="{{ row.newest_at|date:'Y-m-d H:i:s T' }}">{{ row.newest_at|date:"Y-m-d" }}</a></td>
+          <td class="field-oldest"><a href="{{ row.oldest_url }}" title="{{ row.oldest_at|date:'Y-m-d H:i:s T' }}">{{ row.oldest_at|date:"Y-m-d" }}</a></td>
+          <td class="field-domain-actions">
+            <a href="{{ row.replay_url }}" title="Replay saved {{ row.domain }}" aria-label="Replay saved {{ row.domain }}">🌐</a>
+            <a href="https://web.archive.org/web/*/https://{{ row.domain }}/" target="_blank" rel="noopener" title="{{ row.domain }} on Archive.org" aria-label="{{ row.domain }} on Archive.org">🏛️</a>
+            <select class="site-domain-row-export" aria-label="Export {{ row.domain }}" data-domain="{{ row.scope }}" data-site-url="{{ row.site_url }}">
+              <option value="">Export ▾</option>{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}{% if value == "html_zip" or value == "wacz" %} · MAX 4GB{% endif %}</option>{% endfor %}
+            </select>
+            <button type="submit" name="domain" value="{{ row.scope }}" data-domain-delete="{{ row.scope }}" class="site-domain-delete" aria-label="Delete snapshots for {{ row.domain }}">Delete</button>
+          </td>
+        </tr>{% empty %}<tr><td colspan="8">No saved domains.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <button type="submit" name="action" value="export" id="site-export-submit" hidden>Export</button>
+    <div class="changelist-footer"><p class="paginator">{{ domains.paginator.count|intcomma }} domain{{ domains.paginator.count|pluralize }} {% if domains.has_previous %}<a href="?{{ page_query }}&amp;page={{ domains.previous_page_number }}">Previous</a>{% endif %} {% if domains.paginator.num_pages > 1 %}<span class="this-page">{{ domains.number }}</span>{% endif %} {% if domains.has_next %}<a href="?{{ page_query }}&amp;page={{ domains.next_page_number }}">Next</a>{% endif %}</p></div>
+  </form>
+</div></div></div>
+{{ domain_scopes|json_script:"site-domain-scopes" }}
+<script type="module">
+import {startSnapshotExport} from "{% static 'exports.js' %}";
+(() => {
+  const form = document.getElementById('changelist-form');
+  const action = form.querySelector('select[name="action"]');
+  const override = form.querySelector('input[name="domain"]');
+  const selected = () => form.querySelector('[name="select_across"]').value === '1' ? JSON.parse(document.getElementById('site-domain-scopes').textContent) : [...form.querySelectorAll('.action-select:checked')].map(input => input.value);
+  document.querySelectorAll('.site-domain-export,.site-domain-row-export').forEach(select => select.addEventListener('change', () => {
+    if (!select.value) return;
+    if (select.value === 'storage') { location.href = '/admin/storage/'; return; }
+    override.value = select.dataset.domain || '';
+    if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
+    if (['html', 'replay'].includes(select.value)) {
+      const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
+      if (directory === null) { select.value = ''; return; }
+      form.elements.directory.value = directory;
+    }
+    form.querySelector('[name="export_format"]').value = select.value;
+    form.exportAnchor = select;
+    form.requestSubmit(document.getElementById('site-export-submit'));
+    select.value = '';
+  }));
+  form.querySelectorAll('[data-domain-delete]').forEach(button => button.addEventListener('click', () => {
+    override.value = button.dataset.domainDelete;
+    action.value = 'delete_selected';
+  }));
+  form.addEventListener('submit', event => {
+    const requested = event.submitter?.name === 'action' ? event.submitter.value : action.value;
+    const domains = override.value ? [override.value] : selected();
+    if (!domains.length) { event.preventDefault(); alert('Select at least one domain.'); return; }
+    if (requested === 'export') {
+      if (!override.value && form.querySelector('[name="select_across"]').value === '1') domains.forEach(domain => { const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = domain; form.append(input); });
+      const format = form.elements.export_format.value;
+      if (['html_zip', 'wacz', 'html', 'replay'].includes(format)) {
+        event.preventDefault();
+        const data = new FormData(form);
+        data.set('action', 'export');
+        data.delete('_selected_action');
+        domains.forEach(domain => data.append('_selected_action', domain));
+        startSnapshotExport(new URL(form.getAttribute('action'), location.href).href, {format, anchor: form.exportAnchor || event.submitter, data, csrf: form.elements.csrfmiddlewaretoken.value, session: true}).catch(() => {});
+      }
+      return;
+    }
+    const target = new URL(form.dataset.snapshotActions, location.href);
+    target.searchParams.set('domain', domains.join(','));
+    form.setAttribute('action', target.href);
+    form.querySelector('[name="select_across"]').value = '1';
+    if (override.value) {
+      const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = override.value; form.append(input);
+    }
+  });
+})();
+</script>
+{% endblock %}

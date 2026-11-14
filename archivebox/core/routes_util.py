@@ -19,7 +19,7 @@ _URL_PATH_SAFE = "/@-._~!$&'()*+,;="
 _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
-def build_snapshot_export_urls(filters) -> dict[str, str]:
+def build_snapshot_export_urls(filters, *, api=False) -> dict[str, str]:
     """Keyless exports of an existing snapshot filter, independent of page size."""
     from django.apps import apps
     from django.urls import reverse
@@ -28,6 +28,8 @@ def build_snapshot_export_urls(filters) -> dict[str, str]:
     query = normalize_export_query(filters)
     suffix = "?" + query.urlencode() if query else ""
     formats = ("csv", "jsonl", "html_zip", "wacz") if apps.is_installed("archivebox.domains") else ("csv", "jsonl")
+    if api:
+        return {format: reverse("api-1:snapshot_export", args=[format]) + suffix for format in ("rss", *formats)}
     return {
         "rss": reverse("admin:core_snapshot_feed") + suffix,
         **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in formats},
@@ -552,6 +554,9 @@ def build_snapshot_zip_url(
 
 def build_original_url(domain: str, path: str = "", request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
+    if config.USES_SUBDOMAIN_ROUTING:
+        base_url = _build_base_url_for_host(get_original_host(domain, config=config, request=request), request=request, config=config)
+        return _build_url(base_url, path or "/")
     base_url = _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
     return _build_url(base_url, path)
 

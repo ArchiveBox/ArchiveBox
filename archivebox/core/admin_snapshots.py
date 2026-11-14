@@ -97,6 +97,22 @@ class SnapshotActionForm(ActionForm):
         return [name.strip() for name in tags_str.split(",") if name.strip()]
 
 
+class SnapshotDomainListFilter(admin.SimpleListFilter):
+    title = "domain"
+    parameter_name = "domain"
+
+    def lookups(self, request, model_admin):
+        return [(self.value(), self.value())] if self.value() else []
+
+    def queryset(self, request, queryset):
+        if self.value():
+            try:
+                return queryset.filter_by_domain(self.value())
+            except ValueError:
+                return queryset.none()
+        return queryset
+
+
 class SnapshotFolderListFilter(admin.SimpleListFilter):
     title = "folder"
     parameter_name = "folder"
@@ -425,6 +441,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     search_fields = ("id", "url", "timestamp", "title", "tags__name")
     list_filter = (
+        SnapshotDomainListFilter,
         SnapshotFolderListFilter,
         SnapshotPermissionsListFilter,
         SnapshotStatusListFilter,
@@ -612,6 +629,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         actions = super().get_actions(request)
         if not actions:
             return {}
+        # Keep the old action endpoint for callers, while the UI uses Django's
+        # normal confirmation before queueing native filesystem deletion.
         if request.POST.get("action") != "delete_snapshots":
             actions.pop("delete_snapshots", None)
         return actions

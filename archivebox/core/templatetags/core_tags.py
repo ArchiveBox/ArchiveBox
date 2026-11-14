@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import mimetypes
 import os
 import re
 from html import unescape
@@ -313,7 +314,12 @@ def _is_root_snapshot_output_path(raw_output_path: str | None) -> bool:
 
 def _static_snapshot_base_url(context, snapshot) -> str:
     start_dir = Path(context["STATIC_EXPORT_DIR"])
-    relative_path = os.path.relpath(Path(snapshot.output_dir), start=start_dir).replace(os.sep, "/")
+    output_dir = (
+        Path(context["STATIC_EXPORT_ROOT"]) / snapshot.static_archive_path
+        if context.get("STATIC_EXPORT_ROOT")
+        else Path(snapshot.output_dir)
+    )
+    relative_path = os.path.relpath(output_dir, start=start_dir).replace(os.sep, "/")
     if relative_path == ".":
         return "."
     return f"./{quote(relative_path, safe=_STATIC_URL_SAFE)}"
@@ -618,7 +624,7 @@ def web_base_url(context) -> str:
 def static_export_root_url(context) -> str:
     if not context.get("STATIC_EXPORT"):
         return ""
-    relative_path = os.path.relpath(CONSTANTS.DATA_DIR, start=Path(context["STATIC_EXPORT_DIR"]))
+    relative_path = os.path.relpath(context.get("STATIC_EXPORT_ROOT", CONSTANTS.DATA_DIR), start=Path(context["STATIC_EXPORT_DIR"]))
     relative_path = relative_path.replace(os.sep, "/")
     return "./" if relative_path == "." else f"{quote(relative_path, safe=_STATIC_URL_SAFE)}/"
 
@@ -702,7 +708,7 @@ def snapshot_role_output_url(context, snapshot, role: str, fallback_to_default: 
 
 
 @register.simple_tag(takes_context=True)
-def snapshot_result_file_url(context, snapshot, result, path: str) -> str:
+def snapshot_result_file_url(context, snapshot, result, path: str, preview: bool = False) -> str:
     """Build a saved-file URL from one ArchiveResult declaration."""
     try:
         output_path = result.output_file_path(path)
@@ -710,6 +716,8 @@ def snapshot_result_file_url(context, snapshot, result, path: str) -> str:
         return ""
     if not output_path:
         return ""
+    if preview:
+        return snapshot_preview_url(context, snapshot, output_path, result)
     return _snapshot_url_for_context(context, snapshot, output_path)
 
 
@@ -880,6 +888,8 @@ def snapshot_index_row(context, link) -> str:
 @register.simple_tag(takes_context=True)
 def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
     snapshot_id = _snapshot_id(snapshot)
+    if context.get("STATIC_EXPORT") and (preview := context.get("STATIC_PREVIEW_PATHS", {}).get(path)):
+        return _snapshot_url_for_context(context, snapshot, preview)
     plugin = getattr(result, "plugin", "") if result else ""
     return _build_snapshot_preview_url(
         str(snapshot_id),
@@ -1028,6 +1038,123 @@ class PassiveCardFrames(HTMLParser):
         self.edits.append((start, start + len(self.get_starttag_text()), f"<iframe{attributes}>"))
 
 
+def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snapshot_details_url, context=None, fallback=False):
+    """Render the installed full template for either live or portable previews."""
+    plugin = get_plugin_name(result.plugin) if result else Path(rel_path).parts[0]
+    source = get_plugin_template(plugin, "full", fallback=fallback)
+    if not source:
+        return ""
+    catalog = get_plugin_catalog()
+    return (
+        template.Engine(
+            debug=False,
+            dirs=[catalog[plugin].path] if plugin in catalog else [],
+            libraries=template.Engine.get_default().libraries,
+        )
+        .from_string(source)
+        .render(
+            template.Context(
+                {
+                    **(context or {}),
+                    "result": result,
+                    "snapshot": snapshot,
+                    "output_path": output_url,
+                    "output_path_raw": rel_path,
+                    "snapshot_details_url": snapshot_details_url,
+                    "plugin": plugin,
+                    "plugin_icon": get_plugin_icon(plugin),
+                    "preview_base": f"{output_url.rsplit('/', 1)[0]}/",
+                },
+            ),
+        )
+    )
+
+
+def write_static_plugin_previews(context):
+    """Materialize existing output viewers beside unchanged saved files."""
+    from django.template.loader import render_to_string
+    from archivebox.misc.serve_static import _render_text_preview_document, _render_image_preview_document, _render_markdown_document
+    from archivebox.plugins.discovery import render_plugin_full_response
+
+    snapshot = context["snapshot"]
+    directory = Path(context["STATIC_EXPORT_DIR"])
+    previews = context["STATIC_PREVIEW_PATHS"]
+    generated = directory / "_archivebox"
+    generated.mkdir(exist_ok=True)
+
+    def save(path, document, kind):
+        name = f"_archivebox/{hashlib.sha256(path.encode()).hexdigest()[:16]}-{kind}.html"
+        with (directory / name).open("x") as viewer:
+            viewer.write(document)
+        previews[path] = name
+
+    files = {}
+    for output in context["archiveresults"]:
+        result = output.get("result")
+        if result:
+            for path in result.output_file_map():
+                if relative := result.output_file_path(path):
+                    files[relative] = directory / relative
+        if path := output.get("path"):
+            files[str(path)] = directory / str(path)
+    for path, source in files.items():
+        if path in previews or not source.resolve().is_relative_to(directory.resolve()) or not source.is_file():
+            continue
+        output_url = "../" + quote(path, safe=_STATIC_URL_SAFE)
+        mime = mimetypes.guess_type(source.name)[0] or ""
+        document = ""
+        if source.suffix.lower() == ".zip":
+            document = render_to_string(
+                "static/zip_index.html",
+                {"title": source.name, "output_path": output_url, "archive_size": source.stat().st_size},
+            )
+        elif source.suffix.lower() in {".md", ".markdown"}:
+            if source.stat().st_size <= 10 * 1024 * 1024:
+                document = _render_markdown_document(source.read_text(errors="replace"))
+                base = "../" + quote(str(Path(path).parent), safe=_STATIC_URL_SAFE) + "/"
+                document = document.replace("<head>", f'<head><base href="{escape(base)}">', 1)
+        elif source.suffix.lower() in _TEXT_PREVIEW_EXTS or (mime.startswith("text/") and mime not in {"text/html", "text/css"}):
+            if source.stat().st_size <= 10 * 1024 * 1024:
+                document = _render_text_preview_document(source.read_text(errors="replace"), source.name)
+        elif source.suffix.lower() in _IMAGE_PREVIEW_EXTS:
+            document = _render_image_preview_document(output_url, source.name)
+        if document:
+            save(path, document, "file")
+
+    full_paths = set()
+    for output in context["archiveresults"]:
+        path = str(output.get("path") or "")
+        if path in full_paths:
+            output["static_full_preview"] = True
+            continue
+        source = directory / path
+        if not path or not source.resolve().is_relative_to(directory.resolve()) or not source.exists():
+            continue
+        result = output.get("result")
+        output_url = "../" + quote(path, safe=_STATIC_URL_SAFE)
+        plugin = get_plugin_name(result.plugin) if result else Path(path).parts[0]
+        document = ""
+        if plugin_has_custom_full_response(plugin) and source.is_file():
+            # The live index transport requires a same-path ?preview=1 URL.
+            # Portable viewers let the player read the unchanged WACZ directly.
+            response = render_plugin_full_response(source.name, output_url, fallback_url=snapshot.url)
+            if response is not None:
+                document = response[0]
+        elif get_plugin_template(plugin, "full", fallback=False):
+            document = render_plugin_full_document(
+                snapshot,
+                path,
+                result,
+                output_url=output_url,
+                snapshot_details_url="../index.html",
+                context={**context, "STATIC_EXPORT_DIR": generated},
+            )
+        if document:
+            save(path, document, "full")
+            full_paths.add(path)
+            output["static_full_preview"] = True
+
+
 def render_plugin_card_document(context, result) -> str:
     """Render one plugin card template for the trusted snapshot-origin frame."""
     plugin = get_plugin_name(result.plugin)
@@ -1140,11 +1267,11 @@ def render_plugin_card_document(context, result) -> str:
     return mark_safe(_render_fallback_card(plugin, icon_html, fallback_label))
 
 
-@register.simple_tag
-def output_card(snapshot, output_path: str, plugin: str) -> str:
+@register.simple_tag(takes_context=True)
+def output_card(context, snapshot, output_path: str, plugin: str) -> str:
     plugin_name = get_plugin_name(plugin)
     icon_html = get_plugin_icon(plugin_name)
-    preview = _render_text_file_preview(snapshot.output_dir, output_path, plugin_name, icon_html)
+    preview = _render_text_file_preview(context.get("STATIC_EXPORT_DIR") or snapshot.output_dir, output_path, plugin_name, icon_html)
     if preview:
         return mark_safe(preview)
 
@@ -1180,22 +1307,15 @@ def plugin_full(context, result) -> str:
     output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path)
 
     try:
-        catalog = get_plugin_catalog()
-        tpl = template.Engine(
-            dirs=[catalog[plugin].path] if plugin in catalog else [],
-            libraries=template.Engine.get_default().libraries,
-        ).from_string(template_str)
-        ctx = template.Context(
-            {
-                "result": result,
-                "snapshot": result.snapshot,
-                "output_path": output_url,
-                "output_path_raw": raw_output_path,
-                "plugin": plugin,
-                "plugin_icon": get_plugin_icon(plugin),
-            },
+        rendered = render_plugin_full_document(
+            result.snapshot,
+            raw_output_path,
+            result,
+            output_url=output_url,
+            snapshot_details_url=snapshot_detail_url(context, result.snapshot),
+            context=context.flatten(),
+            fallback=True,
         )
-        rendered = tpl.render(ctx)
         # Only return non-empty content (strip whitespace to check)
         if rendered.strip():
             return mark_safe(rendered)

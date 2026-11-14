@@ -326,7 +326,11 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
         self.fields["persona"].queryset = persona_queryset
 
-        selected_persona = persona_queryset.filter(name__iexact="Default").first() or persona_queryset.first()
+        selected_persona = (
+            (persona_queryset.filter(name=self.initial["persona"]).first() if self.initial.get("persona") else None)
+            or persona_queryset.filter(name__iexact="Default").first()
+            or persona_queryset.first()
+        )
         default_config = get_config(persona=selected_persona) if selected_persona else get_config()
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name

@@ -1518,6 +1518,11 @@
                         const preview = new URL(card.dataset.previewUrl, window.location.href)
                         return preview.origin === target.origin && preview.pathname === target.pathname
                     })
+                    {% if STATIC_EXPORT %}
+                    return trustedViewer && target.origin === base.origin
+                        && target.pathname.startsWith(`${basePath}/_archivebox/`)
+                        && !target.search
+                    {% else %}
                     return (
                         base.origin !== window.location.origin
                         && target.origin === base.origin
@@ -1527,6 +1532,7 @@
                         && !target.searchParams.has('files')
                         && trustedViewer
                     )
+                    {% endif %}
                 } catch (err) {
                     return false
                 }

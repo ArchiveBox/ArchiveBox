@@ -1,0 +1,7 @@
+{% extends "admin/actions.html" %}
+{% block actions-counter %}
+{{ block.super }}
+<span class="action-rearchive-wrapper site-domain-export-control">
+  <select class="action-rearchive-select site-domain-export" aria-label="Export selected domains"><option value="">Export ▾</option>{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}{% if value == "html_zip" or value == "wacz" %} · MAX 4GB{% endif %}</option>{% endfor %}<option value="storage">Storage settings ↗</option></select><span class="button" aria-hidden="true">Export <span aria-hidden="true">▾</span></span>
+</span>
+{% endblock %}
