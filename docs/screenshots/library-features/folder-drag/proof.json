@@ -1,0 +1,40 @@
+{
+  "feedback": [
+    {
+      "width": 1600,
+      "placement": "before",
+      "native_drag_feedback": true
+    },
+    {
+      "width": 1600,
+      "placement": "inside",
+      "native_drag_feedback": true
+    },
+    {
+      "width": 1600,
+      "placement": "after",
+      "native_drag_feedback": true
+    },
+    {
+      "width": 768,
+      "placement": "before",
+      "native_drag_feedback": true
+    },
+    {
+      "width": 768,
+      "placement": "inside",
+      "native_drag_feedback": true
+    },
+    {
+      "width": 768,
+      "placement": "after",
+      "native_drag_feedback": true
+    }
+  ],
+  "reorder_saved_and_restored": true,
+  "root_order": [
+    "06af7d6d6ed07f4580005568502cbb26",
+    "06af7929536d77d9800045972232977f",
+    "06af7db4cc95735080005737e8ceb852"
+  ]
+}
