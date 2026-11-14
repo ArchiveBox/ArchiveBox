@@ -109,6 +109,29 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
   }
   search.addEventListener('input', renderTree);
+  const searchToggle = sidebar.querySelector('.folder-search-toggle');
+  const sectionLabel = sidebar.querySelector('.folder-section-heading h3');
+  function toggleFolderSearch(open) {
+    search.hidden = !open;
+    sectionLabel.hidden = open;
+    searchToggle.setAttribute('aria-expanded', String(open));
+    searchToggle.setAttribute('aria-label', open ? 'Close folder search' : 'Find a folder');
+    searchToggle.title = open ? 'Close folder search' : 'Find a folder';
+    if (open) search.focus();
+    else {
+      search.value = '';
+      renderTree();
+      searchToggle.focus();
+    }
+  }
+  searchToggle.addEventListener('click', () => toggleFolderSearch(search.hidden));
+  search.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFolderSearch(false);
+    }
+  });
   sidebar.querySelector('.folder-collapse-all').addEventListener('click', () => {
     rows.filter(row => row.querySelector('.folder-toggle')).forEach(row => collapsed.add(row.dataset.folderId));
     renderTree();
