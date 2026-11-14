@@ -20,8 +20,8 @@ def site_actions(request):
     domains = [request.POST["domain"]] if request.POST.get("domain") else request.POST.getlist("_selected_action")
     try:
         scopes = list(dict.fromkeys(normalize_site_scope(domain) for domain in domains))
-    except ValueError as error:
-        return HttpResponseBadRequest(str(error))
+    except ValueError:
+        return HttpResponseBadRequest("Invalid domain selection.")
     if not scopes:
         messages.error(request, "Select at least one domain.")
         return redirect("domains:index")

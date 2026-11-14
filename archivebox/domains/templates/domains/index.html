@@ -111,7 +111,7 @@
             <a href="{{ row.replay_url }}" title="Replay saved {{ row.domain }}" aria-label="Replay saved {{ row.domain }}">🌐</a>
             <a href="https://web.archive.org/web/*/https://{{ row.domain }}/" target="_blank" rel="noopener" title="{{ row.domain }} on Archive.org" aria-label="{{ row.domain }} on Archive.org">🏛️</a>
             <select class="site-domain-row-export" aria-label="Export {{ row.domain }}" data-domain="{{ row.scope }}" data-site-url="{{ row.site_url }}">
-              <option value="">Export ▾</option>{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}{% if value == "html_zip" or value == "wacz" %} · max 4 GiB{% endif %}</option>{% endfor %}<option value="settings">Server exports &amp; settings</option>
+              <option value="">Export ▾</option>{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}{% if value == "html_zip" or value == "wacz" %} · MAX 4GB{% endif %}</option>{% endfor %}
             </select>
             <button type="submit" name="domain" value="{{ row.scope }}" data-domain-delete="{{ row.scope }}" class="site-domain-delete" aria-label="Delete snapshots for {{ row.domain }}">Delete</button>
           </td>
@@ -123,7 +123,8 @@
   </form>
 </div></div></div>
 {{ domain_scopes|json_script:"site-domain-scopes" }}
-<script>
+<script type="module">
+import {startSnapshotExport} from "{% static 'exports.js' %}";
 (() => {
   const form = document.getElementById('changelist-form');
   const action = form.querySelector('select[name="action"]');
@@ -132,16 +133,17 @@
   document.querySelectorAll('.site-domain-export,.site-domain-row-export').forEach(select => select.addEventListener('change', () => {
     if (!select.value) return;
     if (select.value === 'storage') { location.href = '/admin/storage/'; return; }
-    if (select.value === 'settings') { location.href = select.dataset.siteUrl; return; }
     override.value = select.dataset.domain || '';
     if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
-    if (!['rss', 'csv', 'jsonl'].includes(select.value)) {
+    if (['html', 'replay'].includes(select.value)) {
       const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
       if (directory === null) { select.value = ''; return; }
       form.elements.directory.value = directory;
     }
     form.querySelector('[name="export_format"]').value = select.value;
+    form.exportAnchor = select;
     form.requestSubmit(document.getElementById('site-export-submit'));
+    select.value = '';
   }));
   form.querySelectorAll('[data-domain-delete]').forEach(button => button.addEventListener('click', () => {
     override.value = button.dataset.domainDelete;
@@ -153,11 +155,20 @@
     if (!domains.length) { event.preventDefault(); alert('Select at least one domain.'); return; }
     if (requested === 'export') {
       if (!override.value && form.querySelector('[name="select_across"]').value === '1') domains.forEach(domain => { const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = domain; form.append(input); });
+      const format = form.elements.export_format.value;
+      if (['html_zip', 'wacz', 'html', 'replay'].includes(format)) {
+        event.preventDefault();
+        const data = new FormData(form);
+        data.set('action', 'export');
+        data.delete('_selected_action');
+        domains.forEach(domain => data.append('_selected_action', domain));
+        startSnapshotExport(new URL(form.getAttribute('action'), location.href).href, {format, anchor: form.exportAnchor || event.submitter, data, csrf: form.elements.csrfmiddlewaretoken.value, session: true}).catch(() => {});
+      }
       return;
     }
     const target = new URL(form.dataset.snapshotActions, location.href);
     target.searchParams.set('domain', domains.join(','));
-    form.action = target.href;
+    form.setAttribute('action', target.href);
     form.querySelector('[name="select_across"]').value = '1';
     if (override.value) {
       const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = override.value; form.append(input);
