@@ -481,6 +481,13 @@ async function main() {
     const screenshotPaths = [];
     if (requireLiveProgress) checks.liveProgressCaptures = [];
     const capture = async (screenshotPath) => {
+      if (process.env.SCREENSHOT_LIBRARY_MENU === 'export' && !await page.$('#export-notifications .success')) {
+        await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
+        await page.click('.folder-menu:popover-open [data-export-format="wacz"]');
+        await page.waitForSelector('#export-notifications [data-status="exited"],#export-notifications .error', {timeout:120000});
+        if (await page.$('#export-notifications .error')) throw new Error('The gallery export failed.');
+        if (await page.$('.folder-sidebar .snapshot-export-status,#result_list .snapshot-export-status')) throw new Error('Export notifications must not be embedded in the list.');
+      }
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'folder') await require('../archivebox/core/library_gallery.js').openFolderMenu(page);
       if (process.env.SCREENSHOT_LIBRARY_MENU === 'import') await require('../archivebox/core/library_gallery.js').openImportMenu(page);
       // Resizing can move the target to a different row/column. Re-anchor each
