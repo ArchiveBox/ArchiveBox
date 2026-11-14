@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from asgiref.sync import sync_to_async
 
-from abx_dl.events import TagEvent
-from abx_dl.services.base import BaseService
+from abx_dl.events import ProcessStdoutEvent, TagEvent
+from abx_dl.services.tag_service import TagService as HookTagService
 
 
-class TagService(BaseService):
-    LISTENS_TO = [TagEvent]
-    EMITS = []
+class TagService(HookTagService):
+    LISTENS_TO = [ProcessStdoutEvent, TagEvent]
+    EMITS = [TagEvent]
 
     def __init__(self, bus):
         super().__init__(bus)
