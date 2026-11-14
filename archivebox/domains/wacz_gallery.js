@@ -158,6 +158,7 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
     from: 'https://news.ycombinator.com/', to: storyUrl, frame: next.url(),
   }, null, 2) + '\n');
   return [
+    {name: 'Export notification', url: libraryUrl, path: new URL(libraryUrl).pathname, source: 'archivebox/templates/static/exports.js', mode: 'export-notification'},
     {name: 'Folder WACZ Hacker News', url: homepage, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: 'wait-replay-url:https://news.ycombinator.com/'},
     {name: 'Folder WACZ story navigation', url: page.url(), path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${storyUrl}`},
   ];
