@@ -1,0 +1,77 @@
+archivebox/core/templatetags/core_tags.py
+  s_10bc94d001be49::t_56332afa562cd8 637-650,865
+archivebox/tests/test_snapshot_accessibility.py
+  s_58a034aa38210f::t_5f206b6f2b51ca 72-76,125-148
+  s_10bc94d001be49::t_115569d48f5341 8,48-61,81,105-107,220
+  s_aa9901a46a15eb::t_16e87c17915539 32,104
+  s_58a034aa38210f::t_574ed6678bf036 1-7,9-31,33-47,62-71,77-80,82-103,108-124,149-219,221-224
+archivebox/templates/core/public_index.html
+  s_10bc94d001be49::t_56332afa562cd8 679,713,716-722,746,755
+archivebox/templates/core/snapshot.html
+  s_10bc94d001be49::t_56332afa562cd8 6,8-9,13-14,1109-1110,1124,1207,1212,1222,1224,1232,1310,1337-1346,1541,1611,1690
+archivebox/templates/admin/personas/persona/change_form.html
+  s_10bc94d001be49::t_56332afa562cd8 241,253-256,260,272,274
+archivebox/templates/plugins/plugin_config_grid.html
+  s_10bc94d001be49::t_56332afa562cd8 530,535,552,559,569,580,587,742-754
+  s_10bc94d001be49::t_0691890a9aa79a 755
+archivebox/templates/admin/base.html
+  s_10bc94d001be49::t_56332afa562cd8 1804,1810,1814,1832,1849
+archivebox/templates/core/navigation.html
+  s_10bc94d001be49::t_56332afa562cd8 3,59
+archivebox/templates/core/snapshot_thumbnail.html
+  s_10bc94d001be49::t_56332afa562cd8 9
+archivebox/templates/core/add.html
+  s_10bc94d001be49::t_56332afa562cd8 72,84,341
+archivebox/templates/admin/search_form.html
+  s_10bc94d001be49::t_56332afa562cd8 29,31,45,53
+archivebox/templates/core/minimal_index.html
+  s_10bc94d001be49::t_56332afa562cd8 6-7,10-11,14-20,29
+archivebox/templates/admin/snapshots_grid.html
+  s_10bc94d001be49::t_56332afa562cd8 272,286,288
+archivebox/templates/core/snapshot_stacks.js.html
+  s_10bc94d001be49::t_56332afa562cd8 104,146
+archivebox/templates/core/snapshot_output_cards.html
+  s_10bc94d001be49::t_56332afa562cd8 9,11,14,19,22,34,36,47,57,59
+archivebox/plugins/discovery.py
+  s_10bc94d001be49::t_56332afa562cd8 268,277
+archivebox/templates/core/static_index.html
+  s_10bc94d001be49::t_56332afa562cd8 6-7,128,132,135-141
+archivebox/templates/core/base.html
+  s_10bc94d001be49::t_56332afa562cd8 7-8,23,26,30,38,42
+archivebox/core/snapshot_metadata.py
+  s_58a034aa38210f::t_2ad79b7809d33e 1-106
+archivebox/templates/core/snapshot_meta.html
+  s_58a034aa38210f::t_965e62314fdfb1 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7812341f9ac4efe17c59a6d9b1fc8448227ee2f6",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_58a034aa38210f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8dc-4c9a-7ef1-b606-8fe9c23bfb91",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_aa9901a46a15eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d87d-2dfd-7332-9b15-b2421bc5606a",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
