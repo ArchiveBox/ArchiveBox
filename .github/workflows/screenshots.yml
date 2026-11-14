@@ -35,7 +35,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.plugin_revision != '' && 'plugin-capture' || 'default' }}
   cancel-in-progress: false
 
 jobs:
