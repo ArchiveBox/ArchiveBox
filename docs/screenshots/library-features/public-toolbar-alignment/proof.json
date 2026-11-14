@@ -1,0 +1,127 @@
+[
+  {
+    "width": 1600,
+    "header": {
+      "top": 42.859375,
+      "bottom": 86.859375,
+      "height": 44
+    },
+    "toolbar": {
+      "top": 42.859375,
+      "bottom": 86.859375,
+      "height": 44
+    },
+    "toggle": {
+      "top": 48.359375,
+      "bottom": 80.359375,
+      "height": 32
+    },
+    "search": {
+      "top": 48.359375,
+      "bottom": 80.359375,
+      "height": 32
+    },
+    "overflow": false,
+    "rows": 5
+  },
+  {
+    "width": 1024,
+    "header": {
+      "top": 42,
+      "bottom": 86,
+      "height": 44
+    },
+    "toolbar": {
+      "top": 42,
+      "bottom": 86,
+      "height": 44
+    },
+    "toggle": {
+      "top": 47.5,
+      "bottom": 79.5,
+      "height": 32
+    },
+    "search": {
+      "top": 47.5,
+      "bottom": 79.5,
+      "height": 32
+    },
+    "overflow": false,
+    "rows": 5
+  },
+  {
+    "width": 768,
+    "header": {
+      "top": 42,
+      "bottom": 90,
+      "height": 48
+    },
+    "toolbar": {
+      "top": 42,
+      "bottom": 90,
+      "height": 48
+    },
+    "toggle": {
+      "top": 47.5,
+      "bottom": 83.5,
+      "height": 36
+    },
+    "search": {
+      "top": 47.5,
+      "bottom": 83.5,
+      "height": 36
+    },
+    "overflow": false,
+    "rows": 5
+  },
+  {
+    "width": 390,
+    "header": {
+      "top": 38,
+      "bottom": 82,
+      "height": 44
+    },
+    "toolbar": {
+      "top": 83,
+      "bottom": 162,
+      "height": 79
+    },
+    "toggle": {
+      "top": 42,
+      "bottom": 78,
+      "height": 36
+    },
+    "search": {
+      "top": 88,
+      "bottom": 124,
+      "height": 36
+    },
+    "overflow": false,
+    "rows": 5
+  },
+  {
+    "width": 320,
+    "header": {
+      "top": 38,
+      "bottom": 82,
+      "height": 44
+    },
+    "toolbar": {
+      "top": 83,
+      "bottom": 162,
+      "height": 79
+    },
+    "toggle": {
+      "top": 42,
+      "bottom": 78,
+      "height": 36
+    },
+    "search": {
+      "top": 88,
+      "bottom": 124,
+      "height": 36
+    },
+    "overflow": false,
+    "rows": 5
+  }
+]

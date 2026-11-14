@@ -1,0 +1,27 @@
+{
+  "screenshotPath": "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/public-toolbar-alignment/gallery-1600.png",
+  "screenshotPaths": [
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/public-toolbar-alignment/gallery-1600.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/public-toolbar-alignment/gallery-768.png",
+    "/Users/squash/Local/Code/archiveboxes/workspace-artifacts/public-toolbar-alignment/gallery-390.png"
+  ],
+  "checks": {
+    "url": "http://web.archivebox.localhost:5906/public/?folder=06af7929536d77d9800045972232977f&q=review-full&search_mode=meta",
+    "title": "Archived Sites",
+    "progressMonitorDisplay": "missing",
+    "progressCrawls": 0,
+    "progressSnapshots": 0,
+    "screencastVisible": false,
+    "screencastPlaceholderVisible": false,
+    "screencastImageLoaded": false,
+    "screencastImageSize": "",
+    "addForm": false,
+    "limitFields": [],
+    "snapshotOutputPlugins": [],
+    "snapshotOutputs": [],
+    "selectedSnapshotOutputPlugin": "",
+    "status": 200,
+    "finalUrl": "http://web.archivebox.localhost:5906/public/?folder=06af7929536d77d9800045972232977f&q=review-full&search_mode=meta",
+    "ttfbMs": 33
+  }
+}
