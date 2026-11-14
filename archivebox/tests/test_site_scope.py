@@ -33,7 +33,7 @@ def test_site_scope_authority_wildcard_and_prefix_boundaries(crawl):
     assert set(site_snapshots("*.news.ycombinator.com/docs").values_list("url", flat=True)) == {urls[2], urls[3], urls[5]}
     for scope in ["news.ycombinator.com", "*.news.ycombinator.com", "https://news.ycombinator.com/docs", "*.news.ycombinator.com/docs"]:
         assert set(get_export_queryset(site_snapshot_filters(scope), public_only=False).values_list("url", flat=True)) == set(
-            site_snapshots(scope).values_list("url", flat=True)
+            site_snapshots(scope).values_list("url", flat=True),
         )
 
 
@@ -66,8 +66,9 @@ def test_derived_site_reads_other_crawls_without_creating_state(admin_client, sa
     assert derived["Location"] == response["Location"]
     exports = admin_client.get("/admin/domains/site/export/", {"scope": "news.ycombinator.com"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert exports.status_code == 200
-    assert b"Export to disk" in exports.content
-    assert b'<table class="siteclone-pages"' not in exports.content
+    assert exports["Content-Type"] == "application/json"
+    assert exports.json()["count"] == len(saved_site)
+    assert exports.json()["query"] == "domain=news.ycombinator.com"
     assert Crawl.objects.count() == before
     assert crawl_site_scope(crawl) == "news.ycombinator.com"
 
@@ -91,5 +92,5 @@ def test_domain_table_uses_native_snapshot_actions_and_links(admin_client, saved
     assert 'id="changelist-form"' in body
     assert 'name="_selected_action" value="*.ycombinator.com"' in body
     assert 'value="resnapshot_snapshot"' in body and 'value="delete_selected"' in body
-    assert 'value="html_zip"' in body and "max 4 GiB" in body
+    assert 'value="html_zip"' in body and "MAX 4GB" in body
     assert "Site crawls" not in body

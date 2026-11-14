@@ -1,4 +1,4 @@
-// Submit the real export form, then browse its unchanged recordings using the
+// Use the real inline export controls, then browse unchanged recordings using the
 // exported ReplayWeb.page player on an ordinary localhost static file server.
 function matchesReplayUrl(frameUrl, playerUrl, originalUrl) {
   const replay = URL.parse(frameUrl);
@@ -8,40 +8,48 @@ function matchesReplayUrl(frameUrl, playerUrl, originalUrl) {
   return Boolean(embedded) && URL.parse(embedded + replay.search + replay.hash)?.href === new URL(originalUrl).href;
 }
 
-async function exportPlayer(page, siteUrl, directory, baseUrl, format = 'replay') {
+async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'https://news.ycombinator.com/') {
   const fs = require('fs');
   const path = require('path');
   if (!baseUrl) throw new Error('The WACZ gallery requires its localhost export server.');
-  await page.goto(siteUrl, {waitUntil: 'domcontentloaded'});
-  if (!(await page.$eval('.siteclone-export', element => element.open))) await page.click('.siteclone-export > summary');
-  await page.select('#site-export-form select[name="format"]', format);
-  const input = '#site-export-form input[name="directory"]';
-  await page.focus(input);
-  await page.keyboard.press('End');
-  await page.keyboard.down('Shift');
-  await page.keyboard.press('Home');
-  await page.keyboard.up('Shift');
-  await page.keyboard.press('Backspace');
-  await page.type(input, directory);
-  if (await page.$eval(input, el => el.value) !== directory) throw new Error('WACZ export destination was not entered correctly.');
+  fs.mkdirSync(directory, {recursive: true});
+  const domainsUrl = new URL('/admin/domains/', siteUrl).href;
+  await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
+  if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
+  const domain = await page.$$eval('.site-domain-row-export', (selects, original) => {
+    const hostname = new URL(original).hostname;
+    return selects.find(select => {
+      const domain = select.dataset.domain.replace(/^\*\./, '');
+      return hostname === domain || hostname.endsWith('.' + domain);
+    })?.dataset.domain;
+  }, originalUrl);
+  if (!domain) throw new Error('The captured site is missing from Domains.');
+  const before = page.url();
+  const destinationPrompt = new Promise(resolve => page.once('dialog', async dialog => {
+    await dialog.accept(directory);
+    resolve();
+  }));
   await Promise.all([
-    page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-    page.click('#site-export-form button[type="submit"]'),
+    page.select(`.site-domain-row-export[data-domain="${domain}"]`, 'replay'),
+    destinationPrompt,
   ]);
-  await page.waitForFunction(() => document.querySelector('#site-export-status')?.dataset.status === 'exited', {timeout: 120000});
-  const status = await page.$eval('#site-export-status', element => ({...element.dataset}));
+  await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
+  const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
+  if (page.url() !== before) throw new Error('Replay export navigated away from Domains.');
   if (status.exitCode !== '0') throw new Error('WACZ export failed; inspect its native Process log.');
-  const exported = await page.$eval('#site-export-path', element => element.textContent.trim());
+  const exported = status.exportPath;
   const relative = path.relative(directory, exported);
   if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.statSync(path.join(exported, 'site.wacz')).size) {
     throw new Error('WACZ export did not write its server-side archive.');
   }
-  const url = new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/index.html`, baseUrl).href;
-  return url;
+  return {
+    directory: exported,
+    url: new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/index.html`, baseUrl).href,
+  };
 }
 
 async function exportViews(page, clone, directory, baseUrl) {
-  const url = await exportPlayer(page, clone.exportUrl, directory, baseUrl);
+  const {url} = await exportPlayer(page, clone.url, directory, baseUrl);
   await page.goto(url, {waitUntil: 'domcontentloaded'});
   const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000});
   await frame.waitForSelector('#hnmain', {timeout: 45000});
@@ -61,8 +69,7 @@ async function exportViews(page, clone, directory, baseUrl) {
 }
 
 async function storyView(page, adminBaseUrl, storyUrl, directory, baseUrl) {
-  const siteUrl = `${adminBaseUrl}/admin/domains/site/export/?scope=${encodeURIComponent(new URL(storyUrl).hostname)}`;
-  const url = await exportPlayer(page, siteUrl, directory, baseUrl);
+  const {url} = await exportPlayer(page, adminBaseUrl, directory, baseUrl, storyUrl);
   const story = `${url}#${new URLSearchParams({url: storyUrl})}`;
   await page.goto(story, {waitUntil: 'domcontentloaded'});
   const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000});
@@ -81,16 +88,46 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
     return hash.digest('hex');
   };
   await page.goto(libraryUrl, {waitUntil: 'domcontentloaded'});
-  const exportUrl = await page.$eval('.folder-actions [data-export-format="wacz"]', link => link.href);
+  if (page.url() !== libraryUrl) throw new Error('Folder redirected away from the selected gallery view.');
+  await require('../core/library_gallery.js').openFolderMenu(page);
+  const link = '.folder-row:has(.folder-link[aria-current="page"]) .folder-menu [data-export-format="wacz"]';
+  const exportUrl = await page.$eval(link, link => link.href);
   if (new URL(exportUrl).searchParams.get('folder') !== new URL(libraryUrl).searchParams.get('folder')) {
     throw new Error('The WACZ export lost the selected folder.');
   }
-  await exportPlayer(page, exportUrl, directory, baseUrl, 'wacz');
-  const exportStatusUrl = page.url();
-  const exportedWacz = path.join(await page.$eval('#site-export-path', element => element.textContent.trim()), 'site.wacz');
+  fs.mkdirSync(directory, {recursive: true});
+  const downloadDirectory = fs.mkdtempSync(path.join(directory, 'folder-download-'));
+  const cdp = await page.browser().target().createCDPSession();
+  await cdp.send('Browser.setDownloadBehavior', {behavior: 'allowAndName', downloadPath: downloadDirectory, eventsEnabled: true});
+  let downloadUrl, downloadTimeout;
+  const downloaded = new Promise((resolve, reject) => {
+    downloadTimeout = setTimeout(() => reject(new Error('Folder WACZ did not finish downloading.')), 120000);
+    cdp.on('Browser.downloadWillBegin', event => { downloadUrl = event.url; });
+    cdp.on('Browser.downloadProgress', event => {
+      if (event.state === 'completed') { clearTimeout(downloadTimeout); resolve(path.join(downloadDirectory, event.guid)); }
+      if (event.state === 'canceled') { clearTimeout(downloadTimeout); reject(new Error('Folder WACZ download was canceled.')); }
+    });
+  });
+  let exportedWacz;
+  try {
+    [exportedWacz] = await Promise.all([
+      downloaded,
+      (async () => {
+        await page.click(link);
+        await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
+        const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
+        if (status.exitCode !== '0') throw new Error('Folder WACZ export failed; inspect its native Process log.');
+        if (page.url() !== libraryUrl) throw new Error('Folder export navigated away from the selected snapshots.');
+      })(),
+    ]);
+  } finally {
+    clearTimeout(downloadTimeout);
+    await cdp.detach();
+  }
+  const expectedDownload = await page.$eval('[data-export-download]', link => link.href);
+  if (downloadUrl !== expectedDownload || !fs.statSync(exportedWacz).size) throw new Error('The browser did not download the selected folder WACZ.');
   const sourceDigest = await digest(exportedWacz);
-  const url = await exportPlayer(page, exportUrl, directory, baseUrl);
-  const playerDirectory = await page.$eval('#site-export-path', element => element.textContent.trim());
+  const {url, directory: playerDirectory} = await exportPlayer(page, libraryUrl, directory, baseUrl);
   const playerWacz = path.join(playerDirectory, 'site.wacz');
   fs.copyFileSync(exportedWacz, playerWacz);
   if (await digest(playerWacz) !== sourceDigest) throw new Error('The player must use the exact standalone folder WACZ bytes.');
@@ -116,12 +153,11 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
     throw new Error('Browsing changed the exported folder WACZ bytes.');
   }
   fs.writeFileSync(path.join(playerDirectory, 'folder-wacz-proof.json'), JSON.stringify({
-    selection: libraryUrl, exportUrl, exportStatusUrl, source: exportedWacz, player: playerWacz,
+    selection: libraryUrl, exportUrl, downloadUrl, source: exportedWacz, player: playerWacz,
     sha256: sourceDigest, bytes: fs.statSync(exportedWacz).size,
     from: 'https://news.ycombinator.com/', to: storyUrl, frame: next.url(),
   }, null, 2) + '\n');
   return [
-    {name: 'Folder WACZ export', url: exportStatusUrl, path: new URL(exportStatusUrl).pathname, source: 'archivebox/domains/export_service.py'},
     {name: 'Folder WACZ Hacker News', url: homepage, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: 'wait-replay-url:https://news.ycombinator.com/'},
     {name: 'Folder WACZ story navigation', url: page.url(), path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${storyUrl}`},
   ];

@@ -67,8 +67,8 @@ def test_site_export_ui_requires_absolute_server_path(admin_client, saved_site):
     assert not Process.objects.filter(worker_type="site-export").exists()
     page = admin_client.get(detail + "export/", HTTP_HOST=ADMIN_TEST_HOST)
     assert page.status_code == 200
-    assert b"Export to disk" in page.content
-    assert b"Server directory" in page.content
+    assert page["Content-Type"] == "application/json"
+    assert page.json() == {"format": "html_zip", "query": "domain=example.com", "count": 0, "jobs": []}
 
 
 def test_replay_setting_uses_machine_config(admin_client, saved_site):
@@ -80,13 +80,11 @@ def test_replay_setting_uses_machine_config(admin_client, saved_site):
     crawl.tags_str = "site-clone"
     crawl.save(update_fields=["tags_str"])
     endpoint = f"/admin/domains/{crawl.pk}/replay-settings/"
-    settings_page = admin_client.get(f"/admin/domains/{crawl.pk}/export/", HTTP_HOST=ADMIN_TEST_HOST)
-    assert settings_page.status_code == 200
-    assert endpoint.encode() in settings_page.content
     before = dict(Machine.current().config)
     for enabled in (True, False):
         response = admin_client.post(endpoint, {"rewrite_archived_links": "on"} if enabled else {}, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 302
+        assert response.url == "/admin/domains/"
         assert get_config().REWRITE_ARCHIVED_LINKS is enabled
         assert Machine.current().config == {**before, "REWRITE_ARCHIVED_LINKS": enabled}
         file_config, _mtime = _load_file_config_dict()
@@ -256,7 +254,7 @@ def test_query_export_combines_native_filters_and_public_visibility(saved_site, 
     snapshot = next(snapshot for snapshot, _, _ in saved_site if snapshot.url.endswith("/newest"))
     snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
     snapshot.save(update_fields=["config"])
-    with pytest.raises(CommandError, match="No saved HTML"):
+    with pytest.raises(CommandError, match="No snapshots match these filters"):
         call_command("site_export", query=query, public_only=True, format="html_zip", destination=str(tmp_path / "private"))
     assert not (tmp_path / "private/site.zip").exists()
 
@@ -371,7 +369,7 @@ def test_archive_digest_tracks_consumed_selection_when_folder_membership_changes
     from archivebox.core.models import Folder, Snapshot
     from archivebox.domains.exports import export_snapshots_to_directory
 
-    first, second = [snapshot for snapshot, _, _ in saved_site[:2]]
+    first, second = (snapshot for snapshot, _, _ in saved_site[:2])
     folder = Folder.objects.create(name="Export selection", created_by=first.crawl.created_by)
     Snapshot.objects.filter(pk=first.pk).update(folder=folder)
     entered = False
@@ -388,9 +386,103 @@ def test_archive_digest_tracks_consumed_selection_when_folder_membership_changes
 
     destination = tmp_path / "changing-selection"
     report = export_snapshots_to_directory(
-        Snapshot.objects.filter(folder=folder), destination=destination, format="html", progress=progress
+        Snapshot.objects.filter(folder=folder),
+        destination=destination,
+        format="html",
+        progress=progress,
     )
     assert entered and left
     assert {page["url"] for page in json.loads((destination / "pages.json").read_text())} == {first.url, second.url}
     assert report["selection_digest"] == selection_digest(Snapshot.objects.filter(pk__in=[first.pk, second.pk]))
     assert report["selection_digest"] != selection_digest(Snapshot.objects.filter(folder=folder))
+
+
+def test_native_static_zip_keeps_all_snapshots_outputs_and_portable_details(saved_site, tmp_path):
+    import shutil
+    import subprocess
+    import zipfile
+    from pathlib import Path
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    first = saved_site[0][0]
+    image = Path(__file__).parent / "fixtures/redirected-image/image.png"
+    from archivebox.crawls.models import Crawl
+
+    other_crawl = Crawl.objects.create(urls=first.url, created_by=first.crawl.created_by)
+    second = Snapshot.objects.create(url=first.url, crawl=other_crawl, config={"PERMISSIONS": "public"})
+    saved_image = second.output_dir / "staticfile/image.png"
+    saved_image.parent.mkdir(parents=True)
+    shutil.copyfile(image, saved_image)
+    ArchiveResult.objects.create(
+        snapshot=second,
+        plugin="staticfile",
+        status="succeeded",
+        output_str="image.png",
+        output_files={"image.png": {"size": image.stat().st_size, "mimetype": "image/png"}},
+    )
+    # Preserve real repository metadata, including hidden paths in saved Git output.
+    repo = tmp_path / "repository"
+    subprocess.run(["git", "init", str(repo)], cwd=tmp_path, check=True, capture_output=True)
+    git_head = repo / ".git/HEAD"
+    saved_head = first.output_dir / "git/.git/HEAD"
+    saved_head.parent.mkdir(parents=True)
+    shutil.copyfile(git_head, saved_head)
+    (first.output_dir / "outside.png").symlink_to(image.resolve())
+    first.config = {**first.config, "PRIVATE_SETTING": "private-config-value"}
+    first.notes = "private-note-value"
+    first.save(update_fields=["config", "notes"])
+    first.write_index_jsonl()
+    operational_manifest = (first.output_dir / "index.jsonl").read_bytes()
+    assert b"private-config-value" in operational_manifest
+    destination = tmp_path / "portable"
+    call_command("site_export", query=f"id__in={first.pk},{second.pk}", format="html_zip", destination=str(destination))
+    with zipfile.ZipFile(destination / "site.zip") as archive:
+        records = [json.loads(line) for line in archive.read("index.jsonl").splitlines()]
+        assert {record["id"] for record in records} == {str(first.pk), str(second.pk)}
+        for snapshot in (first, second):
+            relative = snapshot.static_archive_path
+            assert f"./{relative}/index.html".encode() in archive.read("index.html")
+            details = archive.read(f"{relative}/index.html").decode()
+            assert 'class="thumb-card' in details
+            assert str(snapshot.output_dir) not in details
+            assert "/admin/" not in details
+            assert f"{relative}/index.jsonl" in archive.namelist()
+            metadata = json.loads(archive.read(f"{relative}/index.jsonl"))
+            assert "config" not in metadata and "notes" not in metadata
+            assert b"private-config-value" not in archive.read(f"{relative}/index.jsonl")
+            assert "private-note-value" not in details
+            assert f"{relative}/index.json" not in archive.namelist()
+        assert archive.read(f"{second.static_archive_path}/staticfile/image.png") == image.read_bytes()
+        assert archive.read(f"{first.static_archive_path}/git/.git/HEAD") == git_head.read_bytes()
+        assert f"{first.static_archive_path}/outside.png" not in archive.namelist()
+        assert archive.read(f"{first.static_archive_path}/dom/output.html") == saved_site[0][2]
+        for snapshot, _, _ in saved_site[1:]:
+            assert f"{snapshot.static_archive_path}/index.html" not in archive.namelist()
+    assert saved_image.read_bytes() == image.read_bytes()
+    assert saved_head.read_bytes() == git_head.read_bytes()
+    assert (first.output_dir / "index.jsonl").read_bytes() == operational_manifest
+
+
+def test_native_static_export_accepts_snapshot_without_html(snapshot, tmp_path):
+    import shutil
+    from pathlib import Path
+
+    from archivebox.core.models import ArchiveResult
+
+    image = Path(__file__).parent / "fixtures/redirected-image/image.png"
+    output = snapshot.output_dir / "screenshot/screenshot.png"
+    output.parent.mkdir(parents=True)
+    shutil.copyfile(image, output)
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        status="succeeded",
+        output_str="screenshot.png",
+        output_files={"screenshot.png": {"size": image.stat().st_size, "mimetype": "image/png"}},
+    )
+    destination = tmp_path / "images"
+    call_command("site_export", query=f"id={snapshot.pk}", format="html", destination=str(destination))
+    assert (destination / snapshot.static_archive_path / "screenshot/screenshot.png").read_bytes() == image.read_bytes()
+    assert 'class="thumb-card' in (destination / snapshot.static_archive_path / "index.html").read_text()
+    assert json.loads((destination / "pages.json").read_text()) == []

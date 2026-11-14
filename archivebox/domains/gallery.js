@@ -42,7 +42,7 @@ async function prepare(page, adminBaseUrl) {
     throw new Error(`Site-clone form did not save: ${await page.$eval('main', (main) => main.innerText)}`);
   }
   const url = `${adminBaseUrl}/admin/core/snapshot/?${new URLSearchParams({domain: '*.news.ycombinator.com'})}`;
-  return {name: 'Domain snapshots', url, moreOptionsUrl, exportUrl: `${adminBaseUrl}/admin/domains/${crawlId}/export/`, path: new URL(url).pathname, crawlId, source: 'archivebox/templates/admin/core/snapshot/change_list.html'};
+  return {name: 'Domain snapshots', url, moreOptionsUrl, path: new URL(url).pathname, crawlId, source: 'archivebox/templates/admin/core/snapshot/change_list.html'};
 }
 
 async function replayViews(page, clone) {
@@ -67,12 +67,12 @@ async function replayViews(page, clone) {
 
 module.exports = {prepare, replayViews};
 
-// Exports stay on the server filesystem. Exercise the same form as an operator,
+// Exports stay on the server filesystem. Exercise the native inline control,
 // then open its actual output directly: the static export needs no replay server.
-async function exportViews(page, clone, directory) {
+async function exportViews(page, clone, directory, baseUrl) {
   const fs = require('fs');
   const path = require('path');
-  const {pathToFileURL, fileURLToPath} = require('url');
+  if (!baseUrl) throw new Error('The static gallery requires its localhost export server.');
   fs.mkdirSync(directory, {recursive: true});
   await page.goto(new URL('/admin/domains/', clone.url).href, {waitUntil: 'domcontentloaded'});
   const destinationPrompt = new Promise(resolve => page.once('dialog', async dialog => {
@@ -80,39 +80,60 @@ async function exportViews(page, clone, directory) {
     resolve();
   }));
   await Promise.all([
-    page.waitForNavigation({waitUntil: 'domcontentloaded'}),
     page.select('.site-domain-row-export[data-domain="*.ycombinator.com"]', 'html'),
     destinationPrompt,
   ]);
-  await page.waitForFunction(() => document.querySelector('#site-export-status')?.dataset.status === 'exited', {timeout: 120000});
-  const status = await page.$eval('#site-export-status', element => ({...element.dataset}));
+  await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});
+  const status = await page.$eval('.snapshot-export-status', element => ({...element.dataset}));
+  if (new URL(page.url()).pathname !== '/admin/domains/') throw new Error('Export navigated away from Domains.');
   if (String(status.exitCode) !== '0') throw new Error('Static site export failed; inspect its process log.');
-  const exported = await page.$eval('#site-export-path', element => element.textContent.trim());
+  const exported = status.exportPath;
   if (!path.isAbsolute(exported) || !fs.statSync(exported).isDirectory()) throw new Error('Export did not create its server directory.');
   if (!exported.startsWith(path.resolve(directory) + path.sep)) throw new Error('Export did not use the selected server directory.');
-  const settingsUrl = page.url();
-  const root = fs.realpathSync(exported) + path.sep;
-  const index = pathToFileURL(path.join(exported, 'index.html')).href;
+  const relative = path.relative(directory, exported);
+  const root = new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/`, baseUrl);
+  const index = new URL('index.html', root).href;
+  const pages = JSON.parse(fs.readFileSync(path.join(exported, 'pages.json'), 'utf8'));
+  const home = pages.find(item => item.url === 'https://news.ycombinator.com/');
+  const next = pages.find(item => item.url === 'https://news.ycombinator.com/newest');
+  if (!home || !next) throw new Error('The native export omitted captured Hacker News pages.');
+  const homeUrl = new URL(home.path, root).href;
+  const nextUrl = new URL(next.path, root).href;
+  const snapshotId = home.path.split('/')[1];
   await page.goto(index, {waitUntil: 'domcontentloaded'});
-  await page.waitForFunction(() => location.pathname.includes('/pages/') && document.title.includes('Hacker News'));
-  const first = page.url();
-  if (!fs.realpathSync(fileURLToPath(first)).startsWith(root)) throw new Error('Static export left the output directory.');
-  const next = await page.$$eval('a[href]', links => links.find(link => link.textContent.trim() === 'new')?.href);
-  if (!next || !next.startsWith('file:') || !fs.realpathSync(fileURLToPath(next)).startsWith(root)) {
-    throw new Error('Static export did not rewrite the captured newest page.');
+  let snapshotLink;
+  for (const link of await page.$$('a.snapshot-title')) {
+    if (await link.evaluate((element, id) => new URL(element.href).pathname.endsWith(`/${id}/index.html`), snapshotId)) { snapshotLink = link; break; }
   }
-  const anchors = await page.$$('a[href]');
+  if (!snapshotLink) throw new Error('The native static index has no Hacker News detail link.');
+  await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), snapshotLink.click()]);
+  const detail = page.url();
+  if (!detail.startsWith(root.href)) throw new Error('The native detail left the exported directory.');
+  await page.click('.output-stack-html');
+  let htmlCard;
+  for (const card of await page.$$('.thumb-card[data-output-group="html"]')) {
+    if (await card.evaluate((element, expected) => new URL(element.dataset.previewUrl, location.href).href === expected, homeUrl)) { htmlCard = card; break; }
+  }
+  if (!htmlCard) throw new Error('The native detail has no rewritten HTML output card.');
+  const plugin = await htmlCard.evaluate(element => element.dataset.pluginName);
+  // Click the native output link, not its download action or thumbnail iframe.
+  await page.click(`.stack-tray .thumb-card[data-plugin-name="${plugin}"] h4`);
+  const frame = await page.waitForFrame(frame => frame.name() === 'preview' && frame.url() === homeUrl);
+  await frame.waitForSelector('#hnmain');
   let newest;
-  for (const anchor of anchors) {
+  for (const anchor of await frame.$$('a[href]')) {
     if (await anchor.evaluate(element => element.textContent.trim() === 'new')) { newest = anchor; break; }
   }
-  if (!newest) throw new Error('The exported newest link disappeared.');
-  await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), newest.click()]);
-  if (page.url() !== next || !(await page.title()).includes('New Links')) throw new Error('Static internal-link navigation failed.');
+  if (!newest || await newest.evaluate(element => element.href) !== nextUrl) throw new Error('Static export did not rewrite the captured newest page.');
+  await newest.click();
+  const nextFrame = await page.waitForFrame(frame => frame.url() === nextUrl);
+  await nextFrame.waitForFunction(() => document.title.includes('New Links') && Boolean(document.querySelector('#hnmain')));
+  fs.writeFileSync(path.join(exported, 'gallery-navigation-proof.json'), JSON.stringify({index, detail, plugin, snapshotId, from: homeUrl, to: nextUrl}, null, 2) + '\n');
   return [
-    {name: 'Site export settings', url: settingsUrl, path: new URL(settingsUrl).pathname, source: 'archivebox/domains/templates/domains/export.html'},
-    {name: 'Static site export', url: first, path: '/index.html', source: 'archivebox/domains/exports.py'},
-    {name: 'Static export internal navigation', url: next, path: '/newest', source: 'archivebox/domains/exports.py'},
+    {name: 'Static snapshot index', url: index, path: '/index.html', source: 'archivebox/core/querysets.py'},
+    {name: 'Static snapshot detail', url: `${detail}#${plugin}`, path: new URL(detail).pathname, source: 'archivebox/templates/core/snapshot.html'},
+    {name: 'Static site export', url: homeUrl, path: new URL(homeUrl).pathname, source: 'archivebox/domains/exports.py'},
+    {name: 'Static export internal navigation', url: nextUrl, path: '/newest', source: 'archivebox/domains/exports.py'},
   ];
 }
 
