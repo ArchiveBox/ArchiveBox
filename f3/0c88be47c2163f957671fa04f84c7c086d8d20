@@ -1,0 +1,340 @@
+archivebox/cli/archivebox_folder.py
+  s_a46618ba6633c7::t_0bbfc91d7b9021 45-51,60
+  s_a46618ba6633c7::t_2538c4e7c7638c 1-44,52-59,61-115
+archivebox/templates/admin/core/folder/change_list.html
+  s_a46618ba6633c7::t_3eb3bf1c65c111 1-2,5-6
+  s_a46618ba6633c7::t_a57f05c68a8e0d 3-4
+archivebox/api/models.py
+  s_10bc94d001be49::t_56332afa562cd8 20,45,50-55,57-62,67-90,93
+  s_aa9901a46a15eb::t_e4b417f0ad166c 56
+archivebox/services/runner.py
+  s_10bc94d001be49::t_56332afa562cd8 268,834-838,1077-1087,1532-1534,1599-1602,1668,1670-1673,1675-1698,1742-1744,1873-1875,2369,2371
+archivebox/tests/test_webhook_actions.py
+  s_aa9901a46a15eb::t_8a67133563709c 1-182,184-278,280-340,342-352,355-373,375-391
+  s_aa9901a46a15eb::t_1bae0998018250 341,374
+  s_aa9901a46a15eb::t_e4b417f0ad166c 183,279,354
+  s_aa9901a46a15eb::t_c37daadfb7cccb 353
+archivebox/importers/views.py
+  s_a46618ba6633c7::t_3eb3bf1c65c111 29,145-153,155,299-309
+  s_a46618ba6633c7::t_65b404db811dc4 310-319
+archivebox/mcp/README.md
+  s_a46618ba6633c7::t_d2d17b79e6497b 66-67,80-85
+.github/workflows/screenshots.yml
+  s_10bc94d001be49::t_56332afa562cd8 12,14-16,163-164
+archivebox/tests/test_webhook_membership.py
+  s_aa9901a46a15eb::t_e4b417f0ad166c 1-270
+archivebox/importers/service.py
+  s_a46618ba6633c7::t_b77f9594a7a925 386-387
+  s_a46618ba6633c7::t_3eb3bf1c65c111 215,393-398
+  s_a46618ba6633c7::t_2c18c27d12513b 190-192,200,211-214,216,219,356-385,388-392,399-431
+archivebox/misc/jsonl.py
+  s_a46618ba6633c7::t_2538c4e7c7638c 169-188
+  s_a46618ba6633c7::t_3eb3bf1c65c111 189,191
+  s_a46618ba6633c7::t_0bbfc91d7b9021 190
+archivebox/api/v1_core.py
+  s_10bc94d001be49::t_56332afa562cd8 28,1591,1603
+  s_a46618ba6633c7::t_3eb3bf1c65c111 1665
+  s_a46618ba6633c7::t_970b21de3ce68d 725-726,746-753,799,945-952,1220-1226,1664,1666
+  s_a46618ba6633c7::t_a57f05c68a8e0d 59,433,997
+  s_a46618ba6633c7::t_79b00542f6a0d8 1227-1228
+archivebox/api/webhook_views.py
+  s_aa9901a46a15eb::t_943b7496a43842 1-74,78-167
+  s_aa9901a46a15eb::t_e4b417f0ad166c 75-77
+archivebox/templates/static/api/webhooks.js
+  s_aa9901a46a15eb::t_6eff68cc827da1 1-102,104-153,155-160,162-184,187-188,190-201,203-210,212-288,296-299,303-383,385-391,394-1192
+  s_aa9901a46a15eb::t_645f480b791b06 103,154,161,185-186,189,202,211,384,392-393
+  s_10bc94d001be49::t_fb99dcaed3d00e 289-295,300-302
+archivebox/misc/serve_static.py
+  s_10bc94d001be49::t_56332afa562cd8 20,28,518,1347,1858
+archivebox/api/migrations/0002_outboundwebhook_actions.py
+  s_aa9901a46a15eb::t_5a2683f8ccd70d 15-17,20-22
+  s_aa9901a46a15eb::t_e4b417f0ad166c 1-14,18-19,23-97
+archivebox/cli/archivebox_help.py
+  s_a46618ba6633c7::t_3eb3bf1c65c111 60-61
+archivebox/tests/test_native_feature_interfaces.py
+  s_a46618ba6633c7::t_b77f9594a7a925 284
+  s_a46618ba6633c7::t_82339acf1c3445 18,23,28,31,54,70,74,77,87-107,111-120,133-149,156-158,165-180,187,192-198,363
+  s_a46618ba6633c7::t_fe5034d35f56d8 258,265-271
+  s_a46618ba6633c7::t_0bbfc91d7b9021 34-39,55-59,108,110,121-130,132,150-155,159-164,181-186,188-191,221,223,226-231,233-238,309-328,334-342,346-351,376,379-381
+  s_a46618ba6633c7::t_9c3f255718acf2 202-220,224-225,232,239-257,259-264,272-283,285-299
+  s_40c755f9b98002::t_7f7a71a19be5ff 24,40,43,374,383,385-400
+  s_a46618ba6633c7::t_88226e0beca8eb 53,302-308,329-333,343-345,352-355
+  s_a46618ba6633c7::t_261e597691bdb2 1-17,19-22,25-27,29-30,32-33,41-42,44-52,60-69,71-73,75-76,78-86,109,131,199-201,222,300-301,356-362,364-373,375,377-378,382,384
+archivebox/personas/models.py
+  s_10bc94d001be49::t_56332afa562cd8 85
+archivebox/cli/__init__.py
+  s_a46618ba6633c7::t_970b21de3ce68d 46-47
+archivebox/core/settings.py
+  s_10bc94d001be49::t_56332afa562cd8 82-84,97,551-556
+archivebox/importers/README.md
+  s_a46618ba6633c7::t_d2d17b79e6497b 28-58
+archivebox/tests/test_snapshot_reader_height.py
+  s_a46618ba6633c7::t_0bbfc91d7b9021 1-102
+archivebox/tests/test_release_workflow.py
+  s_10bc94d001be49::t_56332afa562cd8 194,325-347
+bin/take_screenshot.js
+  s_a46618ba6633c7::t_5df006942c0e5b 130-139
+archivebox/api/webhooks.py
+  s_aa9901a46a15eb::t_e4b417f0ad166c 145
+  s_10bc94d001be49::t_56332afa562cd8 12-14,56-57,70,87-88,90-111,113-130,132-144,146-152
+  s_aa9901a46a15eb::t_19327f1ad4f27b 58-69,77,89,112,131
+archivebox/cli/archivebox_crawl.py
+  s_a46618ba6633c7::t_a57f05c68a8e0d 56,142,364-365,367
+archivebox/templates/api/webhooks.html
+  s_10bc94d001be49::t_115569d48f5341 1-32
+archivebox/core/urls.py
+  s_10bc94d001be49::t_56332afa562cd8 38,40-42
+archivebox/tests/test_api_v1_core_archiveresult_archiveresult_id.py
+  s_10bc94d001be49::t_56332afa562cd8 1-3,6,76-122,125,171-179,184
+archivebox/importers/models.py
+  s_10bc94d001be49::t_56332afa562cd8 22,77
+  s_a46618ba6633c7::t_3eb3bf1c65c111 48-67,78,108-124
+  s_a46618ba6633c7::t_e8417b4dadd117 11-18,20-21,30,46-47,68-69,75-76,125-126
+archivebox/tests/test_importers.py
+  s_a46618ba6633c7::t_d2d17b79e6497b 515
+archivebox/api/webhook_membership.py
+  s_aa9901a46a15eb::t_e4b417f0ad166c 1-223
+archivebox/core/models.py
+  s_10bc94d001be49::t_56332afa562cd8 82,86,93-94,152-160,251,377-384,386-387,492-515,537-538,540-558,560,562-568,625-661,977,1061-1082,1085-1100,1411-1413,1575-1603,1605-1624,4701-4702,4704-4705,4707-4716,4718-4719
+  s_a46618ba6633c7::t_970b21de3ce68d 313-314,318-321,326-327,329-351,756,798-799,802,3682-3687,4279-4284
+  s_a46618ba6633c7::t_3eb3bf1c65c111 315-317,322-325,4339-4346
+  s_a46618ba6633c7::t_a57f05c68a8e0d 800-801,871-872,3857-3858,3881-3883
+  s_aa9901a46a15eb::t_ddf55b130cbbfe 4703,4706
+  s_a46618ba6633c7::t_296aed3b9b9807 81,83-85,87-88,92,328,662,4335-4338,4347-4348
+Dockerfile
+  s_10bc94d001be49::t_56332afa562cd8 135-138
+archivebox/api/webhook_events.py
+  s_aa9901a46a15eb::t_d4218adbaab392 1-70,72-73,75-158,160-178,181,184,196-197
+  s_a46618ba6633c7::t_0bbfc91d7b9021 185-194
+  s_a46618ba6633c7::t_d7298d973099bc 71,74,159,179-180,182-183,195,198-201
+archivebox/misc/checks.py
+  s_10bc94d001be49::t_56332afa562cd8 71-76,80,82,96-97
+archivebox/core/admin_folders.py
+  s_a46618ba6633c7::t_3eb3bf1c65c111 21,36,44-50
+  s_a46618ba6633c7::t_84265843d9cb5e 51,62-67,70-82
+archivebox/api/apps.py
+  s_10bc94d001be49::t_56332afa562cd8 12-14,16-17,19-20
+archivebox/tests/test_output_path_deletion.py
+  s_10bc94d001be49::t_56332afa562cd8 7-8
+  s_58a034aa38210f::t_3e0c8e6e0c51f8 9
+archivebox/cli/archivebox_importer.py
+  s_a46618ba6633c7::t_2538c4e7c7638c 1-29,34-54,56-65,80-86,88-95,106-129,132-136,138-154,156-164
+  s_a46618ba6633c7::t_0bbfc91d7b9021 30-31,33,66-79,96-105,155
+  s_a46618ba6633c7::t_88226e0beca8eb 130-131,137
+  s_a46618ba6633c7::t_5258c7bf46aef9 32,55,87
+archivebox/crawls/locks.py
+  s_10bc94d001be49::t_56332afa562cd8 7,10,21,27-47,65,70-71,86-92,95,100-103
+archivebox/machine/admin.py
+  s_10bc94d001be49::t_56332afa562cd8 440
+archivebox/api/webhook_screenshots.py
+  s_10bc94d001be49::t_fb99dcaed3d00e 103
+  s_aa9901a46a15eb::t_3ddd8849261fe1 1-99,104-123,126-139
+  s_aa9901a46a15eb::t_ceb851023bed21 100-102,124-125
+archivebox/base_models/models.py
+  s_10bc94d001be49::t_56332afa562cd8 378-380,395-417
+archivebox/api/v1_crawls.py
+  s_a46618ba6633c7::t_0bbfc91d7b9021 298
+  s_a46618ba6633c7::t_a57f05c68a8e0d 93,127,294-297,299-303
+  s_a46618ba6633c7::t_3da20971e743f0 54-64
+archivebox/core/views.py
+  s_10bc94d001be49::t_56332afa562cd8 32,955,1266-1278,1329-1342
+archivebox/config/paths.py
+  s_10bc94d001be49::t_56332afa562cd8 36-55
+archivebox/api/admin.py
+  s_10bc94d001be49::t_56332afa562cd8 75-85
+archivebox/api/v1_folders.py
+  s_a46618ba6633c7::t_970b21de3ce68d 1-16,31-49,58-64,66-75,77-80,82-83,88-115
+  s_a46618ba6633c7::t_0bbfc91d7b9021 55
+  s_a46618ba6633c7::t_3eb3bf1c65c111 17-30,50,65,76,81
+  s_a46618ba6633c7::t_9aa7db22031941 51-54,56-57,84-87
+archivebox/mcp/server.py
+  s_a46618ba6633c7::t_b77f9594a7a925 21
+  s_a46618ba6633c7::t_a57f05c68a8e0d 3,19-20,419
+  s_a46618ba6633c7::t_88226e0beca8eb 496
+README.md
+  s_a46618ba6633c7::t_d2d17b79e6497b 1532-1567
+archivebox/importers/migrations/0003_importersource_folder.py
+  s_a46618ba6633c7::t_0bbfc91d7b9021 15-19,21
+  s_a46618ba6633c7::t_16855f31e46605 1-14,20,22-23
+archivebox/cli/archivebox_init.py
+  s_10bc94d001be49::t_56332afa562cd8 74-80
+archivebox/crawls/models.py
+  s_a46618ba6633c7::t_970b21de3ce68d 431-435
+  s_10bc94d001be49::t_56332afa562cd8 43,151-152,154-156,162-163,165-166
+  s_a46618ba6633c7::t_3eb3bf1c65c111 157-160
+  s_aa9901a46a15eb::t_99df886f870463 153,161
+  s_a46618ba6633c7::t_a57f05c68a8e0d 482-484
+archivebox/api/v1_importers.py
+  s_a46618ba6633c7::t_3eb3bf1c65c111 20-90,100-144,159
+  s_a46618ba6633c7::t_0bbfc91d7b9021 95,151-154
+  s_a46618ba6633c7::t_05d1455ed05db2 1-19,91-94,96-99,145-150,155-158,160-161
+archivebox/tests/test_webhook_views.py
+  s_10bc94d001be49::t_115569d48f5341 1-43,50-55,61-70,78-82,90-105,118-135,145-179,181,183-198
+  s_10bc94d001be49::t_fb99dcaed3d00e 44-49,56-60,71-77,83-89,106-117,136-144,180,182
+archivebox/cli/archivebox_snapshot.py
+  s_a46618ba6633c7::t_0bbfc91d7b9021 413-417,510
+  s_a46618ba6633c7::t_970b21de3ce68d 91-96,266
+  s_a46618ba6633c7::t_3eb3bf1c65c111 55-60
+  s_a46618ba6633c7::t_a57f05c68a8e0d 126,162-163,200,204,388,397,450-451,470-471,508-509,511-512,596-597,599,613-615,617
+archivebox/machine/models.py
+  s_10bc94d001be49::t_56332afa562cd8 193-194,408-409,523-524,863-871,968-969,2039,2046,2053-2055,2078,2101-2106,2112-2115
+bin/collect_ui_screenshots.sh
+  s_58a034aa38210f::t_826f1e9131cc6b 667
+  s_aa9901a46a15eb::t_8fc254769d8c73 447
+  s_10bc94d001be49::t_56332afa562cd8 617-623,627,629,662-666,668-671
+  s_58a034aa38210f::t_1727fa203329f5 672
+archivebox/api/webhook_actions.py
+  s_aa9901a46a15eb::t_e4b417f0ad166c 226
+  s_aa9901a46a15eb::t_fbe3fb5cf13e0a 1-225,227-340
+archivebox/tests/test_webhook_events.py
+  s_aa9901a46a15eb::t_817197a932143b 1-51,53-54,56-57,96-143
+  s_aa9901a46a15eb::t_2a91153ae886ff 55
+  s_aa9901a46a15eb::t_785e822a39ff2f 58-95
+  s_aa9901a46a15eb::t_12d389c9f9d9e7 52
+archivebox/tests/test_site_exports.py
+  s_a46618ba6633c7::t_b77f9594a7a925 299-302,314-317
+pyproject.toml
+  s_10bc94d001be49::t_56332afa562cd8 3,43,53,72,91-92,112,364
+archivebox/tests/test_cli_mcp.py
+  s_a46618ba6633c7::t_a57f05c68a8e0d 58-59
+  s_a46618ba6633c7::t_d2d17b79e6497b 54
+archivebox/importers/forms.py
+  s_a46618ba6633c7::t_a57f05c68a8e0d 70
+  s_a46618ba6633c7::t_0f143a214ba576 16,86-91
+archivebox/templates/core/library_navigation.html
+  s_10bc94d001be49::t_56332afa562cd8 3-6,8-10
+.github/workflows/docker.yml
+  s_10bc94d001be49::t_56332afa562cd8 533-534,712
+etc/package.json
+  s_10bc94d001be49::t_56332afa562cd8 3
+archivebox/core/exports.py
+  s_a46618ba6633c7::t_3eb3bf1c65c111 30-35,119-124
+  s_a46618ba6633c7::t_d2d17b79e6497b 100-104
+  s_a46618ba6633c7::t_a7e919ed67fde1 385-398
+archivebox/api/v1_api.py
+  s_a46618ba6633c7::t_dd9bcff75a3983 51
+archivebox/api/v1_cli.py
+  s_a46618ba6633c7::t_49de0e9827a8c4 88
+archivebox/api/webhook_urls.py
+  s_aa9901a46a15eb::t_22fc77246ad167 1-14
+archivebox/importers/templates/importers/detail.html
+  s_a46618ba6633c7::t_01c551cb665a82 9-10,15
+archivebox/importers/templates/importers/index.html
+  s_a46618ba6633c7::t_3bf9d58f5c10de 5
+archivebox/importers/urls.py
+  s_a46618ba6633c7::t_7f8aa110f8356a 9-10
+archivebox/linkhealth/gallery.js
+  s_40c755f9b98002::t_8a749bb50d95f9 1-24
+archivebox/linkhealth/management/commands/linkhealth.py
+  s_40c755f9b98002::t_482931f5046516 1-60
+archivebox/linkhealth/service.py
+  s_40c755f9b98002::t_3fcf5d9a02a5ac 1-120
+archivebox/linkhealth/templates/linkhealth/index.html
+  s_10bc94d001be49::t_a3c14efe9a1dad 1-31
+archivebox/linkhealth/urls.py
+  s_10bc94d001be49::t_c0ba6bd6e3f270 1-9
+archivebox/linkhealth/views.py
+  s_40c755f9b98002::t_a8613768a322a7 1-116
+archivebox/storage/apps.py
+  s_40c755f9b98002::t_2fb1562f1b787c 1-5
+archivebox/storage/diagnostics.py
+  s_40c755f9b98002::t_444ab41b3d3bc8 1-215
+archivebox/storage/gallery.js
+  s_40c755f9b98002::t_77c39dcd0d0ff3 1-37
+archivebox/storage/install.py
+  s_40c755f9b98002::t_4b0e821ff0d150 1-51
+archivebox/storage/management/commands/storage.py
+  s_40c755f9b98002::t_dc81d9aadd05b9 1-58
+archivebox/storage/service.py
+  s_40c755f9b98002::t_0c8d7509996a9b 1-327
+archivebox/storage/templates/storage/base.html
+  s_40c755f9b98002::t_f1f2fb74fde636 1-17
+archivebox/storage/templates/storage/configure.html
+  s_40c755f9b98002::t_0a47872d2e6806 1-17
+archivebox/storage/templates/storage/field.html
+  s_40c755f9b98002::t_ef88b7fce24c13 1
+archivebox/storage/templates/storage/icon.html
+  s_40c755f9b98002::t_51ec6f6a3c28a1 1
+archivebox/storage/templates/storage/index.html
+  s_40c755f9b98002::t_2983b6b905e5d1 1-27
+archivebox/storage/urls.py
+  s_40c755f9b98002::t_fd4aded31a877c 1-11
+archivebox/storage/views.py
+  s_40c755f9b98002::t_7562e1d54e522b 1-250
+archivebox/storageaudit/apps.py
+  s_40c755f9b98002::t_9219b824257644 1-5
+archivebox/storageaudit/gallery.js
+  s_40c755f9b98002::t_48115191a34fcf 1-36
+archivebox/storageaudit/management/commands/storageaudit.py
+  s_40c755f9b98002::t_eeb0106ef03b70 1-83
+archivebox/storageaudit/service.py
+  s_40c755f9b98002::t_c847c2918b2bc2 1-263
+archivebox/storageaudit/templates/storageaudit/base.html
+  s_40c755f9b98002::t_38e5b056ef32df 1-19
+archivebox/storageaudit/templates/storageaudit/index.html
+  s_40c755f9b98002::t_4dc9e19fb7f197 1-59
+archivebox/storageaudit/templates/storageaudit/preview.html
+  s_40c755f9b98002::t_0c035f568a264f 1-9
+archivebox/storageaudit/urls.py
+  s_40c755f9b98002::t_cf2ad7c46fdbcd 1-10
+archivebox/storageaudit/views.py
+  s_40c755f9b98002::t_571129cdfa5323 1-228
+archivebox/templates/static/api/webhooks.css
+  s_aa9901a46a15eb::t_1e645f16809965 1-1091
+archivebox/tests/test_linkhealth.py
+  s_40c755f9b98002::t_094e53f7771a5c 1-157
+archivebox/tests/test_replay_storage.py
+  s_10bc94d001be49::t_34792aa712adf2 1-65
+archivebox/tests/test_storageaudit.py
+  s_40c755f9b98002::t_33fa6a94e2d009 1-353
+uv.lock
+  s_58a034aa38210f::t_eec3f5c8d07d48 36,50,52,57-58,67-70,142,197,213,258-259,273,281,294-295,395,408,410-419,725,727,729,915,923,925,988,994,996,1039,1045,1047,1381,1394,1396,1637,1639,1641,1863,1868,1870,1936,1944,1946,1951,1960,1962,1967,1975,1977,1982,1991,1993,1998,2005,2007,2012,2020,2022,2039,2046,2048,2053,2059,2061,2066,2068,2070,2105,2107,2109,2139,2141,2143-2149,2201,2203,2205,2215-2247,2279,2281,2283,2335,2343,2345,2350,2355-2417,2422,2430,2432,2497,2505,2507,2867,2869,2871-2884,2938,2958,2960,3180,3182,3184-3197,3220,3225,3227,3232,3234,3236,3446,3448,3450
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f30c88be47c2163f957671fa04f84c7c086d8d20",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_40c755f9b98002": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c937-cafe-7293-b5ba-de44da79aa7d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_58a034aa38210f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8dc-4c9a-7ef1-b606-8fe9c23bfb91",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_aa9901a46a15eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d87d-2dfd-7332-9b15-b2421bc5606a",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
