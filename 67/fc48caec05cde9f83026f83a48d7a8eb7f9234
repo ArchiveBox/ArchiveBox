@@ -1,0 +1,26 @@
+bin/generate_ui_screenshot_gallery.py
+  s_784d0e5fa3aa29::t_b2d343b3a4ec5f 43,477-505,509,511-513,515
+  s_784d0e5fa3aa29::t_def25b2a56c5d4 506-508,510,514
+.github/manual-screenshot-captures.json
+  s_784d0e5fa3aa29::t_15255a3c9adfe8 46-85
+bin/collect_ui_screenshots.sh
+  s_784d0e5fa3aa29::t_b2d343b3a4ec5f 532-533,827
+.github/workflows/deploy-publicsite.yml
+  s_784d0e5fa3aa29::t_e330c1281d5b31 60-61,69,74-79,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "67fc48caec05cde9f83026f83a48d7a8eb7f9234",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
