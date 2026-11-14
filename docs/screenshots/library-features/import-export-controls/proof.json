@@ -1,0 +1,452 @@
+[
+  {
+    "width": 1600,
+    "state": "expanded",
+    "imports": [
+      {
+        "x": 108.65625,
+        "y": 966,
+        "width": 122.34375,
+        "height": 28,
+        "scroll": 122,
+        "client": 122
+      }
+    ],
+    "exports": [
+      {
+        "x": 12,
+        "y": 966,
+        "width": 84.65625,
+        "height": 28,
+        "scroll": 85,
+        "client": 85
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 8,
+      "top": 792,
+      "right": 298,
+      "bottom": 962,
+      "width": 1600,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 1600,
+    "state": "collapsed",
+    "imports": [
+      {
+        "x": 787.15625,
+        "y": 470.765625,
+        "width": 790.84375,
+        "height": 28,
+        "scroll": 791,
+        "client": 791
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 470.765625,
+        "width": 753.15625,
+        "height": 28,
+        "scroll": 753,
+        "client": 753
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 1288,
+      "top": 502.765625,
+      "right": 1578,
+      "bottom": 672.765625,
+      "width": 1600,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 768,
+    "state": "expanded",
+    "imports": [
+      {
+        "x": 100.65625,
+        "y": 966,
+        "width": 114.34375,
+        "height": 28,
+        "scroll": 114,
+        "client": 114
+      }
+    ],
+    "exports": [
+      {
+        "x": 12,
+        "y": 966,
+        "width": 76.65625,
+        "height": 28,
+        "scroll": 77,
+        "client": 77
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 8,
+      "top": 752,
+      "right": 298,
+      "bottom": 962,
+      "width": 768,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 768,
+    "state": "collapsed",
+    "imports": [
+      {
+        "x": 371.15625,
+        "y": 877.265625,
+        "width": 374.84375,
+        "height": 28,
+        "scroll": 375,
+        "client": 375
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 877.265625,
+        "width": 337.15625,
+        "height": 28,
+        "scroll": 337,
+        "client": 337
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 456,
+      "top": 663.265625,
+      "right": 746,
+      "bottom": 873.265625,
+      "width": 768,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 390,
+    "state": "expanded",
+    "imports": [
+      {
+        "x": 182.15625,
+        "y": 1359.875,
+        "width": 185.84375,
+        "height": 28,
+        "scroll": 186,
+        "client": 186
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 1359.875,
+        "width": 148.15625,
+        "height": 28,
+        "scroll": 148,
+        "client": 148
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 78,
+      "top": 712.875,
+      "right": 368,
+      "bottom": 922.875,
+      "width": 390,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 390,
+    "state": "collapsed",
+    "imports": [
+      {
+        "x": 182.15625,
+        "y": 1031.875,
+        "width": 185.84375,
+        "height": 28,
+        "scroll": 186,
+        "client": 186
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 1031.875,
+        "width": 148.15625,
+        "height": 28,
+        "scroll": 148,
+        "client": 148
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 78,
+      "top": 712.875,
+      "right": 368,
+      "bottom": 922.875,
+      "width": 390,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 320,
+    "state": "expanded",
+    "imports": [
+      {
+        "x": 147.15625,
+        "y": 1476.78125,
+        "width": 150.84375,
+        "height": 28,
+        "scroll": 151,
+        "client": 151
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 1476.78125,
+        "width": 113.15625,
+        "height": 28,
+        "scroll": 113,
+        "client": 113
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 8,
+      "top": 712.78125,
+      "right": 298,
+      "bottom": 922.78125,
+      "width": 320,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 320,
+    "state": "collapsed",
+    "imports": [
+      {
+        "x": 147.15625,
+        "y": 1148.78125,
+        "width": 150.84375,
+        "height": 28,
+        "scroll": 151,
+        "client": 151
+      }
+    ],
+    "exports": [
+      {
+        "x": 22,
+        "y": 1148.78125,
+        "width": 113.15625,
+        "height": 28,
+        "scroll": 113,
+        "client": 113
+      }
+    ],
+    "overflow": false,
+    "menu": {
+      "left": 8,
+      "top": 712.78125,
+      "right": 298,
+      "bottom": 922.78125,
+      "width": 320,
+      "height": 1000,
+      "links": [
+        {
+          "text": "From Browser History / Bookmarks",
+          "href": "https://extension.archivebox.io"
+        },
+        {
+          "text": "From RSS or Social Media",
+          "href": "/admin/importers/"
+        },
+        {
+          "text": "Clone an entire site",
+          "href": "/admin/domains/"
+        },
+        {
+          "text": "Watch a site for changes",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection"
+        },
+        {
+          "text": "Other options...",
+          "href": "https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive"
+        }
+      ]
+    }
+  },
+  {
+    "width": 1600,
+    "anonymous": true,
+    "importHidden": true
+  },
+  {
+    "width": 390,
+    "anonymous": true,
+    "importHidden": true
+  }
+]
