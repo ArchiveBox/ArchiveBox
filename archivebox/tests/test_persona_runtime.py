@@ -171,6 +171,8 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
             f'IndexedDB/chrome-extension_{removed_id}_0.indexeddb.blob/1/1',
             'IndexedDB/https_example.com_0.indexeddb.leveldb/000001.log',
             'Service Worker/ScriptCache/script',
+            f'Local Extension Settings/{installed_id}/000001.log',
+            f'Local Extension Settings/{removed_id}/000001.log',
         ]
         for name in files:
             path = profile / name
@@ -205,7 +207,7 @@ def test_persona_runtime_does_not_clone_uninstalled_extension_storage(initialize
     assert code == 0, stderr
     payload = json.loads(stdout.strip().splitlines()[-1])
     keep_unknown_extension = preferences_state not in ("valid", "secure")
-    assert payload["copied"] == [True, keep_unknown_extension, keep_unknown_extension, True, True]
+    assert payload["copied"] == [True, keep_unknown_extension, keep_unknown_extension, True, True, True, keep_unknown_extension]
     assert payload["source_preserved"] is True
     assert payload["retained_contents"] is True
 
