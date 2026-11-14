@@ -97,6 +97,9 @@ def prepare(base_url, username, password):
 def verify_actions(base_url, username, password, webhook_ids):
     """Update captured news through the REST API and check real action delivery."""
     session = authenticated_session(base_url, username, password)
+    response = session.get(f"{base_url}/admin/webhooks/data/", timeout=30)
+    response.raise_for_status()
+    previous = next(item for item in response.json()["hooks"] if item["id"] == webhook_ids[2])["last_success"]
     response = session.post(f"{base_url}/api/v1/auth/get_api_token", json={"username": username, "password": password}, timeout=30)
     response.raise_for_status()
     credentials = response.json()
@@ -118,7 +121,8 @@ def verify_actions(base_url, username, password, webhook_ids):
     response = session.get(f"{base_url}/admin/webhooks/data/", timeout=30)
     response.raise_for_status()
     hook = next(item for item in response.json()["hooks"] if item["id"] == webhook_ids[2])
-    assert hook["last_success"] and (not hook["last_failure"] or hook["last_success"] > hook["last_failure"])
+    assert hook["last_success"] and (not previous or hook["last_success"] > previous)
+    assert not hook["last_failure"] or hook["last_success"] > hook["last_failure"]
     return snapshot["id"]
 
 
