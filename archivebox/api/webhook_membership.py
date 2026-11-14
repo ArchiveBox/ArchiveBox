@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from django.apps import apps
 from django.db.models.signals import m2m_changed, pre_save, post_save, pre_delete, post_delete
 
 _active = ContextVar("folder_membership_change", default=False)
@@ -71,8 +72,10 @@ class MembershipChange:
                 # playlist or putting its IDs into a giant SQL IN expression.
                 untouched = Snapshot.objects.exclude(pk__in=self.ids)
                 old_query = self.queries[folder_id]
-                left.update(untouched.filter(old_query).exclude(query).values_list("pk", flat=True))
-                entered.update(untouched.filter(query).exclude(old_query).values_list("pk", flat=True))
+                old_ids = untouched.filter(old_query).order_by().values_list("pk", flat=True)
+                new_ids = untouched.filter(query).order_by().values_list("pk", flat=True)
+                left.update(old_ids.difference(new_ids))
+                entered.update(new_ids.difference(old_ids))
             for signal, ids in (("FOLDER_LEFT", left), ("FOLDER_ENTERED", entered)):
                 # Finish all SELECTs before dispatch: webhook actions can perform
                 # subprocess/network work and must not retain a database cursor.
@@ -120,7 +123,7 @@ def related_snapshot_ids(instance):
 
 
 def before_related_change(sender, instance, raw=False, **kwargs):
-    if raw or _active.get():
+    if raw or _active.get() or sender._meta.apps is not apps:
         return
     if instance._meta.label_lower not in {
         "core.archiveresult",
@@ -143,7 +146,7 @@ def after_related_change(sender, instance, **kwargs):
 def before_delete(sender, instance, origin=None, **kwargs):
     # Django sends per-row signals around one collector operation. Track its
     # initiating queryset once; through-row cascades must not duplicate leaves.
-    if _active.get():
+    if _active.get() or sender._meta.apps is not apps:
         return
     origin = origin if origin is not None else instance
     model = getattr(origin, "model", type(origin))

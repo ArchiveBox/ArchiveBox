@@ -83,7 +83,7 @@ def test_remove_without_yes_prompts_and_keeps_snapshot(initialized_archive):
     )
 
     output = result.stdout + result.stderr
-    assert result.returncode == 0
+    assert result.returncode == 0, output
     assert "Do you want to proceed" in output or "y/[n]" in output
     assert len(_snapshot_rows(initialized_archive, env)) == 1
     assert snapshot_dir.exists()
