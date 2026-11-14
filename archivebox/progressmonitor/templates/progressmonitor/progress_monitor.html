@@ -1042,7 +1042,7 @@
                 <span class="metric-badge" id="metric-resources" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></svg><span class="metric-text">— · RAM —</span></span>
                 <span class="metric-badge" id="metric-io" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><span class="metric-text">I/O —</span></span>
                 <span class="metric-badge" id="metric-storage" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span class="metric-text">—</span></span>
-                <span class="metric-badge" id="metric-web" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span class="metric-text">—s/Req</span></span>
+                <span class="metric-badge" id="metric-web" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span class="metric-text">—ms</span></span>
             </div>
             <span class="metric-badge" id="metric-indexing" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1m-1 6h1m-1 6h1"/></svg><span class="metric-text">Indexing —</span></span>
         </div>
@@ -2128,7 +2128,7 @@
                     return;
                 }
                 const responseMs = Math.round(performance.now() - requestStarted);
-                metricBadge('web', data.error ? 'Web error' : `${(responseMs / 1000).toFixed(1)}s/Req`, `Last progress request: HTTP ${httpStatus}, ${responseMs} ms including network and JSON transfer. Not total page-load time. Measured ${new Date().toLocaleTimeString()}.`, Boolean(data.error));
+                metricBadge('web', data.error ? 'Web error' : `${responseMs}ms`, `Last progress request: HTTP ${httpStatus}, ${responseMs} ms including network and JSON transfer. Not total page-load time. Measured ${new Date().toLocaleTimeString()}.`, Boolean(data.error));
                 if (data.error) {
                     console.error('Progress API error:', data.error, data.traceback);
                     setOrchestratorState('error', 'Backend not responding');

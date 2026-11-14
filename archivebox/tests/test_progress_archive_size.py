@@ -96,7 +96,7 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         assert estimate.locator("small").evaluate(
             "el => parseFloat(getComputedStyle(el).fontSize) < parseFloat(getComputedStyle(el.parentElement).fontSize)",
         )
-        expect(page.locator("#metric-web .metric-text")).to_have_text(re.compile(r"^\d+\.\ds/Req$"))
+        expect(page.locator("#metric-web .metric-text")).to_have_text(re.compile(r"^\d+ms$"))
         page.set_viewport_size({"width": 390, "height": 844})
         expect(estimate).to_be_visible()
         browser.close()
