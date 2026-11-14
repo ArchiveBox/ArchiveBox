@@ -1,0 +1,42 @@
+[
+  {
+    "width": 1600,
+    "id": "06af7d6d6ed07f4580005568502cbb26",
+    "name": "📥 Inbox",
+    "emoji": "📥",
+    "label": "Inbox",
+    "svg": false,
+    "iconCenter": 151.390625,
+    "labelCenter": 151.390625
+  },
+  {
+    "width": 768,
+    "id": "06af7d6d6ed07f4580005568502cbb26",
+    "name": "📥 Inbox",
+    "emoji": "📥",
+    "label": "Inbox",
+    "svg": false,
+    "iconCenter": 151.390625,
+    "labelCenter": 151.390625
+  },
+  {
+    "width": 390,
+    "id": "06af7d6d6ed07f4580005568502cbb26",
+    "name": "📥 Inbox",
+    "emoji": "📥",
+    "label": "Inbox",
+    "svg": false,
+    "iconCenter": 180,
+    "labelCenter": 180
+  },
+  {
+    "width": 320,
+    "id": "06af7d6d6ed07f4580005568502cbb26",
+    "name": "📥 Inbox",
+    "emoji": "📥",
+    "label": "Inbox",
+    "svg": false,
+    "iconCenter": 210,
+    "labelCenter": 210
+  }
+]
