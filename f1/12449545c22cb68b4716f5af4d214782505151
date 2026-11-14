@@ -1,0 +1,30 @@
+archivebox/tests/test_browser_plugin_outputs.py
+  s_a46618ba6633c7::t_9fefc705dabed4 1-36
+bin/collect_ui_screenshots.sh
+  s_a46618ba6633c7::t_9fefc705dabed4 297-302,378-389
+  s_cb1e5966887ec6::t_04b0c6b235db85 390,423,425,427,442,893,896
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f112449545c22cb68b4716f5af4d214782505151",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
