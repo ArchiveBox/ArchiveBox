@@ -9,6 +9,63 @@ import pytest
 from .conftest import run_python_cwd
 
 
+@pytest.mark.parametrize("operation", ["snapshot", "snapshot_alias", "crawl_alias"])
+def test_runtime_rejects_template_overlap_before_mutating_files(initialized_archive, operation):
+    script = textwrap.dedent(
+        """
+        import json
+        from pathlib import Path
+        import django
+        django.setup()
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.objects.create(name='PreserveProfile')
+        persona.ensure_dirs()
+        sentinel = Path(persona.CHROME_USER_DATA_DIR) / 'keep.txt'
+        sentinel.write_text('saved browser session')
+        crawl = Crawl.objects.create(urls='https://example.com', persona=persona)
+        snapshot = Snapshot.objects.create(url='https://example.com', crawl=crawl)
+        operation = OPERATION
+        if operation == 'crawl_alias':
+            local_root = persona.local_runtime_root_for_crawl(crawl)
+            local_root.parent.parent.mkdir(parents=True, exist_ok=True)
+            local_root.parent.symlink_to(persona.path.parent, target_is_directory=True)
+            output = crawl.output_dir
+        elif operation == 'snapshot_alias':
+            alias = Path.cwd() / 'profile-alias'
+            alias.symlink_to(persona.path.parent, target_is_directory=True)
+            local_root = alias / persona.name
+            output = snapshot.output_dir
+        else:
+            local_root = persona.path
+            output = snapshot.output_dir
+        error = ''
+        try:
+            if operation == 'crawl_alias':
+                persona.prepare_runtime_for_crawl(crawl)
+            else:
+                persona.prepare_runtime_for_snapshot(snapshot, local_root=local_root)
+        except ValueError as exc:
+            error = str(exc)
+        print(json.dumps({
+            'source': sentinel.read_text() if sentinel.exists() else None,
+            'error': error,
+            'archive_link_created': (output / '.persona').is_symlink(),
+            'lock_created': (persona.path / '.archivebox-crawl-profile.lock').exists(),
+        }))
+        """,
+    ).replace("OPERATION", repr(operation))
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+    result = json.loads(stdout.strip().splitlines()[-1])
+    assert result["source"] == "saved browser session"
+    assert "overlap" in result["error"].lower()
+    assert result["archive_link_created"] is False
+    assert result["lock_created"] is False
+
+
 @pytest.mark.parametrize("parser", ["url_list", "jsonl"])
 def test_empty_duplicate_crawl_does_not_prepare_persona_runtime(initialized_archive, parser):
     script = textwrap.dedent(

@@ -42,25 +42,6 @@ else:
     fcntl = _fcntl
 
 
-VOLATILE_PROFILE_DIR_NAMES = {
-    "Cache",
-    "Code Cache",
-    "GPUCache",
-    "ShaderCache",
-    "Crashpad",
-    "BrowserMetrics",
-}
-
-VOLATILE_PROFILE_FILE_NAMES = {
-    "BrowserMetrics-spare.pma",
-    "RunningChromeVersion",
-    "DevToolsActivePort",
-    "SingletonCookie",
-    "SingletonLock",
-    "SingletonSocket",
-}
-
-
 def derive_persona_config(*, name: str, config: Mapping[str, Any] | None, persona_dir: Path) -> dict[str, Any]:
     derived = dict(config or {})
     derived["PERSONAS_DIR"] = str(persona_dir.parent)
@@ -242,58 +223,6 @@ class Persona(ModelWithConfig):
         (self.path / "chrome_profile").mkdir(parents=True, exist_ok=True)
         (self.path / "chrome_downloads").mkdir(parents=True, exist_ok=True)
 
-    def cleanup_chrome_profile(self, profile_dir: Path) -> bool:
-        """Remove volatile Chrome state that should never be reused across launches."""
-        cleaned = False
-
-        if not profile_dir.exists():
-            return False
-
-        def profile_paths():
-            # Chrome profiles are user-controlled filesystem state. If a cache
-            # or generated component is unreadable, cleanup should skip it and
-            # continue pruning the rest instead of blocking the crawl runner.
-            for dirpath, dirnames, filenames in os.walk(profile_dir, onerror=lambda _err: None):
-                current_dir = Path(dirpath)
-                for name in [*dirnames, *filenames]:
-                    yield current_dir / name
-
-        for path in profile_paths():
-            if path.name in VOLATILE_PROFILE_FILE_NAMES:
-                try:
-                    path.unlink()
-                    cleaned = True
-                except OSError:
-                    pass
-
-        for dirname in VOLATILE_PROFILE_DIR_NAMES:
-            for path in profile_paths():
-                if path.name != dirname:
-                    continue
-                try:
-                    is_dir = path.is_dir()
-                except OSError:
-                    is_dir = False
-                if not is_dir:
-                    continue
-                shutil.rmtree(path, ignore_errors=True)
-                cleaned = True
-
-        for path in profile_paths():
-            if path.name not in {"chrome.log", "chrome_debug.log"}:
-                continue
-            try:
-                path.unlink()
-                cleaned = True
-            except OSError:
-                pass
-
-        return cleaned
-
-    def cleanup_chrome(self) -> bool:
-        """Clean up volatile Chrome state for this persona's base profile."""
-        return self.cleanup_chrome_profile(self.path / "chrome_profile")
-
     @contextmanager
     def lock_runtime_for_crawl(self):
         lock_path = self.path / ".archivebox-crawl-profile.lock"
@@ -370,18 +299,6 @@ class Persona(ModelWithConfig):
             shutil.move(str(link), str(legacy_dir / ".persona"))
         link.symlink_to(target, target_is_directory=True)
 
-    def copy_chrome_profile(self, source_dir: Path, destination_dir: Path) -> None:
-        from archivebox.personas.importers import profile_copy_ignore
-
-        destination_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.rmtree(destination_dir, ignore_errors=True)
-        shutil.copytree(
-            source_dir,
-            destination_dir,
-            symlinks=True,
-            ignore=profile_copy_ignore,
-        )
-
     def prepare_runtime_for_crawl(self, crawl, chrome_binary: str = "", *, use_template: bool = True) -> dict[str, str]:
         if use_template:
             self.ensure_dirs()
@@ -390,8 +307,11 @@ class Persona(ModelWithConfig):
         # Traversing the archive-side symlink still invokes FUSE for every file.
         # Keep that compatibility link, but perform profile I/O directly locally.
         runtime_root = self.local_runtime_root_for_crawl(crawl)
-        runtime_profile_dir = runtime_root / "chrome_profile"
-        runtime_downloads_dir = runtime_root / "chrome_downloads"
+        if template_dir is not None:
+            source, destination = template_dir.resolve(), runtime_root.resolve()
+            # Check before host cleanup; the plugin cannot protect a source already removed.
+            if source.is_relative_to(destination) or destination.is_relative_to(source):
+                raise ValueError("Source and runtime profile directories overlap")
 
         # Anonymous captures use the same runtime lifecycle without accessing
         # any saved persona, including its lock or authentication files.
@@ -400,25 +320,21 @@ class Persona(ModelWithConfig):
             self.link_runtime_for_output(crawl.output_dir, runtime_root)
             if runtime_root.exists():
                 shutil.rmtree(runtime_root, ignore_errors=True)
-            if template_dir is not None and template_dir.exists() and any(template_dir.iterdir()):
-                self.copy_chrome_profile(template_dir, runtime_profile_dir)
-            else:
-                runtime_profile_dir.mkdir(parents=True, exist_ok=True)
+            from archivebox.personas.importers import run_browser_profile
+
+            run_browser_profile(
+                action="prepare",
+                persona_dir=str(runtime_root),
+                source_dir=str(template_dir) if template_dir is not None else None,
+                name=self.name,
+                browser_binary=chrome_binary,
+            )
 
             if use_template:
                 for filename in ("cookies.txt", "auth.json"):
                     source = self.path / filename
                     if source.is_file():
                         shutil.copy2(source, runtime_root / filename)
-            runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
-            self.cleanup_chrome_profile(runtime_profile_dir)
-
-            (runtime_root / "persona_name.txt").write_text(self.name)
-            if template_dir is not None:
-                (runtime_root / "template_dir.txt").write_text(str(template_dir))
-            if chrome_binary:
-                (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
-
         # Hooks derive Chrome profile paths from the runtime persona root.
         # Use the same optional auth discovery as the template persona.
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
@@ -445,17 +361,24 @@ class Persona(ModelWithConfig):
             local_root = (
                 self.local_runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
             )
+        if template_dir is not None:
+            source, destination = template_dir.resolve(), local_root.resolve()
+            if source.is_relative_to(destination) or destination.is_relative_to(source):
+                raise ValueError("Source and runtime profile directories overlap")
         local_root.parent.mkdir(parents=True, exist_ok=True)
         self.link_runtime_for_output(snapshot.output_dir, local_root)
         runtime_root = local_root
-        runtime_profile_dir = runtime_root / "chrome_profile"
-        runtime_downloads_dir = runtime_root / "chrome_downloads"
         if runtime_root.exists():
             shutil.rmtree(runtime_root, ignore_errors=True)
-        if template_dir is not None and template_dir.exists() and any(template_dir.iterdir()):
-            self.copy_chrome_profile(template_dir, runtime_profile_dir)
-        else:
-            runtime_profile_dir.mkdir(parents=True, exist_ok=True)
+        from archivebox.personas.importers import run_browser_profile
+
+        run_browser_profile(
+            action="prepare",
+            persona_dir=str(runtime_root),
+            source_dir=str(template_dir) if template_dir is not None and template_dir.is_dir() else None,
+            name=self.name,
+            browser_binary=chrome_binary,
+        )
 
         if crawl_runtime_root is not None:
             for filename in ("cookies.txt", "auth.json"):
@@ -464,15 +387,6 @@ class Persona(ModelWithConfig):
                     source = self.path / filename
                 if source.is_file():
                     shutil.copy2(source, runtime_root / filename)
-        runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
-        self.cleanup_chrome_profile(runtime_profile_dir)
-
-        (runtime_root / "persona_name.txt").write_text(self.name)
-        if template_dir is not None:
-            (runtime_root / "template_dir.txt").write_text(str(template_dir))
-        if chrome_binary:
-            (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
-
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
@@ -504,12 +418,3 @@ class Persona(ModelWithConfig):
     def get_or_create_default(cls) -> "Persona":
         """Get or create the Default persona."""
         return cls.get_or_create_named("Default")
-
-    @classmethod
-    def cleanup_chrome_all(cls) -> int:
-        """Clean up Chrome state files for all personas."""
-        cleaned = 0
-        for persona in cls.objects.all():
-            if persona.cleanup_chrome():
-                cleaned += 1
-        return cleaned

@@ -8,11 +8,8 @@ behavior stays consistent regardless of where it is triggered from.
 from __future__ import annotations
 
 import json
-import base64
-import hashlib
 import os
 import platform
-import re
 import shutil
 import sqlite3
 import time
@@ -48,24 +45,6 @@ BROWSER_PROFILE_DIR_NAMES = (
     "Guest Profile",
 )
 
-VOLATILE_PROFILE_COPY_PATTERNS = (
-    # Chromium/macOS atomic-write staging files (e.g.
-    # .com.brave.Browser.TransportSecurity.Ze7UBU) disappear after rename.
-    ".*.??????",
-    "Cache",
-    "Code Cache",
-    "GPUCache",
-    "ShaderCache",
-    "Crashpad",
-    "BrowserMetrics",
-    "BrowserMetrics-spare.pma",
-    "RunningChromeVersion",
-    "DevToolsActivePort",
-    "SingletonLock",
-    "SingletonSocket",
-    "SingletonCookie",
-)
-
 PERSONA_PROFILE_DIR_CANDIDATES = (
     "chrome_profile",
     "chrome_user_data",
@@ -91,92 +70,6 @@ def _iter_children(path: Path) -> list[Path]:
         return list(path.iterdir())
     except OSError:
         return []
-
-
-def _is_copyable_profile_entry(path: Path) -> bool:
-    try:
-        if path.is_symlink():
-            return True
-        if path.is_dir():
-            return os.access(path, os.R_OK | os.X_OK)
-        return os.access(path, os.R_OK)
-    except OSError:
-        return False
-
-
-def profile_copy_ignore(src: str, names: list[str]) -> set[str]:
-    ignored = set(shutil.ignore_patterns(*VOLATILE_PROFILE_COPY_PATTERNS)(src, names))
-    src_path = Path(src)
-    if src_path.name in {"IndexedDB", "Local Extension Settings"}:
-        # Uninstalled extensions leave their databases and settings behind. In particular,
-        # old unpacked recorder IDs can retain entire captures that no installed
-        # extension can access. Cloning those stores can exhaust the disk
-        # before the first hook starts. Never delete the source, and preserve
-        # website databases and installed (including disabled) extension state.
-        # Service Worker/ScriptCache is deliberately retained: its script bytes
-        # back registrations in the copied profile, including offline sites.
-        settings = None
-        # Chromium can move protected extension settings into Secure Preferences.
-        # Both files belong to the same profile; ignoring either can misidentify
-        # an installed extension as an orphan and omit its authentication state.
-        for filename in ("Preferences", "Secure Preferences"):
-            try:
-                preferences = json.loads((src_path.parent / filename).read_text())
-                entries = preferences.get("extensions", {}).get("settings")
-                if isinstance(entries, dict):
-                    settings = {**(settings or {}), **entries}
-            except FileNotFoundError:
-                continue
-            except (OSError, ValueError, AttributeError, TypeError):
-                settings = None
-                break
-        # Missing/malformed preferences cannot establish that an origin is
-        # orphaned. Preserve unknown state rather than guess from directory size.
-        if isinstance(settings, dict):
-            installed_ids = {key for key, value in settings.items() if isinstance(value, dict) and isinstance(value.get("path"), str)}
-            # On-demand extensions retain their identity even when Chrome has
-            # removed a disposable install path from Preferences between runs.
-            try:
-                keys = src_path.parent.parent / "archivebox-extension-keys"
-                try:
-                    key_files = list(keys.iterdir())
-                except FileNotFoundError:
-                    key_files = []
-                for key_file in key_files:
-                    if key_file.suffix != ".pub":
-                        continue
-                    key = base64.b64decode(key_file.read_text().strip(), validate=True)
-                    if not key:
-                        raise ValueError("Empty extension identity")
-                    extension_id = hashlib.sha256(key).hexdigest()[:32].translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
-                    installed_ids.add(extension_id)
-            except (OSError, ValueError):
-                installed_ids = None
-            for name in names:
-                extension_id = None
-                if src_path.name == "IndexedDB" and name.startswith("chrome-extension_"):
-                    extension_id = name.split("_", 2)[1]
-                elif src_path.name == "Local Extension Settings" and re.fullmatch(r"[a-p]{32}", name):
-                    extension_id = name
-                if (
-                    installed_ids is not None
-                    and extension_id
-                    and extension_id not in installed_ids
-                    and isinstance(settings.get(extension_id, {}), dict)
-                ):
-                    ignored.add(name)
-    for name in names:
-        if name in ignored:
-            continue
-        if not _is_copyable_profile_entry(src_path / name):
-            # Chrome can leave generated profile components unreadable when a
-            # previous run used a different runtime uid, a mounted profile came
-            # from the host, or Chrome tightened permissions on cache/model
-            # directories. Those entries are not required to launch a cloned
-            # profile, and letting copytree abort here prevents the crawl from
-            # even creating its first Snapshot.
-            ignored.add(name)
-    return ignored
 
 
 @dataclass(frozen=True)
@@ -692,20 +585,12 @@ def import_persona_from_source(
         if source.kind == "browser-profile":
             assert source.user_data_dir and source.profile_path
             if copy_profile or import_cookies or capture_storage:
-                staged_profile.mkdir()
-                # Only the selected profile belongs to this persona. Normalize its
-                # name so downstream Chromium launches always select it.
-                copy_browser_user_data_dir(source.profile_path, staged_profile / "Default")
-                local_state = source.user_data_dir / "Local State"
-                if local_state.exists():
-                    state = json.loads(local_state.read_text())
-                    profile_state = state.setdefault("profile", {})
-                    profile_state["last_used"] = "Default"
-                    profile_state["last_active_profiles"] = ["Default"]
-                    info = profile_state.get("info_cache", {}).get(source.profile_dir)
-                    profile_state["info_cache"] = {"Default": info} if info else {}
-                    (staged_profile / "Local State").write_text(json.dumps(state))
-                persona.cleanup_chrome_profile(staged_profile)
+                run_browser_profile(
+                    action="import",
+                    source_dir=str(source.user_data_dir),
+                    destination_dir=str(staged_profile),
+                    profile_dir=source.profile_dir,
+                )
                 result.profile_copied = copy_profile
         elif copy_profile:
             result.warnings.append(
@@ -731,7 +616,7 @@ def import_persona_from_source(
                 # Desktop imports use their OS decoder without launching or probing.
                 launch_profile = stage / "export_profile"
                 if source.kind == "browser-profile":
-                    copy_browser_user_data_dir(staged_profile, launch_profile)
+                    run_browser_profile(action="copy", source_dir=str(staged_profile), destination_dir=str(launch_profile))
                 success, auth_payload, message = export_browser_state(
                     user_data_dir=launch_profile if source.kind == "browser-profile" else None,
                     cdp_url=source.cdp_url,
@@ -840,15 +725,17 @@ def export_profile_cookies(source: PersonaImportSource, staged_profile: Path, ou
     return payload
 
 
-def copy_browser_user_data_dir(source_dir: Path, destination_dir: Path) -> None:
-    destination_dir.parent.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(destination_dir, ignore_errors=True)
-    shutil.copytree(
-        source_dir,
-        destination_dir,
-        symlinks=True,
-        ignore=profile_copy_ignore,
-    )
+def run_browser_profile(**request) -> None:
+    from abx_dl.execution import iter_plugin_command
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    command = get_plugin_catalog().find_command("browser-profile")
+    try:
+        # A profile may contain large offline stores; cancellation still reaps the command.
+        for _line in iter_plugin_command(command, stdin=[json.dumps(request)], timeout=None):
+            pass
+    except subprocess.CalledProcessError as error:
+        raise ValueError(error.stderr.strip() or "Browser profile preparation failed") from error
 
 
 def export_browser_state(
