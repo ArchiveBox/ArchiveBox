@@ -52,6 +52,7 @@ from archivebox.plugins.output_groups import (
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult, Folder
+from archivebox.core.smart_folders import CHILDREN_RULES
 from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
@@ -81,7 +82,7 @@ class SnapshotActionForm(ActionForm):
             widget=TagEditorWidget(),
         )
         self.fields["folder_destination"] = forms.ModelChoiceField(
-            queryset=Folder.objects.all(),
+            queryset=Folder.objects.filter(rules__isnull=True) | Folder.objects.filter(rules=CHILDREN_RULES),
             required=False,
             label="Folder",
             empty_label="Inbox",
@@ -101,7 +102,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
     parameter_name = "folder"
 
     def lookups(self, request, model_admin):
-        return [("unfiled", "Inbox"), *((str(folder.pk), folder.name) for folder in Folder.tree())]
+        return [(str(folder.pk), folder.name) for folder in Folder.tree()]
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -109,7 +110,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
             return queryset.filter(folder__isnull=True)
         if value:
             try:
-                return queryset.filter(folder_id__in=Folder.subtree_ids(value))
+                return Folder.select_snapshots(queryset, value)
             except ValueError:
                 return queryset.none()
         return queryset
@@ -698,23 +699,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.action(description="Move to folder", permissions=["change"])
     def move_to_folder(self, request, queryset):
-        from django.db import transaction
-        from archivebox.core.signals import snapshot_folders_changed
-
         if not self.has_change_permission(request):
             raise PermissionDenied
         folder_id = request.POST.get("folder_destination")
         folder = get_object_or_404(Folder, pk=folder_id) if folder_id else None
-        destination_id = folder.pk if folder else None
-        with transaction.atomic():
-            changes = [
-                {"snapshot_id": str(pk), "before": previous, "after": destination_id}
-                for pk, previous in queryset.values_list("pk", "folder_id")
-                if previous != destination_id
-            ]
-            count = queryset.update(folder=folder, modified_at=timezone.now())
-            if changes:
-                transaction.on_commit(lambda: snapshot_folders_changed.send(sender=Snapshot, changes=changes))
+        count = Folder.move_snapshots(queryset, folder.pk if folder else None)
         self.message_user(request, f"Moved {count} snapshot(s) to {folder.name if folder else 'Inbox'}.")
 
     def preview_view(self, request, object_id, plugin, filename):

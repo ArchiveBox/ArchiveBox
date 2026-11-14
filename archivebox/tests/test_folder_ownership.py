@@ -61,4 +61,4 @@ def test_database_enforces_root_and_sibling_uniqueness():
     for name, parent in [("A", None), ("C", root)]:
         with pytest.raises(IntegrityError), transaction.atomic():
             Folder.objects.bulk_create([Folder(name=name, parent=parent)])
-    assert Folder.objects.count() == 2
+    assert set(Folder.objects.values_list("name", flat=True)) == {"A", "C", "Inbox"}

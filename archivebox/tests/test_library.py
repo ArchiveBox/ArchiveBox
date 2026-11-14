@@ -336,7 +336,7 @@ def test_inline_folder_save_validates_normalized_name(admin_client):
     assert response.status_code == 400
     assert "name" in response.json()["error"].lower()
     assert list(Folder.objects.values_list("name", "rules")) == [
-        ("Inbox", {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]})
+        ("Inbox", {"op": "NOT", "rules": [{"field": "folder", "lookup": "in_folder", "value": "*"}]}),
     ]
     response = admin_client.post("/admin/core/folder/save/", {"name": "  <b>Reading list</b>  "}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
@@ -438,7 +438,7 @@ def test_folder_reparent_reorder_and_cycle_protection(admin_client):
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 200
-    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [Folder.objects.get(name="Inbox").pk, last.pk, first.pk]
+    assert list(Folder.objects.filter(parent=None).values_list("pk", flat=True)) == [last.pk, first.pk, Folder.objects.get(name="Inbox").pk]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": first.pk, "target_id": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 400 and "cycle" in response.json()["error"]
     response = admin_client.post("/admin/core/folder/move/", {"folder_id": child.pk, "target_id": last.pk}, HTTP_HOST=ADMIN_TEST_HOST)
