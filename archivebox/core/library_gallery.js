@@ -136,3 +136,17 @@ async function openImportMenu(page) {
   if (JSON.stringify(menu.links.map(link => link.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
 }
 module.exports.openImportMenu = openImportMenu;
+
+async function openFolderSearch(page) {
+  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
+  if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
+  if (await page.$('.folder-search[hidden]')) {
+    const height = await page.$eval('.folder-section-heading', node => node.getBoundingClientRect().height);
+    await page.click('.folder-search-toggle');
+    if (await page.$eval('.folder-section-heading', node => node.getBoundingClientRect().height) !== height) throw new Error('Folder search changed the heading height.');
+    const name = await page.$eval('.folder-row', node => node.dataset.folderName);
+    await page.type('.folder-search', name);
+  }
+  if (!await page.$eval('.folder-section-heading h3', node => node.hidden)) throw new Error('Folder search did not replace its label.');
+}
+module.exports.openFolderSearch = openFolderSearch;
