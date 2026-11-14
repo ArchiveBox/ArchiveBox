@@ -52,7 +52,6 @@ def prepare(evidence_dir):
             "add",
             "--no-only-new",
             "--tag=screenshot-library",
-            "--plugins=title,favicon,wget,screenshot,readability",
             *urls,
         ],
         cwd=CONSTANTS.DATA_DIR,
