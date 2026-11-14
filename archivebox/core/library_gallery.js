@@ -257,10 +257,10 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
     await page.type('.rule-condition input[aria-label="Value"]','news.ycombinator.com');
     const buttons = await page.$$('.rule-group-toolbar button');
     await buttons[0].click();
-    await page.select('.rule-condition:nth-child(3) select[aria-label="Field"]','archiveresult__output_size');
-    await page.select('.rule-condition:nth-child(3) select[aria-label="Comparison"]','gt');
-    await page.type('.rule-condition:nth-child(3) input[aria-label="Amount"]','1');
-    await page.select('.rule-condition:nth-child(3) select[aria-label="Unit"]','KB');
+    await page.select('.rule-condition:nth-child(4) select[aria-label="Field"]','archiveresult__output_size');
+    await page.select('.rule-condition:nth-child(4) select[aria-label="Comparison"]','gt');
+    await page.type('.rule-condition:nth-child(4) input[aria-label="Amount"]','1');
+    await page.select('.rule-condition:nth-child(4) select[aria-label="Unit"]','KB');
     const saved=page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method()==='POST');
     await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('.folder-save')]);
     const response=await saved;
@@ -273,6 +273,23 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
   if (!await page.$('#result_list input.action-select')) throw new Error('Smart folder omitted the real news captures.');
   const icon=await page.$eval(`.folder-row[data-folder-id="${id}"] .folder-title-emoji`,node => node.textContent);
   if (icon !== '📰') throw new Error('The title emoji did not replace the folder icon.');
+  await openSmartFolder(page);
+  const root='.folder-rules > .rule-group';
+  const directConditions=await page.$$(`${root} > .rule-condition`);
+  if (directConditions.length===2) {
+    for (let index=0;index<2;index++) {
+      const condition=await page.$(`${root} > .rule-condition`);
+      await (await condition.$('[aria-label="Nest condition in group"]')).click();
+      const added=`${root} > .rule-group:nth-child(${index===0 ? 2 : 4}) > .rule-condition:nth-child(4)`;
+      await page.select(`${added} select[aria-label="Field"]`,'status');
+      await page.select(`${added} select[aria-label="Value"]`,'queued');
+      await page.select(`${added} select[aria-label="Condition polarity"]`,'not');
+    }
+    await page.select(`${root} > .rule-join select`,'OR');
+    const saved=page.waitForResponse(response=>response.url().endsWith('/admin/core/folder/save/') && response.request().method()==='POST');
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('.folder-save')]);
+    if (!(await saved).ok()) throw new Error('Saving nested smart-folder rules failed.');
+  } else await page.click('.folder-dialog-heading .folder-dialog-close');
   return {name:'Smart folder',url,path:`/admin/core/snapshot/?folder=${id}`,source:'archivebox/core/smart_folders.py'};
 }
 
@@ -286,7 +303,18 @@ async function openSmartFolder(page) {
   await page.click('.folder-menu:popover-open .folder-edit');
   await page.waitForSelector('#folder-dialog.has-rules[open] .folder-save:not([disabled])');
   const values=await page.$$eval('.rule-condition select[aria-label="Field"]',nodes=>nodes.map(node=>node.value));
-  if (values.join(',') !== 'domain,archiveresult__output_size') throw new Error('Reopening the smart folder lost its rules.');
+  if (!values.includes('domain') || !values.includes('archiveresult__output_size')) throw new Error('Reopening the smart folder lost its rules.');
+  const checks=await page.evaluate(()=>({
+    binary:[...document.querySelectorAll('.rule-group')].every(group=>{
+      const count=group.querySelectorAll(':scope > .rule-group,:scope > .rule-condition').length;
+      return count<=2 && (count<2 || !group.querySelector(':scope > .rule-group-toolbar'));
+    }),
+    choices:[...document.querySelectorAll('.rule-condition')].filter(row=>row.querySelector('[aria-label="Field"]').value==='status').every(row=>Boolean(row.querySelector('.rule-value select')) && !row.querySelector('.rule-value input')),
+    heading:document.querySelector('#folder-dialog-title').textContent,
+    footerNot:!!document.querySelector('.rule-negate')
+  }));
+  if (!checks.binary || !checks.choices || checks.footerNot || checks.heading!=='Edit smart folder rules') throw new Error(`Invalid smart-folder controls: ${JSON.stringify(checks)}`);
+
 }
 module.exports.prepareSmartFolder=prepareSmartFolder;
 module.exports.openSmartFolder=openSmartFolder;

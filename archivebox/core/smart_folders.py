@@ -166,8 +166,13 @@ class RuleQuery:
                 raise ValidationError("Use at most 100 rules and 8 nested groups.")
             if "op" in node:
                 op, children = node.get("op"), node.get("rules")
-                if op not in {"AND", "OR", "NOT"} or not isinstance(children, list) or not children or (op == "NOT" and len(children) != 1):
-                    raise ValidationError("Choose AND, OR, or NOT with at least one rule; NOT takes one group or rule.")
+                if (
+                    op not in {"AND", "OR", "NOT"}
+                    or not isinstance(children, list)
+                    or not 1 <= len(children) <= 2
+                    or (op == "NOT" and len(children) != 1)
+                ):
+                    raise ValidationError("AND/OR groups take one or two members; NOT takes one group or condition.")
                 parts = [build(child, depth + 1) for child in children]
                 result = parts[0]
                 for part in parts[1:]:
