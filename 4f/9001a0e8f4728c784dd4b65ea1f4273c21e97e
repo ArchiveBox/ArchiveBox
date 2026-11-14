@@ -1,0 +1,133 @@
+archivebox/storageaudit/service.py
+  s_a46618ba6633c7::t_9fefc705dabed4 78-86,200-208,218,221-243
+archivebox/core/asgi.py
+  s_a46618ba6633c7::t_9fefc705dabed4 34-48
+archivebox/templates/core/add.html
+  s_a46618ba6633c7::t_9fefc705dabed4 57
+archivebox/core/library_screenshots.py
+  s_a46618ba6633c7::t_9fefc705dabed4 15-16,18-27
+archivebox/api/v1_crawls.py
+  s_a46618ba6633c7::t_9fefc705dabed4 211-231
+archivebox/domains/wacz.py
+  s_a46618ba6633c7::t_9fefc705dabed4 38,106,110,112,114-115,117,120-121
+archivebox/importers/service.py
+  s_a46618ba6633c7::t_9fefc705dabed4 136-139,193-197,201,203,285
+archivebox/misc/monkey_patches.py
+  s_a46618ba6633c7::t_9fefc705dabed4 44-45,55
+archivebox/progressmonitor/views.py
+  s_a46618ba6633c7::t_9fefc705dabed4 16,22-29,215-222,225-226,228,231-232,616,621-622
+archivebox/cli/archivebox_persona.py
+  s_a46618ba6633c7::t_9fefc705dabed4 519,521,529-539,541-550,569-570,575-583,585,594
+archivebox/tests/test_importer_host_command.py
+  s_a46618ba6633c7::t_9fefc705dabed4 1,3,15-16,24,26-27,31-43,56,74-79,88-89,94-98
+archivebox/search/config.py
+  s_a46618ba6633c7::t_9fefc705dabed4 19-21
+archivebox/cli/__init__.py
+  s_a46618ba6633c7::t_9fefc705dabed4 74
+archivebox/api/v1_api.py
+  s_a46618ba6633c7::t_9fefc705dabed4 52-58
+archivebox/search/query.py
+  s_a46618ba6633c7::t_9fefc705dabed4 249-254,261,265-267,271-272,274,286-288,290-291
+archivebox/importers/templates/importers/sessions.html
+  s_a46618ba6633c7::t_9fefc705dabed4 1
+archivebox/personas/importers.py
+  s_a46618ba6633c7::t_9fefc705dabed4 867,870-879,887,889,894,896,900,904-905,913
+archivebox/tests/conftest.py
+  s_a46618ba6633c7::t_9fefc705dabed4 1188-1189,1198
+archivebox/services/runner.py
+  s_a46618ba6633c7::t_9fefc705dabed4 241
+archivebox/core/views.py
+  s_a46618ba6633c7::t_9fefc705dabed4 103-104,1052,1089,1099-1107,1111,1116-1117,1134-1137,1260-1262,1332,1372-1373,1386,1389,1392,1394-1395,1401,1408,1411,1415-1416
+archivebox/tests/test_serve_static.py
+  s_a46618ba6633c7::t_9fefc705dabed4 632,638
+archivebox/core/takeover_util.py
+  s_a46618ba6633c7::t_9fefc705dabed4 56,78,278
+archivebox/cli/archivebox_extract.py
+  s_a46618ba6633c7::t_9fefc705dabed4 87-88,91
+archivebox/misc/serve_static.py
+  s_a46618ba6633c7::t_9fefc705dabed4 31-33,72-73,76-78,83,86,320-325,732,742,744-749,923-924,926-927,933,994,1134,1136-1143,1145,1182,1195,1207,1351
+archivebox/services/archive_result_service.py
+  s_a46618ba6633c7::t_9fefc705dabed4 91-92,94-97,226-228
+archivebox/tests/test_misc_monkey_patches.py
+  s_a46618ba6633c7::t_9fefc705dabed4 11-35
+archivebox/tests/test_urls.py
+  s_a46618ba6633c7::t_9fefc705dabed4 102,139,638,654,657
+archivebox/importers/templates/importers/index.html
+  s_a46618ba6633c7::t_9fefc705dabed4 2,16
+archivebox/tests/test_cli_update.py
+  s_a46618ba6633c7::t_9fefc705dabed4 23-63
+archivebox/cli/archivebox_update.py
+  s_a46618ba6633c7::t_9fefc705dabed4 15,161,235,290,322,347,357,407,429,487-488,776,797
+archivebox/tests/test_serve_static_hash_cache.py
+  s_a46618ba6633c7::t_9fefc705dabed4 4,15-16,21-22,32,35,43,46
+archivebox/workers/supervisord_util.py
+  s_a46618ba6633c7::t_9fefc705dabed4 50,131,298,316,328,389,414,558,669-674,676,1105-1108,1308-1312,1317-1321,1351-1355,1537,1540-1541,1557-1563,1570,1577,1595-1597
+archivebox/tests/test_cli_persona.py
+  s_a46618ba6633c7::t_9fefc705dabed4 11,18,22-48,59,62-63,65,78,91-116,127-148,152,219,226,280-300,318
+archivebox/tests/test_cli_server.py
+  s_a46618ba6633c7::t_9fefc705dabed4 446,449,834-835,846-848,857,859-860,864,879,888,890
+archivebox/tests/test_saved_html_resources.py
+  s_a46618ba6633c7::t_9fefc705dabed4 231,247,502,512,522,537,541-542,548,561
+archivebox/search/backends.py
+  s_a46618ba6633c7::t_9fefc705dabed4 61-63
+archivebox/domains/exports.py
+  s_a46618ba6633c7::t_9fefc705dabed4 16-17,38,70,73-79
+archivebox/core/urls.py
+  s_a46618ba6633c7::t_9fefc705dabed4 29-30,37
+archivebox/tests/test_takeover_util_2.py
+  s_a46618ba6633c7::t_9fefc705dabed4 211,213-217,220-224
+archivebox/core/settings_logging.py
+  s_a46618ba6633c7::t_9fefc705dabed4 30-31,48
+archivebox/api/v1_core.py
+  s_a46618ba6633c7::t_9fefc705dabed4 16,33
+archivebox/templates/core/navigation.html
+  s_a46618ba6633c7::t_9fefc705dabed4 19
+archivebox/plugins/discovery.py
+  s_a46618ba6633c7::t_9fefc705dabed4 6,126-147,171,173-179,188-229,243-287,296-302,307,311-314,317,321-418,447
+archivebox/tests/test_snapshot_output_stacks.py
+  s_a46618ba6633c7::t_9fefc705dabed4 741,755
+archivebox/core/models.py
+  s_a46618ba6633c7::t_9fefc705dabed4 2407,3358-3359,3363,3366-3367,3370,3373-3384,3389,3392-3394,4150-4152,5228-5231,5421-5423
+archivebox/tests/test_snapshot_screencast.py
+  s_a46618ba6633c7::t_9fefc705dabed4 16-33
+archivebox/plugins/host.py
+  s_a46618ba6633c7::t_25eadc77337045 1-247
+archivebox/plugins/services.py
+  s_a46618ba6633c7::t_54054713b619b4 1-109
+archivebox/tests/test_plugin_apps.py
+  s_a46618ba6633c7::t_fa581fab27b249 1-43
+archivebox/tests/test_plugin_browser_commands.py
+  s_a46618ba6633c7::t_2bb8d845d028a3 1,4-21,23-26
+archivebox/tests/test_plugin_file_inventory.py
+  s_cb1e5966887ec6::t_5c229a647a872d 1-76
+archivebox/tests/test_plugin_metadata_contract.py
+  s_a46618ba6633c7::t_02beabf9b1934a 1-52
+archivebox/tests/test_plugin_replay_capabilities.py
+  s_a46618ba6633c7::t_e7110e5a866530 1-107
+archivebox/tests/test_plugin_services.py
+  s_a46618ba6633c7::t_c787dbb74e3ac0 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f9001a0e8f4728c784dd4b65ea1f4273c21e97e",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
