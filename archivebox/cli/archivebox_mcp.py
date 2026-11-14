@@ -3,7 +3,7 @@
 archivebox mcp
 
 Start the Model Context Protocol (MCP) server in stdio mode.
-Exposes all ArchiveBox CLI commands as MCP tools for AI agents.
+Exposes ArchiveBox workflow commands as MCP tools for AI agents.
 """
 
 __package__ = "archivebox.cli"
@@ -19,7 +19,7 @@ def mcp():
     """
     Start the MCP server in stdio mode for AI agent control.
 
-    The MCP (Model Context Protocol) server exposes all ArchiveBox CLI commands
+    The MCP (Model Context Protocol) server exposes ArchiveBox workflow commands
     as tools that AI agents can discover and execute. It communicates via JSON-RPC
     2.0 over stdin/stdout.
 

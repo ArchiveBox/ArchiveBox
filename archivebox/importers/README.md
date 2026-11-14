@@ -85,6 +85,7 @@ mapping keyed by feed ID, and JSON Schema `properties` referenced by each feed's
 returns `ImporterItem` records followed by one `ImporterResult` on stdout.
 
 - Source settings/checkpoints are passed through without site-specific interpretation.
+- Optional `ImporterItem.metadata.tags` is a list of tag names applied to that item’s capture.
 - Account identity must stay stable. Login problems stop scheduling.
 - `has_more=true` must advance the checkpoint; continuation is committed with the
   previous batch. `has_more=false` must mean the actual source is exhausted.

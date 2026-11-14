@@ -45,33 +45,9 @@ SNAPSHOT_LIST_CHUNK_SIZE = 5000
 
 
 def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
-    from archivebox.config import VERSION
-    from archivebox.config.common import redact_sensitive_config
-    from archivebox.core.models import SnapshotTag
+    from archivebox.core.models import Snapshot, SnapshotTag
 
-    fields = (
-        "id",
-        "crawl_id",
-        "folder_id",
-        "folder__name",
-        "crawl__created_by_id",
-        "crawl__created_by__username",
-        "crawl__persona_id",
-        "crawl__persona__name",
-        "url",
-        "title",
-        "bookmarked_at",
-        "created_at",
-        "modified_at",
-        "downloaded_at",
-        "config",
-        "notes",
-        "timestamp",
-        "depth",
-        "status",
-        "fs_version",
-        "output_size",
-    )
+    fields = (*dict.fromkeys(Snapshot.SERIALIZED_FIELDS.values()), "config", "notes")
     rows = queryset.values(*fields).iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE)
     while batch := list(islice(rows, SNAPSHOT_LIST_CHUNK_SIZE)):
         tags_by_snapshot = {row["id"]: [] for row in batch}
@@ -82,34 +58,7 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
             tags_by_snapshot[snapshot_id].append(tag_name)
 
         for row in batch:
-            archive_size = int(row["output_size"] or 0)
-            yield {
-                "type": "Snapshot",
-                "schema_version": VERSION,
-                "id": str(row["id"]),
-                "crawl_id": str(row["crawl_id"]),
-                "folder_id": str(row["folder_id"]) if row["folder_id"] else None,
-                "folder_name": row["folder__name"],
-                "created_by_id": row["crawl__created_by_id"],
-                "created_by_username": row["crawl__created_by__username"],
-                "persona_id": str(row["crawl__persona_id"]) if row["crawl__persona_id"] else None,
-                "persona_name": row["crawl__persona__name"],
-                "url": row["url"],
-                "title": row["title"],
-                "tags": ",".join(sorted(tags_by_snapshot[row["id"]])),
-                "bookmarked_at": row["bookmarked_at"].isoformat() if row["bookmarked_at"] else None,
-                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-                "modified_at": row["modified_at"].isoformat() if row["modified_at"] else None,
-                "downloaded_at": row["downloaded_at"].isoformat() if row["downloaded_at"] else None,
-                "config": redact_sensitive_config(row["config"]),
-                "notes": row["notes"],
-                "timestamp": row["timestamp"],
-                "depth": row["depth"],
-                "status": row["status"],
-                "fs_version": row["fs_version"],
-                "archive_size": archive_size,
-                "output_size": archive_size,
-            }
+            yield Snapshot.serialize_record(row, tags_by_snapshot[row["id"]], jsonl=True)
 
 
 # =============================================================================

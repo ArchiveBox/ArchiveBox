@@ -182,9 +182,9 @@ def _finish(run, items, result):
         urls = []
         for item in items:
             url = validate_url(item["url"])
-            tags = item.get("metadata", {}).get("tags", []) if source.plugin == "importer_rss" else []
+            tags = item.get("metadata", {}).get("tags", [])
             if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
-                raise ValueError("Feed categories must be a list of tag names.")
+                raise ValueError("Importer item tags must be a list of tag names.")
             tags = [tag[:100] for tag in Crawl.parse_tag_names(tags)]
             urls.append(json.dumps({"url": url, "tags": tags}) if tags else url)
         from archivebox.core.models import Folder
@@ -376,31 +376,10 @@ def save_source(source, values):
     data["persona"] = values.get("persona_id", source.persona_id)
     data["folder"] = values.get("folder_id", source.folder_id)
     data.update({f"setting_{key}": settings.get(key, spec.get("default", "")) for key, spec in definition.fields.items()})
-    original_settings, original_persona, original_checkpoint = source.settings, source.persona_id, source.checkpoint
     form = ImporterSourceForm(data, instance=source, definition=definition)
     if not form.is_valid():
         raise ValidationError(form.errors.as_text())
-    source = form.save(commit=False)
-    if original_checkpoint and (source.settings != original_settings or source.persona_id != original_persona):
-        raise ValueError("Reset progress before changing source settings or persona.")
-    if "enabled" in values and type(values["enabled"]) is not bool:
-        raise ValueError("Enabled must be a boolean.")
-    source.enabled = values.get("enabled", source.enabled)
-    source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.enabled and source.schedule else None
-    if creating:
-        source.save()
-    else:
-        changed = (
-            ImporterSource.objects.filter(pk=source.pk, checkpoint=original_checkpoint)
-            .exclude(runs__status__in=ACTIVE_STATUSES)
-            .update(
-                **{key: getattr(source, key) for key in (*form._meta.fields, "settings", "enabled", "next_run_at")},
-            )
-        )
-        if not changed:
-            raise ValueError("The importer is active or its progress changed. Pause it and reload before editing.")
-    source.refresh_from_db()
-    return source
+    return form.save(enabled=values.get("enabled"))
 
 
 def source_action(source, action):

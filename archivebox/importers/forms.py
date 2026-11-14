@@ -1,10 +1,12 @@
 import re
+from copy import deepcopy
 from typing import ClassVar
 
 from django import forms
 from django.core.validators import RegexValidator
+from django.utils import timezone
 
-from archivebox.crawls.schedule_util import validate_schedule
+from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
 from archivebox.personas.models import Persona
 
 from .models import ImporterSource
@@ -23,6 +25,10 @@ class ImporterSourceForm(forms.ModelForm):
     def __init__(self, *args, definition, **kwargs):
         super().__init__(*args, **kwargs)
         self.definition = definition
+        self._original_settings = deepcopy(self.instance.settings)
+        self._original_persona_id = self.instance.persona_id
+        self._original_checkpoint = deepcopy(self.instance.checkpoint)
+        self._original_enabled = self.instance.enabled
         self.fields["name"].required = False
         self.fields["name"].initial = self.instance.name or f"{definition.provider} · {definition.title}"
         self.fields["persona"].queryset = Persona.objects.order_by("name")
@@ -110,13 +116,38 @@ class ImporterSourceForm(forms.ModelForm):
                 expected = list if schema["type"] == "array" else dict
                 if not isinstance(value, expected):
                     self.add_error(f"setting_{key}", f"Expected a JSON {schema['type']}.")
+        settings = {key: data.get(f"setting_{key}") for key in self.definition.fields}
+        persona = data.get("persona")
+        if (
+            not self.errors
+            and self._original_checkpoint
+            and (settings != self._original_settings or (persona.pk if persona else None) != self._original_persona_id)
+        ):
+            self.add_error(None, "Reset progress on the importer before changing its source settings or persona.")
         return data
 
-    def save(self, commit=True):
+    def save(self, commit=True, *, enabled=None):
         source = super().save(commit=False)
         source.plugin = self.definition.plugin
         source.feed = self.definition.feed
         source.settings = {key: self.cleaned_data[f"setting_{key}"] for key in self.definition.fields}
+        if enabled is not None:
+            if type(enabled) is not bool:
+                raise ValueError("Enabled must be a boolean.")
+            source.enabled = enabled
         if commit:
-            source.save()
+            from .service import ACTIVE_STATUSES
+
+            source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.schedule and source.enabled else None
+            if source._state.adding:
+                source.save()
+            else:
+                saved = (
+                    ImporterSource.objects.filter(pk=source.pk, checkpoint=self._original_checkpoint, enabled=self._original_enabled)
+                    .exclude(runs__status__in=ACTIVE_STATUSES)
+                    .update(**{key: getattr(source, key) for key in (*self._meta.fields, "settings", "enabled", "next_run_at")})
+                )
+                if not saved:
+                    raise ValueError("The importer is active or its progress or schedule changed. Pause it and reload before editing.")
+            source.refresh_from_db()
         return source

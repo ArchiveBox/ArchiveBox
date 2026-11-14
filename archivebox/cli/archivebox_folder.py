@@ -27,7 +27,11 @@ def get_folder(folder_id):
     """Read one folder."""
     from archivebox.core.models import Folder
 
-    write_record(Folder.objects.get(pk=folder_id).to_json())
+    try:
+        folder = Folder.objects.get(pk=folder_id)
+    except Folder.DoesNotExist as error:
+        raise click.ClickException(f"Folder not found: {folder_id}") from error
+    write_record(folder.to_json())
 
 
 @main.command("create")
@@ -63,14 +67,18 @@ def update_folder(folder_id, data):
     from django.core.exceptions import ValidationError
     from archivebox.core.models import Folder
 
-    folder = Folder.objects.get(pk=folder_id)
     try:
+        folder = Folder.objects.get(pk=folder_id)
         values = json.loads(data)
         if not isinstance(values, dict) or set(values) - {"name", "parent_id", "position", "rules"}:
             raise ValueError("Use name, parent_id, position, or rules.")
+        if values.get("parent_id") is not None and not isinstance(values["parent_id"], str):
+            raise ValueError("parent_id must be a UUID string or null.")
         for key, value in values.items():
             setattr(folder, key, value)
         folder.save()
+    except Folder.DoesNotExist as error:
+        raise click.ClickException(f"Folder not found: {folder_id}") from error
     except (ValueError, ValidationError) as error:
         raise click.ClickException(str(error)) from error
     folder.refresh_from_db()
@@ -87,6 +95,8 @@ def delete_folder(folder_id, yes):
 
     try:
         Folder.objects.get(pk=folder_id).delete()
+    except Folder.DoesNotExist as error:
+        raise click.ClickException(f"Folder not found: {folder_id}") from error
     except ValidationError as error:
         raise click.ClickException(str(error)) from error
     write_record({"deleted": True, "id": folder_id.hex})
@@ -108,8 +118,14 @@ def move_snapshots(snapshot_ids, destination_id):
     from django.core.exceptions import ValidationError
     from archivebox.core.models import Folder, Snapshot
 
+    snapshots = Snapshot.objects.filter(pk__in=snapshot_ids)
+    missing = set(snapshot_ids) - set(snapshots.values_list("pk", flat=True))
+    if missing:
+        raise click.ClickException(f"Snapshots not found: {', '.join(sorted(str(pk) for pk in missing))}")
     try:
-        count = Folder.move_snapshots(Snapshot.objects.filter(pk__in=snapshot_ids), destination_id)
+        count = Folder.move_snapshots(snapshots, destination_id)
+    except Folder.DoesNotExist as error:
+        raise click.ClickException(f"Destination folder not found: {destination_id}") from error
     except ValidationError as error:
         raise click.ClickException(str(error)) from error
     write_record({"moved": count})

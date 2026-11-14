@@ -2970,11 +2970,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def tags_str(self) -> str | None:
         if "_tags_str_cached" in self.__dict__:
             return self.__dict__["_tags_str_cached"]
-        calc_tags_str = lambda: ",".join(sorted(tag.name for tag in self.tags.all()))
-        prefetched_cache = self.__dict__.get("_prefetched_objects_cache", {})
-        if "tags" in prefetched_cache:
-            return calc_tags_str()
-        return calc_tags_str()
+        return ",".join(sorted(tag.name for tag in self.tags.all()))
 
     def plugin_output_path(self, plugin: str, archive_results=None) -> str | None:
         """Return the first declared successful output path for one plugin."""
@@ -3664,43 +3660,69 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # one output directory, so deleting any row can remove another row's
         # files, including log-only and otherwise unrecognized outputs.
 
+    SERIALIZED_FIELDS: ClassVar[dict[str, str]] = {
+        "id": "id",
+        "crawl_id": "crawl_id",
+        "folder_id": "folder_id",
+        "folder_name": "folder__name",
+        "created_by_id": "crawl__created_by_id",
+        "created_by_username": "crawl__created_by__username",
+        "persona_id": "crawl__persona_id",
+        "persona_name": "crawl__persona__name",
+        "url": "url",
+        "title": "title",
+        "bookmarked_at": "bookmarked_at",
+        "created_at": "created_at",
+        "modified_at": "modified_at",
+        "downloaded_at": "downloaded_at",
+        "timestamp": "timestamp",
+        "depth": "depth",
+        "status": "status",
+        "fs_version": "fs_version",
+        "archive_size": "output_size",
+        "output_size": "output_size",
+    }
+
+    @classmethod
+    def serialize_record(cls, source, tags, *, jsonl=False):
+        """Serialize shared metadata from a model or a projected database row.
+
+        Legacy view exports retain tag arrays and omit private fields. JSONL
+        records retain comma-separated tags, redacted config, and notes.
+        """
+        if isinstance(source, Mapping):
+            value_at = source.__getitem__
+        else:
+
+            def value_at(path):
+                value = source
+                for part in path.split("__"):
+                    if value is None:
+                        return None
+                    value = getattr(value, part)
+                return value
+
+        record = {name: value_at(path) for name, path in cls.SERIALIZED_FIELDS.items()}
+        for key in ("id", "crawl_id", "folder_id", "persona_id"):
+            record[key] = str(record[key]) if record[key] is not None else None
+        for key in ("bookmarked_at", "created_at", "modified_at", "downloaded_at"):
+            record[key] = record[key].isoformat() if record[key] else None
+        record["archive_size"] = record["output_size"] = int(record["output_size"] or 0)
+        record["tags"] = tags if isinstance(tags, str) else sorted(tags)
+        if jsonl:
+            from archivebox.config import VERSION
+            from archivebox.config.common import redact_sensitive_config
+
+            record = {"type": "Snapshot", "schema_version": VERSION, **record}
+            if not isinstance(record["tags"], str):
+                record["tags"] = ",".join(record["tags"])
+            record["config"] = redact_sensitive_config(value_at("config"))
+            record["notes"] = value_at("notes")
+        return record
+
     def to_json(self) -> dict:
-        """
-        Convert Snapshot model instance to a JSON-serializable dict.
-        Includes all fields needed to fully reconstruct/identify this snapshot.
-        """
-        from archivebox.config import VERSION
-        from archivebox.config.common import redact_sensitive_config
-
-        archive_size = self.archive_size
-
-        return {
-            "type": "Snapshot",
-            "schema_version": VERSION,
-            "id": str(self.id),
-            "crawl_id": str(self.crawl_id),
-            "folder_id": str(self.folder_id) if self.folder_id else None,
-            "folder_name": self.folder.name if self.folder_id else None,
-            "created_by_id": self.crawl.created_by_id,
-            "created_by_username": self.crawl.created_by.username,
-            "persona_id": str(self.crawl.persona_id) if self.crawl.persona_id else None,
-            "persona_name": self.crawl.persona.name if self.crawl.persona_id else None,
-            "url": self.url,
-            "title": self.title,
-            "tags": self.tags_str(),
-            "bookmarked_at": self.bookmarked_at.isoformat() if self.bookmarked_at else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "modified_at": self.modified_at.isoformat() if self.modified_at else None,
-            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
-            "config": redact_sensitive_config(self.config),
-            "notes": self.notes,
-            "timestamp": self.timestamp,
-            "depth": self.depth,
-            "status": self.status,
-            "fs_version": self.fs_version,
-            "archive_size": archive_size,
-            "output_size": archive_size,
-        }
+        """Convert this snapshot to its JSONL record representation."""
+        return self.serialize_record(self, self.tags_str(), jsonl=True)
 
     @staticmethod
     def from_json(record: dict[str, Any], overrides: dict[str, Any] | None = None, queue_for_extraction: bool = True):
@@ -4270,30 +4292,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Convert Snapshot to a dictionary (replacement for Link._asdict())"""
         from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_index_path
 
-        archive_size = self.archive_size
-
         result = {
             "TYPE": "core.models.Snapshot",
-            "id": str(self.id),
-            "crawl_id": str(self.crawl_id),
-            "folder_id": str(self.folder_id) if self.folder_id else None,
-            "folder_name": self.folder.name if self.folder_id else None,
-            "created_by_id": self.crawl.created_by_id,
-            "created_by_username": self.crawl.created_by.username,
-            "persona_id": str(self.crawl.persona_id) if self.crawl.persona_id else None,
-            "persona_name": self.crawl.persona.name if self.crawl.persona_id else None,
-            "url": self.url,
-            "timestamp": self.timestamp,
-            "title": self.title,
-            "tags": sorted(tag.name for tag in self.tags.all()),
-            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
-            "bookmarked_at": self.bookmarked_at.isoformat() if self.bookmarked_at else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "modified_at": self.modified_at.isoformat() if self.modified_at else None,
+            **self.serialize_record(self, [tag.name for tag in self.tags.all()]),
             "retry_at": self.retry_at.isoformat() if self.retry_at else None,
-            "depth": self.depth,
-            "status": self.status,
-            "fs_version": self.fs_version,
             # Computed properties
             "domain": self.domain,
             "scheme": self.scheme,
@@ -4311,8 +4313,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             ),
             "output_dir": self.output_dir,
             "link_dir": self.output_dir,  # backwards compatibility alias
-            "archive_size": archive_size,
-            "output_size": archive_size,
             "bookmarked_date": self.bookmarked_date,
             "downloaded_datestr": self.downloaded_datestr,
             "num_outputs": self.num_outputs,

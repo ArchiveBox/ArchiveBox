@@ -39,7 +39,11 @@ def get_source(source_id):
     """Read a configured importer."""
     from archivebox.importers.models import ImporterSource
 
-    write_record(ImporterSource.objects.get(pk=source_id).to_json())
+    try:
+        source = ImporterSource.objects.get(pk=source_id)
+    except ImporterSource.DoesNotExist as error:
+        raise click.ClickException(f"Importer source not found: {source_id}") from error
+    write_record(source.to_json())
 
 
 @main.command("create")
@@ -105,6 +109,8 @@ def update_source(source_id, data):
         }:
             raise ValueError("Unknown importer fields.")
         source = save_source(ImporterSource.objects.get(pk=source_id), values)
+    except ImporterSource.DoesNotExist as error:
+        raise click.ClickException(f"Importer source not found: {source_id}") from error
     except (ValidationError, ValueError) as error:
         raise click.ClickException(str(error)) from error
     write_record(source.to_json())
@@ -120,6 +126,8 @@ def delete_source(source_id, yes):
 
     try:
         remove_source(ImporterSource.objects.get(pk=source_id))
+    except ImporterSource.DoesNotExist as error:
+        raise click.ClickException(f"Importer source not found: {source_id}") from error
     except ValueError as error:
         raise click.ClickException(str(error)) from error
     write_record({"deleted": True, "id": source_id.hex})
@@ -135,6 +143,8 @@ def source_action(source_id, operation):
 
     try:
         result = execute(ImporterSource.objects.get(pk=source_id), operation)
+    except ImporterSource.DoesNotExist as error:
+        raise click.ClickException(f"Importer source not found: {source_id}") from error
     except ValueError as error:
         raise click.ClickException(str(error)) from error
     write_record(result.to_json())
@@ -147,10 +157,12 @@ def source_action(source_id, operation):
 @click.option("--format", type=click.Choice(["jsonl", "json", "csv", "tsv"]), default="jsonl")
 def list_runs(source_id, limit, offset, format):
     """List run history including source, process and crawl IDs."""
-    from archivebox.importers.models import ImporterRun
+    from archivebox.importers.models import ImporterRun, ImporterSource
 
     runs = ImporterRun.objects.select_related("source")
     if source_id:
+        if not ImporterSource.objects.filter(pk=source_id).exists():
+            raise click.ClickException(f"Importer source not found: {source_id}")
         runs = runs.filter(source_id=source_id)
     write_record_table((run.to_json() for run in runs[offset : offset + limit]), format=format)
 
@@ -161,4 +173,8 @@ def get_run(run_id):
     """Read one run's state, discovered links and result."""
     from archivebox.importers.models import ImporterRun
 
-    write_record(ImporterRun.objects.get(pk=run_id).to_json())
+    try:
+        run = ImporterRun.objects.get(pk=run_id)
+    except ImporterRun.DoesNotExist as error:
+        raise click.ClickException(f"Importer run not found: {run_id}") from error
+    write_record(run.to_json())

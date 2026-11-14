@@ -10,7 +10,6 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -18,7 +17,6 @@ from archivebox.config.common import get_request_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.routes_util import build_snapshot_export_urls
-from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.plugins.discovery import get_plugin_catalog
 
@@ -84,28 +82,13 @@ def configure(request, plugin=None, feed=None, source_id=None):
     if source_id and source.runs.filter(status__in=ACTIVE_STATUSES).exists():
         messages.error(request, "Wait for the active run to finish, or pause it before editing.")
         return redirect(source)
-    original_settings, original_persona = source.settings, source.persona_id
-    original_checkpoint = source.checkpoint
     form = ImporterSourceForm(request.POST if request.method == "POST" else None, instance=source, definition=definition)
     if request.method == "POST" and form.is_valid():
-        source = form.save(commit=False)
-        if source.checkpoint and (source.settings != original_settings or source.persona_id != original_persona):
-            form.add_error(None, "Reset progress on the importer before changing its source settings or persona.")
+        try:
+            source = form.save()
+        except ValueError as error:
+            form.add_error(None, str(error))
         else:
-            source.next_run_at = next_run_for_schedule(source.schedule, timezone.now()) if source.schedule and source.enabled else None
-            if source_id:
-                saved = (
-                    ImporterSource.objects.filter(pk=source.pk, checkpoint=original_checkpoint)
-                    .exclude(runs__status__in=ACTIVE_STATUSES)
-                    .update(
-                        **{key: getattr(source, key) for key in (*form._meta.fields, "settings", "next_run_at")},
-                    )
-                )
-                if not saved:
-                    messages.error(request, "The importer started or its progress changed. Pause it and reload before editing.")
-                    return redirect(source)
-            else:
-                source.save()
             messages.success(request, "Importer saved. Check access or preview the first items before importing.")
             return redirect(source)
     return page(

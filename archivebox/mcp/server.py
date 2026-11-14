@@ -459,7 +459,8 @@ class MCPServer:
             "instructions": (
                 "Use add to archive URLs and search for deep search. Use crawl, snapshot, or archiveresult "
                 "with action=create/list/update/delete to manage records. Pass returned records directly "
-                "to update/delete actions through the records argument. Use shell only when the curated "
+                "to update/delete actions through the records argument. Use folder for organization and "
+                "smart rules, and importer for source configuration and runs. Use shell only when the curated "
                 "tools cannot express the operation; it runs arbitrary Python with full collection access."
             ),
         }

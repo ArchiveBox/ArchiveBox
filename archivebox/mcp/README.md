@@ -1,18 +1,15 @@
 # ArchiveBox MCP Server
 
-Model Context Protocol (MCP) server for ArchiveBox that exposes all CLI commands as tools for AI agents.
+ArchiveBox workflow tools over MCP using JSON-RPC 2.0 on stdin/stdout.
 
 ## Overview
 
-This is a lightweight, stateless MCP server that dynamically introspects ArchiveBox's Click CLI commands and exposes them as MCP tools. It requires **zero manual schema definitions** - everything is auto-generated from the existing CLI metadata.
+Tool arguments come from the selected Click commands. Model tools expose their subcommands through an `action` argument.
 
 ## Features
 
-- ✅ **Auto-discovery**: Dynamically discovers all 19+ ArchiveBox CLI commands
-- ✅ **Zero duplication**: Reuses existing Click command definitions, types, and help text
-- ✅ **Auto-sync**: Changes to CLI commands automatically reflected in MCP tools
-- ✅ **Stateless**: No database models or state management required
-- ✅ **Lightweight**: ~200 lines of code
+- Reuses CLI command definitions, validation, and execution.
+- Returns structured records, stdout, stderr, and exit status.
 
 ## Usage
 
@@ -72,7 +69,7 @@ assert response["result"]["serverInfo"]["name"] == "archivebox-mcp"
 ## Supported MCP Methods
 
 - `initialize` - Handshake and capability negotiation
-- `tools/list` - List all available CLI commands as MCP tools
+- `tools/list` - List the public tools and their schemas
 - `tools/call` - Execute a CLI command with arguments
 
 ## Available Tools
@@ -88,15 +85,12 @@ exports using the same options as the CLI.
 
 ### Dynamic Introspection
 
-Instead of manually defining schemas, the server uses Click's introspection API to automatically generate MCP tool definitions:
+Inspect the public tool definitions:
 
 ```python
-from archivebox.mcp.server import MCPServer, click_command_to_mcp_tool
+from archivebox.mcp.server import MCPServer
 
-tools = []
-for discovered_tool in MCPServer().get_tools().values():
-    tools.append(click_command_to_mcp_tool(discovered_tool))
-
+tools = MCPServer().get_public_tool_definitions()
 assert {tool["name"] for tool in tools}
 assert all("inputSchema" in tool for tool in tools)
 ```
@@ -118,8 +112,8 @@ assert all("name" in tool and "inputSchema" in tool for tool in response["result
 
 ## Files
 
-- `server.py` (~350 lines) - Core MCP server with Click introspection
-- `archivebox/cli/archivebox_mcp.py` (~50 lines) - CLI entry point
+- `server.py` - Core MCP server with Click introspection
+- `archivebox/cli/archivebox_mcp.py` - CLI entry point
 - `apps.py`, `__init__.py` - Django app boilerplate
 
 ## MCP Specification
