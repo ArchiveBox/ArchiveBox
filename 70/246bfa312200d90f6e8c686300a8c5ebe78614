@@ -1,0 +1,21 @@
+archivebox/api/webhook_membership.py
+  s_784d0e5fa3aa29::t_3f4743cd1c3fc9 6,75-78,126,149
+archivebox/tests/test_cli_remove.py
+  s_784d0e5fa3aa29::t_3f4743cd1c3fc9 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70246bfa312200d90f6e8c686300a8c5ebe78614",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
