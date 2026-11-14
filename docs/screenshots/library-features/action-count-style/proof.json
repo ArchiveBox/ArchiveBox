@@ -1,0 +1,1197 @@
+{
+  "views_and_viewports": [
+    {
+      "view": "filtered",
+      "width": 105.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1596,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "filtered",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 768,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "filtered",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 390,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "filtered",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 320,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "grid",
+      "width": 105.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1596,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "grid",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 768,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "grid",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 390,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "grid",
+      "width": 109.21875,
+      "text": "0 / 5 selected 5 filtered / 18 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 320,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "all",
+      "width": 84.71875,
+      "text": "0 / 18 selected 18 total",
+      "data": {
+        "pageCount": "18",
+        "resultCount": "18",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "18",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1596,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "all",
+      "width": 88.71875,
+      "text": "0 / 18 selected 18 total",
+      "data": {
+        "pageCount": "18",
+        "resultCount": "18",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "18",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 768,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "all",
+      "width": 88.71875,
+      "text": "0 / 18 selected 18 total",
+      "data": {
+        "pageCount": "18",
+        "resultCount": "18",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "18",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 390,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "all",
+      "width": 88.71875,
+      "text": "0 / 18 selected 18 total",
+      "data": {
+        "pageCount": "18",
+        "resultCount": "18",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "18",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 320,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "empty",
+      "width": 105.21875,
+      "text": "0 / 2 selected 2 filtered / 18 total",
+      "data": {
+        "pageCount": "2",
+        "resultCount": "2",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1596,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "empty",
+      "width": 109.21875,
+      "text": "0 / 2 selected 2 filtered / 18 total",
+      "data": {
+        "pageCount": "2",
+        "resultCount": "2",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 768,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "empty",
+      "width": 109.21875,
+      "text": "0 / 2 selected 2 filtered / 18 total",
+      "data": {
+        "pageCount": "2",
+        "resultCount": "2",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 390,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "empty",
+      "width": 109.21875,
+      "text": "0 / 2 selected 2 filtered / 18 total",
+      "data": {
+        "pageCount": "2",
+        "resultCount": "2",
+        "fullResultCount": "18",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "2",
+          "href": "#",
+          "class": "action-match-count-static action-total-select"
+        },
+        {
+          "text": "18",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 320,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "crawls",
+      "width": 76.828125,
+      "text": "0 / 9 selected 9 total",
+      "data": {
+        "pageCount": "9",
+        "resultCount": "9",
+        "fullResultCount": "9",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "9",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "9",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1588,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "crawls",
+      "width": 76.828125,
+      "text": "0 / 9 selected 9 total",
+      "data": {
+        "pageCount": "9",
+        "resultCount": "9",
+        "fullResultCount": "9",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "9",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "9",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 756,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "crawls",
+      "width": 76.828125,
+      "text": "0 / 9 selected 9 total",
+      "data": {
+        "pageCount": "9",
+        "resultCount": "9",
+        "fullResultCount": "9",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "9",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "9",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 378,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "crawls",
+      "width": 76.828125,
+      "text": "0 / 9 selected 9 total",
+      "data": {
+        "pageCount": "9",
+        "resultCount": "9",
+        "fullResultCount": "9",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "9",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "9",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 308,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "embedded",
+      "width": 77.953125,
+      "text": "0 / 5 selected 5 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "5",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 1589,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "embedded",
+      "width": 71.828125,
+      "text": "0 / 5 selected 5 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "5",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 761,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "embedded",
+      "width": 71.828125,
+      "text": "0 / 5 selected 5 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "5",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 383,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    },
+    {
+      "view": "embedded",
+      "width": 71.828125,
+      "text": "0 / 5 selected 5 total",
+      "data": {
+        "pageCount": "5",
+        "resultCount": "5",
+        "fullResultCount": "5",
+        "summaryReady": "1"
+      },
+      "links": [
+        {
+          "text": "5",
+          "href": "#",
+          "class": "action-page-select"
+        },
+        {
+          "text": "5",
+          "href": "?",
+          "class": "action-total-reset"
+        }
+      ],
+      "font": "",
+      "color": "rgb(102, 102, 102)",
+      "right": 313,
+      "numeric": "tabular-nums",
+      "children": [
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        },
+        {
+          "font": "",
+          "color": "rgb(102, 102, 102)"
+        },
+        {
+          "font": "",
+          "color": "rgb(65, 120, 147)"
+        }
+      ]
+    }
+  ],
+  "unchanged_text_data_and_links": true,
+  "native_page_selection": true,
+  "native_filtered_selection": true,
+  "native_all_rows_selection": true,
+  "keyboard_focus_visible": true
+}
