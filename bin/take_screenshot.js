@@ -127,8 +127,16 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
   if (!previewHandle) return;
   const preview = await previewHandle.contentFrame();
   if (!preview) throw new Error('Selected plugin viewer has no loaded document');
-  await preview.waitForFunction((url) => location.href === url && document.readyState === 'complete',
-    {timeout}, await previewHandle.evaluate((iframe) => iframe.src));
+  await preview.waitForFunction((url) => {
+    if (document.readyState !== 'complete') return false;
+    if (location.href === url) return true;
+    // Download manifests use the shared native directory browser as their viewer.
+    const files = new URL('files/', url);
+    return location.origin === files.origin
+      && location.pathname === files.pathname
+      && new URL(location.href).searchParams.get('files') === '1'
+      && Boolean(document.querySelector('.directory-list'));
+  }, {timeout}, await previewHandle.evaluate((iframe) => iframe.src));
   for (const pdfHandle of await preview.$$('iframe')) {
     const visiblePdf = await pdfHandle.evaluate((iframe) => {
       const rect = iframe.getBoundingClientRect();
