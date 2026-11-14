@@ -69,7 +69,7 @@
                             <div class="url-editor-column">
                                 <div class="field-header">
                                     {{ form.url.label_tag }}
-                                    <div id="url-counter" class="url-counter">0 URLs detected</div>
+                                    <div id="url-counter" class="url-counter" role="status">0 URLs detected</div>
                                 </div>
                                 <div class="url-editor-shell">
                                     <pre id="url-highlight-layer" class="url-highlight-layer" aria-hidden="true"></pre>
@@ -81,7 +81,7 @@
                                 </div>
                                 <div id="url-upload-status" class="help-text" role="status"></div>
                             </div>
-                            <aside class="detected-urls-panel" aria-live="polite">
+                            <aside class="detected-urls-panel" aria-label="Detected URLs">
                                 <div class="detected-urls-header">
                                     <strong>Filter URLs</strong>
                                     <span id="detected-urls-summary" class="detected-urls-summary">No URLs yet</span>
@@ -338,7 +338,7 @@
                 {% endif %}
 
                 <center>
-                    <button role="submit" id="submit">&nbsp; Create Crawl and Start Archiving ➕</button>
+                    <button type="submit" id="submit">&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
             {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}

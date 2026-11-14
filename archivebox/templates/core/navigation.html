@@ -1,6 +1,6 @@
 {% load i18n static core_tags %}
 
-<div id="user-tools">
+<nav id="user-tools" aria-label="Main navigation">
     <a href="{% url 'add' %}" class="navbar-item navbar-add-link">Add ➕</a>
     <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     <a href="/admin/crawls/crawl/" class="navbar-item navbar-crawls">Crawls</a>
@@ -56,4 +56,4 @@
     {% else %}
         <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}
-</div>
+</nav>

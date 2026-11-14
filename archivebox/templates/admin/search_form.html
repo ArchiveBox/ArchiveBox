@@ -26,9 +26,9 @@
     {% endif %}
 {% endif %}
 {% if cl.embedded_changelist %}
-<div id="changelist-search" data-embedded-search="1" role="search" aria-labelledby="changelist-search-form">
+<div id="changelist-search" data-embedded-search="1" role="search" aria-label="Search snapshots">
 {% else %}
-<form id="changelist-search" method="get" role="search" aria-labelledby="changelist-search-form">
+<form id="changelist-search" method="get" role="search" aria-label="Search snapshots">
 {% endif %}
 <div><!-- DIV needed for valid HTML -->
 {% if cl.model_admin.show_search_mode_selector %}
@@ -42,7 +42,7 @@
             </select>
             <span class="search-mode-caret" aria-hidden="true">▾</span>
         </span>
-        <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+        <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar" aria-label="Search"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
     </span>
     {% endwith %}
 {% else %}
@@ -50,7 +50,7 @@
     <span class="search-input-addon">
         <label for="searchbar"><img src="{% static "admin/img/search.svg" %}" alt="Search"></label>
     </span>
-    <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+    <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar" aria-label="Search"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
 </span>
 {% endif %}
 <button type="{% if cl.embedded_changelist %}button{% else %}submit{% endif %}" class="changelist-search-submit">{% translate 'Search' %}</button>

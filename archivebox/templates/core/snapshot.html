@@ -3,11 +3,15 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <meta charset="utf-8">
         <title>{{title}}</title>
-        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        {% snapshot_meta snapshot %}
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             /* Keep this inline, don't move to external css file because this template is used to generate static exports that need to be usable as-is without an accompanying staticfiles dir */
             * { box-sizing: border-box; }
+            .skip-to-content-link { position: absolute; top: -999px; padding: 8px; background: white; color: #111; z-index: 100; }
+            .skip-to-content-link:focus { top: 0; left: 0; }
             html, body {
                 width: 100%;
                 height: 100%;
@@ -1102,7 +1106,8 @@
         {% include "core/snapshot_stacks.css.html" %}
     </head>
     <body>
-        <div id="main-frame-wrapper" class="full-page-wrapper" data-has-outputs="{{ has_outputs|yesno:'1,0' }}" data-snapshot-state="{{ snapshot_state }}">
+        <a class="skip-to-content-link" href="#main-frame-wrapper">Skip to archived content</a>
+        <div role="main" tabindex="-1" aria-label="Archived content" id="main-frame-wrapper" class="full-page-wrapper" data-has-outputs="{{ has_outputs|yesno:'1,0' }}" data-snapshot-state="{{ snapshot_state }}">
             {% if not STATIC_EXPORT %}
             {% if snapshot_state == 'queued' or snapshot_state == 'started' or snapshot_state == 'paused' %}
             <div id="snapshot-progress-wrapper">
@@ -1116,7 +1121,7 @@
                isolated snap-* origin; on one-domain no-JS mode both URLs use
                the base host and raw replay scripts are blocked by CSP. Never
                move admin session/CSRF cookies to a snap-* domain.{% endcomment %}
-            <iframe id="main-frame"
+            <iframe id="main-frame" title="Archived content: {{ best_result.name|plugin_name }}"
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                     class="full-page-iframe"
                     src="about:blank"
@@ -1199,12 +1204,12 @@
         </script>
         <header>
             <div class="header-top">
-                <div class="header-nav">
+                <div class="header-nav" role="navigation" aria-label="Snapshot">
                     <div class="header-col header-left">
                         {% web_base_url as web_base %}
                         {% static_export_root_url as static_root %}
                         <a href="{% if STATIC_EXPORT %}{{ static_root }}index.html{% elif web_base %}{{ web_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
-                            <img src="{% if STATIC_EXPORT %}data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;rect x='8' y='5' width='48' height='54' rx='7' fill='%23fff' opacity='.95'/&gt;&lt;path d='M18 16h28M18 26h28M18 36h20M18 46h24' stroke='%23aa1e55' stroke-width='5' stroke-linecap='round'/&gt;&lt;/svg&gt;{% elif web_base %}{{ web_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
+                            <img src="{% if STATIC_EXPORT %}data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;rect x='8' y='5' width='48' height='54' rx='7' fill='%23fff' opacity='.95'/&gt;&lt;path d='M18 16h28M18 26h28M18 36h20M18 46h24' stroke='%23aa1e55' stroke-width='5' stroke-linecap='round'/&gt;&lt;/svg&gt;{% elif web_base %}{{ web_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="">
                             ArchiveBox
                         </a>
                     </div>
@@ -1214,9 +1219,9 @@
                             <span class="header-url-favicon">
                             {% snapshot_role_output_url snapshot 'list_icon' as header_favicon_url %}
                             {% if header_favicon_url %}
-                                <img src="{{ header_favicon_url }}{% if not STATIC_EXPORT %}?raw=1{% endif %}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
+                                <img src="{{ header_favicon_url }}{% if not STATIC_EXPORT %}?raw=1{% endif %}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="" class="favicon"/>
                             {% else %}
-                                <img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;" alt="Favicon" class="favicon"/>
+                                <img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;" alt="" class="favicon"/>
                             {% endif %}
                             </span>
                             <div class="header-url-content">
@@ -1224,7 +1229,7 @@
                                 <a class="header-url-text" href="{{url}}" title="{{url}}" target="_blank" rel="noreferrer">{{url}}</a>
                                 <span class="header-page-metadata">
                                 <span class="header-text-dot" aria-hidden="true">·</span>
-                                <span class="header-title-text" title="{{title}}">{{title}}</span>
+                                <span role="heading" aria-level="1" class="header-title-text" title="{{title}}">{{title}}</span>
                                 {% if title_tags %}
                                     <span class="header-text-dot header-tags-dot" aria-hidden="true">·</span>
                                     <span class="header-tags">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}</span>
@@ -1302,7 +1307,7 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" aria-label="Browse all snapshot files" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4><span class="card-title-icon">⚠️</span> Failed</h4>
                             </div>
@@ -1329,6 +1334,16 @@
         <script>
             const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
             const snapshotFilesUrl = "{% snapshot_files_url snapshot %}";
+            function updatePreviewAccessibility(card) {
+                document.querySelectorAll('.thumb-card a[target="preview"]').forEach(link => {
+                    if (card && link.closest('.thumb-card') === card) link.setAttribute('aria-current', 'true');
+                    else link.removeAttribute('aria-current');
+                });
+                const frame = document.getElementById('main-frame');
+                if (frame) frame.title = 'Archived content: ' + (card?.dataset.pluginName || 'Saved output');
+            }
+            document.addEventListener('snapshot-preview-selected', event => updatePreviewAccessibility(event.detail.card));
+
 
             function tryCenterImageFrame(frame) {
                 if (new URL(frame.src, window.location.href).searchParams.has('files')) return
@@ -1523,6 +1538,7 @@
                 frame.name = 'preview'
                 frame.className = 'full-page-iframe'
                 frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
+                frame.title = 'Archived content'
                 frame.loading = 'eager'
                 frame.setAttribute('fetchpriority', 'high')
                 attachPreviewFrameHandlers(frame)
@@ -1592,6 +1608,7 @@
                 replayPreloadCard = null
                 document.querySelectorAll('.selected-card').forEach(selected => selected.classList.remove('selected-card'))
                 card.classList.add('selected-card')
+                candidate.title = 'Archived content: ' + (card.dataset.pluginName || 'Saved output')
                 document.dispatchEvent(new CustomEvent('snapshot-preview-selected', {detail: {card, revealStack: false}}))
             })
             window.addEventListener('pagehide', cancelReplayPreload)
@@ -1670,6 +1687,7 @@
                 if (reloadPreview) {
                     iframe_elem.src = nextSrc
                 }
+                updatePreviewAccessibility(card)
                 // Updating the hash can synchronously dispatch popstate. Publish
                 // the selected frame URL first so that handler reuses this frame.
                 if (rawTarget && updateHash) {

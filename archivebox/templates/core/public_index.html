@@ -676,7 +676,7 @@
     <div id="content-main" class="public-snapshot-list">
         <div class="public-snapshot-toolbar">
             {% if folder_tree %}{% include "core/folder_context.html" %}{% endif %}
-            <form id="changelist-search" action="{{ request.path }}" method="get">
+            <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
                 {% if selected_folder %}<input type="hidden" name="folder" value="{{ selected_folder }}">{% endif %}
                 <span class="public-search-input">
                     <span class="public-search-addon">
@@ -710,16 +710,16 @@
         </div>
         {% plugin_icon_sprite %}
         <div class="public-snapshot-table-wrap">
-            <table id="table-bookmarks">
+            <table id="table-bookmarks" aria-label="Archived snapshots">
                 <thead>
                     <tr>
-                        <th class="snapshot-time">Saved</th>
-                        <th class="snapshot-preview-cell">Preview</th>
-                        <th>Snapshot{% if public_snapshot_count != None %} ({{ public_snapshot_count }}){% endif %}</th>
-                        <th class="snapshot-tags-cell">Tags</th>
-                        <th class="snapshot-status-cell">Status</th>
-                        <th class="snapshot-files-cell">Files</th>
-                        <th class="snapshot-size-cell">Size</th>
+                        <th scope="col" class="snapshot-time">Saved</th>
+                        <th scope="col" class="snapshot-preview-cell">Preview</th>
+                        <th scope="col">Snapshot{% if public_snapshot_count != None %} ({{ public_snapshot_count }}){% endif %}</th>
+                        <th scope="col" class="snapshot-tags-cell">Tags</th>
+                        <th scope="col" class="snapshot-status-cell">Status</th>
+                        <th scope="col" class="snapshot-files-cell">Files</th>
+                        <th scope="col" class="snapshot-size-cell">Size</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -743,7 +743,7 @@
             </table>
         </div>
         {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}
-        <div class="public-pagination">
+        <div class="public-pagination" role="navigation" aria-label="Snapshot pages">
             Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
             <br>
             <span class="step-links">
@@ -752,7 +752,7 @@
                     <a href="?{% url_replace page=page_obj.previous_page_number %}">previous</a>
                 {% endif %}
 
-                <span class="current">
+                <span class="current" aria-current="page">
                     Page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %}
                 </span>
 

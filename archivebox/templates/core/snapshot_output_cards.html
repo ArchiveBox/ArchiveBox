@@ -6,20 +6,20 @@
                         <div class="thumb-card{% if result.path == best_result.path %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if not STATIC_EXPORT and result.result %} data-output-revision="{{result.result.modified_at|date:'U.u'}}"{% endif %}{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}{% if result.static_full_preview or not STATIC_EXPORT and not result.direct_preview_path and result.result|plugin_has_full_preview %} data-full-preview="1"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
-                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path %}" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
+                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path %}" data-no-preview="1" aria-label="Open {{result.name|plugin_name}} output folder" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
                                         {% if display_path %}
-                                            <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
+                                            <a href="{{display_url}}" data-no-preview="1" aria-label="Download {{result.name|plugin_name}} output file" title="Download output file" download>⬇️</a>
                                         {% endif %}
                                         {% if can_delete_outputs and result.result %}
-                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" data-delete-handoff="1" data-delete-snapshot-id="{{snapshot.id}}" title="Delete this output">×</button>
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" data-delete-handoff="1" data-delete-snapshot-id="{{snapshot.id}}" aria-label="Delete {{result.name|plugin_name}} output" title="Delete this output">×</button>
                                         {% endif %}
                                     </div>
                                     {% if display_path %}
                                         <a href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
-                                            <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
+                                            <h4><span class="card-title-icon" aria-hidden="true">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
                                         </a>
                                     {% else %}
-                                        <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
+                                        <h4><span class="card-title-icon" aria-hidden="true">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
                                     {% endif %}
                                 </div>
                                 {% if result.result and display_path %}
@@ -31,7 +31,9 @@
                                         {% if not result.name|plugin_card_is_interactive %}
                                         <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
                                         {% endif %}
+                                        {% if not result.name|plugin_card_is_interactive %}<div inert aria-hidden="true" style="display:contents">{% endif %}
                                         {% plugin_card result.result %}
+                                        {% if not result.name|plugin_card_is_interactive %}</div>{% endif %}
                                     </div>
                                 {% elif result.is_metadata and display_path %}
                                     <div class="card-img-top thumbnail-wrapper">
@@ -42,7 +44,7 @@
                                     {# Fall back to generic iframe for filesystem-discovered files #}
                                     <div class="card-img-top thumbnail-wrapper">
                                         <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
-                                        <iframe class="card-img-top" src="{{display_url}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" fetchpriority="low"></iframe>
+                                        <iframe title="{{result.name|plugin_name}} preview" class="card-img-top" src="{{display_url}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" fetchpriority="low"></iframe>
                                     </div>
                                 {% endif %}
                         </div>
@@ -52,9 +54,9 @@
                     <div class="thumb-card" data-other-files data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" aria-label="Browse all snapshot files" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
-                                <h4><span class="card-title-icon">📦</span> Other files</h4>
+                                <h4><span class="card-title-icon" aria-hidden="true">📦</span> Other files</h4>
                             </div>
                             <div class="thumbnail-wrapper other-files-preview">
                                 <small class="discovery-status" aria-live="polite"></small>

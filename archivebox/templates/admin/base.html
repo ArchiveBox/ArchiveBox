@@ -1801,16 +1801,17 @@
 
 
     <body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}" data-admin-utc-offset="{% now "Z" %}">
+        <a class="skip-to-content-link" href="#content">Skip to main content</a>
         {% system_warnings_banner %}
         {% include 'progressbar.html' %}
 
         <div id="container">
             {% if not is_popup %}
-                <div id="header">
+                <div id="header" role="banner">
                     <div id="branding">
                         <h1 id="site-name">
                             <a href="{% url 'Home' %}">
-                                <img src="{% static 'archive.png' %}" id="logo">
+                                <img src="{% static 'archive.png' %}" id="logo" alt="">
                                 <span class="branding-label">ArchiveBox</span>
                             </a>
                         </h1>
@@ -1828,7 +1829,7 @@
                 {% endif %}
 
                 {% block breadcrumbs %}
-                    <div class="breadcrumbs">
+                    <div class="breadcrumbs" role="navigation" aria-label="Breadcrumbs">
                         <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
                         {% if title %} &rsaquo; {{ title }}{% endif %}
                     </div>
@@ -1845,7 +1846,7 @@
                 {% endif %}
             {% endblock messages %}
 
-            <div id="content" class="{% block coltype %}colM{% endblock %}">
+            <div id="content" role="main" tabindex="-1" aria-label="{{ title|default:'Main content' }}" class="{% block coltype %}colM{% endblock %}">
                 {% block pretitle %}{% endblock %}
                 {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
                 {% block content %}

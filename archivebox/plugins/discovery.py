@@ -265,7 +265,7 @@ DEFAULT_TEMPLATES = {
         </span>
     """,
     "card": """
-        <iframe src="{{ output_path }}"
+        <iframe src="{{ output_path }}" title="{{ plugin }} output"
                 class="card-img-top"
                 style="width: 100%; height: 100%; border: none;"
                 sandbox="allow-same-origin allow-scripts allow-forms"
@@ -274,7 +274,7 @@ DEFAULT_TEMPLATES = {
         </iframe>
     """,
     "full": """
-        <iframe src="{{ output_path }}"
+        <iframe src="{{ output_path }}" title="{{ plugin }} output"
                 class="full-page-iframe"
                 style="width: 100%; height: 100vh; border: none;"
                 sandbox="allow-same-origin allow-scripts allow-forms">

@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const discoveredRow = document.querySelector('.form-row.field-import_discovered_profile');
     const sourceRow = document.querySelector('.form-row.field-import_source');
     const profileRow = document.querySelector('.form-row.field-import_profile_name');
-    const copyInspect = document.querySelector('[data-copy-text]');
+    const copyControls = document.querySelectorAll('[data-copy-text]');
 
     const updateVisibility = () => {
         const selected = modeInputs.find((input) => input.checked)?.value || 'none';
@@ -250,11 +250,14 @@ document.addEventListener('DOMContentLoaded', function () {
     modeInputs.forEach((input) => input.addEventListener('change', updateVisibility));
     updateVisibility();
 
-    if (copyInspect) {
+    copyControls.forEach(copyInspect => {
+        copyInspect.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }
+        });
         copyInspect.addEventListener('click', function () {
             navigator.clipboard?.writeText(this.dataset.copyText || this.textContent.trim());
         });
-    }
+    });
 });
 </script>
 {% endif %}
@@ -266,9 +269,9 @@ document.addEventListener('DOMContentLoaded', function () {
     <div>
         <h2>Create a new Persona (Authentication + Configuration Profile)</h2>
         <p>
-            Import cookies and settings from any Chrome-based browser by pasting in its <code>Profile Path</code> from <code class="persona-import-copy" data-copy-text="chrome://version" title="Copy chrome://version">chrome://version</code>,
+            Import cookies and settings from any Chrome-based browser by pasting in its <code>Profile Path</code> from <code class="persona-import-copy" role="button" tabindex="0" data-copy-text="chrome://version" title="Copy chrome://version">chrome://version</code>,
             or by pasting in a CDP url from
-            <code class="persona-import-copy" data-copy-text="chrome://inspect#remote-debugging" title="Copy chrome://inspect#remote-debugging">chrome://inspect#remote-debugging</code> (e.g. <code>http://127.0.0.1:9222</code>).
+            <code class="persona-import-copy" role="button" tabindex="0" data-copy-text="chrome://inspect#remote-debugging" title="Copy chrome://inspect#remote-debugging">chrome://inspect#remote-debugging</code> (e.g. <code>http://127.0.0.1:9222</code>).
         </p>
         <p>
             You can also import cookies into this persona from another browser using the

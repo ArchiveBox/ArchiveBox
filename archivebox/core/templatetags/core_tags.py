@@ -634,6 +634,20 @@ def snapshot_base_url(context, snapshot) -> str:
     return _snapshot_base_url_for_context(context, snapshot)
 
 
+@register.inclusion_tag("core/snapshot_meta.html", takes_context=True)
+def snapshot_meta(context, snapshot):
+    from archivebox.core.snapshot_metadata import snapshot_metadata
+
+    metadata = snapshot_metadata(snapshot, output_dir=context.get("STATIC_EXPORT_DIR"))
+    metadata["canonical"] = snapshot.url
+    # Portable exports have no known public hosting origin.
+    if not context.get("STATIC_EXPORT"):
+        metadata["url"] = snapshot_detail_url(context, snapshot)
+        if metadata["image_path"]:
+            metadata["image"] = _snapshot_url_for_context(context, snapshot, metadata["image_path"])
+    return metadata
+
+
 @register.simple_tag(takes_context=True)
 def snapshot_detail_url(context, snapshot) -> str:
     """Keep the trusted snapshot detail page on web.*, not the replay host."""
@@ -848,7 +862,7 @@ def snapshot_index_row(context, link) -> str:
         </a>
     </td>
     <td class="snapshot-preview-cell">
-        <a href="{escape(detail_url)}" title="Open archived snapshot">
+        <a href="{escape(detail_url)}" title="Open archived snapshot" aria-label="Open archived snapshot: {escape(title_text)}">
             {preview_html}
         </a>
     </td>

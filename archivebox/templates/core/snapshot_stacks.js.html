@@ -101,7 +101,7 @@ function initializeOutputStacks() {
                 }
             }
             buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
-            buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+            buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs`);
             updateGroupSize(group);
             status.textContent = '';
             const coverItems = buttons.get(group.id).querySelector('.stack-cover .loose-items');
@@ -143,7 +143,7 @@ function initializeOutputStacks() {
         button.type = 'button';
         button.setAttribute('aria-expanded', 'false');
         button.setAttribute('aria-controls', tray.id);
-        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs`);
         const heading = el('span', 'stack-heading');
         const headingLabel = el('span', 'stack-heading-label');
         headingLabel.append(el('strong', '', group.label));

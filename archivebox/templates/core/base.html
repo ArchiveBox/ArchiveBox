@@ -4,7 +4,8 @@
 <html lang="en">
     <head>
         <title>Archived Sites</title>
-        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
         <link rel="stylesheet" href="{% static 'admin.css' %}">
@@ -19,13 +20,14 @@
         {% endblock %}
     </head>
     <body>
+        <a class="skip-to-content-link" href="#content">Skip to main content</a>
         {% system_warnings_banner %}
         <div id="container">
-            <div id="header">
+            <div id="header" role="banner">
                 <div id="branding">
                     <h1 id="site-name">
                         <a href="{% url 'public-index' %}" class="header-archivebox">
-                            <img src="{% static 'archive.png' %}" alt="Logo" style="height: 30px"/>
+                            <img src="{% static 'archive.png' %}" alt="" style="height: 30px"/>
                             <span class="branding-label">ArchiveBox</span>
                         </a>
                     </h1>
@@ -33,11 +35,11 @@
                 {% include 'navigation.html' %}
                
             </div>
-            <div id="content" class="flex">
+            <main id="content" class="flex" tabindex="-1">
                 {% block body %}
 
                 {% endblock %}
-            </div>
+            </main>
             {% block footer %}
                 <footer>
                     <br />

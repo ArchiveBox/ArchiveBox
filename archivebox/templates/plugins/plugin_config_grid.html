@@ -527,12 +527,12 @@
                                     {% endif %}
                                     <a class="plugin-card-badge plugin-source-badge" href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source</a>
                                     <a class="plugin-card-badge plugin-docs-badge" href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Docs</a>
-                                    <label for="plugin-config-toggle-{{ group.field_name }}-{{ plugin.name }}" class="plugin-config-marker">
+                                    <label for="plugin-config-toggle-{{ group.field_name }}-{{ plugin.name }}" class="plugin-config-marker" role="button" tabindex="0" aria-label="Config for {{ plugin.label }}" title="Configure {{ plugin.label }}" aria-expanded="false" aria-controls="plugin-config-details-{{ group.field_name }}-{{ plugin.name }}">
                                         <span class="plugin-config-marker-label">Config</span>
                                         <span class="plugin-config-count">{{ plugin.config_count }}</span>
                                     </label>
                                 </div>
-                                <div class="plugin-config-details">
+                                <div class="plugin-config-details" id="plugin-config-details-{{ group.field_name }}-{{ plugin.name }}">
                                         {% if plugin.config_fields %}
                                             <div class="plugin-config-grid">
                                                 {% for field in plugin.config_fields %}
@@ -549,14 +549,14 @@
                                                                     class="plugin-config-input"
                                                                     data-config-key="{{ field.key }}"
                                                                     name="{{ field.input_name }}"
-                                                                    id="id_{{ field.input_name }}"
+                                                                    id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
                                                                     value="true"
                                                                     {% if field.checked %}checked{% endif %}
                                                                 >
                                                                 <span>Enabled</span>
                                                             </label>
                                                         {% elif field.kind == "select" %}
-                                                            <select class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}">
+                                                            <select class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}>
                                                                 {% for option in field.options %}
                                                                     <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
                                                                 {% endfor %}
@@ -566,7 +566,7 @@
                                                                 class="plugin-config-input"
                                                                 data-config-key="{{ field.key }}"
                                                                 name="{{ field.input_name }}"
-                                                                id="id_{{ field.input_name }}"
+                                                                id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
                                                                 rows="3"
                                                                 spellcheck="false"
                                                                 {% if field.is_sensitive %}placeholder="Leave blank to keep current value"{% endif %}
@@ -577,14 +577,14 @@
                                                                 data-config-key="{{ field.key }}"
                                                                 type="{{ field.input_type }}"
                                                                 name="{{ field.input_name }}"
-                                                                id="id_{{ field.input_name }}"
+                                                                id="id_{{ field.input_name }}"{% if field.description %} aria-describedby="help_{{ field.input_name }}"{% endif %}
                                                                 value="{{ field.value }}"
                                                                 {% if field.pattern %}pattern="{{ field.pattern }}"{% endif %}
                                                                 {% if field.is_sensitive %}autocomplete="off" placeholder="Leave blank to keep current value"{% endif %}
                                                             >
                                                         {% endif %}
                                                         {% if field.description %}
-                                                            <div class="plugin-config-help">{{ field.description }}</div>
+                                                            <div class="plugin-config-help" id="help_{{ field.input_name }}">{{ field.description }}</div>
                                                         {% endif %}
                                                         <div class="plugin-config-default">
                                                             Current:
@@ -738,6 +738,20 @@
         });
         syncing = false;
     };
+
+    document.querySelectorAll('.plugin-config-marker').forEach(control => {
+        const toggle = document.getElementById(control.htmlFor);
+        if (!toggle) return;
+        const sync = () => control.setAttribute('aria-expanded', String(toggle.checked));
+        toggle.addEventListener('change', sync);
+        control.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                control.click();
+            }
+        });
+        sync();
+    });
 
     document.addEventListener('input', function(event) {
         if (!event.target || !event.target.matches('.plugin-config-input')) return;

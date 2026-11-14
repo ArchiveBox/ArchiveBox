@@ -3,7 +3,8 @@
 <html lang="en">
 <head>
     <title>Archived Sites</title>
-    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #f8fafc; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -124,20 +125,20 @@
     </header>
     <main>
         <div class="toolbar">
-            <input id="static-search" type="search" placeholder="Filter title, URL, tag, or status…" autocomplete="off">
+            <input id="static-search" aria-label="Filter snapshots" type="search" placeholder="Filter title, URL, tag, or status…" autocomplete="off">
             <span class="count"><span id="visible-count">{{ num_links }}</span> of {{ num_links }} snapshots</span>
         </div>
         <div class="table-wrap">
-            <table id="table-bookmarks">
+            <table id="table-bookmarks" aria-label="Archived snapshots">
                 <thead>
                     <tr>
-                        <th class="snapshot-time">Saved</th>
-                        <th class="snapshot-preview-cell">Preview</th>
-                        <th>Snapshot ({{ num_links }})</th>
-                        <th class="snapshot-tags-cell">Tags</th>
-                        <th class="snapshot-status-cell">Status</th>
-                        <th class="snapshot-files-cell">Files</th>
-                        <th class="snapshot-size-cell">Size</th>
+                        <th scope="col" class="snapshot-time">Saved</th>
+                        <th scope="col" class="snapshot-preview-cell">Preview</th>
+                        <th scope="col">Snapshot ({{ num_links }})</th>
+                        <th scope="col" class="snapshot-tags-cell">Tags</th>
+                        <th scope="col" class="snapshot-status-cell">Status</th>
+                        <th scope="col" class="snapshot-files-cell">Files</th>
+                        <th scope="col" class="snapshot-size-cell">Size</th>
                     </tr>
                 </thead>
                 <tbody>
