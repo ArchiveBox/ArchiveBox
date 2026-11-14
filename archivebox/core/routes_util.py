@@ -19,6 +19,21 @@ _URL_PATH_SAFE = "/@-._~!$&'()*+,;="
 _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
+def build_snapshot_export_urls(filters) -> dict[str, str]:
+    """Keyless exports of an existing snapshot filter, independent of page size."""
+    from django.apps import apps
+    from django.urls import reverse
+    from archivebox.core.exports import normalize_export_query
+
+    query = normalize_export_query(filters)
+    suffix = "?" + query.urlencode() if query else ""
+    formats = ("csv", "jsonl", "html_zip", "wacz") if apps.is_installed("archivebox.domains") else ("csv", "jsonl")
+    return {
+        "rss": reverse("admin:core_snapshot_feed") + suffix,
+        **{format: reverse("admin:core_snapshot_export", args=[format]) + suffix for format in formats},
+    }
+
+
 def split_host_port(host: str) -> tuple[str, str | None]:
     parsed = urlparse(f"//{host}")
     hostname = (parsed.hostname or host or "").lower()

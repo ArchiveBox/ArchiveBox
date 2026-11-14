@@ -111,6 +111,13 @@
             var nextMain = doc.getElementById("content-main");
             var currentMain = document.getElementById("content-main");
             if (nextMain && currentMain) {
+              document.querySelectorAll('a[data-export-format]').forEach(function(link) {
+                var menu = link.closest('.folder-menu');
+                var nextGroup = menu ? doc.getElementById(menu.id) : doc;
+                var selector = (menu ? '' : '.snapshot-export-links:not(.snapshot-export-menu) ') + 'a[data-export-format="' + link.dataset.exportFormat + '"]';
+                var nextLink = nextGroup && nextGroup.querySelector(selector);
+                if (nextLink) link.setAttribute('href', nextLink.getAttribute('href'));
+              });
               currentMain.replaceWith(nextMain);
               var actionCheckboxes = nextMain.querySelectorAll("tr input.action-select");
               if (window.Actions && actionCheckboxes.length) window.Actions(actionCheckboxes);

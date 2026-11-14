@@ -155,8 +155,111 @@ jobs:
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
+      - name: Resolve immutable downloader source contexts
+        id: downloader_sources
+        shell: bash
+        env:
+          PUSH_DIGESTS: ${{ inputs.push_digests }}
+        run: |
+          set -Eeuo pipefail
+          "$UV_BINARY" run --no-cache --no-project python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          packages = {package["name"]: package for package in tomllib.loads(Path("uv.lock").read_text())["package"]}
+          source = packages["abx-plugins"]["source"]
+          if "git" not in source:
+              if source != {"registry": "https://pypi.org/simple"}:
+                  raise SystemExit(f"Unsupported plugin dependency source: {source}")
+              raise SystemExit(0)
+          match = re.fullmatch(r"https://github\.com/ArchiveBox/abx-plugins\.git\?rev=([0-9a-f]{40})#\1", source["git"])
+          if not match:
+              raise SystemExit("Candidate plugins require an exact commit from ArchiveBox/abx-plugins")
+          if os.environ["PUSH_DIGESTS"] == "true":
+              raise SystemExit("Publish Git-pinned dependencies through the normal release cascade before publishing an image")
+          plugin_sha = match[1]
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              print(f"plugin_sha={plugin_sha}", file=output)
+              print(f"plugin_spec=abx-plugins @ git+https://github.com/ArchiveBox/abx-plugins.git@{plugin_sha}", file=output)
+              for name in ("abxbus", "abxpkg", "abx-plugins", "abx-dl"):
+                  package = packages[name]
+                  version = package["version"]
+                  if not re.fullmatch(r"\d+\.\d+\.\d+(?:rc\d+)?", version):
+                      raise SystemExit(f"Unsupported {name} version: {version}")
+                  url = f"https://github.com/ArchiveBox/{name}.git"
+                  sha = plugin_sha
+                  if name != "abx-plugins":
+                      if package["source"] != {"registry": "https://pypi.org/simple"}:
+                          raise SystemExit(f"Unsupported {name} dependency source")
+                      tag = version if name == "abxbus" else f"v{version}"
+                      refs = dict(line.split()[::-1] for line in subprocess.check_output(
+                          [os.environ["GIT_BINARY"], "ls-remote", url, f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"], text=True,
+                      ).splitlines())
+                      sha = refs.get(f"refs/tags/{tag}^{{}}", refs.get(f"refs/tags/{tag}", ""))
+                      if not re.fullmatch(r"[0-9a-f]{40}", sha):
+                          raise SystemExit(f"Cannot resolve exact released {name} source")
+                  key = name.replace("-", "_")
+                  print(f"{key}_context={url}#{sha}", file=output)
+                  print(f"{key}_version={version}", file=output)
+                  print(f"{key}_sha={sha}", file=output)
+          PY
+
+      # Build the downloader itself with its existing named source contexts.
+      # Do not replace downloader packages in an already-built host image.
+      - name: Build candidate downloader base
+        id: candidate_downloader
+        if: steps.downloader_sources.outputs.plugin_sha != ''
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ steps.downloader_sources.outputs.abx_dl_context }}
+          file: Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
+          platforms: ${{ matrix.platform }}
+          build-contexts: |
+            abxbus=${{ steps.downloader_sources.outputs.abxbus_context }}
+            abxpkg=${{ steps.downloader_sources.outputs.abxpkg_context }}
+            abx-plugins=${{ steps.downloader_sources.outputs.abx_plugins_context }}
+          build-args: |
+            ABXBUS_VERSION=${{ steps.downloader_sources.outputs.abxbus_version }}
+            DIST_ABXPKG_VERSION=${{ steps.downloader_sources.outputs.abxpkg_version }}
+            ABX_PLUGINS_VERSION=${{ steps.downloader_sources.outputs.abx_plugins_version }}
+            ABX_DL_VERSION=${{ steps.downloader_sources.outputs.abx_dl_version }}
+            ABX_DL_COMMIT_HASH=${{ steps.downloader_sources.outputs.abx_dl_sha }}
+          cache-from: type=registry,ref=archivebox/abx-dl:main
+          outputs: type=oci,dest=${{ runner.temp }}/downloader-layout,tar=false,compression=zstd,compression-level=10
+
+      - name: Record expected candidate plugin files
+        if: steps.downloader_sources.outputs.plugin_sha != ''
+        shell: bash
+        env:
+          PLUGIN_SPEC: ${{ steps.downloader_sources.outputs.plugin_spec }}
+        run: |
+          set -Eeuo pipefail
+          "$UV_BINARY" run --no-cache --no-project --with "$PLUGIN_SPEC" python - <<'PY'
+          from hashlib import sha256
+          from importlib.metadata import distribution
+          import json
+          import os
+          from pathlib import Path
+
+          package = distribution("abx-plugins")
+          files = {
+              str(path): sha256(path.locate().read_bytes()).hexdigest()
+              for path in package.files or []
+              if path.parts[0] == "abx_plugins" and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"}
+          }
+          if not files:
+              raise SystemExit("Candidate plugin wheel contains no runtime files")
+          Path(os.environ["RUNNER_TEMP"], "candidate-plugin-files.json").write_text(json.dumps(files, sort_keys=True))
+          print(f"Recorded {len(files)} immutable plugin runtime files")
+          PY
+
       - name: Verify published abx-dl image
-        id: abx_dl_image
+        id: published_abx_dl_image
+        if: steps.downloader_sources.outputs.plugin_sha == ''
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -188,6 +291,30 @@ jobs:
           [[ "$ABX_DL_DIGEST" == sha256:* ]]
           ABX_DL_IMAGE="${ABX_DL_REFERENCE%%@*}@${ABX_DL_DIGEST}"
           echo "image=${ABX_DL_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Select verified downloader base
+        id: abx_dl_image
+        shell: bash
+        env:
+          CANDIDATE_DIGEST: ${{ steps.candidate_downloader.outputs.digest }}
+          PUBLISHED_IMAGE: ${{ steps.published_abx_dl_image.outputs.image }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -n "$CANDIDATE_DIGEST" ]]; then
+            [[ "$CANDIDATE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+            test -f "$RUNNER_TEMP/downloader-layout/oci-layout"
+            {
+              echo 'image=archivebox-downloader'
+              echo "reference=oci:$CANDIDATE_DIGEST"
+              echo "context=archivebox-downloader=oci-layout://$RUNNER_TEMP/downloader-layout@$CANDIDATE_DIGEST"
+            } >> "$GITHUB_OUTPUT"
+          else
+            test -n "$PUBLISHED_IMAGE"
+            {
+              echo "image=$PUBLISHED_IMAGE"
+              echo "reference=$PUBLISHED_IMAGE"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
@@ -227,7 +354,8 @@ jobs:
             echo "org.opencontainers.image.version=${VERSION}"
             echo "org.opencontainers.image.revision=${{ inputs.source_ref || github.sha }}"
             echo 'org.opencontainers.image.source=https://github.com/ArchiveBox/ArchiveBox'
-            echo "io.archivebox.abx-dl.image=${{ steps.abx_dl_image.outputs.image }}"
+            echo "io.archivebox.abx-dl.image=${{ steps.abx_dl_image.outputs.reference }}"
+            echo "io.archivebox.abx-plugins.commit=${{ steps.downloader_sources.outputs.plugin_sha }}"
             echo 'EOF'
             echo "version=${VERSION}"
           } >> "$GITHUB_OUTPUT"
@@ -246,6 +374,7 @@ jobs:
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
             ARCHIVEBOX_COMMIT_HASH=${{ inputs.source_ref || github.sha }}
+          build-contexts: ${{ steps.abx_dl_image.outputs.context }}
           pull: true
           platforms: ${{ matrix.platform }}
           # Keep the released image as the one cache authority. A second GHA
@@ -275,6 +404,7 @@ jobs:
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
             ARCHIVEBOX_COMMIT_HASH=${{ inputs.source_ref || github.sha }}
+          build-contexts: ${{ steps.abx_dl_image.outputs.context }}
           pull: true
           platforms: ${{ matrix.platform }}
           # Test the same layer lineage users receive. Reusing :dev avoids a
@@ -283,6 +413,33 @@ jobs:
           outputs: |
             type=docker,name=${{ matrix.local_tag }},compression=zstd,compression-level=8
             type=oci,dest=${{ runner.temp }}/archivebox-image.tar,compression=zstd,compression-level=8
+
+      - name: Verify exact candidate plugin bytes in the finished image
+        if: steps.downloader_sources.outputs.plugin_sha != ''
+        shell: bash
+        env:
+          IMAGE: ${{ matrix.local_tag }}
+        run: |
+          set -Eeuo pipefail
+          "$DOCKER_BINARY" run --rm --network none --user 911:911 --platform '${{ matrix.platform }}' \
+            --volume "$RUNNER_TEMP/candidate-plugin-files.json:/tmp/expected-plugin-files.json:ro" \
+            --entrypoint /venv/bin/python3 "$IMAGE" -c '
+          from hashlib import sha256
+          from importlib.metadata import distribution
+          import json
+          from pathlib import Path
+
+          expected = json.loads(Path("/tmp/expected-plugin-files.json").read_text())
+          package = distribution("abx-plugins")
+          actual = {
+              str(path): sha256(path.locate().read_bytes()).hexdigest()
+              for path in package.files or []
+              if path.parts[0] == "abx_plugins" and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"}
+          }
+          mismatches = sorted(path for path in expected.keys() | actual.keys() if expected.get(path) != actual.get(path))
+          assert not mismatches, f"Image differs from pinned plugin source: {mismatches}"
+          print(f"Verified {len(expected)} plugin runtime files offline as UID 911")
+          '
 
       - name: Image digest
         if: inputs.push_digests

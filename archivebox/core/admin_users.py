@@ -1,18 +1,19 @@
 __package__ = "archivebox.core"
 
-from urllib.parse import urlencode
-
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.template.loader import render_to_string
+
+from archivebox.core.routes_util import build_snapshot_export_urls
 
 
 class CustomUserAdmin(UserAdmin):
     sort_fields = ["id", "email", "username", "is_superuser", "last_login", "date_joined"]
-    list_display = ["username", "id", "email", "is_superuser", "last_login", "date_joined"]
+    list_display = ["username", "snapshot_exports", "snapshot_count_column", "id", "email", "is_superuser", "last_login", "date_joined"]
     readonly_fields = ("snapshot_set", "archiveresult_set", "tag_set", "apitoken_set", "outboundwebhook_set")
     change_form_template = "admin/auth/user/change_form.html"
 
@@ -26,27 +27,24 @@ class CustomUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(snapshot_count=Count("crawl__snapshot_set", distinct=True))
 
-    def snapshot_rss_badge(self, obj, api_token: str = ""):
-        params = {"created_by": obj.username, "limit": 50}
-        if api_token:
-            params["api_key"] = api_token
-        rss_url = f"/api/v1/core/snapshots.rss?{urlencode(params)}"
-        return format_html(
-            (
-                '<a href="{}" title="Snapshot RSS feed for {}" '
-                'style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;'
-                "background:#fff3e0;border:1px solid #f59e0b;color:#7c2d12;font-weight:700;"
-                'font-size:12px;line-height:1.2;text-decoration:none;white-space:nowrap;">'
-                '<span aria-hidden="true" style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-                'background:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.18);"></span>'
-                "RSS</a>"
+    @admin.display(description="Export snapshots")
+    def snapshot_exports(self, obj):
+        return mark_safe(
+            render_to_string(
+                "core/snapshot_export_links.html",
+                {
+                    "export_urls": build_snapshot_export_urls({"crawl__created_by__id__exact": obj.pk}),
+                },
             ),
-            rss_url,
-            obj.username,
         )
 
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        if obj:
+            context["snapshot_export_urls"] = build_snapshot_export_urls({"crawl__created_by__id__exact": obj.pk})
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
+
     def snapshot_count_badge(self, obj):
-        snapshots_url = f"/admin/core/snapshot/?created_by__id__exact={obj.pk}"
+        snapshots_url = f"/admin/core/snapshot/?crawl__created_by__id__exact={obj.pk}"
         snapshot_count = obj.__dict__.get("snapshot_count", 0)
         snapshot_label = "snapshot" if snapshot_count == 1 else "snapshots"
         return format_html(
@@ -67,18 +65,6 @@ class CustomUserAdmin(UserAdmin):
     def snapshot_count_column(self, obj):
         return self.snapshot_count_badge(obj)
 
-    def get_list_display(self, request):
-        from archivebox.api.auth import get_or_create_api_token
-
-        api_token = get_or_create_api_token(request.user)
-        token = api_token.token if api_token else ""
-
-        @admin.display(description="RSS Feed")
-        def snapshot_rss_feed(obj):
-            return self.snapshot_rss_badge(obj, api_token=token)
-
-        return ["username", snapshot_rss_feed, "snapshot_count_column", "id", "email", "is_superuser", "last_login", "date_joined"]
-
     @admin.display(description="Snapshots")
     def snapshot_set(self, obj):
         total_count = obj.snapshot_set.count()
@@ -93,7 +79,7 @@ class CustomUserAdmin(UserAdmin):
                 )
                 for snap in obj.snapshot_set.order_by("-modified_at")[:10]
             )
-            + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+            + f'<br/><a href="/admin/core/snapshot/?crawl__created_by__id__exact={obj.pk}">{total_count} total records...<a>',
         )
 
     @admin.display(description="Archive Results")

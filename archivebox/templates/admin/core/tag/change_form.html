@@ -1,5 +1,9 @@
 {% extends "admin/archivebox_change_form.html" %}
 
+{% block toolbar_extras %}
+{% if original %}<div class="ab-toolbar-group">{% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls %}</div>{% endif %}
+{% endblock %}
+
 {% block bodyclass %}{{ block.super }} app-core model-tag tag-form-page{% endblock %}
 
 {% block extrastyle %}
