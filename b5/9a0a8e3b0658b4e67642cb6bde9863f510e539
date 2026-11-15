@@ -1,0 +1,27 @@
+archivebox/templates/admin/archivebox_change_form.html
+  s_784d0e5fa3aa29::t_8dc80ddc4cae53 168,170
+archivebox/templates/admin/system_settings.html
+  s_784d0e5fa3aa29::t_8dc80ddc4cae53 8
+archivebox/templates/plugins/settings_changes.html
+  s_784d0e5fa3aa29::t_8dc80ddc4cae53 28-32
+archivebox/templates/core/add.html
+  s_784d0e5fa3aa29::t_8dc80ddc4cae53 338
+archivebox/tests/test_ui_system_settings.py
+  s_784d0e5fa3aa29::t_06b21fd1327c9c 284-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b59a0a8e3b0658b4e67642cb6bde9863f510e539",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
