@@ -1209,6 +1209,29 @@
                         'parse_txt_urls', 'headers', 'redirects', 'seo', 'hashes',
                     ],
                 };
+                let applyingPluginPreset = false;
+
+                function applyPluginSelection(checkboxes, isSelected) {
+                    const requiredSearchPreference = getStoredPluginPreference(requiredSearchPlugin);
+                    applyingPluginPreset = true;
+                    try {
+                        checkboxes.forEach(checkbox => {
+                            const checked = isSelected(checkbox);
+                            if (checkbox.checked === checked) return;
+                            checkbox.checked = checked;
+                            // Keep each plugin's native widget synchronization.
+                            dispatchChange(checkbox);
+                        });
+                        applyRequiredSearchPlugin(requiredSearchPreference);
+                    } finally {
+                        applyingPluginPreset = false;
+                    }
+                    // Derive and persist the completed selection once. Doing this
+                    // from every checkbox change repeatedly scanned the whole form.
+                    syncEnabledPluginsConfig();
+                    updateChromeToggleButton();
+                    saveFormState();
+                }
 
                 document.querySelectorAll('.persona-preset-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -1223,30 +1246,10 @@
                     btn.addEventListener('click', function() {
                         const preset = this.dataset.preset;
                         const allCheckboxes = document.querySelectorAll('.plugin-section-toggle');
-                        const requiredSearchPreference = getStoredPluginPreference(requiredSearchPlugin);
-
-                        if (preset === 'select-all') {
-                            allCheckboxes.forEach(cb => {
-                                cb.checked = true;
-                                dispatchChange(cb);
-                            });
-                        } else if (preset === 'clear-all') {
-                            allCheckboxes.forEach(cb => {
-                                cb.checked = false;
-                                dispatchChange(cb);
-                            });
-                        } else if (presetConfigs[preset]) {
-                            const pluginsToSelect = presetConfigs[preset];
-                            allCheckboxes.forEach(cb => {
-                                cb.checked = pluginsToSelect.includes(cb.value);
-                                dispatchChange(cb);
-                            });
+                        if (preset === 'select-all' || preset === 'clear-all' || presetConfigs[preset]) {
+                            const selected = new Set(presetConfigs[preset] || []);
+                            applyPluginSelection(allCheckboxes, checkbox => preset === 'select-all' || selected.has(checkbox.value));
                         }
-
-                        applyRequiredSearchPlugin(requiredSearchPreference);
-                        syncEnabledPluginsConfig();
-                        updateChromeToggleButton();
-                        saveFormState();
                     });
                 });
 
@@ -1269,22 +1272,13 @@
 
                         const checkboxes = Array.from(container.querySelectorAll('.plugin-section-toggle'));
                         const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
-                        const requiredSearchPreference = getStoredPluginPreference(requiredSearchPlugin);
-
-                        checkboxes.forEach(cb => {
-                            cb.checked = !allChecked;
-                            dispatchChange(cb);
-                        });
-
-                        applyRequiredSearchPlugin(requiredSearchPreference);
-                        syncEnabledPluginsConfig();
-                        updateChromeToggleButton();
-                        saveFormState();
+                        applyPluginSelection(checkboxes, () => !allChecked);
                     });
                 });
 
                 document.querySelectorAll('.plugin-section-toggle').forEach(checkbox => {
                     checkbox.addEventListener('change', function() {
+                        if (applyingPluginPreset) return;
                         syncEnabledPluginsConfig();
                         updateChromeToggleButton();
                         saveFormState();
@@ -1295,6 +1289,7 @@
                 const STORAGE_KEY = 'archivebox_add_form_state';
 
                 function saveFormState() {
+                    if (applyingPluginPreset) return;
                     const state = {};
                     document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
                         if (el.name === 'csrfmiddlewaretoken' || el.name === 'url') return;
