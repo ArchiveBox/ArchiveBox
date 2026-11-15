@@ -129,7 +129,8 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                         panel_bounds = page.locator("#plugin-settings").bounding_box()
                         sticky_top = page.locator(".plugin-settings-sidebar").evaluate("el => parseFloat(getComputedStyle(el).top)")
                         expected_top = max(
-                            panel_bounds["y"] + 1, min(sticky_top, panel_bounds["y"] + panel_bounds["height"] - sidebar["height"] - 1)
+                            panel_bounds["y"] + 1,
+                            min(sticky_top, panel_bounds["y"] + panel_bounds["height"] - sidebar["height"] - 1),
                         )
                         assert abs(sidebar["y"] - expected_top) <= 1
                         page.evaluate("window.scrollTo(0, 0)")
