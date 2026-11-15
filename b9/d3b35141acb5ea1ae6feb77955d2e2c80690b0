@@ -1,0 +1,19 @@
+archivebox/tests/test_ui_add_view.py
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 900,932-934,943-945
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9d3b35141acb5ea1ae6feb77955d2e2c80690b0",
+  "prompts": {},
+  "sessions": {
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
