@@ -647,7 +647,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def get_snapshot_view_url(self, obj: Snapshot) -> str:
         request = self.request
-        return build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=request.archivebox_config)
+        urls = request.__dict__.setdefault("_archivebox_snapshot_detail_urls", {})
+        archive_path = obj.archive_path_from_db
+        if archive_path not in urls:
+            urls[archive_path] = build_snapshot_detail_url(archive_path, request=request, config=request.archivebox_config)
+        return urls[archive_path]
 
     def get_snapshot_files_url(self, obj: Snapshot) -> str:
         request = self.request
@@ -1038,8 +1042,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ordering="title",
     )
     def title_str(self, obj):
-        request = self.request
-        config = request.archivebox_config
         title_raw = (obj.title or "").strip()
         url_raw = (obj.url or "").strip()
         title_normalized = title_raw.lower()
@@ -1047,7 +1049,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         show_title = bool(title_raw) and title_normalized != "pending..." and title_normalized != url_normalized
         css_class = "fetched" if show_title else "pending"
 
-        detail_url = build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=config)
+        detail_url = self.get_snapshot_view_url(obj)
         title_html = ""
         if show_title:
             title_html = format_html(
@@ -1181,20 +1183,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def preview_icon(self, obj):
         return format_html(
             '<a href="{}" title="Open snapshot details">{}</a>',
-            build_snapshot_detail_url(obj.archive_path_from_db, request=self.request, config=self.request.archivebox_config),
+            self.get_snapshot_view_url(obj),
             self._render_thumbnail(obj, height="38px"),
         )
 
     @admin.display(description=" ", empty_value="")
     def snapshot_summary(self, obj):
-        request = self.request
-        config = request.archivebox_config
         stats = self._get_progress_stats(obj)
         archive_size = stats["output_size"] or 0
         size_txt = printable_filesize(archive_size) if archive_size else "pending"
         screenshot_html = format_html(
             '<a href="{}" title="Open snapshot live view" style="display:block;flex:0 0 220px;">{}</a>',
-            build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=config),
+            self.get_snapshot_view_url(obj),
             self._render_thumbnail(obj, width="220px", height="138px"),
         )
 
@@ -1240,26 +1240,39 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
         icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         request = self.request
-        config = request.archivebox_config
         # Every icon links into this one detail page and differs only in its
         # #fragment. Resolving the request's web origin takes several urlparse
         # calls, so do it once per row instead of once per icon.
-        detail_url = build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=config)
+        detail_url = self.get_snapshot_view_url(obj)
+        # Plugin presentation is identical across the page's rows. Resolve and
+        # escape it once per request, without caching snapshot data across users.
+        icon_metadata = request.__dict__.setdefault("_archivebox_file_icon_metadata", {})
         for result in sorted_results:
-            if plugin_icon_is_hidden(result.plugin):
-                continue
-            if not str(get_plugin_icon(result.plugin)).strip():
+            if result.plugin not in icon_metadata:
+                icon_metadata[result.plugin] = (
+                    None
+                    if plugin_icon_is_hidden(result.plugin) or not str(get_plugin_icon(result.plugin)).strip()
+                    else (
+                        output_group_for_plugin(result.plugin),
+                        escape(result.plugin),
+                        str(get_plugin_list_icon(result.plugin)),
+                        escape(display_plugin_name(result.plugin)),
+                    )
+                )
+            metadata = icon_metadata[result.plugin]
+            if metadata is None:
                 continue
             embed_path = result.embed_path()
             if not embed_path:
                 continue
-            group_id = output_group_for_plugin(result.plugin)
+            group_id, plugin, icon, label = metadata
             anchor_path = get_snapshot_output_anchor(result.plugin, embed_path)
             icons_by_group[group_id].append(
                 {
-                    "plugin": escape(result.plugin),
+                    "plugin": plugin,
+                    "label": label,
                     # The page draws each icon's SVG once (see get_plugin_list_icon).
-                    "icon": str(get_plugin_list_icon(result.plugin)),
+                    "icon": icon,
                     "href": escape(detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix="")),
                 },
             )
@@ -1288,7 +1301,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 if row:
                     member_vars.append(f"--files-icon-member-top:{8 + row * 18}px")
                 members.append(
-                    f'<a href="{item["href"]}" class="files-icon-plugin--{item["plugin"]}" aria-label="{escape(display_plugin_name(item["plugin"]))}" '
+                    f'<a href="{item["href"]}" class="files-icon-plugin--{item["plugin"]}" aria-label="{item["label"]}" '
                     f'data-tooltip="{item["plugin"]}" style="{";".join(member_vars)}">{item["icon"]}</a>',
                 )
             output.append(
