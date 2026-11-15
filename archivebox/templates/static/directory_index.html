@@ -12,7 +12,7 @@
     <style>
       :root { color-scheme: light; --line: #dfe4eb; --text: #253247; --muted: #667085; --accent: #245dc1; }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; min-height: 100%; background: white; color: var(--text); font: 13px/1.4 var(--font-family-primary); }
+      html, body { margin: 0; padding: 0; min-height: 0; background: white; color: var(--text); font: 13px/1.4 var(--font-family-primary); }
       main { width: 100%; }
       a { color: inherit; text-decoration: none; }
       .directory-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
@@ -228,5 +228,6 @@
         return false;
       };
     </script>
+    {% include "includes/preview_height.html" %}
   </body>
 </html>

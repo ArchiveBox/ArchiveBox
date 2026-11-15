@@ -9,7 +9,8 @@ from playwright.sync_api import expect, sync_playwright
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("surface", ["snapshot", "web", "same-origin"])
-def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surface, tmp_path):
+@pytest.mark.parametrize("viewport", [(1280, 720), (390, 844), (844, 390)])
+def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surface, viewport, tmp_path):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -40,7 +41,7 @@ def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surfac
             executable_path=str(browser_runtime["chrome_binary"]),
             args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
         )
-        page = browser.new_page(accept_downloads=True)
+        page = browser.new_page(accept_downloads=True, viewport={"width": viewport[0], "height": viewport[1]})
         page.goto(f"{shell}#?files=1")
         shell = page.url.split("#")[0]
         files = page.frame_locator("#main-frame")
@@ -78,14 +79,43 @@ def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surfac
         files.get_by_role("link", name="↩ Up One Level", exact=True).click()
         expect(page).to_have_url(f"{shell}#?files=1")
         expect(files.locator(".directory-title")).to_have_text("/")
-        # A long directory must scroll inside a stable viewport, not resize the
-        # outer page and move its header when opening a shorter directory.
+        # Generated file views share the outer page's scroll, including when
+        # navigation shrinks the directory below the selected preview's minimum.
+        child = page.locator("#main-frame").element_handle().content_frame()
+        child.wait_for_function(
+            "minimum => Math.abs(innerHeight - Math.max(Math.ceil(document.body.getBoundingClientRect().height), minimum)) <= 1",
+            arg=viewport[1] * 0.4,
+        )
         frame_box = page.locator("#main-frame-wrapper").bounding_box()
-        assert frame_box["y"] + frame_box["height"] == page.viewport_size["height"]
-        assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+        assert frame_box["height"] > viewport[1]
+        assert child.evaluate("document.documentElement.scrollHeight <= innerHeight + 1 && scrollY === 0")
+        assert page.evaluate("document.documentElement.scrollHeight > innerHeight")
+        header = page.locator("header").bounding_box()
+        assert frame_box["y"] >= header["y"] + header["height"] - 1
+        page.evaluate("scrollTo(0, 0)")
+        page.screenshot(path=str(tmp_path / "file-browser-long.png"))
+        page.mouse.move(viewport[0] / 2, viewport[1] / 2)
+        page.mouse.wheel(0, 10000)
+        page.wait_for_function("scrollY > 0")
+        assert child.evaluate("scrollY") == 0
+        standalone = browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
+        standalone.goto(child.url)
+        expect(standalone.locator(".directory-title")).to_have_text("/")
+        assert standalone.evaluate("document.documentElement.scrollHeight > innerHeight")
+        standalone.mouse.wheel(0, 600)
+        standalone.wait_for_function("scrollY > 0")
+        standalone.close()
         files.get_by_role("link", name="ytdlp/", exact=True).click()
         expect(files.locator(".directory-title")).to_have_text("ytdlp/")
-        assert page.locator("#main-frame-wrapper").bounding_box() == frame_box
+        child = page.locator("#main-frame").element_handle().content_frame()
+        child.wait_for_function(
+            "minimum => Math.abs(innerHeight - Math.max(Math.ceil(document.body.getBoundingClientRect().height), minimum)) <= 1",
+            arg=viewport[1] * 0.4,
+        )
+        assert page.locator("#main-frame-wrapper").bounding_box()["height"] < frame_box["height"]
+        assert child.evaluate("document.documentElement.scrollHeight <= innerHeight + 1 && scrollY === 0")
+        header = page.locator("header").bounding_box()
+        assert page.locator("#main-frame").bounding_box()["y"] >= header["y"] + header["height"] - 1
         page.screenshot(path=str(tmp_path / "file-browser.png"))
         files.get_by_role("link", name="⌂ Snapshot Page", exact=True).click()
         expect(page).to_have_url(shell)
