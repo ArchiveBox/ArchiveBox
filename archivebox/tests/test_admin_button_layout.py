@@ -54,6 +54,19 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             page.screenshot(path=str(output / f"admin-actions-{width}.png"))
         page.locator(".action-permissions-select").select_option("private")
         expect(page.locator(".messagelist")).to_contain_text("private")
+        # Start interacting while the large settings form is still being parsed.
+        # Slow execution exposes clicks arriving before tab handlers are installed.
+        cdp = page.context.new_cdp_session(page)
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 6})
+        page.goto(base + "/admin/settings/", wait_until="commit")
+        wget_tab = page.locator('[role="tab"][data-plugin="wget"]')
+        wget_tab.click()
+        expect(wget_tab).to_have_attribute("aria-selected", "true")
+        timeout_field = page.locator(".plugin-config-field").filter(has=page.locator('[data-config-key="WGET_TIMEOUT"][name]'))
+        expect(timeout_field.locator(".config-quantity-unit")).to_be_visible()
+        page.get_by_role("searchbox", name="Search plugin settings").fill("SCREENSHOT_RESOLUTION")
+        expect(page.locator('.plugin-card[data-plugin-name="screenshot"]')).to_be_visible()
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
         page.goto(base + "/admin/crawls/crawl/")
         page.locator("input.action-select").first.check()
         for width in (1280, 390):

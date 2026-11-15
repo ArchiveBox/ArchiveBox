@@ -7,7 +7,7 @@
         {% if not hide_settings_heading %}<div class="plugin-settings-sidebar-heading">Settings</div>{% endif %}
         <div class="plugin-settings-search">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg>
-            <input type="search" aria-label="Search plugin settings" placeholder="Search settings" autocomplete="off">
+            <input type="search" aria-label="Search plugin settings" placeholder="Search settings" autocomplete="off" disabled>
         </div>
         <div class="plugin-settings-tabs" role="tablist" aria-label="Plugins" aria-orientation="vertical">
             {% for group in plugin_groups %}{% if group.plugins %}
@@ -15,11 +15,11 @@
                 {% if group.title %}<div class="plugin-settings-category">{{ group.title }}</div>{% endif %}
                 {% for plugin in group.plugins %}
                 <div class="plugin-settings-nav-row">
-                <button type="button" role="tab" id="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" aria-controls="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-selected="false" tabindex="-1" data-plugin="{{ plugin.name }}">
+                <button type="button" role="tab" disabled id="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" aria-controls="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-selected="false" tabindex="-1" data-plugin="{{ plugin.name }}">
                     {{ plugin.label }}
                 </button>
                 {% if group.show_selectors or plugin.enabled_field %}
-                <input type="checkbox" role="switch" class="plugin-sidebar-toggle" data-plugin="{{ plugin.name }}" aria-label="Enable {{ plugin.name }} from sidebar" {% if group.show_selectors and plugin.checked or not group.show_selectors and plugin.enabled_field.checked %}checked{% endif %}>
+                <input type="checkbox" role="switch" class="plugin-sidebar-toggle" disabled data-plugin="{{ plugin.name }}" aria-label="Enable {{ plugin.name }} from sidebar" {% if group.show_selectors and plugin.checked or not group.show_selectors and plugin.enabled_field.checked %}checked{% endif %}>
                 {% endif %}
                 </div>
                 {% endfor %}
@@ -169,6 +169,10 @@
         settings.addEventListener('plugin-config-updated', updateStatus);
         filter();
         updateStatus();
+        // Do not lose sidebar interactions while the settings form is still parsing.
+        tabs.forEach(tab => { tab.disabled = false; });
+        search.disabled = false;
+        settings.querySelectorAll('.plugin-sidebar-toggle').forEach(toggle => { toggle.disabled = false; });
     });
 
     function updateWidgets() {
