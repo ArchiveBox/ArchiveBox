@@ -1,0 +1,46 @@
+archivebox/templates/admin/core/snapshot/pagination.html
+  s_532dc92fd8220a::t_623b4ad0e8a178 6
+archivebox/core/admin_snapshots.py
+  s_302d4b0601e736::t_352ca89baef492 292
+  s_302d4b0601e736::t_20856ec768cde4 281-282,284-286,289-291,293-295,314-315
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_302d4b0601e736::t_352ca89baef492 185-188
+  s_302d4b0601e736::t_20856ec768cde4 153-155,157-168
+  s_302d4b0601e736::t_9befaa2b95fcd0 80-152,156,169-184,189-221,271
+archivebox/core/admin_archiveresults.py
+  s_302d4b0601e736::t_9befaa2b95fcd0 13,37,435-452,454-472,569-570
+  s_302d4b0601e736::t_352ca89baef492 453
+  s_532dc92fd8220a::t_7fddeb7cc290cf 571
+archivebox/templates/admin/search_form.html
+  s_532dc92fd8220a::t_623b4ad0e8a178 57
+archivebox/templates/admin/change_list_panel.html
+  s_532dc92fd8220a::t_623b4ad0e8a178 28
+archivebox/templates/admin/core/archiveresult/change_list.html
+  s_532dc92fd8220a::t_623b4ad0e8a178 77
+archivebox/templates/admin/actions.html
+  s_532dc92fd8220a::t_623b4ad0e8a178 77,90,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a63cff5b5c26d64925036057084d046eb2b0c834",
+  "prompts": {},
+  "sessions": {
+    "s_302d4b0601e736": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de8f-9c43-7260-ae87-c39ab9e64f12",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
