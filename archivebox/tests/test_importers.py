@@ -130,6 +130,7 @@ def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_c
     from django.urls import reverse
 
     from archivebox.crawls.models import Crawl
+    from archivebox.importers.diagnostics import diagnostics
     from archivebox.importers.models import ImporterRun, ImporterSource
     from archivebox.importers.service import run_next_importer
     from archivebox.personas.models import Persona
@@ -183,7 +184,7 @@ def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_c
     activity = admin_client.get(reverse("importers:run-activity", args=[run.pk]), HTTP_HOST=ADMIN_TEST_HOST)
     assert activity.status_code == 200
     assert activity.json()["active"] is False
-    assert not run.diagnostics.get("sessions")
+    assert diagnostics(run)["sessions"] == []
     assert "<dt>AI sessions</dt>" not in activity.json()["html"]
 
     admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST)
