@@ -80,7 +80,7 @@ jobs:
               manifest["files"][image.name] = digest
               manifest.setdefault("manual_captures", {})[image.name] = {
                   **capture,
-                  "revision": subprocess.check_output(["git", "log", "-1", "--format=%H", "--", filename], text=True).strip(),
+                  "revision": capture.get("source_revision"),
                   "source": "Browser capture of a real local ArchiveBox collection",
               }
               gallery = re.sub(re.escape(image.name) + r"(?:\?v=[a-f0-9]+)?", f"{image.name}?v={digest[:12]}", gallery)
