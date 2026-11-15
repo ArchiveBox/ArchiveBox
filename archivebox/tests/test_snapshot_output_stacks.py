@@ -1324,7 +1324,7 @@ def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, li
 
 
 @pytest.mark.django_db(transaction=True)
-def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, tmp_path, browser_runtime):
+def test_capture_badge_lists_all_dates_and_marks_selected_capture(snapshot, live_server, tmp_path, browser_runtime):
     from datetime import datetime, timezone
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
@@ -1354,9 +1354,10 @@ def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, 
         page = browser.new_page()
         for selected, expected_year, expected_date in ((snapshot, "2026", "2026-09-23"), (copies[1], "2025", "2025-03-02")):
             page.goto(f"http://web.archivebox.localhost:{port}{selected.get_absolute_url()}/index.html", wait_until="domcontentloaded")
-            assert page.locator(".capture-year").evaluate_all("nodes => nodes.map(e => e.dataset.year)") == ["2025", "2026"]
-            assert [text.split() for text in page.locator(".year-label").all_text_contents()] == [["2025", "1"], ["2026", "2"]]
-            group = page.locator(f'.capture-year[data-year="{expected_year}"]')
+            group = page.locator(".capture-year")
+            assert group.count() == 1
+            assert group.locator(".year-capture-count").inner_text() == "3"
+            assert group.get_by_label(f"All captures; selected {expected_date}", exact=True).count() == 1
             assert group.locator(".header-date").inner_text() == expected_date
             assert group.locator("details").count() == 1
             assert page.locator(".header-date").count() == 1
@@ -1374,19 +1375,18 @@ def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, 
             assert menu.is_visible()
             assert menu.locator("a").count() == 3
             assert menu.locator('[aria-current="page"]').count() == 1
+            assert menu.locator('[aria-current="page"]').inner_text().startswith(expected_date)
+            assert {text.strip().split()[0] for text in menu.locator("a").all_text_contents()} == {"2025-03-02", "2026-06-01", "2026-09-23"}
             group.locator(".header-date").click()
             assert not menu.is_visible()
             group.locator(".header-date").click()
             assert menu.is_visible()
             assert menu.locator("a").count() == 3
-            group.locator(".year-label").click()
-            other_year = "2025" if expected_year == "2026" else "2026"
-            other = page.locator(f'.capture-year[data-year="{other_year}"]')
-            other.locator("summary").click()
-            other_menu = other.locator(".snapshot-variants-list")
-            assert other_menu.locator("a").count() == (1 if other_year == "2025" else 2)
-            assert all(text.strip().startswith(other_year) for text in other_menu.locator("a").all_text_contents())
-            assert other_menu.locator('[aria-current="page"]').count() == 0
+            other_date = "2025-03-02" if expected_year == "2026" else "2026-09-23"
+            menu.get_by_role("link", name=re.compile(other_date)).click()
+            assert page.locator(".header-date").inner_text() == other_date
+            page.locator(".header-date").click()
+            assert page.locator('.snapshot-variants-list [aria-current="page"]').inner_text().startswith(other_date)
         browser.close()
 
 
@@ -1419,6 +1419,12 @@ def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot,
         hashes.write_text(json.dumps({"files": [{"path": "singlefile/content.html", "hash": digest}]}))
         result.output_files = {"content.html": {"size": output.stat().st_size, "mimetype": "text/html", "sha256": digest}}
         result.save(update_fields=["output_files", "modified_at"])
+        ArchiveResult.objects.update_or_create(
+            snapshot=snapshot,
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
+            defaults={"status": "succeeded", "output_str": "hashes.json", "output_files": {"hashes.json": {"size": hashes.stat().st_size}}},
+        )
         snapshot.save(update_fields=["modified_at"])
 
     record_bytes()
