@@ -1,0 +1,47 @@
+archivebox/tests/test_add_panel_layout.py
+  s_784d0e5fa3aa29::t_adcc0af7ba7afa 1-27,38-52
+  s_14a19a88ce4adc::t_113dc0dfc8ee1b 28-37
+archivebox/templates/core/snapshot.html
+  s_784d0e5fa3aa29::t_adcc0af7ba7afa 259,503-506,513,526,540,1257-1258
+  s_14a19a88ce4adc::t_61ce113b65c066 1595
+archivebox/templates/admin/core/snapshot/change_list.html
+  s_784d0e5fa3aa29::t_08a9d79cb173fd 2-3
+archivebox/templates/admin/core/snapshot/embedded_changelist.html
+  s_784d0e5fa3aa29::t_b1f4dbab6131a0 3,6
+archivebox/templates/core/add.html
+  s_14a19a88ce4adc::t_607ac34e8d3161 16,18-19
+archivebox/templates/core/public_index.html
+  s_784d0e5fa3aa29::t_b2eab1155f1864 6-7
+archivebox/templates/static/add.css
+  s_14a19a88ce4adc::t_7d2078bbdbd6d8 368,374-376,412-421,470-473,855-859,861-862
+archivebox/templates/static/library/folders.css
+  s_784d0e5fa3aa29::t_ecfde1353ac977 201-206
+archivebox/templates/static/library/folders.js
+  s_784d0e5fa3aa29::t_147e7c0a506eed 477-478,485,488-493,502-504
+archivebox/tests/test_ui_admin_actions_rendering.py
+  s_784d0e5fa3aa29::t_689c0f6f224505 56-58,60-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9dc06027e800749abb6ce31bc4e6102970fad8a",
+  "prompts": {},
+  "sessions": {
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
