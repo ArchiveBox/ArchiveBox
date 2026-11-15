@@ -1,0 +1,21 @@
+archivebox/domains/gallery.js
+  s_784d0e5fa3aa29::t_efaaa6dba82f08 133,136
+archivebox/tests/test_take_screenshot.py
+  s_784d0e5fa3aa29::t_a7aa18f64eb9b2 278,359,368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60a2aa6e0599cdbe426af9efd68603cad960a969",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
