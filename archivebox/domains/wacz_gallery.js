@@ -98,7 +98,9 @@ async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'ht
 async function exportViews(page, clone, directory, baseUrl) {
   const {url} = await exportPlayer(page, clone.url, directory, baseUrl);
   await page.goto(url, {waitUntil: 'domcontentloaded'});
-  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000});
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000}).catch(cause => {
+    throw new Error('WACZ site export did not open its recorded homepage frame.', {cause});
+  });
   await frame.waitForSelector('#hnmain', {timeout: 45000});
   let newest;
   for (const anchor of await frame.$$('a[href]')) {
@@ -106,7 +108,9 @@ async function exportViews(page, clone, directory, baseUrl) {
   }
   if (!newest) throw new Error('The WACZ recording has no native newest link.');
   await newest.click();
-  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/newest'), {timeout: 45000});
+  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/newest'), {timeout: 45000}).catch(cause => {
+    throw new Error('WACZ site export did not follow the recorded newest-page link.', {cause});
+  });
   await next.waitForFunction(() => document.title.includes('New Links') && Boolean(document.querySelector('#hnmain')));
   await page.waitForFunction(() => new URLSearchParams(location.hash.slice(1)).get('url') === 'https://news.ycombinator.com/newest');
   return [
@@ -119,7 +123,9 @@ async function storyView(page, adminBaseUrl, storyUrl, directory, baseUrl) {
   const {url} = await exportPlayer(page, adminBaseUrl, directory, baseUrl, storyUrl);
   const story = `${url}#${new URLSearchParams({url: storyUrl})}`;
   await page.goto(story, {waitUntil: 'domcontentloaded'});
-  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000});
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000}).catch(cause => {
+    throw new Error(`WACZ story export did not open the recorded frame for ${new URL(storyUrl).hostname}.`, {cause});
+  });
   await frame.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
   if (await frame.evaluate(() => document.body.innerText.includes('Archived Page Not Found'))) throw new Error('The captured news story is missing from the WACZ export.');
   return {name: 'WACZ archived news story', url: story, path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: `wait-replay-url:${storyUrl}`};
@@ -150,7 +156,9 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
 
   const homepage = `${url}#${new URLSearchParams({url: 'https://news.ycombinator.com/'})}`;
   await page.goto(homepage, {waitUntil: 'domcontentloaded'});
-  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000});
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000}).catch(cause => {
+    throw new Error('Folder WACZ export did not open its recorded homepage frame.', {cause});
+  });
   await frame.waitForSelector('#hnmain', {timeout: 45000});
   let storyLink, storyUrl;
   for (const anchor of await frame.$$('a[href]')) {
@@ -160,7 +168,9 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl) {
   }
   if (!storyLink) throw new Error('The folder WACZ has no Hacker News link to an actually captured story.');
   await storyLink.click();
-  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000});
+  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, storyUrl), {timeout: 45000}).catch(cause => {
+    throw new Error(`Folder WACZ export did not follow its recorded story link to ${new URL(storyUrl).hostname}.`, {cause});
+  });
   await next.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
   const text = await next.evaluate(() => document.body.innerText);
   if (text.includes('Archived Page Not Found')) throw new Error('The linked story is missing from the selected folder WACZ.');
