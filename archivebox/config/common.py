@@ -1272,6 +1272,9 @@ def get_request_config(request: Any, *, resolve_plugins: bool = False) -> Archiv
             include_machine=machine is not None,
             resolve_plugins=resolve_plugins,
         )
+        # First-run host checks still need the configured mode after the host
+        # below resolves "auto" into its effective replay policy.
+        request._archivebox_config_security_mode = request_config.SERVER_SECURITY_MODE
         request._archivebox_config_resolves_plugins = resolve_plugins
     if request_config.SERVER_SECURITY_MODE == "auto":
         request_host = (urlparse(f"//{request.get_host()}").hostname or "").lower().rstrip(".")

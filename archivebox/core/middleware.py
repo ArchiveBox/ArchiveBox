@@ -225,9 +225,10 @@ def ServerSecurityModeMiddleware(get_response):
 
     def middleware(request):
         config = request.__dict__.get("archivebox_config")
-        if config is None or config.SERVER_SECURITY_MODE == "auto":
+        configured_mode = request.__dict__.get("_archivebox_config_security_mode", config.SERVER_SECURITY_MODE if config else None)
+        if config is None or configured_mode == "auto":
             base_config = config or get_config(resolve_plugins=False)
-            if base_config.SERVER_SECURITY_MODE == "auto" and request.method.upper() not in allowed_methods:
+            if (configured_mode or base_config.SERVER_SECURITY_MODE) == "auto" and request.method.upper() not in allowed_methods:
                 request_host, _request_port = split_host_port((request.get_host() or "").lower())
                 base_host, _base_port = split_host_port(get_base_host(config=base_config))
                 admin_host, _admin_port = split_host_port(get_admin_host(config=base_config))
