@@ -77,6 +77,34 @@ def projected_noresults(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestArchiveResultAdminListView:
+    def test_list_does_not_load_process_logs_or_machine_telemetry(self, admin_client, snapshot):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Machine, Process
+
+        machine = Machine.current()
+        process = Process.objects.create(
+            machine=machine,
+            pwd="/tmp/archivebox-log-list",
+            cmd=["title", snapshot.url],
+            env={"TITLE_TIMEOUT": "60"},
+            stdout="unused stdout\n" * 10000,
+            stderr="unused stderr\n" * 10000,
+        )
+        result = ArchiveResult.objects.create(snapshot=snapshot, plugin="title", process=process, output_str="Title result")
+        with CaptureQueriesContext(connection) as queries:
+            response = admin_client.get(reverse("admin:core_archiveresult_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert b"Title result" in response.content
+        assert b"TITLE_TIMEOUT=60" in response.content
+        loaded = next(row for row in response.context["cl"].result_list if row.pk == result.pk)
+        assert {"stdout", "stderr"} <= loaded.process.get_deferred_fields()
+        assert {"stats", "config"} <= loaded.process.machine.get_deferred_fields()
+        process_queries = [query["sql"] for query in queries if 'FROM "machine_process"' in query["sql"]]
+        assert process_queries
+        assert all('"stdout"' not in query and '"stderr"' not in query for query in process_queries)
+
     def test_created_sort_uses_date_index_without_redundant_default_order(self, admin_client, snapshot):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext

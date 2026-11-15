@@ -9,7 +9,8 @@ from django import forms
 from django.contrib import admin, messages
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
@@ -664,7 +665,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         "max_depth",
         "label",
         "notes",
-        "schedule_id",
+        "schedule__id",
         "status",
         "urls",
     )
@@ -1226,7 +1227,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 class CrawlScheduleAdmin(BaseModelAdmin):
     list_display = ("id", "created_at", "created_by", "label", "notes", "template_str", "crawls", "num_crawls", "num_snapshots")
     sort_fields = ("id", "created_at", "created_by", "label", "notes", "template_str")
-    search_fields = ("id", "created_by__username", "label", "notes", "schedule_id", "template_id", "template__urls")
+    search_fields = ("id", "created_by__username", "label", "notes", "schedule", "template__id", "template__urls")
 
     readonly_fields = ("created_at", "modified_at", "crawls", "snapshots", "destination_folder")
     autocomplete_fields = ("template", "created_by")
@@ -1283,13 +1284,19 @@ class CrawlScheduleAdmin(BaseModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
+        crawl_counts = Crawl.objects.filter(schedule_id=OuterRef("pk")).order_by().values("schedule_id").annotate(total=Count("*"))
+        snapshot_counts = (
+            Snapshot.objects.filter(crawl__schedule_id=OuterRef("pk")).order_by().values("crawl__schedule_id").annotate(total=Count("*"))
+        )
         return (
             super()
             .get_queryset(request)
             .select_related("created_by", "template")
             .annotate(
-                crawl_count=Count("crawl", distinct=True),
-                snapshot_count=Count("crawl__snapshot_set", distinct=True),
+                # Scalar counts avoid joining/grouping the entire snapshot table
+                # and leave the paginator's schedule count independent of snapshots.
+                crawl_count=Coalesce(Subquery(crawl_counts.values("total"), output_field=IntegerField()), 0),
+                snapshot_count=Coalesce(Subquery(snapshot_counts.values("total"), output_field=IntegerField()), 0),
             )
         )
 

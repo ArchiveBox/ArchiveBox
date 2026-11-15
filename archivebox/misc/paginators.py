@@ -1,7 +1,7 @@
 __package__ = "archivebox.misc"
 
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import Exists, F, OrderBy, OuterRef, QuerySet
 from django.utils.functional import cached_property
 
 
@@ -35,7 +35,15 @@ def snapshot_page(queryset, *, base_queryset, start, size):
     """
     ordering = queryset.query.order_by or queryset.model._meta.ordering
     fields = {field.name for field in queryset.model._meta.concrete_fields} | {"pk"}
-    if queryset.query.where and start + size < 1000 and all(isinstance(field, str) and field.lstrip("-") in fields for field in ordering):
+    if (
+        queryset.query.where
+        and start + size < 1000
+        and all(
+            (isinstance(field, str) and field.lstrip("-") in fields)
+            or (isinstance(field, OrderBy) and isinstance(field.expression, F) and field.expression.name in fields)
+            for field in ordering
+        )
+    ):
         candidates = list(queryset.model.objects.order_by(*ordering).values_list("pk", flat=True)[: (start + size) * 8])
         page = list(
             base_queryset.filter(pk__in=candidates)

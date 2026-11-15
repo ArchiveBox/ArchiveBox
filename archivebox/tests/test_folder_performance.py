@@ -154,6 +154,54 @@ def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user):
     assert first + second == expected
 
 
+@pytest.mark.parametrize("sort", ["title", "-title", "-downloaded_at"])
+@pytest.mark.parametrize("page", [2, 7])
+def test_nullable_smart_folder_sort_uses_bounded_order_index(admin_client, admin_user, settings, sort, page):
+    from datetime import timedelta
+
+    from django.utils import timezone
+    from archivebox.core.smart_folders import RuleQuery
+
+    settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    source = Folder.objects.create(name="Nullable source")
+    folder = Folder.objects.create(
+        name="Nullable sort",
+        rules={"field": "folder", "lookup": "in_folder", "value": str(source.pk), "sort": sort},
+    )
+    now = timezone.now()
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://news.ycombinator.com/item?id={index}",
+                timestamp=str(1900600000 + index),
+                title=f"News {index // 4}" if index % 3 else None,
+                downloaded_at=now - timedelta(minutes=index // 4) if index % 3 else None,
+                crawl=crawl,
+                folder=source if index % 5 else None,
+            )
+            for index in range(80)
+        ],
+    )
+    start = (page - 1) * 10
+    expected = list(
+        Snapshot.objects.filter(folder=source).order_by(*RuleQuery.ordering(folder)).values_list("pk", flat=True)[start : start + 10],
+    )
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/core/snapshot/", {"folder": folder.pk, "p": page}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [snapshot.pk for snapshot in response.context["cl"].result_list] == expected
+    probes = [query["sql"] for query in queries if 'FROM "core_snapshot" ORDER BY' in query["sql"] and "LIMIT" in query["sql"]]
+    assert len(probes) == 1, "Nullable sort fields must use the same bounded index probe as date ordering"
+    assert probes[0].endswith(f"LIMIT {(start + 11) * 8}")
+    assert "NULLS LAST" in probes[0]
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("EXPLAIN QUERY PLAN " + probes[0])
+            plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+        assert f"USING INDEX core_snapshot_{sort.lstrip('-')}_" in plan, plan
+
+
 @pytest.mark.django_db(transaction=True)
 def test_public_smart_witness_is_rechecked_after_visibility_changes(admin_user):
     from threading import enumerate as threads

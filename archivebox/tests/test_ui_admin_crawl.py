@@ -88,6 +88,71 @@ class TestCrawlScheduleAdmin:
         assert response.status_code == 200
         assert b"Daily crawl" in response.content
 
+    def test_crawlschedule_counts_use_indexed_subqueries(self, admin_client, admin_user):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from archivebox.crawls.models import CrawlSchedule
+
+        expected = {}
+        for index in range(3):
+            template = Crawl.objects.create(urls=f"https://example.com/schedule/{index}", created_by=admin_user)
+            schedule = CrawlSchedule.objects.create(
+                label="scheduled-target-needle" if index == 1 else f"Schedule {index}",
+                schedule="0 0 * * *",
+                template=template,
+                created_by=admin_user,
+            )
+            if index == 0:
+                Crawl.objects.filter(pk=template.pk).update(schedule=None)
+            else:
+                for run in range(index):
+                    crawl = Crawl.objects.create(urls=template.urls, schedule=schedule, created_by=admin_user)
+                    Snapshot.objects.create(url=f"https://example.com/run/{index}/{run}", crawl=crawl)
+                    Snapshot.objects.create(url=f"https://example.com/extra/{index}/{run}", crawl=crawl)
+                Snapshot.objects.create(url=f"https://example.com/template/{index}", crawl=template)
+            expected[schedule.pk] = (index + 1, 2 * index + 1) if index else (0, 0)
+
+        url = reverse("admin:crawls_crawlschedule_changelist")
+        for params in ({}, {"o": "8"}, {"o": "-9"}, {"q": "scheduled-target-needle"}):
+            with CaptureQueriesContext(connection) as queries:
+                response = admin_client.get(url, params, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            cl = response.context_data["cl"]
+            rows = list(cl.result_list)
+            assert {row.pk: (row.crawl_count, row.snapshot_count) for row in rows} == {
+                pk: counts for pk, counts in expected.items() if not params.get("q") or counts == (2, 3)
+            }
+            if params.get("o"):
+                assert [row.snapshot_count for row in rows] == sorted(
+                    (counts[1] for counts in expected.values()),
+                    reverse=params["o"].startswith("-"),
+                )
+            count_queries = [
+                query["sql"] for query in queries if query["sql"].startswith("SELECT COUNT(") and '"crawls_crawlschedule"' in query["sql"]
+            ]
+            assert count_queries
+            assert all('"core_snapshot"' not in sql for sql in count_queries)
+            if connection.vendor == "sqlite":
+                sql, parameters = cl.queryset.query.sql_with_params()
+                with connection.cursor() as cursor:
+                    plan = list(cursor.execute("EXPLAIN QUERY PLAN " + sql, parameters))
+                assert not any("count(DISTINCT)" in str(row) for row in plan)
+                assert any("COVERING INDEX" in str(row) and "crawl" in str(row) for row in plan)
+
+
+def test_crawl_admin_searches_schedule_id(admin_client, admin_user, crawl):
+    from archivebox.crawls.models import CrawlSchedule
+
+    schedule = CrawlSchedule.objects.create(template=crawl, schedule="0 0 * * *", created_by=admin_user)
+    scheduled_crawl = Crawl.objects.create(urls="https://example.com/scheduled", schedule=schedule, created_by=admin_user)
+    Crawl.objects.create(urls="https://example.com/unrelated", created_by=admin_user)
+
+    response = admin_client.get(reverse("admin:crawls_crawl_changelist"), {"q": str(schedule.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert response.status_code == 200
+    assert {row.pk for row in response.context_data["cl"].result_list} == {crawl.pk, scheduled_crawl.pk}
+
 
 def test_crawl_admin_change_view_renders_tag_editor_widget(admin_client, crawl):
     response = admin_client.get(

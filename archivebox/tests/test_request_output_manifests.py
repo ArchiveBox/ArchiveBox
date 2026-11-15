@@ -14,8 +14,8 @@ from archivebox.tests.test_snapshot_output_stacks import save_output
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.parametrize("preview", [False, True])
-def test_replay_normalizes_manifest_once_and_reads_replaced_metadata(snapshot, client, preview):
+@pytest.mark.parametrize("surface", ["raw", "preview", "card"])
+def test_replay_normalizes_manifest_once_and_reads_replaced_metadata(snapshot, client, surface):
     snapshot.permissions = "public"
     snapshot.save(update_fields=["permissions"])
     result = save_output(snapshot, "readability", extra_files=tuple(f"asset-{index}.html" for index in range(64)))
@@ -28,22 +28,22 @@ def test_replay_normalizes_manifest_once_and_reads_replaced_metadata(snapshot, c
         profile = cProfile.Profile()
         with profile:
             response = client.get(
-                f"/readability/{filename}",
-                {"preview": "1"} if preview else {},
+                f"/_card/{result.id}" if surface == "card" else f"/readability/{filename}",
+                {"preview": "1"} if surface == "preview" else {},
                 HTTP_HOST=get_snapshot_host(str(snapshot.id)),
             )
             body = b"".join(response.streaming_content) if response.streaming else response.content
         assert response.status_code == 200, body
         assert "text/html" in response["Content-Type"]
         assert "Memento-Datetime" not in response  # This capture has not sealed yet.
-        if preview:
+        if surface != "raw":
             assert f"/readability/{filename}".encode() in body
         else:
             assert body == (snapshot.output_dir / "readability" / filename).read_bytes()
         normalizations = sum(
             values[1]
             for (source, _line, function), values in pstats.Stats(profile).stats.items()
-            if source.endswith("core/models.py") and function == "_normalize_output_files"
+            if source.endswith(("core/models.py", "core/templatetags/core_tags.py")) and function == "_normalize_output_files"
         )
         assert normalizations == 1, normalizations
 

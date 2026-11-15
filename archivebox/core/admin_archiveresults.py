@@ -31,6 +31,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
+from archivebox.machine.models import Process
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.plugins.discovery import get_plugin_icon
@@ -617,6 +618,12 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 if 0 <= idx < len(self.list_display):
                     ordering_fields.add(self.list_display[idx])
 
+        process_prefetch = "process__machine"
+        if request.resolver_match.url_name == "core_archiveresult_changelist":
+            process_prefetch = Prefetch(
+                "process",
+                queryset=Process.objects.select_related("machine").defer("stdout", "stderr", "machine__stats", "machine__config"),
+            )
         qs = (
             super()
             .get_queryset(request)
@@ -625,7 +632,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
                     "snapshot",
                     queryset=Snapshot.objects.defer("config", "notes").prefetch_related("crawl__created_by", "tags"),
                 ),
-                "process__machine",
+                process_prefetch,
             )
         )
         if ordering_fields:

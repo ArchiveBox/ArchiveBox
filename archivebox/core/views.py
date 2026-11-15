@@ -993,6 +993,8 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
     result = snapshot.archiveresult_set.filter(pk=result_pk).first()
     if result is None:
         raise Http404
+    # The preview URL and media list share this request-local result.
+    result._render_output_file_map = result.output_file_map()
 
     # There is exactly one plugin card template. The stack cover and expanded
     # tray point at this same document; only their containing card width differs.

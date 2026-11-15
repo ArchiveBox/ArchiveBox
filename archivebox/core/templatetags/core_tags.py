@@ -231,7 +231,7 @@ def _list_media_files(result, *, include_filesystem_fallback=True) -> list[dict]
     except (AttributeError, TypeError, ValueError):
         return media_files
 
-    output_files = _normalize_output_files(result.output_files or {})
+    output_files = result.output_file_map()
     candidates: list[tuple[Path, int | None]] = []
     if output_files:
         for path, metadata in output_files.items():
