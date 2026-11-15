@@ -700,12 +700,14 @@ PY
 
         echo "[*] Populating empty configuration views through the real Django admin UI"
         # ReplayWeb.page uses service workers, so the exported files need an
-        # actual HTTP localhost origin. The small gallery recordings do not
-        # require range support from this standard-library static server.
+        # actual HTTP localhost origin with byte ranges for larger recordings.
         mkdir -p "$CAPTURE_ROOT/site-exports"
         SITE_EXPORT_PORT="$(uv run --no-sync --project "$REPO_DIR" python -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
-        uv run --no-sync --project "$REPO_DIR" python -m http.server "$SITE_EXPORT_PORT" --bind 127.0.0.1 \
-            --directory "$CAPTURE_ROOT/site-exports" >"$CAPTURE_ROOT/site-export-server.log" 2>&1 &
+        (
+            cd "$DATA_DIR"
+            exec uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/serve_ui_screenshot_exports.py" "$SITE_EXPORT_PORT" \
+                --directory "$CAPTURE_ROOT/site-exports"
+        ) >"$CAPTURE_ROOT/site-export-server.log" 2>&1 &
         SITE_EXPORT_SERVER_PID=$!
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \

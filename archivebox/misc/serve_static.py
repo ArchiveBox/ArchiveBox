@@ -1405,9 +1405,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             # multipart byteranges)
             if ranges is not None and len(ranges) == 1:
                 start, stop = ranges[0]
-                if stop > size:
+                if start >= size or stop <= start or stop > size:
                     # requested range not satisfiable
-                    return HttpResponse(status=416)
+                    if ranged_file is not None:
+                        ranged_file.close()
+                    return HttpResponse(status=416, headers={"Content-Range": f"bytes */{size}"})
                 if ranged_file is not None:
                     ranged_file.start = start
                     ranged_file.stop = stop
@@ -1493,9 +1495,14 @@ def parse_range_header(header, resource_size):
             start = int(start)
             # the +1 is here since we want the stopping point to be exclusive, whereas in
             # the HTTP spec, the last-byte-pos is inclusive
-            stop = int(stop) + 1 if stop else resource_size
-            if start >= stop:
-                return None
+            if stop:
+                stop = int(stop) + 1
+                if start >= stop:
+                    return None
+            else:
+                # An open range starting beyond EOF is valid syntax but is
+                # unsatisfiable; the response must be 416, not the full file.
+                stop = resource_size
 
         ranges.append((start, stop))
 
