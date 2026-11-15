@@ -281,6 +281,21 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             page.get_by_role("button", name="Save settings", exact=True).click()
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config
+            # Save as soon as it becomes clickable on a real, bandwidth-limited
+            # response. The toolbar renders before the settings form finishes.
+            network = page.context.new_cdp_session(page)
+            network.send("Network.enable")
+            network.send(
+                "Network.emulateNetworkConditions",
+                {"offline": False, "latency": 0, "downloadThroughput": 256_000, "uploadThroughput": 256_000},
+            )
+            page.goto(base + "/admin/settings/", wait_until="commit")
+            with page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/admin/settings/")) as submission:
+                page.get_by_role("button", name="Save settings", exact=True).click()
+            assert "settings_editor=1" in submission.value.post_data
+            expect(page.locator(".success")).to_be_visible()
+            assert stored_config("system") == final_config
+            network.detach()
             browser.close()
     finally:
         stop_archivebox_process(server)

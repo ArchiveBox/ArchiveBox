@@ -5,7 +5,7 @@
     {% csrf_token %}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px">
         <div><h1 style="margin:0">System settings</h1><p style="margin:5px 0;color:#697386">{{ machine.hostname }} · ArchiveBox.conf</p></div>
-        <input type="submit" value="Save settings" class="default">
+        <input type="submit" value="Save settings" class="default" data-settings-submit disabled>
     </div>
     {{ form.non_field_errors }}{{ form.config.errors }}
     {% include 'plugins/plugin_config_grid.html' with plugin_groups=form.plugin_groups hide_settings_heading=True %}

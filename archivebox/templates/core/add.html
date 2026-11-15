@@ -335,7 +335,7 @@
                 {% endif %}
 
                 <center>
-                    <button type="submit" id="submit">&nbsp; Create Crawl and Start Archiving ➕</button>
+                    <button type="submit" id="submit" data-settings-submit disabled>&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
             {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}

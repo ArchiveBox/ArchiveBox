@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.type = 'hidden'; input.name = 'settings_changed'; input.value = key; form.append(input);
             });
         });
+        // A toolbar can be clicked while the browser is still parsing the form.
+        // Enable submission only after widgets and change tracking are ready.
+        for (const control of form.elements) {
+            if (control.hasAttribute('data-settings-submit')) control.disabled = false;
+        }
     });
 });
 </script>

@@ -165,9 +165,9 @@ Each action dict may set:
 {% if not is_popup %}
 <div class="archivebox-toolbar" role="toolbar" aria-label="Actions">
   {% if original and has_change_permission %}
-    <button type="submit" form="{{ opts.model_name }}_form" name="_continue" class="ab-btn ab-btn-primary" title="{% translate 'Save changes' %}">💾 {% translate 'Save' %}</button>
+    <button type="submit" form="{{ opts.model_name }}_form" name="_continue" class="ab-btn ab-btn-primary" title="{% translate 'Save changes' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
   {% elif not original and has_add_permission %}
-    <button type="submit" form="{{ opts.model_name }}_form" name="_save" class="ab-btn ab-btn-primary" title="{% translate 'Save' %}">💾 {% translate 'Save' %}</button>
+    <button type="submit" form="{{ opts.model_name }}_form" name="_save" class="ab-btn ab-btn-primary" title="{% translate 'Save' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
   {% endif %}
   {% if original %}
     {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}
