@@ -59,9 +59,62 @@ def news_urls():
             if story.get("type") == "story" and not story.get("dead") and not story.get("deleted"):
                 if url.startswith(("http://", "https://")) and url not in urls:
                     urls.append(url)
-            if len(urls) == 4:
+            if len(urls) == 7:
                 return urls
-    raise RuntimeError("The live Hacker News API did not provide three story links.")
+    raise RuntimeError("The live Hacker News API did not provide six story candidates.")
+
+
+def select_gallery_snapshots(snapshots, urls, evidence):
+    from archivebox.core.models import Snapshot
+    from archivebox.plugins.discovery import get_snapshot_role_paths
+
+    candidates = {snapshot.url: snapshot for snapshot in snapshots}
+    eligible = []
+    records = []
+    for url in urls:
+        snapshot = candidates[url]
+        results = list(snapshot.archiveresult_set.all())
+        try:
+            navigation = json.loads((snapshot.output_dir / "chrome/navigation.json").read_text())
+        except (OSError, ValueError):
+            navigation = {}
+        status = navigation.get("status") if isinstance(navigation, dict) else None
+        browser_ok = isinstance(status, int) and 200 <= status < 400 and navigation.get("url") == url and not navigation.get("error")
+        paths = {
+            "html": next(get_snapshot_role_paths(snapshot, results, "html_replay"), None),
+            "screenshot": snapshot.plugin_output_path("screenshot", archive_results=results),
+            "wacz": snapshot.plugin_output_path("archivewebpage", archive_results=results),
+        }
+        files_ok = all(
+            path and (snapshot.output_dir / path).is_file() and (snapshot.output_dir / path).stat().st_size for path in paths.values()
+        )
+        usable = bool(
+            browser_ok
+            and files_ok
+            and paths["wacz"].endswith(".wacz")
+            and snapshot.status == Snapshot.StatusChoices.SEALED
+            and snapshot.output_size > 0,
+        )
+        records.append(
+            {
+                "url": url,
+                "snapshot_id": str(snapshot.pk),
+                "browser_status": status,
+                "eligible": usable,
+                "results": {result.plugin: result.status for result in results},
+            },
+        )
+        if usable:
+            eligible.append(snapshot)
+    (evidence / "hacker-news-captures.json").write_text(json.dumps(records, indent=2))
+    if diagnostics := os.environ.get("SCREENSHOT_FAILURE_DIR"):
+        Path(diagnostics).mkdir(parents=True, exist_ok=True)
+        (Path(diagnostics) / "hacker-news-captures.json").write_text(json.dumps(records, indent=2))
+    if len(eligible) < 4 or eligible[0].url != urls[0]:
+        raise RuntimeError("Gallery needs a successful homepage and three captured stories; inspect hacker-news-captures.json.")
+    featured = eligible[:4]
+    (evidence / "hacker-news-urls.json").write_text(json.dumps([snapshot.url for snapshot in featured], indent=2))
+    return featured
 
 
 def validate_ai_result(snapshot, plugin):
@@ -89,14 +142,14 @@ def validate_ai_result(snapshot, plugin):
 
 def prepare(evidence_dir, *, model=""):
     from archivebox.config import CONSTANTS
-    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.models import Snapshot
     from archivebox.core.tag_util import normalize_tag_name
     from archivebox.crawls.models import Crawl
 
     evidence = Path(evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
     urls = news_urls()
-    (evidence / "hacker-news-urls.json").write_text(json.dumps(urls, indent=2))
+    (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
     capture_env = os.environ.copy()
     persona = None
     previous_persona_config = None
@@ -128,7 +181,7 @@ def prepare(evidence_dir, *, model=""):
                 "add",
                 "--no-only-new",
                 "--tag=screenshot-library",
-                "--max-urls=4",
+                "--max-urls=7",
                 *urls,
             ],
             cwd=CONSTANTS.DATA_DIR,
@@ -143,17 +196,9 @@ def prepare(evidence_dir, *, model=""):
     snapshots = list(Snapshot.objects.filter(crawl=crawl))
     if {snapshot.url for snapshot in snapshots} != set(urls):
         raise RuntimeError("Gallery crawl did not create every requested real capture.")
+    snapshots = select_gallery_snapshots(snapshots, urls, evidence)
     ai_snapshots = {}
     for snapshot in snapshots:
-        if snapshot.status != Snapshot.StatusChoices.SEALED or snapshot.output_size <= 0:
-            raise RuntimeError(f"Gallery capture is incomplete: {snapshot.url}")
-        if not snapshot.archiveresult_set.filter(plugin="screenshot", status=ArchiveResult.StatusChoices.SUCCEEDED).exists():
-            raise RuntimeError(f"Gallery capture has no real screenshot: {snapshot.url}")
-        recording = snapshot.archiveresult_set.filter(plugin="archivewebpage", status=ArchiveResult.StatusChoices.SUCCEEDED).first()
-        relative = recording.embed_path_db() if recording else ""
-        archive = snapshot.output_dir / relative if relative else None
-        if archive is None or archive.suffix.lower() != ".wacz" or not archive.is_file() or archive.stat().st_size == 0:
-            raise RuntimeError(f"Gallery capture has no successful WACZ recording: {snapshot.url}")
         if model:
             available = {plugin: validate_ai_result(snapshot, plugin) for plugin in ("autotag", "autosummary")}
             for plugin, succeeded in available.items():
