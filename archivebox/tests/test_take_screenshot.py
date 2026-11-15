@@ -275,7 +275,7 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart", "search"])
+@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart", "search", "folder-menu", "import-menu"])
 def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
     from archivebox.core.models import Folder
 
@@ -356,7 +356,7 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
             "SCREENSHOT_WAIT_SELECTOR": "#result_list input.action-select",
             **(
                 {
-                    "SCREENSHOT_LIBRARY_MENU": "search",
+                    "SCREENSHOT_LIBRARY_MENU": {"search": "search", "folder-menu": "folder", "import-menu": "import"}[view],
                     "SCREENSHOT_VARIANTS_JSON": json.dumps(
                         [
                             {"path": str(output), "width": 1600, "height": 1000},
@@ -365,7 +365,7 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
                         ],
                     ),
                 }
-                if view == "search"
+                if view in {"search", "folder-menu", "import-menu"}
                 else {}
             ),
         },

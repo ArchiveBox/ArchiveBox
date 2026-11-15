@@ -130,10 +130,10 @@ async function exportViews(page, clone, directory, baseUrl) {
   await nextFrame.waitForFunction(() => document.title.includes('New Links') && Boolean(document.querySelector('#hnmain')));
   fs.writeFileSync(path.join(exported, 'gallery-navigation-proof.json'), JSON.stringify({index, detail, plugin, snapshotId, from: homeUrl, to: nextUrl}, null, 2) + '\n');
   return [
-    {name: 'Static snapshot index', url: index, path: '/index.html', source: 'archivebox/core/querysets.py'},
+    {name: 'Static snapshot index', url: index, path: new URL(index).pathname, source: 'archivebox/core/querysets.py'},
     {name: 'Static snapshot detail', url: `${detail}#${plugin}`, path: new URL(detail).pathname, source: 'archivebox/templates/core/snapshot.html'},
     {name: 'Static site export', url: homeUrl, path: new URL(homeUrl).pathname, source: 'archivebox/domains/exports.py'},
-    {name: 'Static export internal navigation', url: nextUrl, path: '/newest', source: 'archivebox/domains/exports.py'},
+    {name: 'Static export internal navigation', url: nextUrl, path: new URL(nextUrl).pathname, source: 'archivebox/domains/exports.py'},
   ];
 }
 
