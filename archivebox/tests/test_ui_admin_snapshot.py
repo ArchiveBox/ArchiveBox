@@ -9,7 +9,6 @@ import warnings
 import zipfile
 from pathlib import Path
 from threading import Thread
-from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import pytest
@@ -791,19 +790,21 @@ class TestSnapshotProgressStats:
         assert screenshot_output["path"] == "screenshot/screenshot.png"
         assert screenshot_output["size"] == screenshot_file.stat().st_size
 
-    def test_media_helpers_use_output_file_metadata_without_disk(self):
+    def test_media_helpers_use_output_file_metadata_without_disk(self, snapshot):
         """Template helpers should derive media lists and sizes from output_files metadata."""
+        from archivebox.core.models import ArchiveResult
         from archivebox.core.templatetags.core_tags import _count_media_files, _list_media_files
 
-        result = SimpleNamespace(
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
             output_files={
                 "video.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"},
                 "audio.mp3": {"size": 222, "mimetype": "audio/mpeg", "extension": "mp3"},
             },
-            snapshot_dir="/tmp/does-not-need-to-exist",
             plugin="ytdlp",
         )
 
+        assert not (Path(snapshot.output_dir) / "ytdlp").exists()
         assert _count_media_files(result) == 2
         assert _list_media_files(result) == [
             {
