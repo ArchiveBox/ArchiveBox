@@ -548,6 +548,11 @@ def test_snapshot_header_tags_overflow_without_hiding_url(snapshot, live_server,
                 assert box["x"] >= bounds["x"] - 1
                 assert box["x"] + box["width"] <= bounds["x"] + bounds["width"] + 1
                 assert box["y"] == bounds["y"]
+            visible_items = summary.locator(".tag-pill:visible, .header-tags-more:visible")
+            last = visible_items.last.bounding_box()
+            assert abs(last["x"] + last["width"] - bounds["x"] - bounds["width"]) <= 1
+            if len(tag_names) == 2 and width >= 768:
+                assert pills.count() == 2
             if pills.count() < len(tag_names):
                 assert more.inner_text() == f"+{len(tag_names) - pills.count()}"
                 assert more.is_visible()

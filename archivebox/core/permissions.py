@@ -22,7 +22,7 @@ PERMISSIONS_META = {
 
 def render_permission_icon(permissions):
     permission_path = {
-        "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
+        "public": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
         "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
         "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
     }[permissions]

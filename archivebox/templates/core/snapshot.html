@@ -1265,7 +1265,7 @@
                                 <div class="header-url-tools">
                                 <span class="header-url-action header-permission" role="img" aria-label="{{ snapshot_permissions|capfirst }}" title="{{ snapshot_permissions|capfirst }}">{{ snapshot_permissions_icon }}</span>
                                 <a class="header-url-action" href="{{url}}" target="_blank" rel="noreferrer" aria-label="Open original URL" title="Open original URL in a new tab">
-                                    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.5" ry="8"/><path d="M2 10h16"/></svg>
+                                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-9 9M8 3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
                                 </a>
                                 <a class="header-url-action" href="https://web.archive.org/web/{{url}}" target="_blank" rel="noreferrer" aria-label="Search Archive.org" title="Search for this URL in Archive.org">
                                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m2 6 8-4 8 4H2Zm0 12h16M3 15h14M4 8v5m4-5v5m4-5v5m4-5v5"/></svg>
@@ -1406,8 +1406,8 @@
                     const gap = parseFloat(getComputedStyle(summary).columnGap) || 0
                     const total = widths.reduce((sum, width) => sum + width, 0) + gap * (pills.length - 1)
                     headerTags.style.width = `${total}px`
-                    const available = summary.clientWidth
-                    const limit = total <= available ? available : available - more.getBoundingClientRect().width - gap
+                    const available = summary.getBoundingClientRect().width
+                    const limit = total <= available + 0.5 ? available + 0.5 : available - more.getBoundingClientRect().width - gap
                     let used = 0
                     let visible = 0
                     pills.forEach((pill, index) => {
@@ -1417,6 +1417,8 @@
                     })
                     more.textContent = `+${pills.length - visible}`
                     more.hidden = visible === pills.length
+                    // Return unused space to the URL/title after hiding pills.
+                    headerTags.style.width = `${used + (more.hidden ? 0 : (visible ? gap : 0) + more.getBoundingClientRect().width)}px`
                 }
                 new ResizeObserver(layoutHeaderTags).observe(document.querySelector('.header-nav'))
                 document.fonts.ready.then(layoutHeaderTags)
