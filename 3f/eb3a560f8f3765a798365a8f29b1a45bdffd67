@@ -1,0 +1,41 @@
+archivebox/templates/static/library/folders.js
+  s_10bc94d001be49::t_bef6410ffbf080 212-215,235-242,253-255,264-273,275-301,303-304,323,329-352,387-411,633-649,651-652,681-734,736-737
+  s_532dc92fd8220a::t_3f0b848b65b042 155,157-163
+  s_10bc94d001be49::t_854ef83216684f 556-558,561
+  s_532dc92fd8220a::t_b36654ea709c58 306,490-494,566-567,576-580,584,586,602-603,607-609,632,738-748
+  s_10bc94d001be49::t_268fb342a83ad3 564
+archivebox/tests/test_ui_admin_actions_rendering.py
+  s_10bc94d001be49::t_c801f07bbd66f1 113
+  s_10bc94d001be49::t_2e87fe9b515dc8 30,125
+  s_10bc94d001be49::t_31929b6908a49b 105-112,114-119
+archivebox/templates/core/folder_tree.html
+  s_10bc94d001be49::t_b653f2e5c56e8a 1-16
+archivebox/templates/core/folder_sidebar.html
+  s_10bc94d001be49::t_b653f2e5c56e8a 16
+archivebox/core/admin_folders.py
+  s_10bc94d001be49::t_eb7b9ce7242013 8,159-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3feb3a560f8f3765a798365a8f29b1a45bdffd67",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
