@@ -83,8 +83,9 @@ def test_snapshot_page_does_not_count_all_matches(admin_client, admin_user, sett
 
 
 @pytest.mark.django_db(transaction=True)
-def test_display_count_refresh_is_bounded_and_debounced(admin_user):
+def test_display_count_refresh_aggregates_in_database_and_is_debounced(admin_user):
     from threading import enumerate as threads
+    from django.db.backends.signals import connection_created
     from archivebox.progressmonitor.collection import snapshot_list_count
 
     folder = Folder.objects.create(name="Count refresh")
@@ -97,13 +98,29 @@ def test_display_count_refresh_is_bounded_and_debounced(admin_user):
         batch_size=100,
     )
     queryset = Snapshot.objects.filter(folder=folder)
-    with CaptureQueriesContext(connection) as queries:
-        assert snapshot_list_count(queryset) is None
+    background_queries = []
+
+    def record_query(execute, sql, params, many, context):
+        background_queries.append(sql)
+        return execute(sql, params, many, context)
+
+    def record_connection(sender, connection, **kwargs):
+        connection.execute_wrappers.append(record_query)
+
+    connection_created.connect(record_connection)
+    try:
+        with CaptureQueriesContext(connection) as queries:
+            assert snapshot_list_count(queryset) is None
+        for thread in threads():
+            if thread.name == "snapshot-list-count":
+                thread.join(timeout=10)
+                assert not thread.is_alive()
+    finally:
+        connection_created.disconnect(record_connection)
     assert len(queries) == 0
-    for thread in threads():
-        if thread.name == "snapshot-list-count":
-            thread.join(timeout=10)
-            assert not thread.is_alive()
+    snapshot_reads = [sql for sql in background_queries if 'FROM "core_snapshot"' in sql]
+    assert len(snapshot_reads) == 1, snapshot_reads
+    assert "COUNT(" in snapshot_reads[0].upper(), "Return an aggregate, never hydrate every snapshot UUID to count it"
     summary = snapshot_list_count(queryset)
     assert summary["count"] == 1001
     Snapshot.objects.filter(pk=queryset.first().pk).update(folder=None)

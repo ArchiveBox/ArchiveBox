@@ -173,34 +173,13 @@ def snapshot_list_count(queryset, *, first_match=False):
         def refresh():
             try:
                 close_old_connections()
-                count, last, snapshot_id = 0, None, None
-                db = connections[queryset.db]
-                # Compile the ORM predicate once, rather than once per batch.
-                # Bounds remain bound parameters, including for UUID keys.
-                query_sql, query_params = queryset.values("pk").query.sql_with_params()
-                selection = 'matches."pk"' if first_match else "COUNT(*)"
-                count_sql = f'SELECT {selection} FROM ({query_sql}) AS matches WHERE matches."pk" >= %s AND matches."pk" <= %s'
-                if first_match:
-                    count_sql += " LIMIT 1"
-                pk_field = queryset.model._meta.pk
-                # Bound each read lock even for unindexed smart predicates.
-                # Materialize PKs before counting; never hold an iterator open.
-                rows = queryset.model.objects.using(queryset.db).order_by("pk").values_list("pk", flat=True)
-                while True:
-                    ids = list((rows.filter(pk__gt=last) if last else rows)[:1000])
-                    if not ids:
-                        break
-                    bounds = [pk_field.get_db_prep_value(value, db) for value in (ids[0], ids[-1])]
-                    with db.cursor() as cursor:
-                        cursor.execute(count_sql, (*query_params, *bounds))
-                        row = cursor.fetchone()
-                    if first_match:
-                        if row:
-                            snapshot_id = str(row[0])
-                            break
-                    else:
-                        count += row[0]
-                    last = ids[-1]
+                # Let the database count/filter its index. Walking every PK in
+                # Python made each refresh hydrate the entire collection, even
+                # for an empty indexed folder, and contend with HTTP for the GIL.
+                # A witness needs at most one row; a count returns only a scalar.
+                snapshot_id = next(iter(queryset.values_list("pk", flat=True)[:1]), None) if first_match else None
+                count = 0 if first_match else queryset.count()
+                snapshot_id = str(snapshot_id) if snapshot_id is not None else None
                 cache.set(key, {"count": count, "snapshot_id": snapshot_id, "sampled_at": time()}, timeout=3600)
             except Exception:
                 logging.getLogger(__name__).exception("Could not refresh snapshot list count")
