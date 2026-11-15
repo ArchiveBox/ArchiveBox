@@ -1,0 +1,45 @@
+archivebox/tests/test_ui_public_snapshot.py
+  s_784d0e5fa3aa29::t_c4096a24d39c93 433-435,547,595-600,602-605
+  s_784d0e5fa3aa29::t_65009a712c9a57 601,606-610,617
+archivebox/api/migrations/0004_retain_webhook_health_counters.py
+  s_784d0e5fa3aa29::t_fd951c8f489438 1-14,16-21
+  s_784d0e5fa3aa29::t_67dae1a892167c 15
+archivebox/api/models.py
+  s_784d0e5fa3aa29::t_2d6711cb8cb4c8 12,44
+archivebox/tests/test_ui_list_results.py
+  s_784d0e5fa3aa29::t_c4096a24d39c93 21,232,234,241,243-244
+  s_784d0e5fa3aa29::t_6cfb42a07d21d8 240,242,245-247
+archivebox/tests/test_folder_performance.py
+  s_784d0e5fa3aa29::t_c4096a24d39c93 2,133,136-143,145
+archivebox/tests/test_migrations_08_to_09.py
+  s_784d0e5fa3aa29::t_84adedb2ebe87d 541-558
+archivebox/tests/test_webhook_actions.py
+  s_784d0e5fa3aa29::t_6147a3ad77ce7b 77,111-112,199-210
+  s_784d0e5fa3aa29::t_2d6711cb8cb4c8 213-229
+  s_784d0e5fa3aa29::t_94e834c9b6ac9a 211-212
+archivebox/api/admin.py
+  s_784d0e5fa3aa29::t_7da60779c9be5f 104,111
+  s_784d0e5fa3aa29::t_67dae1a892167c 105-110
+  s_784d0e5fa3aa29::t_2d6711cb8cb4c8 73
+archivebox/api/webhooks.py
+  s_784d0e5fa3aa29::t_2d6711cb8cb4c8 147
+archivebox/api/migrations/0002_outboundwebhook_actions.py
+  s_784d0e5fa3aa29::t_67dae1a892167c 17
+  s_784d0e5fa3aa29::t_fd951c8f489438 7-16,18-20,28-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d84b93fed1796856727964d1fb34e1a9f36895cd",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
