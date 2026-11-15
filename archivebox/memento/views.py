@@ -49,11 +49,24 @@ def _enclosures(request, snapshot):
     anchor = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
     results = snapshot.__dict__.get("_admin_archiveresults")
     if results is None:
-        results = snapshot.archiveresult_set.all()
+        results = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+    if results is None:
+        results = snapshot.archiveresult_set.filter(status="succeeded").only("snapshot_id", "plugin", "status", "output_files")
     for result in results:
         if result.status == result.StatusChoices.SUCCEEDED:
-            files = result.output_file_map()
+            # A raw favicon/image response also adds Memento links. Do not
+            # validate and resolve every captured asset to find a few bundles.
+            raw_files = result.output_files
+            if isinstance(raw_files, dict):
+                candidates = {key: value for key, value in raw_files.items() if _archive_type(str(key))}
+                if not candidates:
+                    continue
+                files = result._normalize_output_files(candidates)
+            else:
+                files = result.output_file_map()
             for key in files:
+                if not _archive_type(key):
+                    continue
                 path = result.output_file_path(key, output_file_map=files)
                 if path and (mime := _archive_type(path)):
                     url = build_snapshot_url(str(snapshot.id), path, request=request) + "?raw=1"

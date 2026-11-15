@@ -275,12 +275,15 @@ def test_memento_private_access_and_incomplete_capture(client, captures):
 def test_memento_authenticated_discovery(client, captures, admin_user, archive_files):
     assert client.login(username=admin_user.username, password="testpassword")
     url = urlsplit(capture_url(captures[0]))
-    response = client.get(url.path + "?format=link", HTTP_HOST="admin.archivebox.localhost:5797")
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(url.path + "?format=link", HTTP_HOST="admin.archivebox.localhost:5797")
     assert response.status_code == 200
     assert response.content.decode().count('rel="memento"') == 4
     assert response.content.decode().count('rel="enclosure"') == 12
     assert response["Cache-Control"] == "private, no-store"
     assert "Cookie" in response["Vary"]
+    manifest_queries = [query["sql"] for query in queries if '"core_archiveresult"."output_files"' in query["sql"]]
+    assert len(manifest_queries) == 1, manifest_queries
 
 
 @pytest.mark.django_db(transaction=True)
@@ -366,14 +369,58 @@ def test_memento_range_and_conditional_responses(client, captures):
     hashes = snapshot.output_dir / "hashes" / "hashes.json"
     hashes.parent.mkdir()
     hashes.write_text(json.dumps({"files": [{"path": path, "hash": digest}]}))
+    seal = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="hashes",
+        status="succeeded",
+        output_files={"hashes.json": {"size": hashes.stat().st_size}},
+    )
+    revision = f"{seal.id.hex}-{seal.modified_at.isoformat()}"
+    validator = sha256(f"{revision}:{path}".encode()).hexdigest()
     url = build_snapshot_url(str(snapshot.id), path) + "?raw=1"
     response = fetch(client, url, HTTP_RANGE="bytes=0-9")
     assert response.status_code == 206
     assert b"".join(response.streaming_content) == content[:10]
+    assert response["ETag"] == f'"{validator}"'
     assert response["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
-    response = fetch(client, url, HTTP_IF_NONE_MATCH=f'"{digest}"')
+    response = fetch(client, url, HTTP_IF_NONE_MATCH=f'"{validator}"')
     assert response.status_code == 304
     assert response.content == b""
-    assert response["ETag"] == f'"{digest}"'
+    assert response["ETag"] == f'"{validator}"'
     assert response["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
     assert 'rel="original"' in response["Link"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_raw_output_enclosures_only_resolve_archive_paths(client, captures, archive_files):
+    import cProfile
+    import pstats
+
+    snapshot = captures[0]
+    directory = snapshot.output_dir / "responses"
+    directory.mkdir()
+    files = {}
+    for index in range(64):
+        name = f"asset-{index}.txt"
+        path = directory / name
+        path.write_text(f"Captured asset {index}")
+        files[name] = {"size": path.stat().st_size, "mimetype": "text/plain"}
+    ArchiveResult.objects.create(snapshot=snapshot, plugin="responses", status="succeeded", output_files=files)
+    profile = cProfile.Profile()
+    with CaptureQueriesContext(connection) as queries, profile:
+        response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/singlefile.html"))
+    assert response.status_code == 200
+    assert b"Saved on day 1" in b"".join(response.streaming_content)
+    assert len([link for link in requests.utils.parse_header_links(response["Link"]) if link["rel"] == "enclosure"]) == 3
+    path_resolutions = sum(
+        calls[0]
+        for (_filename, _line, function), values in pstats.Stats(profile).stats.items()
+        if function == "output_file_path"
+        for (_caller_file, _caller_line, caller), calls in values[4].items()
+        if caller == "_enclosures"
+    )
+    assert path_resolutions == 3, path_resolutions
+    manifest_queries = [query["sql"] for query in queries if '"core_archiveresult"."output_files"' in query["sql"]]
+    enclosure_query = manifest_queries[-1]
+    assert '"output_str"' not in enclosure_query.split(" FROM ")[0]
+    assert "\"status\" = 'succeeded'" in enclosure_query
