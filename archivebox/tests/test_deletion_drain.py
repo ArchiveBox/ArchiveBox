@@ -1,6 +1,7 @@
 """The scheduled filesystem job drains pages without retrying failures in a loop."""
 
 import json
+import sqlite3
 import textwrap
 import time
 from pathlib import Path
@@ -17,6 +18,52 @@ from archivebox.tests.conftest import (
     wait_for_log,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+
+@pytest.mark.django_db(transaction=True)
+def test_snapshot_cascade_reserves_writer_after_filesystem_cleanup(snapshot):
+    from django.db import connection
+    from archivebox.core.models import Snapshot
+
+    output = snapshot.output_dir
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "saved.txt").write_text("saved output")
+    snapshot_id = snapshot.pk
+    crawl = snapshot.crawl
+    attempted = []
+    previous_mode = connection.transaction_mode
+
+    def competing_write_after_delete_read(execute, sql, params, many, context):
+        result = execute(sql, params, many, context)
+        # Observe the real collector's first transactional read, then attempt
+        # a real independent commit in that read-to-write window. No query or
+        # signal is replaced. WAL otherwise allows this to stale the reader.
+        if connection.in_atomic_block and sql.lstrip().upper().startswith("SELECT") and not attempted:
+            assert not output.exists(), "Filesystem work must finish before the cascade reserves its writer"
+            writer = sqlite3.connect(connection.settings_dict["NAME"], timeout=0, isolation_level=None)
+            try:
+                writer.execute("UPDATE crawls_crawl SET notes=? WHERE id=?", ("competing commit", crawl.pk.hex))
+                attempted.append("committed")
+            except sqlite3.OperationalError as error:
+                assert error.sqlite_errorcode == sqlite3.SQLITE_BUSY
+                attempted.append("reserved")
+            finally:
+                writer.close()
+        return result
+
+    with connection.execute_wrapper(competing_write_after_delete_read):
+        snapshot.delete()
+    assert attempted == ["reserved"]
+    assert not Snapshot.objects.filter(pk=snapshot_id).exists()
+    assert not output.exists()
+    assert connection.transaction_mode == previous_mode
+    crawl.refresh_from_db()
+    assert crawl.notes != "competing commit"
+    # The short reservation ends with the cascade; other writers can proceed.
+    with sqlite3.connect(connection.settings_dict["NAME"], timeout=0) as writer:
+        writer.execute("UPDATE crawls_crawl SET notes=? WHERE id=?", ("after deletion", crawl.pk.hex))
+    crawl.refresh_from_db()
+    assert crawl.notes == "after deletion"
 
 
 @pytest.mark.django_db(transaction=True)

@@ -1205,7 +1205,19 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Cascaded ArchiveResults share this directory. Their normal post-commit
         # cleanup would repeat filesystem work and update an already-deleted row.
         self._output_files_deleted = True
-        return super().delete(using=using, keep_parents=keep_parents)
+        connection = connections[using]
+        if connection.vendor != "sqlite":
+            return super().delete(using=using, keep_parents=keep_parents)
+        # Files are gone before reserving the writer. The collector's pre-delete
+        # signals read before its first UPDATE; a deferred transaction cannot
+        # upgrade that read snapshot if the runner commits in between.
+        connection.ensure_connection()
+        previous_mode = connection.transaction_mode
+        connection.transaction_mode = "IMMEDIATE"
+        try:
+            return super().delete(using=using, keep_parents=keep_parents)
+        finally:
+            connection.transaction_mode = previous_mode
 
     @classmethod
     def delete_requested(cls, *, batch_size=100, drain: bool = False):
