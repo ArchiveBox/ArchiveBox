@@ -17,6 +17,8 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
+from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
+
 EXPORT_FORMATS = {"rss": "RSS", "csv": "CSV", "jsonl": "JSONL", "html_zip": "Static HTML ZIP", "wacz": "Unified WACZ"}
 ALL_EXPORT_FORMATS = {**EXPORT_FORMATS, "html": "Static HTML to Disk"}
 ARCHIVE_FORMATS = {"html_zip", "wacz", "html"}
@@ -502,7 +504,12 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
         file = destination / filename
         if not file.is_file() or file.is_symlink() or file.stat().st_size > MAX_ARCHIVE_BYTES:
             return HttpResponse(status=404)
-        return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
+        stream = file.open("rb")
+        response = FileResponse(stream, as_attachment=True, filename=filename)
+        # Django otherwise buffers the synchronous file iterator under ASGI.
+        if _is_asgi_request(request):
+            response.streaming_content = _stream_ranged_file_async(RangedFileReader(stream))
+        return response
     return JsonResponse(_job_data(process, api=api))
 
 

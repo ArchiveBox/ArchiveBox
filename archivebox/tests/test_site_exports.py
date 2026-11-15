@@ -272,10 +272,11 @@ from pathlib import Path
 os.environ["DATA_DIR"] = str(Path.cwd())
 import django
 django.setup()
-import gzip, hashlib, io, json, zipfile
+import asyncio, gzip, hashlib, io, json, zipfile
+import psutil
 from urllib.parse import urlencode
 from django.contrib.auth import get_user_model
-from django.test import Client
+from django.test import AsyncClient, Client
 from archivebox.api.models import APIToken
 from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.crawls.models import Crawl
@@ -328,6 +329,21 @@ with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as bundle
     assert {page["url"] for page in pages} == {snapshot.url for snapshot, _, _ in saved}
     assert b"archivebox-links.js" in bundle.read(pages[0]["path"])
 response.close()
+# The same native export download must stream under ASGI without Django's
+# synchronous-iterator adaptation materializing the complete archive.
+archive_path = Path(status.json()["result"]["destination"]) / "site.zip"
+expected_archive = archive_path.read_bytes()
+async def download_asgi():
+    response = await AsyncClient().request(method="GET", path=job["download_url"], headers=[(b"host", b"api.archivebox.localhost:5797"), (b"x-archivebox-api-key", token.token.encode())])
+    assert response.status_code == 200, (response.status_code, dict(response.headers), response.content if not response.streaming else "streaming")
+    assert response.is_async
+    assert int(response["Content-Length"]) == len(expected_archive)
+    assert str(archive_path) in {file.path for file in psutil.Process().open_files()}
+    downloaded = b"".join([chunk async for chunk in response.streaming_content])
+    assert downloaded == expected_archive
+    assert response.closed
+    assert str(archive_path) not in {file.path for file in psutil.Process().open_files()}
+asyncio.run(download_asgi())
 # Public jobs use the same worker and become unavailable after visibility changes.
 response = client.post("/api/v1/core/snapshots/export/html_zip", json.dumps({"query": query}), content_type="application/json")
 assert response.status_code == 202, response.content

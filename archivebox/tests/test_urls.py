@@ -978,6 +978,14 @@ class TestUrlRouting:
             )
             # This manifest intentionally omits the real responses capture.
             # The portable detail page must still link its existing output.
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="hashes",
+                hook_name="on_Snapshot__93_hashes.py",
+                status="succeeded",
+                output_str="hashes.json",
+                output_files={"hashes.json": {"size": (hashes_dir / "hashes.json").stat().st_size}},
+            )
             responses_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin="responses", status="succeeded").first()
             assert responses_result is not None and responses_result.output_size > 0
             snapshot.write_html_details()
