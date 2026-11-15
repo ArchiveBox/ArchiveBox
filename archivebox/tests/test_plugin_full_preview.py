@@ -11,12 +11,19 @@ from archivebox.core.routes_util import get_snapshot_host
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
-def test_wacz_preview_uses_served_mount_and_portable_replay_base(snapshot, client, tmp_path, mode):
+def test_wacz_preview_uses_served_mount_and_portable_replay_base(snapshot, client, browser_runtime, tmp_path, mode):
     from urllib.parse import urlsplit
     from django.core.management import call_command
     from archivebox.core.routes_util import build_snapshot_url
     from archivebox.machine.models import Machine
 
+    from abx_plugins import get_plugins_dir
+    from archivebox.tests.conftest import resolve_abxpkg_binary_env
+
+    resolve_abxpkg_binary_env(
+        browser_runtime["lib_dir"],
+        deps_from=Path(get_plugins_dir()) / "archivewebpage" / "config.json",
+    )
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": "http://archivebox.localhost:8000", "SERVER_SECURITY_MODE": mode}
     machine.save(update_fields=["config"])

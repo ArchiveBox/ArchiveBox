@@ -623,12 +623,24 @@ class SnapshotQuerySet(PagedQuerySet):
 
     def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
         """Extract hostnames in SQL, without fetching URLs or archive files."""
+
+        def append_separator(expression, separator):
+            # URL and separator are non-null. Concat's nested COALESCE guards
+            # overflow older SQLite parsers when folders compose this query.
+            return models.Func(
+                expression,
+                Value(separator),
+                template="(%(expressions)s)",
+                arg_joiner=" || ",
+                output_field=models.CharField(),
+            )
+
         authority = Substr("url", StrIndex("url", Value("://")) + 3)
         # Find the first URL separator with one scan. Expanding three MIN/
         # COALESCE expressions repeatedly through the hostname CASE tree made
         # Django copy tens of thousands of expression nodes per smart rule.
         separators = Replace(Replace(authority, Value("?"), Value("/")), Value("#"), Value("/"))
-        end = StrIndex(Concat(separators, Value("/")), Value("/"))
+        end = StrIndex(append_separator(separators, "/"), Value("/"))
         queryset = (
             self.filter(url__iregex=r"^https?://")
             .alias(_domain_authority=Substr(authority, 1, end - 1))
@@ -638,7 +650,7 @@ class SnapshotQuerySet(PagedQuerySet):
                 # queries otherwise exceed SQLite's parser stack limit.
                 _domain_address=Right(
                     "_domain_authority",
-                    StrIndex(Concat(Reverse("_domain_authority"), Value("@")), Value("@")) - 1,
+                    StrIndex(append_separator(Reverse("_domain_authority"), "@"), Value("@")) - 1,
                 ),
             )
             .annotate(
@@ -651,7 +663,7 @@ class SnapshotQuerySet(PagedQuerySet):
                         default=Substr(
                             "_domain_address",
                             1,
-                            StrIndex(Concat("_domain_address", Value(":")), Value(":")) - 1,
+                            StrIndex(append_separator("_domain_address", ":"), Value(":")) - 1,
                         ),
                     ),
                 ),
