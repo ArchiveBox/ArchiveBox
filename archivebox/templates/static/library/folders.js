@@ -152,10 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             row.append(renderNode(child,value => {item.rules[index]=value;},item.rules.length>1 ? () => {item.rules.splice(index,1);render();} : null));
           });
-          if (item.rules.length<2) {
+          if (item.rules.length<2 || node === rules) {
             const toolbar=element('div','rule-group-toolbar');
-            toolbar.append(button('+ Rule',() => {item.rules.push(defaultRule());render();}),
-              button('+ Group',() => {item.rules.push({op:'AND',rules:[defaultRule()]});render();}));
+            function append(child) {
+              if (item.rules.length < 2) item.rules.push(child);
+              else rules = {op:'AND', rules:[node, child]};
+              render();
+            }
+            toolbar.append(button('+ Rule',() => append(defaultRule())),
+              button('+ Group',() => append({op:'AND',rules:[defaultRule()]})));
             row.append(toolbar);
           }
         } else {
@@ -204,7 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
       kind.onchange = render;
       render();
     }
-    document.querySelectorAll('.folder-new,.folder-edit').forEach(button => button.addEventListener('click', () => openFolder(button)));
+    document.addEventListener('click', event => {
+      const button = event.target.closest('.folder-new,.folder-edit');
+      if (button) openFolder(button);
+    });
     dialog.querySelectorAll('.folder-dialog-close').forEach(button => button.addEventListener('click', () => dialog.close()));
     dialog.querySelector('.folder-delete').addEventListener('click', async event => {
       if (!window.confirm(`Delete “${folderForm.elements.name.value}”?`)) return;
@@ -224,7 +232,14 @@ document.addEventListener('DOMContentLoaded', () => {
       save.disabled = true;
       dialog.querySelector('.folder-form-error').textContent = '';
       try {
-        const response = await fetch(folderForm.action, {method:'POST', body:new FormData(folderForm), credentials:'same-origin'});
+        const data = new FormData(folderForm);
+        const refreshTree = sidebar && !data.get('folder_id');
+        const url = new URL(folderForm.action);
+        if (refreshTree) {
+          data.set('refresh_tree', '1');
+          url.search = location.search;
+        }
+        const response = await fetch(url, {method:'POST', body:data, credentials:'same-origin'});
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Could not save folder.');
         if (picker) {
@@ -235,6 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
           picker.dispatchEvent(new Event('change', {bubbles:true}));
           dialog.close();
           picker.focus();
+        } else if (refreshTree) {
+          refreshFolderTree(result.folder_html, result.id);
+          dialog.close();
         } else {
           dialog.close();
           location.reload();
@@ -243,46 +261,49 @@ document.addEventListener('DOMContentLoaded', () => {
       finally {save.disabled = false;}
     });
   }
-  document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
-    const menu = document.getElementById(button.getAttribute('popovertarget'));
-    const items = [...menu.querySelectorAll('[role=menuitem]')];
-    function positionMenu() {
-      const rect = button.getBoundingClientRect();
-      const box = menu.getBoundingClientRect();
-      menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
-      const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
-      menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
-    }
-    menu.addEventListener('toggle', event => {
-      const open = event.newState === 'open';
-      button.setAttribute('aria-expanded', String(open));
-      if (open) {
-        positionMenu();
-        items[0]?.focus({preventScroll:true});
-        window.addEventListener('resize', positionMenu);
-        window.addEventListener('scroll', positionMenu, true);
-      } else {
-        window.removeEventListener('resize', positionMenu);
-        window.removeEventListener('scroll', positionMenu, true);
+  function initializeMenus(root) {
+    root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
+      const menu = document.getElementById(button.getAttribute('popovertarget'));
+      const items = [...menu.querySelectorAll('[role=menuitem]')];
+      function positionMenu() {
+        const rect = button.getBoundingClientRect();
+        const box = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(8, Math.min(innerWidth - box.width - 8, rect.right - box.width))}px`;
+        const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
+        menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
       }
+      menu.addEventListener('toggle', event => {
+        const open = event.newState === 'open';
+        button.setAttribute('aria-expanded', String(open));
+        if (open) {
+          positionMenu();
+          items[0]?.focus({preventScroll:true});
+          window.addEventListener('resize', positionMenu);
+          window.addEventListener('scroll', positionMenu, true);
+        } else {
+          window.removeEventListener('resize', positionMenu);
+          window.removeEventListener('scroll', positionMenu, true);
+        }
+      });
+      button.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (!menu.matches(':popover-open')) menu.showPopover();
+        }
+      });
+      menu.addEventListener('keydown', event => {
+        const index = items.indexOf(document.activeElement);
+        if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+          event.preventDefault();
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+          items[next]?.focus();
+        } else if (event.key === 'Tab') menu.hidePopover();
+      });
     });
-    button.addEventListener('keydown', event => {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        if (!menu.matches(':popover-open')) menu.showPopover();
-      }
-    });
-    menu.addEventListener('keydown', event => {
-      const index = items.indexOf(document.activeElement);
-      if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
-        event.preventDefault();
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-        items[next]?.focus();
-      } else if (event.key === 'Tab') menu.hidePopover();
-    });
-  });
+  }
+  initializeMenus(document);
   if (!sidebar) return;
-  const form = document.querySelector('#changelist-form');
+  let form = document.querySelector('#changelist-form');
   if (location.hash === '#delete-snapshots' && form && new URLSearchParams(location.search).has('folder')) {
     history.replaceState(null, '', location.pathname + location.search);
     const action = form.querySelector('select[name=action]');
@@ -299,27 +320,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   const status = sidebar.querySelector('.folder-drop-status');
-  const rows = [...sidebar.querySelectorAll('.folder-row')];
+  let rows = [...sidebar.querySelectorAll('.folder-row')];
   const segments = new Intl.Segmenter(undefined, {granularity:'grapheme'});
   function leadingEmoji(name) {
     const first = segments.segment(name).containing(0)?.segment;
     return first && /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u.test(first) ? first : '';
   }
-  rows.forEach(row => {
-    const first = leadingEmoji(row.dataset.folderName);
-    if (!first) return;
-    const label = row.querySelector('.folder-link>span');
-    const emoji = document.createElement('span');
-    emoji.className='folder-title-emoji'; emoji.textContent=first; emoji.setAttribute('aria-hidden','true');
-    const icon=row.querySelector('.folder-link>svg');
-    if (icon) icon.replaceWith(emoji);
-    else {
-      const toggle=row.querySelector('.folder-toggle');
-      toggle.classList.add('has-title-emoji'); toggle.append(emoji);
-    }
-    label.textContent=row.dataset.folderName.slice(first.length).trimStart();
-    row.querySelector('.folder-link').setAttribute('aria-label', row.dataset.folderName);
-  });
+  function initializeTreeRows() {
+    rows.forEach(row => {
+      const first = leadingEmoji(row.dataset.folderName);
+      if (!first) return;
+      const label = row.querySelector('.folder-link>span');
+      const emoji = document.createElement('span');
+      emoji.className='folder-title-emoji'; emoji.textContent=first; emoji.setAttribute('aria-hidden','true');
+      const icon=row.querySelector('.folder-link>svg');
+      if (icon) icon.replaceWith(emoji);
+      else {
+        const toggle=row.querySelector('.folder-toggle');
+        toggle.classList.add('has-title-emoji'); toggle.append(emoji);
+      }
+      label.textContent=row.dataset.folderName.slice(first.length).trimStart();
+      row.querySelector('.folder-link').setAttribute('aria-label', row.dataset.folderName);
+    });
+    rows.forEach(row => row.querySelector('.folder-toggle')?.addEventListener('click', () => {
+      const id = row.dataset.folderId;
+      if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+      try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+      renderTree();
+    }));
+  }
+  initializeTreeRows();
   const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
   const search = sidebar.querySelector('.folder-search');
   const collapsed = new Set();
@@ -353,6 +383,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
+  }
+  function refreshFolderTree(html, createdId) {
+    const tree = sidebar.querySelector('.folder-tree');
+    tree.innerHTML = html;
+    rows = [...tree.querySelectorAll('.folder-row')];
+    initializeTreeRows();
+    initializeMenus(tree);
+    initializeFolderDragging(rows);
+    initializeDropTargets(rows);
+    let parent = rows.find(row => row.dataset.folderId === createdId)?.dataset.parentId;
+    while (parent) {
+      collapsed.delete(parent);
+      parent = rows.find(row => row.dataset.folderId === parent)?.dataset.parentId;
+    }
+    renderTree();
+    [folderForm.elements.parent, form?.querySelector('[name=folder_destination]')].filter(Boolean).forEach(select => {
+      const selectedValue = select.value;
+      const root = select.options[0].cloneNode(true);
+      select.replaceChildren(root);
+      rows.forEach(row => {
+        if (select.name === 'folder_destination' && row.dataset.smart === 'true' && row.dataset.container !== 'true') return;
+        select.add(new Option(row.querySelector('.folder-link').title, row.dataset.folderId));
+      });
+      select.value = selectedValue;
+    });
   }
   search.addEventListener('input', renderTree);
   const searchToggle = sidebar.querySelector('.folder-search-toggle');
@@ -417,15 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
     viewportChanged();
     mobileToggle.focus();
   });
-  sidebar.querySelectorAll('.folder-toggle').forEach(toggle => toggle.addEventListener('click', () => {
-    const id = toggle.closest('.folder-row').dataset.folderId;
-    if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
-    try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
-    renderTree();
-  }));
   renderTree();
 
-  if (!form) return;
   // Prepare every row before measuring any: alternating writes/reads per row
   // otherwise forces the browser to lay out the entire snapshot table repeatedly.
   const pendingTagUpdates = new Set();
@@ -439,7 +487,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const layouts = measurements.map(measure => measure());
     layouts.forEach(apply => apply());
   }
-  form.querySelectorAll('.tag-pills-inline').forEach(pills => {
+  const cleanupTagRows = [];
+  function initializeTagRows() {
+  cleanupTagRows.splice(0).forEach(cleanup => cleanup());
+  pendingTagUpdates.clear();
+  form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
     const editor = pills.closest('.tag-editor-inline');
     const input = editor.querySelector('.tag-inline-input-sm');
     const toggle = document.createElement('button');
@@ -501,12 +553,18 @@ document.addEventListener('DOMContentLoaded', () => {
       pendingTagUpdates.add(prepareTags);
       if (!tagUpdateFrame) tagUpdateFrame = requestAnimationFrame(flushTagUpdates);
     }
+    // Pointer focus would reveal the tag delete controls and move this button
+    // between pointerdown and click. Keyboard focus still behaves normally.
+    toggle.addEventListener('pointerdown', event => event.preventDefault());
     toggle.addEventListener('click', event => {
       event.stopPropagation();
+      if (editor.contains(document.activeElement) && document.activeElement !== toggle) document.activeElement.blur();
       pills.classList.toggle('library-tags-expanded');
       updateTags();
+      flushTagUpdates();
     });
-    new MutationObserver(updateTags).observe(pills, {childList:true,subtree:true});
+    const tagMutationObserver = new MutationObserver(updateTags);
+    tagMutationObserver.observe(pills, {childList:true,subtree:true});
     const tagResizeObserver = new ResizeObserver(updateTags);
     tagResizeObserver.observe(editor);
     if (input) {
@@ -515,15 +573,20 @@ document.addEventListener('DOMContentLoaded', () => {
     editor.addEventListener('focusin', updateTags);
     editor.addEventListener('focusout', updateTags);
     window.addEventListener('resize', updateTags);
+    cleanupTagRows.push(() => {
+      tagMutationObserver.disconnect();
+      tagResizeObserver.disconnect();
+      window.removeEventListener('resize', updateTags);
+    });
     updateTags();
   });
   flushTagUpdates();
+  }
   function selectionChanged() {
-    const checked = form.querySelector('input.action-select:checked');
+    const checked = form?.querySelector('input.action-select:checked');
     document.querySelectorAll('.actions-folder').forEach(field => {field.hidden = !checked;});
   }
   document.addEventListener('change', selectionChanged);
-  selectionChanged();
   let dragging = false;
   let movingFolder = null;
   let expandTimer;
@@ -536,10 +599,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.snapshot-dragging,.drop-active,.drop-before,.drop-after').forEach(node => node.classList.remove('snapshot-dragging','drop-active','drop-before','drop-after'));
     badge?.remove();
   }
-  form.querySelectorAll('input.action-select').forEach(checkbox => {
+  function initializeSnapshotDragging() {
+  form?.querySelectorAll('input.action-select').forEach(checkbox => {
     const row = checkbox.closest('tr,.card');
     if (!row) return;
     row.draggable = true;
+    // Images and links otherwise start their own native drag instead of moving
+    // the selected snapshots. Clicking those links still works normally.
+    row.querySelectorAll('a,img').forEach(element => {element.draggable = false;});
     row.addEventListener('dragstart', event => {
       const target = event.target instanceof Element ? event.target : event.target.parentElement;
       if (target?.closest('button,input,select,.tag-editor-container,.tag-editor-inline')) {event.preventDefault(); return;}
@@ -562,23 +629,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     row.addEventListener('dragend', () => {clearDrag(); status.textContent = '';});
   });
-  rows.forEach(row => {
-    row.draggable = true;
-    row.addEventListener('dragstart', event => {
-      const target = event.target instanceof Element ? event.target : event.target.parentElement;
-      if (target?.closest('button,input')) {event.preventDefault(); return;}
-      movingFolder = row.dataset.folderId;
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('application/x-archivebox-folder', movingFolder);
-      row.classList.add('snapshot-dragging');
-      status.textContent = 'Drop inside a folder to nest, or between folders to reorder.';
+  }
+  function initializeFolderDragging(folderRows) {
+    folderRows.forEach(row => {
+      row.draggable = true;
+      row.addEventListener('dragstart', event => {
+        const target = event.target instanceof Element ? event.target : event.target.parentElement;
+        if (target?.closest('button,input')) {event.preventDefault(); return;}
+        movingFolder = row.dataset.folderId;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-archivebox-folder', movingFolder);
+        row.classList.add('snapshot-dragging');
+        status.textContent = 'Drop inside a folder to nest, or between folders to reorder.';
+      });
+      row.addEventListener('dragend', () => {
+        const cancelled = movingFolder;
+        clearDrag();
+        if (cancelled) status.textContent = '';
+      });
     });
-    row.addEventListener('dragend', () => {
-      const cancelled = movingFolder;
-      clearDrag();
-      if (cancelled) status.textContent = '';
-    });
-  });
+  }
+  initializeFolderDragging(rows);
   const rootTarget = sidebar.querySelector('.library-root-link');
   rootTarget.dataset.folderId = '';
   rootTarget.classList.add('folder-drop-target');
@@ -607,58 +678,72 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(expandTimer);
     expandTimer = null;
   }
-  sidebar.querySelectorAll('.folder-drop-target').forEach(target => {
-    target.addEventListener('dragover', event => {
-      if (!dragging && !movingFolder) return;
-      event.preventDefault();
-      if (!canDrop(target)) {
-        event.dataTransfer.dropEffect = 'none';
-        clearDropTarget();
-        return;
-      }
-      event.dataTransfer.dropEffect = 'move';
-      const position = placement(target, event);
-      if (hoverTarget !== target || hoverPlacement !== position) clearDropTarget();
-      hoverTarget = target;
-      hoverPlacement = position;
-      target.classList.toggle('drop-before', position === 'before');
-      target.classList.toggle('drop-after', position === 'after');
-      target.classList.toggle('drop-active', position === 'inside');
-      if (position === 'inside' && collapsed.has(target.dataset.folderId) && !expandTimer) {
-        expandTimer = setTimeout(() => {collapsed.delete(target.dataset.folderId); renderTree(); expandTimer = null;}, 600);
-      }
+  function initializeDropTargets(targets) {
+    targets.forEach(target => {
+      target.addEventListener('dragover', event => {
+        if (!dragging && !movingFolder) return;
+        event.preventDefault();
+        if (!canDrop(target)) {
+          event.dataTransfer.dropEffect = 'none';
+          clearDropTarget();
+          return;
+        }
+        event.dataTransfer.dropEffect = 'move';
+        const position = placement(target, event);
+        if (hoverTarget !== target || hoverPlacement !== position) clearDropTarget();
+        hoverTarget = target;
+        hoverPlacement = position;
+        target.classList.toggle('drop-before', position === 'before');
+        target.classList.toggle('drop-after', position === 'after');
+        target.classList.toggle('drop-active', position === 'inside');
+        if (position === 'inside' && collapsed.has(target.dataset.folderId) && !expandTimer) {
+          expandTimer = setTimeout(() => {collapsed.delete(target.dataset.folderId); renderTree(); expandTimer = null;}, 600);
+        }
+      });
+      target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget) && hoverTarget === target) clearDropTarget();});
+      target.addEventListener('drop', async event => {
+        if (!dragging && !movingFolder) return;
+        event.preventDefault();
+        if (!canDrop(target)) {clearDrag(); status.textContent = ''; return;}
+        if (movingFolder) {
+          const data = new FormData();
+          data.set('folder_id', movingFolder); data.set('target_id', target.dataset.folderId); data.set('placement', placement(target,event));
+          data.set('csrfmiddlewaretoken', folderForm.elements.csrfmiddlewaretoken.value);
+          clearDrag(); status.textContent = 'Moving folder…';
+          try {
+            const response = await fetch(sidebar.dataset.moveUrl, {method:'POST',body:data,credentials:'same-origin'});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Could not move folder.');
+            let ancestor = data.get('placement') === 'inside' ? target : rows.find(row => row.dataset.folderId === target.dataset.parentId);
+            while (ancestor) {
+              collapsed.delete(ancestor.dataset.folderId);
+              ancestor = rows.find(row => row.dataset.folderId === ancestor.dataset.parentId);
+            }
+            try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+            location.reload();
+          } catch (error) {status.textContent = error.message;}
+          return;
+        }
+        const destination = form.querySelector('[name=folder_destination]');
+        const action = form.querySelector('select[name=action]');
+        if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
+        destination.value = target.dataset.smart === 'true' && target.dataset.container !== 'true' ? '' : target.dataset.folderId;
+        action.value = 'move_to_folder';
+        clearDrag(); status.textContent = 'Moving snapshots…';
+        form.requestSubmit(form.querySelector('button[name=index]'));
+      });
     });
-    target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget) && hoverTarget === target) clearDropTarget();});
-    target.addEventListener('drop', async event => {
-      if (!dragging && !movingFolder) return;
-      event.preventDefault();
-      if (!canDrop(target)) {clearDrag(); status.textContent = ''; return;}
-      if (movingFolder) {
-        const data = new FormData();
-        data.set('folder_id', movingFolder); data.set('target_id', target.dataset.folderId); data.set('placement', placement(target,event));
-        data.set('csrfmiddlewaretoken', folderForm.elements.csrfmiddlewaretoken.value);
-        clearDrag(); status.textContent = 'Moving folder…';
-        try {
-          const response = await fetch(sidebar.dataset.moveUrl, {method:'POST',body:data,credentials:'same-origin'});
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Could not move folder.');
-          let ancestor = data.get('placement') === 'inside' ? target : rows.find(row => row.dataset.folderId === target.dataset.parentId);
-          while (ancestor) {
-            collapsed.delete(ancestor.dataset.folderId);
-            ancestor = rows.find(row => row.dataset.folderId === ancestor.dataset.parentId);
-          }
-          try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
-          location.reload();
-        } catch (error) {status.textContent = error.message;}
-        return;
-      }
-      const destination = form.querySelector('[name=folder_destination]');
-      const action = form.querySelector('select[name=action]');
-      if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
-      destination.value = target.dataset.smart === 'true' && target.dataset.container !== 'true' ? '' : target.dataset.folderId;
-      action.value = 'move_to_folder';
-      clearDrag(); status.textContent = 'Moving snapshots…';
-      form.requestSubmit(form.querySelector('button[name=index]'));
-    });
-  });
+  }
+  initializeDropTargets(sidebar.querySelectorAll('.folder-drop-target'));
+  let initializedForm;
+  window.archiveboxInitLibraryRows = () => {
+    form = document.querySelector('#changelist-form');
+    if (form !== initializedForm) {
+      initializedForm = form;
+      initializeTagRows();
+      initializeSnapshotDragging();
+    }
+    selectionChanged();
+  };
+  window.archiveboxInitLibraryRows();
 });

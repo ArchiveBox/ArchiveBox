@@ -27,7 +27,7 @@ def test_snapshot_action_toolbar_is_server_rendered(admin_client, snapshot):
 def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_user, crawl):
     from playwright.sync_api import expect, sync_playwright
 
-    from archivebox.core.models import Snapshot, Tag
+    from archivebox.core.models import Folder, Snapshot, Tag
 
     from urllib.parse import urlsplit
     from archivebox.machine.models import Machine
@@ -102,8 +102,24 @@ def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_
         expect(row.locator('.tag-pill[data-tag="new-test-tag"]')).to_be_visible()
         row.locator('.tag-pill[data-tag="new-test-tag"] .tag-remove-btn').click()
         expect(row.locator('.tag-pill[data-tag="new-test-tag"]')).to_have_count(0)
+        navigation_start = page.evaluate("performance.timeOrigin")
+        page.get_by_role("button", name="Create folder", exact=True).click()
+        page.get_by_role("menuitem", name="New folder", exact=True).click()
+        page.locator("#folder-name").fill("New sidebar folder")
+        page.get_by_role("button", name="Save folder", exact=True).click()
+        expect(page.locator(".folder-tree")).to_contain_text("New sidebar folder")
+        assert page.evaluate("performance.timeOrigin") == navigation_start
+        expect(page.locator("input.action-select").first).to_be_checked()
+        page.locator('.folder-row[data-folder-name="New sidebar folder"]').hover()
+        page.get_by_role("button", name="Add folder in New sidebar folder", exact=True).click()
+        page.locator("#folder-name").fill("Sidebar child")
+        page.get_by_role("button", name="Save folder", exact=True).click()
+        expect(page.locator(".folder-tree")).to_contain_text("Sidebar child")
+        expect(page.get_by_role("button", name="Add folder in New sidebar folder", exact=True)).to_be_visible()
+        assert page.evaluate("performance.timeOrigin") == navigation_start
         browser.close()
     snapshot.refresh_from_db()
     assert snapshot.permissions == "private"
     assert snapshot.status == "sealed"
     assert set(snapshot.tags.values_list("name", flat=True)) == {tag.name for tag in tags}
+    assert Folder.objects.get(name="Sidebar child").parent_id == Folder.objects.get(name="New sidebar folder").pk

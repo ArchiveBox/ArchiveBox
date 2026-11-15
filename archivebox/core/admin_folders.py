@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
 from django.urls import path
 
 from archivebox.core.models import Folder
@@ -155,7 +156,21 @@ class FolderAdmin(admin.ModelAdmin):
             last_position = Folder.objects.filter(parent=folder.parent).aggregate(last=Max("position"))["last"]
             folder.position = last_position + 1 if last_position is not None else 0
         self.save_model(request, folder, form, change=bool(folder_id))
-        return JsonResponse({"id": str(folder.pk), "name": folder.name})
+        result = {"id": str(folder.pk), "name": folder.name}
+        if request.POST.get("refresh_tree") == "1":
+            from archivebox.core.routes_util import build_snapshot_export_urls
+
+            folders = Folder.tree()
+            for item in folders:
+                filters = request.GET.copy()
+                filters["folder"] = str(item.pk)
+                item.export_urls = build_snapshot_export_urls(filters)
+            result["folder_html"] = render_to_string(
+                "core/folder_tree.html",
+                {"folder_tree": folders, "selected_folder": request.GET.get("folder", "")},
+                request=request,
+            )
+        return JsonResponse(result)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "parent" and request.resolver_match.kwargs.get("object_id"):
