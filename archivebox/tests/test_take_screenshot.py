@@ -304,7 +304,7 @@ def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_
 const puppeteer = require('puppeteer');
 const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
 (async () => {
-  const browser = await puppeteer.launch({executablePath: process.env.CHROME_BINARY, headless: true, args: JSON.parse(process.env.CHROME_ARGS)});
+  const browser = await puppeteer.launch({executablePath: process.env.CHROME_BINARY, headless: true, args: [...JSON.parse(process.env.CHROME_ARGS), '--no-sandbox']});
   try {
     const page = await browser.newPage();
     await page.setViewport({width: 1600, height: 1000});
