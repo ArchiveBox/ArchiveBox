@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`APIToken <archivebox.api.models.APIToken>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.models.APIToken
+    :summary:
+    ```
 * - {py:obj}`OutboundWebhook <archivebox.api.models.OutboundWebhook>`
   -
 ````
@@ -42,10 +44,24 @@
 ```
 ````
 
-``````{py:class} APIToken(*args, **kwargs)
+``````{py:class} APIToken
 :canonical: archivebox.api.models.APIToken
 
 Bases: {py:obj}`django.db.models.Model`
+
+```{autodoc2-docstring} archivebox.api.models.APIToken
+```
+
+````{py:attribute} emoji
+:canonical: archivebox.api.models.APIToken.emoji
+:type: str
+:value: >
+   '🔑'
+
+```{autodoc2-docstring} archivebox.api.models.APIToken.emoji
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.api.models.APIToken.id
@@ -112,6 +128,9 @@ Bases: {py:obj}`django.db.models.Model`
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
+```{autodoc2-docstring} archivebox.api.models.APIToken.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.api.models.APIToken.Meta.app_label
 :value: >
@@ -147,6 +166,9 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 ````{py:method} __str__() -> str
 :canonical: archivebox.api.models.APIToken.__str__
 
+```{autodoc2-docstring} archivebox.api.models.APIToken.__str__
+```
+
 ````
 
 ````{py:property} token_redacted
@@ -167,10 +189,21 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} OutboundWebhook(*args, **kwargs)
+``````{py:class} OutboundWebhook
 :canonical: archivebox.api.models.OutboundWebhook
 
-Bases: {py:obj}`signal_webhooks.models.WebhookBase`
+Bases: {py:obj}`signal_webhooks.models.WebhookBase`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
+
+````{py:attribute} emoji
+:canonical: archivebox.api.models.OutboundWebhook.emoji
+:type: str
+:value: >
+   '🪝'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.emoji
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.api.models.OutboundWebhook.id
@@ -212,6 +245,96 @@ Bases: {py:obj}`signal_webhooks.models.WebhookBase`
 
 ````
 
+````{py:attribute} endpoint
+:canonical: archivebox.api.models.OutboundWebhook.endpoint
+:value: >
+   'URLField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.endpoint
+```
+
+````
+
+````{py:attribute} last_success
+:canonical: archivebox.api.models.OutboundWebhook.last_success
+:value: >
+   'DateTimeField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.last_success
+```
+
+````
+
+````{py:attribute} last_failure
+:canonical: archivebox.api.models.OutboundWebhook.last_failure
+:value: >
+   'DateTimeField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.last_failure
+```
+
+````
+
+````{py:attribute} signal
+:canonical: archivebox.api.models.OutboundWebhook.signal
+:value: >
+   'CharField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.signal
+```
+
+````
+
+````{py:attribute} actions
+:canonical: archivebox.api.models.OutboundWebhook.actions
+:value: >
+   'JSONField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.actions
+```
+
+````
+
+````{py:attribute} folder
+:canonical: archivebox.api.models.OutboundWebhook.folder
+:value: >
+   'ForeignKey(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.folder
+```
+
+````
+
+````{py:attribute} position
+:canonical: archivebox.api.models.OutboundWebhook.position
+:value: >
+   'PositiveIntegerField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.position
+```
+
+````
+
+````{py:attribute} stop_processing
+:canonical: archivebox.api.models.OutboundWebhook.stop_processing
+:value: >
+   'BooleanField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.stop_processing
+```
+
+````
+
+````{py:attribute} stop_on_failure
+:canonical: archivebox.api.models.OutboundWebhook.stop_on_failure
+:value: >
+   'BooleanField(...)'
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.stop_on_failure
+```
+
+````
+
 `````{py:class} Meta
 :canonical: archivebox.api.models.OutboundWebhook.Meta
 
@@ -240,10 +363,41 @@ Bases: {py:obj}`signal_webhooks.models.WebhookBase.Meta`
 
 ````
 
+````{py:attribute} ordering
+:canonical: archivebox.api.models.OutboundWebhook.Meta.ordering
+:value: >
+   ('position', 'created_at', 'pk')
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.ordering
+```
+
+````
+
+````{py:attribute} constraints
+:canonical: archivebox.api.models.OutboundWebhook.Meta.constraints
+:value: >
+   []
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.constraints
+```
+
+````
+
 `````
+
+````{py:method} clean()
+:canonical: archivebox.api.models.OutboundWebhook.clean
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.clean
+```
+
+````
 
 ````{py:method} __str__() -> str
 :canonical: archivebox.api.models.OutboundWebhook.__str__
+
+```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.__str__
+```
 
 ````
 

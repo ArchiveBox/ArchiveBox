@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`CustomUserAdmin <archivebox.core.admin_users.CustomUserAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -33,10 +35,13 @@
 
 ### API
 
-`````{py:class} CustomUserAdmin(model, admin_site)
+`````{py:class} CustomUserAdmin
 :canonical: archivebox.core.admin_users.CustomUserAdmin
 
 Bases: {py:obj}`django.contrib.auth.admin.UserAdmin`
+
+```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin
+```
 
 ````{py:attribute} sort_fields
 :canonical: archivebox.core.admin_users.CustomUserAdmin.sort_fields
@@ -51,7 +56,7 @@ Bases: {py:obj}`django.contrib.auth.admin.UserAdmin`
 ````{py:attribute} list_display
 :canonical: archivebox.core.admin_users.CustomUserAdmin.list_display
 :value: >
-   ['username', 'id', 'email', 'is_superuser', 'last_login', 'date_joined']
+   ['username', 'snapshot_count_column', 'id', 'email', 'is_superuser', 'last_login', 'date_joined']
 
 ```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.list_display
 ```
@@ -101,12 +106,23 @@ Bases: {py:obj}`django.contrib.auth.admin.UserAdmin`
 ````{py:method} get_queryset(request)
 :canonical: archivebox.core.admin_users.CustomUserAdmin.get_queryset
 
+```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.get_queryset
+```
+
 ````
 
-````{py:method} snapshot_rss_badge(obj, api_token: str = '')
-:canonical: archivebox.core.admin_users.CustomUserAdmin.snapshot_rss_badge
+````{py:method} get_list_display(request)
+:canonical: archivebox.core.admin_users.CustomUserAdmin.get_list_display
 
-```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.snapshot_rss_badge
+```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.get_list_display
+```
+
+````
+
+````{py:method} render_change_form(request, context, add=False, change=False, form_url='', obj=None)
+:canonical: archivebox.core.admin_users.CustomUserAdmin.render_change_form
+
+```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.render_change_form
 ```
 
 ````
@@ -124,11 +140,6 @@ Bases: {py:obj}`django.contrib.auth.admin.UserAdmin`
 
 ```{autodoc2-docstring} archivebox.core.admin_users.CustomUserAdmin.snapshot_count_column
 ```
-
-````
-
-````{py:method} get_list_display(request)
-:canonical: archivebox.core.admin_users.CustomUserAdmin.get_list_display
 
 ````
 

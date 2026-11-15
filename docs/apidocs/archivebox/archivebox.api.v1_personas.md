@@ -16,13 +16,21 @@
 :align: left
 
 * - {py:obj}`PersonaBrowserSettingsSchema <archivebox.api.v1_personas.PersonaBrowserSettingsSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema
+    :summary:
+    ```
 * - {py:obj}`PersonaSyncSchema <archivebox.api.v1_personas.PersonaSyncSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSyncSchema
+    :summary:
+    ```
 * - {py:obj}`PersonaSchema <archivebox.api.v1_personas.PersonaSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSchema
+    :summary:
+    ```
 * - {py:obj}`PersonaSyncResponseSchema <archivebox.api.v1_personas.PersonaSyncResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSyncResponseSchema
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -73,10 +81,13 @@
 
 ````
 
-`````{py:class} PersonaBrowserSettingsSchema(/, **data: typing.Any)
+`````{py:class} PersonaBrowserSettingsSchema
 :canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema
+```
 
 ````{py:attribute} user_agent
 :canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.user_agent
@@ -91,7 +102,8 @@ Bases: {py:obj}`ninja.Schema`
 ````{py:attribute} viewport_size
 :canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.viewport_size
 :type: str
-:value: <Multiline-String>
+:value: >
+   'Field(...)'
 
 ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema.viewport_size
 ```
@@ -102,9 +114,19 @@ Bases: {py:obj}`ninja.Schema`
 :canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.viewport_device_scale_factor
 :type: float | None
 :value: >
-   None
+   'Field(...)'
 
 ```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema.viewport_device_scale_factor
+```
+
+````
+
+````{py:attribute} color_scheme
+:canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.color_scheme
+:type: typing.Literal[, light, dark]
+:value: <Multiline-String>
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema.color_scheme
 ```
 
 ````
@@ -129,6 +151,27 @@ Bases: {py:obj}`ninja.Schema`
 
 ````
 
+````{py:attribute} platform
+:canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.platform
+:type: str
+:value: <Multiline-String>
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema.platform
+```
+
+````
+
+````{py:attribute} user_agent_metadata
+:canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.user_agent_metadata
+:type: dict[str, typing.Any] | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaBrowserSettingsSchema.user_agent_metadata
+```
+
+````
+
 ````{py:attribute} geolocation
 :canonical: archivebox.api.v1_personas.PersonaBrowserSettingsSchema.geolocation
 :type: dict[str, typing.Any] | None
@@ -142,10 +185,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} PersonaSyncSchema(/, **data: typing.Any)
+`````{py:class} PersonaSyncSchema
 :canonical: archivebox.api.v1_personas.PersonaSyncSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSyncSchema
+```
 
 ````{py:attribute} extension_persona_id
 :canonical: archivebox.api.v1_personas.PersonaSyncSchema.extension_persona_id
@@ -203,10 +249,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} PersonaSchema(/, **data: typing.Any)
+`````{py:class} PersonaSchema
 :canonical: archivebox.api.v1_personas.PersonaSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_personas.PersonaSchema.TYPE
@@ -314,10 +363,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} PersonaSyncResponseSchema(/, **data: typing.Any)
+`````{py:class} PersonaSyncResponseSchema
 :canonical: archivebox.api.v1_personas.PersonaSyncResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_personas.PersonaSyncResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_personas.PersonaSyncResponseSchema.success

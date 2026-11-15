@@ -17,11 +17,15 @@ archivebox.config.django
 archivebox.config.ldap
 archivebox.config.version
 archivebox.config.paths
+archivebox.config.rule_views
 archivebox.config.constants
+archivebox.config.forms
 archivebox.config.common
+archivebox.config.settings_views
 archivebox.config.collection
 archivebox.config.permissions
 archivebox.config.configset
+archivebox.config.allauth
 archivebox.config.views
 ```
 

@@ -15,6 +15,14 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`get_live_system_stats <archivebox.machine.detect.get_live_system_stats>`
+  - ```{autodoc2-docstring} archivebox.machine.detect.get_live_system_stats
+    :summary:
+    ```
+* - {py:obj}`_run_abxpkg_host_binary <archivebox.machine.detect._run_abxpkg_host_binary>`
+  - ```{autodoc2-docstring} archivebox.machine.detect._run_abxpkg_host_binary
+    :summary:
+    ```
 * - {py:obj}`get_vm_info <archivebox.machine.detect.get_vm_info>`
   - ```{autodoc2-docstring} archivebox.machine.detect.get_vm_info
     :summary:
@@ -67,6 +75,10 @@
   - ```{autodoc2-docstring} archivebox.machine.detect.DATA_DIR
     :summary:
     ```
+* - {py:obj}`_live_io_sample <archivebox.machine.detect._live_io_sample>`
+  - ```{autodoc2-docstring} archivebox.machine.detect._live_io_sample
+    :summary:
+    ```
 * - {py:obj}`ip_addrs <archivebox.machine.detect.ip_addrs>`
   - ```{autodoc2-docstring} archivebox.machine.detect.ip_addrs
     :summary:
@@ -97,6 +109,30 @@
 ```{autodoc2-docstring} archivebox.machine.detect.DATA_DIR
 ```
 
+````
+
+````{py:data} _live_io_sample
+:canonical: archivebox.machine.detect._live_io_sample
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.machine.detect._live_io_sample
+```
+
+````
+
+````{py:function} get_live_system_stats(data_dir: pathlib.Path) -> dict[str, typing.Any]
+:canonical: archivebox.machine.detect.get_live_system_stats
+
+```{autodoc2-docstring} archivebox.machine.detect.get_live_system_stats
+```
+````
+
+````{py:function} _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProcess[str]
+:canonical: archivebox.machine.detect._run_abxpkg_host_binary
+
+```{autodoc2-docstring} archivebox.machine.detect._run_abxpkg_host_binary
+```
 ````
 
 ````{py:function} get_vm_info()

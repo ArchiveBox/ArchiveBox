@@ -16,9 +16,7 @@
 :align: left
 
 * - {py:obj}`Persona <archivebox.personas.models.Persona>`
-  - ```{autodoc2-docstring} archivebox.personas.models.Persona
-    :summary:
-    ```
+  -
 ````
 
 ### Functions
@@ -43,14 +41,6 @@
   - ```{autodoc2-docstring} archivebox.personas.models._fcntl
     :summary:
     ```
-* - {py:obj}`VOLATILE_PROFILE_DIR_NAMES <archivebox.personas.models.VOLATILE_PROFILE_DIR_NAMES>`
-  - ```{autodoc2-docstring} archivebox.personas.models.VOLATILE_PROFILE_DIR_NAMES
-    :summary:
-    ```
-* - {py:obj}`VOLATILE_PROFILE_FILE_NAMES <archivebox.personas.models.VOLATILE_PROFILE_FILE_NAMES>`
-  - ```{autodoc2-docstring} archivebox.personas.models.VOLATILE_PROFILE_FILE_NAMES
-    :summary:
-    ```
 ````
 
 ### API
@@ -66,26 +56,6 @@
 
 ````
 
-````{py:data} VOLATILE_PROFILE_DIR_NAMES
-:canonical: archivebox.personas.models.VOLATILE_PROFILE_DIR_NAMES
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.personas.models.VOLATILE_PROFILE_DIR_NAMES
-```
-
-````
-
-````{py:data} VOLATILE_PROFILE_FILE_NAMES
-:canonical: archivebox.personas.models.VOLATILE_PROFILE_FILE_NAMES
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.personas.models.VOLATILE_PROFILE_FILE_NAMES
-```
-
-````
-
 ````{py:function} derive_persona_config(*, name: str, config: collections.abc.Mapping[str, typing.Any] | None, persona_dir: pathlib.Path) -> dict[str, typing.Any]
 :canonical: archivebox.personas.models.derive_persona_config
 
@@ -93,19 +63,21 @@
 ```
 ````
 
-``````{py:class} Persona(*args, **kwargs)
+``````{py:class} Persona
 :canonical: archivebox.personas.models.Persona
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig`
 
-```{autodoc2-docstring} archivebox.personas.models.Persona
+````{py:attribute} emoji
+:canonical: archivebox.personas.models.Persona.emoji
+:type: str
+:value: >
+   '🎭'
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.emoji
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.personas.models.Persona.__init__
-```
+````
 
 ````{py:attribute} id
 :canonical: archivebox.personas.models.Persona.id
@@ -162,6 +134,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig`
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
+```{autodoc2-docstring} archivebox.personas.models.Persona.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.personas.models.Persona.Meta.app_label
 :value: >
@@ -177,10 +152,16 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.personas.models.Persona.save
 
+```{autodoc2-docstring} archivebox.personas.models.Persona.save
+```
+
 ````
 
 ````{py:method} __str__() -> str
 :canonical: archivebox.personas.models.Persona.__str__
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.__str__
+```
 
 ````
 
@@ -189,6 +170,32 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 :type: pathlib.Path
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.path
+```
+
+````
+
+````{py:method} directory_name(name: str) -> str
+:canonical: archivebox.personas.models.Persona.directory_name
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.directory_name
+```
+
+````
+
+````{py:method} find_named(name: str) -> Persona | None
+:canonical: archivebox.personas.models.Persona.find_named
+:classmethod:
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.find_named
+```
+
+````
+
+````{py:method} validate_name(name: str) -> str
+:canonical: archivebox.personas.models.Persona.validate_name
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.validate_name
 ```
 
 ````
@@ -245,22 +252,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
-````{py:method} cleanup_chrome_profile(profile_dir: pathlib.Path) -> bool
-:canonical: archivebox.personas.models.Persona.cleanup_chrome_profile
-
-```{autodoc2-docstring} archivebox.personas.models.Persona.cleanup_chrome_profile
-```
-
-````
-
-````{py:method} cleanup_chrome() -> bool
-:canonical: archivebox.personas.models.Persona.cleanup_chrome
-
-```{autodoc2-docstring} archivebox.personas.models.Persona.cleanup_chrome
-```
-
-````
-
 ````{py:method} lock_runtime_for_crawl()
 :canonical: archivebox.personas.models.Persona.lock_runtime_for_crawl
 
@@ -269,7 +260,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
-````{py:method} get_or_create_named(name: str) -> archivebox.personas.models.Persona
+````{py:method} get_or_create_named(name: str, *, defaults: dict | None = None) -> archivebox.personas.models.Persona
 :canonical: archivebox.personas.models.Persona.get_or_create_named
 :classmethod:
 
@@ -282,6 +273,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 :canonical: archivebox.personas.models.Persona.runtime_root_for_crawl
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.runtime_root_for_crawl
+```
+
+````
+
+````{py:method} local_runtime_root_for_crawl(crawl) -> pathlib.Path
+:canonical: archivebox.personas.models.Persona.local_runtime_root_for_crawl
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.local_runtime_root_for_crawl
 ```
 
 ````
@@ -326,15 +325,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
-````{py:method} copy_chrome_profile(source_dir: pathlib.Path, destination_dir: pathlib.Path) -> None
-:canonical: archivebox.personas.models.Persona.copy_chrome_profile
+````{py:method} link_runtime_for_output(output_dir: pathlib.Path, runtime_root: pathlib.Path) -> None
+:canonical: archivebox.personas.models.Persona.link_runtime_for_output
 
-```{autodoc2-docstring} archivebox.personas.models.Persona.copy_chrome_profile
+```{autodoc2-docstring} archivebox.personas.models.Persona.link_runtime_for_output
 ```
 
 ````
 
-````{py:method} prepare_runtime_for_crawl(crawl, chrome_binary: str = '') -> dict[str, str]
+````{py:method} prepare_runtime_for_crawl(crawl, chrome_binary: str = '', *, use_template: bool = True) -> dict[str, str]
 :canonical: archivebox.personas.models.Persona.prepare_runtime_for_crawl
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.prepare_runtime_for_crawl
@@ -342,7 +341,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
-````{py:method} prepare_runtime_for_snapshot(snapshot, chrome_binary: str = '') -> dict[str, str]
+````{py:method} prepare_runtime_for_snapshot(snapshot, chrome_binary: str = '', *, local_root: pathlib.Path | None = None, use_template: bool = True) -> dict[str, str]
 :canonical: archivebox.personas.models.Persona.prepare_runtime_for_snapshot
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.prepare_runtime_for_snapshot
@@ -363,15 +362,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 :classmethod:
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.get_or_create_default
-```
-
-````
-
-````{py:method} cleanup_chrome_all() -> int
-:canonical: archivebox.personas.models.Persona.cleanup_chrome_all
-:classmethod:
-
-```{autodoc2-docstring} archivebox.personas.models.Persona.cleanup_chrome_all
 ```
 
 ````

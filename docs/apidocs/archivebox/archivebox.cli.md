@@ -26,17 +26,22 @@ archivebox.cli.archivebox_snapshot
 archivebox.cli.archivebox_pluginmap
 archivebox.cli.archivebox_machine
 archivebox.cli.archivebox_update
+archivebox.cli.rescan
 archivebox.cli.archivebox_extract
 archivebox.cli.archivebox_crawl
 archivebox.cli.archivebox_remove
+archivebox.cli.archivebox_check
 archivebox.cli.archivebox_install
+archivebox.cli.archivebox_folder
 archivebox.cli.archivebox_mcp
 archivebox.cli.archivebox_search
+archivebox.cli.archivebox_plugin
 archivebox.cli.archivebox_version
 archivebox.cli.archivebox_persona
 archivebox.cli.archivebox_add
 archivebox.cli.archivebox_status
 archivebox.cli.cli_util
+archivebox.cli.archivebox_importer
 archivebox.cli.archivebox_run
 archivebox.cli.archivebox_init
 archivebox.cli.archivebox_oneshot
@@ -112,18 +117,12 @@ archivebox.cli.archivebox_manage
 
 ````
 
-`````{py:class} ArchiveBoxGroup(name: str | None = None, commands: collections.abc.MutableMapping[str, click.core.Command] | collections.abc.Sequence[click.core.Command] | None = None, invoke_without_command: bool = False, no_args_is_help: bool | None = None, subcommand_metavar: str | None = None, chain: bool = False, result_callback: typing.Callable[..., typing.Any] | None = None, **kwargs: typing.Any)
+`````{py:class} ArchiveBoxGroup
 :canonical: archivebox.cli.ArchiveBoxGroup
 
 Bases: {py:obj}`rich_click.Group`
 
 ```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup.__init__
 ```
 
 ````{py:attribute} meta_commands
@@ -215,6 +214,9 @@ Bases: {py:obj}`rich_click.Group`
 
 ````{py:method} get_command(ctx, cmd_name)
 :canonical: archivebox.cli.ArchiveBoxGroup.get_command
+
+```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup.get_command
+```
 
 ````
 

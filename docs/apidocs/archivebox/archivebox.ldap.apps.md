@@ -23,18 +23,12 @@
 
 ### API
 
-`````{py:class} LDAPConfig(app_name, app_module)
+`````{py:class} LDAPConfig
 :canonical: archivebox.ldap.apps.LDAPConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
 
 ```{autodoc2-docstring} archivebox.ldap.apps.LDAPConfig
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.ldap.apps.LDAPConfig.__init__
 ```
 
 ````{py:attribute} default_auto_field

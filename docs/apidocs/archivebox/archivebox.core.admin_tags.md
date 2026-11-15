@@ -16,11 +16,17 @@
 :align: left
 
 * - {py:obj}`TagInline <archivebox.core.admin_tags.TagInline>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_tags.TagInline
+    :summary:
+    ```
 * - {py:obj}`TagAdminForm <archivebox.core.admin_tags.TagAdminForm>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_tags.TagAdminForm
+    :summary:
+    ```
 * - {py:obj}`TagAdmin <archivebox.core.admin_tags.TagAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -37,10 +43,13 @@
 
 ### API
 
-`````{py:class} TagInline(parent_model, admin_site)
+`````{py:class} TagInline
 :canonical: archivebox.core.admin_tags.TagInline
 
 Bases: {py:obj}`django.contrib.admin.TabularInline`
+
+```{autodoc2-docstring} archivebox.core.admin_tags.TagInline
+```
 
 ````{py:attribute} model
 :canonical: archivebox.core.admin_tags.TagInline.model
@@ -94,10 +103,13 @@ Bases: {py:obj}`django.contrib.admin.TabularInline`
 
 `````
 
-``````{py:class} TagAdminForm(data=None, files=None, auto_id='id_%s', prefix=None, initial=None, error_class=ErrorList, label_suffix=None, empty_permitted=False, instance=None, use_required_attribute=None, renderer=None)
+``````{py:class} TagAdminForm
 :canonical: archivebox.core.admin_tags.TagAdminForm
 
 Bases: {py:obj}`django.forms.ModelForm`
+
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdminForm
+```
 
 `````{py:class} Meta
 :canonical: archivebox.core.admin_tags.TagAdminForm.Meta
@@ -147,10 +159,13 @@ Bases: {py:obj}`django.forms.ModelForm`
 
 ``````
 
-`````{py:class} TagAdmin(model, admin_site)
+`````{py:class} TagAdmin
 :canonical: archivebox.core.admin_tags.TagAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin
+```
 
 ````{py:attribute} form
 :canonical: archivebox.core.admin_tags.TagAdmin.form
@@ -265,10 +280,16 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:method} get_fieldsets(request: django.http.HttpRequest, obj: archivebox.core.models.Tag | None = None)
 :canonical: archivebox.core.admin_tags.TagAdmin.get_fieldsets
 
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin.get_fieldsets
+```
+
 ````
 
 ````{py:method} changelist_view(request: django.http.HttpRequest, extra_context=None)
 :canonical: archivebox.core.admin_tags.TagAdmin.changelist_view
+
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin.changelist_view
+```
 
 ````
 
@@ -283,10 +304,16 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:method} response_add(request: django.http.HttpRequest, obj: archivebox.core.models.Tag, post_url_continue=None)
 :canonical: archivebox.core.admin_tags.TagAdmin.response_add
 
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin.response_add
+```
+
 ````
 
 ````{py:method} response_change(request: django.http.HttpRequest, obj: archivebox.core.models.Tag)
 :canonical: archivebox.core.admin_tags.TagAdmin.response_change
+
+```{autodoc2-docstring} archivebox.core.admin_tags.TagAdmin.response_change
+```
 
 ````
 

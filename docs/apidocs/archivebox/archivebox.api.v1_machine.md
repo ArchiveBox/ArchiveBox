@@ -20,13 +20,17 @@
     :summary:
     ```
 * - {py:obj}`MachineFilterSchema <archivebox.api.v1_machine.MachineFilterSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_machine.MachineFilterSchema
+    :summary:
+    ```
 * - {py:obj}`BinarySchema <archivebox.api.v1_machine.BinarySchema>`
   - ```{autodoc2-docstring} archivebox.api.v1_machine.BinarySchema
     :summary:
     ```
 * - {py:obj}`BinaryFilterSchema <archivebox.api.v1_machine.BinaryFilterSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_machine.BinaryFilterSchema
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -85,18 +89,12 @@
 
 ````
 
-`````{py:class} MachineSchema(/, **data: typing.Any)
+`````{py:class} MachineSchema
 :canonical: archivebox.api.v1_machine.MachineSchema
 
 Bases: {py:obj}`ninja.Schema`
 
 ```{autodoc2-docstring} archivebox.api.v1_machine.MachineSchema
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.v1_machine.MachineSchema.__init__
 ```
 
 ````{py:attribute} TYPE
@@ -310,10 +308,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} MachineFilterSchema(/, **data: typing.Any)
+`````{py:class} MachineFilterSchema
 :canonical: archivebox.api.v1_machine.MachineFilterSchema
 
 Bases: {py:obj}`ninja.FilterSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_machine.MachineFilterSchema
+```
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_machine.MachineFilterSchema.id
@@ -394,18 +395,12 @@ Bases: {py:obj}`ninja.FilterSchema`
 
 `````
 
-`````{py:class} BinarySchema(/, **data: typing.Any)
+`````{py:class} BinarySchema
 :canonical: archivebox.api.v1_machine.BinarySchema
 
 Bases: {py:obj}`ninja.Schema`
 
 ```{autodoc2-docstring} archivebox.api.v1_machine.BinarySchema
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.v1_machine.BinarySchema.__init__
 ```
 
 ````{py:attribute} TYPE
@@ -604,10 +599,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} BinaryFilterSchema(/, **data: typing.Any)
+`````{py:class} BinaryFilterSchema
 :canonical: archivebox.api.v1_machine.BinaryFilterSchema
 
 Bases: {py:obj}`ninja.FilterSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_machine.BinaryFilterSchema
+```
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_machine.BinaryFilterSchema.id

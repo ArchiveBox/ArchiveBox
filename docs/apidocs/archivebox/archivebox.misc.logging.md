@@ -18,7 +18,9 @@
 * - {py:obj}`AttrDict <archivebox.misc.logging.AttrDict>`
   -
 * - {py:obj}`RainbowHighlighter <archivebox.misc.logging.RainbowHighlighter>`
-  -
+  - ```{autodoc2-docstring} archivebox.misc.logging.RainbowHighlighter
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -148,8 +150,14 @@ Bases: {py:obj}`dict`
 
 Bases: {py:obj}`rich.highlighter.Highlighter`
 
+```{autodoc2-docstring} archivebox.misc.logging.RainbowHighlighter
+```
+
 ````{py:method} highlight(text)
 :canonical: archivebox.misc.logging.RainbowHighlighter.highlight
+
+```{autodoc2-docstring} archivebox.misc.logging.RainbowHighlighter.highlight
+```
 
 ````
 

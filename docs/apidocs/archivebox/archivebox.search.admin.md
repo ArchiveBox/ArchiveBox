@@ -59,18 +59,12 @@ Bases: {py:obj}`django.contrib.admin.views.main.ChangeList`
 
 `````
 
-`````{py:class} SearchResultsAdminMixin(model, admin_site)
+`````{py:class} SearchResultsAdminMixin
 :canonical: archivebox.search.admin.SearchResultsAdminMixin
 
 Bases: {py:obj}`django.contrib.admin.ModelAdmin`
 
 ```{autodoc2-docstring} archivebox.search.admin.SearchResultsAdminMixin
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.search.admin.SearchResultsAdminMixin.__init__
 ```
 
 ````{py:attribute} show_search_mode_selector

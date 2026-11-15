@@ -117,18 +117,12 @@
 ```
 ````
 
-`````{py:class} HeaderTokenAuth()
+`````{py:class} HeaderTokenAuth
 :canonical: archivebox.api.auth.HeaderTokenAuth
 
 Bases: {py:obj}`ninja.security.APIKeyHeader`
 
 ```{autodoc2-docstring} archivebox.api.auth.HeaderTokenAuth
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.auth.HeaderTokenAuth.__init__
 ```
 
 ````{py:attribute} param_name
@@ -151,18 +145,12 @@ Bases: {py:obj}`ninja.security.APIKeyHeader`
 
 `````
 
-`````{py:class} BearerTokenAuth()
+`````{py:class} BearerTokenAuth
 :canonical: archivebox.api.auth.BearerTokenAuth
 
 Bases: {py:obj}`ninja.security.HttpBearer`
 
 ```{autodoc2-docstring} archivebox.api.auth.BearerTokenAuth
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.auth.BearerTokenAuth.__init__
 ```
 
 ````{py:method} authenticate(request: django.http.HttpRequest, token: str) -> django.contrib.auth.models.User | None
@@ -175,18 +163,12 @@ Bases: {py:obj}`ninja.security.HttpBearer`
 
 `````
 
-`````{py:class} QueryParamTokenAuth()
+`````{py:class} QueryParamTokenAuth
 :canonical: archivebox.api.auth.QueryParamTokenAuth
 
 Bases: {py:obj}`ninja.security.APIKeyQuery`
 
 ```{autodoc2-docstring} archivebox.api.auth.QueryParamTokenAuth
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.auth.QueryParamTokenAuth.__init__
 ```
 
 ````{py:attribute} param_name

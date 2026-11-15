@@ -15,6 +15,38 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`is_root_identity <archivebox.config.permissions.is_root_identity>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.is_root_identity
+    :summary:
+    ```
+* - {py:obj}`select_archivebox_user <archivebox.config.permissions.select_archivebox_user>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.select_archivebox_user
+    :summary:
+    ```
+* - {py:obj}`get_or_create_archivebox_account <archivebox.config.permissions.get_or_create_archivebox_account>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.get_or_create_archivebox_account
+    :summary:
+    ```
+* - {py:obj}`root_data_dir_handoff_paths <archivebox.config.permissions.root_data_dir_handoff_paths>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.root_data_dir_handoff_paths
+    :summary:
+    ```
+* - {py:obj}`root_should_handoff_data_dir <archivebox.config.permissions.root_should_handoff_data_dir>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.root_should_handoff_data_dir
+    :summary:
+    ```
+* - {py:obj}`root_parent_can_grant_group_traversal <archivebox.config.permissions.root_parent_can_grant_group_traversal>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.root_parent_can_grant_group_traversal
+    :summary:
+    ```
+* - {py:obj}`grant_archivebox_group_traversal <archivebox.config.permissions.grant_archivebox_group_traversal>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.grant_archivebox_group_traversal
+    :summary:
+    ```
+* - {py:obj}`handoff_root_owned_data_dir <archivebox.config.permissions.handoff_root_owned_data_dir>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.handoff_root_owned_data_dir
+    :summary:
+    ```
 * - {py:obj}`drop_privileges <archivebox.config.permissions.drop_privileges>`
   - ```{autodoc2-docstring} archivebox.config.permissions.drop_privileges
     :summary:
@@ -91,13 +123,35 @@
   - ```{autodoc2-docstring} archivebox.config.permissions.FALLBACK_GID
     :summary:
     ```
+* - {py:obj}`ARCHIVEBOX_ACCOUNT <archivebox.config.permissions.ARCHIVEBOX_ACCOUNT>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.ARCHIVEBOX_ACCOUNT
+    :summary:
+    ```
 * - {py:obj}`ARCHIVEBOX_USER_EXISTS <archivebox.config.permissions.ARCHIVEBOX_USER_EXISTS>`
   - ```{autodoc2-docstring} archivebox.config.permissions.ARCHIVEBOX_USER_EXISTS
+    :summary:
+    ```
+* - {py:obj}`ROOT_HANDOFF_NAMES <archivebox.config.permissions.ROOT_HANDOFF_NAMES>`
+  - ```{autodoc2-docstring} archivebox.config.permissions.ROOT_HANDOFF_NAMES
     :summary:
     ```
 ````
 
 ### API
+
+````{py:function} is_root_identity(running_uid: int, effective_uid: int) -> bool
+:canonical: archivebox.config.permissions.is_root_identity
+
+```{autodoc2-docstring} archivebox.config.permissions.is_root_identity
+```
+````
+
+````{py:function} select_archivebox_user(*, running_uid: int, running_gid: int, effective_uid: int, effective_gid: int, sudo_uid: int, sudo_gid: int, data_dir_uid: int, data_dir_gid: int, account_uid: int | None, account_gid: int | None, data_dir_owner_gid: int | None = None, data_dir_owner_exists: bool = True) -> tuple[int, int]
+:canonical: archivebox.config.permissions.select_archivebox_user
+
+```{autodoc2-docstring} archivebox.config.permissions.select_archivebox_user
+```
+````
 
 ````{py:data} DATA_DIR
 :canonical: archivebox.config.permissions.DATA_DIR
@@ -214,7 +268,7 @@
 ````{py:data} IS_ROOT
 :canonical: archivebox.config.permissions.IS_ROOT
 :value: >
-   None
+   'is_root_identity(...)'
 
 ```{autodoc2-docstring} archivebox.config.permissions.IS_ROOT
 ```
@@ -251,6 +305,23 @@
 
 ````
 
+````{py:function} get_or_create_archivebox_account()
+:canonical: archivebox.config.permissions.get_or_create_archivebox_account
+
+```{autodoc2-docstring} archivebox.config.permissions.get_or_create_archivebox_account
+```
+````
+
+````{py:data} ARCHIVEBOX_ACCOUNT
+:canonical: archivebox.config.permissions.ARCHIVEBOX_ACCOUNT
+:value: >
+   'get_or_create_archivebox_account(...)'
+
+```{autodoc2-docstring} archivebox.config.permissions.ARCHIVEBOX_ACCOUNT
+```
+
+````
+
 ````{py:data} ARCHIVEBOX_USER_EXISTS
 :canonical: archivebox.config.permissions.ARCHIVEBOX_USER_EXISTS
 :value: >
@@ -259,6 +330,51 @@
 ```{autodoc2-docstring} archivebox.config.permissions.ARCHIVEBOX_USER_EXISTS
 ```
 
+````
+
+````{py:data} ROOT_HANDOFF_NAMES
+:canonical: archivebox.config.permissions.ROOT_HANDOFF_NAMES
+:value: >
+   ('.archivebox_id', 'ArchiveBox.conf', 'index.sqlite3', 'index.sqlite3-shm', 'index.sqlite3-wal', 'ar...
+
+```{autodoc2-docstring} archivebox.config.permissions.ROOT_HANDOFF_NAMES
+```
+
+````
+
+````{py:function} root_data_dir_handoff_paths(data_dir: pathlib.Path, argv: list[str]) -> tuple[pathlib.Path, ...]
+:canonical: archivebox.config.permissions.root_data_dir_handoff_paths
+
+```{autodoc2-docstring} archivebox.config.permissions.root_data_dir_handoff_paths
+```
+````
+
+````{py:function} root_should_handoff_data_dir(*, is_root: bool, data_dir_uid: int, account_uid: int | None, data_dir_owner_exists: bool = True) -> bool
+:canonical: archivebox.config.permissions.root_should_handoff_data_dir
+
+```{autodoc2-docstring} archivebox.config.permissions.root_should_handoff_data_dir
+```
+````
+
+````{py:function} root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, parent_mode: int, account_gid: int) -> bool
+:canonical: archivebox.config.permissions.root_parent_can_grant_group_traversal
+
+```{autodoc2-docstring} archivebox.config.permissions.root_parent_can_grant_group_traversal
+```
+````
+
+````{py:function} grant_archivebox_group_traversal(path: pathlib.Path) -> None
+:canonical: archivebox.config.permissions.grant_archivebox_group_traversal
+
+```{autodoc2-docstring} archivebox.config.permissions.grant_archivebox_group_traversal
+```
+````
+
+````{py:function} handoff_root_owned_data_dir() -> None
+:canonical: archivebox.config.permissions.handoff_root_owned_data_dir
+
+```{autodoc2-docstring} archivebox.config.permissions.handoff_root_owned_data_dir
+```
 ````
 
 ````{py:function} drop_privileges()

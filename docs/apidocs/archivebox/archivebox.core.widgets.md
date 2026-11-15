@@ -124,7 +124,7 @@ Bases: {py:obj}`django.forms.Widget`
 
 ``````
 
-`````{py:class} URLFiltersWidget(attrs=None, *, source_selector='textarea[name="url"]')
+`````{py:class} URLFiltersWidget(attrs=None, *, source_selector='textarea[name="url"]', auto_update_allowlist=True, collapse_patterns=False)
 :canonical: archivebox.core.widgets.URLFiltersWidget
 
 Bases: {py:obj}`django.forms.Widget`
@@ -150,10 +150,16 @@ Bases: {py:obj}`django.forms.Widget`
 ````{py:method} render(name, value, attrs=None, renderer=None)
 :canonical: archivebox.core.widgets.URLFiltersWidget.render
 
+```{autodoc2-docstring} archivebox.core.widgets.URLFiltersWidget.render
+```
+
 ````
 
 ````{py:method} value_from_datadict(data, files, name)
 :canonical: archivebox.core.widgets.URLFiltersWidget.value_from_datadict
+
+```{autodoc2-docstring} archivebox.core.widgets.URLFiltersWidget.value_from_datadict
+```
 
 ````
 

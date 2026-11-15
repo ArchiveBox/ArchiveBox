@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`WorkersConfig <archivebox.workers.apps.WorkersConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.workers.apps.WorkersConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} WorkersConfig(app_name, app_module)
+`````{py:class} WorkersConfig
 :canonical: archivebox.workers.apps.WorkersConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.workers.apps.WorkersConfig
+```
 
 ````{py:attribute} default_auto_field
 :canonical: archivebox.workers.apps.WorkersConfig.default_auto_field

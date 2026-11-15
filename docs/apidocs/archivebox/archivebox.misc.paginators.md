@@ -21,9 +21,21 @@
     ```
 ````
 
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`snapshot_page <archivebox.misc.paginators.snapshot_page>`
+  - ```{autodoc2-docstring} archivebox.misc.paginators.snapshot_page
+    :summary:
+    ```
+````
+
 ### API
 
-`````{py:class} AcceleratedPaginator(object_list, per_page, orphans=0, allow_empty_first_page=True, error_messages=None)
+`````{py:class} AcceleratedPaginator
 :canonical: archivebox.misc.paginators.AcceleratedPaginator
 
 Bases: {py:obj}`django.core.paginator.Paginator`
@@ -31,15 +43,19 @@ Bases: {py:obj}`django.core.paginator.Paginator`
 ```{autodoc2-docstring} archivebox.misc.paginators.AcceleratedPaginator
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.misc.paginators.AcceleratedPaginator.__init__
-```
-
 ````{py:method} count()
 :canonical: archivebox.misc.paginators.AcceleratedPaginator.count
+
+```{autodoc2-docstring} archivebox.misc.paginators.AcceleratedPaginator.count
+```
 
 ````
 
 `````
+
+````{py:function} snapshot_page(queryset, *, base_queryset, start, size)
+:canonical: archivebox.misc.paginators.snapshot_page
+
+```{autodoc2-docstring} archivebox.misc.paginators.snapshot_page
+```
+````

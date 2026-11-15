@@ -15,12 +15,18 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`PagedQuerySet <archivebox.base_models.models.PagedQuerySet>`
+  - ```{autodoc2-docstring} archivebox.base_models.models.PagedQuerySet
+    :summary:
+    ```
 * - {py:obj}`AutoDateTimeField <archivebox.base_models.models.AutoDateTimeField>`
   - ```{autodoc2-docstring} archivebox.base_models.models.AutoDateTimeField
     :summary:
     ```
 * - {py:obj}`ModelWithUUID <archivebox.base_models.models.ModelWithUUID>`
-  -
+  - ```{autodoc2-docstring} archivebox.base_models.models.ModelWithUUID
+    :summary:
+    ```
 * - {py:obj}`ModelWithNotes <archivebox.base_models.models.ModelWithNotes>`
   - ```{autodoc2-docstring} archivebox.base_models.models.ModelWithNotes
     :summary:
@@ -34,9 +40,13 @@
     :summary:
     ```
 * - {py:obj}`ModelWithDeleteAfter <archivebox.base_models.models.ModelWithDeleteAfter>`
-  -
+  - ```{autodoc2-docstring} archivebox.base_models.models.ModelWithDeleteAfter
+    :summary:
+    ```
 * - {py:obj}`ModelWithOutputDir <archivebox.base_models.models.ModelWithOutputDir>`
-  -
+  - ```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -57,6 +67,24 @@
 
 ### API
 
+`````{py:class} PagedQuerySet
+:canonical: archivebox.base_models.models.PagedQuerySet
+
+Bases: {py:obj}`django.db.models.QuerySet`
+
+```{autodoc2-docstring} archivebox.base_models.models.PagedQuerySet
+```
+
+````{py:method} paged_iterator(chunk_size: int = 500)
+:canonical: archivebox.base_models.models.PagedQuerySet.paged_iterator
+
+```{autodoc2-docstring} archivebox.base_models.models.PagedQuerySet.paged_iterator
+```
+
+````
+
+`````
+
 ````{py:function} normalize_config_json_values(config: typing.Any) -> typing.Any
 :canonical: archivebox.base_models.models.normalize_config_json_values
 
@@ -71,7 +99,7 @@
 ```
 ````
 
-`````{py:class} AutoDateTimeField(verbose_name=None, name=None, auto_now=False, auto_now_add=False, **kwargs)
+`````{py:class} AutoDateTimeField
 :canonical: archivebox.base_models.models.AutoDateTimeField
 
 Bases: {py:obj}`django.db.models.DateTimeField`
@@ -79,23 +107,23 @@ Bases: {py:obj}`django.db.models.DateTimeField`
 ```{autodoc2-docstring} archivebox.base_models.models.AutoDateTimeField
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.models.AutoDateTimeField.__init__
-```
-
 ````{py:method} pre_save(model_instance, add)
 :canonical: archivebox.base_models.models.AutoDateTimeField.pre_save
+
+```{autodoc2-docstring} archivebox.base_models.models.AutoDateTimeField.pre_save
+```
 
 ````
 
 `````
 
-``````{py:class} ModelWithUUID(*args, **kwargs)
+``````{py:class} ModelWithUUID
 :canonical: archivebox.base_models.models.ModelWithUUID
 
 Bases: {py:obj}`django.db.models.Model`
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithUUID
+```
 
 ````{py:attribute} id
 :canonical: archivebox.base_models.models.ModelWithUUID.id
@@ -142,6 +170,9 @@ Bases: {py:obj}`django.db.models.Model`
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithUUID.Meta
+```
+
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithUUID.Meta.abstract
 :value: >
@@ -156,6 +187,9 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ````{py:method} __str__() -> str
 :canonical: archivebox.base_models.models.ModelWithUUID.__str__
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithUUID.__str__
+```
 
 ````
 
@@ -188,18 +222,12 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} ModelWithNotes(*args, **kwargs)
+``````{py:class} ModelWithNotes
 :canonical: archivebox.base_models.models.ModelWithNotes
 
 Bases: {py:obj}`django.db.models.Model`
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithNotes
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.models.ModelWithNotes.__init__
 ```
 
 ````{py:attribute} notes
@@ -217,6 +245,9 @@ Bases: {py:obj}`django.db.models.Model`
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithNotes.Meta
+```
+
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithNotes.Meta.abstract
 :value: >
@@ -231,18 +262,12 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} ModelWithHealthStats(*args, **kwargs)
+``````{py:class} ModelWithHealthStats
 :canonical: archivebox.base_models.models.ModelWithHealthStats
 
 Bases: {py:obj}`django.db.models.Model`
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithHealthStats
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.models.ModelWithHealthStats.__init__
 ```
 
 ````{py:attribute} num_uses_failed
@@ -269,6 +294,9 @@ Bases: {py:obj}`django.db.models.Model`
 :canonical: archivebox.base_models.models.ModelWithHealthStats.Meta
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithHealthStats.Meta
+```
 
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithHealthStats.Meta.abstract
@@ -310,18 +338,12 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} ModelWithConfig(*args, **kwargs)
+``````{py:class} ModelWithConfig
 :canonical: archivebox.base_models.models.ModelWithConfig
 
 Bases: {py:obj}`django.db.models.Model`
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithConfig
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.models.ModelWithConfig.__init__
 ```
 
 ````{py:attribute} config
@@ -339,6 +361,9 @@ Bases: {py:obj}`django.db.models.Model`
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithConfig.Meta
+```
+
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithConfig.Meta.abstract
 :value: >
@@ -354,14 +379,20 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.base_models.models.ModelWithConfig.save
 
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithConfig.save
+```
+
 ````
 
 ``````
 
-``````{py:class} ModelWithDeleteAfter(*args, **kwargs)
+``````{py:class} ModelWithDeleteAfter
 :canonical: archivebox.base_models.models.ModelWithDeleteAfter
 
 Bases: {py:obj}`django.db.models.Model`
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithDeleteAfter
+```
 
 ````{py:attribute} delete_after_final_statuses
 :canonical: archivebox.base_models.models.ModelWithDeleteAfter.delete_after_final_statuses
@@ -389,6 +420,9 @@ Bases: {py:obj}`django.db.models.Model`
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithDeleteAfter.Meta
+```
+
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithDeleteAfter.Meta.abstract
 :value: >
@@ -403,6 +437,9 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.base_models.models.ModelWithDeleteAfter.save
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithDeleteAfter.save
+```
 
 ````
 
@@ -431,7 +468,7 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ````
 
-````{py:method} delete_expired(*, batch_size: int = 100, backfill_missing: bool = True) -> int
+````{py:method} delete_expired(*, batch_size: int = 100, backfill_missing: bool = True, backfill_cursors: dict | None = None) -> int
 :canonical: archivebox.base_models.models.ModelWithDeleteAfter.delete_expired
 :classmethod:
 
@@ -442,15 +479,21 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} ModelWithOutputDir(*args, **kwargs)
+``````{py:class} ModelWithOutputDir
 :canonical: archivebox.base_models.models.ModelWithOutputDir
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir
+```
 
 `````{py:class} Meta
 :canonical: archivebox.base_models.models.ModelWithOutputDir.Meta
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir.Meta
+```
 
 ````{py:attribute} abstract
 :canonical: archivebox.base_models.models.ModelWithOutputDir.Meta.abstract
@@ -471,11 +514,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir._delete_signal_registered
 ```
-
-````
-
-````{py:method} save(*args, **kwargs)
-:canonical: archivebox.base_models.models.ModelWithOutputDir.save
 
 ````
 
@@ -538,6 +576,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`
 :classmethod:
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir.delete_output_paths
+```
+
+````
+
+````{py:method} schedule_delete_cleanup(*, using: str | None = None) -> None
+:canonical: archivebox.base_models.models.ModelWithOutputDir.schedule_delete_cleanup
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithOutputDir.schedule_delete_cleanup
 ```
 
 ````

@@ -17,16 +17,31 @@
 
 * - {py:obj}`CrawlSchedule <archivebox.crawls.models.CrawlSchedule>`
   -
+* - {py:obj}`CrawlQuerySet <archivebox.crawls.models.CrawlQuerySet>`
+  - ```{autodoc2-docstring} archivebox.crawls.models.CrawlQuerySet
+    :summary:
+    ```
 * - {py:obj}`Crawl <archivebox.crawls.models.Crawl>`
   -
 ````
 
 ### API
 
-``````{py:class} CrawlSchedule(*args, **kwargs)
+``````{py:class} CrawlSchedule
 :canonical: archivebox.crawls.models.CrawlSchedule
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`, {py:obj}`archivebox.base_models.models.ModelWithNotes`
+
+````{py:attribute} emoji
+:canonical: archivebox.crawls.models.CrawlSchedule.emoji
+:type: str
+:value: >
+   '📅'
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.emoji
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.crawls.models.CrawlSchedule.id
@@ -145,6 +160,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`, {py:obj}`archivebo
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`archivebox.base_models.models.ModelWithNotes.Meta`
 
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.crawls.models.CrawlSchedule.Meta.app_label
 :value: >
@@ -180,6 +198,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`arch
 ````{py:method} __str__() -> str
 :canonical: archivebox.crawls.models.CrawlSchedule.__str__
 
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.__str__
+```
+
 ````
 
 ````{py:property} api_url
@@ -193,6 +214,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`arch
 
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.crawls.models.CrawlSchedule.save
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.save
+```
 
 ````
 
@@ -220,6 +244,23 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`arch
 
 ````
 
+````{py:property} kind
+:canonical: archivebox.crawls.models.CrawlSchedule.kind
+:type: str
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.kind
+```
+
+````
+
+````{py:method} dispatch(queued_at=None) -> Crawl | None
+:canonical: archivebox.crawls.models.CrawlSchedule.dispatch
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.dispatch
+```
+
+````
+
 ````{py:method} enqueue(queued_at=None) -> archivebox.crawls.models.Crawl
 :canonical: archivebox.crawls.models.CrawlSchedule.enqueue
 
@@ -230,10 +271,49 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`arch
 
 ``````
 
-``````{py:class} Crawl(*args, **kwargs)
+`````{py:class} CrawlQuerySet
+:canonical: archivebox.crawls.models.CrawlQuerySet
+
+Bases: {py:obj}`archivebox.base_models.models.PagedQuerySet`
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlQuerySet
+```
+
+````{py:method} update(**kwargs)
+:canonical: archivebox.crawls.models.CrawlQuerySet.update
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlQuerySet.update
+```
+
+````
+
+`````
+
+``````{py:class} Crawl
 :canonical: archivebox.crawls.models.Crawl
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithQueue`
+
+````{py:attribute} emoji
+:canonical: archivebox.crawls.models.Crawl.emoji
+:type: str
+:value: >
+   '🕷️'
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.emoji
+```
+
+````
+
+````{py:attribute} objects
+:canonical: archivebox.crawls.models.Crawl.objects
+:value: >
+   'as_manager(...)'
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.objects
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.crawls.models.Crawl.id
@@ -321,6 +401,16 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
    'CharField(...)'
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.tags_str
+```
+
+````
+
+````{py:attribute} folder
+:canonical: archivebox.crawls.models.Crawl.folder
+:value: >
+   'ForeignKey(...)'
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.folder
 ```
 
 ````
@@ -522,6 +612,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithQueue.Meta`
 
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.crawls.models.Crawl.Meta.app_label
 :value: >
@@ -566,6 +659,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:method} __str__()
 :canonical: archivebox.crawls.models.Crawl.__str__
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.__str__
+```
 
 ````
 
@@ -629,6 +725,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.crawls.models.Crawl.save
 
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.save
+```
+
 ````
 
 ````{py:method} update_child_snapshot_permissions(old_permissions: str | None, new_permissions: str | None) -> int
@@ -665,14 +764,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} apply_snapshot_tag_diff(*, added_tag_names: collections.abc.Iterable[str], removed_tag_names: collections.abc.Iterable[str]) -> None
-:canonical: archivebox.crawls.models.Crawl.apply_snapshot_tag_diff
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.apply_snapshot_tag_diff
-```
-
-````
-
 ````{py:method} to_json() -> dict
 :canonical: archivebox.crawls.models.Crawl.to_json
 
@@ -690,6 +781,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:property} output_dir_candidates
+:canonical: archivebox.crawls.models.Crawl.output_dir_candidates
+:type: tuple[pathlib.Path, pathlib.Path]
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.output_dir_candidates
+```
+
+````
+
 ````{py:property} output_dir
 :canonical: archivebox.crawls.models.Crawl.output_dir
 :type: pathlib.Path
@@ -699,18 +799,18 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} get_urls_list() -> list[str]
-:canonical: archivebox.crawls.models.Crawl.get_urls_list
+````{py:method} migrate_legacy_output_dir() -> bool
+:canonical: archivebox.crawls.models.Crawl.migrate_legacy_output_dir
 
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.get_urls_list
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.migrate_legacy_output_dir
 ```
 
 ````
 
-````{py:method} has_internal_input_root() -> bool
-:canonical: archivebox.crawls.models.Crawl.has_internal_input_root
+````{py:method} get_urls_list() -> list[str]
+:canonical: archivebox.crawls.models.Crawl.get_urls_list
 
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.has_internal_input_root
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.get_urls_list
 ```
 
 ````
@@ -798,7 +898,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} _iter_url_lines() -> list[tuple[str, str]]
+````{py:method} _iter_url_lines() -> collections.abc.Iterator[tuple[str, str]]
 :canonical: archivebox.crawls.models.Crawl._iter_url_lines
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl._iter_url_lines
@@ -866,14 +966,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.crawls.models.Crawl.exclude_domain
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.exclude_domain
-```
-
-````
-
-````{py:method} get_system_task() -> str | None
-:canonical: archivebox.crawls.models.Crawl.get_system_task
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.get_system_task
 ```
 
 ````
@@ -956,14 +1048,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.crawls.models.Crawl.create_discovered_snapshots
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.create_discovered_snapshots
-```
-
-````
-
-````{py:method} install_declared_binaries(binary_names: set[str], machine=None) -> None
-:canonical: archivebox.crawls.models.Crawl.install_declared_binaries
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.install_declared_binaries
 ```
 
 ````

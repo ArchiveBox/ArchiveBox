@@ -17,5 +17,6 @@ archivebox.personas.models
 archivebox.personas.importers
 archivebox.personas.apps
 archivebox.personas.forms
+archivebox.personas.state_forms
 archivebox.personas.admin
 ```

@@ -31,10 +31,6 @@
   - ```{autodoc2-docstring} archivebox.misc.logging_util.progress_bar
     :summary:
     ```
-* - {py:obj}`log_cli_command <archivebox.misc.logging_util.log_cli_command>`
-  - ```{autodoc2-docstring} archivebox.misc.logging_util.log_cli_command
-    :summary:
-    ```
 * - {py:obj}`log_list_started <archivebox.misc.logging_util.log_list_started>`
   - ```{autodoc2-docstring} archivebox.misc.logging_util.log_list_started
     :summary:
@@ -120,13 +116,6 @@
 ```
 ````
 
-````{py:function} log_cli_command(subcommand: str, subcommand_args: collections.abc.Iterable[str] = (), stdin: str | typing.IO | None = None, pwd: str = '.')
-:canonical: archivebox.misc.logging_util.log_cli_command
-
-```{autodoc2-docstring} archivebox.misc.logging_util.log_cli_command
-```
-````
-
 ````{py:function} log_list_started(filter_patterns: list[str] | None, filter_type: str)
 :canonical: archivebox.misc.logging_util.log_list_started
 
@@ -162,7 +151,7 @@
 ```
 ````
 
-````{py:function} printable_filesize(num_bytes: int | float) -> str
+````{py:function} printable_filesize(num_bytes: int | float, decimal_places: int = 1) -> str
 :canonical: archivebox.misc.logging_util.printable_filesize
 
 ```{autodoc2-docstring} archivebox.misc.logging_util.printable_filesize

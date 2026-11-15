@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`Command <archivebox.workers.management.commands.supervisord_watchdog.Command>`
-  -
+  - ```{autodoc2-docstring} archivebox.workers.management.commands.supervisord_watchdog.Command
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} Command(stdout=None, stderr=None, no_color=False, force_color=False)
+`````{py:class} Command
 :canonical: archivebox.workers.management.commands.supervisord_watchdog.Command
 
 Bases: {py:obj}`django.core.management.base.BaseCommand`
+
+```{autodoc2-docstring} archivebox.workers.management.commands.supervisord_watchdog.Command
+```
 
 ````{py:attribute} help
 :canonical: archivebox.workers.management.commands.supervisord_watchdog.Command.help
@@ -39,10 +44,16 @@ Bases: {py:obj}`django.core.management.base.BaseCommand`
 ````{py:method} add_arguments(parser)
 :canonical: archivebox.workers.management.commands.supervisord_watchdog.Command.add_arguments
 
+```{autodoc2-docstring} archivebox.workers.management.commands.supervisord_watchdog.Command.add_arguments
+```
+
 ````
 
 ````{py:method} handle(*args, **kwargs)
 :canonical: archivebox.workers.management.commands.supervisord_watchdog.Command.handle
+
+```{autodoc2-docstring} archivebox.workers.management.commands.supervisord_watchdog.Command.handle
+```
 
 ````
 

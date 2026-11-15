@@ -23,10 +23,6 @@
   - ```{autodoc2-docstring} archivebox.plugins.views.render_highlighted_json_block
     :summary:
     ```
-* - {py:obj}`get_plugin_docs_url <archivebox.plugins.views.get_plugin_docs_url>`
-  - ```{autodoc2-docstring} archivebox.plugins.views.get_plugin_docs_url
-    :summary:
-    ```
 * - {py:obj}`get_plugin_hook_source_url <archivebox.plugins.views.get_plugin_hook_source_url>`
   - ```{autodoc2-docstring} archivebox.plugins.views.get_plugin_hook_source_url
     :summary:
@@ -87,10 +83,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`ABX_PLUGINS_DOCS_BASE_URL <archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL>`
-  - ```{autodoc2-docstring} archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL
-    :summary:
-    ```
 * - {py:obj}`ABX_PLUGINS_GITHUB_BASE_URL <archivebox.plugins.views.ABX_PLUGINS_GITHUB_BASE_URL>`
   - ```{autodoc2-docstring} archivebox.plugins.views.ABX_PLUGINS_GITHUB_BASE_URL
     :summary:
@@ -106,16 +98,6 @@
 ````
 
 ### API
-
-````{py:data} ABX_PLUGINS_DOCS_BASE_URL
-:canonical: archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL
-:value: >
-   'https://plugins.archivebox.io/'
-
-```{autodoc2-docstring} archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL
-```
-
-````
 
 ````{py:data} ABX_PLUGINS_GITHUB_BASE_URL
 :canonical: archivebox.plugins.views.ABX_PLUGINS_GITHUB_BASE_URL
@@ -158,13 +140,6 @@
 :canonical: archivebox.plugins.views.render_highlighted_json_block
 
 ```{autodoc2-docstring} archivebox.plugins.views.render_highlighted_json_block
-```
-````
-
-````{py:function} get_plugin_docs_url(plugin_name: str) -> str
-:canonical: archivebox.plugins.views.get_plugin_docs_url
-
-```{autodoc2-docstring} archivebox.plugins.views.get_plugin_docs_url
 ```
 ````
 

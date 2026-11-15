@@ -39,6 +39,10 @@
   - ```{autodoc2-docstring} archivebox.api.v1_auth.check_api_token
     :summary:
     ```
+* - {py:obj}`browser_session <archivebox.api.v1_auth.browser_session>`
+  - ```{autodoc2-docstring} archivebox.api.v1_auth.browser_session
+    :summary:
+    ```
 ````
 
 ### Data
@@ -65,18 +69,12 @@
 
 ````
 
-`````{py:class} PasswordAuthSchema(/, **data: typing.Any)
+`````{py:class} PasswordAuthSchema
 :canonical: archivebox.api.v1_auth.PasswordAuthSchema
 
 Bases: {py:obj}`ninja.Schema`
 
 ```{autodoc2-docstring} archivebox.api.v1_auth.PasswordAuthSchema
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.v1_auth.PasswordAuthSchema.__init__
 ```
 
 ````{py:attribute} username
@@ -110,18 +108,12 @@ Bases: {py:obj}`ninja.Schema`
 ```
 ````
 
-`````{py:class} TokenAuthSchema(/, **data: typing.Any)
+`````{py:class} TokenAuthSchema
 :canonical: archivebox.api.v1_auth.TokenAuthSchema
 
 Bases: {py:obj}`ninja.Schema`
 
 ```{autodoc2-docstring} archivebox.api.v1_auth.TokenAuthSchema
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.api.v1_auth.TokenAuthSchema.__init__
 ```
 
 ````{py:attribute} token
@@ -141,5 +133,12 @@ Bases: {py:obj}`ninja.Schema`
 :canonical: archivebox.api.v1_auth.check_api_token
 
 ```{autodoc2-docstring} archivebox.api.v1_auth.check_api_token
+```
+````
+
+````{py:function} browser_session(request: django.http.HttpRequest)
+:canonical: archivebox.api.v1_auth.browser_session
+
+```{autodoc2-docstring} archivebox.api.v1_auth.browser_session
 ```
 ````

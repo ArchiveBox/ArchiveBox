@@ -9,19 +9,19 @@
 
 ## Module Contents
 
-### Functions
+### Classes
 
 ````{list-table}
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`_patch_thread_sensitive_context_shutdown <archivebox.core.asgi._patch_thread_sensitive_context_shutdown>`
-  - ```{autodoc2-docstring} archivebox.core.asgi._patch_thread_sensitive_context_shutdown
+* - {py:obj}`ArchiveBoxASGIHandler <archivebox.core.asgi.ArchiveBoxASGIHandler>`
+  - ```{autodoc2-docstring} archivebox.core.asgi.ArchiveBoxASGIHandler
     :summary:
     ```
 ````
 
-### Data
+### Functions
 
 ````{list-table}
 :class: autosummary longtable
@@ -33,21 +33,52 @@
     ```
 ````
 
-### API
+### Data
 
-````{py:function} _patch_thread_sensitive_context_shutdown() -> None
-:canonical: archivebox.core.asgi._patch_thread_sensitive_context_shutdown
+````{list-table}
+:class: autosummary longtable
+:align: left
 
-```{autodoc2-docstring} archivebox.core.asgi._patch_thread_sensitive_context_shutdown
-```
+* - {py:obj}`django_application <archivebox.core.asgi.django_application>`
+  - ```{autodoc2-docstring} archivebox.core.asgi.django_application
+    :summary:
+    ```
 ````
 
-````{py:data} application
-:canonical: archivebox.core.asgi.application
+### API
+
+`````{py:class} ArchiveBoxASGIHandler
+:canonical: archivebox.core.asgi.ArchiveBoxASGIHandler
+
+Bases: {py:obj}`django.core.handlers.asgi.ASGIHandler`
+
+```{autodoc2-docstring} archivebox.core.asgi.ArchiveBoxASGIHandler
+```
+
+````{py:method} create_request(scope, body_file)
+:canonical: archivebox.core.asgi.ArchiveBoxASGIHandler.create_request
+
+```{autodoc2-docstring} archivebox.core.asgi.ArchiveBoxASGIHandler.create_request
+```
+
+````
+
+`````
+
+````{py:data} django_application
+:canonical: archivebox.core.asgi.django_application
 :value: >
-   'get_asgi_application(...)'
+   'ArchiveBoxASGIHandler(...)'
+
+```{autodoc2-docstring} archivebox.core.asgi.django_application
+```
+
+````
+
+````{py:function} application(scope, receive, send)
+:canonical: archivebox.core.asgi.application
+:async:
 
 ```{autodoc2-docstring} archivebox.core.asgi.application
 ```
-
 ````

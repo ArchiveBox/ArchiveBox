@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`MCPConfig <archivebox.mcp.apps.MCPConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.mcp.apps.MCPConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} MCPConfig(app_name, app_module)
+`````{py:class} MCPConfig
 :canonical: archivebox.mcp.apps.MCPConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.mcp.apps.MCPConfig
+```
 
 ````{py:attribute} name
 :canonical: archivebox.mcp.apps.MCPConfig.name

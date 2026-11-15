@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`preserve_db_secret <archivebox.config.collection.preserve_db_secret>`
+  - ```{autodoc2-docstring} archivebox.config.collection.preserve_db_secret
+    :summary:
+    ```
 * - {py:obj}`_coerce_to_str_dict <archivebox.config.collection._coerce_to_str_dict>`
   - ```{autodoc2-docstring} archivebox.config.collection._coerce_to_str_dict
     :summary:
@@ -110,6 +114,29 @@
 
 ````
 
+````{py:exception} ConfigMirrorError()
+:canonical: archivebox.config.collection.ConfigMirrorError
+
+Bases: {py:obj}`RuntimeError`
+
+```{autodoc2-docstring} archivebox.config.collection.ConfigMirrorError
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.config.collection.ConfigMirrorError.__init__
+```
+
+````
+
+````{py:function} preserve_db_secret(machine) -> None
+:canonical: archivebox.config.collection.preserve_db_secret
+
+```{autodoc2-docstring} archivebox.config.collection.preserve_db_secret
+```
+````
+
 ````{py:function} _coerce_to_str_dict(config: typing.Any) -> dict[str, str]
 :canonical: archivebox.config.collection._coerce_to_str_dict
 
@@ -138,14 +165,14 @@
 ```
 ````
 
-````{py:function} _write_file_if_changed(content: str) -> bool
+````{py:function} _write_file_if_changed(content: str, *, strict: bool = False) -> bool
 :canonical: archivebox.config.collection._write_file_if_changed
 
 ```{autodoc2-docstring} archivebox.config.collection._write_file_if_changed
 ```
 ````
 
-````{py:function} mirror_machine_config_to_file(config: typing.Any) -> None
+````{py:function} mirror_machine_config_to_file(config: typing.Any, *, strict: bool = False) -> None
 :canonical: archivebox.config.collection.mirror_machine_config_to_file
 
 ```{autodoc2-docstring} archivebox.config.collection.mirror_machine_config_to_file

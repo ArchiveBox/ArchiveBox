@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} archivebox.cli.archivebox_update.reindex_snapshots
     :summary:
     ```
+* - {py:obj}`run_scheduled_maintenance <archivebox.cli.archivebox_update.run_scheduled_maintenance>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_update.run_scheduled_maintenance
+    :summary:
+    ```
 * - {py:obj}`update <archivebox.cli.archivebox_update.update>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_update.update
     :summary:
@@ -88,35 +92,42 @@
 ```
 ````
 
-````{py:function} reindex_snapshots(snapshots: django.db.models.QuerySet[archivebox.core.models.Snapshot, archivebox.core.models.Snapshot], *, search_plugins: list[str], batch_size: int, collect_ids: bool = False, wait_for_turn=None) -> dict[str, typing.Any]
+````{py:function} reindex_snapshots(snapshots: django.db.models.QuerySet[archivebox.core.models.Snapshot, archivebox.core.models.Snapshot], *, search_plugins: list[str], batch_size: int, collect_ids: bool = False, reverse: bool = False, wait_for_turn=None) -> dict[str, typing.Any]
 :canonical: archivebox.cli.archivebox_update.reindex_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update.reindex_snapshots
 ```
 ````
 
-````{py:function} update(filter_patterns: collections.abc.Iterable[str] = (), filter_type: str = 'exact', status: str | None = None, url__icontains: str | None = None, url__istartswith: str | None = None, tag: str | None = None, crawl_id: str | None = None, limit: int | None = None, sort: str | None = None, search: str | None = None, before: float | None = None, after: float | None = None, resume: str | None = None, batch_size: int = 500, continuous: bool = False, index_only: bool = False, migrate_only: bool = False, stop_daemon_stack: bool = True) -> None
+````{py:function} run_scheduled_maintenance(*, batch_size: int = 500) -> dict[str, typing.Any]
+:canonical: archivebox.cli.archivebox_update.run_scheduled_maintenance
+
+```{autodoc2-docstring} archivebox.cli.archivebox_update.run_scheduled_maintenance
+```
+````
+
+````{py:function} update(filter_patterns: collections.abc.Iterable[str] = (), filter_type: str = 'exact', status: str | None = None, url__icontains: str | None = None, url__istartswith: str | None = None, tag: str | None = None, crawl_id: str | None = None, folder_id: str | uuid.UUID | None = None, limit: int | None = None, sort: str | None = None, search: str | None = None, before: float | None = None, after: float | None = None, resume: str | None = None, batch_size: int = 500, continuous: bool = False, index_only: bool = False, migrate_only: bool = False, rescan: bool = False, reverse: bool = False, stop_daemon_stack: bool = True) -> None
 :canonical: archivebox.cli.archivebox_update.update
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update.update
 ```
 ````
 
-````{py:function} drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500) -> dict[str, int]
+````{py:function} drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500, reverse: bool = False) -> dict[str, int]
 :canonical: archivebox.cli.archivebox_update.drain_old_archive_dirs
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update.drain_old_archive_dirs
 ```
 ````
 
-````{py:function} process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, wait_for_turn=None) -> dict[str, int]
+````{py:function} process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, wait_for_turn=None, reverse: bool = False, migrate: bool = False) -> dict[str, int]
 :canonical: archivebox.cli.archivebox_update.process_all_db_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update.process_all_db_snapshots
 ```
 ````
 
-````{py:function} process_filtered_snapshots(filter_patterns: collections.abc.Iterable[str], filter_type: str, status: str | None, url__icontains: str | None, url__istartswith: str | None, tag: str | None, crawl_id: str | None, limit: int | None, sort: str | None, search: str | None, before: float | None, after: float | None, resume: str | None, batch_size: int, queue_for_archiving: bool = True, wait_for_turn=None) -> dict[str, typing.Any]
+````{py:function} process_filtered_snapshots(filter_patterns: collections.abc.Iterable[str], filter_type: str, status: str | None, url__icontains: str | None, url__istartswith: str | None, tag: str | None, crawl_id: str | None, limit: int | None, sort: str | None, search: str | None, before: float | None, after: float | None, resume: str | None, batch_size: int, folder_id: str | uuid.UUID | None = None, queue_for_archiving: bool = True, reverse: bool = False, wait_for_turn=None) -> dict[str, typing.Any]
 :canonical: archivebox.cli.archivebox_update.process_filtered_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update.process_filtered_snapshots

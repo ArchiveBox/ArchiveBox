@@ -19,10 +19,6 @@
   - ```{autodoc2-docstring} archivebox.misc.serve_static._StreamingQueueWriter
     :summary:
     ```
-* - {py:obj}`RangedFileReader <archivebox.misc.serve_static.RangedFileReader>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader
-    :summary:
-    ```
 ````
 
 ### Functions
@@ -31,12 +27,16 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`_load_hash_map <archivebox.misc.serve_static._load_hash_map>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._load_hash_map
+* - {py:obj}`_load_file_inventory <archivebox.misc.serve_static._load_file_inventory>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._load_file_inventory
     :summary:
     ```
 * - {py:obj}`_hash_for_path <archivebox.misc.serve_static._hash_for_path>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static._hash_for_path
+    :summary:
+    ```
+* - {py:obj}`_resolve_contained_path <archivebox.misc.serve_static._resolve_contained_path>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._resolve_contained_path
     :summary:
     ```
 * - {py:obj}`_resolve_archive_path <archivebox.misc.serve_static._resolve_archive_path>`
@@ -45,10 +45,6 @@
     ```
 * - {py:obj}`_cache_policy <archivebox.misc.serve_static._cache_policy>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static._cache_policy
-    :summary:
-    ```
-* - {py:obj}`_render_mhtml_preview_document <archivebox.misc.serve_static._render_mhtml_preview_document>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._render_mhtml_preview_document
     :summary:
     ```
 * - {py:obj}`_format_direntry_timestamp <archivebox.misc.serve_static._format_direntry_timestamp>`
@@ -65,10 +61,6 @@
     ```
 * - {py:obj}`_build_directory_zip_response <archivebox.misc.serve_static._build_directory_zip_response>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static._build_directory_zip_response
-    :summary:
-    ```
-* - {py:obj}`_stream_ranged_file_async <archivebox.misc.serve_static._stream_ranged_file_async>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._stream_ranged_file_async
     :summary:
     ```
 * - {py:obj}`_render_directory_index <archivebox.misc.serve_static._render_directory_index>`
@@ -91,8 +83,28 @@
   - ```{autodoc2-docstring} archivebox.misc.serve_static._render_image_preview_document
     :summary:
     ```
-* - {py:obj}`_render_markdown_fallback <archivebox.misc.serve_static._render_markdown_fallback>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._render_markdown_fallback
+* - {py:obj}`rewrite_navigation_links <archivebox.misc.serve_static.rewrite_navigation_links>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.rewrite_navigation_links
+    :summary:
+    ```
+* - {py:obj}`_rewrite_original_domain_links <archivebox.misc.serve_static._rewrite_original_domain_links>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._rewrite_original_domain_links
+    :summary:
+    ```
+* - {py:obj}`_passive_html_thumbnail <archivebox.misc.serve_static._passive_html_thumbnail>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._passive_html_thumbnail
+    :summary:
+    ```
+* - {py:obj}`_rewrite_replay_document_for_request <archivebox.misc.serve_static._rewrite_replay_document_for_request>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._rewrite_replay_document_for_request
+    :summary:
+    ```
+* - {py:obj}`_apply_transformed_html_preview_style <archivebox.misc.serve_static._apply_transformed_html_preview_style>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._apply_transformed_html_preview_style
+    :summary:
+    ```
+* - {py:obj}`_set_transformed_response_headers <archivebox.misc.serve_static._set_transformed_response_headers>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._set_transformed_response_headers
     :summary:
     ```
 * - {py:obj}`_render_markdown_document <archivebox.misc.serve_static._render_markdown_document>`
@@ -109,10 +121,6 @@
     ```
 * - {py:obj}`_apply_archive_replay_headers <archivebox.misc.serve_static._apply_archive_replay_headers>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static._apply_archive_replay_headers
-    :summary:
-    ```
-* - {py:obj}`_is_asgi_request <archivebox.misc.serve_static._is_asgi_request>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._is_asgi_request
     :summary:
     ```
 * - {py:obj}`serve_static_with_byterange_support <archivebox.misc.serve_static.serve_static_with_byterange_support>`
@@ -135,24 +143,24 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`_HASHES_CACHE <archivebox.misc.serve_static._HASHES_CACHE>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static._HASHES_CACHE
+* - {py:obj}`DIRECTORY_PREVIEW_MAX_BYTES <archivebox.misc.serve_static.DIRECTORY_PREVIEW_MAX_BYTES>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.DIRECTORY_PREVIEW_MAX_BYTES
+    :summary:
+    ```
+* - {py:obj}`FAVICON_CACHE_CONTROL <archivebox.misc.serve_static.FAVICON_CACHE_CONTROL>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.FAVICON_CACHE_CONTROL
+    :summary:
+    ```
+* - {py:obj}`TRANSFORMED_HTML_PREVIEW_STYLE <archivebox.misc.serve_static.TRANSFORMED_HTML_PREVIEW_STYLE>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.TRANSFORMED_HTML_PREVIEW_STYLE
+    :summary:
+    ```
+* - {py:obj}`MODEL_PREVIEW_EXTENSIONS <archivebox.misc.serve_static.MODEL_PREVIEW_EXTENSIONS>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.MODEL_PREVIEW_EXTENSIONS
     :summary:
     ```
 * - {py:obj}`MARKDOWN_INLINE_LINK_RE <archivebox.misc.serve_static.MARKDOWN_INLINE_LINK_RE>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_INLINE_LINK_RE
-    :summary:
-    ```
-* - {py:obj}`MARKDOWN_INLINE_IMAGE_RE <archivebox.misc.serve_static.MARKDOWN_INLINE_IMAGE_RE>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_INLINE_IMAGE_RE
-    :summary:
-    ```
-* - {py:obj}`MARKDOWN_BOLD_RE <archivebox.misc.serve_static.MARKDOWN_BOLD_RE>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_BOLD_RE
-    :summary:
-    ```
-* - {py:obj}`MARKDOWN_ITALIC_RE <archivebox.misc.serve_static.MARKDOWN_ITALIC_RE>`
-  - ```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_ITALIC_RE
     :summary:
     ```
 * - {py:obj}`HTML_TAG_RE <archivebox.misc.serve_static.HTML_TAG_RE>`
@@ -161,6 +169,10 @@
     ```
 * - {py:obj}`HTML_BODY_RE <archivebox.misc.serve_static.HTML_BODY_RE>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static.HTML_BODY_RE
+    :summary:
+    ```
+* - {py:obj}`HTML_DOCUMENT_RE <archivebox.misc.serve_static.HTML_DOCUMENT_RE>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static.HTML_DOCUMENT_RE
     :summary:
     ```
 * - {py:obj}`RISKY_REPLAY_MIMETYPES <archivebox.misc.serve_static.RISKY_REPLAY_MIMETYPES>`
@@ -179,21 +191,39 @@
 
 ### API
 
-````{py:data} _HASHES_CACHE
-:canonical: archivebox.misc.serve_static._HASHES_CACHE
-:type: dict[pathlib.Path, tuple[float, dict[str, str]]]
+````{py:data} DIRECTORY_PREVIEW_MAX_BYTES
+:canonical: archivebox.misc.serve_static.DIRECTORY_PREVIEW_MAX_BYTES
 :value: >
    None
 
-```{autodoc2-docstring} archivebox.misc.serve_static._HASHES_CACHE
+```{autodoc2-docstring} archivebox.misc.serve_static.DIRECTORY_PREVIEW_MAX_BYTES
 ```
 
 ````
 
-````{py:function} _load_hash_map(snapshot_dir: pathlib.Path) -> dict[str, str] | None
-:canonical: archivebox.misc.serve_static._load_hash_map
+````{py:data} FAVICON_CACHE_CONTROL
+:canonical: archivebox.misc.serve_static.FAVICON_CACHE_CONTROL
+:value: >
+   'public, max-age=31536000, s-maxage=31536000, immutable'
 
-```{autodoc2-docstring} archivebox.misc.serve_static._load_hash_map
+```{autodoc2-docstring} archivebox.misc.serve_static.FAVICON_CACHE_CONTROL
+```
+
+````
+
+````{py:data} TRANSFORMED_HTML_PREVIEW_STYLE
+:canonical: archivebox.misc.serve_static.TRANSFORMED_HTML_PREVIEW_STYLE
+:value: <Multiline-String>
+
+```{autodoc2-docstring} archivebox.misc.serve_static.TRANSFORMED_HTML_PREVIEW_STYLE
+```
+
+````
+
+````{py:function} _load_file_inventory(snapshot_dir: pathlib.Path) -> dict | None
+:canonical: archivebox.misc.serve_static._load_file_inventory
+
+```{autodoc2-docstring} archivebox.misc.serve_static._load_file_inventory
 ```
 ````
 
@@ -201,6 +231,13 @@
 :canonical: archivebox.misc.serve_static._hash_for_path
 
 ```{autodoc2-docstring} archivebox.misc.serve_static._hash_for_path
+```
+````
+
+````{py:function} _resolve_contained_path(root: pathlib.Path, path: pathlib.Path) -> pathlib.Path
+:canonical: archivebox.misc.serve_static._resolve_contained_path
+
+```{autodoc2-docstring} archivebox.misc.serve_static._resolve_contained_path
 ```
 ````
 
@@ -215,13 +252,6 @@
 :canonical: archivebox.misc.serve_static._cache_policy
 
 ```{autodoc2-docstring} archivebox.misc.serve_static._cache_policy
-```
-````
-
-````{py:function} _render_mhtml_preview_document(filename: str, output_path: str) -> str
-:canonical: archivebox.misc.serve_static._render_mhtml_preview_document
-
-```{autodoc2-docstring} archivebox.misc.serve_static._render_mhtml_preview_document
 ```
 ````
 
@@ -315,15 +345,17 @@
 ```
 ````
 
-````{py:function} _stream_ranged_file_async(ranged_file: RangedFileReader)
-:canonical: archivebox.misc.serve_static._stream_ranged_file_async
-:async:
+````{py:data} MODEL_PREVIEW_EXTENSIONS
+:canonical: archivebox.misc.serve_static.MODEL_PREVIEW_EXTENSIONS
+:value: >
+   'frozenset(...)'
 
-```{autodoc2-docstring} archivebox.misc.serve_static._stream_ranged_file_async
+```{autodoc2-docstring} archivebox.misc.serve_static.MODEL_PREVIEW_EXTENSIONS
 ```
+
 ````
 
-````{py:function} _render_directory_index(request, path: str, fullpath: pathlib.Path) -> django.http.HttpResponse
+````{py:function} _render_directory_index(request, path: str, fullpath: pathlib.Path, document_root: pathlib.Path, *, static_previews: dict | None = None) -> django.http.HttpResponse
 :canonical: archivebox.misc.serve_static._render_directory_index
 
 ```{autodoc2-docstring} archivebox.misc.serve_static._render_directory_index
@@ -336,36 +368,6 @@
    'compile(...)'
 
 ```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_INLINE_LINK_RE
-```
-
-````
-
-````{py:data} MARKDOWN_INLINE_IMAGE_RE
-:canonical: archivebox.misc.serve_static.MARKDOWN_INLINE_IMAGE_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_INLINE_IMAGE_RE
-```
-
-````
-
-````{py:data} MARKDOWN_BOLD_RE
-:canonical: archivebox.misc.serve_static.MARKDOWN_BOLD_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_BOLD_RE
-```
-
-````
-
-````{py:data} MARKDOWN_ITALIC_RE
-:canonical: archivebox.misc.serve_static.MARKDOWN_ITALIC_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.misc.serve_static.MARKDOWN_ITALIC_RE
 ```
 
 ````
@@ -386,6 +388,16 @@
    'compile(...)'
 
 ```{autodoc2-docstring} archivebox.misc.serve_static.HTML_BODY_RE
+```
+
+````
+
+````{py:data} HTML_DOCUMENT_RE
+:canonical: archivebox.misc.serve_static.HTML_DOCUMENT_RE
+:value: >
+   'compile(...)'
+
+```{autodoc2-docstring} archivebox.misc.serve_static.HTML_DOCUMENT_RE
 ```
 
 ````
@@ -448,10 +460,45 @@
 ```
 ````
 
-````{py:function} _render_markdown_fallback(text: str) -> str
-:canonical: archivebox.misc.serve_static._render_markdown_fallback
+````{py:function} rewrite_navigation_links(html_text: str, page_url: str, links: dict[str, str], *, asset_base: str | None = None, external_links_script: str | None = None) -> tuple[str, int]
+:canonical: archivebox.misc.serve_static.rewrite_navigation_links
 
-```{autodoc2-docstring} archivebox.misc.serve_static._render_markdown_fallback
+```{autodoc2-docstring} archivebox.misc.serve_static.rewrite_navigation_links
+```
+````
+
+````{py:function} _rewrite_original_domain_links(request, html_text: str, rel_path: str) -> tuple[str, int]
+:canonical: archivebox.misc.serve_static._rewrite_original_domain_links
+
+```{autodoc2-docstring} archivebox.misc.serve_static._rewrite_original_domain_links
+```
+````
+
+````{py:function} _passive_html_thumbnail(html_text: str) -> str
+:canonical: archivebox.misc.serve_static._passive_html_thumbnail
+
+```{autodoc2-docstring} archivebox.misc.serve_static._passive_html_thumbnail
+```
+````
+
+````{py:function} _rewrite_replay_document_for_request(request, html_text: str, document_root: pathlib.Path | None, html_rel_path: str, source_html: str | None = None) -> tuple[str, int]
+:canonical: archivebox.misc.serve_static._rewrite_replay_document_for_request
+
+```{autodoc2-docstring} archivebox.misc.serve_static._rewrite_replay_document_for_request
+```
+````
+
+````{py:function} _apply_transformed_html_preview_style(html_text: str) -> str
+:canonical: archivebox.misc.serve_static._apply_transformed_html_preview_style
+
+```{autodoc2-docstring} archivebox.misc.serve_static._apply_transformed_html_preview_style
+```
+````
+
+````{py:function} _set_transformed_response_headers(response, fullpath: pathlib.Path, statobj: os.stat_result, encoding: str | None, cache_policy: str) -> None
+:canonical: archivebox.misc.serve_static._set_transformed_response_headers
+
+```{autodoc2-docstring} archivebox.misc.serve_static._set_transformed_response_headers
 ```
 ````
 
@@ -483,13 +530,6 @@
 ```
 ````
 
-````{py:function} _is_asgi_request(request) -> bool
-:canonical: archivebox.misc.serve_static._is_asgi_request
-
-```{autodoc2-docstring} archivebox.misc.serve_static._is_asgi_request
-```
-````
-
 ````{py:function} serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool = False)
 :canonical: archivebox.misc.serve_static.serve_static_with_byterange_support
 
@@ -510,43 +550,3 @@
 ```{autodoc2-docstring} archivebox.misc.serve_static.parse_range_header
 ```
 ````
-
-`````{py:class} RangedFileReader(file_like, start=0, stop=float('inf'), block_size=None)
-:canonical: archivebox.misc.serve_static.RangedFileReader
-
-```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader.__init__
-```
-
-````{py:attribute} block_size
-:canonical: archivebox.misc.serve_static.RangedFileReader.block_size
-:value: >
-   8192
-
-```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader.block_size
-```
-
-````
-
-````{py:method} __iter__()
-:canonical: archivebox.misc.serve_static.RangedFileReader.__iter__
-
-```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader.__iter__
-```
-
-````
-
-````{py:method} close()
-:canonical: archivebox.misc.serve_static.RangedFileReader.close
-
-```{autodoc2-docstring} archivebox.misc.serve_static.RangedFileReader.close
-```
-
-````
-
-`````

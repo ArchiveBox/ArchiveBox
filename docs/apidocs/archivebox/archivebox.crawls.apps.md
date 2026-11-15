@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`CrawlsConfig <archivebox.crawls.apps.CrawlsConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.crawls.apps.CrawlsConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} CrawlsConfig(app_name, app_module)
+`````{py:class} CrawlsConfig
 :canonical: archivebox.crawls.apps.CrawlsConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.crawls.apps.CrawlsConfig
+```
 
 ````{py:attribute} default_auto_field
 :canonical: archivebox.crawls.apps.CrawlsConfig.default_auto_field

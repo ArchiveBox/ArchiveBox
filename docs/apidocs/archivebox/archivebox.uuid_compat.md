@@ -18,7 +18,9 @@
 * - {py:obj}`CompactUUID <archivebox.uuid_compat.CompactUUID>`
   -
 * - {py:obj}`CompactUUIDField <archivebox.uuid_compat.CompactUUIDField>`
-  -
+  - ```{autodoc2-docstring} archivebox.uuid_compat.CompactUUIDField
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -70,13 +72,19 @@ Bases: {py:obj}`uuid.UUID`
 ```
 ````
 
-`````{py:class} CompactUUIDField(verbose_name=None, **kwargs)
+`````{py:class} CompactUUIDField
 :canonical: archivebox.uuid_compat.CompactUUIDField
 
 Bases: {py:obj}`django.db.models.UUIDField`
 
+```{autodoc2-docstring} archivebox.uuid_compat.CompactUUIDField
+```
+
 ````{py:method} to_python(value)
 :canonical: archivebox.uuid_compat.CompactUUIDField.to_python
+
+```{autodoc2-docstring} archivebox.uuid_compat.CompactUUIDField.to_python
+```
 
 ````
 
@@ -90,6 +98,9 @@ Bases: {py:obj}`django.db.models.UUIDField`
 
 ````{py:method} deconstruct()
 :canonical: archivebox.uuid_compat.CompactUUIDField.deconstruct
+
+```{autodoc2-docstring} archivebox.uuid_compat.CompactUUIDField.deconstruct
+```
 
 ````
 

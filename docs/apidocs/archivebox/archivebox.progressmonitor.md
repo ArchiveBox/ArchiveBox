@@ -13,6 +13,8 @@
 :titlesonly:
 :maxdepth: 1
 
+archivebox.progressmonitor.metrics
 archivebox.progressmonitor.apps
+archivebox.progressmonitor.collection
 archivebox.progressmonitor.views
 ```

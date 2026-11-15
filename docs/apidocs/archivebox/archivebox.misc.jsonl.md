@@ -23,16 +23,20 @@
   - ```{autodoc2-docstring} archivebox.misc.jsonl.read_stdin
     :summary:
     ```
-* - {py:obj}`read_file <archivebox.misc.jsonl.read_file>`
-  - ```{autodoc2-docstring} archivebox.misc.jsonl.read_file
-    :summary:
-    ```
 * - {py:obj}`read_args_or_stdin <archivebox.misc.jsonl.read_args_or_stdin>`
   - ```{autodoc2-docstring} archivebox.misc.jsonl.read_args_or_stdin
     :summary:
     ```
 * - {py:obj}`write_record <archivebox.misc.jsonl.write_record>`
   - ```{autodoc2-docstring} archivebox.misc.jsonl.write_record
+    :summary:
+    ```
+* - {py:obj}`write_records <archivebox.misc.jsonl.write_records>`
+  - ```{autodoc2-docstring} archivebox.misc.jsonl.write_records
+    :summary:
+    ```
+* - {py:obj}`write_record_table <archivebox.misc.jsonl.write_record_table>`
+  - ```{autodoc2-docstring} archivebox.misc.jsonl.write_record_table
     :summary:
     ```
 ````
@@ -187,13 +191,6 @@
 ```
 ````
 
-````{py:function} read_file(path: pathlib.Path) -> collections.abc.Iterator[dict[str, typing.Any]]
-:canonical: archivebox.misc.jsonl.read_file
-
-```{autodoc2-docstring} archivebox.misc.jsonl.read_file
-```
-````
-
 ````{py:function} read_args_or_stdin(args: collections.abc.Iterable[str], stream: typing.TextIO | None = None) -> collections.abc.Iterator[dict[str, typing.Any]]
 :canonical: archivebox.misc.jsonl.read_args_or_stdin
 
@@ -205,5 +202,19 @@
 :canonical: archivebox.misc.jsonl.write_record
 
 ```{autodoc2-docstring} archivebox.misc.jsonl.write_record
+```
+````
+
+````{py:function} write_records(records: collections.abc.Iterable[dict[str, typing.Any]], stream: typing.TextIO | None = None) -> int
+:canonical: archivebox.misc.jsonl.write_records
+
+```{autodoc2-docstring} archivebox.misc.jsonl.write_records
+```
+````
+
+````{py:function} write_record_table(records, *, format='jsonl', stream=None)
+:canonical: archivebox.misc.jsonl.write_record_table
+
+```{autodoc2-docstring} archivebox.misc.jsonl.write_record_table
 ```
 ````

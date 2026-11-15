@@ -16,9 +16,13 @@
 :align: left
 
 * - {py:obj}`ArchiveResultInline <archivebox.core.admin_archiveresults.ArchiveResultInline>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultInline
+    :summary:
+    ```
 * - {py:obj}`ArchiveResultAdmin <archivebox.core.admin_archiveresults.ArchiveResultAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -94,22 +98,25 @@
 ```
 ````
 
-````{py:function} render_archiveresults_list(archiveresults_qs, limit=50, config=None)
+````{py:function} render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_delete=False)
 :canonical: archivebox.core.admin_archiveresults.render_archiveresults_list
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.render_archiveresults_list
 ```
 ````
 
-`````{py:class} ArchiveResultInline(parent_model, admin_site)
+`````{py:class} ArchiveResultInline
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultInline
 
 Bases: {py:obj}`django.contrib.admin.TabularInline`
 
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultInline
+```
+
 ````{py:attribute} name
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultInline.name
 :value: >
-   'Archive Results Log'
+   'Archive Results'
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultInline.name
 ```
@@ -239,19 +246,28 @@ Bases: {py:obj}`django.contrib.admin.TabularInline`
 ````{py:method} get_formset(request, obj=None, **kwargs)
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultInline.get_formset
 
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultInline.get_formset
+```
+
 ````
 
 ````{py:method} get_readonly_fields(request, obj=None)
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultInline.get_readonly_fields
 
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultInline.get_readonly_fields
+```
+
 ````
 
 `````
 
-``````{py:class} ArchiveResultAdmin(model, admin_site)
+``````{py:class} ArchiveResultAdmin
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin
+```
 
 ````{py:attribute} list_select_related
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.list_select_related
@@ -296,7 +312,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} readonly_fields
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.readonly_fields
 :value: >
-   ('admin_actions', 'cmd', 'cmd_version', 'pwd', 'cmd_str', 'snapshot_info', 'tags_str', 'created_at',...
+   ('cmd', 'cmd_version', 'pwd', 'cmd_str', 'admin_actions', 'snapshot_info', 'tags_str', 'created_at',...
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.readonly_fields
 ```
@@ -316,7 +332,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} autocomplete_fields
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.autocomplete_fields
 :value: >
-   ['snapshot']
+   ('snapshot',)
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.autocomplete_fields
 ```
@@ -326,7 +342,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} fieldsets
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.fieldsets
 :value: >
-   (('Actions',), ('Snapshot',), ('Plugin',), ('Timing',), ('Command',), ('Output',))
+   (('Snapshot',), ('Plugin',), ('Timing',), ('Command',), ('Output',))
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.fieldsets
 ```
@@ -346,7 +362,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} ordering
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.ordering
 :value: >
-   ['-start_ts']
+   ('-start_ts',)
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.ordering
 ```
@@ -396,7 +412,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} actions
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.actions
 :value: >
-   ['delete_selected']
+   ('delete_selected',)
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.actions
 ```
@@ -439,18 +455,32 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 ````
 
+````{py:method} get_admin_toolbar_actions(request, obj)
+:canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.get_admin_toolbar_actions
+
+````
+
 ````{py:method} changelist_view(request, extra_context=None)
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.changelist_view
+
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.changelist_view
+```
 
 ````
 
 ````{py:method} get_queryset(request)
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.get_queryset
 
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.get_queryset
+```
+
 ````
 
 ````{py:method} get_search_results(request, queryset, search_term)
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.get_search_results
+
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.get_search_results
+```
 
 ````
 
@@ -498,6 +528,14 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.zip_link
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.zip_link
+```
+
+````
+
+````{py:method} admin_actions(result)
+:canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.admin_actions
+
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.admin_actions
 ```
 
 ````
@@ -578,14 +616,6 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 :canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.output_str_display
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.output_str_display
-```
-
-````
-
-````{py:method} admin_actions(result)
-:canonical: archivebox.core.admin_archiveresults.ArchiveResultAdmin.admin_actions
-
-```{autodoc2-docstring} archivebox.core.admin_archiveresults.ArchiveResultAdmin.admin_actions
 ```
 
 ````

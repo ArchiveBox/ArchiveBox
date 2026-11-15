@@ -24,22 +24,28 @@ archivebox.core.sqlite_backend
 :titlesonly:
 :maxdepth: 1
 
+archivebox.core.exports
+archivebox.core.signals
 archivebox.core.admin_archiveresults
 archivebox.core.admin_tags
 archivebox.core.models
+archivebox.core.list_results_util
+archivebox.core.library_screenshots
 archivebox.core.admin_users
 archivebox.core.asgi
+archivebox.core.admin_folders
 archivebox.core.settings_logging
 archivebox.core.routes_util
 archivebox.core.apps
+archivebox.core.setup_wizard
 archivebox.core.widgets
 archivebox.core.admin_snapshots
 archivebox.core.forms
+archivebox.core.smart_folders
 archivebox.core.context_processors
 archivebox.core.tag_util
 archivebox.core.shutdown_util
 archivebox.core.admin
-archivebox.core.preview_util
 archivebox.core.snapshot_status
 archivebox.core.admin_site
 archivebox.core.settings

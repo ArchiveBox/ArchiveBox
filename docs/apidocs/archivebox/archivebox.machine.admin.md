@@ -18,11 +18,17 @@
 * - {py:obj}`MachineAdmin <archivebox.machine.admin.MachineAdmin>`
   -
 * - {py:obj}`NetworkInterfaceAdmin <archivebox.machine.admin.NetworkInterfaceAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.machine.admin.NetworkInterfaceAdmin
+    :summary:
+    ```
 * - {py:obj}`BinaryAdmin <archivebox.machine.admin.BinaryAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.machine.admin.BinaryAdmin
+    :summary:
+    ```
 * - {py:obj}`ProcessAdmin <archivebox.machine.admin.ProcessAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -61,7 +67,7 @@
 ```
 ````
 
-`````{py:class} MachineAdmin(model, admin_site)
+`````{py:class} MachineAdmin
 :canonical: archivebox.machine.admin.MachineAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
@@ -82,6 +88,16 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
    ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer'...
 
 ```{autodoc2-docstring} archivebox.machine.admin.MachineAdmin.sort_fields
+```
+
+````
+
+````{py:attribute} search_fields
+:canonical: archivebox.machine.admin.MachineAdmin.search_fields
+:value: >
+   ('id', 'guid', 'hostname', 'networkinterface__ip_public', 'networkinterface__ip_local', 'hw_manufact...
+
+```{autodoc2-docstring} archivebox.machine.admin.MachineAdmin.search_fields
 ```
 
 ````
@@ -119,7 +135,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:attribute} ordering
 :canonical: archivebox.machine.admin.MachineAdmin.ordering
 :value: >
-   ['-created_at']
+   ('-created_at',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.MachineAdmin.ordering
 ```
@@ -139,7 +155,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:attribute} actions
 :canonical: archivebox.machine.admin.MachineAdmin.actions
 :value: >
-   ['delete_selected']
+   ('delete_selected',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.MachineAdmin.actions
 ```
@@ -172,10 +188,13 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 `````
 
-`````{py:class} NetworkInterfaceAdmin(model, admin_site)
+`````{py:class} NetworkInterfaceAdmin
 :canonical: archivebox.machine.admin.NetworkInterfaceAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.machine.admin.NetworkInterfaceAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.machine.admin.NetworkInterfaceAdmin.list_display
@@ -240,7 +259,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} ordering
 :canonical: archivebox.machine.admin.NetworkInterfaceAdmin.ordering
 :value: >
-   ['-created_at']
+   ('-created_at',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.NetworkInterfaceAdmin.ordering
 ```
@@ -260,7 +279,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} actions
 :canonical: archivebox.machine.admin.NetworkInterfaceAdmin.actions
 :value: >
-   ['delete_selected']
+   ('delete_selected',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.NetworkInterfaceAdmin.actions
 ```
@@ -285,10 +304,13 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 `````
 
-`````{py:class} BinaryAdmin(model, admin_site)
+`````{py:class} BinaryAdmin
 :canonical: archivebox.machine.admin.BinaryAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.machine.admin.BinaryAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.machine.admin.BinaryAdmin.list_display
@@ -353,7 +375,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} ordering
 :canonical: archivebox.machine.admin.BinaryAdmin.ordering
 :value: >
-   ['-created_at']
+   ('-created_at',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.BinaryAdmin.ordering
 ```
@@ -373,7 +395,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} actions
 :canonical: archivebox.machine.admin.BinaryAdmin.actions
 :value: >
-   ['delete_selected']
+   ('delete_selected',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.BinaryAdmin.actions
 ```
@@ -398,10 +420,13 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 `````
 
-`````{py:class} ProcessAdmin(model, admin_site)
+`````{py:class} ProcessAdmin
 :canonical: archivebox.machine.admin.ProcessAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.machine.admin.ProcessAdmin.list_display
@@ -426,7 +451,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} search_fields
 :canonical: archivebox.machine.admin.ProcessAdmin.search_fields
 :value: >
-   ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr')
+   ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr', 'env')
 
 ```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.search_fields
 ```
@@ -466,7 +491,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} ordering
 :canonical: archivebox.machine.admin.ProcessAdmin.ordering
 :value: >
-   ['-created_at']
+   ('-created_at',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.ordering
 ```
@@ -486,7 +511,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} actions
 :canonical: archivebox.machine.admin.ProcessAdmin.actions
 :value: >
-   ['kill_processes', 'delete_selected']
+   ('kill_processes', 'delete_selected')
 
 ```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.actions
 ```
@@ -496,7 +521,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} change_actions
 :canonical: archivebox.machine.admin.ProcessAdmin.change_actions
 :value: >
-   ['kill_process']
+   ('kill_process',)
 
 ```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.change_actions
 ```
@@ -505,6 +530,9 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 ````{py:method} get_queryset(request)
 :canonical: archivebox.machine.admin.ProcessAdmin.get_queryset
+
+```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.get_queryset
+```
 
 ````
 

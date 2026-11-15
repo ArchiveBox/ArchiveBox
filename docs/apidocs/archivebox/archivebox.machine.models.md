@@ -35,6 +35,10 @@
   - ```{autodoc2-docstring} archivebox.machine.models.Binary
     :summary:
     ```
+* - {py:obj}`ProcessQuerySet <archivebox.machine.models.ProcessQuerySet>`
+  - ```{autodoc2-docstring} archivebox.machine.models.ProcessQuerySet
+    :summary:
+    ```
 * - {py:obj}`ProcessManager <archivebox.machine.models.ProcessManager>`
   - ```{autodoc2-docstring} archivebox.machine.models.ProcessManager
     :summary:
@@ -95,10 +99,6 @@
   - ```{autodoc2-docstring} archivebox.machine.models._CURRENT_INTERFACE
     :summary:
     ```
-* - {py:obj}`_CURRENT_BINARIES <archivebox.machine.models._CURRENT_BINARIES>`
-  - ```{autodoc2-docstring} archivebox.machine.models._CURRENT_BINARIES
-    :summary:
-    ```
 * - {py:obj}`_CURRENT_PROCESS <archivebox.machine.models._CURRENT_PROCESS>`
   - ```{autodoc2-docstring} archivebox.machine.models._CURRENT_PROCESS
     :summary:
@@ -109,14 +109,6 @@
     ```
 * - {py:obj}`NETWORK_INTERFACE_RECHECK_INTERVAL <archivebox.machine.models.NETWORK_INTERFACE_RECHECK_INTERVAL>`
   - ```{autodoc2-docstring} archivebox.machine.models.NETWORK_INTERFACE_RECHECK_INTERVAL
-    :summary:
-    ```
-* - {py:obj}`BINARY_RECHECK_INTERVAL <archivebox.machine.models.BINARY_RECHECK_INTERVAL>`
-  - ```{autodoc2-docstring} archivebox.machine.models.BINARY_RECHECK_INTERVAL
-    :summary:
-    ```
-* - {py:obj}`PROCESS_RECHECK_INTERVAL <archivebox.machine.models.PROCESS_RECHECK_INTERVAL>`
-  - ```{autodoc2-docstring} archivebox.machine.models.PROCESS_RECHECK_INTERVAL
     :summary:
     ```
 * - {py:obj}`PID_REUSE_WINDOW <archivebox.machine.models.PID_REUSE_WINDOW>`
@@ -133,6 +125,14 @@
     ```
 * - {py:obj}`PROCESS_PID_NAMESPACE_KEY <archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY>`
   - ```{autodoc2-docstring} archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY
+    :summary:
+    ```
+* - {py:obj}`PROCESS_STDOUT_FILE_KEY <archivebox.machine.models.PROCESS_STDOUT_FILE_KEY>`
+  - ```{autodoc2-docstring} archivebox.machine.models.PROCESS_STDOUT_FILE_KEY
+    :summary:
+    ```
+* - {py:obj}`PROCESS_STDERR_FILE_KEY <archivebox.machine.models.PROCESS_STDERR_FILE_KEY>`
+  - ```{autodoc2-docstring} archivebox.machine.models.PROCESS_STDERR_FILE_KEY
     :summary:
     ```
 ````
@@ -172,17 +172,6 @@
 
 ````
 
-````{py:data} _CURRENT_BINARIES
-:canonical: archivebox.machine.models._CURRENT_BINARIES
-:type: dict[str, archivebox.machine.models.Binary]
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models._CURRENT_BINARIES
-```
-
-````
-
 ````{py:data} _CURRENT_PROCESS
 :canonical: archivebox.machine.models._CURRENT_PROCESS
 :type: archivebox.machine.models.Process | None
@@ -210,26 +199,6 @@
    None
 
 ```{autodoc2-docstring} archivebox.machine.models.NETWORK_INTERFACE_RECHECK_INTERVAL
-```
-
-````
-
-````{py:data} BINARY_RECHECK_INTERVAL
-:canonical: archivebox.machine.models.BINARY_RECHECK_INTERVAL
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models.BINARY_RECHECK_INTERVAL
-```
-
-````
-
-````{py:data} PROCESS_RECHECK_INTERVAL
-:canonical: archivebox.machine.models.PROCESS_RECHECK_INTERVAL
-:value: >
-   60
-
-```{autodoc2-docstring} archivebox.machine.models.PROCESS_RECHECK_INTERVAL
 ```
 
 ````
@@ -270,6 +239,26 @@
    '_ARCHIVEBOX_PID_NAMESPACE'
 
 ```{autodoc2-docstring} archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY
+```
+
+````
+
+````{py:data} PROCESS_STDOUT_FILE_KEY
+:canonical: archivebox.machine.models.PROCESS_STDOUT_FILE_KEY
+:value: >
+   '_ARCHIVEBOX_STDOUT_FILE'
+
+```{autodoc2-docstring} archivebox.machine.models.PROCESS_STDOUT_FILE_KEY
+```
+
+````
+
+````{py:data} PROCESS_STDERR_FILE_KEY
+:canonical: archivebox.machine.models.PROCESS_STDERR_FILE_KEY
+:value: >
+   '_ARCHIVEBOX_STDERR_FILE'
+
+```{autodoc2-docstring} archivebox.machine.models.PROCESS_STDERR_FILE_KEY
 ```
 
 ````
@@ -334,10 +323,21 @@ Bases: {py:obj}`django.db.models.Manager`
 
 `````
 
-``````{py:class} Machine(*args, **kwargs)
+``````{py:class} Machine
 :canonical: archivebox.machine.models.Machine
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
+
+````{py:attribute} emoji
+:canonical: archivebox.machine.models.Machine.emoji
+:type: str
+:value: >
+   '🖥️'
+
+```{autodoc2-docstring} archivebox.machine.models.Machine.emoji
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.machine.models.Machine.id
@@ -555,6 +555,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 
+```{autodoc2-docstring} archivebox.machine.models.Machine.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.machine.models.Machine.Meta.app_label
 :value: >
@@ -567,7 +570,16 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 
 `````
 
-````{py:method} current(refresh: bool = False) -> archivebox.machine.models.Machine
+````{py:method} current_readonly() -> archivebox.machine.models.Machine | None
+:canonical: archivebox.machine.models.Machine.current_readonly
+:classmethod:
+
+```{autodoc2-docstring} archivebox.machine.models.Machine.current_readonly
+```
+
+````
+
+````{py:method} current() -> archivebox.machine.models.Machine
 :canonical: archivebox.machine.models.Machine.current
 :classmethod:
 
@@ -605,6 +617,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 ````{py:method} save(*args, **kwargs)
 :canonical: archivebox.machine.models.Machine.save
 
+```{autodoc2-docstring} archivebox.machine.models.Machine.save
+```
+
 ````
 
 ``````
@@ -627,10 +642,21 @@ Bases: {py:obj}`django.db.models.Manager`
 
 `````
 
-``````{py:class} NetworkInterface(*args, **kwargs)
+``````{py:class} NetworkInterface
 :canonical: archivebox.machine.models.NetworkInterface
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
+
+````{py:attribute} emoji
+:canonical: archivebox.machine.models.NetworkInterface.emoji
+:type: str
+:value: >
+   '🌐'
+
+```{autodoc2-docstring} archivebox.machine.models.NetworkInterface.emoji
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.machine.models.NetworkInterface.id
@@ -798,6 +824,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 
+```{autodoc2-docstring} archivebox.machine.models.NetworkInterface.Meta
+```
+
 ````{py:attribute} app_label
 :canonical: archivebox.machine.models.NetworkInterface.Meta.app_label
 :value: >
@@ -844,18 +873,10 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 `````{py:class} BinaryManager
 :canonical: archivebox.machine.models.BinaryManager
 
-Bases: {py:obj}`django.db.models.Manager`
+Bases: {py:obj}`models.Manager.from_queryset`\({py:obj}`PagedQuerySet`\)
 
 ```{autodoc2-docstring} archivebox.machine.models.BinaryManager
 ```
-
-````{py:method} get_from_db_or_cache(name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> archivebox.machine.models.Binary
-:canonical: archivebox.machine.models.BinaryManager.get_from_db_or_cache
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryManager.get_from_db_or_cache
-```
-
-````
 
 ````{py:method} get_valid_binary(name: str, machine: archivebox.machine.models.Machine | None = None) -> archivebox.machine.models.Binary | None
 :canonical: archivebox.machine.models.BinaryManager.get_valid_binary
@@ -867,7 +888,7 @@ Bases: {py:obj}`django.db.models.Manager`
 
 `````
 
-``````{py:class} Binary(*args, **kwargs)
+``````{py:class} Binary
 :canonical: archivebox.machine.models.Binary
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithQueue`
@@ -875,16 +896,24 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`ar
 ```{autodoc2-docstring} archivebox.machine.models.Binary
 ```
 
-```{rubric} Initialization
+````{py:attribute} emoji
+:canonical: archivebox.machine.models.Binary.emoji
+:type: str
+:value: >
+   '🔧'
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.emoji
 ```
 
-```{autodoc2-docstring} archivebox.machine.models.Binary.__init__
-```
+````
 
-`````{py:class} StatusChoices()
+`````{py:class} StatusChoices
 :canonical: archivebox.machine.models.Binary.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.StatusChoices
+```
 
 ````{py:attribute} QUEUED
 :canonical: archivebox.machine.models.Binary.StatusChoices.QUEUED
@@ -1132,6 +1161,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````{py:attribute} objects
 :canonical: archivebox.machine.models.Binary.objects
+:type: typing.ClassVar[archivebox.machine.models.BinaryManager]
 :value: >
    'BinaryManager(...)'
 
@@ -1144,6 +1174,9 @@ Bases: {py:obj}`django.db.models.TextChoices`
 :canonical: archivebox.machine.models.Binary.Meta
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithQueue.Meta`
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.Meta
+```
 
 ````{py:attribute} app_label
 :canonical: archivebox.machine.models.Binary.Meta.app_label
@@ -1189,6 +1222,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:ob
 
 ````{py:method} __str__() -> str
 :canonical: archivebox.machine.models.Binary.__str__
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.__str__
+```
 
 ````
 
@@ -1310,10 +1346,28 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:ob
 
 ``````
 
+`````{py:class} ProcessQuerySet
+:canonical: archivebox.machine.models.ProcessQuerySet
+
+Bases: {py:obj}`archivebox.base_models.models.PagedQuerySet`
+
+```{autodoc2-docstring} archivebox.machine.models.ProcessQuerySet
+```
+
+````{py:method} update(**kwargs)
+:canonical: archivebox.machine.models.ProcessQuerySet.update
+
+```{autodoc2-docstring} archivebox.machine.models.ProcessQuerySet.update
+```
+
+````
+
+`````
+
 `````{py:class} ProcessManager
 :canonical: archivebox.machine.models.ProcessManager
 
-Bases: {py:obj}`django.db.models.Manager`
+Bases: {py:obj}`models.Manager.from_queryset`\({py:obj}`ProcessQuerySet`\)
 
 ```{autodoc2-docstring} archivebox.machine.models.ProcessManager
 ```
@@ -1344,7 +1398,7 @@ Bases: {py:obj}`django.db.models.Manager`
 
 `````
 
-``````{py:class} Process(*args, **kwargs)
+``````{py:class} Process
 :canonical: archivebox.machine.models.Process
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`django.db.models.Model`
@@ -1352,16 +1406,24 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`dj
 ```{autodoc2-docstring} archivebox.machine.models.Process
 ```
 
-```{rubric} Initialization
+````{py:attribute} emoji
+:canonical: archivebox.machine.models.Process.emoji
+:type: str
+:value: >
+   '⚙️'
+
+```{autodoc2-docstring} archivebox.machine.models.Process.emoji
 ```
 
-```{autodoc2-docstring} archivebox.machine.models.Process.__init__
-```
+````
 
-`````{py:class} StatusChoices()
+`````{py:class} StatusChoices
 :canonical: archivebox.machine.models.Process.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
+
+```{autodoc2-docstring} archivebox.machine.models.Process.StatusChoices
+```
 
 ````{py:attribute} QUEUED
 :canonical: archivebox.machine.models.Process.StatusChoices.QUEUED
@@ -1395,10 +1457,13 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 `````
 
-`````{py:class} TypeChoices()
+`````{py:class} TypeChoices
 :canonical: archivebox.machine.models.Process.TypeChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
+
+```{autodoc2-docstring} archivebox.machine.models.Process.TypeChoices
+```
 
 ````{py:attribute} SUPERVISORD
 :canonical: archivebox.machine.models.Process.TypeChoices.SUPERVISORD
@@ -1755,6 +1820,17 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
+````{py:attribute} iface_id
+:canonical: archivebox.machine.models.Process.iface_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.machine.models.Process.iface_id
+```
+
+````
+
 ````{py:attribute} children
 :canonical: archivebox.machine.models.Process.children
 :type: django.db.models.Manager[archivebox.machine.models.Process]
@@ -1801,6 +1877,9 @@ Bases: {py:obj}`django.db.models.TextChoices`
 :canonical: archivebox.machine.models.Process.Meta
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
+
+```{autodoc2-docstring} archivebox.machine.models.Process.Meta
+```
 
 ````{py:attribute} app_label
 :canonical: archivebox.machine.models.Process.Meta.app_label
@@ -1856,6 +1935,9 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 
 ````{py:method} __str__() -> str
 :canonical: archivebox.machine.models.Process.__str__
+
+```{autodoc2-docstring} archivebox.machine.models.Process.__str__
+```
 
 ````
 
@@ -1990,6 +2072,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 :canonical: archivebox.machine.models.Process.mark_exited
 
 ```{autodoc2-docstring} archivebox.machine.models.Process.mark_exited
+```
+
+````
+
+````{py:method} current_readonly() -> archivebox.machine.models.Process | None
+:canonical: archivebox.machine.models.Process.current_readonly
+:classmethod:
+
+```{autodoc2-docstring} archivebox.machine.models.Process.current_readonly
 ```
 
 ````
@@ -2208,7 +2299,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 
 ````
 
-````{py:method} launch(background: bool = False, cwd: str | None = None) -> archivebox.machine.models.Process
+````{py:method} launch(background: bool = False, cwd: str | None = None, *, stdin: bytes | None = None) -> archivebox.machine.models.Process
 :canonical: archivebox.machine.models.Process.launch
 
 ```{autodoc2-docstring} archivebox.machine.models.Process.launch
@@ -2296,15 +2387,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 :classmethod:
 
 ```{autodoc2-docstring} archivebox.machine.models.Process.get_next_worker_id
-```
-
-````
-
-````{py:method} cleanup_orphaned_chrome() -> int
-:canonical: archivebox.machine.models.Process.cleanup_orphaned_chrome
-:classmethod:
-
-```{autodoc2-docstring} archivebox.machine.models.Process.cleanup_orphaned_chrome
 ```
 
 ````

@@ -27,7 +27,7 @@
 
 ### API
 
-````{py:function} schedule(add: bool = False, show: bool = False, clear: bool = False, foreground: bool = False, run_all: bool = False, quiet: bool = False, every: str | None = None, tag: str = '', depth: int | str = 0, import_path: str | None = None, config: dict[str, object] | None = None)
+````{py:function} schedule(add: bool = False, show: bool = False, clear: bool = False, foreground: bool = False, run_all: bool = False, quiet: bool = False, every: str | None = None, tag: str = '', depth: int | str = 0, import_path: str | None = None, config: dict[str, object] | None = None, folder_id: uuid.UUID | None = None)
 :canonical: archivebox.cli.archivebox_schedule.schedule
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_schedule.schedule

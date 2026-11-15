@@ -9,12 +9,40 @@
 
 ## Module Contents
 
+### Classes
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`PassiveCardFrames <archivebox.core.templatetags.core_tags.PassiveCardFrames>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.PassiveCardFrames
+    :summary:
+    ```
+````
+
 ### Functions
 
 ````{list-table}
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`plugin_has_full_preview <archivebox.core.templatetags.core_tags.plugin_has_full_preview>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_has_full_preview
+    :summary:
+    ```
+* - {py:obj}`snapshot_url_text <archivebox.core.templatetags.core_tags.snapshot_url_text>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_url_text
+    :summary:
+    ```
+* - {py:obj}`plugin_ui <archivebox.core.templatetags.core_tags.plugin_ui>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_ui
+    :summary:
+    ```
+* - {py:obj}`_is_web_subdomain_alias <archivebox.core.templatetags.core_tags._is_web_subdomain_alias>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._is_web_subdomain_alias
+    :summary:
+    ```
 * - {py:obj}`_normalize_output_files <archivebox.core.templatetags.core_tags._normalize_output_files>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._normalize_output_files
     :summary:
@@ -51,8 +79,16 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._is_root_snapshot_output_path
     :summary:
     ```
-* - {py:obj}`_build_snapshot_files_url <archivebox.core.templatetags.core_tags._build_snapshot_files_url>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._build_snapshot_files_url
+* - {py:obj}`_static_snapshot_base_url <archivebox.core.templatetags.core_tags._static_snapshot_base_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._static_snapshot_base_url
+    :summary:
+    ```
+* - {py:obj}`_snapshot_base_url_for_context <archivebox.core.templatetags.core_tags._snapshot_base_url_for_context>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_base_url_for_context
+    :summary:
+    ```
+* - {py:obj}`_snapshot_url_for_context <archivebox.core.templatetags.core_tags._snapshot_url_for_context>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_url_for_context
     :summary:
     ```
 * - {py:obj}`_build_snapshot_preview_url <archivebox.core.templatetags.core_tags._build_snapshot_preview_url>`
@@ -83,16 +119,16 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.file_size
     :summary:
     ```
+* - {py:obj}`grid_file_size <archivebox.core.templatetags.core_tags.grid_file_size>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.grid_file_size
+    :summary:
+    ```
 * - {py:obj}`intcomma <archivebox.core.templatetags.core_tags.intcomma>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.intcomma
     :summary:
     ```
 * - {py:obj}`result_list <archivebox.core.templatetags.core_tags.result_list>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.result_list
-    :summary:
-    ```
-* - {py:obj}`result_list_tag <archivebox.core.templatetags.core_tags.result_list_tag>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.result_list_tag
     :summary:
     ```
 * - {py:obj}`_machine_health_stats <archivebox.core.templatetags.core_tags._machine_health_stats>`
@@ -103,16 +139,8 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.system_warnings_banner
     :summary:
     ```
-* - {py:obj}`_unconfigured_banner_context <archivebox.core.templatetags.core_tags._unconfigured_banner_context>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._unconfigured_banner_context
-    :summary:
-    ```
 * - {py:obj}`url_replace <archivebox.core.templatetags.core_tags.url_replace>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.url_replace
-    :summary:
-    ```
-* - {py:obj}`has_real_admin_users <archivebox.core.templatetags.core_tags.has_real_admin_users>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.has_real_admin_users
     :summary:
     ```
 * - {py:obj}`admin_base_url <archivebox.core.templatetags.core_tags.admin_base_url>`
@@ -123,16 +151,40 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.web_base_url
     :summary:
     ```
+* - {py:obj}`static_export_root_url <archivebox.core.templatetags.core_tags.static_export_root_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.static_export_root_url
+    :summary:
+    ```
 * - {py:obj}`snapshot_base_url <archivebox.core.templatetags.core_tags.snapshot_base_url>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_base_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_detail_url <archivebox.core.templatetags.core_tags.snapshot_detail_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_detail_url
     :summary:
     ```
 * - {py:obj}`snapshot_url <archivebox.core.templatetags.core_tags.snapshot_url>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_url
     :summary:
     ```
-* - {py:obj}`snapshot_archiveresult_url <archivebox.core.templatetags.core_tags.snapshot_archiveresult_url>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+* - {py:obj}`snapshot_files_url <archivebox.core.templatetags.core_tags.snapshot_files_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_files_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_zip_url <archivebox.core.templatetags.core_tags.snapshot_zip_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_zip_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_role_output_url <archivebox.core.templatetags.core_tags.snapshot_role_output_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_role_output_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_result_file_url <archivebox.core.templatetags.core_tags.snapshot_result_file_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_result_file_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_thumbnail <archivebox.core.templatetags.core_tags.snapshot_thumbnail>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_thumbnail
     :summary:
     ```
 * - {py:obj}`snapshot_index_row <archivebox.core.templatetags.core_tags.snapshot_index_row>`
@@ -143,12 +195,44 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_preview_url
     :summary:
     ```
+* - {py:obj}`plugin_icon_sprite <archivebox.core.templatetags.core_tags.plugin_icon_sprite>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_icon_sprite
+    :summary:
+    ```
 * - {py:obj}`plugin_icon <archivebox.core.templatetags.core_tags.plugin_icon>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_icon
     :summary:
     ```
+* - {py:obj}`_version_card_url <archivebox.core.templatetags.core_tags._version_card_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._version_card_url
+    :summary:
+    ```
 * - {py:obj}`plugin_card <archivebox.core.templatetags.core_tags.plugin_card>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_card
+    :summary:
+    ```
+* - {py:obj}`snapshot_results <archivebox.core.templatetags.core_tags.snapshot_results>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_results
+    :summary:
+    ```
+* - {py:obj}`manifest_file_count <archivebox.core.templatetags.core_tags.manifest_file_count>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.manifest_file_count
+    :summary:
+    ```
+* - {py:obj}`render_plugin_full_document <archivebox.core.templatetags.core_tags.render_plugin_full_document>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.render_plugin_full_document
+    :summary:
+    ```
+* - {py:obj}`write_static_ui_assets <archivebox.core.templatetags.core_tags.write_static_ui_assets>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.write_static_ui_assets
+    :summary:
+    ```
+* - {py:obj}`write_static_plugin_previews <archivebox.core.templatetags.core_tags.write_static_plugin_previews>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.write_static_plugin_previews
+    :summary:
+    ```
+* - {py:obj}`render_plugin_card_document <archivebox.core.templatetags.core_tags.render_plugin_card_document>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.render_plugin_card_document
     :summary:
     ```
 * - {py:obj}`output_card <archivebox.core.templatetags.core_tags.output_card>`
@@ -167,6 +251,10 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.api_token
     :summary:
     ```
+* - {py:obj}`plugin_config_field <archivebox.core.templatetags.core_tags.plugin_config_field>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_config_field
+    :summary:
+    ```
 ````
 
 ### Data
@@ -179,6 +267,10 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.register
     :summary:
     ```
+* - {py:obj}`CARD_OVERFLOW_STYLE <archivebox.core.templatetags.core_tags.CARD_OVERFLOW_STYLE>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.CARD_OVERFLOW_STYLE
+    :summary:
+    ```
 * - {py:obj}`_TEXT_PREVIEW_EXTS <archivebox.core.templatetags.core_tags._TEXT_PREVIEW_EXTS>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._TEXT_PREVIEW_EXTS
     :summary:
@@ -187,12 +279,28 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._IMAGE_PREVIEW_EXTS
     :summary:
     ```
-* - {py:obj}`_MHTML_PREVIEW_EXTS <archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS
+* - {py:obj}`_STATIC_URL_SAFE <archivebox.core.templatetags.core_tags._STATIC_URL_SAFE>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._STATIC_URL_SAFE
+    :summary:
+    ```
+* - {py:obj}`_VIDEO_FILE_EXTS <archivebox.core.templatetags.core_tags._VIDEO_FILE_EXTS>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._VIDEO_FILE_EXTS
+    :summary:
+    ```
+* - {py:obj}`_AUDIO_FILE_EXTS <archivebox.core.templatetags.core_tags._AUDIO_FILE_EXTS>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._AUDIO_FILE_EXTS
     :summary:
     ```
 * - {py:obj}`_MEDIA_FILE_EXTS <archivebox.core.templatetags.core_tags._MEDIA_FILE_EXTS>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._MEDIA_FILE_EXTS
+    :summary:
+    ```
+* - {py:obj}`_BROWSER_VIDEO_FILE_EXTS <archivebox.core.templatetags.core_tags._BROWSER_VIDEO_FILE_EXTS>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._BROWSER_VIDEO_FILE_EXTS
+    :summary:
+    ```
+* - {py:obj}`_BROWSER_AUDIO_FILE_EXTS <archivebox.core.templatetags.core_tags._BROWSER_AUDIO_FILE_EXTS>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._BROWSER_AUDIO_FILE_EXTS
     :summary:
     ```
 * - {py:obj}`_LOW_DISK_THRESHOLD_GB <archivebox.core.templatetags.core_tags._LOW_DISK_THRESHOLD_GB>`
@@ -229,6 +337,37 @@
 
 ````
 
+````{py:function} plugin_has_full_preview(result) -> bool
+:canonical: archivebox.core.templatetags.core_tags.plugin_has_full_preview
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_has_full_preview
+```
+````
+
+````{py:data} CARD_OVERFLOW_STYLE
+:canonical: archivebox.core.templatetags.core_tags.CARD_OVERFLOW_STYLE
+:value: >
+   '<style>html,body{height:100%!important;min-height:0!important}html,body,body *{overflow:clip!importa...'
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.CARD_OVERFLOW_STYLE
+```
+
+````
+
+````{py:function} snapshot_url_text(url)
+:canonical: archivebox.core.templatetags.core_tags.snapshot_url_text
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_url_text
+```
+````
+
+````{py:function} plugin_ui(context, plugin: str, slot: str | None = None)
+:canonical: archivebox.core.templatetags.core_tags.plugin_ui
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_ui
+```
+````
+
 ````{py:data} _TEXT_PREVIEW_EXTS
 :canonical: archivebox.core.templatetags.core_tags._TEXT_PREVIEW_EXTS
 :value: >
@@ -249,12 +388,32 @@
 
 ````
 
-````{py:data} _MHTML_PREVIEW_EXTS
-:canonical: archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS
+````{py:data} _STATIC_URL_SAFE
+:canonical: archivebox.core.templatetags.core_tags._STATIC_URL_SAFE
 :value: >
-   ('.mhtml', '.mht')
+   "/@-._~!$&'()*+,;="
 
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._STATIC_URL_SAFE
+```
+
+````
+
+````{py:data} _VIDEO_FILE_EXTS
+:canonical: archivebox.core.templatetags.core_tags._VIDEO_FILE_EXTS
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._VIDEO_FILE_EXTS
+```
+
+````
+
+````{py:data} _AUDIO_FILE_EXTS
+:canonical: archivebox.core.templatetags.core_tags._AUDIO_FILE_EXTS
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._AUDIO_FILE_EXTS
 ```
 
 ````
@@ -267,6 +426,33 @@
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._MEDIA_FILE_EXTS
 ```
 
+````
+
+````{py:data} _BROWSER_VIDEO_FILE_EXTS
+:canonical: archivebox.core.templatetags.core_tags._BROWSER_VIDEO_FILE_EXTS
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._BROWSER_VIDEO_FILE_EXTS
+```
+
+````
+
+````{py:data} _BROWSER_AUDIO_FILE_EXTS
+:canonical: archivebox.core.templatetags.core_tags._BROWSER_AUDIO_FILE_EXTS
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._BROWSER_AUDIO_FILE_EXTS
+```
+
+````
+
+````{py:function} _is_web_subdomain_alias(browser_url: str, configured_base_url: str) -> bool
+:canonical: archivebox.core.templatetags.core_tags._is_web_subdomain_alias
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._is_web_subdomain_alias
+```
 ````
 
 ````{py:function} _normalize_output_files(output_files: typing.Any) -> dict[str, dict[str, typing.Any]]
@@ -297,7 +483,7 @@
 ```
 ````
 
-````{py:function} _list_media_files(result) -> list[dict]
+````{py:function} _list_media_files(result, *, include_filesystem_fallback=True) -> list[dict]
 :canonical: archivebox.core.templatetags.core_tags._list_media_files
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._list_media_files
@@ -332,14 +518,28 @@
 ```
 ````
 
-````{py:function} _build_snapshot_files_url(snapshot_id: str, request=None, config=None) -> str
-:canonical: archivebox.core.templatetags.core_tags._build_snapshot_files_url
+````{py:function} _static_snapshot_base_url(context, snapshot) -> str
+:canonical: archivebox.core.templatetags.core_tags._static_snapshot_base_url
 
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags._build_snapshot_files_url
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._static_snapshot_base_url
 ```
 ````
 
-````{py:function} _build_snapshot_preview_url(snapshot_id: str, path: str = '', request=None, config=None) -> str
+````{py:function} _snapshot_base_url_for_context(context, snapshot) -> str
+:canonical: archivebox.core.templatetags.core_tags._snapshot_base_url_for_context
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_base_url_for_context
+```
+````
+
+````{py:function} _snapshot_url_for_context(context, snapshot, path: str = '') -> str
+:canonical: archivebox.core.templatetags.core_tags._snapshot_url_for_context
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_url_for_context
+```
+````
+
+````{py:function} _build_snapshot_preview_url(snapshot_id: str, path: str = '', request=None, config=None, plugin: str = '', base_url: str | None = None) -> str
 :canonical: archivebox.core.templatetags.core_tags._build_snapshot_preview_url
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._build_snapshot_preview_url
@@ -381,10 +581,17 @@
 ```
 ````
 
-````{py:function} file_size(num_bytes: int | float) -> str
+````{py:function} file_size(num_bytes: float, decimal_places: int = 1) -> str
 :canonical: archivebox.core.templatetags.core_tags.file_size
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.file_size
+```
+````
+
+````{py:function} grid_file_size(num_bytes: float | None) -> str
+:canonical: archivebox.core.templatetags.core_tags.grid_file_size
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.grid_file_size
 ```
 ````
 
@@ -399,13 +606,6 @@
 :canonical: archivebox.core.templatetags.core_tags.result_list
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.result_list
-```
-````
-
-````{py:function} result_list_tag(parser, token)
-:canonical: archivebox.core.templatetags.core_tags.result_list_tag
-
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags.result_list_tag
 ```
 ````
 
@@ -474,24 +674,10 @@
 ```
 ````
 
-````{py:function} _unconfigured_banner_context(request) -> dict
-:canonical: archivebox.core.templatetags.core_tags._unconfigured_banner_context
-
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags._unconfigured_banner_context
-```
-````
-
 ````{py:function} url_replace(context, **kwargs)
 :canonical: archivebox.core.templatetags.core_tags.url_replace
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.url_replace
-```
-````
-
-````{py:function} has_real_admin_users() -> bool
-:canonical: archivebox.core.templatetags.core_tags.has_real_admin_users
-
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags.has_real_admin_users
 ```
 ````
 
@@ -509,10 +695,24 @@
 ```
 ````
 
+````{py:function} static_export_root_url(context) -> str
+:canonical: archivebox.core.templatetags.core_tags.static_export_root_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.static_export_root_url
+```
+````
+
 ````{py:function} snapshot_base_url(context, snapshot) -> str
 :canonical: archivebox.core.templatetags.core_tags.snapshot_base_url
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_base_url
+```
+````
+
+````{py:function} snapshot_detail_url(context, snapshot) -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_detail_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_detail_url
 ```
 ````
 
@@ -523,10 +723,38 @@
 ```
 ````
 
-````{py:function} snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str
-:canonical: archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+````{py:function} snapshot_files_url(context, snapshot, path: str = '') -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_files_url
 
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_files_url
+```
+````
+
+````{py:function} snapshot_zip_url(context, snapshot, path: str = '') -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_zip_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_zip_url
+```
+````
+
+````{py:function} snapshot_role_output_url(context, snapshot, role: str, fallback_to_default: bool = False) -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_role_output_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_role_output_url
+```
+````
+
+````{py:function} snapshot_result_file_url(context, snapshot, result, path: str, preview: bool = False) -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_result_file_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_result_file_url
+```
+````
+
+````{py:function} snapshot_thumbnail(context, snapshot, admin=False, width='100px', height='100px')
+:canonical: archivebox.core.templatetags.core_tags.snapshot_thumbnail
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_thumbnail
 ```
 ````
 
@@ -537,10 +765,17 @@
 ```
 ````
 
-````{py:function} snapshot_preview_url(context, snapshot, path: str = '') -> str
+````{py:function} snapshot_preview_url(context, snapshot, path: str = '', result=None) -> str
 :canonical: archivebox.core.templatetags.core_tags.snapshot_preview_url
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_preview_url
+```
+````
+
+````{py:function} plugin_icon_sprite() -> str
+:canonical: archivebox.core.templatetags.core_tags.plugin_icon_sprite
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_icon_sprite
 ```
 ````
 
@@ -551,6 +786,13 @@
 ```
 ````
 
+````{py:function} _version_card_url(context, result, url: str) -> str
+:canonical: archivebox.core.templatetags.core_tags._version_card_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._version_card_url
+```
+````
+
 ````{py:function} plugin_card(context, result) -> str
 :canonical: archivebox.core.templatetags.core_tags.plugin_card
 
@@ -558,7 +800,73 @@
 ```
 ````
 
-````{py:function} output_card(snapshot, output_path: str, plugin: str) -> str
+````{py:function} snapshot_results(snapshot, plugins: str)
+:canonical: archivebox.core.templatetags.core_tags.snapshot_results
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_results
+```
+````
+
+````{py:function} manifest_file_count(captures, plugin: str, exclude_parts: str = '', exclude_prefixes: str = '', exclude_names: str = '') -> int
+:canonical: archivebox.core.templatetags.core_tags.manifest_file_count
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.manifest_file_count
+```
+````
+
+`````{py:class} PassiveCardFrames(document: str, output_url: str)
+:canonical: archivebox.core.templatetags.core_tags.PassiveCardFrames
+
+Bases: {py:obj}`html.parser.HTMLParser`
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.PassiveCardFrames
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.PassiveCardFrames.__init__
+```
+
+````{py:method} handle_starttag(tag, attrs)
+:canonical: archivebox.core.templatetags.core_tags.PassiveCardFrames.handle_starttag
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.PassiveCardFrames.handle_starttag
+```
+
+````
+
+`````
+
+````{py:function} render_plugin_full_document(snapshot, rel_path, result, *, output_url, snapshot_details_url, context=None, fallback=False)
+:canonical: archivebox.core.templatetags.core_tags.render_plugin_full_document
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.render_plugin_full_document
+```
+````
+
+````{py:function} write_static_ui_assets(export_root)
+:canonical: archivebox.core.templatetags.core_tags.write_static_ui_assets
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.write_static_ui_assets
+```
+````
+
+````{py:function} write_static_plugin_previews(context)
+:canonical: archivebox.core.templatetags.core_tags.write_static_plugin_previews
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.write_static_plugin_previews
+```
+````
+
+````{py:function} render_plugin_card_document(context, result) -> str
+:canonical: archivebox.core.templatetags.core_tags.render_plugin_card_document
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.render_plugin_card_document
+```
+````
+
+````{py:function} output_card(context, snapshot, output_path: str, plugin: str) -> str
 :canonical: archivebox.core.templatetags.core_tags.output_card
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.output_card
@@ -583,5 +891,12 @@
 :canonical: archivebox.core.templatetags.core_tags.api_token
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.api_token
+```
+````
+
+````{py:function} plugin_config_field(context, plugin, field)
+:canonical: archivebox.core.templatetags.core_tags.plugin_config_field
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.plugin_config_field
 ```
 ````

@@ -15,4 +15,5 @@
 
 archivebox.workers.management.commands.runner_watch
 archivebox.workers.management.commands.supervisord_watchdog
+archivebox.workers.management.commands.runserver
 ```

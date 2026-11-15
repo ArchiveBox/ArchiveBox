@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`MachineConfig <archivebox.machine.apps.MachineConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.machine.apps.MachineConfig
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -33,10 +35,13 @@
 
 ### API
 
-`````{py:class} MachineConfig(app_name, app_module)
+`````{py:class} MachineConfig
 :canonical: archivebox.machine.apps.MachineConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.machine.apps.MachineConfig
+```
 
 ````{py:attribute} default_auto_field
 :canonical: archivebox.machine.apps.MachineConfig.default_auto_field

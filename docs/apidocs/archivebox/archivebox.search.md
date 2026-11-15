@@ -13,7 +13,6 @@
 :titlesonly:
 :maxdepth: 1
 
-archivebox.search.sonic_daemon
 archivebox.search.config
 archivebox.search.query
 archivebox.search.apps

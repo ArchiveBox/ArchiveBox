@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} archivebox.plugins.forms.get_plugin_choices
     :summary:
     ```
+* - {py:obj}`_config_label <archivebox.plugins.forms._config_label>`
+  - ```{autodoc2-docstring} archivebox.plugins.forms._config_label
+    :summary:
+    ```
 * - {py:obj}`get_plugin_choice_label <archivebox.plugins.forms.get_plugin_choice_label>`
   - ```{autodoc2-docstring} archivebox.plugins.forms.get_plugin_choice_label
     :summary:
@@ -45,6 +49,10 @@
     ```
 * - {py:obj}`_schema_types <archivebox.plugins.forms._schema_types>`
   - ```{autodoc2-docstring} archivebox.plugins.forms._schema_types
+    :summary:
+    ```
+* - {py:obj}`_schema_enum <archivebox.plugins.forms._schema_enum>`
+  - ```{autodoc2-docstring} archivebox.plugins.forms._schema_enum
     :summary:
     ```
 * - {py:obj}`_jsonish <archivebox.plugins.forms._jsonish>`
@@ -67,8 +75,8 @@
   - ```{autodoc2-docstring} archivebox.plugins.forms._iter_required_binary_names
     :summary:
     ```
-* - {py:obj}`_build_required_binary_url_lookup <archivebox.plugins.forms._build_required_binary_url_lookup>`
-  - ```{autodoc2-docstring} archivebox.plugins.forms._build_required_binary_url_lookup
+* - {py:obj}`build_required_binary_url_lookup <archivebox.plugins.forms.build_required_binary_url_lookup>`
+  - ```{autodoc2-docstring} archivebox.plugins.forms.build_required_binary_url_lookup
     :summary:
     ```
 * - {py:obj}`_build_required_binary_links <archivebox.plugins.forms._build_required_binary_links>`
@@ -91,12 +99,8 @@
   - ```{autodoc2-docstring} archivebox.plugins.forms.PLUGIN_CONFIG_FIELD_PREFIX
     :summary:
     ```
-* - {py:obj}`PLUGIN_GROUP_DEFINITIONS <archivebox.plugins.forms.PLUGIN_GROUP_DEFINITIONS>`
-  - ```{autodoc2-docstring} archivebox.plugins.forms.PLUGIN_GROUP_DEFINITIONS
-    :summary:
-    ```
-* - {py:obj}`HIDDEN_PLUGIN_CONFIG_UI_PLUGINS <archivebox.plugins.forms.HIDDEN_PLUGIN_CONFIG_UI_PLUGINS>`
-  - ```{autodoc2-docstring} archivebox.plugins.forms.HIDDEN_PLUGIN_CONFIG_UI_PLUGINS
+* - {py:obj}`PLUGIN_GROUPS <archivebox.plugins.forms.PLUGIN_GROUPS>`
+  - ```{autodoc2-docstring} archivebox.plugins.forms.PLUGIN_GROUPS
     :summary:
     ```
 * - {py:obj}`TIMEOUT_INPUT_PATTERN <archivebox.plugins.forms.TIMEOUT_INPUT_PATTERN>`
@@ -121,22 +125,12 @@
 
 ````
 
-````{py:data} PLUGIN_GROUP_DEFINITIONS
-:canonical: archivebox.plugins.forms.PLUGIN_GROUP_DEFINITIONS
+````{py:data} PLUGIN_GROUPS
+:canonical: archivebox.plugins.forms.PLUGIN_GROUPS
 :value: >
-   (('main_plugins', 'Main', '', '', '', ('dom', 'screenshot', 'pdf', 'singlefile', 'wget', 'archivedot...
+   (('main', 'main_plugins', 'Main'), ('page_setup', 'page_setup_plugins', 'Page Setup'), ('media', 'me...
 
-```{autodoc2-docstring} archivebox.plugins.forms.PLUGIN_GROUP_DEFINITIONS
-```
-
-````
-
-````{py:data} HIDDEN_PLUGIN_CONFIG_UI_PLUGINS
-:canonical: archivebox.plugins.forms.HIDDEN_PLUGIN_CONFIG_UI_PLUGINS
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.plugins.forms.HIDDEN_PLUGIN_CONFIG_UI_PLUGINS
+```{autodoc2-docstring} archivebox.plugins.forms.PLUGIN_GROUPS
 ```
 
 ````
@@ -155,6 +149,13 @@
 :canonical: archivebox.plugins.forms.get_plugin_choices
 
 ```{autodoc2-docstring} archivebox.plugins.forms.get_plugin_choices
+```
+````
+
+````{py:function} _config_label(name: str) -> str
+:canonical: archivebox.plugins.forms._config_label
+
+```{autodoc2-docstring} archivebox.plugins.forms._config_label
 ```
 ````
 
@@ -183,6 +184,13 @@
 :canonical: archivebox.plugins.forms._schema_types
 
 ```{autodoc2-docstring} archivebox.plugins.forms._schema_types
+```
+````
+
+````{py:function} _schema_enum(schema: collections.abc.Mapping[str, typing.Any])
+:canonical: archivebox.plugins.forms._schema_enum
+
+```{autodoc2-docstring} archivebox.plugins.forms._schema_enum
 ```
 ````
 
@@ -224,12 +232,56 @@
 
 ````
 
+````{py:attribute} plugin_group_specs
+:canonical: archivebox.plugins.forms.PluginConfigFormMixin.plugin_group_specs
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.plugin_group_specs
+```
+
+````
+
 ````{py:attribute} allow_crawl_execution_config_fields
 :canonical: archivebox.plugins.forms.PluginConfigFormMixin.allow_crawl_execution_config_fields
 :value: >
    True
 
 ```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.allow_crawl_execution_config_fields
+```
+
+````
+
+````{py:attribute} settings_scopes
+:canonical: archivebox.plugins.forms.PluginConfigFormMixin.settings_scopes
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.settings_scopes
+```
+
+````
+
+````{py:method} submitted_setting(name, schema)
+:canonical: archivebox.plugins.forms.PluginConfigFormMixin.submitted_setting
+
+```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.submitted_setting
+```
+
+````
+
+````{py:method} settings_schemas()
+:canonical: archivebox.plugins.forms.PluginConfigFormMixin.settings_schemas
+
+```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.settings_schemas
+```
+
+````
+
+````{py:method} merge_settings(config, inherited)
+:canonical: archivebox.plugins.forms.PluginConfigFormMixin.merge_settings
+
+```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.merge_settings
 ```
 
 ````
@@ -258,7 +310,7 @@
 
 ````
 
-````{py:method} clean_plugin_config_overrides(effective_config: collections.abc.Mapping[str, typing.Any] | None = None) -> dict[str, typing.Any]
+````{py:method} clean_plugin_config_overrides(effective_config: collections.abc.Mapping[str, typing.Any] | None = None, *, omit_inherited: bool = True) -> dict[str, typing.Any]
 :canonical: archivebox.plugins.forms.PluginConfigFormMixin.clean_plugin_config_overrides
 
 ```{autodoc2-docstring} archivebox.plugins.forms.PluginConfigFormMixin.clean_plugin_config_overrides
@@ -300,10 +352,10 @@
 ```
 ````
 
-````{py:function} _build_required_binary_url_lookup(plugin_configs: collections.abc.Mapping[str, dict[str, typing.Any]], runtime_config: collections.abc.Mapping[str, typing.Any]) -> dict[str, str]
-:canonical: archivebox.plugins.forms._build_required_binary_url_lookup
+````{py:function} build_required_binary_url_lookup(plugin_configs: collections.abc.Mapping[str, dict[str, typing.Any]], runtime_configs: collections.abc.Iterable[collections.abc.Mapping[str, typing.Any]]) -> dict[str, str]
+:canonical: archivebox.plugins.forms.build_required_binary_url_lookup
 
-```{autodoc2-docstring} archivebox.plugins.forms._build_required_binary_url_lookup
+```{autodoc2-docstring} archivebox.plugins.forms.build_required_binary_url_lookup
 ```
 ````
 
@@ -314,7 +366,7 @@
 ```
 ````
 
-````{py:function} get_plugin_config_binary_urls(runtime_config: collections.abc.Mapping[str, typing.Any]) -> dict[str, str]
+````{py:function} get_plugin_config_binary_urls(runtime_config: collections.abc.Mapping[str, typing.Any], binary_url_lookup: collections.abc.Mapping[str, str] | None = None) -> dict[str, str]
 :canonical: archivebox.plugins.forms.get_plugin_config_binary_urls
 
 ```{autodoc2-docstring} archivebox.plugins.forms.get_plugin_config_binary_urls

@@ -33,6 +33,10 @@
   - ```{autodoc2-docstring} archivebox.config.common.ArchiveBoxBaseConfig
     :summary:
     ```
+* - {py:obj}`ArchiveBoxSourceSettings <archivebox.config.common.ArchiveBoxSourceSettings>`
+  - ```{autodoc2-docstring} archivebox.config.common.ArchiveBoxSourceSettings
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -41,12 +45,24 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_is_cookie_file_config_key <archivebox.config.common._is_cookie_file_config_key>`
+  - ```{autodoc2-docstring} archivebox.config.common._is_cookie_file_config_key
+    :summary:
+    ```
+* - {py:obj}`_resolve_cookie_file_paths <archivebox.config.common._resolve_cookie_file_paths>`
+  - ```{autodoc2-docstring} archivebox.config.common._resolve_cookie_file_paths
+    :summary:
+    ```
 * - {py:obj}`_legacy_bool <archivebox.config.common._legacy_bool>`
   - ```{autodoc2-docstring} archivebox.config.common._legacy_bool
     :summary:
     ```
 * - {py:obj}`permissions_from_legacy_public_flags <archivebox.config.common.permissions_from_legacy_public_flags>`
   - ```{autodoc2-docstring} archivebox.config.common.permissions_from_legacy_public_flags
+    :summary:
+    ```
+* - {py:obj}`base_url_from_legacy_server_config <archivebox.config.common.base_url_from_legacy_server_config>`
+  - ```{autodoc2-docstring} archivebox.config.common.base_url_from_legacy_server_config
     :summary:
     ```
 * - {py:obj}`resolve_delete_after_config_value <archivebox.config.common.resolve_delete_after_config_value>`
@@ -77,6 +93,10 @@
   - ```{autodoc2-docstring} archivebox.config.common.rprint
     :summary:
     ```
+* - {py:obj}`_default_sqlite_journal_mode <archivebox.config.common._default_sqlite_journal_mode>`
+  - ```{autodoc2-docstring} archivebox.config.common._default_sqlite_journal_mode
+    :summary:
+    ```
 * - {py:obj}`parse_delete_after <archivebox.config.common.parse_delete_after>`
   - ```{autodoc2-docstring} archivebox.config.common.parse_delete_after
     :summary:
@@ -97,6 +117,10 @@
   - ```{autodoc2-docstring} archivebox.config.common._explicit_plugin_enabled_keys
     :summary:
     ```
+* - {py:obj}`_plugin_enabled_input_names <archivebox.config.common._plugin_enabled_input_names>`
+  - ```{autodoc2-docstring} archivebox.config.common._plugin_enabled_input_names
+    :summary:
+    ```
 * - {py:obj}`_discover_plugin_config_schemas <archivebox.config.common._discover_plugin_config_schemas>`
   - ```{autodoc2-docstring} archivebox.config.common._discover_plugin_config_schemas
     :summary:
@@ -113,8 +137,16 @@
   - ```{autodoc2-docstring} archivebox.config.common._archivebox_config_input_names
     :summary:
     ```
+* - {py:obj}`filter_crawl_env <archivebox.config.common.filter_crawl_env>`
+  - ```{autodoc2-docstring} archivebox.config.common.filter_crawl_env
+    :summary:
+    ```
 * - {py:obj}`_build_archivebox_config_model <archivebox.config.common._build_archivebox_config_model>`
   - ```{autodoc2-docstring} archivebox.config.common._build_archivebox_config_model
+    :summary:
+    ```
+* - {py:obj}`load_source_config <archivebox.config.common.load_source_config>`
+  - ```{autodoc2-docstring} archivebox.config.common.load_source_config
     :summary:
     ```
 * - {py:obj}`_normalize_plugins_config_value <archivebox.config.common._normalize_plugins_config_value>`
@@ -149,8 +181,16 @@
   - ```{autodoc2-docstring} archivebox.config.common.find_config_type
     :summary:
     ```
+* - {py:obj}`_config_source_inputs <archivebox.config.common._config_source_inputs>`
+  - ```{autodoc2-docstring} archivebox.config.common._config_source_inputs
+    :summary:
+    ```
 * - {py:obj}`find_config_source <archivebox.config.common.find_config_source>`
   - ```{autodoc2-docstring} archivebox.config.common.find_config_source
+    :summary:
+    ```
+* - {py:obj}`get_config_with_sources <archivebox.config.common.get_config_with_sources>`
+  - ```{autodoc2-docstring} archivebox.config.common.get_config_with_sources
     :summary:
     ```
 * - {py:obj}`get_request_config <archivebox.config.common.get_request_config>`
@@ -201,6 +241,14 @@
   - ```{autodoc2-docstring} archivebox.config.common._WARNED_ARCHIVING_CONFIGS
     :summary:
     ```
+* - {py:obj}`_BOOL_ADAPTER <archivebox.config.common._BOOL_ADAPTER>`
+  - ```{autodoc2-docstring} archivebox.config.common._BOOL_ADAPTER
+    :summary:
+    ```
+* - {py:obj}`_WARNED_CONFIG_TYPOS <archivebox.config.common._WARNED_CONFIG_TYPOS>`
+  - ```{autodoc2-docstring} archivebox.config.common._WARNED_CONFIG_TYPOS
+    :summary:
+    ```
 * - {py:obj}`_SENSITIVE_CONFIG_KEY_NEEDLES <archivebox.config.common._SENSITIVE_CONFIG_KEY_NEEDLES>`
   - ```{autodoc2-docstring} archivebox.config.common._SENSITIVE_CONFIG_KEY_NEEDLES
     :summary:
@@ -227,6 +275,10 @@
     ```
 * - {py:obj}`ArchiveBoxConfig <archivebox.config.common.ArchiveBoxConfig>`
   - ```{autodoc2-docstring} archivebox.config.common.ArchiveBoxConfig
+    :summary:
+    ```
+* - {py:obj}`_ENV_SOURCE_VALUES <archivebox.config.common._ENV_SOURCE_VALUES>`
+  - ```{autodoc2-docstring} archivebox.config.common._ENV_SOURCE_VALUES
     :summary:
     ```
 ````
@@ -273,6 +325,20 @@
 
 ````
 
+````{py:function} _is_cookie_file_config_key(key: str) -> bool
+:canonical: archivebox.config.common._is_cookie_file_config_key
+
+```{autodoc2-docstring} archivebox.config.common._is_cookie_file_config_key
+```
+````
+
+````{py:function} _resolve_cookie_file_paths(config: dict[str, typing.Any]) -> dict[str, typing.Any]
+:canonical: archivebox.config.common._resolve_cookie_file_paths
+
+```{autodoc2-docstring} archivebox.config.common._resolve_cookie_file_paths
+```
+````
+
 ````{py:data} _STDOUT_CONSOLE
 :canonical: archivebox.config.common._STDOUT_CONSOLE
 :value: >
@@ -304,6 +370,27 @@
 
 ````
 
+````{py:data} _BOOL_ADAPTER
+:canonical: archivebox.config.common._BOOL_ADAPTER
+:value: >
+   'TypeAdapter(...)'
+
+```{autodoc2-docstring} archivebox.config.common._BOOL_ADAPTER
+```
+
+````
+
+````{py:data} _WARNED_CONFIG_TYPOS
+:canonical: archivebox.config.common._WARNED_CONFIG_TYPOS
+:type: set[str]
+:value: >
+   'set(...)'
+
+```{autodoc2-docstring} archivebox.config.common._WARNED_CONFIG_TYPOS
+```
+
+````
+
 ````{py:function} _legacy_bool(value: object) -> bool | None
 :canonical: archivebox.config.common._legacy_bool
 
@@ -315,6 +402,13 @@
 :canonical: archivebox.config.common.permissions_from_legacy_public_flags
 
 ```{autodoc2-docstring} archivebox.config.common.permissions_from_legacy_public_flags
+```
+````
+
+````{py:function} base_url_from_legacy_server_config(raw_config: collections.abc.Mapping[str, object]) -> str
+:canonical: archivebox.config.common.base_url_from_legacy_server_config
+
+```{autodoc2-docstring} archivebox.config.common.base_url_from_legacy_server_config
 ```
 ````
 
@@ -417,7 +511,7 @@
 ```
 ````
 
-`````{py:class} ShellConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} ShellConfig
 :canonical: archivebox.config.common.ShellConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -550,7 +644,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 `````
 
-`````{py:class} StorageConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} StorageConfig
 :canonical: archivebox.config.common.StorageConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -634,7 +728,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 `````
 
-`````{py:class} GeneralConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} GeneralConfig
 :canonical: archivebox.config.common.GeneralConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -674,7 +768,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 `````
 
-`````{py:class} ServerConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} ServerConfig
 :canonical: archivebox.config.common.ServerConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -705,7 +799,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 :canonical: archivebox.config.common.ServerConfig.SERVER_SECURITY_MODES
 :type: typing.ClassVar[tuple[str, ...]]
 :value: >
-   ('safe-subdomains-fullreplay', 'safe-onedomain-nojsreplay', 'unsafe-onedomain-noadmin', 'danger-oned...
+   ('auto', 'safe-subdomains-fullreplay', 'safe-onedomain-nojsreplay', 'unsafe-onedomain-noadmin', 'dan...
 
 ```{autodoc2-docstring} archivebox.config.common.ServerConfig.SERVER_SECURITY_MODES
 ```
@@ -818,6 +912,17 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
    'Field(...)'
 
 ```{autodoc2-docstring} archivebox.config.common.ServerConfig.PUBLIC_ADD_VIEW
+```
+
+````
+
+````{py:attribute} REWRITE_ARCHIVED_LINKS
+:canonical: archivebox.config.common.ServerConfig.REWRITE_ARCHIVED_LINKS
+:type: bool
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.ServerConfig.REWRITE_ARCHIVED_LINKS
 ```
 
 ````
@@ -959,7 +1064,14 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 `````
 
-`````{py:class} DatabaseConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+````{py:function} _default_sqlite_journal_mode(database_name: str) -> str
+:canonical: archivebox.config.common._default_sqlite_journal_mode
+
+```{autodoc2-docstring} archivebox.config.common._default_sqlite_journal_mode
+```
+````
+
+`````{py:class} DatabaseConfig
 :canonical: archivebox.config.common.DatabaseConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -986,6 +1098,17 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 ````
 
+````{py:attribute} DATABASE_ENGINE
+:canonical: archivebox.config.common.DatabaseConfig.DATABASE_ENGINE
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_ENGINE
+```
+
+````
+
 ````{py:attribute} DATABASE_NAME
 :canonical: archivebox.config.common.DatabaseConfig.DATABASE_NAME
 :type: str
@@ -993,6 +1116,50 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
    'Field(...)'
 
 ```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_NAME
+```
+
+````
+
+````{py:attribute} DATABASE_HOST
+:canonical: archivebox.config.common.DatabaseConfig.DATABASE_HOST
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_HOST
+```
+
+````
+
+````{py:attribute} DATABASE_PORT
+:canonical: archivebox.config.common.DatabaseConfig.DATABASE_PORT
+:type: int
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_PORT
+```
+
+````
+
+````{py:attribute} DATABASE_USER
+:canonical: archivebox.config.common.DatabaseConfig.DATABASE_USER
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_USER
+```
+
+````
+
+````{py:attribute} DATABASE_PASSWORD
+:canonical: archivebox.config.common.DatabaseConfig.DATABASE_PASSWORD
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.DATABASE_PASSWORD
 ```
 
 ````
@@ -1021,7 +1188,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 ````{py:attribute} SQLITE_BUSY_TIMEOUT
 :canonical: archivebox.config.common.DatabaseConfig.SQLITE_BUSY_TIMEOUT
-:type: int
+:type: float
 :value: >
    'Field(...)'
 
@@ -1052,9 +1219,17 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 ````
 
+````{py:method} reject_shared_filesystem_sqlite_wal()
+:canonical: archivebox.config.common.DatabaseConfig.reject_shared_filesystem_sqlite_wal
+
+```{autodoc2-docstring} archivebox.config.common.DatabaseConfig.reject_shared_filesystem_sqlite_wal
+```
+
+````
+
 `````
 
-`````{py:class} ArchivingConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} ArchivingConfig
 :canonical: archivebox.config.common.ArchivingConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -1088,6 +1263,28 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
    'Field(...)'
 
 ```{autodoc2-docstring} archivebox.config.common.ArchivingConfig.PLUGINS
+```
+
+````
+
+````{py:attribute} PARSER
+:canonical: archivebox.config.common.ArchivingConfig.PARSER
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.ArchivingConfig.PARSER
+```
+
+````
+
+````{py:attribute} CRAWL_DISCOVERY_PLUGINS
+:canonical: archivebox.config.common.ArchivingConfig.CRAWL_DISCOVERY_PLUGINS
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.ArchivingConfig.CRAWL_DISCOVERY_PLUGINS
 ```
 
 ````
@@ -1224,6 +1421,26 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 ````
 
+````{py:attribute} AUTH_STORAGE_FILE
+:canonical: archivebox.config.common.ArchivingConfig.AUTH_STORAGE_FILE
+:type: pathlib.Path | None
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} archivebox.config.common.ArchivingConfig.AUTH_STORAGE_FILE
+```
+
+````
+
+````{py:method} empty_cookie_file_is_unset(value)
+:canonical: archivebox.config.common.ArchivingConfig.empty_cookie_file_is_unset
+:classmethod:
+
+```{autodoc2-docstring} archivebox.config.common.ArchivingConfig.empty_cookie_file_is_unset
+```
+
+````
+
 ````{py:attribute} URL_DENYLIST
 :canonical: archivebox.config.common.ArchivingConfig.URL_DENYLIST
 :type: str
@@ -1340,7 +1557,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 ```
 ````
 
-`````{py:class} SearchBackendConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+`````{py:class} SearchBackendConfig
 :canonical: archivebox.config.common.SearchBackendConfig
 
 Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
@@ -1408,6 +1625,13 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 ```
 ````
 
+````{py:function} _plugin_enabled_input_names() -> tuple[tuple[str, frozenset[str]], ...]
+:canonical: archivebox.config.common._plugin_enabled_input_names
+
+```{autodoc2-docstring} archivebox.config.common._plugin_enabled_input_names
+```
+````
+
 ````{py:function} _discover_plugin_config_schemas() -> archivebox.config.common.PluginSchemaDocuments
 :canonical: archivebox.config.common._discover_plugin_config_schemas
 
@@ -1422,7 +1646,7 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 ```
 ````
 
-````{py:function} _plugin_config_model(plugin_schemas: archivebox.config.common.PluginSchemaDocuments) -> type[pydantic.BaseModel]
+````{py:function} _plugin_config_model(plugin_schemas: archivebox.config.common.PluginSchemaDocuments) -> builtins.type[pydantic.BaseModel]
 :canonical: archivebox.config.common._plugin_config_model
 
 ```{autodoc2-docstring} archivebox.config.common._plugin_config_model
@@ -1436,18 +1660,19 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 ```
 ````
 
-`````{py:class} ArchiveBoxBaseConfig(_case_sensitive: bool | None = None, _nested_model_default_partial_update: bool | None = None, _env_prefix: str | None = None, _env_prefix_target: pydantic_settings.sources.EnvPrefixTarget | None = None, _env_file: pydantic_settings.sources.DotenvType | None = ENV_FILE_SENTINEL, _env_file_encoding: str | None = None, _env_ignore_empty: bool | None = None, _env_nested_delimiter: str | None = None, _env_nested_max_split: int | None = None, _env_parse_none_str: str | None = None, _env_parse_enums: bool | None = None, _cli_prog_name: str | None = None, _cli_parse_args: bool | list[str] | tuple[str, ...] | None = None, _cli_settings_source: pydantic_settings.sources.CliSettingsSource[typing.Any] | None = None, _cli_parse_none_str: str | None = None, _cli_hide_none_type: bool | None = None, _cli_avoid_json: bool | None = None, _cli_enforce_required: bool | None = None, _cli_use_class_docs_for_groups: bool | None = None, _cli_exit_on_error: bool | None = None, _cli_prefix: str | None = None, _cli_flag_prefix_char: str | None = None, _cli_implicit_flags: bool | typing.Literal[dual, toggle] | None = None, _cli_ignore_unknown_args: bool | None = None, _cli_kebab_case: bool | typing.Literal[all, no_enums] | None = None, _cli_shortcuts: collections.abc.Mapping[str, str | list[str]] | None = None, _secrets_dir: pydantic_settings.sources.PathType | None = None, _build_sources: tuple[tuple[pydantic_settings.sources.PydanticBaseSettingsSource, ...], dict[str, typing.Any]] | None = None, **values: typing.Any)
+````{py:function} filter_crawl_env(env: collections.abc.Mapping[str, typing.Any]) -> dict[str, typing.Any]
+:canonical: archivebox.config.common.filter_crawl_env
+
+```{autodoc2-docstring} archivebox.config.common.filter_crawl_env
+```
+````
+
+`````{py:class} ArchiveBoxBaseConfig
 :canonical: archivebox.config.common.ArchiveBoxBaseConfig
 
-Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.config.common.StorageConfig`, {py:obj}`archivebox.config.common.GeneralConfig`, {py:obj}`archivebox.config.common.ServerConfig`, {py:obj}`archivebox.config.common.DatabaseConfig`, {py:obj}`archivebox.config.common.ArchivingConfig`, {py:obj}`archivebox.config.common.SearchBackendConfig`, {py:obj}`archivebox.config.ldap.LDAPConfig`
+Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.config.common.StorageConfig`, {py:obj}`archivebox.config.common.GeneralConfig`, {py:obj}`archivebox.config.common.ServerConfig`, {py:obj}`archivebox.config.common.DatabaseConfig`, {py:obj}`archivebox.config.common.ArchivingConfig`, {py:obj}`archivebox.config.common.SearchBackendConfig`, {py:obj}`archivebox.config.ldap.LDAPConfig`, {py:obj}`archivebox.config.allauth.AllauthConfig`
 
 ```{autodoc2-docstring} archivebox.config.common.ArchiveBoxBaseConfig
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.config.common.ArchiveBoxBaseConfig.__init__
 ```
 
 ````{py:attribute} model_config
@@ -1471,7 +1696,7 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 
 ````
 
-````{py:method} _core_config_classes() -> tuple[type[archivebox.config.configset.BaseConfigSet], ...]
+````{py:method} _core_config_classes() -> tuple[builtins.type[archivebox.config.configset.BaseConfigSet], ...]
 :canonical: archivebox.config.common.ArchiveBoxBaseConfig._core_config_classes
 :classmethod:
 
@@ -1559,7 +1784,7 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 
 ````
 
-````{py:method} for_crawl_frozen(*, persona: typing.Any = None) -> dict[str, typing.Any]
+````{py:method} for_crawl_frozen() -> dict[str, typing.Any]
 :canonical: archivebox.config.common.ArchiveBoxBaseConfig.for_crawl_frozen
 
 ```{autodoc2-docstring} archivebox.config.common.ArchiveBoxBaseConfig.for_crawl_frozen
@@ -1601,7 +1826,7 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 
 `````
 
-````{py:function} _build_archivebox_config_model(plugin_schemas: archivebox.config.common.PluginSchemaDocuments) -> type[archivebox.config.common.ArchiveBoxBaseConfig]
+````{py:function} _build_archivebox_config_model(plugin_schemas: archivebox.config.common.PluginSchemaDocuments) -> builtins.type[archivebox.config.common.ArchiveBoxBaseConfig]
 :canonical: archivebox.config.common._build_archivebox_config_model
 
 ```{autodoc2-docstring} archivebox.config.common._build_archivebox_config_model
@@ -1628,6 +1853,44 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 
 ````
 
+`````{py:class} ArchiveBoxSourceSettings
+:canonical: archivebox.config.common.ArchiveBoxSourceSettings
+
+Bases: {py:obj}`archivebox.config.common.ArchiveBoxConfig`, {py:obj}`pydantic_settings.BaseSettings`
+
+```{autodoc2-docstring} archivebox.config.common.ArchiveBoxSourceSettings
+```
+
+````{py:attribute} model_config
+:canonical: archivebox.config.common.ArchiveBoxSourceSettings.model_config
+:value: >
+   'SettingsConfigDict(...)'
+
+```{autodoc2-docstring} archivebox.config.common.ArchiveBoxSourceSettings.model_config
+```
+
+````
+
+`````
+
+````{py:data} _ENV_SOURCE_VALUES
+:canonical: archivebox.config.common._ENV_SOURCE_VALUES
+:type: tuple[collections.abc.Mapping[str, str | None], dict[str, typing.Any]] | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.config.common._ENV_SOURCE_VALUES
+```
+
+````
+
+````{py:function} load_source_config(*, include_file: bool = True) -> archivebox.config.common.ArchiveBoxBaseConfig
+:canonical: archivebox.config.common.load_source_config
+
+```{autodoc2-docstring} archivebox.config.common.load_source_config
+```
+````
+
 ````{py:function} _normalize_plugins_config_value(value: typing.Any) -> set[str]
 :canonical: archivebox.config.common._normalize_plugins_config_value
 
@@ -1649,7 +1912,7 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 ```
 ````
 
-````{py:function} config_field_metadata() -> dict[str, dict[str, typing.Any]]
+````{py:function} config_field_metadata(*, include_execution: bool = False) -> dict[str, dict[str, typing.Any]]
 :canonical: archivebox.config.common.config_field_metadata
 
 ```{autodoc2-docstring} archivebox.config.common.config_field_metadata
@@ -1684,10 +1947,24 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 ```
 ````
 
-````{py:function} find_config_source(key: str, merged_config: collections.abc.Mapping[str, typing.Any]) -> str
+````{py:function} _config_source_inputs(machine: typing.Any, merged_config: collections.abc.Mapping[str, typing.Any]) -> tuple[tuple[str, collections.abc.Mapping[str, typing.Any]], ...]
+:canonical: archivebox.config.common._config_source_inputs
+
+```{autodoc2-docstring} archivebox.config.common._config_source_inputs
+```
+````
+
+````{py:function} find_config_source(key: str, merged_config: collections.abc.Mapping[str, typing.Any], *, machine: typing.Any = None, source_inputs: tuple[tuple[str, collections.abc.Mapping[str, typing.Any]], ...] | None = None) -> str
 :canonical: archivebox.config.common.find_config_source
 
 ```{autodoc2-docstring} archivebox.config.common.find_config_source
+```
+````
+
+````{py:function} get_config_with_sources(*, machine: typing.Any = None) -> dict[str, dict[str, typing.Any]]
+:canonical: archivebox.config.common.get_config_with_sources
+
+```{autodoc2-docstring} archivebox.config.common.get_config_with_sources
 ```
 ````
 
@@ -1698,7 +1975,7 @@ Bases: {py:obj}`archivebox.config.common.ShellConfig`, {py:obj}`archivebox.confi
 ```
 ````
 
-````{py:function} get_config(defaults: archivebox.config.common.ConfigOverrides | None = None, overrides: archivebox.config.common.ConfigOverrides | None = None, base_config: archivebox.config.common.ArchiveBoxBaseConfig | collections.abc.Mapping[str, object] | None = None, persona: typing.Any = None, crawl: typing.Any = None, snapshot: typing.Any = None, machine: typing.Any = None, include_machine: bool = True, resolve_plugins: bool = True, redact_sensitive: bool = False) -> archivebox.config.common.ArchiveBoxBaseConfig
+````{py:function} get_config(defaults: archivebox.config.common.ConfigOverrides | None = None, overrides: archivebox.config.common.ConfigOverrides | None = None, base_config: archivebox.config.common.ArchiveBoxBaseConfig | collections.abc.Mapping[str, object] | None = None, persona: typing.Any = None, crawl: typing.Any = None, snapshot: typing.Any = None, machine: typing.Any = None, include_machine: bool = True, resolve_plugins: bool = True, redact_sensitive: bool = False, include_file: bool = True) -> archivebox.config.common.ArchiveBoxBaseConfig
 :canonical: archivebox.config.common.get_config
 
 ```{autodoc2-docstring} archivebox.config.common.get_config

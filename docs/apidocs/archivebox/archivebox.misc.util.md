@@ -51,12 +51,24 @@
   - ```{autodoc2-docstring} archivebox.misc.util.validate_url
     :summary:
     ```
-* - {py:obj}`parens_are_matched <archivebox.misc.util.parens_are_matched>`
-  - ```{autodoc2-docstring} archivebox.misc.util.parens_are_matched
+* - {py:obj}`_split_netloc <archivebox.misc.util._split_netloc>`
+  - ```{autodoc2-docstring} archivebox.misc.util._split_netloc
     :summary:
     ```
-* - {py:obj}`fix_url_from_markdown <archivebox.misc.util.fix_url_from_markdown>`
-  - ```{autodoc2-docstring} archivebox.misc.util.fix_url_from_markdown
+* - {py:obj}`iri_to_uri <archivebox.misc.util.iri_to_uri>`
+  - ```{autodoc2-docstring} archivebox.misc.util.iri_to_uri
+    :summary:
+    ```
+* - {py:obj}`uri_to_iri <archivebox.misc.util.uri_to_iri>`
+  - ```{autodoc2-docstring} archivebox.misc.util.uri_to_iri
+    :summary:
+    ```
+* - {py:obj}`equivalent_urls <archivebox.misc.util.equivalent_urls>`
+  - ```{autodoc2-docstring} archivebox.misc.util.equivalent_urls
+    :summary:
+    ```
+* - {py:obj}`parens_are_matched <archivebox.misc.util.parens_are_matched>`
+  - ```{autodoc2-docstring} archivebox.misc.util.parens_are_matched
     :summary:
     ```
 * - {py:obj}`split_comma_separated_urls <archivebox.misc.util.split_comma_separated_urls>`
@@ -171,28 +183,24 @@
   - ```{autodoc2-docstring} archivebox.misc.util.COLOR_REGEX
     :summary:
     ```
-* - {py:obj}`URL_REGEX <archivebox.misc.util.URL_REGEX>`
-  - ```{autodoc2-docstring} archivebox.misc.util.URL_REGEX
-    :summary:
-    ```
 * - {py:obj}`MAX_URL_LENGTH <archivebox.misc.util.MAX_URL_LENGTH>`
   - ```{autodoc2-docstring} archivebox.misc.util.MAX_URL_LENGTH
     :summary:
     ```
-* - {py:obj}`QUOTE_DELIMITERS <archivebox.misc.util.QUOTE_DELIMITERS>`
-  - ```{autodoc2-docstring} archivebox.misc.util.QUOTE_DELIMITERS
-    :summary:
-    ```
-* - {py:obj}`QUOTE_ENTITY_DELIMITERS <archivebox.misc.util.QUOTE_ENTITY_DELIMITERS>`
-  - ```{autodoc2-docstring} archivebox.misc.util.QUOTE_ENTITY_DELIMITERS
-    :summary:
-    ```
-* - {py:obj}`URL_ENTITY_REPLACEMENTS <archivebox.misc.util.URL_ENTITY_REPLACEMENTS>`
-  - ```{autodoc2-docstring} archivebox.misc.util.URL_ENTITY_REPLACEMENTS
-    :summary:
-    ```
 * - {py:obj}`FILESIZE_UNITS <archivebox.misc.util.FILESIZE_UNITS>`
   - ```{autodoc2-docstring} archivebox.misc.util.FILESIZE_UNITS
+    :summary:
+    ```
+* - {py:obj}`_URI_SAFE_CHARS <archivebox.misc.util._URI_SAFE_CHARS>`
+  - ```{autodoc2-docstring} archivebox.misc.util._URI_SAFE_CHARS
+    :summary:
+    ```
+* - {py:obj}`_USERINFO_SAFE_CHARS <archivebox.misc.util._USERINFO_SAFE_CHARS>`
+  - ```{autodoc2-docstring} archivebox.misc.util._USERINFO_SAFE_CHARS
+    :summary:
+    ```
+* - {py:obj}`_ESCAPED_NON_ASCII <archivebox.misc.util._ESCAPED_NON_ASCII>`
+  - ```{autodoc2-docstring} archivebox.misc.util._ESCAPED_NON_ASCII
     :summary:
     ```
 ````
@@ -390,52 +398,12 @@
 
 ````
 
-````{py:data} URL_REGEX
-:canonical: archivebox.misc.util.URL_REGEX
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.misc.util.URL_REGEX
-```
-
-````
-
 ````{py:data} MAX_URL_LENGTH
 :canonical: archivebox.misc.util.MAX_URL_LENGTH
 :value: >
    65535
 
 ```{autodoc2-docstring} archivebox.misc.util.MAX_URL_LENGTH
-```
-
-````
-
-````{py:data} QUOTE_DELIMITERS
-:canonical: archivebox.misc.util.QUOTE_DELIMITERS
-:value: >
-   ('"', "'", '`', '“', '”', '‘', '’')
-
-```{autodoc2-docstring} archivebox.misc.util.QUOTE_DELIMITERS
-```
-
-````
-
-````{py:data} QUOTE_ENTITY_DELIMITERS
-:canonical: archivebox.misc.util.QUOTE_ENTITY_DELIMITERS
-:value: >
-   ('&quot;', '&#34;', '&#x22;', '&apos;', '&#39;', '&#x27;')
-
-```{autodoc2-docstring} archivebox.misc.util.QUOTE_ENTITY_DELIMITERS
-```
-
-````
-
-````{py:data} URL_ENTITY_REPLACEMENTS
-:canonical: archivebox.misc.util.URL_ENTITY_REPLACEMENTS
-:value: >
-   (('&amp;', '&'), ('&#38;', '&'), ('&#x26;', '&'))
-
-```{autodoc2-docstring} archivebox.misc.util.URL_ENTITY_REPLACEMENTS
 ```
 
 ````
@@ -472,17 +440,68 @@
 ```
 ````
 
+````{py:data} _URI_SAFE_CHARS
+:canonical: archivebox.misc.util._URI_SAFE_CHARS
+:value: >
+   "!#$%&'()*+,/:;=?@[]~"
+
+```{autodoc2-docstring} archivebox.misc.util._URI_SAFE_CHARS
+```
+
+````
+
+````{py:data} _USERINFO_SAFE_CHARS
+:canonical: archivebox.misc.util._USERINFO_SAFE_CHARS
+:value: >
+   "!$%&'()*+,;=~"
+
+```{autodoc2-docstring} archivebox.misc.util._USERINFO_SAFE_CHARS
+```
+
+````
+
+````{py:data} _ESCAPED_NON_ASCII
+:canonical: archivebox.misc.util._ESCAPED_NON_ASCII
+:value: >
+   'compile(...)'
+
+```{autodoc2-docstring} archivebox.misc.util._ESCAPED_NON_ASCII
+```
+
+````
+
+````{py:function} _split_netloc(netloc: str) -> tuple[str, str, str, str]
+:canonical: archivebox.misc.util._split_netloc
+
+```{autodoc2-docstring} archivebox.misc.util._split_netloc
+```
+````
+
+````{py:function} iri_to_uri(url: str) -> str
+:canonical: archivebox.misc.util.iri_to_uri
+
+```{autodoc2-docstring} archivebox.misc.util.iri_to_uri
+```
+````
+
+````{py:function} uri_to_iri(url: str) -> str
+:canonical: archivebox.misc.util.uri_to_iri
+
+```{autodoc2-docstring} archivebox.misc.util.uri_to_iri
+```
+````
+
+````{py:function} equivalent_urls(url: str) -> list[str]
+:canonical: archivebox.misc.util.equivalent_urls
+
+```{autodoc2-docstring} archivebox.misc.util.equivalent_urls
+```
+````
+
 ````{py:function} parens_are_matched(string: str, open_char='(', close_char=')')
 :canonical: archivebox.misc.util.parens_are_matched
 
 ```{autodoc2-docstring} archivebox.misc.util.parens_are_matched
-```
-````
-
-````{py:function} fix_url_from_markdown(url_str: str) -> str
-:canonical: archivebox.misc.util.fix_url_from_markdown
-
-```{autodoc2-docstring} archivebox.misc.util.fix_url_from_markdown
 ```
 ````
 
@@ -528,7 +547,7 @@
 ```
 ````
 
-````{py:function} download_url(url: str, timeout: int | None = None, config=None, **config_kwargs) -> str
+````{py:function} download_url(url: str, timeout: int | None = None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs) -> str
 :canonical: archivebox.misc.util.download_url
 
 ```{autodoc2-docstring} archivebox.misc.util.download_url

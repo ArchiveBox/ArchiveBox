@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`MachineService <archivebox.services.machine_service.MachineService>`
-  -
+  - ```{autodoc2-docstring} archivebox.services.machine_service.MachineService
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -55,6 +57,15 @@
 :canonical: archivebox.services.machine_service.MachineService
 
 Bases: {py:obj}`abx_dl.services.base.BaseService`
+
+```{autodoc2-docstring} archivebox.services.machine_service.MachineService
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.services.machine_service.MachineService.__init__
+```
 
 ````{py:attribute} LISTENS_TO
 :canonical: archivebox.services.machine_service.MachineService.LISTENS_TO

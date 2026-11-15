@@ -45,7 +45,7 @@
 
 ````
 
-`````{py:class} ModifiedAccessLogGenerator(stream)
+`````{py:class} ModifiedAccessLogGenerator
 :canonical: archivebox.misc.monkey_patches.ModifiedAccessLogGenerator
 
 Bases: {py:obj}`daphne.access.AccessLogGenerator`
@@ -53,19 +53,19 @@ Bases: {py:obj}`daphne.access.AccessLogGenerator`
 ```{autodoc2-docstring} archivebox.misc.monkey_patches.ModifiedAccessLogGenerator
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.misc.monkey_patches.ModifiedAccessLogGenerator.__init__
-```
-
 ````{py:method} __call__(protocol, action, details)
 :canonical: archivebox.misc.monkey_patches.ModifiedAccessLogGenerator.__call__
+
+```{autodoc2-docstring} archivebox.misc.monkey_patches.ModifiedAccessLogGenerator.__call__
+```
 
 ````
 
 ````{py:method} write_entry(host, date, request, status=None, length=None, ident=None, user=None, time_taken=None)
 :canonical: archivebox.misc.monkey_patches.ModifiedAccessLogGenerator.write_entry
+
+```{autodoc2-docstring} archivebox.misc.monkey_patches.ModifiedAccessLogGenerator.write_entry
+```
 
 ````
 

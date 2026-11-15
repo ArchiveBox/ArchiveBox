@@ -14,6 +14,7 @@
 :maxdepth: 1
 
 archivebox.services.binary_service
+archivebox.services.resource_admission
 archivebox.services.runner
 archivebox.services.process_service
 archivebox.services.crawl_service
@@ -42,7 +43,7 @@ archivebox.services.machine_service
 ````{py:data} __all__
 :canonical: archivebox.services.__all__
 :value: >
-   ['ArchiveResultService', 'ArchiveBoxBinaryService', 'ArchiveBoxDBBinaryCacheBackend', 'CrawlService'...
+   ['ArchiveResultService', 'ArchiveBoxBinaryService', 'CrawlService', 'MachineService', 'ProcessServic...
 
 ```{autodoc2-docstring} archivebox.services.__all__
 ```

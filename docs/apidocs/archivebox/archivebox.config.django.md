@@ -73,7 +73,7 @@
 
 ````
 
-````{py:function} setup_django(check_db=False, in_memory_db=False) -> None
+````{py:function} setup_django(check_db=False) -> None
 :canonical: archivebox.config.django.setup_django
 
 ```{autodoc2-docstring} archivebox.config.django.setup_django

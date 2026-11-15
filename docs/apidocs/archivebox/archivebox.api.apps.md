@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`APIConfig <archivebox.api.apps.APIConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.apps.APIConfig
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -33,10 +35,13 @@
 
 ### API
 
-`````{py:class} APIConfig(app_name, app_module)
+`````{py:class} APIConfig
 :canonical: archivebox.api.apps.APIConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.api.apps.APIConfig
+```
 
 ````{py:attribute} name
 :canonical: archivebox.api.apps.APIConfig.name
@@ -54,6 +59,14 @@ Bases: {py:obj}`django.apps.AppConfig`
    'api'
 
 ```{autodoc2-docstring} archivebox.api.apps.APIConfig.label
+```
+
+````
+
+````{py:method} ready()
+:canonical: archivebox.api.apps.APIConfig.ready
+
+```{autodoc2-docstring} archivebox.api.apps.APIConfig.ready
 ```
 
 ````

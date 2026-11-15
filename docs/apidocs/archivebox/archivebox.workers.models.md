@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`DefaultStatusChoices <archivebox.workers.models.DefaultStatusChoices>`
-  -
+  - ```{autodoc2-docstring} archivebox.workers.models.DefaultStatusChoices
+    :summary:
+    ```
 * - {py:obj}`ModelWithQueue <archivebox.workers.models.ModelWithQueue>`
   - ```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue
     :summary:
@@ -65,10 +67,13 @@
 
 ### API
 
-`````{py:class} DefaultStatusChoices()
+`````{py:class} DefaultStatusChoices
 :canonical: archivebox.workers.models.DefaultStatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
+
+```{autodoc2-docstring} archivebox.workers.models.DefaultStatusChoices
+```
 
 ````{py:attribute} QUEUED
 :canonical: archivebox.workers.models.DefaultStatusChoices.QUEUED
@@ -194,7 +199,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
-``````{py:class} ModelWithQueue(*args, **kwargs)
+``````{py:class} ModelWithQueue
 :canonical: archivebox.workers.models.ModelWithQueue
 
 Bases: {py:obj}`django.db.models.Model`
@@ -202,15 +207,8 @@ Bases: {py:obj}`django.db.models.Model`
 ```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.__init__
-```
-
 ````{py:attribute} StatusChoices
 :canonical: archivebox.workers.models.ModelWithQueue.StatusChoices
-:type: typing.ClassVar[type[django.db.models.TextChoices]]
 :value: >
    None
 
@@ -289,6 +287,9 @@ Bases: {py:obj}`django.db.models.Model`
 :canonical: archivebox.workers.models.ModelWithQueue.Meta
 
 Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.Meta
+```
 
 ````{py:attribute} app_label
 :canonical: archivebox.workers.models.ModelWithQueue.Meta.app_label
@@ -378,6 +379,9 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 ````{py:method} save(*args: typing.Any, **kwargs: typing.Any) -> None
 :canonical: archivebox.workers.models.ModelWithQueue.save
 
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.save
+```
+
 ````
 
 ````{py:method} pause(*, save: bool = True) -> bool
@@ -430,7 +434,7 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ````
 
-````{py:method} extend_choices(base_choices: type[django.db.models.TextChoices])
+````{py:method} extend_choices(base_choices: builtins.type[django.db.models.TextChoices])
 :canonical: archivebox.workers.models.ModelWithQueue.extend_choices
 :classmethod:
 

@@ -89,21 +89,21 @@
 ```
 ````
 
-````{py:function} run_runner(daemon: bool = False, crawl_id: str | None = None, maintenance_only: bool = False, maintenance_batch_size: int | None = None) -> int
+````{py:function} run_runner(daemon: bool = False, crawl_id: str | None = None, maintenance_only: bool = False) -> int
 :canonical: archivebox.cli.archivebox_run.run_runner
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_run.run_runner
 ```
 ````
 
-````{py:function} main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, maintenance_only: bool, maintenance_batch_size: int | None, no_stdin: bool)
+````{py:function} main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, maintenance_only: bool, no_stdin: bool)
 :canonical: archivebox.cli.archivebox_run.main
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_run.main
 ```
 ````
 
-````{py:function} run_snapshot_worker(snapshot_id: str) -> int
+````{py:function} run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int
 :canonical: archivebox.cli.archivebox_run.run_snapshot_worker
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_run.run_snapshot_worker

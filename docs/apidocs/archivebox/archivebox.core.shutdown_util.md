@@ -136,7 +136,7 @@
 ```
 ````
 
-````{py:function} foreground_shutdown_signals(handled_signals: tuple[signal.Signals, ...] = (signal.SIGHUP, signal.SIGINT, signal.SIGTERM), *, first_signal_message: str | None = '\n[🛑] Got {signal_name}, stopping gracefully...\n', on_signal: collections.abc.Callable[[signal.Signals], None] | None = None, raise_on_first_signal: bool = True) -> collections.abc.Iterator[archivebox.core.shutdown_util.ShutdownSignalState]
+````{py:function} foreground_shutdown_signals(handled_signals: tuple[signal.Signals, ...] = (signal.SIGHUP, signal.SIGINT, signal.SIGTERM), *, first_signal_message: str | None = '\n[🛑] Got {signal_name}, stopping gracefully...\n', on_signal: collections.abc.Callable[[signal.Signals], None] | None = None, interrupt_handlers: dict[signal.Signals, collections.abc.Callable[[], None]] | None = None, raise_on_first_signal: bool = True) -> collections.abc.Iterator[archivebox.core.shutdown_util.ShutdownSignalState]
 :canonical: archivebox.core.shutdown_util.foreground_shutdown_signals
 
 ```{autodoc2-docstring} archivebox.core.shutdown_util.foreground_shutdown_signals

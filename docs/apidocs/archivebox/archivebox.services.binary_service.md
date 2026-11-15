@@ -15,10 +15,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`ArchiveBoxDBBinaryCacheBackend <archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend>`
-  - ```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend
-    :summary:
-    ```
 * - {py:obj}`ArchiveBoxBinaryService <archivebox.services.binary_service.ArchiveBoxBinaryService>`
   - ```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxBinaryService
     :summary:
@@ -31,24 +27,16 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`project_abxpkg_derived_cache_to_db <archivebox.services.binary_service.project_abxpkg_derived_cache_to_db>`
+  - ```{autodoc2-docstring} archivebox.services.binary_service.project_abxpkg_derived_cache_to_db
+    :summary:
+    ```
 * - {py:obj}`_provider_names <archivebox.services.binary_service._provider_names>`
   - ```{autodoc2-docstring} archivebox.services.binary_service._provider_names
     :summary:
     ```
 * - {py:obj}`_binproviders_to_str <archivebox.services.binary_service._binproviders_to_str>`
   - ```{autodoc2-docstring} archivebox.services.binary_service._binproviders_to_str
-    :summary:
-    ```
-* - {py:obj}`_providers_for_names <archivebox.services.binary_service._providers_for_names>`
-  - ```{autodoc2-docstring} archivebox.services.binary_service._providers_for_names
-    :summary:
-    ```
-* - {py:obj}`_provider_for_name <archivebox.services.binary_service._provider_for_name>`
-  - ```{autodoc2-docstring} archivebox.services.binary_service._provider_for_name
-    :summary:
-    ```
-* - {py:obj}`_mark_binary_queued <archivebox.services.binary_service._mark_binary_queued>`
-  - ```{autodoc2-docstring} archivebox.services.binary_service._mark_binary_queued
     :summary:
     ```
 * - {py:obj}`_persisted_overrides_for_request <archivebox.services.binary_service._persisted_overrides_for_request>`
@@ -58,41 +46,6 @@
 ````
 
 ### API
-
-`````{py:class} ArchiveBoxDBBinaryCacheBackend
-:canonical: archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend
-
-```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend
-```
-
-````{py:method} get(request: abxpkg.binary_service.BinaryRequestEvent) -> abxpkg.Binary | None
-:canonical: archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.get
-:async:
-
-```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.get
-```
-
-````
-
-````{py:method} set(request: abxpkg.binary_service.BinaryRequestEvent | None, binary: abxpkg.Binary) -> None
-:canonical: archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.set
-:async:
-
-```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.set
-```
-
-````
-
-````{py:method} invalidate(request: abxpkg.binary_service.BinaryRequestEvent, binary: abxpkg.Binary, reason: str) -> None
-:canonical: archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.invalidate
-:async:
-
-```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxDBBinaryCacheBackend.invalidate
-```
-
-````
-
-`````
 
 `````{py:class} ArchiveBoxBinaryService(bus: abxbus.EventBus)
 :canonical: archivebox.services.binary_service.ArchiveBoxBinaryService
@@ -120,7 +73,7 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 
 ````{py:attribute} EMITS
 :canonical: archivebox.services.binary_service.ArchiveBoxBinaryService.EMITS
-:type: list[type[abxbus.BaseEvent]]
+:type: list[builtins.type[abxbus.BaseEvent]]
 :value: >
    []
 
@@ -143,6 +96,15 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 :async:
 
 ```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxBinaryService.on_BinaryEvent__finalize_process
+```
+
+````
+
+````{py:method} _save_resolved_binary(binary) -> None
+:canonical: archivebox.services.binary_service.ArchiveBoxBinaryService._save_resolved_binary
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.services.binary_service.ArchiveBoxBinaryService._save_resolved_binary
 ```
 
 ````
@@ -172,7 +134,7 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 
 ````
 
-````{py:method} _finalize_missing_process(request: abxpkg.binary_service.BinaryRequestEvent) -> None
+````{py:method} _finalize_missing_process(request: abxpkg.binary_service.BinaryRequestEvent, *, error: str = '') -> None
 :canonical: archivebox.services.binary_service.ArchiveBoxBinaryService._finalize_missing_process
 :async:
 
@@ -234,6 +196,13 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 
 `````
 
+````{py:function} project_abxpkg_derived_cache_to_db(lib_dir: pathlib.Path | str | None) -> None
+:canonical: archivebox.services.binary_service.project_abxpkg_derived_cache_to_db
+
+```{autodoc2-docstring} archivebox.services.binary_service.project_abxpkg_derived_cache_to_db
+```
+````
+
 ````{py:function} _provider_names(binproviders: str | list[str] | None) -> list[str]
 :canonical: archivebox.services.binary_service._provider_names
 
@@ -245,28 +214,6 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 :canonical: archivebox.services.binary_service._binproviders_to_str
 
 ```{autodoc2-docstring} archivebox.services.binary_service._binproviders_to_str
-```
-````
-
-````{py:function} _providers_for_names(names: list[str]) -> list[abxpkg.BinProvider]
-:canonical: archivebox.services.binary_service._providers_for_names
-
-```{autodoc2-docstring} archivebox.services.binary_service._providers_for_names
-```
-````
-
-````{py:function} _provider_for_name(provider_name: str, binary_name: str, overrides: dict[str, typing.Any] | None) -> abxpkg.BinProvider | None
-:canonical: archivebox.services.binary_service._provider_for_name
-
-```{autodoc2-docstring} archivebox.services.binary_service._provider_for_name
-```
-````
-
-````{py:function} _mark_binary_queued(binary) -> None
-:canonical: archivebox.services.binary_service._mark_binary_queued
-:async:
-
-```{autodoc2-docstring} archivebox.services.binary_service._mark_binary_queued
 ```
 ````
 

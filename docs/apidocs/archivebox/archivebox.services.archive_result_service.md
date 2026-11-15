@@ -15,10 +15,10 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`ModelDumpable <archivebox.services.archive_result_service.ModelDumpable>`
-  -
 * - {py:obj}`ArchiveResultService <archivebox.services.archive_result_service.ArchiveResultService>`
-  -
+  - ```{autodoc2-docstring} archivebox.services.archive_result_service.ArchiveResultService
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -35,24 +35,8 @@
   - ```{autodoc2-docstring} archivebox.services.archive_result_service._perf_span
     :summary:
     ```
-* - {py:obj}`_collect_output_metadata <archivebox.services.archive_result_service._collect_output_metadata>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._collect_output_metadata
-    :summary:
-    ```
-* - {py:obj}`_coerce_output_file_size <archivebox.services.archive_result_service._coerce_output_file_size>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._coerce_output_file_size
-    :summary:
-    ```
-* - {py:obj}`_normalize_output_files <archivebox.services.archive_result_service._normalize_output_files>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_output_files
-    :summary:
-    ```
-* - {py:obj}`_has_structured_output_metadata <archivebox.services.archive_result_service._has_structured_output_metadata>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._has_structured_output_metadata
-    :summary:
-    ```
-* - {py:obj}`_summarize_output_files <archivebox.services.archive_result_service._summarize_output_files>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._summarize_output_files
+* - {py:obj}`_manifest_metadata <archivebox.services.archive_result_service._manifest_metadata>`
+  - ```{autodoc2-docstring} archivebox.services.archive_result_service._manifest_metadata
     :summary:
     ```
 * - {py:obj}`_resolve_output_metadata <archivebox.services.archive_result_service._resolve_output_metadata>`
@@ -63,10 +47,6 @@
   - ```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_status
     :summary:
     ```
-* - {py:obj}`_normalize_snapshot_title <archivebox.services.archive_result_service._normalize_snapshot_title>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_snapshot_title
-    :summary:
-    ```
 * - {py:obj}`_extract_snapshot_title <archivebox.services.archive_result_service._extract_snapshot_title>`
   - ```{autodoc2-docstring} archivebox.services.archive_result_service._extract_snapshot_title
     :summary:
@@ -75,16 +55,20 @@
   - ```{autodoc2-docstring} archivebox.services.archive_result_service._should_update_snapshot_title
     :summary:
     ```
-* - {py:obj}`_status_for_process_without_archive_result <archivebox.services.archive_result_service._status_for_process_without_archive_result>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._status_for_process_without_archive_result
-    :summary:
-    ```
-* - {py:obj}`_iter_archiveresult_records <archivebox.services.archive_result_service._iter_archiveresult_records>`
-  - ```{autodoc2-docstring} archivebox.services.archive_result_service._iter_archiveresult_records
-    :summary:
-    ```
 * - {py:obj}`_save_archiveresult_event_to_db <archivebox.services.archive_result_service._save_archiveresult_event_to_db>`
   - ```{autodoc2-docstring} archivebox.services.archive_result_service._save_archiveresult_event_to_db
+    :summary:
+    ```
+* - {py:obj}`_read_archiveresult_outputs <archivebox.services.archive_result_service._read_archiveresult_outputs>`
+  - ```{autodoc2-docstring} archivebox.services.archive_result_service._read_archiveresult_outputs
+    :summary:
+    ```
+* - {py:obj}`_save_snapshot_title <archivebox.services.archive_result_service._save_snapshot_title>`
+  - ```{autodoc2-docstring} archivebox.services.archive_result_service._save_snapshot_title
+    :summary:
+    ```
+* - {py:obj}`mark_archiveresult_started <archivebox.services.archive_result_service.mark_archiveresult_started>`
+  - ```{autodoc2-docstring} archivebox.services.archive_result_service.mark_archiveresult_started
     :summary:
     ```
 ````
@@ -105,57 +89,14 @@
 ```
 ````
 
-`````{py:class} ModelDumpable
-:canonical: archivebox.services.archive_result_service.ModelDumpable
+````{py:function} _manifest_metadata(manifest: abx_dl.output_files.OutputManifest) -> tuple[dict[str, dict], int, str]
+:canonical: archivebox.services.archive_result_service._manifest_metadata
 
-Bases: {py:obj}`typing.Protocol`
-
-````{py:method} model_dump() -> dict[str, typing.Any]
-:canonical: archivebox.services.archive_result_service.ModelDumpable.model_dump
-
-```{autodoc2-docstring} archivebox.services.archive_result_service.ModelDumpable.model_dump
-```
-
-````
-
-`````
-
-````{py:function} _collect_output_metadata(plugin_dir: pathlib.Path) -> tuple[dict[str, dict], int, str]
-:canonical: archivebox.services.archive_result_service._collect_output_metadata
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._collect_output_metadata
+```{autodoc2-docstring} archivebox.services.archive_result_service._manifest_metadata
 ```
 ````
 
-````{py:function} _coerce_output_file_size(value: typing.Any) -> int
-:canonical: archivebox.services.archive_result_service._coerce_output_file_size
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._coerce_output_file_size
-```
-````
-
-````{py:function} _normalize_output_files(raw_output_files: typing.Any) -> dict[str, dict]
-:canonical: archivebox.services.archive_result_service._normalize_output_files
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_output_files
-```
-````
-
-````{py:function} _has_structured_output_metadata(output_files: dict[str, dict]) -> bool
-:canonical: archivebox.services.archive_result_service._has_structured_output_metadata
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._has_structured_output_metadata
-```
-````
-
-````{py:function} _summarize_output_files(output_files: dict[str, dict]) -> tuple[int, str]
-:canonical: archivebox.services.archive_result_service._summarize_output_files
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._summarize_output_files
-```
-````
-
-````{py:function} _resolve_output_metadata(raw_output_files: typing.Any, plugin_dir: pathlib.Path) -> tuple[dict[str, dict], int, str]
+````{py:function} _resolve_output_metadata(raw_output_files: typing.Any) -> tuple[dict[str, dict], int, str]
 :canonical: archivebox.services.archive_result_service._resolve_output_metadata
 
 ```{autodoc2-docstring} archivebox.services.archive_result_service._resolve_output_metadata
@@ -166,13 +107,6 @@ Bases: {py:obj}`typing.Protocol`
 :canonical: archivebox.services.archive_result_service._normalize_status
 
 ```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_status
-```
-````
-
-````{py:function} _normalize_snapshot_title(candidate: str, *, snapshot_url: str) -> str
-:canonical: archivebox.services.archive_result_service._normalize_snapshot_title
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._normalize_snapshot_title
 ```
 ````
 
@@ -190,24 +124,31 @@ Bases: {py:obj}`typing.Protocol`
 ```
 ````
 
-````{py:function} _status_for_process_without_archive_result(event: abx_dl.events.ProcessCompletedEvent) -> str
-:canonical: archivebox.services.archive_result_service._status_for_process_without_archive_result
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._status_for_process_without_archive_result
-```
-````
-
-````{py:function} _iter_archiveresult_records(stdout: str) -> list[dict]
-:canonical: archivebox.services.archive_result_service._iter_archiveresult_records
-
-```{autodoc2-docstring} archivebox.services.archive_result_service._iter_archiveresult_records
-```
-````
-
-````{py:function} _save_archiveresult_event_to_db(event: abx_dl.events.ArchiveResultEvent, process_started: abx_dl.events.ProcessStartedEvent | None) -> None
+````{py:function} _save_archiveresult_event_to_db(event: abx_dl.events.ArchiveResultEvent, process_started: abx_dl.events.ProcessStartedEvent | abx_dl.events.ProcessCompletedEvent | None) -> archivebox.core.models.Snapshot | None
 :canonical: archivebox.services.archive_result_service._save_archiveresult_event_to_db
 
 ```{autodoc2-docstring} archivebox.services.archive_result_service._save_archiveresult_event_to_db
+```
+````
+
+````{py:function} _read_archiveresult_outputs(snapshot: archivebox.core.models.Snapshot, event: abx_dl.events.ArchiveResultEvent, process_started: abx_dl.events.ProcessStartedEvent | abx_dl.events.ProcessCompletedEvent | None) -> tuple[str, bool]
+:canonical: archivebox.services.archive_result_service._read_archiveresult_outputs
+
+```{autodoc2-docstring} archivebox.services.archive_result_service._read_archiveresult_outputs
+```
+````
+
+````{py:function} _save_snapshot_title(snapshot_id: str, next_title: str) -> None
+:canonical: archivebox.services.archive_result_service._save_snapshot_title
+
+```{autodoc2-docstring} archivebox.services.archive_result_service._save_snapshot_title
+```
+````
+
+````{py:function} mark_archiveresult_started(event: abx_dl.events.ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None
+:canonical: archivebox.services.archive_result_service.mark_archiveresult_started
+
+```{autodoc2-docstring} archivebox.services.archive_result_service.mark_archiveresult_started
 ```
 ````
 
@@ -215,6 +156,15 @@ Bases: {py:obj}`typing.Protocol`
 :canonical: archivebox.services.archive_result_service.ArchiveResultService
 
 Bases: {py:obj}`abx_dl.services.base.BaseService`
+
+```{autodoc2-docstring} archivebox.services.archive_result_service.ArchiveResultService
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.services.archive_result_service.ArchiveResultService.__init__
+```
 
 ````{py:attribute} LISTENS_TO
 :canonical: archivebox.services.archive_result_service.ArchiveResultService.LISTENS_TO
@@ -241,15 +191,6 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 :async:
 
 ```{autodoc2-docstring} archivebox.services.archive_result_service.ArchiveResultService.on_ArchiveResultEvent__save_to_db
-```
-
-````
-
-````{py:method} on_ProcessCompletedEvent__save_to_db(event: abx_dl.events.ProcessCompletedEvent) -> None
-:canonical: archivebox.services.archive_result_service.ArchiveResultService.on_ProcessCompletedEvent__save_to_db
-:async:
-
-```{autodoc2-docstring} archivebox.services.archive_result_service.ArchiveResultService.on_ProcessCompletedEvent__save_to_db
 ```
 
 ````

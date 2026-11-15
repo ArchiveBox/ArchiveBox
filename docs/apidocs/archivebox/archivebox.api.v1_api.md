@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`NinjaAPIWithIOCapture <archivebox.api.v1_api.NinjaAPIWithIOCapture>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_api.NinjaAPIWithIOCapture
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -88,10 +90,29 @@
 ```
 ````
 
-`````{py:class} NinjaAPIWithIOCapture(*, title: str = 'NinjaAPI', version: str = '1.0.0', description: str = '', openapi_url: typing.Optional[str] = '/openapi.json', docs: ninja.openapi.docs.DocsBase = Swagger(), docs_url: typing.Optional[str] = '/docs', docs_decorator: typing.Optional[typing.Callable[[ninja.types.TCallable], ninja.types.TCallable]] = None, servers: typing.Optional[typing.List[ninja.types.DictStrAny]] = None, urls_namespace: typing.Optional[str] = None, auth: typing.Optional[typing.Union[typing.Sequence[typing.Callable], typing.Callable, ninja.constants.NOT_SET_TYPE]] = NOT_SET, throttle: typing.Union[ninja.throttling.BaseThrottle, typing.List[ninja.throttling.BaseThrottle], ninja.constants.NOT_SET_TYPE] = NOT_SET, renderer: typing.Optional[ninja.renderers.BaseRenderer] = None, parser: typing.Optional[ninja.parser.Parser] = None, default_router: typing.Optional[ninja.router.Router] = None, openapi_extra: typing.Optional[typing.Dict[str, typing.Any]] = None)
+`````{py:class} NinjaAPIWithIOCapture
 :canonical: archivebox.api.v1_api.NinjaAPIWithIOCapture
 
 Bases: {py:obj}`ninja.NinjaAPI`
+
+```{autodoc2-docstring} archivebox.api.v1_api.NinjaAPIWithIOCapture
+```
+
+````{py:method} get_openapi_schema(*, path_prefix: str | None = None, path_params: dict[str, typing.Any] | None = None) -> ninja.openapi.schema.OpenAPISchema
+:canonical: archivebox.api.v1_api.NinjaAPIWithIOCapture.get_openapi_schema
+
+```{autodoc2-docstring} archivebox.api.v1_api.NinjaAPIWithIOCapture.get_openapi_schema
+```
+
+````
+
+````{py:method} _schema_for_prefix(path_prefix: str) -> ninja.openapi.schema.OpenAPISchema
+:canonical: archivebox.api.v1_api.NinjaAPIWithIOCapture._schema_for_prefix
+
+```{autodoc2-docstring} archivebox.api.v1_api.NinjaAPIWithIOCapture._schema_for_prefix
+```
+
+````
 
 ````{py:method} create_temporal_response(request: django.http.HttpRequest) -> django.http.HttpResponse
 :canonical: archivebox.api.v1_api.NinjaAPIWithIOCapture.create_temporal_response

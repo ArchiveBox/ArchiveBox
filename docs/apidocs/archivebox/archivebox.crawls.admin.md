@@ -30,7 +30,9 @@
 * - {py:obj}`CrawlAdmin <archivebox.crawls.admin.CrawlAdmin>`
   -
 * - {py:obj}`CrawlScheduleAdmin <archivebox.crawls.admin.CrawlScheduleAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -51,18 +53,12 @@
 
 ### API
 
-`````{py:class} MaxDepthListFilter(request, params, model, model_admin)
+`````{py:class} MaxDepthListFilter
 :canonical: archivebox.crawls.admin.MaxDepthListFilter
 
 Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 ```{autodoc2-docstring} archivebox.crawls.admin.MaxDepthListFilter
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.crawls.admin.MaxDepthListFilter.__init__
 ```
 
 ````{py:attribute} title
@@ -88,10 +84,16 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 ````{py:method} lookups(request, model_admin)
 :canonical: archivebox.crawls.admin.MaxDepthListFilter.lookups
 
+```{autodoc2-docstring} archivebox.crawls.admin.MaxDepthListFilter.lookups
+```
+
 ````
 
 ````{py:method} queryset(request, queryset)
 :canonical: archivebox.crawls.admin.MaxDepthListFilter.queryset
+
+```{autodoc2-docstring} archivebox.crawls.admin.MaxDepthListFilter.queryset
+```
 
 ````
 
@@ -104,18 +106,12 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 ```
 ````
 
-`````{py:class} URLFiltersField(*, required=True, widget=None, label=None, initial=None, help_text='', error_messages=None, show_hidden_initial=False, validators=(), localize=False, disabled=False, label_suffix=None, template_name=None, bound_field_class=None)
+`````{py:class} URLFiltersField
 :canonical: archivebox.crawls.admin.URLFiltersField
 
 Bases: {py:obj}`django.forms.Field`
 
 ```{autodoc2-docstring} archivebox.crawls.admin.URLFiltersField
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.crawls.admin.URLFiltersField.__init__
 ```
 
 ````{py:attribute} widget
@@ -200,6 +196,7 @@ Bases: {py:obj}`django.forms.ModelForm`
 
 ````{py:attribute} widgets
 :canonical: archivebox.crawls.admin.CrawlAdminForm.Meta.widgets
+:type: typing.ClassVar[dict[str, django.forms.Widget]]
 :value: >
    None
 
@@ -309,6 +306,9 @@ Bases: {py:obj}`django.forms.ModelForm`
 
 ````{py:method} save(commit=True)
 :canonical: archivebox.crawls.admin.CrawlAdminForm.save
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.save
+```
 
 ````
 
@@ -442,7 +442,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:attribute} ordering
 :canonical: archivebox.crawls.admin.CrawlAdmin.ordering
 :value: >
-   ['-created_at', '-retry_at']
+   ('-created_at', '-retry_at')
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.ordering
 ```
@@ -462,7 +462,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:attribute} actions
 :canonical: archivebox.crawls.admin.CrawlAdmin.actions
 :value: >
-   ['pause_selected_crawls', 'resume_selected_crawls', 'seal_selected_crawls', 'delete_selected_batched...
+   ('pause_selected_crawls', 'resume_selected_crawls', 'seal_selected_crawls', 'delete_selected_batched...
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.actions
 ```
@@ -472,7 +472,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:attribute} change_actions
 :canonical: archivebox.crawls.admin.CrawlAdmin.change_actions
 :value: >
-   ['recrawl']
+   ('recrawl',)
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.change_actions
 ```
@@ -487,6 +487,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 ````{py:attribute} css
 :canonical: archivebox.crawls.admin.CrawlAdmin.Media.css
+:type: typing.ClassVar[dict[str, tuple[str, ...]]]
 :value: >
    None
 
@@ -497,6 +498,7 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 ````{py:attribute} js
 :canonical: archivebox.crawls.admin.CrawlAdmin.Media.js
+:type: typing.ClassVar[tuple[str, ...]]
 :value: >
    ('admin/crawls/crawl_admin.js',)
 
@@ -509,6 +511,9 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 ````{py:method} changelist_view(request, extra_context=None)
 :canonical: archivebox.crawls.admin.CrawlAdmin.changelist_view
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.changelist_view
+```
 
 ````
 
@@ -555,6 +560,9 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:method} get_fieldsets(request, obj=None)
 :canonical: archivebox.crawls.admin.CrawlAdmin.get_fieldsets
 
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.get_fieldsets
+```
+
 ````
 
 ````{py:method} get_urls()
@@ -564,6 +572,9 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 ````{py:method} get_actions(request)
 :canonical: archivebox.crawls.admin.CrawlAdmin.get_actions
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdmin.get_actions
+```
 
 ````
 
@@ -769,10 +780,13 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 
 ``````
 
-`````{py:class} CrawlScheduleAdmin(model, admin_site)
+`````{py:class} CrawlScheduleAdmin
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.list_display
@@ -807,9 +821,19 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} readonly_fields
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.readonly_fields
 :value: >
-   ('created_at', 'modified_at', 'crawls', 'snapshots')
+   ('created_at', 'modified_at', 'crawls', 'snapshots', 'destination_folder')
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.readonly_fields
+```
+
+````
+
+````{py:attribute} autocomplete_fields
+:canonical: archivebox.crawls.admin.CrawlScheduleAdmin.autocomplete_fields
+:value: >
+   ('template', 'created_by')
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.autocomplete_fields
 ```
 
 ````
@@ -837,7 +861,7 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} ordering
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.ordering
 :value: >
-   ['-created_at']
+   ('-created_at',)
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.ordering
 ```
@@ -857,15 +881,26 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:attribute} actions
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.actions
 :value: >
-   ['delete_selected']
+   ('delete_selected',)
 
 ```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.actions
 ```
 
 ````
 
+````{py:method} destination_folder(obj)
+:canonical: archivebox.crawls.admin.CrawlScheduleAdmin.destination_folder
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.destination_folder
+```
+
+````
+
 ````{py:method} get_queryset(request)
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.get_queryset
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.get_queryset
+```
 
 ````
 
@@ -888,10 +923,16 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 ````{py:method} get_fieldsets(request, obj=None)
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.get_fieldsets
 
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.get_fieldsets
+```
+
 ````
 
 ````{py:method} save_model(request, obj, form, change)
 :canonical: archivebox.crawls.admin.CrawlScheduleAdmin.save_model
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlScheduleAdmin.save_model
+```
 
 ````
 

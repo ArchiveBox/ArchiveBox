@@ -16,13 +16,21 @@
 :align: left
 
 * - {py:obj}`CrawlSchema <archivebox.api.v1_crawls.CrawlSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema
+    :summary:
+    ```
 * - {py:obj}`CrawlUpdateSchema <archivebox.api.v1_crawls.CrawlUpdateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlUpdateSchema
+    :summary:
+    ```
 * - {py:obj}`CrawlCreateSchema <archivebox.api.v1_crawls.CrawlCreateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlCreateSchema
+    :summary:
+    ```
 * - {py:obj}`CrawlDeleteResponseSchema <archivebox.api.v1_crawls.CrawlDeleteResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlDeleteResponseSchema
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -101,10 +109,13 @@
 
 ````
 
-`````{py:class} CrawlSchema(/, **data: typing.Any)
+`````{py:class} CrawlSchema
 :canonical: archivebox.api.v1_crawls.CrawlSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_crawls.CrawlSchema.TYPE
@@ -249,6 +260,68 @@ Bases: {py:obj}`ninja.Schema`
 
 ````
 
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_crawls.CrawlSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.folder_id
+```
+
+````
+
+````{py:attribute} folder_name
+:canonical: archivebox.api.v1_crawls.CrawlSchema.folder_name
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.folder_name
+```
+
+````
+
+````{py:attribute} persona_id
+:canonical: archivebox.api.v1_crawls.CrawlSchema.persona_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.persona_id
+```
+
+````
+
+````{py:attribute} persona_name
+:canonical: archivebox.api.v1_crawls.CrawlSchema.persona_name
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.persona_name
+```
+
+````
+
+````{py:method} resolve_folder_name(obj)
+:canonical: archivebox.api.v1_crawls.CrawlSchema.resolve_folder_name
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.resolve_folder_name
+```
+
+````
+
+````{py:method} resolve_persona_name(obj)
+:canonical: archivebox.api.v1_crawls.CrawlSchema.resolve_persona_name
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlSchema.resolve_persona_name
+```
+
+````
+
 ````{py:method} resolve_created_by_id(obj)
 :canonical: archivebox.api.v1_crawls.CrawlSchema.resolve_created_by_id
 :staticmethod:
@@ -287,10 +360,24 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} CrawlUpdateSchema(/, **data: typing.Any)
+`````{py:class} CrawlUpdateSchema
 :canonical: archivebox.api.v1_crawls.CrawlUpdateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlUpdateSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_crawls.CrawlUpdateSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlUpdateSchema.folder_id
+```
+
+````
 
 ````{py:attribute} action
 :canonical: archivebox.api.v1_crawls.CrawlUpdateSchema.action
@@ -349,10 +436,24 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} CrawlCreateSchema(/, **data: typing.Any)
+`````{py:class} CrawlCreateSchema
 :canonical: archivebox.api.v1_crawls.CrawlCreateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlCreateSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_crawls.CrawlCreateSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlCreateSchema.folder_id
+```
+
+````
 
 ````{py:attribute} urls
 :canonical: archivebox.api.v1_crawls.CrawlCreateSchema.urls
@@ -430,10 +531,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} CrawlDeleteResponseSchema(/, **data: typing.Any)
+`````{py:class} CrawlDeleteResponseSchema
 :canonical: archivebox.api.v1_crawls.CrawlDeleteResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.CrawlDeleteResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_crawls.CrawlDeleteResponseSchema.success

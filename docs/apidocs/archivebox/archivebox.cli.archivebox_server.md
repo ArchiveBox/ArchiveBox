@@ -55,14 +55,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`_IPV4_RE <archivebox.cli.archivebox_server._IPV4_RE>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_server._IPV4_RE
-    :summary:
-    ```
-* - {py:obj}`_IPV6_CHARS_RE <archivebox.cli.archivebox_server._IPV6_CHARS_RE>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_server._IPV6_CHARS_RE
-    :summary:
-    ```
 * - {py:obj}`_LOCAL_BIND_HOSTS <archivebox.cli.archivebox_server._LOCAL_BIND_HOSTS>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_server._LOCAL_BIND_HOSTS
     :summary:
@@ -70,26 +62,6 @@
 ````
 
 ### API
-
-````{py:data} _IPV4_RE
-:canonical: archivebox.cli.archivebox_server._IPV4_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.cli.archivebox_server._IPV4_RE
-```
-
-````
-
-````{py:data} _IPV6_CHARS_RE
-:canonical: archivebox.cli.archivebox_server._IPV6_CHARS_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.cli.archivebox_server._IPV6_CHARS_RE
-```
-
-````
 
 ````{py:data} _LOCAL_BIND_HOSTS
 :canonical: archivebox.cli.archivebox_server._LOCAL_BIND_HOSTS

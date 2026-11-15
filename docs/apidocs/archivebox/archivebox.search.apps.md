@@ -23,18 +23,12 @@
 
 ### API
 
-`````{py:class} SearchConfig(app_name, app_module)
+`````{py:class} SearchConfig
 :canonical: archivebox.search.apps.SearchConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
 
 ```{autodoc2-docstring} archivebox.search.apps.SearchConfig
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.search.apps.SearchConfig.__init__
 ```
 
 ````{py:attribute} default_auto_field

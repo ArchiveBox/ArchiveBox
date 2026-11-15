@@ -43,16 +43,12 @@
   - ```{autodoc2-docstring} archivebox.personas.importers._iter_children
     :summary:
     ```
-* - {py:obj}`_is_copyable_profile_entry <archivebox.personas.importers._is_copyable_profile_entry>`
-  - ```{autodoc2-docstring} archivebox.personas.importers._is_copyable_profile_entry
-    :summary:
-    ```
-* - {py:obj}`profile_copy_ignore <archivebox.personas.importers.profile_copy_ignore>`
-  - ```{autodoc2-docstring} archivebox.personas.importers.profile_copy_ignore
-    :summary:
-    ```
 * - {py:obj}`get_chrome_user_data_dir <archivebox.personas.importers.get_chrome_user_data_dir>`
   - ```{autodoc2-docstring} archivebox.personas.importers.get_chrome_user_data_dir
+    :summary:
+    ```
+* - {py:obj}`get_chromium_user_data_dir <archivebox.personas.importers.get_chromium_user_data_dir>`
+  - ```{autodoc2-docstring} archivebox.personas.importers.get_chromium_user_data_dir
     :summary:
     ```
 * - {py:obj}`get_brave_user_data_dir <archivebox.personas.importers.get_brave_user_data_dir>`
@@ -91,12 +87,20 @@
   - ```{autodoc2-docstring} archivebox.personas.importers.pick_default_profile_dir
     :summary:
     ```
+* - {py:obj}`resolve_source_browser_binary <archivebox.personas.importers.resolve_source_browser_binary>`
+  - ```{autodoc2-docstring} archivebox.personas.importers.resolve_source_browser_binary
+    :summary:
+    ```
 * - {py:obj}`import_persona_from_source <archivebox.personas.importers.import_persona_from_source>`
   - ```{autodoc2-docstring} archivebox.personas.importers.import_persona_from_source
     :summary:
     ```
-* - {py:obj}`copy_browser_user_data_dir <archivebox.personas.importers.copy_browser_user_data_dir>`
-  - ```{autodoc2-docstring} archivebox.personas.importers.copy_browser_user_data_dir
+* - {py:obj}`export_profile_cookies <archivebox.personas.importers.export_profile_cookies>`
+  - ```{autodoc2-docstring} archivebox.personas.importers.export_profile_cookies
+    :summary:
+    ```
+* - {py:obj}`run_browser_profile <archivebox.personas.importers.run_browser_profile>`
+  - ```{autodoc2-docstring} archivebox.personas.importers.run_browser_profile
     :summary:
     ```
 * - {py:obj}`export_browser_state <archivebox.personas.importers.export_browser_state>`
@@ -131,6 +135,14 @@
   - ```{autodoc2-docstring} archivebox.personas.importers._merge_auth_storage
     :summary:
     ```
+* - {py:obj}`_merge_named_entries <archivebox.personas.importers._merge_named_entries>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._merge_named_entries
+    :summary:
+    ```
+* - {py:obj}`_merge_origin_entries <archivebox.personas.importers._merge_origin_entries>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._merge_origin_entries
+    :summary:
+    ```
 * - {py:obj}`_load_auth_storage <archivebox.personas.importers._load_auth_storage>`
   - ```{autodoc2-docstring} archivebox.personas.importers._load_auth_storage
     :summary:
@@ -157,10 +169,6 @@
     ```
 * - {py:obj}`BROWSER_PROFILE_DIR_NAMES <archivebox.personas.importers.BROWSER_PROFILE_DIR_NAMES>`
   - ```{autodoc2-docstring} archivebox.personas.importers.BROWSER_PROFILE_DIR_NAMES
-    :summary:
-    ```
-* - {py:obj}`VOLATILE_PROFILE_COPY_PATTERNS <archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS>`
-  - ```{autodoc2-docstring} archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS
     :summary:
     ```
 * - {py:obj}`PERSONA_PROFILE_DIR_CANDIDATES <archivebox.personas.importers.PERSONA_PROFILE_DIR_CANDIDATES>`
@@ -203,16 +211,6 @@
 
 ````
 
-````{py:data} VOLATILE_PROFILE_COPY_PATTERNS
-:canonical: archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS
-:value: >
-   ('Cache', 'Code Cache', 'GPUCache', 'ShaderCache', 'Service Worker', 'GCM Store', 'chrome-extension_...
-
-```{autodoc2-docstring} archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS
-```
-
-````
-
 ````{py:data} PERSONA_PROFILE_DIR_CANDIDATES
 :canonical: archivebox.personas.importers.PERSONA_PROFILE_DIR_CANDIDATES
 :value: >
@@ -241,20 +239,6 @@
 :canonical: archivebox.personas.importers._iter_children
 
 ```{autodoc2-docstring} archivebox.personas.importers._iter_children
-```
-````
-
-````{py:function} _is_copyable_profile_entry(path: pathlib.Path) -> bool
-:canonical: archivebox.personas.importers._is_copyable_profile_entry
-
-```{autodoc2-docstring} archivebox.personas.importers._is_copyable_profile_entry
-```
-````
-
-````{py:function} profile_copy_ignore(src: str, names: list[str]) -> set[str]
-:canonical: archivebox.personas.importers.profile_copy_ignore
-
-```{autodoc2-docstring} archivebox.personas.importers.profile_copy_ignore
 ```
 ````
 
@@ -435,6 +419,17 @@
 
 ````
 
+````{py:attribute} cookie_count
+:canonical: archivebox.personas.importers.PersonaImportResult.cookie_count
+:type: int
+:value: >
+   0
+
+```{autodoc2-docstring} archivebox.personas.importers.PersonaImportResult.cookie_count
+```
+
+````
+
 ````{py:attribute} storage_captured
 :canonical: archivebox.personas.importers.PersonaImportResult.storage_captured
 :type: bool
@@ -479,10 +474,17 @@
 
 `````
 
-````{py:function} get_chrome_user_data_dir() -> pathlib.Path | None
+````{py:function} get_chrome_user_data_dir(*, beta: bool = False) -> pathlib.Path | None
 :canonical: archivebox.personas.importers.get_chrome_user_data_dir
 
 ```{autodoc2-docstring} archivebox.personas.importers.get_chrome_user_data_dir
+```
+````
+
+````{py:function} get_chromium_user_data_dir() -> pathlib.Path | None
+:canonical: archivebox.personas.importers.get_chromium_user_data_dir
+
+```{autodoc2-docstring} archivebox.personas.importers.get_chromium_user_data_dir
 ```
 ````
 
@@ -579,6 +581,13 @@
 ```
 ````
 
+````{py:function} resolve_source_browser_binary(source: archivebox.personas.importers.PersonaImportSource) -> str
+:canonical: archivebox.personas.importers.resolve_source_browser_binary
+
+```{autodoc2-docstring} archivebox.personas.importers.resolve_source_browser_binary
+```
+````
+
 ````{py:function} import_persona_from_source(persona: archivebox.personas.models.Persona, source: archivebox.personas.importers.PersonaImportSource, *, copy_profile: bool = True, import_cookies: bool = True, capture_storage: bool = False) -> archivebox.personas.importers.PersonaImportResult
 :canonical: archivebox.personas.importers.import_persona_from_source
 
@@ -586,10 +595,17 @@
 ```
 ````
 
-````{py:function} copy_browser_user_data_dir(source_dir: pathlib.Path, destination_dir: pathlib.Path) -> None
-:canonical: archivebox.personas.importers.copy_browser_user_data_dir
+````{py:function} export_profile_cookies(source: archivebox.personas.importers.PersonaImportSource, staged_profile: pathlib.Path, output: pathlib.Path) -> dict
+:canonical: archivebox.personas.importers.export_profile_cookies
 
-```{autodoc2-docstring} archivebox.personas.importers.copy_browser_user_data_dir
+```{autodoc2-docstring} archivebox.personas.importers.export_profile_cookies
+```
+````
+
+````{py:function} run_browser_profile(**request) -> dict
+:canonical: archivebox.personas.importers.run_browser_profile
+
+```{autodoc2-docstring} archivebox.personas.importers.run_browser_profile
 ```
 ````
 
@@ -646,6 +662,20 @@
 :canonical: archivebox.personas.importers._merge_auth_storage
 
 ```{autodoc2-docstring} archivebox.personas.importers._merge_auth_storage
+```
+````
+
+````{py:function} _merge_named_entries(existing, incoming, key)
+:canonical: archivebox.personas.importers._merge_named_entries
+
+```{autodoc2-docstring} archivebox.personas.importers._merge_named_entries
+```
+````
+
+````{py:function} _merge_origin_entries(existing, incoming, identity_key)
+:canonical: archivebox.personas.importers._merge_origin_entries
+
+```{autodoc2-docstring} archivebox.personas.importers._merge_origin_entries
 ```
 ````
 

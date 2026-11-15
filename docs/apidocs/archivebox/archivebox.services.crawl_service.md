@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`CrawlService <archivebox.services.crawl_service.CrawlService>`
-  -
+  - ```{autodoc2-docstring} archivebox.services.crawl_service.CrawlService
+    :summary:
+    ```
 ````
 
 ### API
@@ -25,6 +27,15 @@
 :canonical: archivebox.services.crawl_service.CrawlService
 
 Bases: {py:obj}`abx_dl.services.base.BaseService`
+
+```{autodoc2-docstring} archivebox.services.crawl_service.CrawlService
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.services.crawl_service.CrawlService.__init__
+```
 
 ````{py:attribute} LISTENS_TO
 :canonical: archivebox.services.crawl_service.CrawlService.LISTENS_TO

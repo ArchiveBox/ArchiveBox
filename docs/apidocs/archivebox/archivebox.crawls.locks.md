@@ -27,6 +27,14 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`lifecycle_locks_held <archivebox.crawls.locks.lifecycle_locks_held>`
+  - ```{autodoc2-docstring} archivebox.crawls.locks.lifecycle_locks_held
+    :summary:
+    ```
+* - {py:obj}`after_lifecycle_locks <archivebox.crawls.locks.after_lifecycle_locks>`
+  - ```{autodoc2-docstring} archivebox.crawls.locks.after_lifecycle_locks
+    :summary:
+    ```
 * - {py:obj}`crawl_lifecycle_lock_path <archivebox.crawls.locks.crawl_lifecycle_lock_path>`
   - ```{autodoc2-docstring} archivebox.crawls.locks.crawl_lifecycle_lock_path
     :summary:
@@ -61,6 +69,10 @@
     ```
 * - {py:obj}`_registry <archivebox.crawls.locks._registry>`
   - ```{autodoc2-docstring} archivebox.crawls.locks._registry
+    :summary:
+    ```
+* - {py:obj}`_held_locks <archivebox.crawls.locks._held_locks>`
+  - ```{autodoc2-docstring} archivebox.crawls.locks._held_locks
     :summary:
     ```
 ````
@@ -110,6 +122,31 @@
 ```{autodoc2-docstring} archivebox.crawls.locks._registry
 ```
 
+````
+
+````{py:data} _held_locks
+:canonical: archivebox.crawls.locks._held_locks
+:type: contextvars.ContextVar[tuple[archivebox.crawls.locks._LifecycleLockState, ...]]
+:value: >
+   'ContextVar(...)'
+
+```{autodoc2-docstring} archivebox.crawls.locks._held_locks
+```
+
+````
+
+````{py:function} lifecycle_locks_held() -> bool
+:canonical: archivebox.crawls.locks.lifecycle_locks_held
+
+```{autodoc2-docstring} archivebox.crawls.locks.lifecycle_locks_held
+```
+````
+
+````{py:function} after_lifecycle_locks(callback: collections.abc.Callable[[], None]) -> bool
+:canonical: archivebox.crawls.locks.after_lifecycle_locks
+
+```{autodoc2-docstring} archivebox.crawls.locks.after_lifecycle_locks
+```
 ````
 
 ````{py:function} crawl_lifecycle_lock_path(crawl_id: str) -> pathlib.Path

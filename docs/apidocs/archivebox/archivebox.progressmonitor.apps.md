@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`ProgressMonitorConfig <archivebox.progressmonitor.apps.ProgressMonitorConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.progressmonitor.apps.ProgressMonitorConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} ProgressMonitorConfig(app_name, app_module)
+`````{py:class} ProgressMonitorConfig
 :canonical: archivebox.progressmonitor.apps.ProgressMonitorConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.progressmonitor.apps.ProgressMonitorConfig
+```
 
 ````{py:attribute} name
 :canonical: archivebox.progressmonitor.apps.ProgressMonitorConfig.name

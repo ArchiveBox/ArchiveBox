@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`ProcessService <archivebox.services.process_service.ProcessService>`
-  -
+  - ```{autodoc2-docstring} archivebox.services.process_service.ProcessService
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -67,9 +69,18 @@
 
 Bases: {py:obj}`abx_dl.services.base.BaseService`
 
+```{autodoc2-docstring} archivebox.services.process_service.ProcessService
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.services.process_service.ProcessService.__init__
+```
+
 ````{py:attribute} LISTENS_TO
 :canonical: archivebox.services.process_service.ProcessService.LISTENS_TO
-:type: typing.ClassVar[list[type[abxbus.BaseEvent]]]
+:type: typing.ClassVar[list[builtins.type[abxbus.BaseEvent]]]
 :value: >
    None
 
@@ -80,7 +91,7 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 
 ````{py:attribute} EMITS
 :canonical: archivebox.services.process_service.ProcessService.EMITS
-:type: typing.ClassVar[list[type[abxbus.BaseEvent]]]
+:type: typing.ClassVar[list[builtins.type[abxbus.BaseEvent]]]
 :value: >
    []
 

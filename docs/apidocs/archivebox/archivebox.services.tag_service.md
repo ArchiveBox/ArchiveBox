@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`TagService <archivebox.services.tag_service.TagService>`
-  -
+  - ```{autodoc2-docstring} archivebox.services.tag_service.TagService
+    :summary:
+    ```
 ````
 
 ### API
@@ -24,7 +26,16 @@
 `````{py:class} TagService(bus)
 :canonical: archivebox.services.tag_service.TagService
 
-Bases: {py:obj}`abx_dl.services.base.BaseService`
+Bases: {py:obj}`abx_dl.services.tag_service.TagService`
+
+```{autodoc2-docstring} archivebox.services.tag_service.TagService
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.services.tag_service.TagService.__init__
+```
 
 ````{py:attribute} LISTENS_TO
 :canonical: archivebox.services.tag_service.TagService.LISTENS_TO
@@ -39,7 +50,7 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 ````{py:attribute} EMITS
 :canonical: archivebox.services.tag_service.TagService.EMITS
 :value: >
-   []
+   None
 
 ```{autodoc2-docstring} archivebox.services.tag_service.TagService.EMITS
 ```

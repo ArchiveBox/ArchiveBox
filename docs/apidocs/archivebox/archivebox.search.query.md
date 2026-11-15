@@ -15,12 +15,20 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`apply_snapshot_filters <archivebox.search.query.apply_snapshot_filters>`
+  - ```{autodoc2-docstring} archivebox.search.query.apply_snapshot_filters
+    :summary:
+    ```
 * - {py:obj}`escape_like_query <archivebox.search.query.escape_like_query>`
   - ```{autodoc2-docstring} archivebox.search.query.escape_like_query
     :summary:
     ```
 * - {py:obj}`crawl_config_values_search_wave <archivebox.search.query.crawl_config_values_search_wave>`
   - ```{autodoc2-docstring} archivebox.search.query.crawl_config_values_search_wave
+    :summary:
+    ```
+* - {py:obj}`url_search_q <archivebox.search.query.url_search_q>`
+  - ```{autodoc2-docstring} archivebox.search.query.url_search_q
     :summary:
     ```
 * - {py:obj}`snapshot_metadata_search_waves <archivebox.search.query.snapshot_metadata_search_waves>`
@@ -73,6 +81,13 @@
 
 ````
 
+````{py:function} apply_snapshot_filters(queryset, *, domain=None, folder_id=None, status=None, archive_state=None, size=None, archiveresult_status=None)
+:canonical: archivebox.search.query.apply_snapshot_filters
+
+```{autodoc2-docstring} archivebox.search.query.apply_snapshot_filters
+```
+````
+
 ````{py:function} escape_like_query(query: str) -> str
 :canonical: archivebox.search.query.escape_like_query
 
@@ -84,6 +99,13 @@
 :canonical: archivebox.search.query.crawl_config_values_search_wave
 
 ```{autodoc2-docstring} archivebox.search.query.crawl_config_values_search_wave
+```
+````
+
+````{py:function} url_search_q(query: str) -> django.db.models.Q
+:canonical: archivebox.search.query.url_search_q
+
+```{autodoc2-docstring} archivebox.search.query.url_search_q
 ```
 ````
 
@@ -115,7 +137,7 @@
 ```
 ````
 
-````{py:function} iter_query_search_ids(query: str, search_mode: str | None = None, config: dict[str, typing.Any] | None = None, max_results: int | None = None, **config_kwargs: typing.Any)
+````{py:function} iter_query_search_ids(query: str, search_mode: str | None = None, config: dict[str, typing.Any] | None = None, max_results: int | None = None, stop_event=None, **config_kwargs: typing.Any)
 :canonical: archivebox.search.query.iter_query_search_ids
 
 ```{autodoc2-docstring} archivebox.search.query.iter_query_search_ids

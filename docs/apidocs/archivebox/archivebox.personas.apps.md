@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`PersonasConfig <archivebox.personas.apps.PersonasConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.personas.apps.PersonasConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} PersonasConfig(app_name, app_module)
+`````{py:class} PersonasConfig
 :canonical: archivebox.personas.apps.PersonasConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.personas.apps.PersonasConfig
+```
 
 ````{py:attribute} default_auto_field
 :canonical: archivebox.personas.apps.PersonasConfig.default_auto_field
@@ -52,6 +57,14 @@ Bases: {py:obj}`django.apps.AppConfig`
    'personas'
 
 ```{autodoc2-docstring} archivebox.personas.apps.PersonasConfig.label
+```
+
+````
+
+````{py:method} ready()
+:canonical: archivebox.personas.apps.PersonasConfig.ready
+
+```{autodoc2-docstring} archivebox.personas.apps.PersonasConfig.ready
 ```
 
 ````

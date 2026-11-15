@@ -14,10 +14,14 @@
 :maxdepth: 3
 
 archivebox.misc
+archivebox.domains
 archivebox.core
+archivebox.importers
 archivebox.config
+archivebox.auth
 archivebox.plugins
 archivebox.ldap
+archivebox.memento
 archivebox.mcp
 archivebox.crawls
 archivebox.cli

@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`PluginsConfig <archivebox.plugins.apps.PluginsConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.plugins.apps.PluginsConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} PluginsConfig(app_name, app_module)
+`````{py:class} PluginsConfig
 :canonical: archivebox.plugins.apps.PluginsConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.plugins.apps.PluginsConfig
+```
 
 ````{py:attribute} default_auto_field
 :canonical: archivebox.plugins.apps.PluginsConfig.default_auto_field

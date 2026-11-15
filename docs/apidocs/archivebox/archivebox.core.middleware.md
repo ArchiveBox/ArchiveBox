@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`ReverseProxyAuthMiddleware <archivebox.core.middleware.ReverseProxyAuthMiddleware>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.middleware.ReverseProxyAuthMiddleware
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -25,6 +27,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`HealthCheckMiddleware <archivebox.core.middleware.HealthCheckMiddleware>`
+  - ```{autodoc2-docstring} archivebox.core.middleware.HealthCheckMiddleware
+    :summary:
+    ```
 * - {py:obj}`_admin_login_hint_cookie_domain <archivebox.core.middleware._admin_login_hint_cookie_domain>`
   - ```{autodoc2-docstring} archivebox.core.middleware._admin_login_hint_cookie_domain
     :summary:
@@ -79,6 +85,13 @@
 
 ````
 
+````{py:function} HealthCheckMiddleware(get_response)
+:canonical: archivebox.core.middleware.HealthCheckMiddleware
+
+```{autodoc2-docstring} archivebox.core.middleware.HealthCheckMiddleware
+```
+````
+
 ````{py:function} _admin_login_hint_cookie_domain(config) -> str | None
 :canonical: archivebox.core.middleware._admin_login_hint_cookie_domain
 
@@ -128,10 +141,13 @@
 ```
 ````
 
-`````{py:class} ReverseProxyAuthMiddleware(get_response)
+`````{py:class} ReverseProxyAuthMiddleware
 :canonical: archivebox.core.middleware.ReverseProxyAuthMiddleware
 
 Bases: {py:obj}`django.contrib.auth.middleware.RemoteUserMiddleware`
+
+```{autodoc2-docstring} archivebox.core.middleware.ReverseProxyAuthMiddleware
+```
 
 ````{py:attribute} header
 :canonical: archivebox.core.middleware.ReverseProxyAuthMiddleware.header

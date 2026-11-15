@@ -15,6 +15,14 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_resolve_install_targets <archivebox.cli.archivebox_install._resolve_install_targets>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_install._resolve_install_targets
+    :summary:
+    ```
+* - {py:obj}`_install_raw_binary_names <archivebox.cli.archivebox_install._install_raw_binary_names>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_install._install_raw_binary_names
+    :summary:
+    ```
 * - {py:obj}`ensure_data_dir_lib_symlink <archivebox.cli.archivebox_install.ensure_data_dir_lib_symlink>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_install.ensure_data_dir_lib_symlink
     :summary:
@@ -30,6 +38,20 @@
 ````
 
 ### API
+
+````{py:function} _resolve_install_targets(requested_names: tuple[str, ...]) -> tuple[list[str], list[str]]
+:canonical: archivebox.cli.archivebox_install._resolve_install_targets
+
+```{autodoc2-docstring} archivebox.cli.archivebox_install._resolve_install_targets
+```
+````
+
+````{py:function} _install_raw_binary_names(binary_names: list[str], binproviders: str) -> None
+:canonical: archivebox.cli.archivebox_install._install_raw_binary_names
+
+```{autodoc2-docstring} archivebox.cli.archivebox_install._install_raw_binary_names
+```
+````
 
 ````{py:function} ensure_data_dir_lib_symlink(data_dir: pathlib.Path, abxpkg_lib_dir: pathlib.Path) -> pathlib.Path | None
 :canonical: archivebox.cli.archivebox_install.ensure_data_dir_lib_symlink

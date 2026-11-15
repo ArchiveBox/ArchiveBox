@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`render_permission_icon <archivebox.core.permissions.render_permission_icon>`
+  - ```{autodoc2-docstring} archivebox.core.permissions.render_permission_icon
+    :summary:
+    ```
 * - {py:obj}`normalize_permissions <archivebox.core.permissions.normalize_permissions>`
   - ```{autodoc2-docstring} archivebox.core.permissions.normalize_permissions
     :summary:
@@ -45,6 +49,10 @@
     ```
 * - {py:obj}`public_snapshots_queryset <archivebox.core.permissions.public_snapshots_queryset>`
   - ```{autodoc2-docstring} archivebox.core.permissions.public_snapshots_queryset
+    :summary:
+    ```
+* - {py:obj}`discoverable_snapshots_queryset <archivebox.core.permissions.discoverable_snapshots_queryset>`
+  - ```{autodoc2-docstring} archivebox.core.permissions.discoverable_snapshots_queryset
     :summary:
     ```
 * - {py:obj}`direct_snapshots_queryset <archivebox.core.permissions.direct_snapshots_queryset>`
@@ -137,6 +145,13 @@
 
 ````
 
+````{py:function} render_permission_icon(permissions)
+:canonical: archivebox.core.permissions.render_permission_icon
+
+```{autodoc2-docstring} archivebox.core.permissions.render_permission_icon
+```
+````
+
 ````{py:data} PERMISSIONS_META
 :canonical: archivebox.core.permissions.PERMISSIONS_META
 :value: >
@@ -200,6 +215,13 @@
 :canonical: archivebox.core.permissions.public_snapshots_queryset
 
 ```{autodoc2-docstring} archivebox.core.permissions.public_snapshots_queryset
+```
+````
+
+````{py:function} discoverable_snapshots_queryset(request: django.http.HttpRequest | None, queryset: django.db.models.QuerySet) -> django.db.models.QuerySet
+:canonical: archivebox.core.permissions.discoverable_snapshots_queryset
+
+```{autodoc2-docstring} archivebox.core.permissions.discoverable_snapshots_queryset
 ```
 ````
 

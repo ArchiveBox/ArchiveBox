@@ -16,15 +16,20 @@
 :align: left
 
 * - {py:obj}`CoreConfig <archivebox.core.apps.CoreConfig>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.apps.CoreConfig
+    :summary:
+    ```
 ````
 
 ### API
 
-`````{py:class} CoreConfig(app_name, app_module)
+`````{py:class} CoreConfig
 :canonical: archivebox.core.apps.CoreConfig
 
 Bases: {py:obj}`django.apps.AppConfig`
+
+```{autodoc2-docstring} archivebox.core.apps.CoreConfig
+```
 
 ````{py:attribute} name
 :canonical: archivebox.core.apps.CoreConfig.name

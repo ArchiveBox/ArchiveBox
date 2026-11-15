@@ -35,10 +35,6 @@
   - ```{autodoc2-docstring} archivebox.core.takeover_util.command_owns_foreground_runner
     :summary:
     ```
-* - {py:obj}`ensure_daemon_stack <archivebox.core.takeover_util.ensure_daemon_stack>`
-  - ```{autodoc2-docstring} archivebox.core.takeover_util.ensure_daemon_stack
-    :summary:
-    ```
 * - {py:obj}`live_runner_processes <archivebox.core.takeover_util.live_runner_processes>`
   - ```{autodoc2-docstring} archivebox.core.takeover_util.live_runner_processes
     :summary:
@@ -144,13 +140,6 @@
 ```
 ````
 
-````{py:function} ensure_daemon_stack(*, reason: str = '')
-:canonical: archivebox.core.takeover_util.ensure_daemon_stack
-
-```{autodoc2-docstring} archivebox.core.takeover_util.ensure_daemon_stack
-```
-````
-
 ````{py:function} live_runner_processes(*, data_dir: str | pathlib.Path)
 :canonical: archivebox.core.takeover_util.live_runner_processes
 
@@ -172,7 +161,7 @@
 ```
 ````
 
-````{py:function} standby_until_foreground_runner_needed(command, *, data_dir: str | pathlib.Path, interval: float = 2.0) -> dict[str, object]
+````{py:function} standby_until_foreground_runner_needed(command, *, data_dir: str | pathlib.Path, interval: float = 2.0, work_is_complete: collections.abc.Callable[[], bool] | None = None) -> dict[str, object]
 :canonical: archivebox.core.takeover_util.standby_until_foreground_runner_needed
 
 ```{autodoc2-docstring} archivebox.core.takeover_util.standby_until_foreground_runner_needed

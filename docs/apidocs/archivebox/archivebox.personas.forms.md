@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`PersonaAdminForm <archivebox.personas.forms.PersonaAdminForm>`
-  -
+  - ```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -44,6 +46,53 @@
 :canonical: archivebox.personas.forms.PersonaAdminForm
 
 Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django.forms.ModelForm`
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.__init__
+```
+
+````{py:attribute} include_core_settings
+:canonical: archivebox.personas.forms.PersonaAdminForm.include_core_settings
+:value: >
+   True
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.include_core_settings
+```
+
+````
+
+````{py:attribute} settings_scopes
+:canonical: archivebox.personas.forms.PersonaAdminForm.settings_scopes
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.settings_scopes
+```
+
+````
+
+````{py:method} resolve_settings(config)
+:canonical: archivebox.personas.forms.PersonaAdminForm.resolve_settings
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.resolve_settings
+```
+
+````
+
+````{py:attribute} plugin_group_specs
+:canonical: archivebox.personas.forms.PersonaAdminForm.plugin_group_specs
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.plugin_group_specs
+```
+
+````
 
 ````{py:attribute} permissions
 :canonical: archivebox.personas.forms.PersonaAdminForm.permissions
@@ -163,6 +212,9 @@ Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django
 
 ````{py:method} clean() -> dict[str, typing.Any]
 :canonical: archivebox.personas.forms.PersonaAdminForm.clean
+
+```{autodoc2-docstring} archivebox.personas.forms.PersonaAdminForm.clean
+```
 
 ````
 

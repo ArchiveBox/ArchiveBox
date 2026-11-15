@@ -30,7 +30,9 @@
     :summary:
     ```
 * - {py:obj}`BaseModelAdmin <archivebox.base_models.admin.BaseModelAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin
+    :summary:
+    ```
 ````
 
 ### API
@@ -164,18 +166,12 @@ Bases: {py:obj}`typing.TypedDict`
 
 `````
 
-``````{py:class} KeyValueWidget(attrs=None)
+``````{py:class} KeyValueWidget
 :canonical: archivebox.base_models.admin.KeyValueWidget
 
 Bases: {py:obj}`django.forms.Widget`
 
 ```{autodoc2-docstring} archivebox.base_models.admin.KeyValueWidget
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.admin.KeyValueWidget.__init__
 ```
 
 ````{py:attribute} template_name
@@ -195,6 +191,7 @@ Bases: {py:obj}`django.forms.Widget`
 
 ````{py:attribute} css
 :canonical: archivebox.base_models.admin.KeyValueWidget.Media.css
+:type: typing.ClassVar[dict[str, list[str]]]
 :value: >
    None
 
@@ -205,6 +202,7 @@ Bases: {py:obj}`django.forms.Widget`
 
 ````{py:attribute} js
 :canonical: archivebox.base_models.admin.KeyValueWidget.Media.js
+:type: typing.ClassVar[list[str]]
 :value: >
    []
 
@@ -234,9 +232,12 @@ Bases: {py:obj}`django.forms.Widget`
 ````{py:method} render(name: str, value: object, attrs: collections.abc.Mapping[str, str] | None = None, renderer: django.forms.renderers.BaseRenderer | None = None) -> django.utils.safestring.SafeString
 :canonical: archivebox.base_models.admin.KeyValueWidget.render
 
+```{autodoc2-docstring} archivebox.base_models.admin.KeyValueWidget.render
+```
+
 ````
 
-````{py:method} _render_row(widget_id: str, key: str, value: str) -> str
+````{py:method} _render_row(widget_id: str, key: str, value: str, original_json: str | None = None) -> str
 :canonical: archivebox.base_models.admin.KeyValueWidget._render_row
 
 ```{autodoc2-docstring} archivebox.base_models.admin.KeyValueWidget._render_row
@@ -255,22 +256,19 @@ Bases: {py:obj}`django.forms.Widget`
 ````{py:method} value_from_datadict(data: django.http.QueryDict | collections.abc.Mapping[str, object], files: object, name: str) -> str
 :canonical: archivebox.base_models.admin.KeyValueWidget.value_from_datadict
 
+```{autodoc2-docstring} archivebox.base_models.admin.KeyValueWidget.value_from_datadict
+```
+
 ````
 
 ``````
 
-`````{py:class} ConfigEditorMixin(model, admin_site)
+`````{py:class} ConfigEditorMixin
 :canonical: archivebox.base_models.admin.ConfigEditorMixin
 
 Bases: {py:obj}`django.contrib.admin.ModelAdmin`
 
 ```{autodoc2-docstring} archivebox.base_models.admin.ConfigEditorMixin
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.base_models.admin.ConfigEditorMixin.__init__
 ```
 
 ````{py:method} formfield_for_dbfield(db_field: django.db.models.Field, request: django.http.HttpRequest, **kwargs: object) -> django.forms.Field | None
@@ -291,10 +289,13 @@ Bases: {py:obj}`django.contrib.admin.ModelAdmin`
 
 `````
 
-`````{py:class} BaseModelAdmin(model, admin_site)
+`````{py:class} BaseModelAdmin
 :canonical: archivebox.base_models.admin.BaseModelAdmin
 
 Bases: {py:obj}`django_object_actions.DjangoObjectActions`, {py:obj}`django.contrib.admin.ModelAdmin`
+
+```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.base_models.admin.BaseModelAdmin.list_display
@@ -326,6 +327,32 @@ Bases: {py:obj}`django_object_actions.DjangoObjectActions`, {py:obj}`django.cont
 
 ````
 
+````{py:attribute} change_form_template
+:canonical: archivebox.base_models.admin.BaseModelAdmin.change_form_template
+:value: >
+   'admin/archivebox_change_form.html'
+
+```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin.change_form_template
+```
+
+````
+
+````{py:method} get_admin_toolbar_actions(request, obj)
+:canonical: archivebox.base_models.admin.BaseModelAdmin.get_admin_toolbar_actions
+
+```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin.get_admin_toolbar_actions
+```
+
+````
+
+````{py:method} render_change_form(request, context, add=False, change=False, form_url='', obj=None)
+:canonical: archivebox.base_models.admin.BaseModelAdmin.render_change_form
+
+```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin.render_change_form
+```
+
+````
+
 ````{py:method} get_default_search_mode() -> str
 :canonical: archivebox.base_models.admin.BaseModelAdmin.get_default_search_mode
 
@@ -336,6 +363,9 @@ Bases: {py:obj}`django_object_actions.DjangoObjectActions`, {py:obj}`django.cont
 
 ````{py:method} get_form(request: django.http.HttpRequest, obj: django.db.models.Model | None = None, change: bool = False, **kwargs: object)
 :canonical: archivebox.base_models.admin.BaseModelAdmin.get_form
+
+```{autodoc2-docstring} archivebox.base_models.admin.BaseModelAdmin.get_form
+```
 
 ````
 

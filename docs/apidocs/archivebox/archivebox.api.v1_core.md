@@ -15,48 +15,94 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`SnapshotExportRequest <archivebox.api.v1_core.SnapshotExportRequest>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotExportRequest
+    :summary:
+    ```
 * - {py:obj}`CustomPagination <archivebox.api.v1_core.CustomPagination>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.CustomPagination
+    :summary:
+    ```
 * - {py:obj}`MinimalArchiveResultSchema <archivebox.api.v1_core.MinimalArchiveResultSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.MinimalArchiveResultSchema
+    :summary:
+    ```
 * - {py:obj}`ArchiveResultSchema <archivebox.api.v1_core.ArchiveResultSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.ArchiveResultSchema
+    :summary:
+    ```
 * - {py:obj}`ArchiveResultFilterSchema <archivebox.api.v1_core.ArchiveResultFilterSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.ArchiveResultFilterSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotSchema <archivebox.api.v1_core.SnapshotSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotUpdateSchema <archivebox.api.v1_core.SnapshotUpdateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotUpdateSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotCreateSchema <archivebox.api.v1_core.SnapshotCreateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotCreateSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotDeleteResponseSchema <archivebox.api.v1_core.SnapshotDeleteResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotDeleteResponseSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotFilterSchema <archivebox.api.v1_core.SnapshotFilterSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema
+    :summary:
+    ```
 * - {py:obj}`TagSchema <archivebox.api.v1_core.TagSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSchema
+    :summary:
+    ```
 * - {py:obj}`TagAutocompleteSchema <archivebox.api.v1_core.TagAutocompleteSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagAutocompleteSchema
+    :summary:
+    ```
 * - {py:obj}`TagCreateSchema <archivebox.api.v1_core.TagCreateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagCreateSchema
+    :summary:
+    ```
 * - {py:obj}`TagCreateResponseSchema <archivebox.api.v1_core.TagCreateResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagCreateResponseSchema
+    :summary:
+    ```
 * - {py:obj}`TagSearchSnapshotSchema <archivebox.api.v1_core.TagSearchSnapshotSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSearchSnapshotSchema
+    :summary:
+    ```
 * - {py:obj}`TagSearchCardSchema <archivebox.api.v1_core.TagSearchCardSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSearchCardSchema
+    :summary:
+    ```
 * - {py:obj}`TagSearchResponseSchema <archivebox.api.v1_core.TagSearchResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSearchResponseSchema
+    :summary:
+    ```
 * - {py:obj}`TagUpdateSchema <archivebox.api.v1_core.TagUpdateSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagUpdateSchema
+    :summary:
+    ```
 * - {py:obj}`TagUpdateResponseSchema <archivebox.api.v1_core.TagUpdateResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagUpdateResponseSchema
+    :summary:
+    ```
 * - {py:obj}`TagDeleteResponseSchema <archivebox.api.v1_core.TagDeleteResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagDeleteResponseSchema
+    :summary:
+    ```
 * - {py:obj}`TagSnapshotRequestSchema <archivebox.api.v1_core.TagSnapshotRequestSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSnapshotRequestSchema
+    :summary:
+    ```
 * - {py:obj}`TagSnapshotResponseSchema <archivebox.api.v1_core.TagSnapshotResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_core.TagSnapshotResponseSchema
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -65,6 +111,30 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`snapshot_export <archivebox.api.v1_core.snapshot_export>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.snapshot_export
+    :summary:
+    ```
+* - {py:obj}`start_snapshot_export <archivebox.api.v1_core.start_snapshot_export>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.start_snapshot_export
+    :summary:
+    ```
+* - {py:obj}`snapshot_export_job <archivebox.api.v1_core.snapshot_export_job>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.snapshot_export_job
+    :summary:
+    ```
+* - {py:obj}`download_snapshot_export <archivebox.api.v1_core.download_snapshot_export>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.download_snapshot_export
+    :summary:
+    ```
+* - {py:obj}`cancel_snapshot_export <archivebox.api.v1_core.cancel_snapshot_export>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core.cancel_snapshot_export
+    :summary:
+    ```
+* - {py:obj}`_with_archiveresult_processes <archivebox.api.v1_core._with_archiveresult_processes>`
+  - ```{autodoc2-docstring} archivebox.api.v1_core._with_archiveresult_processes
+    :summary:
+    ```
 * - {py:obj}`get_archiveresults <archivebox.api.v1_core.get_archiveresults>`
   - ```{autodoc2-docstring} archivebox.api.v1_core.get_archiveresults
     :summary:
@@ -119,10 +189,6 @@
     ```
 * - {py:obj}`_queue_archiveresult_snapshot_maintenance <archivebox.api.v1_core._queue_archiveresult_snapshot_maintenance>`
   - ```{autodoc2-docstring} archivebox.api.v1_core._queue_archiveresult_snapshot_maintenance
-    :summary:
-    ```
-* - {py:obj}`_merge_archiveresult_output_file_maps <archivebox.api.v1_core._merge_archiveresult_output_file_maps>`
-  - ```{autodoc2-docstring} archivebox.api.v1_core._merge_archiveresult_output_file_maps
     :summary:
     ```
 * - {py:obj}`_write_archiveresult_files <archivebox.api.v1_core._write_archiveresult_files>`
@@ -271,10 +337,77 @@
 
 ````
 
+`````{py:class} SnapshotExportRequest
+:canonical: archivebox.api.v1_core.SnapshotExportRequest
+
+Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotExportRequest
+```
+
+````{py:attribute} query
+:canonical: archivebox.api.v1_core.SnapshotExportRequest.query
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotExportRequest.query
+```
+
+````
+
+````{py:attribute} directory
+:canonical: archivebox.api.v1_core.SnapshotExportRequest.directory
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotExportRequest.directory
+```
+
+````
+
+`````
+
+````{py:function} snapshot_export(request: django.http.HttpRequest, format: str)
+:canonical: archivebox.api.v1_core.snapshot_export
+
+```{autodoc2-docstring} archivebox.api.v1_core.snapshot_export
+```
+````
+
+````{py:function} start_snapshot_export(request: django.http.HttpRequest, format: str, data: archivebox.api.v1_core.SnapshotExportRequest)
+:canonical: archivebox.api.v1_core.start_snapshot_export
+
+```{autodoc2-docstring} archivebox.api.v1_core.start_snapshot_export
+```
+````
+
+````{py:function} snapshot_export_job(request: django.http.HttpRequest, process_id: str)
+:canonical: archivebox.api.v1_core.snapshot_export_job
+
+```{autodoc2-docstring} archivebox.api.v1_core.snapshot_export_job
+```
+````
+
+````{py:function} download_snapshot_export(request: django.http.HttpRequest, process_id: str)
+:canonical: archivebox.api.v1_core.download_snapshot_export
+
+```{autodoc2-docstring} archivebox.api.v1_core.download_snapshot_export
+```
+````
+
+````{py:function} cancel_snapshot_export(request: django.http.HttpRequest, process_id: str)
+:canonical: archivebox.api.v1_core.cancel_snapshot_export
+
+```{autodoc2-docstring} archivebox.api.v1_core.cancel_snapshot_export
+```
+````
+
 ````{py:data} ARCHIVERESULT_UPLOAD_HOOK_NAME
 :canonical: archivebox.api.v1_core.ARCHIVERESULT_UPLOAD_HOOK_NAME
 :value: >
-   'on_Snapshot__archivebox_browser_extension_upload'
+   None
 
 ```{autodoc2-docstring} archivebox.api.v1_core.ARCHIVERESULT_UPLOAD_HOOK_NAME
 ```
@@ -291,15 +424,21 @@
 
 ````
 
-``````{py:class} CustomPagination(*, pass_parameter: typing.Optional[str] = None, **kwargs: typing.Any)
+``````{py:class} CustomPagination
 :canonical: archivebox.api.v1_core.CustomPagination
 
 Bases: {py:obj}`ninja.pagination.PaginationBase`
 
-`````{py:class} Input(/, **data: typing.Any)
+```{autodoc2-docstring} archivebox.api.v1_core.CustomPagination
+```
+
+`````{py:class} Input
 :canonical: archivebox.api.v1_core.CustomPagination.Input
 
 Bases: {py:obj}`ninja.pagination.PaginationBase.Input`
+
+```{autodoc2-docstring} archivebox.api.v1_core.CustomPagination.Input
+```
 
 ````{py:attribute} limit
 :canonical: archivebox.api.v1_core.CustomPagination.Input.limit
@@ -336,10 +475,13 @@ Bases: {py:obj}`ninja.pagination.PaginationBase.Input`
 
 `````
 
-`````{py:class} Output(/, **data: typing.Any)
+`````{py:class} Output
 :canonical: archivebox.api.v1_core.CustomPagination.Output
 
 Bases: {py:obj}`ninja.pagination.PaginationBase.Output`
+
+```{autodoc2-docstring} archivebox.api.v1_core.CustomPagination.Output
+```
 
 ````{py:attribute} count
 :canonical: archivebox.api.v1_core.CustomPagination.Output.count
@@ -441,10 +583,13 @@ Bases: {py:obj}`ninja.pagination.PaginationBase.Output`
 
 ``````
 
-`````{py:class} MinimalArchiveResultSchema(/, **data: typing.Any)
+`````{py:class} MinimalArchiveResultSchema
 :canonical: archivebox.api.v1_core.MinimalArchiveResultSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.MinimalArchiveResultSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_core.MinimalArchiveResultSchema.TYPE
@@ -715,10 +860,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} ArchiveResultSchema(/, **data: typing.Any)
+`````{py:class} ArchiveResultSchema
 :canonical: archivebox.api.v1_core.ArchiveResultSchema
 
 Bases: {py:obj}`archivebox.api.v1_core.MinimalArchiveResultSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.ArchiveResultSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_core.ArchiveResultSchema.TYPE
@@ -813,10 +961,13 @@ Bases: {py:obj}`archivebox.api.v1_core.MinimalArchiveResultSchema`
 
 `````
 
-`````{py:class} ArchiveResultFilterSchema(/, **data: typing.Any)
+`````{py:class} ArchiveResultFilterSchema
 :canonical: archivebox.api.v1_core.ArchiveResultFilterSchema
 
 Bases: {py:obj}`ninja.FilterSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.ArchiveResultFilterSchema
+```
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_core.ArchiveResultFilterSchema.id
@@ -996,6 +1147,13 @@ Bases: {py:obj}`ninja.FilterSchema`
 
 `````
 
+````{py:function} _with_archiveresult_processes(queryset)
+:canonical: archivebox.api.v1_core._with_archiveresult_processes
+
+```{autodoc2-docstring} archivebox.api.v1_core._with_archiveresult_processes
+```
+````
+
 ````{py:function} get_archiveresults(request: django.http.HttpRequest, filters: ninja.Query[archivebox.api.v1_core.ArchiveResultFilterSchema])
 :canonical: archivebox.api.v1_core.get_archiveresults
 
@@ -1094,13 +1252,6 @@ Bases: {py:obj}`ninja.FilterSchema`
 ```
 ````
 
-````{py:function} _merge_archiveresult_output_file_maps(results: list[archivebox.core.models.ArchiveResult]) -> dict[str, dict[str, typing.Any]]
-:canonical: archivebox.api.v1_core._merge_archiveresult_output_file_maps
-
-```{autodoc2-docstring} archivebox.api.v1_core._merge_archiveresult_output_file_maps
-```
-````
-
 ````{py:function} _write_archiveresult_files(request: django.http.HttpRequest, snapshot: archivebox.core.models.Snapshot, plugin_name: str, *, existing_output_files: dict[str, dict[str, typing.Any]] | None = None, allow_empty: bool = False) -> dict[str, dict[str, typing.Any]]
 :canonical: archivebox.api.v1_core._write_archiveresult_files
 
@@ -1122,10 +1273,13 @@ Bases: {py:obj}`ninja.FilterSchema`
 ```
 ````
 
-`````{py:class} SnapshotSchema(/, **data: typing.Any)
+`````{py:class} SnapshotSchema
 :canonical: archivebox.api.v1_core.SnapshotSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_core.SnapshotSchema.TYPE
@@ -1145,6 +1299,72 @@ Bases: {py:obj}`ninja.Schema`
    None
 
 ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.id
+```
+
+````
+
+````{py:attribute} crawl_id
+:canonical: archivebox.api.v1_core.SnapshotSchema.crawl_id
+:type: uuid.UUID
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.crawl_id
+```
+
+````
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_core.SnapshotSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.folder_id
+```
+
+````
+
+````{py:attribute} folder_name
+:canonical: archivebox.api.v1_core.SnapshotSchema.folder_name
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.folder_name
+```
+
+````
+
+````{py:attribute} persona_id
+:canonical: archivebox.api.v1_core.SnapshotSchema.persona_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.persona_id
+```
+
+````
+
+````{py:attribute} persona_name
+:canonical: archivebox.api.v1_core.SnapshotSchema.persona_name
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.persona_name
+```
+
+````
+
+````{py:attribute} persona
+:canonical: archivebox.api.v1_core.SnapshotSchema.persona
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.persona
 ```
 
 ````
@@ -1336,75 +1556,43 @@ Bases: {py:obj}`ninja.Schema`
 
 ````
 
-````{py:method} resolve_created_by_id(obj)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_created_by_id
-:staticmethod:
+````{py:method} compact_ids(value: uuid.UUID | None) -> str | None
+:canonical: archivebox.api.v1_core.SnapshotSchema.compact_ids
 
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_created_by_id
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.compact_ids
 ```
 
 ````
 
-````{py:method} resolve_created_by_username(obj)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_created_by_username
-:staticmethod:
+````{py:method} serialize_snapshot(value, handler, info)
+:canonical: archivebox.api.v1_core.SnapshotSchema.serialize_snapshot
+:classmethod:
 
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_created_by_username
-```
-
-````
-
-````{py:method} resolve_tags(obj)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_tags
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_tags
-```
-
-````
-
-````{py:method} resolve_archive_size(obj)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_archive_size
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_archive_size
-```
-
-````
-
-````{py:method} resolve_output_size(obj)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_output_size
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_output_size
-```
-
-````
-
-````{py:method} resolve_num_archiveresults(obj, context)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_num_archiveresults
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_num_archiveresults
-```
-
-````
-
-````{py:method} resolve_archiveresults(obj, context)
-:canonical: archivebox.api.v1_core.SnapshotSchema.resolve_archiveresults
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.resolve_archiveresults
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotSchema.serialize_snapshot
 ```
 
 ````
 
 `````
 
-`````{py:class} SnapshotUpdateSchema(/, **data: typing.Any)
+`````{py:class} SnapshotUpdateSchema
 :canonical: archivebox.api.v1_core.SnapshotUpdateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotUpdateSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_core.SnapshotUpdateSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotUpdateSchema.folder_id
+```
+
+````
 
 ````{py:attribute} action
 :canonical: archivebox.api.v1_core.SnapshotUpdateSchema.action
@@ -1452,10 +1640,24 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} SnapshotCreateSchema(/, **data: typing.Any)
+`````{py:class} SnapshotCreateSchema
 :canonical: archivebox.api.v1_core.SnapshotCreateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotCreateSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_core.SnapshotCreateSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotCreateSchema.folder_id
+```
+
+````
 
 ````{py:attribute} url
 :canonical: archivebox.api.v1_core.SnapshotCreateSchema.url
@@ -1525,10 +1727,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} SnapshotDeleteResponseSchema(/, **data: typing.Any)
+`````{py:class} SnapshotDeleteResponseSchema
 :canonical: archivebox.api.v1_core.SnapshotDeleteResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotDeleteResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_core.SnapshotDeleteResponseSchema.success
@@ -1574,6 +1779,17 @@ Bases: {py:obj}`ninja.Schema`
 
 ````
 
+````{py:attribute} queued_count
+:canonical: archivebox.api.v1_core.SnapshotDeleteResponseSchema.queued_count
+:type: int
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotDeleteResponseSchema.queued_count
+```
+
+````
+
 `````
 
 ````{py:function} normalize_tag_list(tags: list[str] | None = None) -> list[str]
@@ -1604,10 +1820,54 @@ Bases: {py:obj}`ninja.Schema`
 ```
 ````
 
-`````{py:class} SnapshotFilterSchema(/, **data: typing.Any)
+`````{py:class} SnapshotFilterSchema
 :canonical: archivebox.api.v1_core.SnapshotFilterSchema
 
 Bases: {py:obj}`ninja.FilterSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.folder_id
+```
+
+````
+
+````{py:method} filter_folder_id(value)
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_folder_id
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.filter_folder_id
+```
+
+````
+
+````{py:attribute} domain
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.domain
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.domain
+```
+
+````
+
+````{py:attribute} crawl_id
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.crawl_id
+:type: typing.Annotated[uuid.UUID | None, FilterLookup('crawl_id')]
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.crawl_id
+```
+
+````
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_core.SnapshotFilterSchema.id
@@ -1815,6 +2075,14 @@ Bases: {py:obj}`ninja.FilterSchema`
 
 ````
 
+````{py:method} filter_domain(value: str | None) -> django.db.models.Q
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_domain
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.filter_domain
+```
+
+````
+
 ````{py:method} filter_search_mode(value: str | None) -> django.db.models.Q
 :canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_search_mode
 
@@ -1875,10 +2143,13 @@ Bases: {py:obj}`ninja.FilterSchema`
 ```
 ````
 
-`````{py:class} TagSchema(/, **data: typing.Any)
+`````{py:class} TagSchema
 :canonical: archivebox.api.v1_core.TagSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSchema
+```
 
 ````{py:attribute} TYPE
 :canonical: archivebox.api.v1_core.TagSchema.TYPE
@@ -2038,10 +2309,13 @@ Bases: {py:obj}`ninja.Schema`
 ```
 ````
 
-`````{py:class} TagAutocompleteSchema(/, **data: typing.Any)
+`````{py:class} TagAutocompleteSchema
 :canonical: archivebox.api.v1_core.TagAutocompleteSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagAutocompleteSchema
+```
 
 ````{py:attribute} tags
 :canonical: archivebox.api.v1_core.TagAutocompleteSchema.tags
@@ -2056,10 +2330,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagCreateSchema(/, **data: typing.Any)
+`````{py:class} TagCreateSchema
 :canonical: archivebox.api.v1_core.TagCreateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagCreateSchema
+```
 
 ````{py:attribute} name
 :canonical: archivebox.api.v1_core.TagCreateSchema.name
@@ -2074,10 +2351,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagCreateResponseSchema(/, **data: typing.Any)
+`````{py:class} TagCreateResponseSchema
 :canonical: archivebox.api.v1_core.TagCreateResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagCreateResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_core.TagCreateResponseSchema.success
@@ -2125,10 +2405,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagSearchSnapshotSchema(/, **data: typing.Any)
+`````{py:class} TagSearchSnapshotSchema
 :canonical: archivebox.api.v1_core.TagSearchSnapshotSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSearchSnapshotSchema
+```
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_core.TagSearchSnapshotSchema.id
@@ -2209,10 +2492,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagSearchCardSchema(/, **data: typing.Any)
+`````{py:class} TagSearchCardSchema
 :canonical: archivebox.api.v1_core.TagSearchCardSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSearchCardSchema
+```
 
 ````{py:attribute} id
 :canonical: archivebox.api.v1_core.TagSearchCardSchema.id
@@ -2337,10 +2623,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagSearchResponseSchema(/, **data: typing.Any)
+`````{py:class} TagSearchResponseSchema
 :canonical: archivebox.api.v1_core.TagSearchResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSearchResponseSchema
+```
 
 ````{py:attribute} tags
 :canonical: archivebox.api.v1_core.TagSearchResponseSchema.tags
@@ -2399,10 +2688,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagUpdateSchema(/, **data: typing.Any)
+`````{py:class} TagUpdateSchema
 :canonical: archivebox.api.v1_core.TagUpdateSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagUpdateSchema
+```
 
 ````{py:attribute} name
 :canonical: archivebox.api.v1_core.TagUpdateSchema.name
@@ -2417,10 +2709,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagUpdateResponseSchema(/, **data: typing.Any)
+`````{py:class} TagUpdateResponseSchema
 :canonical: archivebox.api.v1_core.TagUpdateResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagUpdateResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_core.TagUpdateResponseSchema.success
@@ -2457,10 +2752,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagDeleteResponseSchema(/, **data: typing.Any)
+`````{py:class} TagDeleteResponseSchema
 :canonical: archivebox.api.v1_core.TagDeleteResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagDeleteResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_core.TagDeleteResponseSchema.success
@@ -2497,10 +2795,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagSnapshotRequestSchema(/, **data: typing.Any)
+`````{py:class} TagSnapshotRequestSchema
 :canonical: archivebox.api.v1_core.TagSnapshotRequestSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSnapshotRequestSchema
+```
 
 ````{py:attribute} snapshot_id
 :canonical: archivebox.api.v1_core.TagSnapshotRequestSchema.snapshot_id
@@ -2537,10 +2838,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} TagSnapshotResponseSchema(/, **data: typing.Any)
+`````{py:class} TagSnapshotResponseSchema
 :canonical: archivebox.api.v1_core.TagSnapshotResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_core.TagSnapshotResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_core.TagSnapshotResponseSchema.success

@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`PersonaSnapshotDomainListFilter <archivebox.personas.admin.PersonaSnapshotDomainListFilter>`
+  - ```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter
+    :summary:
+    ```
 * - {py:obj}`PersonaAdmin <archivebox.personas.admin.PersonaAdmin>`
   -
 ````
@@ -33,7 +37,53 @@
 
 ### API
 
-`````{py:class} PersonaAdmin(model, admin_site)
+`````{py:class} PersonaSnapshotDomainListFilter
+:canonical: archivebox.personas.admin.PersonaSnapshotDomainListFilter
+
+Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter
+```
+
+````{py:attribute} title
+:canonical: archivebox.personas.admin.PersonaSnapshotDomainListFilter.title
+:value: >
+   'snapshot domain'
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter.title
+```
+
+````
+
+````{py:attribute} parameter_name
+:canonical: archivebox.personas.admin.PersonaSnapshotDomainListFilter.parameter_name
+:value: >
+   'snapshot__domain'
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter.parameter_name
+```
+
+````
+
+````{py:method} lookups(request, model_admin)
+:canonical: archivebox.personas.admin.PersonaSnapshotDomainListFilter.lookups
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter.lookups
+```
+
+````
+
+````{py:method} queryset(request, queryset)
+:canonical: archivebox.personas.admin.PersonaSnapshotDomainListFilter.queryset
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaSnapshotDomainListFilter.queryset
+```
+
+````
+
+`````
+
+`````{py:class} PersonaAdmin
 :canonical: archivebox.personas.admin.PersonaAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
@@ -181,10 +231,42 @@ Bases: {py:obj}`archivebox.base_models.admin.ConfigEditorMixin`, {py:obj}`archiv
 ````{py:method} get_fieldsets(request, obj=None)
 :canonical: archivebox.personas.admin.PersonaAdmin.get_fieldsets
 
+```{autodoc2-docstring} archivebox.personas.admin.PersonaAdmin.get_fieldsets
+```
+
+````
+
+````{py:method} get_admin_toolbar_actions(request, obj)
+:canonical: archivebox.personas.admin.PersonaAdmin.get_admin_toolbar_actions
+
+````
+
+````{py:method} get_urls()
+:canonical: archivebox.personas.admin.PersonaAdmin.get_urls
+
+````
+
+````{py:method} browser_state_view(request, object_id)
+:canonical: archivebox.personas.admin.PersonaAdmin.browser_state_view
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaAdmin.browser_state_view
+```
+
+````
+
+````{py:method} duplicate_settings_view(request, object_id)
+:canonical: archivebox.personas.admin.PersonaAdmin.duplicate_settings_view
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaAdmin.duplicate_settings_view
+```
+
 ````
 
 ````{py:method} get_form(request, obj=None, change=False, **kwargs)
 :canonical: archivebox.personas.admin.PersonaAdmin.get_form
+
+```{autodoc2-docstring} archivebox.personas.admin.PersonaAdmin.get_form
+```
 
 ````
 

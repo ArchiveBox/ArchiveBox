@@ -23,7 +23,6 @@ archivebox.misc.paginators
 archivebox.misc.monkey_patches
 archivebox.misc.logging_util
 archivebox.misc.jsonl
-archivebox.misc.hashing
 archivebox.misc.toml_util
 archivebox.misc.serve_static
 ```

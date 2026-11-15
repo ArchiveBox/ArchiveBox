@@ -16,19 +16,33 @@
 :align: left
 
 * - {py:obj}`CLICommandResponseSchema <archivebox.api.v1_cli.CLICommandResponseSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.CLICommandResponseSchema
+    :summary:
+    ```
 * - {py:obj}`AddCommandSchema <archivebox.api.v1_cli.AddCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.AddCommandSchema
+    :summary:
+    ```
 * - {py:obj}`SnapshotFilterCommandSchema <archivebox.api.v1_cli.SnapshotFilterCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.SnapshotFilterCommandSchema
+    :summary:
+    ```
 * - {py:obj}`UpdateCommandSchema <archivebox.api.v1_cli.UpdateCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.UpdateCommandSchema
+    :summary:
+    ```
 * - {py:obj}`ScheduleCommandSchema <archivebox.api.v1_cli.ScheduleCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.ScheduleCommandSchema
+    :summary:
+    ```
 * - {py:obj}`ListCommandSchema <archivebox.api.v1_cli.ListCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.ListCommandSchema
+    :summary:
+    ```
 * - {py:obj}`RemoveCommandSchema <archivebox.api.v1_cli.RemoveCommandSchema>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.v1_cli.RemoveCommandSchema
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -119,10 +133,13 @@
 
 ````
 
-`````{py:class} CLICommandResponseSchema(/, **data: typing.Any)
+`````{py:class} CLICommandResponseSchema
 :canonical: archivebox.api.v1_cli.CLICommandResponseSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.CLICommandResponseSchema
+```
 
 ````{py:attribute} success
 :canonical: archivebox.api.v1_cli.CLICommandResponseSchema.success
@@ -202,10 +219,22 @@ Bases: {py:obj}`ninja.Schema`
 
 ````
 
-`````{py:class} AddCommandSchema(/, **data: typing.Any)
+`````{py:class} AddCommandSchema
 :canonical: archivebox.api.v1_cli.AddCommandSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.AddCommandSchema
+```
+
+````{py:method} unwrap_notification(value, handler)
+:canonical: archivebox.api.v1_cli.AddCommandSchema.unwrap_notification
+:classmethod:
+
+```{autodoc2-docstring} archivebox.api.v1_cli.AddCommandSchema.unwrap_notification
+```
+
+````
 
 ````{py:attribute} urls
 :canonical: archivebox.api.v1_cli.AddCommandSchema.urls
@@ -214,6 +243,17 @@ Bases: {py:obj}`ninja.Schema`
    None
 
 ```{autodoc2-docstring} archivebox.api.v1_cli.AddCommandSchema.urls
+```
+
+````
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_cli.AddCommandSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_cli.AddCommandSchema.folder_id
 ```
 
 ````
@@ -372,10 +412,24 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} SnapshotFilterCommandSchema(/, **data: typing.Any)
+`````{py:class} SnapshotFilterCommandSchema
 :canonical: archivebox.api.v1_cli.SnapshotFilterCommandSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.SnapshotFilterCommandSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_cli.SnapshotFilterCommandSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_cli.SnapshotFilterCommandSchema.folder_id
+```
+
+````
 
 ````{py:attribute} after
 :canonical: archivebox.api.v1_cli.SnapshotFilterCommandSchema.after
@@ -511,10 +565,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} UpdateCommandSchema(/, **data: typing.Any)
+`````{py:class} UpdateCommandSchema
 :canonical: archivebox.api.v1_cli.UpdateCommandSchema
 
 Bases: {py:obj}`archivebox.api.v1_cli.SnapshotFilterCommandSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.UpdateCommandSchema
+```
 
 ````{py:attribute} resume
 :canonical: archivebox.api.v1_cli.UpdateCommandSchema.resume
@@ -573,10 +630,24 @@ Bases: {py:obj}`archivebox.api.v1_cli.SnapshotFilterCommandSchema`
 
 `````
 
-`````{py:class} ScheduleCommandSchema(/, **data: typing.Any)
+`````{py:class} ScheduleCommandSchema
 :canonical: archivebox.api.v1_cli.ScheduleCommandSchema
 
 Bases: {py:obj}`ninja.Schema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.ScheduleCommandSchema
+```
+
+````{py:attribute} folder_id
+:canonical: archivebox.api.v1_cli.ScheduleCommandSchema.folder_id
+:type: uuid.UUID | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_cli.ScheduleCommandSchema.folder_id
+```
+
+````
 
 ````{py:attribute} import_path
 :canonical: archivebox.api.v1_cli.ScheduleCommandSchema.import_path
@@ -722,10 +793,13 @@ Bases: {py:obj}`ninja.Schema`
 
 `````
 
-`````{py:class} ListCommandSchema(/, **data: typing.Any)
+`````{py:class} ListCommandSchema
 :canonical: archivebox.api.v1_cli.ListCommandSchema
 
 Bases: {py:obj}`archivebox.api.v1_cli.SnapshotFilterCommandSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.ListCommandSchema
+```
 
 ````{py:attribute} as_json
 :canonical: archivebox.api.v1_cli.ListCommandSchema.as_json
@@ -773,10 +847,13 @@ Bases: {py:obj}`archivebox.api.v1_cli.SnapshotFilterCommandSchema`
 
 `````
 
-`````{py:class} RemoveCommandSchema(/, **data: typing.Any)
+`````{py:class} RemoveCommandSchema
 :canonical: archivebox.api.v1_cli.RemoveCommandSchema
 
 Bases: {py:obj}`archivebox.api.v1_cli.SnapshotFilterCommandSchema`
+
+```{autodoc2-docstring} archivebox.api.v1_cli.RemoveCommandSchema
+```
 
 ````{py:attribute} filter_type
 :canonical: archivebox.api.v1_cli.RemoveCommandSchema.filter_type

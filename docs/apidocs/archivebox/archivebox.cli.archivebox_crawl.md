@@ -77,7 +77,7 @@
 
 ````
 
-````{py:function} create_crawl(urls: collections.abc.Iterable[str], depth: int = 0, tag: str = '', status: str = 'queued', created_by_id: int | None = None) -> int
+````{py:function} create_crawl(urls: collections.abc.Iterable[str], depth: int = 0, tag: str = '', status: str = 'queued', created_by_id: int | None = None, folder_id=None) -> int
 :canonical: archivebox.cli.archivebox_crawl.create_crawl
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_crawl.create_crawl
@@ -112,7 +112,7 @@
 ```
 ````
 
-````{py:function} create_cmd(urls: tuple, depth: int, tag: str, status: str)
+````{py:function} create_cmd(urls: tuple, depth: int, tag: str, status: str, folder_id)
 :canonical: archivebox.cli.archivebox_crawl.create_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_crawl.create_cmd

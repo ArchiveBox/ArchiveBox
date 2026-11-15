@@ -192,7 +192,7 @@
 ```
 ````
 
-````{py:function} iter_search_result_ids(query, base_queryset, *, search_mode, config)
+````{py:function} iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None)
 :canonical: archivebox.search.views.iter_search_result_ids
 
 ```{autodoc2-docstring} archivebox.search.views.iter_search_result_ids

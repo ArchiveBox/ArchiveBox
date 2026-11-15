@@ -23,9 +23,11 @@ archivebox.workers.management
 :maxdepth: 1
 
 archivebox.workers.models
+archivebox.workers.http_server
 archivebox.workers.apps
 archivebox.workers.admin
 archivebox.workers.supervisord_util
+archivebox.workers.supervisord_parent_watchdog
 ```
 
 ## Package Contents

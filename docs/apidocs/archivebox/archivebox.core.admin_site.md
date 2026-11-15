@@ -16,9 +16,13 @@
 :align: left
 
 * - {py:obj}`ArchiveBoxLoginView <archivebox.core.admin_site.ArchiveBoxLoginView>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxLoginView
+    :summary:
+    ```
 * - {py:obj}`ArchiveBoxAdmin <archivebox.core.admin_site.ArchiveBoxAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -47,22 +51,31 @@
 
 ### API
 
-`````{py:class} ArchiveBoxLoginView(**kwargs)
+`````{py:class} ArchiveBoxLoginView
 :canonical: archivebox.core.admin_site.ArchiveBoxLoginView
 
 Bases: {py:obj}`django.contrib.auth.views.LoginView`
 
-````{py:method} get_redirect_url() -> str
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxLoginView
+```
+
+````{py:method} get_redirect_url(request: HttpRequest | None = None) -> str
 :canonical: archivebox.core.admin_site.ArchiveBoxLoginView.get_redirect_url
+
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxLoginView.get_redirect_url
+```
 
 ````
 
 `````
 
-`````{py:class} ArchiveBoxAdmin(name='admin')
+`````{py:class} ArchiveBoxAdmin
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin
 
 Bases: {py:obj}`django.contrib.admin.AdminSite`
+
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin
+```
 
 ````{py:attribute} site_header
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin.site_header
@@ -107,6 +120,9 @@ Bases: {py:obj}`django.contrib.admin.AdminSite`
 ````{py:method} each_context(request: django.http.HttpRequest) -> dict[str, typing.Any]
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin.each_context
 
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin.each_context
+```
+
 ````
 
 ````{py:method} _format_object_count(count: int) -> tuple[int, str, str]
@@ -129,6 +145,9 @@ Bases: {py:obj}`django.contrib.admin.AdminSite`
 ````{py:method} get_app_list(request: django.http.HttpRequest, app_label: str | None = None) -> list[admin_data_views.typing.AppDict]
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin.get_app_list
 
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin.get_app_list
+```
+
 ````
 
 ````{py:method} admin_data_index_view(request: django.http.HttpRequest, **kwargs: typing.Any) -> django.template.response.TemplateResponse
@@ -139,13 +158,19 @@ Bases: {py:obj}`django.contrib.admin.AdminSite`
 
 ````
 
-````{py:method} login(request: django.http.HttpRequest, extra_context: dict[str, typing.Any] | None = None) -> django.template.response.TemplateResponse
+````{py:method} login(request: django.http.HttpRequest, extra_context: dict[str, typing.Any] | None = None) -> django.http.HttpResponse
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin.login
+
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin.login
+```
 
 ````
 
 ````{py:method} index(request: django.http.HttpRequest, extra_context: dict[str, typing.Any] | None = None) -> django.template.response.TemplateResponse
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin.index
+
+```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin.index
+```
 
 ````
 

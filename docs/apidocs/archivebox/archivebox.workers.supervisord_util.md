@@ -31,6 +31,42 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._shell_join
     :summary:
     ```
+* - {py:obj}`_warn_background_cleanup <archivebox.workers.supervisord_util._warn_background_cleanup>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._warn_background_cleanup
+    :summary:
+    ```
+* - {py:obj}`_read_cgroup_limit <archivebox.workers.supervisord_util._read_cgroup_limit>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._read_cgroup_limit
+    :summary:
+    ```
+* - {py:obj}`effective_available_memory_bytes <archivebox.workers.supervisord_util.effective_available_memory_bytes>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.effective_available_memory_bytes
+    :summary:
+    ```
+* - {py:obj}`_require_available_memory <archivebox.workers.supervisord_util._require_available_memory>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._require_available_memory
+    :summary:
+    ```
+* - {py:obj}`require_server_worker_memory <archivebox.workers.supervisord_util.require_server_worker_memory>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.require_server_worker_memory
+    :summary:
+    ```
+* - {py:obj}`require_dependency_install_memory <archivebox.workers.supervisord_util.require_dependency_install_memory>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.require_dependency_install_memory
+    :summary:
+    ```
+* - {py:obj}`archivebox_cmd <archivebox.workers.supervisord_util.archivebox_cmd>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.archivebox_cmd
+    :summary:
+    ```
+* - {py:obj}`archivebox_worker_environment <archivebox.workers.supervisord_util.archivebox_worker_environment>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.archivebox_worker_environment
+    :summary:
+    ```
+* - {py:obj}`resolve_env_binary <archivebox.workers.supervisord_util.resolve_env_binary>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.resolve_env_binary
+    :summary:
+    ```
 * - {py:obj}`_record_supervisord_process <archivebox.workers.supervisord_util._record_supervisord_process>`
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._record_supervisord_process
     :summary:
@@ -47,16 +83,32 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._stop_older_supervisord_processes
     :summary:
     ```
+* - {py:obj}`RUNNER_WORKER <archivebox.workers.supervisord_util.RUNNER_WORKER>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WORKER
+    :summary:
+    ```
+* - {py:obj}`RUNNER_ONCE_WORKER <archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER
+    :summary:
+    ```
+* - {py:obj}`RUNNER_WATCH_WORKER <archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER
+    :summary:
+    ```
+* - {py:obj}`SUPERVISORD_PARENT_WATCHDOG_WORKER <archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER
+    :summary:
+    ```
+* - {py:obj}`SERVER_WORKER <archivebox.workers.supervisord_util.SERVER_WORKER>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.SERVER_WORKER
+    :summary:
+    ```
 * - {py:obj}`RUNSERVER_WORKER <archivebox.workers.supervisord_util.RUNSERVER_WORKER>`
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNSERVER_WORKER
     :summary:
     ```
 * - {py:obj}`is_port_in_use <archivebox.workers.supervisord_util.is_port_in_use>`
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.is_port_in_use
-    :summary:
-    ```
-* - {py:obj}`_sonic_worker_bind_target <archivebox.workers.supervisord_util._sonic_worker_bind_target>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._sonic_worker_bind_target
     :summary:
     ```
 * - {py:obj}`get_sock_file <archivebox.workers.supervisord_util.get_sock_file>`
@@ -79,8 +131,8 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.create_worker_config
     :summary:
     ```
-* - {py:obj}`_current_foreground_supervisord_process_id <archivebox.workers.supervisord_util._current_foreground_supervisord_process_id>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._current_foreground_supervisord_process_id
+* - {py:obj}`_current_foreground_supervisord_watchdog_args <archivebox.workers.supervisord_util._current_foreground_supervisord_watchdog_args>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._current_foreground_supervisord_watchdog_args
     :summary:
     ```
 * - {py:obj}`sync_supervisord_workers <archivebox.workers.supervisord_util.sync_supervisord_workers>`
@@ -155,16 +207,8 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.tail_multiple_worker_logs
     :summary:
     ```
-* - {py:obj}`get_sonic_supervisord_worker_from_plugin <archivebox.workers.supervisord_util.get_sonic_supervisord_worker_from_plugin>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.get_sonic_supervisord_worker_from_plugin
-    :summary:
-    ```
 * - {py:obj}`_proc_cmdline <archivebox.workers.supervisord_util._proc_cmdline>`
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._proc_cmdline
-    :summary:
-    ```
-* - {py:obj}`_is_sonic_process <archivebox.workers.supervisord_util._is_sonic_process>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._is_sonic_process
     :summary:
     ```
 * - {py:obj}`_is_supervisord_process <archivebox.workers.supervisord_util._is_supervisord_process>`
@@ -179,12 +223,12 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._terminate_process_tree
     :summary:
     ```
-* - {py:obj}`_sonic_listeners <archivebox.workers.supervisord_util._sonic_listeners>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._sonic_listeners
+* - {py:obj}`_service_listeners <archivebox.workers.supervisord_util._service_listeners>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._service_listeners
     :summary:
     ```
-* - {py:obj}`stop_stale_sonic_processes <archivebox.workers.supervisord_util.stop_stale_sonic_processes>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.stop_stale_sonic_processes
+* - {py:obj}`stop_stale_service_processes <archivebox.workers.supervisord_util.stop_stale_service_processes>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.stop_stale_service_processes
     :summary:
     ```
 * - {py:obj}`start_server_workers <archivebox.workers.supervisord_util.start_server_workers>`
@@ -231,24 +275,28 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util._RUNTIME_COMPONENT_ORDER
     :summary:
     ```
-* - {py:obj}`RUNNER_WORKER <archivebox.workers.supervisord_util.RUNNER_WORKER>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WORKER
+* - {py:obj}`_SUPERVISORD_ERRORS <archivebox.workers.supervisord_util._SUPERVISORD_ERRORS>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._SUPERVISORD_ERRORS
     :summary:
     ```
-* - {py:obj}`RUNNER_ONCE_WORKER <archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER
+* - {py:obj}`_PROCESS_STATE_ERRORS <archivebox.workers.supervisord_util._PROCESS_STATE_ERRORS>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._PROCESS_STATE_ERRORS
     :summary:
     ```
-* - {py:obj}`RUNNER_WATCH_WORKER <archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER
+* - {py:obj}`MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES <archivebox.workers.supervisord_util.MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
     :summary:
     ```
-* - {py:obj}`SUPERVISORD_PARENT_WATCHDOG_WORKER <archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER
+* - {py:obj}`MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES <archivebox.workers.supervisord_util.MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES
     :summary:
     ```
-* - {py:obj}`SERVER_WORKER <archivebox.workers.supervisord_util.SERVER_WORKER>`
-  - ```{autodoc2-docstring} archivebox.workers.supervisord_util.SERVER_WORKER
+* - {py:obj}`_PROC_ACCESS_EXCEPTIONS <archivebox.workers.supervisord_util._PROC_ACCESS_EXCEPTIONS>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._PROC_ACCESS_EXCEPTIONS
+    :summary:
+    ```
+* - {py:obj}`_PROC_INFO_EXCEPTIONS <archivebox.workers.supervisord_util._PROC_INFO_EXCEPTIONS>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._PROC_INFO_EXCEPTIONS
     :summary:
     ```
 ````
@@ -329,9 +377,49 @@
 ````{py:data} _RUNTIME_COMPONENT_ORDER
 :canonical: archivebox.workers.supervisord_util._RUNTIME_COMPONENT_ORDER
 :value: >
-   ('orchestrator', 'server', 'sonic')
+   ('orchestrator', 'server')
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util._RUNTIME_COMPONENT_ORDER
+```
+
+````
+
+````{py:data} _SUPERVISORD_ERRORS
+:canonical: archivebox.workers.supervisord_util._SUPERVISORD_ERRORS
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._SUPERVISORD_ERRORS
+```
+
+````
+
+````{py:data} _PROCESS_STATE_ERRORS
+:canonical: archivebox.workers.supervisord_util._PROCESS_STATE_ERRORS
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._PROCESS_STATE_ERRORS
+```
+
+````
+
+````{py:data} MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
+:canonical: archivebox.workers.supervisord_util.MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
+```
+
+````
+
+````{py:data} MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES
+:canonical: archivebox.workers.supervisord_util.MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES
 ```
 
 ````
@@ -343,7 +431,70 @@
 ```
 ````
 
-````{py:function} _record_supervisord_process(proc: subprocess.Popen, config_file: pathlib.Path) -> None
+````{py:function} _warn_background_cleanup(context: str, err: BaseException) -> None
+:canonical: archivebox.workers.supervisord_util._warn_background_cleanup
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._warn_background_cleanup
+```
+````
+
+````{py:function} _read_cgroup_limit(path: pathlib.Path) -> int | None
+:canonical: archivebox.workers.supervisord_util._read_cgroup_limit
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._read_cgroup_limit
+```
+````
+
+````{py:function} effective_available_memory_bytes() -> int
+:canonical: archivebox.workers.supervisord_util.effective_available_memory_bytes
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.effective_available_memory_bytes
+```
+````
+
+````{py:function} _require_available_memory(operation: str, idle_message: str, available_bytes: int, required_bytes: int) -> None
+:canonical: archivebox.workers.supervisord_util._require_available_memory
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._require_available_memory
+```
+````
+
+````{py:function} require_server_worker_memory(available_bytes: int | None = None) -> None
+:canonical: archivebox.workers.supervisord_util.require_server_worker_memory
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.require_server_worker_memory
+```
+````
+
+````{py:function} require_dependency_install_memory(available_bytes: int | None = None) -> None
+:canonical: archivebox.workers.supervisord_util.require_dependency_install_memory
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.require_dependency_install_memory
+```
+````
+
+````{py:function} archivebox_cmd(*args: str) -> list[str]
+:canonical: archivebox.workers.supervisord_util.archivebox_cmd
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.archivebox_cmd
+```
+````
+
+````{py:function} archivebox_worker_environment(command: list[str], **extra: str) -> str
+:canonical: archivebox.workers.supervisord_util.archivebox_worker_environment
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.archivebox_worker_environment
+```
+````
+
+````{py:function} resolve_env_binary(name: str) -> pathlib.Path
+:canonical: archivebox.workers.supervisord_util.resolve_env_binary
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util.resolve_env_binary
+```
+````
+
+````{py:function} _record_supervisord_process(proc: subprocess.Popen, config_file: pathlib.Path, supervisord_binary: pathlib.Path) -> None
 :canonical: archivebox.workers.supervisord_util._record_supervisord_process
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util._record_supervisord_process
@@ -371,54 +522,39 @@
 ```
 ````
 
-````{py:data} RUNNER_WORKER
+````{py:function} RUNNER_WORKER()
 :canonical: archivebox.workers.supervisord_util.RUNNER_WORKER
-:value: >
-   None
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WORKER
 ```
-
 ````
 
-````{py:data} RUNNER_ONCE_WORKER
+````{py:function} RUNNER_ONCE_WORKER(args, name='worker_runner_once')
 :canonical: archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER
-:value: >
-   None
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_ONCE_WORKER
 ```
-
 ````
 
-````{py:data} RUNNER_WATCH_WORKER
+````{py:function} RUNNER_WATCH_WORKER(bind_url)
 :canonical: archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER
-:value: >
-   None
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.RUNNER_WATCH_WORKER
 ```
-
 ````
 
-````{py:data} SUPERVISORD_PARENT_WATCHDOG_WORKER
+````{py:function} SUPERVISORD_PARENT_WATCHDOG_WORKER(*, owner_pid: int, owner_started_at: float, supervisord_pid: int, supervisord_started_at: float)
 :canonical: archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER
-:value: >
-   None
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER
 ```
-
 ````
 
-````{py:data} SERVER_WORKER
+````{py:function} SERVER_WORKER(host: str, port: str) -> dict[str, str]
 :canonical: archivebox.workers.supervisord_util.SERVER_WORKER
-:value: >
-   None
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.SERVER_WORKER
 ```
-
 ````
 
 ````{py:function} RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False)
@@ -432,13 +568,6 @@
 :canonical: archivebox.workers.supervisord_util.is_port_in_use
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.is_port_in_use
-```
-````
-
-````{py:function} _sonic_worker_bind_target(worker: dict[str, str]) -> tuple[str, int] | None
-:canonical: archivebox.workers.supervisord_util._sonic_worker_bind_target
-
-```{autodoc2-docstring} archivebox.workers.supervisord_util._sonic_worker_bind_target
 ```
 ````
 
@@ -477,10 +606,10 @@
 ```
 ````
 
-````{py:function} _current_foreground_supervisord_process_id()
-:canonical: archivebox.workers.supervisord_util._current_foreground_supervisord_process_id
+````{py:function} _current_foreground_supervisord_watchdog_args()
+:canonical: archivebox.workers.supervisord_util._current_foreground_supervisord_watchdog_args
 
-```{autodoc2-docstring} archivebox.workers.supervisord_util._current_foreground_supervisord_process_id
+```{autodoc2-docstring} archivebox.workers.supervisord_util._current_foreground_supervisord_watchdog_args
 ```
 ````
 
@@ -577,7 +706,7 @@
 ```
 ````
 
-````{py:function} run_runner_worker(args: list[str], *, name: str = 'worker_runner_once', interactive_interrupts: bool = False, keep_running=None) -> int
+````{py:function} run_runner_worker(args: list[str], *, name: str = 'worker_runner_once', interactive_interrupts: bool = False, keep_running=None, config=None) -> int
 :canonical: archivebox.workers.supervisord_util.run_runner_worker
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.run_runner_worker
@@ -598,21 +727,21 @@
 ```
 ````
 
-````{py:function} worker_runtime_component(worker_name: str, *, config=None) -> str | None
+````{py:function} worker_runtime_component(worker_name: str) -> str | None
 :canonical: archivebox.workers.supervisord_util.worker_runtime_component
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.worker_runtime_component
 ```
 ````
 
-````{py:function} runtime_components_for_worker_names(worker_names: set[str] | list[str] | tuple[str, ...], *, config=None) -> list[str]
+````{py:function} runtime_components_for_worker_names(worker_names: set[str] | list[str] | tuple[str, ...]) -> list[str]
 :canonical: archivebox.workers.supervisord_util.runtime_components_for_worker_names
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.runtime_components_for_worker_names
 ```
 ````
 
-````{py:function} active_supervisord_runtime_components(*, config=None, supervisor=None) -> list[str]
+````{py:function} active_supervisord_runtime_components(*, supervisor=None) -> list[str]
 :canonical: archivebox.workers.supervisord_util.active_supervisord_runtime_components
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.active_supervisord_runtime_components
@@ -640,24 +769,30 @@
 ```
 ````
 
-````{py:function} get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None
-:canonical: archivebox.workers.supervisord_util.get_sonic_supervisord_worker_from_plugin
+````{py:data} _PROC_ACCESS_EXCEPTIONS
+:canonical: archivebox.workers.supervisord_util._PROC_ACCESS_EXCEPTIONS
+:value: >
+   ()
 
-```{autodoc2-docstring} archivebox.workers.supervisord_util.get_sonic_supervisord_worker_from_plugin
+```{autodoc2-docstring} archivebox.workers.supervisord_util._PROC_ACCESS_EXCEPTIONS
 ```
+
+````
+
+````{py:data} _PROC_INFO_EXCEPTIONS
+:canonical: archivebox.workers.supervisord_util._PROC_INFO_EXCEPTIONS
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._PROC_INFO_EXCEPTIONS
+```
+
 ````
 
 ````{py:function} _proc_cmdline(proc: psutil.Process) -> list[str]
 :canonical: archivebox.workers.supervisord_util._proc_cmdline
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util._proc_cmdline
-```
-````
-
-````{py:function} _is_sonic_process(proc: psutil.Process) -> bool
-:canonical: archivebox.workers.supervisord_util._is_sonic_process
-
-```{autodoc2-docstring} archivebox.workers.supervisord_util._is_sonic_process
 ```
 ````
 
@@ -682,17 +817,17 @@
 ```
 ````
 
-````{py:function} _sonic_listeners(host: str, port: int) -> list[psutil.Process]
-:canonical: archivebox.workers.supervisord_util._sonic_listeners
+````{py:function} _service_listeners(host: str, port: int, process_name: str) -> list[psutil.Process]
+:canonical: archivebox.workers.supervisord_util._service_listeners
 
-```{autodoc2-docstring} archivebox.workers.supervisord_util._sonic_listeners
+```{autodoc2-docstring} archivebox.workers.supervisord_util._service_listeners
 ```
 ````
 
-````{py:function} stop_stale_sonic_processes(sonic_worker: dict[str, str], *, supervisor_pid: int | None, host: str | None = None, port: int | None = None) -> None
-:canonical: archivebox.workers.supervisord_util.stop_stale_sonic_processes
+````{py:function} stop_stale_service_processes(worker, *, supervisor_pid: int | None) -> None
+:canonical: archivebox.workers.supervisord_util.stop_stale_service_processes
 
-```{autodoc2-docstring} archivebox.workers.supervisord_util.stop_stale_sonic_processes
+```{autodoc2-docstring} archivebox.workers.supervisord_util.stop_stale_service_processes
 ```
 ````
 

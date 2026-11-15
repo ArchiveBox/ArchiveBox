@@ -15,8 +15,8 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`search_backend_env <archivebox.search.backends.search_backend_env>`
-  - ```{autodoc2-docstring} archivebox.search.backends.search_backend_env
+* - {py:obj}`search_backend_command_env <archivebox.search.backends.search_backend_command_env>`
+  - ```{autodoc2-docstring} archivebox.search.backends.search_backend_command_env
     :summary:
     ```
 * - {py:obj}`normalize_search_backend_name <archivebox.search.backends.normalize_search_backend_name>`
@@ -58,10 +58,10 @@
 
 ````
 
-````{py:function} search_backend_env(config: dict[str, typing.Any] | None = None, **config_kwargs: typing.Any)
-:canonical: archivebox.search.backends.search_backend_env
+````{py:function} search_backend_command_env(config: dict[str, typing.Any] | None = None, **config_kwargs: typing.Any) -> dict[str, str]
+:canonical: archivebox.search.backends.search_backend_command_env
 
-```{autodoc2-docstring} archivebox.search.backends.search_backend_env
+```{autodoc2-docstring} archivebox.search.backends.search_backend_command_env
 ```
 ````
 

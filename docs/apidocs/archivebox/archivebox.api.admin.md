@@ -16,11 +16,17 @@
 :align: left
 
 * - {py:obj}`APITokenAdmin <archivebox.api.admin.APITokenAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.admin.APITokenAdmin
+    :summary:
+    ```
 * - {py:obj}`OutboundWebhookAdminForm <archivebox.api.admin.OutboundWebhookAdminForm>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.admin.OutboundWebhookAdminForm
+    :summary:
+    ```
 * - {py:obj}`CustomWebhookAdmin <archivebox.api.admin.CustomWebhookAdmin>`
-  -
+  - ```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -48,10 +54,13 @@
 ```
 ````
 
-`````{py:class} APITokenAdmin(model, admin_site)
+`````{py:class} APITokenAdmin
 :canonical: archivebox.api.admin.APITokenAdmin
 
 Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.api.admin.APITokenAdmin
+```
 
 ````{py:attribute} list_display
 :canonical: archivebox.api.admin.APITokenAdmin.list_display
@@ -135,17 +144,29 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 `````
 
-```{py:class} OutboundWebhookAdminForm(*args, **kwargs)
+````{py:class} OutboundWebhookAdminForm(*args, **kwargs)
 :canonical: archivebox.api.admin.OutboundWebhookAdminForm
 
 Bases: {py:obj}`signal_webhooks.admin.WebhookModelForm`
 
+```{autodoc2-docstring} archivebox.api.admin.OutboundWebhookAdminForm
 ```
 
-`````{py:class} CustomWebhookAdmin(model, admin_site)
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.api.admin.OutboundWebhookAdminForm.__init__
+```
+
+````
+
+`````{py:class} CustomWebhookAdmin
 :canonical: archivebox.api.admin.CustomWebhookAdmin
 
 Bases: {py:obj}`signal_webhooks.admin.WebhookAdmin`, {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
+
+```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin
+```
 
 ````{py:attribute} form
 :canonical: archivebox.api.admin.CustomWebhookAdmin.form
@@ -183,6 +204,30 @@ Bases: {py:obj}`signal_webhooks.admin.WebhookAdmin`, {py:obj}`archivebox.base_mo
    '_webhook_fields(...)'
 
 ```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin.readonly_fields
+```
+
+````
+
+````{py:method} has_add_permission(request)
+:canonical: archivebox.api.admin.CustomWebhookAdmin.has_add_permission
+
+```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin.has_add_permission
+```
+
+````
+
+````{py:method} has_change_permission(request, obj=None)
+:canonical: archivebox.api.admin.CustomWebhookAdmin.has_change_permission
+
+```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin.has_change_permission
+```
+
+````
+
+````{py:method} has_delete_permission(request, obj=None)
+:canonical: archivebox.api.admin.CustomWebhookAdmin.has_delete_permission
+
+```{autodoc2-docstring} archivebox.api.admin.CustomWebhookAdmin.has_delete_permission
 ```
 
 ````

@@ -31,12 +31,12 @@
   - ```{autodoc2-docstring} archivebox.core.settings.IS_GETTING_VERSION_OR_HELP
     :summary:
     ```
-* - {py:obj}`CONFIG <archivebox.core.settings.CONFIG>`
-  - ```{autodoc2-docstring} archivebox.core.settings.CONFIG
-    :summary:
-    ```
 * - {py:obj}`PACKAGE_DIR <archivebox.core.settings.PACKAGE_DIR>`
   - ```{autodoc2-docstring} archivebox.core.settings.PACKAGE_DIR
+    :summary:
+    ```
+* - {py:obj}`logger <archivebox.core.settings.logger>`
+  - ```{autodoc2-docstring} archivebox.core.settings.logger
     :summary:
     ```
 * - {py:obj}`ALL_PLUGINS <archivebox.core.settings.ALL_PLUGINS>`
@@ -95,6 +95,10 @@
   - ```{autodoc2-docstring} archivebox.core.settings.AUTHENTICATION_BACKENDS
     :summary:
     ```
+* - {py:obj}`ALLAUTH_ENABLED <archivebox.core.settings.ALLAUTH_ENABLED>`
+  - ```{autodoc2-docstring} archivebox.core.settings.ALLAUTH_ENABLED
+    :summary:
+    ```
 * - {py:obj}`STATIC_URL <archivebox.core.settings.STATIC_URL>`
   - ```{autodoc2-docstring} archivebox.core.settings.STATIC_URL
     :summary:
@@ -135,10 +139,6 @@
   - ```{autodoc2-docstring} archivebox.core.settings.SQLITE_CONNECTION_OPTIONS
     :summary:
     ```
-* - {py:obj}`DATABASES <archivebox.core.settings.DATABASES>`
-  - ```{autodoc2-docstring} archivebox.core.settings.DATABASES
-    :summary:
-    ```
 * - {py:obj}`MIGRATION_MODULES <archivebox.core.settings.MIGRATION_MODULES>`
   - ```{autodoc2-docstring} archivebox.core.settings.MIGRATION_MODULES
     :summary:
@@ -159,6 +159,34 @@
   - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_BACKEND
     :summary:
     ```
+* - {py:obj}`EMAIL_HOST <archivebox.core.settings.EMAIL_HOST>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST
+    :summary:
+    ```
+* - {py:obj}`EMAIL_PORT <archivebox.core.settings.EMAIL_PORT>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_PORT
+    :summary:
+    ```
+* - {py:obj}`EMAIL_HOST_USER <archivebox.core.settings.EMAIL_HOST_USER>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST_USER
+    :summary:
+    ```
+* - {py:obj}`EMAIL_HOST_PASSWORD <archivebox.core.settings.EMAIL_HOST_PASSWORD>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST_PASSWORD
+    :summary:
+    ```
+* - {py:obj}`EMAIL_USE_TLS <archivebox.core.settings.EMAIL_USE_TLS>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_USE_TLS
+    :summary:
+    ```
+* - {py:obj}`EMAIL_USE_SSL <archivebox.core.settings.EMAIL_USE_SSL>`
+  - ```{autodoc2-docstring} archivebox.core.settings.EMAIL_USE_SSL
+    :summary:
+    ```
+* - {py:obj}`DEFAULT_FROM_EMAIL <archivebox.core.settings.DEFAULT_FROM_EMAIL>`
+  - ```{autodoc2-docstring} archivebox.core.settings.DEFAULT_FROM_EMAIL
+    :summary:
+    ```
 * - {py:obj}`STORAGES <archivebox.core.settings.STORAGES>`
   - ```{autodoc2-docstring} archivebox.core.settings.STORAGES
     :summary:
@@ -169,6 +197,10 @@
     ```
 * - {py:obj}`SECRET_KEY <archivebox.core.settings.SECRET_KEY>`
   - ```{autodoc2-docstring} archivebox.core.settings.SECRET_KEY
+    :summary:
+    ```
+* - {py:obj}`_secret_in_db <archivebox.core.settings._secret_in_db>`
+  - ```{autodoc2-docstring} archivebox.core.settings._secret_in_db
     :summary:
     ```
 * - {py:obj}`ALLOWED_HOSTS <archivebox.core.settings.ALLOWED_HOSTS>`
@@ -367,22 +399,22 @@
 
 ````
 
-````{py:data} CONFIG
-:canonical: archivebox.core.settings.CONFIG
-:value: >
-   'get_config(...)'
-
-```{autodoc2-docstring} archivebox.core.settings.CONFIG
-```
-
-````
-
 ````{py:data} PACKAGE_DIR
 :canonical: archivebox.core.settings.PACKAGE_DIR
 :value: >
    None
 
 ```{autodoc2-docstring} archivebox.core.settings.PACKAGE_DIR
+```
+
+````
+
+````{py:data} logger
+:canonical: archivebox.core.settings.logger
+:value: >
+   'getLogger(...)'
+
+```{autodoc2-docstring} archivebox.core.settings.logger
 ```
 
 ````
@@ -490,7 +522,7 @@
 ````{py:data} INSTALLED_APPS
 :canonical: archivebox.core.settings.INSTALLED_APPS
 :value: >
-   ['daphne', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django....
+   ['archivebox.workers', 'daphne', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contr...
 
 ```{autodoc2-docstring} archivebox.core.settings.INSTALLED_APPS
 ```
@@ -510,7 +542,7 @@
 ````{py:data} MIDDLEWARE
 :canonical: archivebox.core.settings.MIDDLEWARE
 :value: >
-   ['archivebox.core.middleware.TimezoneMiddleware', 'django.middleware.security.SecurityMiddleware', '...
+   ['archivebox.api.webhook_events.WebhookActionMiddleware', 'django.middleware.security.SecurityMiddle...
 
 ```{autodoc2-docstring} archivebox.core.settings.MIDDLEWARE
 ```
@@ -523,6 +555,16 @@
    ['django.contrib.auth.backends.RemoteUserBackend', 'django.contrib.auth.backends.ModelBackend']
 
 ```{autodoc2-docstring} archivebox.core.settings.AUTHENTICATION_BACKENDS
+```
+
+````
+
+````{py:data} ALLAUTH_ENABLED
+:canonical: archivebox.core.settings.ALLAUTH_ENABLED
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.ALLAUTH_ENABLED
 ```
 
 ````
@@ -627,16 +669,6 @@
 
 ````
 
-````{py:data} DATABASES
-:canonical: archivebox.core.settings.DATABASES
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.settings.DATABASES
-```
-
-````
-
 ````{py:data} MIGRATION_MODULES
 :canonical: archivebox.core.settings.MIGRATION_MODULES
 :value: >
@@ -680,9 +712,79 @@
 ````{py:data} EMAIL_BACKEND
 :canonical: archivebox.core.settings.EMAIL_BACKEND
 :value: >
-   'django.core.mail.backends.console.EmailBackend'
+   None
 
 ```{autodoc2-docstring} archivebox.core.settings.EMAIL_BACKEND
+```
+
+````
+
+````{py:data} EMAIL_HOST
+:canonical: archivebox.core.settings.EMAIL_HOST
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST
+```
+
+````
+
+````{py:data} EMAIL_PORT
+:canonical: archivebox.core.settings.EMAIL_PORT
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_PORT
+```
+
+````
+
+````{py:data} EMAIL_HOST_USER
+:canonical: archivebox.core.settings.EMAIL_HOST_USER
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST_USER
+```
+
+````
+
+````{py:data} EMAIL_HOST_PASSWORD
+:canonical: archivebox.core.settings.EMAIL_HOST_PASSWORD
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_HOST_PASSWORD
+```
+
+````
+
+````{py:data} EMAIL_USE_TLS
+:canonical: archivebox.core.settings.EMAIL_USE_TLS
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_USE_TLS
+```
+
+````
+
+````{py:data} EMAIL_USE_SSL
+:canonical: archivebox.core.settings.EMAIL_USE_SSL
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.EMAIL_USE_SSL
+```
+
+````
+
+````{py:data} DEFAULT_FROM_EMAIL
+:canonical: archivebox.core.settings.DEFAULT_FROM_EMAIL
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.DEFAULT_FROM_EMAIL
 ```
 
 ````
@@ -713,6 +815,16 @@
    None
 
 ```{autodoc2-docstring} archivebox.core.settings.SECRET_KEY
+```
+
+````
+
+````{py:data} _secret_in_db
+:canonical: archivebox.core.settings._secret_in_db
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings._secret_in_db
 ```
 
 ````
@@ -1091,7 +1203,7 @@
 ````{py:data} DEBUG_REQUESTS_TRACKER
 :canonical: archivebox.core.settings.DEBUG_REQUESTS_TRACKER
 :value: >
-   True
+   None
 
 ```{autodoc2-docstring} archivebox.core.settings.DEBUG_REQUESTS_TRACKER
 ```

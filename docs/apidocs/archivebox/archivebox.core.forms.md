@@ -16,9 +16,13 @@
 :align: left
 
 * - {py:obj}`AddLinkForm <archivebox.core.forms.AddLinkForm>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.forms.AddLinkForm
+    :summary:
+    ```
 * - {py:obj}`TagWidget <archivebox.core.forms.TagWidget>`
-  -
+  - ```{autodoc2-docstring} archivebox.core.forms.TagWidget
+    :summary:
+    ```
 * - {py:obj}`TagField <archivebox.core.forms.TagField>`
   - ```{autodoc2-docstring} archivebox.core.forms.TagField
     :summary:
@@ -95,6 +99,15 @@
 
 Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django.forms.Form`
 
+```{autodoc2-docstring} archivebox.core.forms.AddLinkForm
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.core.forms.AddLinkForm.__init__
+```
+
 ````{py:attribute} allow_crawl_execution_config_fields
 :canonical: archivebox.core.forms.AddLinkForm.allow_crawl_execution_config_fields
 :value: >
@@ -121,6 +134,16 @@ Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django
    'CharField(...)'
 
 ```{autodoc2-docstring} archivebox.core.forms.AddLinkForm.tag
+```
+
+````
+
+````{py:attribute} folder
+:canonical: archivebox.core.forms.AddLinkForm.folder
+:value: >
+   'ModelChoiceField(...)'
+
+```{autodoc2-docstring} archivebox.core.forms.AddLinkForm.folder
 ```
 
 ````
@@ -345,8 +368,19 @@ Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django
 
 ````
 
+````{py:method} clean_persona()
+:canonical: archivebox.core.forms.AddLinkForm.clean_persona
+
+```{autodoc2-docstring} archivebox.core.forms.AddLinkForm.clean_persona
+```
+
+````
+
 ````{py:method} clean()
 :canonical: archivebox.core.forms.AddLinkForm.clean
+
+```{autodoc2-docstring} archivebox.core.forms.AddLinkForm.clean
+```
 
 ````
 
@@ -440,30 +474,30 @@ Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django
 
 `````
 
-`````{py:class} TagWidget(attrs=None)
+`````{py:class} TagWidget
 :canonical: archivebox.core.forms.TagWidget
 
 Bases: {py:obj}`django.forms.TextInput`
 
+```{autodoc2-docstring} archivebox.core.forms.TagWidget
+```
+
 ````{py:method} format_value(value)
 :canonical: archivebox.core.forms.TagWidget.format_value
+
+```{autodoc2-docstring} archivebox.core.forms.TagWidget.format_value
+```
 
 ````
 
 `````
 
-`````{py:class} TagField(*, max_length=None, min_length=None, strip=True, empty_value='', **kwargs)
+`````{py:class} TagField
 :canonical: archivebox.core.forms.TagField
 
 Bases: {py:obj}`django.forms.CharField`
 
 ```{autodoc2-docstring} archivebox.core.forms.TagField
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.forms.TagField.__init__
 ```
 
 ````{py:attribute} widget
@@ -479,10 +513,16 @@ Bases: {py:obj}`django.forms.CharField`
 ````{py:method} clean(value)
 :canonical: archivebox.core.forms.TagField.clean
 
+```{autodoc2-docstring} archivebox.core.forms.TagField.clean
+```
+
 ````
 
 ````{py:method} has_changed(initial, data)
 :canonical: archivebox.core.forms.TagField.has_changed
+
+```{autodoc2-docstring} archivebox.core.forms.TagField.has_changed
+```
 
 ````
 

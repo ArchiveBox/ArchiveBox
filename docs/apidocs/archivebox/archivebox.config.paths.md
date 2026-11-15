@@ -63,6 +63,10 @@
   - ```{autodoc2-docstring} archivebox.config.paths.get_or_create_working_lib_dir
     :summary:
     ```
+* - {py:obj}`_sql_index_location <archivebox.config.paths._sql_index_location>`
+  - ```{autodoc2-docstring} archivebox.config.paths._sql_index_location
+    :summary:
+    ```
 * - {py:obj}`get_data_locations <archivebox.config.paths.get_data_locations>`
   - ```{autodoc2-docstring} archivebox.config.paths.get_data_locations
     :summary:
@@ -220,7 +224,7 @@
 ```
 ````
 
-````{py:function} get_machine_id() -> str
+````{py:function} get_machine_id(length: int = 8) -> str
 :canonical: archivebox.config.paths.get_machine_id
 
 ```{autodoc2-docstring} archivebox.config.paths.get_machine_id
@@ -280,6 +284,13 @@
 :canonical: archivebox.config.paths.get_or_create_working_lib_dir
 
 ```{autodoc2-docstring} archivebox.config.paths.get_or_create_working_lib_dir
+```
+````
+
+````{py:function} _sql_index_location(config: archivebox.config.common.ArchiveBoxConfig) -> dict
+:canonical: archivebox.config.paths._sql_index_location
+
+```{autodoc2-docstring} archivebox.config.paths._sql_index_location
 ```
 ````
 

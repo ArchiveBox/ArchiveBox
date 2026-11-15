@@ -128,7 +128,7 @@
 ```
 ````
 
-````{py:function} create_snapshots(urls: collections.abc.Iterable[str], tag: str = '', status: str = 'queued', depth: int = 0, created_by_id: int | None = None) -> int
+````{py:function} create_snapshots(urls: collections.abc.Iterable[str], tag: str = '', status: str = 'queued', depth: int = 0, created_by_id: int | None = None, folder_id=None) -> int
 :canonical: archivebox.cli.archivebox_snapshot.create_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.create_snapshots
@@ -156,14 +156,14 @@
 ```
 ````
 
-````{py:function} list_snapshots(csv: str | None = None, as_json: bool = False, as_html: bool = False, with_headers: bool = False, **kwargs) -> int
+````{py:function} list_snapshots(csv: str | None = None, as_json: bool = False, as_html: bool = False, with_headers: bool = False, export_format: str | None = None, output: pathlib.Path | None = None, export_query: str | None = None, **kwargs) -> int
 :canonical: archivebox.cli.archivebox_snapshot.list_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.list_snapshots
 ```
 ````
 
-````{py:function} update_snapshots(status: str | None = None, tag: str | None = None) -> int
+````{py:function} update_snapshots(status: str | None = None, tag: str | None = None, folder_id=None, unfile: bool = False) -> int
 :canonical: archivebox.cli.archivebox_snapshot.update_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.update_snapshots
@@ -184,7 +184,7 @@
 ```
 ````
 
-````{py:function} create_cmd(urls: tuple, tag: str, status: str, depth: int)
+````{py:function} create_cmd(urls: tuple, tag: str, status: str, depth: int, folder_id)
 :canonical: archivebox.cli.archivebox_snapshot.create_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.create_cmd
@@ -198,7 +198,7 @@
 ```
 ````
 
-````{py:function} update_cmd(status: str | None, tag: str | None)
+````{py:function} update_cmd(status: str | None, tag: str | None, folder_id, unfile)
 :canonical: archivebox.cli.archivebox_snapshot.update_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.update_cmd

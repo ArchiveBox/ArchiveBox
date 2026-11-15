@@ -39,6 +39,10 @@
   - ```{autodoc2-docstring} archivebox.misc.checks.check_not_root
     :summary:
     ```
+* - {py:obj}`is_archivebox_source_root <archivebox.misc.checks.is_archivebox_source_root>`
+  - ```{autodoc2-docstring} archivebox.misc.checks.is_archivebox_source_root
+    :summary:
+    ```
 * - {py:obj}`check_not_inside_source_dir <archivebox.misc.checks.check_not_inside_source_dir>`
   - ```{autodoc2-docstring} archivebox.misc.checks.check_not_inside_source_dir
     :summary:
@@ -101,7 +105,14 @@
 ```
 ````
 
-````{py:function} check_not_inside_source_dir()
+````{py:function} is_archivebox_source_root(path: pathlib.Path | str | None = None) -> bool
+:canonical: archivebox.misc.checks.is_archivebox_source_root
+
+```{autodoc2-docstring} archivebox.misc.checks.is_archivebox_source_root
+```
+````
+
+````{py:function} check_not_inside_source_dir(path: pathlib.Path | str | None = None) -> None
 :canonical: archivebox.misc.checks.check_not_inside_source_dir
 
 ```{autodoc2-docstring} archivebox.misc.checks.check_not_inside_source_dir

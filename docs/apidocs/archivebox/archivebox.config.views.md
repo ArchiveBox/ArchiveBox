@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_read_text_tail <archivebox.config.views._read_text_tail>`
+  - ```{autodoc2-docstring} archivebox.config.views._read_text_tail
+    :summary:
+    ```
 * - {py:obj}`is_superuser <archivebox.config.views.is_superuser>`
   - ```{autodoc2-docstring} archivebox.config.views.is_superuser
     :summary:
@@ -87,6 +91,10 @@
   - ```{autodoc2-docstring} archivebox.config.views.INSTALLED_BINARIES_BASE_URL
     :summary:
     ```
+* - {py:obj}`LOG_DETAIL_TAIL_BYTES <archivebox.config.views.LOG_DETAIL_TAIL_BYTES>`
+  - ```{autodoc2-docstring} archivebox.config.views.LOG_DETAIL_TAIL_BYTES
+    :summary:
+    ```
 ````
 
 ### API
@@ -109,6 +117,23 @@
 ```{autodoc2-docstring} archivebox.config.views.INSTALLED_BINARIES_BASE_URL
 ```
 
+````
+
+````{py:data} LOG_DETAIL_TAIL_BYTES
+:canonical: archivebox.config.views.LOG_DETAIL_TAIL_BYTES
+:value: >
+   100000
+
+```{autodoc2-docstring} archivebox.config.views.LOG_DETAIL_TAIL_BYTES
+```
+
+````
+
+````{py:function} _read_text_tail(path: pathlib.Path, max_bytes: int = LOG_DETAIL_TAIL_BYTES) -> str
+:canonical: archivebox.config.views._read_text_tail
+
+```{autodoc2-docstring} archivebox.config.views._read_text_tail
+```
 ````
 
 ````{py:function} is_superuser(request: django.http.HttpRequest) -> bool

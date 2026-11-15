@@ -15,18 +15,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`get_chrome_user_data_dir <archivebox.cli.archivebox_persona.get_chrome_user_data_dir>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_chrome_user_data_dir
-    :summary:
-    ```
-* - {py:obj}`get_brave_user_data_dir <archivebox.cli.archivebox_persona.get_brave_user_data_dir>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_brave_user_data_dir
-    :summary:
-    ```
-* - {py:obj}`get_edge_user_data_dir <archivebox.cli.archivebox_persona.get_edge_user_data_dir>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_edge_user_data_dir
-    :summary:
-    ```
 * - {py:obj}`validate_persona_name <archivebox.cli.archivebox_persona.validate_persona_name>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.validate_persona_name
     :summary:
@@ -63,6 +51,10 @@
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.list_cmd
     :summary:
     ```
+* - {py:obj}`open_cmd <archivebox.cli.archivebox_persona.open_cmd>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.open_cmd
+    :summary:
+    ```
 * - {py:obj}`update_cmd <archivebox.cli.archivebox_persona.update_cmd>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.update_cmd
     :summary:
@@ -83,14 +75,6 @@
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.__command__
     :summary:
     ```
-* - {py:obj}`BROWSER_PROFILE_FINDERS <archivebox.cli.archivebox_persona.BROWSER_PROFILE_FINDERS>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.BROWSER_PROFILE_FINDERS
-    :summary:
-    ```
-* - {py:obj}`CHROMIUM_BROWSERS <archivebox.cli.archivebox_persona.CHROMIUM_BROWSERS>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.CHROMIUM_BROWSERS
-    :summary:
-    ```
 ````
 
 ### API
@@ -101,47 +85,6 @@
    'archivebox persona'
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_persona.__command__
-```
-
-````
-
-````{py:function} get_chrome_user_data_dir() -> pathlib.Path | None
-:canonical: archivebox.cli.archivebox_persona.get_chrome_user_data_dir
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_chrome_user_data_dir
-```
-````
-
-````{py:function} get_brave_user_data_dir() -> pathlib.Path | None
-:canonical: archivebox.cli.archivebox_persona.get_brave_user_data_dir
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_brave_user_data_dir
-```
-````
-
-````{py:function} get_edge_user_data_dir() -> pathlib.Path | None
-:canonical: archivebox.cli.archivebox_persona.get_edge_user_data_dir
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_edge_user_data_dir
-```
-````
-
-````{py:data} BROWSER_PROFILE_FINDERS
-:canonical: archivebox.cli.archivebox_persona.BROWSER_PROFILE_FINDERS
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.BROWSER_PROFILE_FINDERS
-```
-
-````
-
-````{py:data} CHROMIUM_BROWSERS
-:canonical: archivebox.cli.archivebox_persona.CHROMIUM_BROWSERS
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.CHROMIUM_BROWSERS
 ```
 
 ````
@@ -160,7 +103,7 @@
 ```
 ````
 
-````{py:function} create_personas(names: collections.abc.Iterable[str], import_from: str | None = None, profile: str | None = None) -> int
+````{py:function} create_personas(names: collections.abc.Iterable[str], import_from: str | None = None, profile: str | None = None, source: str | None = None, browser_binary: str | None = None, permissions: str | None = None) -> int
 :canonical: archivebox.cli.archivebox_persona.create_personas
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_persona.create_personas
@@ -195,7 +138,7 @@
 ```
 ````
 
-````{py:function} create_cmd(names: tuple, import_from: str | None, profile: str | None)
+````{py:function} create_cmd(names: tuple, import_from: str | None, profile: str | None, source: str | None, browser_binary: str | None, permissions: str | None)
 :canonical: archivebox.cli.archivebox_persona.create_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_persona.create_cmd
@@ -206,6 +149,13 @@
 :canonical: archivebox.cli.archivebox_persona.list_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_persona.list_cmd
+```
+````
+
+````{py:function} open_cmd(name: str, headless: bool = False, background: bool = False)
+:canonical: archivebox.cli.archivebox_persona.open_cmd
+
+```{autodoc2-docstring} archivebox.cli.archivebox_persona.open_cmd
 ```
 ````
 
