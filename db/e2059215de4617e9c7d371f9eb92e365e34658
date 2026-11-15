@@ -1,0 +1,25 @@
+archivebox/templates/config/fields/PLUGINS.html
+  s_784d0e5fa3aa29::t_2c0a4dd295a227 2
+archivebox/config/common.py
+  s_784d0e5fa3aa29::t_2c0a4dd295a227 509-512,524-530,534-537
+archivebox/templates/config/fields/ONLY_NEW.html
+  s_784d0e5fa3aa29::t_2c0a4dd295a227 1-2
+archivebox/templates/config/fields/CRAWL_MAX_URLS.html
+  s_784d0e5fa3aa29::t_2c0a4dd295a227 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dbe2059215de4617e9c7d371f9eb92e365e34658",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
