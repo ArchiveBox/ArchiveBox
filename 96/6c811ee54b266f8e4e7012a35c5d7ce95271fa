@@ -1,0 +1,19 @@
+archivebox/tests/test_snapshot_reader_height.py
+  s_784d0e5fa3aa29::t_5be08636820932 6,11,34,41-48,57-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "966c811ee54b266f8e4e7012a35c5d7ce95271fa",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
