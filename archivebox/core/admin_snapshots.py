@@ -646,12 +646,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return super().lookup_allowed(lookup, value, request=request)
 
     def get_snapshot_view_url(self, obj: Snapshot) -> str:
-        request = self.request
-        urls = request.__dict__.setdefault("_archivebox_snapshot_detail_urls", {})
-        archive_path = obj.archive_path_from_db
-        if archive_path not in urls:
-            urls[archive_path] = build_snapshot_detail_url(archive_path, request=request, config=request.archivebox_config)
-        return urls[archive_path]
+        return build_snapshot_detail_url(obj.archive_path_from_db, request=self.request)
 
     def get_snapshot_files_url(self, obj: Snapshot) -> str:
         request = self.request
