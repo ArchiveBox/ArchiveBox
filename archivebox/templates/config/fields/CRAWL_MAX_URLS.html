@@ -1,3 +1,3 @@
 {% extends 'plugins/config_field.html' %}
-{% block label %}URL limit{% endblock %}
+{% block label %}Crawl URL limit{% endblock %}
 {% block widget %}{% include 'config/number_range.html' with slider_max=1000000 slider_label='1,000,000 URLs' slider_unit='URLs' placeholder='10000' %}{% endblock %}

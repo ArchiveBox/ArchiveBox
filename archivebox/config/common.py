@@ -506,7 +506,10 @@ class ArchivingConfig(BaseConfigSet):
 
     PLUGINS: str = Field(
         default="",
-        description="Comma-separated plugin selection for this run. Empty means use enabled plugin defaults.",
+        description=(
+            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. "
+            "Leave blank to use enabled plugins."
+        ),
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
     CRAWL_DISCOVERY_PLUGINS: str = Field(
@@ -518,11 +521,20 @@ class ArchivingConfig(BaseConfigSet):
         ),
     )
 
-    ONLY_NEW: bool = Field(default=True)
+    ONLY_NEW: bool = Field(
+        default=True,
+        description=(
+            "Skip URLs that already have a snapshot in this collection, so each crawl focuses on new pages. "
+            "Turn off to capture them again."
+        ),
+    )
     INDEX_ONLY: bool = Field(default=False, json_schema_extra={"x-advanced": True})
 
     TIMEOUT: int = Field(default=60)
-    CRAWL_MAX_URLS: int = Field(default=10_000)
+    CRAWL_MAX_URLS: int = Field(
+        default=10_000,
+        description="Limit the number of URLs each crawl attempts to archive, including submitted URLs and links discovered while crawling.",
+    )
     CRAWL_MAX_SIZE: int = Field(default=100_000_000_000, description="Maximum total capture size in bytes (0 = unlimited).")
     CRAWL_TIMEOUT: int = Field(default=24 * 60 * 60, description="Maximum total crawl runtime in seconds (0 = unlimited).")
     CRAWL_MAX_CONCURRENT_SNAPSHOTS: int = Field(
