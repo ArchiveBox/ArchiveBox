@@ -4,7 +4,6 @@ import json
 import os
 import subprocess
 import sys
-from html.parser import HTMLParser
 from pathlib import Path
 
 import requests
@@ -45,21 +44,24 @@ def configure_provider(model, data_dir):
         raise RuntimeError("Enable an agent plugin in the screenshot collection before preparing AI screenshots.")
 
 
-class NewsLinks(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.in_title = False
-        self.urls = []
-
-    def handle_starttag(self, tag, attrs):
-        values = dict(attrs)
-        if tag == "span" and values.get("class") == "titleline":
-            self.in_title = True
-        elif tag == "a" and self.in_title:
-            url = values.get("href", "")
-            if url.startswith(("http://", "https://")) and url not in self.urls:
-                self.urls.append(url)
-            self.in_title = False
+def news_urls():
+    # Use HN's machine-readable discovery API; the CLI still captures real pages.
+    api = "https://hacker-news.firebaseio.com/v0"
+    urls = ["https://news.ycombinator.com/"]
+    with requests.Session() as session:
+        response = session.get(f"{api}/topstories.json", timeout=30)
+        response.raise_for_status()
+        for item_id in response.json()[:30]:
+            response = session.get(f"{api}/item/{item_id}.json", timeout=30)
+            response.raise_for_status()
+            story = response.json() or {}
+            url = story.get("url", "")
+            if story.get("type") == "story" and not story.get("dead") and not story.get("deleted"):
+                if url.startswith(("http://", "https://")) and url not in urls:
+                    urls.append(url)
+            if len(urls) == 4:
+                return urls
+    raise RuntimeError("The live Hacker News API did not provide three story links.")
 
 
 def prepare(evidence_dir, *, model=""):
@@ -70,14 +72,7 @@ def prepare(evidence_dir, *, model=""):
 
     evidence = Path(evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
-    response = requests.get("https://news.ycombinator.com/front", timeout=30)
-    response.raise_for_status()
-    parser = NewsLinks()
-    parser.feed(response.text)
-    urls = ["https://news.ycombinator.com/", *parser.urls[:3]]
-    if len(urls) != 4:
-        raise RuntimeError("The live Hacker News front page did not provide three story links.")
-    (evidence / "hacker-news-front.html").write_text(response.text)
+    urls = news_urls()
     (evidence / "hacker-news-urls.json").write_text(json.dumps(urls, indent=2))
     capture_env = os.environ.copy()
     persona = None
