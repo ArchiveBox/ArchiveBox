@@ -111,3 +111,52 @@ def test_plugin_cards_query_only_their_source_manifests(snapshot, plugin):
     assert '"output_str"' not in columns
     assert escapejs("archivewebpage/asset-") not in rendered
     assert escapejs("wget/asset-127.html") in rendered
+
+
+def test_full_repository_preview_normalizes_manifest_once_per_render(snapshot, client):
+    import cProfile
+    import pstats
+
+    from abx_dl.output_files import OutputManifest
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": "http://archivebox.localhost"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    repo = snapshot.output_dir / "git"
+    repo.mkdir(parents=True)
+    (repo / "README.md").write_text("# Captured repository\n")
+    for index in range(64):
+        (repo / f"module-{index:03d}.txt").write_text(f"Archived module {index}\n")
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="git",
+        status="succeeded",
+        output_str="README.md",
+        output_files=OutputManifest.scan(repo).as_mapping(),
+    )
+    host = get_snapshot_host(str(snapshot.id))
+    profile = cProfile.Profile()
+    with profile:
+        response = client.get("/git/README.md?preview=1", HTTP_HOST=host)
+    assert response.status_code == 200
+    assert escapejs("module-063.txt") in response.content.decode()
+    normalizations = sum(
+        values[1]
+        for (filename, _line, function), values in pstats.Stats(profile).stats.items()
+        if filename.endswith("core/models.py") and function == "_normalize_output_files"
+    )
+    # One normalization selects the requested output; one renders the template's
+    # manifest. Building each file URL must not revalidate all other files.
+    assert normalizations == 2, normalizations
+
+    (repo / "replacement.txt").write_text("New capture bytes\n")
+    result.output_files = {"README.md": {"size": 22}, "replacement.txt": {"size": 18}}
+    result.save(update_fields=["output_files"])
+    updated = client.get("/git/README.md?preview=1", HTTP_HOST=host)
+    assert updated.status_code == 200
+    assert "replacement.txt" in updated.content.decode()
+    assert escapejs("module-063.txt") not in updated.content.decode()

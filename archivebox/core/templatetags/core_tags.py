@@ -726,7 +726,15 @@ def snapshot_role_output_url(context, snapshot, role: str, fallback_to_default: 
 def snapshot_result_file_url(context, snapshot, result, path: str, preview: bool = False) -> str:
     """Build a saved-file URL from one ArchiveResult declaration."""
     try:
-        output_path = result.output_file_path(path)
+        # Full viewers call this once per saved file. Normalize each manifest
+        # once in this render, not once per URL (quadratic for large captures).
+        # Retain the row alongside its map so identity keys cannot be reused;
+        # neither runner-owned rows nor subsequent renders inherit this cache.
+        manifests = context.render_context.setdefault("archivebox_output_file_maps", {})
+        key = id(result)
+        if key not in manifests:
+            manifests[key] = (result, result.output_file_map())
+        output_path = result.output_file_path(path, output_file_map=manifests[key][1])
     except (AttributeError, TypeError, ValueError, OverflowError):
         return ""
     if not output_path:
