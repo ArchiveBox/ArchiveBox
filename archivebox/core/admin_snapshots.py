@@ -1079,7 +1079,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             if obj.status == Snapshot.DELETING_STATE
             else "",
             title_html,
-            url_raw or obj.url,
+            (url_raw or obj.url) if show_title else detail_url,
             favicon_html,
             snapshot_url_text(url_raw or obj.url),
         )
@@ -1298,12 +1298,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 "</span>",
             )
 
-        # One copy of the icon drawings per page, outside .files-icons whose
-        # svg sizing rules would otherwise give it a box.
-        sprite = ""
-        if not request.__dict__.get("_archivebox_icon_sprite_sent"):
-            request._archivebox_icon_sprite_sent = True
-            sprite = get_plugin_icon_sprite()
+        # Define each drawing before its first row uses it. Shipping the whole
+        # catalog also sent hundreds of KB of unrelated plugin icons per page.
+        # Keep the sprite outside .files-icons, whose sizing rules give SVGs a box.
+        defined_plugins = request.__dict__.setdefault("_archivebox_icon_sprite_plugins", set())
+        row_plugins = {item["plugin"] for icons in icons_by_group.values() for item in icons}
+        sprite = get_plugin_icon_sprite(row_plugins - defined_plugins)
+        defined_plugins.update(row_plugins)
         return mark_safe(f'{sprite}<span class="files-icons files-icons--compact" style="font-size: 1em;">{"".join(output)}</span>')
 
     @admin.display(empty_value="")

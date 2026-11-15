@@ -563,6 +563,7 @@ _ICON_SVG_RE = re.compile(r"(?:<!--.*?-->\s*)*(<span [^<>]*>)<svg ([^<>]*)>((?:(
 _ICON_SVG_ATTR_RE = re.compile(r'\s*([a-zA-Z][\w:-]*)="([^"<>]*)"')
 _ICON_BOX_ATTRS = ("width", "height", "aria-hidden", "focusable")
 _ICON_SYMBOL_ATTRS = frozenset(("viewBox", "preserveAspectRatio", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"))
+_ICON_NAMESPACES = {"xmlns": "http://www.w3.org/2000/svg", "xmlns:xlink": "http://www.w3.org/1999/xlink"}
 
 
 @lru_cache(maxsize=512)
@@ -579,9 +580,20 @@ def _plugin_icon_sprite_parts(plugin: str) -> tuple[str, str] | None:
     # might style the outer element differently; keep such icons inline.
     if "".join(f' {name}="{value}"' for name, value in attrs).strip() != svg_attrs.strip():
         return None
-    if any(name not in _ICON_BOX_ATTRS and name not in _ICON_SYMBOL_ATTRS for name, _ in attrs):
+    # Namespace declarations describe the standalone SVG, not its appearance.
+    # HTML's enclosing <svg> already supplies these namespaces for its symbols.
+    if any(name not in _ICON_BOX_ATTRS and name not in _ICON_SYMBOL_ATTRS and _ICON_NAMESPACES.get(name) != value for name, value in attrs):
         return None
-    if "id=" in drawing or "url(" in drawing:
+    # Branded gradients already namespace their IDs by plugin. They can live
+    # in a shared symbol unchanged; arbitrary IDs could collide with other icons.
+    drawing_ids = re.findall(r'\bid="([^"]+)"', drawing)
+    if len(drawing_ids) != len(set(drawing_ids)) or any(not name.startswith(f"abx-{plugin}-") for name in drawing_ids):
+        return None
+    references = re.findall(r"url\(#([^\s)]+)\)", drawing)
+    if drawing.count("url(") != len(references):
+        return None
+    references.extend(re.findall(r'\bhref="#([^"]+)"', drawing))
+    if any(reference not in drawing_ids for reference in references):
         return None
     symbol_attrs = "".join(f' {name}="{value}"' for name, value in attrs if name in _ICON_SYMBOL_ATTRS)
     box_attrs = "".join(f' {name}="{value}"' for name, value in attrs if name in _ICON_BOX_ATTRS)
@@ -595,9 +607,11 @@ def get_plugin_list_icon(plugin: str) -> str:
     return mark_safe(parts[1]) if parts else get_plugin_icon(plugin)
 
 
-@lru_cache(maxsize=1)
-def get_plugin_icon_sprite() -> str:
-    """Hidden <svg> holding every sprite-able plugin icon once (see get_plugin_list_icon)."""
-    symbols = "".join(parts[0] for name in sorted(get_plugin_catalog()) if (parts := _plugin_icon_sprite_parts(name)))
+def get_plugin_icon_sprite(plugins: Iterable[str] | None = None) -> str:
+    """Hidden <svg> holding the requested plugin drawings (all plugins by default)."""
+    names = get_plugin_catalog() if plugins is None else plugins
+    symbols = "".join(parts[0] for name in sorted(set(names)) if (parts := _plugin_icon_sprite_parts(name)))
+    if not symbols:
+        return ""
     # Not display:none: some browsers then skip painting the referenced symbols.
     return mark_safe(f'<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">{symbols}</svg>')

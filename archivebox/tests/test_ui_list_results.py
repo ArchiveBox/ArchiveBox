@@ -18,18 +18,31 @@ from django.db import connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from lxml.html import fromstring
+from lxml.html import fromstring, tostring
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_detail_path, get_snapshot_output_anchor
 from archivebox.crawls.models import Crawl
-from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_thumbnail_card_order
+from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon, get_snapshot_thumbnail_card_order
 from archivebox.plugins.output_groups import plugin_icon_is_hidden, plugin_output_sizes, snapshot_thumbnail_result
 from archivebox.tests.conftest import ADMIN_TEST_HOST, WEB_TEST_HOST
 
 pytestmark = pytest.mark.django_db
 
 BIG_MANIFEST_ENTRIES = 3000
+
+
+@pytest.mark.parametrize("plugin", ["archivedotorg", "opendataloader", "chrome"])
+def test_branded_icon_namespace_does_not_duplicate_artwork_per_row(plugin):
+    original = fromstring(str(get_plugin_icon(plugin))).find("svg")
+    icon = fromstring(str(get_plugin_list_icon(plugin)))
+    assert icon.xpath(f'.//use[@href="#abx-icon-{plugin}"]')
+    symbol = fromstring(str(get_plugin_icon_sprite([plugin]))).find("symbol")
+    assert symbol is not None
+    # Keep the original paths, colors and embedded image data exactly intact.
+    assert [tostring(child) for child in symbol] == [tostring(child) for child in original]
+    assert symbol.get("viewbox") == original.get("viewbox")
+    assert symbol.get("fill") == original.get("fill")
 
 
 def _result(snapshot, plugin, status=ArchiveResult.StatusChoices.SUCCEEDED, *, hook="50", output_str="", output_files=None):
@@ -227,6 +240,12 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries)
     _assert_icons_drawn_from_one_sprite(response.content.decode())
+    html = response.content.decode()
+    used = set(re.findall(r'<use href="#(abx-icon-[a-z0-9_]+)">', html))
+    defined = set(re.findall(r'<symbol id="(abx-icon-[a-z0-9_]+)"', html))
+    assert defined == used, "the list must not ship drawings for plugins absent from its rows"
+    for symbol_id in used:
+        assert html.index(f'<symbol id="{symbol_id}"') < html.index(f'<use href="#{symbol_id}"')
 
 
 def test_admin_grid_keeps_running_and_sealed_cards_without_hidden_file_icons(client, admin_user, list_collection):
@@ -256,6 +275,20 @@ def test_admin_icon_order_counts_all_hook_files_once(client, admin_user, list_co
     assert response.status_code == 200
     row = _row(response.content.decode(), f'value="{snapshot.pk}"')
     assert row.index('data-tooltip="chrome"') < row.index('data-tooltip="hashes"')
+
+
+@pytest.mark.parametrize("title", [None, "Pending...", "https://list-results.example/article", "Saved title"])
+def test_admin_untitled_url_opens_snapshot_details(client, admin_user, list_collection, title):
+    snapshot = list_collection[0]
+    Snapshot.objects.filter(pk=snapshot.pk).update(title=title)
+    client.force_login(admin_user)
+    response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    row = fromstring(_row(response.content.decode(), f'value="{snapshot.pk}"'))
+    visible_url = row.find_class("snapshot-original-url")[0]
+    detail_url = row.find_class("snapshot-title-detail-hitbox")[0].get("href")
+    assert visible_url.get("href") == (snapshot.url if title == "Saved title" else detail_url)
+    assert snapshot.url.removeprefix("https://") in visible_url.text_content()
 
 
 def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(list_collection):
