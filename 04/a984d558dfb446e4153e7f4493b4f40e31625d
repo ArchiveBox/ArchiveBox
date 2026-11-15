@@ -1,0 +1,24 @@
+archivebox/tests/test_memento.py
+  s_14a19a88ce4adc::t_b21b96eaa04dc0 372-379,384,386,389
+  s_14a19a88ce4adc::t_7adb5e996278f6 392-426
+  s_14a19a88ce4adc::t_787ed15386ef83 278-279,285-286
+archivebox/memento/views.py
+  s_14a19a88ce4adc::t_6c3d98c3071514 54,57-66,68-69
+  s_14a19a88ce4adc::t_b21b96eaa04dc0 52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04a984d558dfb446e4153e7f4493b4f40e31625d",
+  "prompts": {},
+  "sessions": {
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
