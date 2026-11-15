@@ -688,9 +688,10 @@ class SnapshotQuerySet(PagedQuerySet):
         from ipaddress import ip_address
         from urllib.parse import urlsplit
 
-        # An IN subquery preserves filters while deduplicating tag/folder joins.
-        base = self.model.objects.using(self.db).filter(pk__in=self.order_by().values("pk")).order_by("pk")
-        metadata = base.values_list("pk", "url", "created_at", "output_size", "crawl__persona_id")
+        # Keep filters on this query so pk > last seeks directly into its index.
+        # A self-IN subquery made SQLite enumerate the whole ID index again for
+        # every page. DISTINCT still deduplicates matching tag/folder joins.
+        metadata = self.order_by("pk").values_list("pk", "url", "created_at", "output_size", "crawl__persona_id").distinct()
         rows, hosts, personas, root_ranks = {}, {}, {}, {}
         extract = self._domain_suffixes()
         last = None

@@ -342,21 +342,21 @@ def _render_directory_index(
             continue
         try:
             resolved = _resolve_contained_path(document_root, entry)
-        except Http404:
+            stat_result = resolved.stat()
+        except (Http404, OSError):
             continue
-        if resolved.exists():
-            visible_entries.append(entry)
-    visible_entries.sort(key=lambda entry: (not entry.is_dir(), entry.name.lower()))
-    for entry in visible_entries:
+        visible_entries.append((entry, stat_result))
+    visible_entries.sort(key=lambda item: (not stat.S_ISDIR(item[1].st_mode), item[0].name.lower()))
+    for entry, stat_result in visible_entries:
+        is_dir = stat.S_ISDIR(stat_result.st_mode)
         url = str(entry.relative_to(fullpath))
-        if entry.is_dir():
+        if is_dir:
             url += "/"
         file_list.append(url)
 
-        stat_result = entry.stat()
         preview_kind = ""
         mime = mimetypes.guess_type(entry.name)[0] or "application/octet-stream"
-        if entry.is_file() and stat_result.st_size < DIRECTORY_PREVIEW_MAX_BYTES:
+        if stat.S_ISREG(stat_result.st_mode) and stat_result.st_size < DIRECTORY_PREVIEW_MAX_BYTES:
             if mime.startswith("image/"):
                 preview_kind = "image"
             elif (
@@ -373,10 +373,10 @@ def _render_directory_index(
                 "preview_kind": preview_kind,
                 "model_preview": entry.suffix.lower() in MODEL_PREVIEW_EXTENSIONS,
                 "preview_url": quote(os.path.relpath(document_root / preview_path, fullpath), safe="/") if preview_path else "",
-                "mimetype": "Directory" if entry.is_dir() else mime,
-                "size_bytes": 0 if entry.is_dir() else stat_result.st_size,
-                "is_dir": entry.is_dir(),
-                "size": "—" if entry.is_dir() else printable_filesize(stat_result.st_size),
+                "mimetype": "Directory" if is_dir else mime,
+                "size_bytes": 0 if is_dir else stat_result.st_size,
+                "is_dir": is_dir,
+                "size": "—" if is_dir else printable_filesize(stat_result.st_size),
                 "timestamp": _format_direntry_timestamp(stat_result),
             },
         )
@@ -649,9 +649,15 @@ def rewrite_navigation_links(
     )
     insertion = parsed.head_end or parsed.doctype_end
     replacements.append((insertion, insertion, injected))
-    for start, end, replacement in sorted(replacements, reverse=True):
-        html_text = html_text[:start] + replacement + html_text[end:]
-    return html_text, len(replacements)
+    # Copy each untouched span once. Rebuilding a multi-MB SingleFile document
+    # for every anchor makes replay cost grow with bytes times link count.
+    chunks = []
+    previous = 0
+    for start, end, replacement in sorted(replacements):
+        chunks.extend((html_text[previous:start], replacement))
+        previous = end
+    chunks.append(html_text[previous:])
+    return "".join(chunks), len(replacements)
 
 
 def _rewrite_original_domain_links(request, html_text: str, rel_path: str) -> tuple[str, int]:
@@ -714,9 +720,13 @@ def _rewrite_original_domain_links(request, html_text: str, rel_path: str) -> tu
         else:
             target = urljoin(original_base, resource)
         replacements.append((start, end, html.escape(target, quote=True)))
-    for start, end, replacement in sorted(replacements, reverse=True):
-        html_text = html_text[:start] + replacement + html_text[end:]
-    return rewrite_navigation_links(html_text, snapshot.url, links, asset_base=asset_base)
+    chunks = []
+    previous = 0
+    for start, end, replacement in sorted(replacements):
+        chunks.extend((html_text[previous:start], replacement))
+        previous = end
+    chunks.append(html_text[previous:])
+    return rewrite_navigation_links("".join(chunks), snapshot.url, links, asset_base=asset_base)
 
 
 def _passive_html_thumbnail(html_text: str) -> str:

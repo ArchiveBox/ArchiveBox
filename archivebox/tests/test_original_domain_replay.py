@@ -376,3 +376,17 @@ def test_original_asset_query_cannot_enable_raw_replay(client, saved_site):
     assert f"/_archivebox/files/{snapshot.pk}/dom/style.css?v=2#theme".encode() in response.content
     assert b"style.css?raw=" not in response.content
     assert b"style.css?raw=1" in output.read_bytes()
+
+
+def test_large_saved_document_rewrite_preserves_embedded_payload_and_capture_bytes(client, saved_site):
+    snapshot, output, body = saved_site[0]
+    embedded = b"<!--" + b"embedded archive payload & < >\n" * 100000 + b"-->"
+    source = body.replace(b"</body>", embedded + b"</body>")
+    output.write_bytes(source)
+    response = client.get("/", HTTP_HOST=DOMAIN_HOST)
+    assert response.status_code == 200
+    assert embedded in response.content
+    assert response.content.count(b"<a ") == body.count(b"<a ")
+    assert f'href="http://{DOMAIN_HOST}/newest"'.encode() in response.content
+    assert f"/_archivebox/files/{snapshot.id}/dom/".encode() in response.content
+    assert output.read_bytes() == source

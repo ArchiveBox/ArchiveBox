@@ -258,3 +258,31 @@ def test_domain_metadata_is_reused_across_administrators(admin_client, admin_use
     other.save(update_fields=["is_superuser"])
     response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 403
+
+
+def test_domain_summary_later_pages_seek_id_range(admin_user):
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    pages = Snapshot.objects.bulk_create(
+        [Snapshot(crawl=crawl, url=f"https://example.com/{index}", timestamp=str(1900600000 + index)) for index in range(1001)],
+    )
+    with CaptureQueriesContext(connection) as queries:
+        rows = Snapshot.objects.domain_summary()
+    assert len(rows) == 1 and rows[0]["snapshot_count"] == len(pages)
+    assert len(queries) == 2
+    with connection.cursor() as cursor:
+        cursor.execute("EXPLAIN QUERY PLAN " + queries[1]["sql"])
+        plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+    assert "(id>?)" in plan, plan
+    assert "IN-OPERATOR" not in plan, plan
+
+
+def test_domain_summary_deduplicates_filtered_tag_joins(admin_user):
+    from archivebox.core.models import SnapshotTag, Tag
+
+    pages = create_pages(admin_user, ["https://example.com/one", "https://example.com/two", "https://other.com/"])
+    tags = [Tag.objects.create(name=f"Domain summary {index}") for index in range(2)]
+    SnapshotTag.objects.bulk_create([SnapshotTag(snapshot=page, tag=tag) for page in pages[:2] for tag in tags])
+    rows = Snapshot.objects.filter(tags__in=tags).domain_summary()
+    assert len(rows) == 1
+    assert rows[0]["domain"] == "example.com"
+    assert rows[0]["snapshot_count"] == 2

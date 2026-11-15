@@ -783,3 +783,39 @@ def test_directory_previews_only_small_supported_files(tmp_path: Path):
     assert 'data-url="exact-limit.txt?raw=1"' not in html
     assert 'data-url="unknown.bin?raw=1"' not in html
     assert 'data-url="database.sqlite3?raw=1"' not in html
+
+
+def test_directory_index_reads_each_entry_metadata_once(tmp_path):
+    import sys
+    from collections import Counter
+
+    paths = [tmp_path / f"file-{index}.txt" for index in range(10)]
+    for path in paths:
+        path.write_text(path.name)
+    folder = tmp_path / "nested"
+    folder.mkdir()
+    paths.append(folder)
+    metadata_reads = Counter()
+
+    def observe_stat(frame, event, arg):
+        if event == "call" and frame.f_code is Path.stat.__code__:
+            path = frame.f_locals["self"]
+            if path in paths:
+                metadata_reads[path] += 1
+
+    previous = sys.getprofile()
+    sys.setprofile(observe_stat)
+    try:
+        response = serve_static_with_byterange_support(
+            RequestFactory().get("/?files=1"),
+            "",
+            document_root=tmp_path,
+            show_indexes=True,
+        )
+    finally:
+        sys.setprofile(previous)
+    assert response.status_code == 200
+    for path in paths:
+        target = f"{path.name}/?files=1" if path == folder else path.name
+        assert f'href="{target}"'.encode() in response.content
+    assert metadata_reads == dict.fromkeys(paths, 1), metadata_reads
