@@ -52,6 +52,8 @@ def webhook_data(hook):
         "has_auth_token": bool(hook.auth_token),
         "last_success": hook.last_success,
         "last_failure": hook.last_failure,
+        "num_uses_succeeded": hook.num_uses_succeeded,
+        "num_uses_failed": hook.num_uses_failed,
         "last_response": hook.last_response if hook.keep_last_response else "",
     }
 

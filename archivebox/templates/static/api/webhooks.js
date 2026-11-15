@@ -654,7 +654,7 @@
     $("activity-rows").innerHTML = activity
       .map(
         ({ hook, time, success }) =>
-          `<tr><td class="small muted nowrap">${esc(new Date(time).toLocaleString())}</td><td>${esc(hook.name)}</td><td class="small">${esc(eventOf(hook).label)}</td><td><span class="badge">${success ? "Succeeded" : "Failed"}</span> <a class="icon-btn" href="${processLogsURL(hook.id)}" aria-label="Process logs for ${esc(hook.name)}" title="Process logs">${icons("external")}</a>${hook.last_response ? `<details><summary>Response</summary><pre>${esc(hook.last_response)}</pre></details>` : ""}</td></tr>`,
+          `<tr><td class="small muted nowrap">${esc(new Date(time).toLocaleString())}</td><td>${esc(hook.name)}<div class="small muted">${esc(hook.num_uses_succeeded)} succeeded · ${esc(hook.num_uses_failed)} failed</div></td><td class="small">${esc(eventOf(hook).label)}</td><td><span class="badge">${success ? "Succeeded" : "Failed"}</span> <a class="icon-btn" href="${processLogsURL(hook.id)}" aria-label="Process logs for ${esc(hook.name)}" title="Process logs">${icons("external")}</a>${hook.last_response ? `<details><summary>Response</summary><pre>${esc(hook.last_response)}</pre></details>` : ""}</td></tr>`,
       )
       .join("");
   }

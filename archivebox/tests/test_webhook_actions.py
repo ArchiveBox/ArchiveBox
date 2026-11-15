@@ -170,7 +170,7 @@ def test_invalid_action_configuration_rejected(admin_user):
             make_hook(admin_user, [action])
 
 
-def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, live_server):
+def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, admin_client, live_server):
     from archivebox.api.models import APIToken
     from archivebox.api.webhook_events import emit_event
 
@@ -208,6 +208,14 @@ def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, l
     processes = action_processes(hook)
     assert [process.exit_code for process in processes] == [0, 1]
     assert "404" in processes[1].stderr
+    activity = admin_client.get("/admin/webhooks/data/", HTTP_HOST="admin.archivebox.localhost:5797")
+    assert activity.status_code == 200
+    hook_data = next(row for row in activity.json()["hooks"] if row["id"] == str(hook.pk))
+    assert (hook_data["num_uses_succeeded"], hook_data["num_uses_failed"]) == (1, 1)
+    logs = admin_client.get(f"/admin/machine/process/?worker_type=webhook&q={hook.pk}", HTTP_HOST="admin.archivebox.localhost:5797")
+    assert logs.status_code == 200
+    assert logs.context["cl"].result_count == 2
+    assert sorted(process.exit_code for process in logs.context["cl"].result_list) == [0, 1]
 
 
 def test_endpoint_only_webhook_increments_preserved_counters(admin_user, live_server):
