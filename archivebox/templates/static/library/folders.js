@@ -221,9 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     folderForm.addEventListener('submit', async event => {
       event.preventDefault();
       const save = folderForm.querySelector('[type=submit]');
-      const saveLabel = save.textContent;
       save.disabled = true;
-      save.textContent = 'Saving…';
       dialog.querySelector('.folder-form-error').textContent = '';
       try {
         const response = await fetch(folderForm.action, {method:'POST', body:new FormData(folderForm), credentials:'same-origin'});
@@ -242,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
           location.reload();
         }
       } catch (error) {dialog.querySelector('.folder-form-error').textContent = error.message;}
-      finally {save.disabled = false; save.textContent = saveLabel;}
+      finally {save.disabled = false;}
     });
   }
   document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
