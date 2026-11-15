@@ -1773,7 +1773,7 @@ class AddView(UserPassesTestMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        request_config = get_request_config(self.request, resolve_plugins=True)
+        request_config = get_request_config(self.request)
         required_search_plugin = f"search_backend_{request_config.SEARCH_BACKEND_ENGINE}".strip()
         can_override_crawl_config = self._can_override_crawl_config()
         public_persona_config_keys = {
@@ -1786,7 +1786,11 @@ class AddView(UserPassesTestMixin, FormView):
         persona_queryset = context["form"].fields["persona"].queryset
         if not can_override_crawl_config:
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
-        persona_configs = [(persona, get_config(persona=persona)) for persona in persona_queryset.order_by("name")]
+        # Public Add exposes only core capture defaults, not plugin settings.
+        persona_configs = [
+            (persona, get_config(persona=persona, resolve_plugins=can_override_crawl_config))
+            for persona in persona_queryset.order_by("name")
+        ]
         # Personas share the installed binaries; only their configured names and
         # paths differ. Resolve their union once, retaining per-persona choices.
         binary_url_lookup = (
@@ -1796,14 +1800,14 @@ class AddView(UserPassesTestMixin, FormView):
         )
         persona_config_map = {}
         for persona, effective_config in persona_configs:
-            effective_config_redacted = redact_sensitive_config(effective_config.model_dump(mode="json"))
+            effective_config_json = redact_sensitive_config(
+                effective_config.model_dump(mode="json", include=None if can_override_crawl_config else public_persona_config_keys),
+            )
             if can_override_crawl_config:
                 raw_config = redact_sensitive_config(persona.config or {})
-                effective_config_json = effective_config_redacted
                 binary_urls = get_plugin_config_binary_urls(effective_config, binary_url_lookup)
             else:
                 raw_config = {}
-                effective_config_json = {key: effective_config_redacted.get(key) for key in public_persona_config_keys}
                 binary_urls = {}
             persona_config_map[persona.name] = {
                 "config": raw_config,

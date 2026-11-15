@@ -355,7 +355,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             or persona_queryset.filter(name__iexact="Default").first()
             or persona_queryset.first()
         )
-        default_config = get_config(persona=selected_persona) if selected_persona else get_config()
+        default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config)
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
         self.fields["permissions"].initial = default_config.PERMISSIONS

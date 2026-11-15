@@ -279,6 +279,29 @@ def test_add_view_public_only_lists_public_personas(client, admin_user, public_a
     assert {"NODE_BINARY", "TWOCAPTCHA_API_KEY"}.isdisjoint(persona_config_map["Default"]["effective_config"])
 
 
+def test_public_add_does_not_resolve_hidden_plugin_settings(client, admin_user, public_add_enabled):
+    import cProfile
+    import pstats
+
+    persona = Persona.objects.create(
+        name="Public profile",
+        created_by=admin_user,
+        config={"PERMISSIONS": "public", "TIMEOUT": 123, "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2, "ONLY_NEW": False},
+    )
+    effective = get_config(persona=persona)
+    public_keys = {"CRAWL_MAX_CONCURRENT_SNAPSHOTS", "DELETE_AFTER", "ONLY_NEW", "PERMISSIONS", "TIMEOUT"}
+    profiler = cProfile.Profile()
+    response = profiler.runcall(client.get, reverse("add"), HTTP_HOST=WEB_HOST)
+    assert response.status_code == 200
+    assert response.context["form"].plugin_groups == []
+    configs = json.loads(response.context["persona_config_map_json"])
+    assert configs[persona.name]["effective_config"] == {key: effective[key] for key in public_keys}
+    assert response.context["required_search_plugin"] == f"search_backend_{effective.SEARCH_BACKEND_ENGINE}"
+    assert response.context["FOOTER_INFO"] == effective.FOOTER_INFO
+    calls = sum(stats[1] for (_filename, _line, name), stats in pstats.Stats(profiler).stats.items() if name == "resolve_plugin_configs")
+    assert calls == 0, f"Public Add resolved hidden plugin settings {calls} times"
+
+
 def test_persona_config_grid_allows_binary_fields(client, admin_user):
     client.force_login(admin_user)
     persona = Persona.objects.create(name="Binary Persona", created_by=admin_user)
