@@ -172,14 +172,15 @@ def test_add_rule_composer_and_concurrency_save_existing_values(initialized_arch
             expect(allow.locator(".config-rule-results strong")).to_have_text(["Included", "Excluded", "Excluded"])
 
             concurrency = page.locator(".config-concurrency")
-            concurrency.get_by_role("button", name="Fixed limit", exact=True).click()
-            limit = page.locator('[name="crawl_max_concurrent_snapshots"]')
+            limit = concurrency.locator(".config-concurrency-value")
+            canonical_limit = page.locator('[name="crawl_max_concurrent_snapshots"]')
             limit.fill("48")
             expect(concurrency.locator("[data-concurrency-slider]")).to_have_attribute("max", "48")
-            concurrency.get_by_role("button", name="Automatic", exact=True).click()
-            expect(limit).to_have_value("0")
-            concurrency.get_by_role("button", name="Fixed limit", exact=True).click()
-            expect(limit).to_have_value("48")
+            limit.fill("0")
+            expect(canonical_limit).to_have_value("0")
+            expect(limit).to_be_empty()
+            limit.fill("48")
+            expect(canonical_limit).to_have_value("48")
             assert allow.locator("[data-rule-entries]").bounding_box()["height"] < 120
             assert allow.locator(".config-rule-raw").bounding_box()["height"] < 160
             assert concurrency.bounding_box()["x"] + concurrency.bounding_box()["width"] <= page.viewport_size["width"]

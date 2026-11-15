@@ -183,7 +183,8 @@ def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_c
     activity = admin_client.get(reverse("importers:run-activity", args=[run.pk]), HTTP_HOST=ADMIN_TEST_HOST)
     assert activity.status_code == 200
     assert activity.json()["active"] is False
-    assert "No AI session recorded" in activity.json()["html"]
+    assert not run.diagnostics.get("sessions")
+    assert "<dt>AI sessions</dt>" not in activity.json()["html"]
 
     admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST)
     assert run_next_importer()

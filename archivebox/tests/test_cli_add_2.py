@@ -463,7 +463,7 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(initialized_archive,
     crawl_config = crawl[2] or {}
     assert crawl_config["CRAWL_MAX_URLS"] == 2
     assert crawl_config["CRAWL_MAX_SIZE"] == 50 * 1024 * 1024
-    assert crawl_config.get("SNAPSHOT_MAX_SIZE", 0) == 0
+    assert crawl_config["SNAPSHOT_MAX_SIZE"] == 3_000_000_000
     assert (root_url, 0, "sealed") in snapshots
     assert any(url == child_url and depth == 1 and status == "sealed" for url, depth, status in snapshots)
 

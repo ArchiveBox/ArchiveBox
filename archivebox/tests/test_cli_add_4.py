@@ -495,7 +495,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
     real_flow_config = real_flow_crawl[2] or {}
     assert real_flow_config["CRAWL_MAX_URLS"] == 2
     assert real_flow_config["CRAWL_MAX_SIZE"] == 10 * 1024 * 1024
-    assert real_flow_config.get("SNAPSHOT_MAX_SIZE", 0) == 0
+    assert real_flow_config["SNAPSHOT_MAX_SIZE"] == 3_000_000_000
     assert "wget" in real_flow_config["PLUGINS"]
     assert crawl is not None
     assert crawl[1] == "chrome-flow"

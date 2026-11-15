@@ -66,7 +66,7 @@ def test_dual_family_server_preserves_proxy_peer_trust(initialized_archive, trus
                 )
             if peer == trusted_peer:
                 assert response.status_code == 200, response.text
-                assert "Log out" in response.text
+                assert 'action="/admin/logout/"' in response.text
             else:
                 assert response.status_code == 302, response.text
                 assert "/admin/login/" in response.headers["Location"]

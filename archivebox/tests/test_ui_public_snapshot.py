@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
+from lxml.html import fromstring
 from django.test import override_settings
 
 from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
@@ -118,9 +119,9 @@ def _logout_admin_over_full_server(session: requests.Session, port: int) -> None
         timeout=10,
     )
     assert admin_page.status_code == 200, admin_page.text
-    assert 'class="navbar-logout-form"' in admin_page.text
-    assert 'method="post"' in admin_page.text
-    assert 'action="/admin/logout/"' in admin_page.text
+    forms = fromstring(admin_page.content).xpath('//form[@action="/admin/logout/"]')
+    assert len(forms) == 1
+    assert forms[0].get("method") == "post"
 
     csrf_token = next((cookie.value for cookie in session.cookies if cookie.name.startswith("archivebox_csrftoken_")), "")
     assert csrf_token
