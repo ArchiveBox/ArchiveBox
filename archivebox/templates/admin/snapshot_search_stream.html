@@ -99,7 +99,7 @@
       function renderNow() {
         clearTimeout(pendingRender);
         pendingRender = null;
-        if (renderInFlight || renderedVersion === resultVersion) return;
+        if (controller.signal.aborted || renderInFlight || renderedVersion === resultVersion) return;
         var url = buildListUrl();
         renderInFlight = true;
         renderedVersion = resultVersion;
@@ -107,10 +107,15 @@
         fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
           .then(function(response) { return response.text(); })
           .then(function(html) {
+            if (controller.signal.aborted) return;
             var doc = new DOMParser().parseFromString(html, "text/html");
             var nextMain = doc.getElementById("content-main");
             var currentMain = document.getElementById("content-main");
             if (nextMain && currentMain) {
+              // Capture at replacement time: a user can select rows while this
+              // refresh is in flight. New matches inherit an all-results selection.
+              var selectedIds = new Set(Array.from(currentMain.querySelectorAll('input.action-select:checked'), function(input) { return input.value; }));
+              var selectAcross = currentMain.querySelector('input.select-across')?.value === '1';
               document.querySelectorAll('a[data-export-format]').forEach(function(link) {
                 var menu = link.closest('.folder-menu');
                 var nextGroup = menu ? doc.getElementById(menu.id) : doc;
@@ -123,6 +128,19 @@
               if (window.Actions && actionCheckboxes.length) window.Actions(actionCheckboxes);
               if (window.archiveboxInitAdminChangelist) window.archiveboxInitAdminChangelist();
               if (window.archiveboxInitChangelistFilters) window.archiveboxInitChangelistFilters();
+              nextMain.querySelectorAll('input.action-select').forEach(function(input) {
+                input.checked = selectAcross || selectedIds.has(input.value);
+                input.closest('tr')?.classList.toggle('selected', input.checked);
+                input.closest('.card')?.classList.toggle('selected-card', input.checked);
+              });
+              // Let Django recompute its checkbox/count UI before restoring
+              // select_across, which is independent of the current page size.
+              var checkbox = nextMain.querySelector('input.action-select');
+              if (checkbox) checkbox.dispatchEvent(new Event('change', {bubbles: true}));
+              if (selectAcross) nextMain.querySelector('.actions .question a')?.click();
+              nextMain.querySelectorAll('input.select-across').forEach(function(input) { input.value = selectAcross ? '1' : '0'; });
+              if (selectAcross) nextMain.querySelector('.actions .question a')?.click();
+              nextMain.querySelector('#changelist-form')?.dispatchEvent(new Event('change', {bubbles: true}));
               setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
               history.replaceState(null, "", url);
             }

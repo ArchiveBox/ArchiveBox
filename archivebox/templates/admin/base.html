@@ -2004,6 +2004,7 @@
                         if (questionLink && resultCount > pageCount) {
                             questionLink.click()
                         }
+                        if (selectAcross) selectAcross.value = '1'
                         return true
                     }
 
@@ -2017,7 +2018,7 @@
                             card.classList.add('selected-card')
                         }
                     })
-                    if (selectAcross && resultCount > pageCount) {
+                    if (selectAcross) {
                         selectAcross.value = '1'
                     }
                     return false
@@ -2371,6 +2372,7 @@
                 return false
             }
             window.archiveboxInitAdminChangelist = function() {
+                if (window.archiveboxInitLibraryRows) window.archiveboxInitLibraryRows()
                 if (window.archiveboxInitFilesIconPiles) window.archiveboxInitFilesIconPiles()
                 if (window.jQuery) {
                     fix_actions()
