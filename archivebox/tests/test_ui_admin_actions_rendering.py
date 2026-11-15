@@ -123,3 +123,89 @@ def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_
     assert snapshot.status == "sealed"
     assert set(snapshot.tags.values_list("name", flat=True)) == {tag.name for tag in tags}
     assert Folder.objects.get(name="Sidebar child").parent_id == Folder.objects.get(name="New sidebar folder").pk
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("drag_source", ["preview", "title", "whitespace", "all"])
+def test_streamed_search_rows_drag_checked_snapshots(live_server, browser_runtime, admin_user, crawl, drag_source):
+    from pathlib import Path
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import ArchiveResult, Folder, Snapshot
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    folder = Folder.objects.create(name="Dragged results")
+    snapshots = []
+    png = (Path(__file__).parents[1] / "templates/static/archive.png").read_bytes()
+    for index in range(3):
+        snapshot = Snapshot.objects.create(
+            url=f"https://example.com/streamed/{index}",
+            title=f"Streamed capture {index}",
+            crawl=crawl,
+            status="sealed",
+            config={"PERMISSIONS": "public"},
+        )
+        output = Path(snapshot.output_dir) / "screenshot/screenshot.png"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(png)
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.js",
+            status="succeeded",
+            output_str="screenshot/screenshot.png",
+            output_size=len(png),
+            output_files={"screenshot.png": {"size": len(png), "mimetype": "image/png"}},
+        )
+        snapshots.append(snapshot)
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 900})
+        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        original_form = page.locator("#changelist-form").element_handle()
+        page.locator('select[name="search_mode"]').select_option("meta")
+        page.locator("#searchbar").fill("Streamed")
+        with page.expect_response(
+            lambda response: (
+                "/admin/core/snapshot/?" in response.url and response.request.headers.get("x-requested-with") == "XMLHttpRequest"
+            ),
+        ):
+            page.locator("#searchbar").press("Enter")
+        page.wait_for_function("oldForm => !oldForm.isConnected", arg=original_form)
+        expect(page.locator("#result_list tbody tr")).to_have_count(3)
+        source = page.locator("#result_list tbody tr").filter(has_text="Streamed capture 0")
+        expect(source).to_have_attribute("draggable", "true")
+        for snapshot in snapshots[:2]:
+            page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
+        if drag_source == "all":
+            page.locator(".action-total-select").click()
+            expect(page.locator("input.select-across")).to_have_value("1")
+            expect(page.locator("input.action-select:checked")).to_have_count(3)
+        target = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
+        if drag_source == "preview":
+            image = source.frame_locator(".field-preview_icon iframe").locator(".screenshot-thumbnail")
+            expect(image).to_be_visible()
+            expect(image).to_have_js_property("complete", True)
+            assert image.evaluate("image => image.naturalWidth") > 0
+            source.locator(".field-preview_icon").drag_to(target)
+        elif drag_source in ("title", "all"):
+            source.locator(".field-title_str").drag_to(target)
+        else:
+            box = source.bounding_box()
+            source.drag_to(target, source_position={"x": box["width"] - 3, "y": box["height"] / 2})
+        moved = 3 if drag_source == "all" else 2
+        expect(page.locator(".messagelist")).to_contain_text(f"Moved {moved} snapshot(s) to Dragged results")
+        browser.close()
+    assert set(Snapshot.objects.filter(folder=folder).values_list("pk", flat=True)) == {snapshot.pk for snapshot in snapshots[:moved]}
+    if moved < 3:
+        assert Snapshot.objects.get(pk=snapshots[2].pk).folder_id is None
