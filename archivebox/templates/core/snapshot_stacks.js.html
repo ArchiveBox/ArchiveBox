@@ -50,7 +50,8 @@ function initializeOutputStacks() {
     const parked = el('div', 'stack-parked');
     parked.hidden = true;
     function movePreviewNode(node, parent, before = null) {
-        if (parent.moveBefore && node.isConnected && parent.isConnected) parent.moveBefore(node, before);
+        // DOMParser results are connected to their own document; adopt them first.
+        if (parent.moveBefore && node.isConnected && parent.isConnected && node.ownerDocument === parent.ownerDocument) parent.moveBefore(node, before);
         else parent.insertBefore(node, before);
     }
     let active = null;
