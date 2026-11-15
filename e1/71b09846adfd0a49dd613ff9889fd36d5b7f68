@@ -1,0 +1,33 @@
+archivebox/tests/test_cli_update.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 96-103,110-111
+pyproject.toml
+  s_784d0e5fa3aa29::t_21c61562419b0a 162
+archivebox/tests/test_recursive_crawl_2.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 153-160
+archivebox/tests/test_takeover_util_4.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 133,233
+archivebox/cli/rescan.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 187-201,204
+archivebox/services/runner.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 778-782
+archivebox/tests/test_plugin_recovery.py
+  s_784d0e5fa3aa29::t_21c61562419b0a 36-44
+uv.lock
+  s_784d0e5fa3aa29::t_3b08a91baa86a9 231,327
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e171b09846adfd0a49dd613ff9889fd36d5b7f68",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
