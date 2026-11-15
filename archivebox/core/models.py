@@ -67,7 +67,7 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugins,
 )
-from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
+from archivebox.uuid_compat import CompactUUIDField, UUIDSuffix, compact_uuid, uuid7
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
 
 if TYPE_CHECKING:
@@ -1136,6 +1136,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
         indexes: ClassVar[list[models.Index]] = [
+            models.Index(UUIDSuffix("id"), name="snapshot_uuid_suffix_idx"),
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["folder", "permissions", "-bookmarked_at", "-created_at"], name="snapshot_folder_public_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),

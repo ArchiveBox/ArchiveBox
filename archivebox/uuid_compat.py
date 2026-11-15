@@ -43,6 +43,19 @@ class CompactUUIDField(models.UUIDField):
         return name, "django.db.models.UUIDField", args, kwargs
 
 
+@models.UUIDField.register_lookup
+class UUIDSuffix(models.Transform):
+    """Indexable snapshot-host suffix for both native and text UUID storage."""
+
+    lookup_name = "suffix"
+    output_field = models.CharField(max_length=12)
+    # Keep the length literal identical in the index and parameterized queries.
+    template = "RIGHT(CAST(%(expressions)s AS TEXT), 12)"
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        return self.as_sql(compiler, connection, template="SUBSTR(CAST(%(expressions)s AS TEXT), -12)", **extra_context)
+
+
 def uuid7() -> CompactUUID:
     value = compact_uuid(_UUID7_GENERATOR())
     assert value is not None

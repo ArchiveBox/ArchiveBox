@@ -10,7 +10,7 @@ from archivebox.core.routes_util import get_web_host
 
 
 @pytest.mark.django_db
-def test_snapshot_suffix_lookup_scans_covering_id_index(snapshot):
+def test_snapshot_suffix_lookup_seeks_suffix_index(snapshot):
     suffix = str(snapshot.id).replace("-", "")[-12:]
     with CaptureQueriesContext(connection) as queries:
         found = _find_snapshot_by_ref(suffix)
@@ -19,7 +19,7 @@ def test_snapshot_suffix_lookup_scans_covering_id_index(snapshot):
     with connection.cursor() as cursor:
         cursor.execute("EXPLAIN QUERY PLAN " + queries[0]["sql"])
         plan = " ".join(str(row[-1]) for row in cursor.fetchall())
-    assert "COVERING INDEX" in plan, plan
+    assert "SEARCH core_snapshot USING INDEX snapshot_uuid_suffix_idx" in plan, plan
     assert _find_snapshot_by_ref("000000000000") is None
 
 
@@ -37,7 +37,7 @@ def test_snapshot_suffix_collision_keeps_newest_match(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_suffix_lookup_reuses_resolved_pk_but_rereads_row(snapshot):
+def test_snapshot_suffix_lookup_rereads_current_permissions(snapshot):
     suffix = str(snapshot.id).replace("-", "")[-12:]
     assert _find_snapshot_by_ref(suffix).id == snapshot.id
 
@@ -56,8 +56,10 @@ def test_snapshot_suffix_lookup_reuses_resolved_pk_but_rereads_row(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_suffix_lookup_does_not_cache_ambiguous_or_prefix_matches(snapshot):
+def test_snapshot_suffix_lookup_sees_new_collisions_and_rejects_prefixes(snapshot):
     suffix = str(snapshot.id).replace("-", "")[-12:]
+    # A newly imported collision must be visible even after a unique lookup.
+    assert _find_snapshot_by_ref(suffix).id == snapshot.id
     other = Snapshot.objects.create(
         id=uuid.UUID("eeeeeeeeeeeeeeeeeeee" + suffix),
         url="https://example.org/ambiguous",
