@@ -277,24 +277,21 @@ def live_progress_view(request, *, authorized_snapshot=None):
             ArchiveResult.StatusChoices.QUEUED,
             ArchiveResult.StatusChoices.STARTED,
         )
-        # Start from open results using the existing status index. Filtering by
-        # plugin first scans historical runs, including all completed results.
-        # Grouping by the owning snapshot/crawl status here (a primary-key join
-        # per open result) replaces two COUNTs that filtered on those joined
-        # statuses and cost ~40ms per poll on a large collection.
+        # Queued results use the status index. Started results are reached via
+        # the existing unique process_id index from running processes, so stale
+        # interrupted results never require snapshot/crawl joins on every poll.
         result_counts = list(
-            header_archiveresult_scope.filter(status__in=result_statuses)
+            header_archiveresult_scope.filter(
+                Q(status=ArchiveResult.StatusChoices.QUEUED)
+                | Q(
+                    status=ArchiveResult.StatusChoices.STARTED,
+                    process_id__in=Process.objects.filter(status=Process.StatusChoices.RUNNING).order_by().values("pk"),
+                ),
+            )
             .order_by()
-            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status", "process__status")
+            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
             .annotate(count=Count("*")),
         )
-        # Recovery preserves interrupted ArchiveResults until their next fresh
-        # capture. Their exited Process rows are not active downloads/indexing.
-        result_counts = [
-            row
-            for row in result_counts
-            if row["status"] != ArchiveResult.StatusChoices.STARTED or row["process__status"] == Process.StatusChoices.RUNNING
-        ]
         archiveresult_status_counts = {
             status: sum(row["count"] for row in result_counts if row["status"] == status) for status in result_statuses
         }

@@ -322,6 +322,8 @@ class TestAdminSnapshotSearch:
         assert response.context["cl"].search_mode.startswith("deep")
         assert b"search-mode-deep" in response.content
         assert str(fulltext_snapshot.id).encode() in response.content
+        assert [(snapshot.pk, snapshot.search_rank) for snapshot in response.context["cl"].result_list] == [(fulltext_snapshot.pk, 0)]
+        assert b'class="search-rank-0"' in response.content
 
     def test_admin_meta_search_streams_results_in_metadata_wave_order(self, client, admin_user, crawl):
         from archivebox.core.models import Snapshot
@@ -354,6 +356,10 @@ class TestAdminSnapshotSearch:
         result_ids = list(response.context["cl"].queryset.values_list("pk", flat=True))
         assert result_ids[:3] == [prefix_snapshot.pk, title_snapshot.pk, contains_snapshot.pk]
         assert {title_snapshot.pk, contains_snapshot.pk, prefix_snapshot.pk}.issubset(result_ids)
+        displayed = response.context["cl"].result_list
+        assert [(snapshot.pk, snapshot.search_rank) for snapshot in displayed] == list(zip(result_ids, range(len(result_ids)), strict=True))
+        for rank in range(len(displayed)):
+            assert f'class="search-rank-{rank}"'.encode() in response.content
 
     def test_admin_contents_search_stream_uses_real_backend_results(
         self,

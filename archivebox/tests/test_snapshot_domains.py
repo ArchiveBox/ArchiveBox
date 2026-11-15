@@ -236,3 +236,25 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
     response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["small.example"]
+
+
+def test_domain_metadata_is_reused_across_administrators(admin_client, admin_user):
+    from django.contrib.auth import get_user_model
+
+    create_pages(admin_user, ["https://shared.example/", "https://shared.example/article"])
+    first = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert first.status_code == 200
+    assert [(row["domain"], row["snapshot_count"]) for row in first.context["domains"]] == [("shared.example", 2)]
+
+    other = get_user_model().objects.create_superuser(username="other_domain_admin", password="testpassword")
+    admin_client.force_login(other)
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [(row["domain"], row["snapshot_count"]) for row in response.context["domains"]] == [("shared.example", 2)]
+    assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
+
+    other.is_superuser = False
+    other.save(update_fields=["is_superuser"])
+    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 403

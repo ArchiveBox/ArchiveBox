@@ -59,7 +59,7 @@ def index(request):
     rows = (
         Snapshot.objects.domain_summary()
         if connection.in_atomic_block
-        else cache.get_or_set(f"domain-summary:{request.user.pk}", Snapshot.objects.domain_summary, timeout=60)
+        else cache.get_or_set(f"domain-summary:{CONSTANTS.COLLECTION_ID}", Snapshot.objects.domain_summary, timeout=60)
     )
     query = str(request.GET.get("q", "")).strip()
     if query:

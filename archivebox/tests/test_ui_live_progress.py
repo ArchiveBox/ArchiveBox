@@ -376,6 +376,9 @@ class TestLiveProgressView:
                         # Require a status-keyed search, not one planner choice's
                         # index name; a full scan must still fail below.
                         assert re.search(r"SEARCH core_archiveresult USING (?:COVERING )?INDEX \S+ \(status=\?", plan), plan
+                        # Interrupted results must be excluded before aggregation,
+                        # without reading their old Process rows one at a time.
+                        assert "LEFT-JOIN" not in plan, plan
                     assert "SCAN " not in plan, plan
 
         # Size/cancellation samples are shared by tabs while status counts stay

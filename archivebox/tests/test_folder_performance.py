@@ -3,11 +3,60 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
-from archivebox.core.models import Folder, Snapshot
+from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.parametrize("ordering", ["4.-2", "-8.-2", "-5.-2"])
+@pytest.mark.parametrize("filtered", [False, True])
+def test_admin_sort_pages_hydrate_only_displayed_snapshot_ids(admin_client, admin_user, settings, ordering, filtered):
+    settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    folder = Folder.objects.create(name="Paged news")
+    tags = [Tag.objects.create(name=f"Page tag {index}") for index in range(3)]
+    snapshots = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://news.ycombinator.com/item?id={index}",
+                timestamp=str(1900400000 + index),
+                title=f"News {index % 7}",
+                output_size=index % 9,
+                crawl=crawl,
+                folder=folder if index % 5 else None,
+            )
+            for index in range(35)
+        ],
+    )
+    SnapshotTag.objects.bulk_create(
+        [SnapshotTag(snapshot=snapshot, tag=tag) for index, snapshot in enumerate(snapshots) for tag in tags[: index % 3]],
+    )
+    params = {"o": ordering, "p": 2}
+    if filtered:
+        params["folder"] = str(folder.pk)
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/core/snapshot/", params, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    changelist = response.context["cl"]
+    expected = list(changelist.queryset.values_list("pk", flat=True)[10:20])
+    assert [snapshot.pk for snapshot in changelist.result_list] == expected
+    with CaptureQueriesContext(connection) as row_queries:
+        for snapshot in changelist.result_list:
+            assert snapshot.crawl.created_by.username == admin_user.username
+            snapshot_tags = list(snapshot.tags.all())
+            if ordering == "-5.-2":
+                assert snapshot.tag_count == len(snapshot_tags)
+    assert len(row_queries) == 0
+    assert changelist.next_page_url
+    page_reads = [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and "LIMIT 11 OFFSET 10" in query["sql"]]
+    assert len(page_reads) == 1
+    selected_columns = page_reads[0].split(" FROM ")[0]
+    assert '"url"' not in selected_columns, "Sorting and skipping rows must not read their payload columns"
+    assert '"crawl_id"' not in selected_columns
+    crawl_reads = [query["sql"] for query in queries if 'FROM "crawls_crawl"' in query["sql"] and " IN " in query["sql"]]
+    assert len(crawl_reads) == 1
 
 
 def test_snapshot_page_does_not_count_all_matches(admin_client, admin_user, settings):

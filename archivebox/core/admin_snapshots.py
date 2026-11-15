@@ -278,26 +278,35 @@ class SnapshotChangeList(SearchResultsChangeList):
 
         start = (self.page_num - 1) * self.list_per_page
         size = self.list_max_show_all if self.show_all else self.list_per_page
-        rows = snapshot_page(self.queryset, base_queryset=self.root_queryset, start=start, size=size + 1)
-        if not rows and start:
+        page_ids = snapshot_page(
+            self.queryset.values_list("pk", flat=True),
+            base_queryset=self.root_queryset.values_list("pk", flat=True),
+            start=start,
+            size=size + 1,
+        )
+        if not page_ids and start:
             from django.contrib.admin.options import IncorrectLookupParameters
 
             raise IncorrectLookupParameters
-        if self.show_all and len(rows) > size:
+        if self.show_all and len(page_ids) > size:
             self.show_all = False
             size = self.list_per_page
-            rows = rows[: size + 1]
-        observed = start + len(rows)
-        self.result_count_exact = len(rows) <= size
+            page_ids = page_ids[: size + 1]
+        observed = start + len(page_ids)
+        self.result_count_exact = len(page_ids) <= size
         # Django's paginator needs only a lower bound for next/previous links.
         # It must never scan the full query just to render the first page.
         self.queryset.query._archivebox_count_hint = observed
         super().get_results(request)
-        self.result_list = rows[:size]
+        # Keep wide snapshot columns and related rows out of the full sort and
+        # OFFSET scan, as on the public index. Preserve the selected order while
+        # loading only displayed rows, not the lookahead or discarded probes.
+        rows = {obj.pk: obj for obj in self.queryset.filter(pk__in=page_ids[:size]).order_by()}
+        self.result_list = [rows[pk] for pk in page_ids[:size] if pk in rows]
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
         self.display_result_count = max(observed, summary["count"]) if summary else observed
         self.result_count_cached = summary is not None
-        self.next_page_url = self.get_query_string({"p": self.page_num + 1}) if len(rows) > size else None
+        self.next_page_url = self.get_query_string({"p": self.page_num + 1}) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}) if self.page_num > 1 else None
         self._attach_archiveresult_summaries()
 
