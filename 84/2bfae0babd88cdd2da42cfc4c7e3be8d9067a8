@@ -1,0 +1,21 @@
+archivebox/progressmonitor/collection.py
+  s_784d0e5fa3aa29::t_0d86304c850669 93-96
+archivebox/tests/test_ui_public_snapshot.py
+  s_784d0e5fa3aa29::t_cd66d0b2599ed7 626,662-670
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "842bfae0babd88cdd2da42cfc4c7e3be8d9067a8",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
