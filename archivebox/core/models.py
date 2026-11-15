@@ -4571,6 +4571,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "primary_preview_plugins": get_snapshot_role_names("primary_preview"),
             "output_groups": [{"id": group_id, "label": label} for group_id, label in OUTPUT_GROUPS],
             "best_result": best_result,
+            "preview_screenshot": next(
+                (
+                    outputs_by_name[name]
+                    for name in ("screenshot", "chrome_extension_screenshot", "chrome_extension_viewport")
+                    if name in outputs_by_name
+                ),
+                None,
+            ),
             "snapshot": self,
             "CONFIG": runtime_config,
             "url_snapshots": url_snapshots,

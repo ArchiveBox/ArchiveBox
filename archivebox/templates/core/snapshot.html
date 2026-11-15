@@ -250,8 +250,8 @@
             .header-page-link, .header-page-metadata { display: contents; }
             .header-url-location { display: flex; align-items: center; flex: 1; min-width: 0; }
             .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; overflow: hidden; }
-            .header-top .header-url-text { flex: 0 1 auto; min-width: 40px; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
-            .header-title-text { flex: 0 1 auto; min-width: 0; color: #efc9d8; font-size: 12px; }
+            .header-top .header-url-text { flex: 9 1 0; min-width: 40px; max-width: max-content; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
+            .header-title-text { flex: 11 1 0; min-width: 0; max-width: max-content; color: #efc9d8; font-size: 12px; }
             .header-tags { display: flex; flex-wrap: nowrap; min-width: 0; overflow: hidden; gap: 4px; }
             .header-top .header-tags .tag-pill { flex: 0 0 auto; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
             .header-text-dot { flex: 0 0 auto; color: #ffffff60; }
@@ -314,7 +314,7 @@
                 .header-nav { grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 5px; }
                 .header-left { grid-column: 1 / 3; width: 32px; }
                 .header-url-location, .header-url-content, .header-page-link { display: contents; }
-                .header-top .header-url-text { grid-column: 1 / -1; grid-row: 1; margin-left: 38px; min-width: 0; padding: 0 7px; height: 28px; border: 1px solid #ffffff30; border-radius: 5px; background: #00000012; }
+                .header-top .header-url-text { grid-column: 1 / -1; grid-row: 1; margin-left: 38px; min-width: 0; max-width: none; padding: 0 7px; height: 28px; border: 1px solid #ffffff30; border-radius: 5px; background: #00000012; }
                 .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
                 .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
                 .header-title-text { flex: 1 1 auto; max-width: none; font-size: 12px; }
@@ -511,6 +511,17 @@
                 width: 100%;
                 height: 100%;
                 border: none;
+            }
+            #replay-screenshot-cover {
+                position: absolute;
+                inset: 0;
+                z-index: 2;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: top center;
+                background: white;
+                pointer-events: none;
             }
             #snapshot-progress-wrapper {
                 flex: 0 0 auto;
@@ -1118,6 +1129,11 @@
             {% endif %}
             {% endif %}
             {% if has_outputs %}
+            {% if preview_screenshot.path %}
+            <img id="replay-screenshot-cover" alt="Saved screenshot while archived content loads"
+                 src="{% snapshot_url snapshot preview_screenshot.path %}{% if not STATIC_EXPORT and preview_screenshot.result %}?_abx_rev={{preview_screenshot.result.modified_at|date:'U.u'}}{% endif %}"
+                 loading="eager" fetchpriority="high" onerror="this.remove()">
+            {% endif %}
             {% comment %}Keep this trusted collection UI on web.* in subdomain mode. The
                selected output opens in an iframe whose URL is built for its
                isolated snap-* origin; on one-domain no-JS mode both URLs use
@@ -1284,19 +1300,17 @@
                     <div class="header-capture-row">
                         <div class="header-year-badges">
                             {% for entry in related_years %}
-                            <div class="capture-year{% if entry.selected_date %} current-year{% endif %}" data-year="{{ entry.year }}">
+                            {% if entry.selected_date %}
+                            <div class="capture-year current-year">
                                 <details class="snapshot-variants year-variants">
-                                    <summary class="badge badge-default"{% if entry.selected_date %} aria-label="All captures; selected {{ entry.selected_date|date:'Y-m-d' }}"{% endif %}>
-                                        <span class="year-label">{{ entry.year }} <span class="year-capture-count">{{ entry.snapshots|length }}</span></span>
-                                        {% if entry.selected_date %}<span class="header-date">{{ entry.selected_date|date:"Y-m-d" }}</span>{% endif %}
+                                    <summary class="badge badge-default" aria-label="All captures; selected {{ entry.selected_date|date:'Y-m-d' }}" title="{{ url_snapshots|length }} snapshots of this URL">
+                                        <span class="year-label"><span class="year-capture-count">{{ url_snapshots|length }}</span></span>
+                                        <span class="header-date">{{ entry.selected_date|date:"Y-m-d" }}</span>
                                     </summary>
-                                    {% if entry.selected_date %}
-                                        {% include "core/snapshot_capture_list.html" with captures=url_snapshots %}
-                                    {% else %}
-                                        {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
-                                    {% endif %}
+                                    {% include "core/snapshot_capture_list.html" with captures=url_snapshots %}
                                 </details>
                             </div>
+                            {% endif %}
                             {% endfor %}
                         </div>
                     </div>
@@ -1389,6 +1403,9 @@
                     if (frame.src !== pdfUrl.href) frame.src = pdfUrl.href
                 }
                 frame.onload = function() {
+                    if (this.id === 'main-frame' && this.src && this.src !== 'about:blank') {
+                        document.getElementById('replay-screenshot-cover')?.remove()
+                    }
                     if (new URL(this.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
                         this.removeAttribute('sandbox')
                     }
@@ -1605,6 +1622,7 @@
                     return
                 }
                 if (event.data?.type !== 'archivebox-replay-painted') return
+                document.getElementById('replay-screenshot-cover')?.remove()
                 // Promote the already-loaded browsing context, not a fresh iframe
                 // navigation. Only the plugin knows whether archived content is
                 // actually ready; bootstrap/error pages must never replace HTML.
@@ -1658,6 +1676,7 @@
                     return false
                 }
                 cancelReplayPreload()
+                if (updateHash || window.location.hash) document.getElementById('replay-screenshot-cover')?.remove()
                 prioritizeCardThumbnail(card)
                 const previewUrl = card?.dataset.previewUrl
                 const rawTarget = explicitTarget || (link ? link.getAttribute('href') : '') || previewUrl || ''
@@ -1869,6 +1888,13 @@
                 const frame = document.getElementById('main-frame')
                 if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-preview-height') return
                 if (event.origin !== new URL(snapshotBaseUrl, window.location.href).origin) return
+                if (event.data.bounded === true) {
+                    frame.dataset.sizeMode = 'viewport'
+                    frame.style.height = '80dvh'
+                    frame.style.flex = '0 0 auto'
+                    if (replayPreload) replayPreload.style.height = `${frame.getBoundingClientRect().height}px`
+                    return
+                }
                 const height = event.data.height
                 if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0 || !Number.isSafeInteger(Math.ceil(height))) return
                 // Only the selected isolated viewer can size its own browsing

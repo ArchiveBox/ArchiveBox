@@ -82,6 +82,8 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
     const replayPainted = new Promise(resolve => { releaseCard = resolve; });
     let releaseReplay;
     const replayRequest = new Promise(resolve => { releaseReplay = resolve; });
+    let releaseDocument;
+    const documentRequest = new Promise(resolve => { releaseDocument = resolve; });
     await page.exposeFunction('observeReplayPainted', () => releaseCard());
     await page.evaluateOnNewDocument(() => window.addEventListener('message', event => {
       if ([document.getElementById('main-frame')?.contentWindow, document.getElementById('replay-preload')?.contentWindow].includes(event.source)
@@ -94,6 +96,7 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
       const task = (async () => {
         if (process.env.SELECTION === 'automatic' && request.url().includes(`/_card/${process.env.SCREENSHOT_CARD_ID}`)) await replayPainted;
         if (new URL(request.url()).pathname.endsWith('.wacz')) await replayRequest;
+        if (new URL(request.url()).pathname.endsWith('/singlefile/content.html') && !new URL(request.url()).searchParams.has('preview')) await documentRequest;
         await request.continue();
       })();
       pendingRequests.push(task);
@@ -103,10 +106,22 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
     const navigation = page.goto(process.env.SNAPSHOT_URL, {waitUntil: 'domcontentloaded'});
     await page.waitForFunction(() => document.querySelector('#main-frame')?.src.includes('/singlefile/content.html'));
     const staticFrame = await (await page.$('#main-frame')).contentFrame();
-    const savedDocument = await (await staticFrame.waitForSelector('#document')).contentFrame();
+    const documentElement = await staticFrame.waitForSelector('#document');
+    assert((await documentElement.boundingBox()).height >= 400, 'saved HTML must have a visible viewport before load');
+    if (process.env.SELECTION !== 'explicit') {
+      await page.waitForFunction(() => {
+        const cover = document.getElementById('replay-screenshot-cover');
+        return cover?.complete && cover.naturalWidth > 0 && cover.getBoundingClientRect().height > 0;
+      });
+      assert(await page.$eval('#replay-screenshot-cover', image => image.loading === 'eager' && image.fetchPriority === 'high'));
+    } else {
+      assert.equal(await page.$('#replay-screenshot-cover'), null);
+    }
+    releaseDocument();
+    const savedDocument = await documentElement.contentFrame();
     await savedDocument.waitForFunction(() => document.body?.innerText.includes('ArchiveBox consolelog preview fixture'));
     assert.equal(await page.$eval('.selected-card[data-plugin-name]', card => card.dataset.pluginName), 'singlefile');
-    assert.equal(await page.$('#replay-screenshot-cover'), null);
+    await page.waitForFunction(() => !document.getElementById('replay-screenshot-cover'));
     if (['unsupported', 'explicit'].includes(process.env.SELECTION)) {
       if (process.env.SELECTION === 'unsupported') {
         assert.equal(await page.evaluate(() => window.isSecureContext), false);

@@ -6,7 +6,8 @@
     <title>{{ title }}</title>
     <style>
         html, body { margin: 0; padding: 0; }
-        #document { display: block; width: 100%; height: 1px; border: 0; }
+        /* Render incoming HTML before load; natural height replaces this viewport. */
+        #document { display: block; width: 100%; height: 100vh; border: 0; }
     </style>
 </head>
 <body>
@@ -25,12 +26,28 @@
             const style = doc.createElement('style');
             style.textContent = 'html,body{height:auto!important;min-height:0!important}body{display:flow-root}';
             doc.head.append(style);
-            const resize = () => {
-                const body = doc.body;
-                const margins = frame.contentWindow.getComputedStyle(body);
-                const height = Math.ceil(body.getBoundingClientRect().height +
+            let bounded = false;
+            const measure = () => {
+                const margins = frame.contentWindow.getComputedStyle(doc.body);
+                return Math.ceil(doc.body.getBoundingClientRect().height +
                     parseFloat(margins.marginTop) + parseFloat(margins.marginBottom));
+            };
+            const resize = () => {
+                if (bounded) return;
+                const height = measure();
                 if (height > 0 && frame.style.height !== `${height}px`) frame.style.height = `${height}px`;
+                // Measure the consequence of our own resize before publishing it.
+                // A viewport-sized descendant plus a footer has no intrinsic
+                // height: expanding its viewport expands its content forever.
+                if (height > 0 && Math.abs(measure() - height) > 1) {
+                    bounded = true;
+                    observer?.disconnect();
+                    style.remove();
+                    frame.style.height = '100vh';
+                    frame.dataset.sizeMode = 'viewport';
+                    if (window.name === 'preview') parent.postMessage({type: 'archivebox-preview-height', bounded: true}, '*');
+                    return;
+                }
                 // The wrapper can be below a tall output tray, where Chrome
                 // defers ResizeObserver delivery until it becomes visible.
                 if (height > 0 && window.name === 'preview') parent.postMessage({type: 'archivebox-preview-height', height}, '*');
