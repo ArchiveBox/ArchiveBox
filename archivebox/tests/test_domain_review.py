@@ -49,6 +49,40 @@ def test_domain_export_rejects_mixed_prefix_selection(admin_client):
     assert not Process.objects.filter(worker_type="site-export").exists()
 
 
+@pytest.mark.parametrize("row_action", [False, True])
+def test_domain_delete_post_uses_native_confirmation_without_javascript(admin_client, crawl, row_action):
+    from archivebox.core.models import Snapshot
+
+    selected = Snapshot.objects.create(crawl=crawl, url="https://example.com/delete-confirmation")
+    unrelated = Snapshot.objects.create(crawl=crawl, url="https://other.example/keep")
+    data = {"action": "delete_selected", "_selected_action": ["example.com"], "select_across": "0", "index": "0"}
+    if row_action:
+        data = {"delete_domain": "example.com"}
+    response = admin_client.post("/admin/domains/actions/", data, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response.context["title"] == "Delete multiple objects"
+    assert selected.url.encode() in response.content
+    assert unrelated.url.encode() not in response.content
+    assert list(response.context["queryset"].values_list("pk", flat=True)) == [selected.pk]
+    selected.refresh_from_db()
+    unrelated.refresh_from_db()
+    assert selected.status != "deleting"
+    assert unrelated.status != "deleting"
+    newly_captured = Snapshot.objects.create(crawl=crawl, url="https://example.com/after-confirmation")
+    confirmed = admin_client.post(
+        "/admin/domains/actions/",
+        {"action": "delete_selected", "post": "yes", "_selected_action": [str(selected.pk)]},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert confirmed.status_code == 302
+    selected.refresh_from_db()
+    unrelated.refresh_from_db()
+    newly_captured.refresh_from_db()
+    assert selected.status == "deleting"
+    assert unrelated.status != "deleting"
+    assert newly_captured.status != "deleting"
+
+
 def test_include_subdomains_overrides_default_same_host_toggle(admin_client):
     from archivebox.crawls.models import Crawl
 
