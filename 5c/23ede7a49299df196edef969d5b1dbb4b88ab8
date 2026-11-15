@@ -1,0 +1,32 @@
+archivebox/templates/admin/base.html
+  s_10bc94d001be49::t_a2ca5e98ffa697 1935,1938-1939,1963-1975,1977-1978,1981-1990,1992-1993,1995-1999,2001-2003
+archivebox/templates/static/admin.css
+  s_10bc94d001be49::t_a2ca5e98ffa697 946-955,2369,2656
+archivebox/templates/static/library/folders.js
+  s_10bc94d001be49::t_a2ca5e98ffa697 224,226-227,240-243,245,431-443,445-446,450,453,457-467,470,473-493,497-504,513-515,517-518,522
+archivebox/templates/admin/actions.html
+  s_10bc94d001be49::t_a2ca5e98ffa697 2,9-18,21-22,29,31-64,102
+archivebox/tests/test_ui_admin_actions_rendering.py
+  s_10bc94d001be49::t_679a58d6c79d71 1-40,47-56,64-105
+  s_10bc94d001be49::t_a6d523fc8b280a 41,46,57-63
+  s_10bc94d001be49::t_e6d01b43ec6e97 42-45
+  s_10bc94d001be49::t_2f4c9d8b977f22 106-109
+archivebox/templates/core/snapshot_thumbnail.html
+  s_10bc94d001be49::t_a2ca5e98ffa697 2,4-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c23ede7a49299df196edef969d5b1dbb4b88ab8",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
