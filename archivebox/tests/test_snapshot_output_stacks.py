@@ -1215,7 +1215,10 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             assert frame["height"] >= height * 0.4 - 1
             assert stack.evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
             page.locator("#main-frame-wrapper").scroll_into_view_if_needed()
-            assert frame["y"] + frame["height"] <= page.evaluate("document.documentElement.scrollHeight") + 1
+            bounds = page.locator("#main-frame-wrapper").evaluate(
+                "e => ({bottom: e.getBoundingClientRect().bottom + scrollY, pageHeight: document.documentElement.scrollHeight})",
+            )
+            assert bounds["bottom"] <= bounds["pageHeight"] + 1, bounds
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             page.get_by_role("button", name="Collapse stack", exact=True).click()
 
@@ -1261,10 +1264,12 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
                 expected_progress,
             )
             assert wrapper_box["height"] >= height * 0.4 - 1
-            assert (
-                preview_box["y"] + preview_box["height"] + page.evaluate("scrollY")
-                <= page.evaluate("document.documentElement.scrollHeight") + 1
+            # Loading the selected output can resize the page and scroll-anchor it.
+            # Compare geometry from the same layout, not an earlier viewport rect.
+            bounds = page.locator("#main-frame").evaluate(
+                "e => ({bottom: e.getBoundingClientRect().bottom + scrollY, pageHeight: document.documentElement.scrollHeight})",
             )
+            assert bounds["bottom"] <= bounds["pageHeight"] + 1, bounds
         page.get_by_role("button", name="Collapse stack", exact=True).click()
         assert group.get_attribute("aria-expanded") == "false"
         assert page.locator(".header-top").bounding_box()["y"] == 0
