@@ -11,7 +11,7 @@ import sys
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 REPO_DIR = Path(__file__).resolve().parents[1]
 PUBLIC_SCREENSHOT_BASE = "https://archivebox.io/screenshots/"
@@ -211,11 +211,14 @@ def validate_navigation(metadata_path: Path, expected_path: str) -> None:
     navigation = navigation.get("checks", navigation)
     status = navigation.get("status")
     final_url = navigation.get("finalUrl") or ""
-    actual_path = urlparse(final_url).path
+    actual = urlparse(final_url)
+    expected = urlparse(expected_path)
     if status != 200:
         raise SystemExit(f"expected HTTP 200, got {status}: {final_url or metadata_path}")
-    if actual_path != expected_path:
-        raise SystemExit(f"expected final path {expected_path}, got {actual_path}: {final_url}")
+    if actual.path != expected.path:
+        raise SystemExit(f"expected final path {expected.path}, got {actual.path}: {final_url}")
+    if expected.query and parse_qs(actual.query, keep_blank_values=True) != parse_qs(expected.query, keep_blank_values=True):
+        raise SystemExit(f"expected final query {expected.query}, got {actual.query}: {final_url}")
 
 
 def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
