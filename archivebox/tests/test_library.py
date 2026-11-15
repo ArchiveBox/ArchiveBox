@@ -402,9 +402,24 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu.get_by_role("menuitem", name="Add subfolder", exact=True).click()
         expect(page.locator("#folder-parent")).to_have_value(str(parent.pk))
+        navigation_start = page.evaluate("performance.timeOrigin")
         page.locator("#folder-name").fill("Design inspiration")
+        save_started = page.evaluate("performance.now()")
         page.get_by_role("button", name="Save folder", exact=True).click()
         expect(page.locator(".folder-tree")).to_contain_text("Design inspiration")
+        expect(page.locator("#folder-dialog")).not_to_be_visible()
+        assert page.evaluate("performance.timeOrigin") == navigation_start
+        print(
+            "folder create timings",
+            page.evaluate(
+                """started => ({
+            visibleMs: performance.now() - started,
+            requestMs: performance.getEntriesByType('resource').filter(entry => entry.name.includes('/core/folder/save/')).at(-1).duration,
+        })""",
+                save_started,
+            ),
+        )
+        expect(page.get_by_role("button", name="Add folder in Research", exact=True)).to_be_visible()
         page.get_by_role("button", name="Find a folder", exact=True).click()
         page.get_by_role("searchbox", name="Find a folder").fill("Design")
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_be_hidden()
@@ -642,3 +657,61 @@ def test_browser_snapshot_drop_on_smart_folder_clears_assignment(live_server, ad
     target.refresh_from_db()
     assert target.rules == {"field": "title", "lookup": "icontains", "value": "news"}
     assert not target.children.exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_browser_drag_checked_preview_after_streamed_search(live_server, admin_user, browser_runtime):
+    from pathlib import Path
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.core.models import ArchiveResult, Folder, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    destination = Folder.objects.create(name="Drag destination")
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    snapshots = [
+        Snapshot.objects.create(url=f"https://example.com/streamdrag/{i}", title=f"Streamdrag capture {i}", crawl=crawl) for i in range(2)
+    ]
+    png = (Path(__file__).parents[1] / "templates/static/archive.png").read_bytes()
+    for snapshot in snapshots:
+        path = Path(snapshot.output_dir) / "screenshot/screenshot.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(png)
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            status="succeeded",
+            output_str="screenshot/screenshot.png",
+            output_files={"screenshot.png": {"size": len(png), "mimetype": "image/png"}},
+            output_size=len(png),
+        )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.get_by_role("textbox", name="Search").fill("streamdrag")
+        page.locator('select[name="search_mode"]').select_option("meta")
+        page.locator('#changelist-search input[name="q"]').press("Enter")
+        rows = page.locator("#result_list tbody tr")
+        expect(rows).to_have_count(2)
+        expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
+        expect(rows.first).to_have_attribute("draggable", "true")
+        for snapshot in snapshots:
+            page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
+        image = rows.first.frame_locator(".field-preview_icon iframe").get_by_role("img", name="Screenshot of page", exact=True)
+        expect(image).to_be_visible()
+        assert rows.first.locator(".field-preview_icon > a").get_attribute("draggable") == "false"
+        rows.first.locator(".field-preview_icon").drag_to(page.locator(f'.folder-row[data-folder-id="{destination.pk}"]'))
+        expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to Drag destination")
+        browser.close()
+    assert set(Snapshot.objects.filter(pk__in=[snapshot.pk for snapshot in snapshots]).values_list("folder_id", flat=True)) == {
+        destination.pk,
+    }

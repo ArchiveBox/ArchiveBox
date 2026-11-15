@@ -422,3 +422,50 @@ def test_public_smart_folder_preserves_limit_order_and_visibility(client, admin_
         response = client.get("/public/", {"folder": str(folder.pk)}, HTTP_HOST=WEB_TEST_HOST)
     assert response.status_code == 200
     assert list(response.context["object_list"]) == [snapshots[0], snapshots[2]]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("new_kind", ["Rule", "Group"])
+def test_browser_append_to_full_root_preserves_existing_expression(live_server, admin_user, browser_runtime, new_kind):
+    import json
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    original = group("NOT", group("OR", leaf("title", "exact", "A"), leaf("title", "exact", "B")))
+    folder = Folder.objects.create(name="Full root", rules=original)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        row = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
+        row.hover()
+        row.get_by_role("button", name="Actions for Full root", exact=True).click()
+        row.get_by_role("menuitem", name="Rename", exact=True).click()
+        expect(page.locator(".folder-save")).to_be_enabled()
+        root = page.locator(".folder-rules > .rule-group")
+        root.locator(":scope > .rule-group-toolbar").get_by_role("button", name=f"+ {new_kind}", exact=True).click()
+        root.locator(".rule-value input").last.fill("archive")
+        if new_kind == "Group":
+            child = root.locator(":scope > .rule-group").last
+            child.locator(":scope > .rule-group-toolbar").get_by_role("button", name="+ Rule", exact=True).click()
+            child.locator(".rule-value input").last.fill("saved")
+            added = group("AND", leaf("url", "icontains", "archive"), leaf("url", "icontains", "saved"))
+        else:
+            added = leaf("url", "icontains", "archive")
+        expected = group("AND", original, added)
+        assert json.loads(page.locator('input[name="rules"]').input_value()) == expected
+        expect(root.locator(":scope > .rule-group-toolbar").get_by_role("button", name="+ Rule", exact=True)).to_be_visible()
+        expect(root.locator(":scope > .rule-group-toolbar").get_by_role("button", name="+ Group", exact=True)).to_be_visible()
+        page.locator(".folder-save").click()
+        expect(page.locator("#folder-dialog")).not_to_be_visible()
+        browser.close()
+    folder.refresh_from_db()
+    assert folder.rules == expected
