@@ -1,19 +1,20 @@
 <details class="navbar-dropdown library-tools">
     <summary class="navbar-item">Tools <svg class="navbar-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
     <div class="navbar-menu">
-        <a href="/admin/crawls/crawlschedule/">Scheduled Crawls</a>
-        <a href="/admin/crawls/crawl/">Crawls</a>
+        <a href="/admin/core/tag/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20a2 2 0 0 1-3 0L3 13V3h10l7 7a2 2 0 0 1 0 3Z"/><circle cx="7.5" cy="7.5" r="1"/></svg>Tags</a>
+        <a href="/admin/core/archiveresult/?o=-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>Logs</a>
+        <a href="/admin/crawls/crawl/"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg>Crawls</a>
+        <hr>
+        <a href="/admin/crawls/crawlschedule/"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h3M8 18h7"/></svg>Scheduled Crawls</a>
         {% if user.is_superuser %}
-        <a href="{% url 'system-settings' %}">System settings</a>
-        <a href="{% url 'importers:index' %}">Importers</a>
-        <a href="/admin/domains/">Domains</a>
+        <a href="{% url 'importers:index' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 14v6h16v-6"/></svg>Importers</a>
+        <a href="/admin/domains/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Domains</a>
+        <a href="/admin/webhooks/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v4m0 4v10M12 3v10m0 4v4M20 3v4m0 4v10"/><path d="M1 7h6v4H1zM9 13h6v4H9zM17 7h6v4h-6z"/></svg>Rules Engine</a>
         {% endif %}
-        <a href="/admin/core/tag/">Tags</a>
-        <a href="/admin/core/archiveresult/?o=-1">Logs</a>
+        <a href="/admin/" class="navbar-mobile-admin"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Admin</a>
         {% if user.is_superuser %}
         <hr>
-        <a href="/admin/webhooks/">Webhooks</a>
+        <a href="{% url 'system-settings' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3-.5 2-2 1-2-.5-2 3 1.5 1.5v3L3.5 15l2 3 2-.5 2 1 .5 2h4l.5-2 2-1 2 .5 2-3-1.5-1.5v-3L21 9l-2-3-2 .5-2-1L14 3Z"/><circle cx="12" cy="12" r="3"/></svg>System Settings</a>
         {% endif %}
-        <a href="/admin/" class="navbar-mobile-admin">Admin</a>
     </div>
 </details>
