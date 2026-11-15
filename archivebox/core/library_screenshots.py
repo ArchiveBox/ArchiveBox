@@ -64,6 +64,29 @@ def news_urls():
     raise RuntimeError("The live Hacker News API did not provide three story links.")
 
 
+def validate_ai_result(snapshot, plugin):
+    from archivebox.core.models import ArchiveResult
+
+    results = list(snapshot.archiveresult_set.filter(plugin=plugin))
+    if any(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in results):
+        return True
+    credit_errors = (
+        "you have no credits remaining. add credits to continue using the api at https://platform.openai.com/",
+        "your credit balance is too low to access the anthropic api",
+    )
+    if not results or not all(
+        result.status == ArchiveResult.StatusChoices.FAILED and any(error in result.output_str.lower() for error in credit_errors)
+        for result in results
+    ):
+        raise RuntimeError(f"Gallery capture has no successful {plugin} result: {snapshot.url}")
+    warning = f"API credits exhausted: {plugin} for snapshot {snapshot.pk} remains failed; its output screenshot is omitted."
+    print(f"::warning::{warning}")
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(summary).open("a") as stream:
+            stream.write(f"\n- {warning}\n")
+    return False
+
+
 def prepare(evidence_dir, *, model=""):
     from archivebox.config import CONSTANTS
     from archivebox.core.models import ArchiveResult, Snapshot
@@ -120,6 +143,7 @@ def prepare(evidence_dir, *, model=""):
     snapshots = list(Snapshot.objects.filter(crawl=crawl))
     if {snapshot.url for snapshot in snapshots} != set(urls):
         raise RuntimeError("Gallery crawl did not create every requested real capture.")
+    ai_snapshots = {}
     for snapshot in snapshots:
         if snapshot.status != Snapshot.StatusChoices.SEALED or snapshot.output_size <= 0:
             raise RuntimeError(f"Gallery capture is incomplete: {snapshot.url}")
@@ -131,9 +155,14 @@ def prepare(evidence_dir, *, model=""):
         if archive is None or archive.suffix.lower() != ".wacz" or not archive.is_file() or archive.stat().st_size == 0:
             raise RuntimeError(f"Gallery capture has no successful WACZ recording: {snapshot.url}")
         if model:
-            for plugin in ("autotag", "autosummary"):
-                if not snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).exists():
-                    raise RuntimeError(f"Gallery capture has no successful {plugin} result: {snapshot.url}")
+            available = {plugin: validate_ai_result(snapshot, plugin) for plugin in ("autotag", "autosummary")}
+            for plugin, succeeded in available.items():
+                if succeeded:
+                    ai_snapshots.setdefault(plugin, snapshot)
+            if available["autosummary"] and not (snapshot.output_dir / "autosummary/summary.md").read_text().strip():
+                raise RuntimeError(f"Gallery capture has no real summary artifact: {snapshot.url}")
+            if not available["autotag"]:
+                continue
             tag_records = [
                 json.loads(line) for line in (snapshot.output_dir / "autotag/tags.jsonl").read_text().splitlines() if line.strip()
             ]
@@ -147,13 +176,10 @@ def prepare(evidence_dir, *, model=""):
                     f"Gallery tag projection mismatch for {snapshot.url}: "
                     f"emitted={tags!r}, stored={list(snapshot.tags.values_list('name', flat=True))!r}",
                 )
-            if not (snapshot.output_dir / "autosummary/summary.md").read_text().strip():
-                raise RuntimeError(f"Gallery capture has no real summary artifact: {snapshot.url}")
     if model:
         from archivebox.core.routes_util import build_snapshot_detail_path
         from urllib.parse import urlsplit
 
-        snapshot = next(snapshot for snapshot in snapshots if snapshot.url != urls[0])
         base = os.environ["UI_LIBRARY_ADMIN_URL"].rstrip("/")
         origin = urlsplit(base)
         if (
@@ -166,14 +192,16 @@ def prepare(evidence_dir, *, model=""):
             or origin.fragment
         ):
             raise ValueError("The gallery origin must be an HTTP(S) origin without credentials, a path, query, or fragment.")
-        snapshot_path = build_snapshot_detail_path(snapshot.archive_path_from_db)
-        snapshot_url = f"{base}{snapshot_path}"
         views = [
             f"Automatic tags configuration|{base}/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:autotag",
             f"Automatic summary configuration|{base}/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:autosummary",
-            f"Snapshot View (automatic tags)|{snapshot_url}#autotag/tags.jsonl|{snapshot_path}|archivebox/templates/core/snapshot.html",
-            f"Snapshot View (automatic summary)|{snapshot_url}#autosummary/summary.md|{snapshot_path}|archivebox/templates/core/snapshot.html",
         ]
+        for plugin, title, artifact in (("autotag", "automatic tags", "tags.jsonl"), ("autosummary", "automatic summary", "summary.md")):
+            if snapshot := ai_snapshots.get(plugin):
+                snapshot_path = build_snapshot_detail_path(snapshot.archive_path_from_db)
+                views.append(
+                    f"Snapshot View ({title})|{base}{snapshot_path}#{plugin}/{artifact}|{snapshot_path}|archivebox/templates/core/snapshot.html",
+                )
         (evidence / "ai-views.txt").write_text("\n".join(views) + "\n")
     (evidence / "library-crawl-id.txt").write_text(str(crawl.pk))
     return str(crawl.pk)
