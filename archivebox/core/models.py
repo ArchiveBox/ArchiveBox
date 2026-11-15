@@ -4348,7 +4348,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     ) -> dict[str, Any]:
         """Build the one context used by both served and on-disk snapshot pages."""
         from archivebox.config.common import get_request_config
-        from archivebox.core.permissions import discoverable_snapshots_queryset, get_snapshot_permissions
+        from archivebox.core.permissions import discoverable_snapshots_queryset, get_snapshot_permissions, render_permission_icon
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
@@ -4558,7 +4558,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "snapshot_state": snapshot_status,
             "has_outputs": has_outputs,
             "snapshot_permissions": snapshot_permissions,
-            "snapshot_permissions_icon": {"public": "👥", "unlisted": "🔗", "private": "🔒"}.get(snapshot_permissions, "👥"),
+            "snapshot_permissions_icon": render_permission_icon(snapshot_permissions),
             "bookmarked_date": self.bookmarked_date,
             "downloaded_datestr": self.downloaded_datestr,
             "num_outputs": self.num_outputs,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.utils.html import format_html
 
 PERMISSIONS_PUBLIC = "public"
 PERMISSIONS_UNLISTED = "unlisted"
@@ -17,6 +18,19 @@ PERMISSIONS_META = {
     PERMISSIONS_UNLISTED: ("🔗", "Unlisted", "#1d4ed8", "#dbeafe"),
     PERMISSIONS_PRIVATE: ("🔒", "Private", "#991b1b", "#fee2e2"),
 }
+
+
+def render_permission_icon(permissions):
+    permission_path = {
+        "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
+        "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
+        "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
+    }[permissions]
+    return format_html(
+        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" '
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
+        permission_path,
+    )
 
 
 def normalize_permissions(permissions: object, *, default: str = PERMISSIONS_PRIVATE) -> str:

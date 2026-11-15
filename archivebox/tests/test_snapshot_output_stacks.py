@@ -1077,14 +1077,14 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         assert actions.locator(".header-download-size").inner_text() == expected_size
         assert actions.locator(".header-url-action").count() == 5
         assert actions.locator(".header-url-action").evaluate_all("nodes => nodes.map(e => e.getAttribute('aria-label'))") == [
-            "Copy original URL",
+            "Public",
             "Open original URL",
             "Search Archive.org",
             "Edit snapshot",
             "Download snapshot ZIP",
         ]
-        assert page.locator(".permission-pill").count() == 1
-        assert actions.locator(".permission-pill").inner_text().endswith("PUBLIC")
+        assert actions.locator(".header-permission svg").count() == 1
+        assert actions.locator(".header-permission").inner_text() == ""
         assert page.get_by_role("link", name="Search Archive.org", exact=True).count() == 1
         original = actions.get_by_role("link", name="Open original URL", exact=True)
         assert original.get_attribute("href") == snapshot.url
@@ -1093,10 +1093,6 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             actions.get_by_role("link", name="Search Archive.org", exact=True).get_attribute("href")
             == f"https://web.archive.org/web/{snapshot.url}"
         )
-        page.context.grant_permissions(["clipboard-read", "clipboard-write"])
-        actions.get_by_role("button", name="Copy original URL", exact=True).click()
-        page.get_by_role("button", name="URL copied", exact=True).wait_for()
-        assert page.evaluate("navigator.clipboard.readText()") == snapshot.url
         assert page.locator("#snapshot-output-browser").is_visible()
         with page.expect_download() as download_info:
             actions.locator(".header-url-download .header-status").click()
@@ -1149,9 +1145,7 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
                 title_box = page.locator(".header-title-text").bounding_box()
                 assert favicon["y"] >= url["y"] + url["height"]
                 assert abs(favicon["y"] + favicon["height"] / 2 - title_box["y"] - title_box["height"] / 2) < 1
-                assert not actions.locator("#copy-original-url").is_visible()
                 assert not actions.get_by_role("link", name="Open original URL", exact=True).is_visible()
-                assert not actions.locator(".permission-text").is_visible()
                 assert "." not in actions.locator(".mobile-size").inner_text()
             if width > 480:
                 assert url["height"] == 28
@@ -1159,9 +1153,9 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
                 assert page.locator(".header-top").bounding_box()["height"] == 44
             assert page.locator(".header-url .header-title-text").count() == 1
             status_box = actions.locator(".header-status").bounding_box()
-            permission_box = actions.locator(".permission-pill").bounding_box()
+            permission_box = actions.locator(".header-permission").bounding_box()
             assert status_box["height"] == 22
-            assert permission_box["height"] == (22 if width > 1100 else 28)
+            assert permission_box["height"] == actions.get_by_role("link", name="Search Archive.org", exact=True).bounding_box()["height"]
             download_box = actions.locator(".header-url-download").bounding_box()
             assert status_box["x"] >= download_box["x"]
             assert status_box["x"] + status_box["width"] <= download_box["x"] + download_box["width"]

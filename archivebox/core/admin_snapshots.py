@@ -65,6 +65,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_META,
     get_snapshot_permissions,
     normalize_permissions,
+    render_permission_icon,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -72,19 +73,6 @@ from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 GLOBAL_CONTEXT = {}
 
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
-
-
-def _permission_icon(permissions):
-    permission_path = {
-        "public": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z",
-        "unlisted": "m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
-        "private": "M5 10h14v11H5ZM8 10V7a4 4 0 0 1 8 0v3m-4 4v3",
-    }[permissions]
-    return format_html(
-        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" '
-        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
-        permission_path,
-    )
 
 
 class SnapshotActionForm(ActionForm):
@@ -859,7 +847,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return qs
 
     @admin.display(
-        description=format_html('<span title="Visibility" aria-label="Visibility">{}</span>', _permission_icon("private")),
+        description=format_html('<span title="Visibility" aria-label="Visibility">{}</span>', render_permission_icon("private")),
         ordering="permissions",
     )
     def permissions_badge(self, obj):
@@ -880,7 +868,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 (
                     " is-active" if choice_value == permissions else "",
                     choice_value,
-                    _permission_icon(choice_value),
+                    render_permission_icon(choice_value),
                     choice_label,
                 )
                 for choice_value, choice_label in PERMISSIONS_CHOICES
@@ -898,7 +886,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             permissions,
             label,
             label,
-            _permission_icon(permissions),
+            render_permission_icon(permissions),
             menu_items,
         )
 
@@ -1093,13 +1081,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
         permissions = normalize_permissions(obj.__dict__.get("snapshot_permissions", obj.permissions))
         _, permission_label, _, _ = SNAPSHOT_PERMISSION_META[permissions]
-        permission_icon = _permission_icon(permissions)
+        permission_svg = render_permission_icon(permissions)
         return format_html(
             '<span class="snapshot-row-permission" role="img" title="{}" aria-label="{}">{}</span>'
             '<span class="tags-inline-editor tags-inline-editor--compact">{}</span>',
             permission_label,
             permission_label,
-            permission_icon,
+            permission_svg,
             tags_html,
         )
 
