@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.plugin-config-form').forEach(settings => {
         const form = settings.closest('form');
         if (!form) return;
+        // Shared settings reveal invalid controls in hidden tabs before saving.
+        // Django admin's default novalidate otherwise bypasses that handler.
+        form.noValidate = false;
         const value = input => input.multiple ? JSON.stringify([...input.selectedOptions].map(option => option.value)) : input.type === 'checkbox' ? input.checked : input.value;
         const inputs = [...settings.querySelectorAll('.plugin-config-input[name][data-config-key]')];
         const original = new Map(inputs.map(input => [input, value(input)]));
