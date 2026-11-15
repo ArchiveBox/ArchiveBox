@@ -1,0 +1,46 @@
+archivebox/core/views.py
+  s_302d4b0601e736::t_fd115e92140434 996-997
+archivebox/core/admin_archiveresults.py
+  s_302d4b0601e736::t_f42883666b292f 34,621-626,635
+archivebox/tests/test_request_output_manifests.py
+  s_302d4b0601e736::t_e55fc45e8468dd 17-18,31-32,39,46
+archivebox/crawls/admin.py
+  s_302d4b0601e736::t_f7ee5a3f7a0a9f 1288-1290
+  s_302d4b0601e736::t_653481275052e4 12-13,1287,1296-1299
+  s_302d4b0601e736::t_ce6ed5c252ae85 668
+  s_302d4b0601e736::t_abfee454331463 1230
+archivebox/core/templatetags/core_tags.py
+  s_302d4b0601e736::t_fd115e92140434 234
+archivebox/tests/test_folder_performance.py
+  s_302d4b0601e736::t_bba09c1651f9ff 158-159,186,191,196
+  s_302d4b0601e736::t_661bbba00ec22a 157,160-167,172-185,190,192-195,197-204
+  s_302d4b0601e736::t_f3754db815875d 168,171,187,189
+  s_302d4b0601e736::t_83cb8b030655ab 169-170,188
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_302d4b0601e736::t_0d3c89392e3c6d 80-107
+archivebox/misc/paginators.py
+  s_302d4b0601e736::t_9ce35810c25b76 4,38-46
+archivebox/tests/test_ui_admin_crawl.py
+  s_302d4b0601e736::t_0e04ec3c88c9f5 144-155
+  s_302d4b0601e736::t_f7ee5a3f7a0a9f 127,130-133
+  s_302d4b0601e736::t_e8d7b8a6e610ff 91-100,102-111,113,115-116,118-123,125-126,134-142
+  s_302d4b0601e736::t_c4f222ea17627a 101,112,114,117,124
+  s_302d4b0601e736::t_6dbeba4efe27e6 128-129
+  s_302d4b0601e736::t_d804c3ee3564b8 143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3bbac48d3abbb78d15eeb510ccb879f21cf8f060",
+  "prompts": {},
+  "sessions": {
+    "s_302d4b0601e736": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de8f-9c43-7260-ae87-c39ab9e64f12",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
