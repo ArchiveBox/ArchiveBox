@@ -38,6 +38,7 @@ def test_article_viewer_height_grows_and_shrinks_without_nested_scrolling(snapsh
         output_str="tall.html",
         output_files={path.name: {"size": path.stat().st_size, "mimetype": "text/html"} for path in root.iterdir()},
     )
+
     def select_primary_article(filename):
         try:
             result.output_str = filename
