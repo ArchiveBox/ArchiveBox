@@ -507,8 +507,7 @@ class ArchivingConfig(BaseConfigSet):
     PLUGINS: str = Field(
         default="",
         description=(
-            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. "
-            "Leave blank to use enabled plugins."
+            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. Leave blank to use enabled plugins."
         ),
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
@@ -524,8 +523,7 @@ class ArchivingConfig(BaseConfigSet):
     ONLY_NEW: bool = Field(
         default=True,
         description=(
-            "Skip URLs that already have a snapshot in this collection, so each crawl focuses on new pages. "
-            "Turn off to capture them again."
+            "Skip URLs that already have a snapshot in this collection, so each crawl focuses on new pages. Turn off to capture them again."
         ),
     )
     INDEX_ONLY: bool = Field(default=False, json_schema_extra={"x-advanced": True})

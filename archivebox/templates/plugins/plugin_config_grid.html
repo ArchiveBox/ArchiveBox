@@ -52,12 +52,10 @@
                 </header>
                 <div class="plugin-config-details">
                     {% if plugin.config_fields %}
-                    <div class="plugin-config-grid">
-                        {% for field in plugin.primary_fields %}{% plugin_config_field plugin field %}{% endfor %}
-                    </div>
+                    {% include 'plugins/config_field_sections.html' with fields=plugin.primary_fields %}
                     {% if plugin.advanced_fields %}<details class="plugin-advanced"{% if not plugin.primary_fields %} open{% endif %}>
                         <summary>Advanced · {{ plugin.advanced_fields|length }}</summary>
-                        <div class="plugin-config-grid">{% for field in plugin.advanced_fields %}{% plugin_config_field plugin field %}{% endfor %}</div>
+                        {% include 'plugins/config_field_sections.html' with fields=plugin.advanced_fields %}
                     </details>{% endif %}
                     {% endif %}
                     {% if plugin.required_binary_links %}
@@ -106,6 +104,9 @@
                 panel.querySelectorAll('.plugin-config-field').forEach(field => {
                     field.hidden = !pluginMatches && !`${field.dataset.search} ${field.querySelector('label').textContent}`.toLowerCase().includes(query);
                     matches ||= !field.hidden;
+                });
+                panel.querySelectorAll('.config-field-section').forEach(section => {
+                    section.hidden = !section.querySelector('.plugin-config-field:not([hidden])');
                 });
                 if (query) panel.querySelectorAll('.plugin-advanced').forEach(details => { details.open = Boolean(details.querySelector('.plugin-config-field:not([hidden])')); });
                 tab.hidden = !matches;

@@ -106,6 +106,22 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                     page.get_by_role("link", name="Research", exact=True).click()
                     save = page.locator('button[name="_continue"]')
                 expect(page.locator("#plugin-settings")).to_be_visible()
+                core_tabs = page.locator('[role="tab"][id^="plugin-tab-system-"]')
+                expect(core_tabs).to_have_text(
+                    ["Crawl Defaults", "Server", "Authentication"] if surface == "system" else ["Crawl Defaults"],
+                )
+                expect(core_tabs.locator("svg")).to_have_count(3 if surface == "system" else 1)
+                if surface == "system":
+                    for tab, keys in (
+                        ("Server", ("SEARCH_BACKEND_ENGINE", "PUBLIC_INDEX")),
+                        ("Authentication", ("ALLAUTH_ENABLED", "LDAP_ENABLED")),
+                    ):
+                        page.get_by_role("tab", name=tab, exact=True).click()
+                        panel = page.locator('[role="tabpanel"]:visible')
+                        for key in keys:
+                            expect(panel.locator(f'[data-config-key="{key}"][name]').first).to_be_visible()
+                        page.screenshot(path=str(output / f"system-{tab.lower()}.png"), full_page=True)
+                page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
                 for plugin in discover_plugin_configs():
                     if plugin == "base" or plugin.startswith("search_backend_"):
                         expect(page.locator(f'[role="tab"][data-plugin="{plugin}"]')).to_have_count(1)
@@ -155,7 +171,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                 expect(editable).to_have_value("")
                 editable.fill("2")
                 search.fill("")
-                page.get_by_role("tab", name="Archiving", exact=True).click()
+                page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
                 page.locator(".plugin-settings-content").evaluate("element => element.scrollTop = 0")
                 page.screenshot(path=str(output / f"{surface}-defaults.png"), full_page=True)
                 if surface == "system":
@@ -260,7 +276,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config
             search.fill("")
-            page.get_by_role("tab", name="Archiving", exact=True).click()
+            page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
             page.locator(".plugin-settings-tabs").evaluate("element => element.scrollTop = 0")
             page.locator(".plugin-settings-content").evaluate("element => element.scrollTop = 0")
             page.screenshot(path=str(output / "system-core.png"), full_page=True)

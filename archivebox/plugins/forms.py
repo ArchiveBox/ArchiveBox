@@ -305,21 +305,40 @@ class PluginConfigFormMixin:
             cards = [card for card in cards if card["config_fields"]]
             if cards:
                 self.plugin_groups.append({"field_name": "shared_settings", "title": "Other", "plugins": cards})
-            sections = {}
+            sections = {"crawl_defaults": [], "server": [], "authentication": []}
+            section_labels = {"ALLAUTH_CONFIG": "Accounts and sign-in", "LDAP_CONFIG": "LDAP directory"}
+            group_labels = {
+                "crawl_defaults": ("Crawl Defaults", "M4 4h6v6H4zM14 14h6v6h-6zM4 14h6v6H4zM7 10v4M10 7h7v7"),
+                "server": ("Server", "M4 3h16v7H4zM4 14h16v7H4zM7 6h.01M7 17h.01M11 6h6M11 17h6"),
+                "authentication": ("Authentication", "M5 10h14v11H5zM8 10V7a4 4 0 0 1 8 0v3M12 14v3"),
+            }
             for key, schema in self.settings_schemas()["archivebox"]["properties"].items():
-                sections.setdefault(find_config_section(key), []).append(
-                    self._build_plugin_config_field("archivebox", key, schema, runtime_config),
+                section = find_config_section(key)
+                group = "crawl_defaults"
+                if getattr(self, "system_settings", False) and section != "ARCHIVING_CONFIG":
+                    group = "authentication" if section in section_labels else "server"
+                field = self._build_plugin_config_field("archivebox", key, schema, runtime_config)
+                field["section_label"] = (
+                    "" if group == "crawl_defaults" else section_labels.get(section, _config_label(section.removesuffix("_CONFIG")))
                 )
+                sections[group].append(field)
+            sections["server"].sort(key=lambda field: field["section_label"] != "Server")
             self.plugin_groups.insert(
                 0,
                 {
                     "field_name": "system",
-                    "title": "" if getattr(self, "system_settings", False) else "Capture defaults",
+                    "title": "",
                     "plugins": [
                         {
-                            "name": section.lower(),
+                            "name": section,
                             "is_core": True,
-                            "label": _config_label(section.removesuffix("_CONFIG")),
+                            "label": format_html(
+                                '<span class="plugin-choice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                                'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                                '<path d="{}"/></svg></span><span class="plugin-choice-name">{}</span>',
+                                group_labels[section][1],
+                                group_labels[section][0],
+                            ),
                             "config_fields": fields,
                             "description": "",
                             "config_count": len(fields),
@@ -328,7 +347,8 @@ class PluginConfigFormMixin:
                                 ArchiveBoxConfig.scope_for_key(field["key"]) in {"crawl_frozen", "crawl_execution"} for field in fields
                             ),
                         }
-                        for section, fields in sorted(sections.items(), key=lambda item: item[0] != "ARCHIVING_CONFIG")
+                        for section, fields in sections.items()
+                        if fields
                     ],
                 },
             )

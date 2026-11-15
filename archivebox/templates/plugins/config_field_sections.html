@@ -1,0 +1,12 @@
+{% load core_tags %}
+{% regroup fields by section_label as sections %}
+{% for section in sections %}
+<div class="config-field-section">
+    {% if plugin.is_core and plugin.name != 'crawl_defaults' and section.grouper != 'Server' %}
+        <h3 class="config-section-heading">{{ section.grouper }}</h3>
+    {% endif %}
+    <div class="plugin-config-grid">
+        {% for field in section.list %}{% plugin_config_field plugin field %}{% endfor %}
+    </div>
+</div>
+{% endfor %}

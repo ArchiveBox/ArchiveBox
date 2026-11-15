@@ -258,7 +258,7 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
             expect(page.locator(".success")).to_be_visible()
             assert stored() == before, "Rendering chips and saving unchanged must preserve exact CSV spacing"
 
-            page.locator('[role="tab"][data-plugin="archiving_config"]').click()
+            page.locator('[role="tab"][data-plugin="crawl_defaults"]').click()
             plugins.locator('.config-plugin-chip[title="pdf"] button').click()
             entry = plugins.locator(".config-plugin-autocomplete")
             expect(plugins.locator('datalist option[value="title"]')).to_have_count(1)
@@ -284,7 +284,7 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
                 "CRAWL_DISCOVERY_PLUGINS": "parse_html_urls,parse_txt_urls",
             }
 
-            page.locator('[role="tab"][data-plugin="archiving_config"]').click()
+            page.locator('[role="tab"][data-plugin="crawl_defaults"]').click()
             search.fill("CRAWL_DISCOVERY_PLUGINS")
             expect(discovery.locator(".config-plugin-autocomplete")).to_be_visible()
             search.fill("")
