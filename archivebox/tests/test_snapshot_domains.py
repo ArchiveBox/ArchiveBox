@@ -75,7 +75,7 @@ def test_domain_summary_groups_psl_parents_without_loading_snapshot_rows(admin_u
         Snapshot.objects.filter(pk=page.pk).update(output_size=(index + 1) * 100, created_at=origin + timedelta(days=index))
     with CaptureQueriesContext(connection) as queries:
         rows = {row["domain"]: row for row in Snapshot.objects.domain_summary()}
-    assert len(queries) == 3
+    assert len(queries) == 1
     assert set(rows) == {"example.co.uk", "other.com", "one.github.io", "two.github.io"}
     row = rows["example.co.uk"]
     assert row["scope"] == "*.example.co.uk"
@@ -166,10 +166,73 @@ def test_domain_summary_selects_nearest_root_then_newest(admin_user, urls, expec
         Snapshot.objects.filter(pk=page.pk).update(created_at=origin + timedelta(days=index))
     with CaptureQueriesContext(connection) as queries:
         rows = Snapshot.objects.domain_summary()
-    assert len(queries) == 3
+    assert len(queries) == 1
     assert len(rows) == 1
     assert rows[0]["root_id"] == pages[expected].pk
     assert rows[0]["oldest_id"] == pages[0].pk
     assert rows[0]["newest_id"] == pages[-1].pk
     # A filtered summary must not choose a homepage outside its source queryset.
     assert Snapshot.objects.filter(pk=pages[-1].pk).domain_summary()[0]["root_id"] == pages[-1].pk
+
+
+def test_domain_summary_batches_metadata_and_preserves_ties(admin_user):
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    pages = Snapshot.objects.bulk_create(
+        [
+            Snapshot(crawl=crawl, url=f"https://example.com/{index}", timestamp=str(1900000000 + index), output_size=index)
+            for index in range(1001)
+        ],
+    )
+    created = timezone.now()
+    Snapshot.objects.filter(crawl=crawl).update(created_at=created)
+    with CaptureQueriesContext(connection) as queries:
+        rows = Snapshot.objects.filter(crawl=crawl).domain_summary()
+    assert len(queries) == 2
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["snapshot_count"] == 1001
+    assert row["total_size"] == sum(range(1001))
+    assert row["oldest_id"] == min(page.pk for page in pages)
+    assert row["newest_id"] == row["root_id"] == max(page.pk for page in pages)
+    # Full capture configuration and output inventories do not belong in a
+    # domain tally, regardless of collection size.
+    assert all('"config"' not in query["sql"] and '"output_files"' not in query["sql"] for query in queries)
+
+
+def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, admin_user):
+    from archivebox.core.models import ArchiveResult
+
+    pages = create_pages(admin_user, ["https://large.example/", "https://small.example/"])
+    for page, size in zip(pages, (9000, 10), strict=True):
+        ArchiveResult.objects.create(
+            snapshot=page,
+            plugin="dom",
+            status="succeeded",
+            output_files={"dom/output.html": {"size": size}},
+            output_size=size,
+        )
+    ArchiveResult.objects.create(
+        snapshot=pages[0],
+        plugin="favicon",
+        status="succeeded",
+        output_files={"favicon/favicon.ico": {"size": 12}},
+        output_size=12,
+    )
+    response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [row["domain"] for row in response.context["domains"]] == ["small.example", "large.example"]
+    assert b"favicon/favicon.ico" in response.content
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/", {"o": "-size"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [row["domain"] for row in response.context["domains"]] == ["large.example", "small.example"]
+    assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
+    output_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"]]
+    assert len(output_queries) == 1
+    assert '"core_archiveresult"."plugin" IN' in output_queries[0]
+    assert "'favicon'" in output_queries[0] and "'dom'" not in output_queries[0]
+    # Cached totals do not turn a concurrently removed capture into a 500.
+    Snapshot.objects.filter(pk=pages[0].pk).delete()
+    response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert [row["domain"] for row in response.context["domains"]] == ["small.example"]

@@ -6,7 +6,10 @@ from django.contrib import messages
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
+from django.core.cache import cache
+from django.db import connection
 from django.core.paginator import Paginator
+from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -18,7 +21,8 @@ from archivebox.config.common import get_request_config
 from archivebox.machine.models import Machine, Process
 from .scope import crawl_site_scope, normalize_site_scope, site_snapshot_filters
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.models import Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
 from archivebox.core.routes_util import build_admin_url, build_original_url, build_snapshot_detail_url, is_snapshot_subdomain
 
@@ -49,7 +53,14 @@ def index(request):
         crawl = form.save(request.user)
         messages.success(request, "Crawl queued.")
         return redirect(crawl.admin_change_url)
-    rows = Snapshot.objects.domain_summary()
+    # This page is superuser-only. Cache raw metadata, never rendered URLs or
+    # permission decisions; sorting/paging must not rescan the whole collection.
+    # A transaction's uncommitted rows must not escape into a shared cache.
+    rows = (
+        Snapshot.objects.domain_summary()
+        if connection.in_atomic_block
+        else cache.get_or_set(f"domain-summary:{request.user.pk}", Snapshot.objects.domain_summary, timeout=60)
+    )
     query = str(request.GET.get("q", "")).strip()
     if query:
         rows = [row for row in rows if query.casefold() in row["domain"].casefold()]
@@ -74,8 +85,21 @@ def index(request):
         str(snapshot.pk): snapshot
         for snapshot in Snapshot.objects.filter(pk__in=ids)
         .select_related("crawl", "crawl__created_by")
-        .prefetch_related("archiveresult_set")
+        .only("id", "url", "timestamp", "fs_version", "permissions", "bookmarked_at", "created_at", "crawl__created_by__username")
+        .prefetch_related(
+            Prefetch(
+                "archiveresult_set",
+                queryset=ArchiveResult.objects.filter(
+                    snapshot_id__in={row["root_id"] for row in domains},
+                    plugin__in=get_snapshot_role_names("list_icon"),
+                    status=ArchiveResult.StatusChoices.SUCCEEDED,
+                ),
+            ),
+        )
     }
+    # Captures may have been deleted since the metadata refresh. Their stale
+    # display totals are harmless, but must not turn the next page into a 500.
+    domains.object_list = [row for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
     snapshot_admin = copy(archivebox_admin._registry[Snapshot])
     snapshot_admin.request = request
     config = get_request_config(request)

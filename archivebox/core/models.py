@@ -16,18 +16,15 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
-from django.db.models import Case, Count, F, Max, Min, Q, QuerySet, Sum, Value, When, Window
+from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
 from django.db.models.fields.json import KT
 from django.db.models.functions import (
     Coalesce,
-    Concat,
     Greatest,
-    Length,
     Lower,
     Replace,
     Reverse,
     Right,
-    RowNumber,
     StrIndex,
     Substr,
 )
@@ -681,97 +678,78 @@ class SnapshotQuerySet(PagedQuerySet):
         return TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
 
     def domain_summary(self) -> list[dict]:
-        """Three SQL queries, transferring only grouped domain metadata."""
-        from ipaddress import ip_address
+        """Aggregate narrow metadata in bounded primary-key batches.
 
-        # Avoid duplicated snapshots from tag/folder joins in the source query.
-        base = self.model.objects.filter(pk__in=self.values("pk")).with_hostname()
-        stats = list(
-            base.order_by()
-            .values("_domain_host")
-            .annotate(
-                snapshot_count=Count("pk"),
-                total_size=Coalesce(Sum("output_size"), 0),
-                oldest_at=Min("created_at"),
-                newest_at=Max("created_at"),
-            ),
-        )
-        rows, domain_by_host = {}, {}
+        Parsing the URL expression in three SQL aggregates/window sorts made
+        every ordering of the domains page repeat several full-table sorts.
+        Only domain-sized state is retained here, never Snapshot models or their
+        output manifests, and each batch releases its read cursor before parsing.
+        """
+        from ipaddress import ip_address
+        from urllib.parse import urlsplit
+
+        # An IN subquery preserves filters while deduplicating tag/folder joins.
+        base = self.model.objects.using(self.db).filter(pk__in=self.order_by().values("pk")).order_by("pk")
+        metadata = base.values_list("pk", "url", "created_at", "output_size", "crawl__persona_id")
+        rows, hosts, personas, root_ranks = {}, {}, {}, {}
         extract = self._domain_suffixes()
-        for stat in stats:
-            host = stat.pop("_domain_host")
-            try:
-                normalized_host = host.rstrip(".").encode("idna").decode("ascii").lower()
-            except UnicodeError:
-                normalized_host = host.rstrip(".").lower()
-            registered = extract(normalized_host).top_domain_under_public_suffix
-            domain = registered or normalized_host
-            domain_by_host[host] = domain
-            try:
-                ip_address(domain)
-                scope = f"[{domain}]" if ":" in domain else domain
-            except ValueError:
-                scope = f"*.{domain}" if registered else domain
-            if domain not in rows:
-                rows[domain] = {
-                    "domain": domain,
-                    "scope": scope,
-                    **stat,
-                    "persona_count": 0,
-                    "oldest_id": None,
-                    "newest_id": None,
-                    "root_id": None,
-                }
-            else:
+        last = None
+        while True:
+            batch = list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000])
+            if not batch:
+                break
+            for snapshot_id, url, created, size, persona in batch:
+                try:
+                    parsed = urlsplit(url)
+                    host = parsed.hostname
+                except ValueError:
+                    continue
+                if parsed.scheme not in {"http", "https"} or not host:
+                    continue
+                if host not in hosts:
+                    try:
+                        normalized = host.rstrip(".").encode("idna").decode("ascii").lower()
+                    except UnicodeError:
+                        normalized = host.rstrip(".").lower()
+                    registered = extract(normalized).top_domain_under_public_suffix
+                    domain = registered or normalized
+                    try:
+                        ip_address(domain)
+                        scope = f"[{domain}]" if ":" in domain else domain
+                    except ValueError:
+                        scope = f"*.{domain}" if registered else domain
+                    hosts[host] = domain, scope
+                domain, scope = hosts[host]
+                if domain not in rows:
+                    rows[domain] = {
+                        "domain": domain,
+                        "scope": scope,
+                        "snapshot_count": 0,
+                        "total_size": 0,
+                        "oldest_at": created,
+                        "newest_at": created,
+                        "oldest_id": snapshot_id,
+                        "newest_id": snapshot_id,
+                        "root_id": snapshot_id,
+                    }
+                    personas[domain] = set()
                 row = rows[domain]
-                row["snapshot_count"] += stat["snapshot_count"]
-                row["total_size"] += stat["total_size"]
-                row["oldest_at"] = min(row["oldest_at"], stat["oldest_at"])
-                row["newest_at"] = max(row["newest_at"], stat["newest_at"])
-        personas = {domain: set() for domain in rows}
-        for host, persona in base.exclude(crawl__persona_id=None).order_by().values_list("_domain_host", "crawl__persona_id").distinct():
-            if host in domain_by_host:
-                personas[domain_by_host[host]].add(persona)
-        # Rank paths inside SQL so only one root candidate per host crosses the
-        # DB boundary. Query/fragment slashes are not path segments; a trailing
-        # slash does not make a directory deeper than its slashless spelling.
-        url_without_query = Substr("url", 1, StrIndex(Concat(Replace("url", Value("#"), Value("?")), Value("?")), Value("?")) - 1)
-        authority_and_path = Substr(url_without_query, StrIndex(url_without_query, Value("://")) + 3)
-        path = Substr(authority_and_path, StrIndex(Concat(authority_and_path, Value("/")), Value("/")))
-        extremes = (
-            base.alias(_domain_path=path)
-            .annotate(
-                _domain_depth=Length("_domain_path")
-                - Length(Replace("_domain_path", Value("/"), Value("")))
-                - Case(When(_domain_path__endswith="/", then=Value(1)), default=Value(0)),
-            )
-            .annotate(
-                _domain_first=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").asc(), F("pk").asc()]),
-                _domain_last=Window(RowNumber(), partition_by=F("_domain_host"), order_by=[F("created_at").desc(), F("pk").desc()]),
-                _domain_root=Window(
-                    RowNumber(),
-                    partition_by=F("_domain_host"),
-                    order_by=[F("_domain_depth").asc(), F("created_at").desc(), F("pk").desc()],
-                ),
-            )
-            .filter(Q(_domain_first=1) | Q(_domain_last=1) | Q(_domain_root=1))
-            .order_by()
-            .values_list("_domain_host", "pk", "created_at", "_domain_root", "_domain_depth")
-        )
-        root_ranks = {}
-        for host, snapshot_id, created, root_order, depth in extremes:
-            if host not in domain_by_host:
-                continue
-            domain = domain_by_host[host]
-            row = rows[domain]
-            rank = (-depth, created, snapshot_id)
-            if root_order == 1 and (domain not in root_ranks or rank > root_ranks[domain]):
-                root_ranks[domain] = rank
-                row["root_id"] = snapshot_id
-            if created == row["oldest_at"] and (row["oldest_id"] is None or snapshot_id < row["oldest_id"]):
-                row["oldest_id"] = snapshot_id
-            if created == row["newest_at"] and (row["newest_id"] is None or snapshot_id > row["newest_id"]):
-                row["newest_id"] = snapshot_id
+                row["snapshot_count"] += 1
+                row["total_size"] += size or 0
+                if persona is not None:
+                    personas[domain].add(persona)
+                if (created, snapshot_id) < (row["oldest_at"], row["oldest_id"]):
+                    row["oldest_at"], row["oldest_id"] = created, snapshot_id
+                if (created, snapshot_id) > (row["newest_at"], row["newest_id"]):
+                    row["newest_at"], row["newest_id"] = created, snapshot_id
+                depth = parsed.path.count("/") - int(parsed.path.endswith("/"))
+                rank = (-depth, created, snapshot_id)
+                if domain not in root_ranks or rank > root_ranks[domain]:
+                    root_ranks[domain] = rank
+                    row["root_id"] = snapshot_id
+            if len(batch) < 1000:
+                break
+            last = batch[-1][0]
         for domain, row in rows.items():
             row["persona_count"] = len(personas[domain])
         return list(rows.values())
