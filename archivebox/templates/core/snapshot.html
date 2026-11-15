@@ -249,11 +249,16 @@
             .header-top .header-url { display: flex; gap: 0; padding: 0; }
             .header-page-link, .header-page-metadata { display: contents; }
             .header-url-location { display: flex; align-items: center; flex: 1; min-width: 0; }
-            .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; overflow: hidden; }
+            .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; }
             .header-top .header-url-text { flex: 9 1 0; min-width: 40px; max-width: max-content; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
             .header-title-text { flex: 11 1 0; min-width: 0; max-width: max-content; color: #efc9d8; font-size: 12px; }
-            .header-tags { display: flex; flex-wrap: nowrap; min-width: 0; overflow: hidden; gap: 4px; }
-            .header-top .header-tags .tag-pill { flex: 0 0 auto; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
+            .header-tags { display: block; flex: 0 0 auto; min-width: 0; max-width: 30%; }
+            .header-tags > summary { display: flex; align-items: center; gap: 4px; height: 20px; overflow: hidden; }
+            .header-tags .header-tags-more { flex: 0 0 auto; padding: 0 3px; font-size: 10px; }
+            .header-tags [hidden] { display: none !important; }
+            .header-tags .snapshot-variants-list { display: flex; flex-wrap: wrap; gap: 6px; width: 280px; }
+            .header-top .header-tags .snapshot-variants-list .tag-pill { max-width: 100%; height: auto; white-space: normal; overflow-wrap: anywhere; }
+            .header-top .header-tags .tag-pill { flex: 0 0 auto; min-width: 0; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
             .header-text-dot { flex: 0 0 auto; color: #ffffff60; }
             .header-url-actions { display: flex; align-self: stretch; flex: 0 0 auto; }
             .header-url-tools { display: flex; align-self: stretch; min-height: 26px; }
@@ -319,7 +324,6 @@
                 .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
                 .header-title-text { flex: 1 1 auto; max-width: none; font-size: 12px; }
                 .header-text-dot { display: none; }
-                .header-tags { flex: 0 1 auto; max-width: 60%; overflow: clip; }
                 .header-url-actions { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; }
                 .header-capture-row { grid-column: 3; grid-row: 3; justify-content: flex-end; max-width: 45vw; }
                 .header-top .header-url-action { width: 26px; }
@@ -1253,7 +1257,13 @@
                                 <span role="heading" aria-level="1" class="header-title-text" title="{{title}}">{{title}}</span>
                                 {% if title_tags %}
                                     <span class="header-text-dot header-tags-dot" aria-hidden="true">·</span>
-                                    <span class="header-tags">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}</span>
+                                    <details class="header-tags snapshot-variants">
+                                        <summary aria-label="Show all tags">
+                                            {% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}
+                                            <span class="header-tags-more">Tags</span>
+                                        </summary>
+                                        <div class="snapshot-variants-list">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}">{{tag.name}}</span>{% endfor %}</div>
+                                    </details>
                                 {% endif %}
                                 </span>
                                 </span>
@@ -1391,6 +1401,38 @@
                     img.style.display = 'block'
                     img.style.margin = '0 auto'
                 } catch (err) {}
+            }
+
+            // Keep whole labels in the header; use the same +N overflow pattern
+            // as snapshot rows without expanding the navigation bar.
+            const headerTags = document.querySelector('.header-tags')
+            if (headerTags) {
+                const summary = headerTags.querySelector('summary')
+                const pills = [...summary.querySelectorAll('.tag-pill')]
+                const more = summary.querySelector('.header-tags-more')
+                function layoutHeaderTags() {
+                    pills.forEach(pill => { pill.hidden = false })
+                    more.hidden = false
+                    more.textContent = `+${pills.length}`
+                    const widths = pills.map(pill => pill.getBoundingClientRect().width)
+                    const gap = parseFloat(getComputedStyle(summary).columnGap) || 0
+                    const total = widths.reduce((sum, width) => sum + width, 0) + gap * (pills.length - 1)
+                    headerTags.style.width = `${total}px`
+                    const available = summary.clientWidth
+                    const limit = total <= available ? available : available - more.getBoundingClientRect().width - gap
+                    let used = 0
+                    let visible = 0
+                    pills.forEach((pill, index) => {
+                        const next = widths[index] + (visible ? gap : 0)
+                        pill.hidden = used + next > limit
+                        if (!pill.hidden) { used += next; visible++ }
+                    })
+                    more.textContent = `+${pills.length - visible}`
+                    more.hidden = visible === pills.length
+                }
+                new ResizeObserver(layoutHeaderTags).observe(document.querySelector('.header-nav'))
+                document.fonts.ready.then(layoutHeaderTags)
+                layoutHeaderTags()
             }
 
             function attachPreviewFrameHandlers(frame) {

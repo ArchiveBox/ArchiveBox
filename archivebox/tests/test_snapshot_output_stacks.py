@@ -489,6 +489,86 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+    "tag_names",
+    [
+        ("daily", "hacker-news"),
+        ("daily", "hacker-news", ("a very long tag name " * 4).strip(), "linux", "hardware", "computers"),
+        (
+            "daily",
+            "hacker-news",
+            "linux",
+            "hardware",
+            "computers",
+            "technology",
+            "bookmarks",
+            "research",
+            "open-source",
+            "programming",
+            "tutorials",
+            "reference",
+        ),
+    ],
+)
+@pytest.mark.parametrize("long_url", [False, True])
+def test_snapshot_header_tags_overflow_without_hiding_url(snapshot, live_server, browser_runtime, tag_names, tmp_path, long_url):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.models import Tag
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.title = "An inexpensive computer running Linux and BusyBox with a very long descriptive title " * 3
+    if long_url:
+        snapshot.url = "https://www.iana.org/assignments/ospf-authentication-codes/ospf-authentication-codes.xhtml#authentication-codes"
+    snapshot.save(update_fields=["permissions", "title", "url"])
+    snapshot.tags.set([Tag.objects.create(name=name) for name in tag_names])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html")
+        for width in (1920, 1440, 1280, 1100, 768, 600, 390, 320):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+            summary = page.locator(".header-tags > summary")
+            bounds = summary.bounding_box()
+            pills = summary.locator(".tag-pill:visible")
+            more = summary.locator(".header-tags-more")
+            assert bounds["height"] == 20
+            for pill in pills.all():
+                box = pill.bounding_box()
+                assert box["x"] >= bounds["x"] - 1
+                assert box["x"] + box["width"] <= bounds["x"] + bounds["width"] + 1
+                assert box["y"] == bounds["y"]
+            if pills.count() < len(tag_names):
+                assert more.inner_text() == f"+{len(tag_names) - pills.count()}"
+                assert more.is_visible()
+            url = page.locator(".header-url-text")
+            if long_url:
+                assert url.bounding_box()["width"] >= 120
+            else:
+                assert url.evaluate("el => el.scrollWidth <= el.clientWidth")
+            page.locator(".header-top").screenshot(path=str(tmp_path / f"header-{width}.png"))
+            height = page.locator(".header-top").bounding_box()["height"]
+            summary.click()
+            menu = page.locator(".header-tags .snapshot-variants-list")
+            assert menu.is_visible()
+            assert sorted(menu.locator(".tag-pill").all_text_contents()) == sorted(tag_names)
+            assert page.locator(".header-top").bounding_box()["height"] == height
+            if width == 1440:
+                page.screenshot(path=str(tmp_path / "tags-menu-1440.png"))
+            summary.click()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("javascript", [False, True])
 def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(snapshot, live_server, browser_runtime, javascript):
     import hashlib
