@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 
 from asgiref.sync import iscoroutinefunction
-from django.conf import settings
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.staticfiles import finders
@@ -483,10 +482,7 @@ class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
     header = "HTTP_REMOTE_USER"
 
     def process_request(self, request):
-        config = request.__dict__.get("archivebox_config")
-        if config is None:
-            config = get_config(base_config=settings.CONFIG, resolve_plugins=False)
-            request.archivebox_config = config
+        config = get_request_config(request, resolve_plugins=False)
         self.header = "HTTP_{normalized}".format(normalized=config.REVERSE_PROXY_USER_HEADER.replace("-", "_").upper())
         if config.REVERSE_PROXY_WHITELIST == "":
             return

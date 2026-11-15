@@ -270,11 +270,17 @@ class TestMachineModel:
         second = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
         assert second.status_code == 200
         assert second.context["FOOTER_INFO"] == footer
+        newer_footer = "Machine config committed after the request resolved"
+        Machine.objects.filter(pk=machine.pk).update(config={**machine.config, "FOOTER_INFO": newer_footer})
         # Template/context consumers still reuse this request's resolved config.
         with CaptureQueriesContext(connection) as queries:
             assert get_request_config(second.wsgi_request).FOOTER_INFO == footer
             assert get_request_config(second.wsgi_request, resolve_plugins=True).FOOTER_INFO == footer
         assert list(queries) == []
+
+        third = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+        assert third.status_code == 200
+        assert third.context["FOOTER_INFO"] == newer_footer
 
     def test_machine_current_recreates_stale_cached_row(self):
         """Machine.current() should recreate the cached machine if the row was deleted."""

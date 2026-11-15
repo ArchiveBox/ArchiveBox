@@ -1250,9 +1250,28 @@ def get_request_config(request: Any, *, resolve_plugins: bool = False) -> Archiv
     request_config = request_state.get("archivebox_config")
     request_config_resolves_plugins = bool(request_state.get("_archivebox_config_resolves_plugins", False))
     if request_config is None or (resolve_plugins and not request_config_resolves_plugins):
+        from django.apps import apps
         from django.conf import settings
 
-        request_config = get_config(base_config=settings.CONFIG, resolve_plugins=resolve_plugins)
+        if "_archivebox_config_machine" not in request_state:
+            machine = None
+            try:
+                if apps.ready:
+                    from archivebox.machine.models import Machine
+
+                    machine = Machine.current_readonly()
+            except (DatabaseError, ImportError, RuntimeError, TypeError, ValueError):
+                pass
+            # Core and plugin resolution share one committed config per request.
+            # The next request reads fresh DB state, independent of the file mirror.
+            request._archivebox_config_machine = machine
+        machine = request._archivebox_config_machine
+        request_config = get_config(
+            base_config=settings.CONFIG,
+            machine=machine,
+            include_machine=machine is not None,
+            resolve_plugins=resolve_plugins,
+        )
         request._archivebox_config_resolves_plugins = resolve_plugins
     if request_config.SERVER_SECURITY_MODE == "auto":
         request_host = (urlparse(f"//{request.get_host()}").hostname or "").lower().rstrip(".")
