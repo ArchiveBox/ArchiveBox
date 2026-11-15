@@ -1,0 +1,12 @@
+<svg class="admin-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+{% if action == 'add_tags' %}<path d="M12 5v14M5 12h14"/>
+{% elif action == 'remove_tags' %}<path d="M5 12h14"/>
+{% elif 'delete' in action %}<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5"/>
+{% elif 'permissions' in action %}<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/>
+{% elif 'pause' in action %}<path d="M8 5v14M16 5v14"/>
+{% elif 'resume' in action %}<path d="m8 5 11 7-11 7Z"/>
+{% elif 'seal' in action %}<path d="m5 12 4 4L19 6"/>
+{% elif action == 'move_to_folder' %}<path d="M3 7V5h7l2 2h9v13H3v-3m-1-5h11m-4-4 4 4-4 4"/>
+{% else %}<path d="M20 7v5h-5M4 17v-5h5M5.6 7a7 7 0 0 1 11.6-2L20 8M4 16l2.8 3A7 7 0 0 0 18.4 17"/>
+{% endif %}
+</svg>

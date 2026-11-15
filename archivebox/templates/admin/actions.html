@@ -11,7 +11,7 @@
             {% if enhanced_actions < 11 %}
               {% for value, label in action_form.action.field.choices %}
                 {% if value == 'add_tags' or value == 'remove_tags' %}
-                  <button type="button" class="button" name="{{ value }}" data-admin-action="{{ value }}">{{ label }}</button>
+                  <button type="button" class="button" name="{{ value }}" data-admin-action="{{ value }}" aria-label="{% if value == 'add_tags' %}Add tags{% else %}Remove tags{% endif %}">{% include "admin/action_icon.html" with action=value %}</button>
                 {% endif %}
               {% endfor %}
             {% endif %}
@@ -43,7 +43,7 @@
                       {% if action_value == 'overwrite_snapshots' %}<option value="{{ action_value }}">♻️ Reset &amp; retry from scratch</option>{% endif %}
                     {% endfor %}
                   </select>
-                  <span aria-hidden="true" class="button">Re-Archive <span aria-hidden="true">▾</span></span>
+                  <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action="rearchive" %}Re-Archive <span aria-hidden="true">▾</span></span>
                 </span>
               {% endifchanged %}
             {% elif value == 'set_crawl_permissions' or value == 'set_snapshot_permissions' %}
@@ -54,10 +54,10 @@
                   <option value="unlisted">🔗 Unlisted</option>
                   <option value="private">🔒 Private</option>
                 </select>
-                <span aria-hidden="true" name="{{ value }}" class="button">{{ label }}</span>
+                <span aria-hidden="true" name="{{ value }}" class="button">{% include "admin/action_icon.html" with action=value %}{{ label }}</span>
               </span>
             {% elif value and value != 'add_tags' and value != 'remove_tags' %}
-              <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{{ label }}</button>
+              <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% include "admin/action_icon.html" with action=value %}{% if value == 'delete_selected' %}Delete{% else %}{{ label }}{% endif %}</button>
             {% endif %}
           {% endfor %}
         </div>

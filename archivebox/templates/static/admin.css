@@ -132,24 +132,15 @@ body.change-list #content .object-tools {
 #content .object-tools a:link,
 #content .object-tools a:visited,
 #content .object-tools form button {
-    border-radius: 0px;
-    background-color: #f5dd5d;
-    color: #333;
-    font-size: 12px;
-    font-weight: 800;
+    border: 1px solid var(--border-color, #d0d5dd);
+    border-radius: 6px;
+    background-color: var(--body-bg, #fff);
+    color: var(--body-quiet-color, #667085);
+    font: 500 13px/1.4 var(--font-family-primary);
+    padding: 8px 12px;
 }
-#content .object-tools form {
-    display: inline;
-    margin: 0;
-}
-#content .object-tools form button {
-    border: 0;
-    cursor: pointer;
-}
-
-#content .object-tools a.addlink {
-    background-blend-mode: difference;
-}
+#content .object-tools form { display: inline; margin: 0; }
+#content .object-tools a.addlink { padding-right: 26px; }
 
 @media (max-width: 900px) {
     body.change-form div.breadcrumbs {
@@ -247,47 +238,6 @@ body.change-list:not(.model-snapshot) #content #changelist #toolbar .changelist-
     color: #aa1e55;
 }
 
-
-#content #changelist .actions .button {
-    border-radius: 0px;
-    background-color: #f5dd5d;
-    color: #333;
-    font-size: 12px;
-    font-weight: 800;
-    margin-right: 4px;
-    box-shadow: 4px 4px 4px rgba(0,0,0,0.02);
-    border: 1px solid rgba(0,0,0,0.08);
-}
-#content #changelist .actions .button:hover {
-    border: 1px solid rgba(0,0,0,0.2);
-    opacity: 0.9;
-}
-#content #changelist .actions .button[name=verify_snapshots], #content #changelist .actions .button[name=update_titles] {
-    background-color: #dedede;
-    color: #333;
-}
-#content #changelist .actions .button[name=update_snapshots] {
-    background-color: #9ee54b;
-    color: #333;
-}
-#content #changelist .actions .button[name=resnapshot_snapshot] {
-    background-color:lightseagreen;
-    color: #333;
-}
-#content #changelist .actions .button[name=overwrite_snapshots] {
-    background-color: #ffaa31;
-    color: #333;
-    margin-left: 10px;
-}
-#content #changelist .actions .button[name=delete_snapshots] {
-    background-color: #f91f74;
-    color: rgb(255 248 252 / 64%);
-}
-#content #changelist .actions .button[name=add_tags] {
-}
-#content #changelist .actions .button[name=remove_tags] {
-    margin-right: 25px;
-}
 
 #content #changelist .actions > label {
     max-height: 25px;
@@ -3284,31 +3234,10 @@ body.model-snapshot.change-list #changelist-form > .results {
     text-align: center;
 }
 
-.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resnapshot_snapshot"] {
-    background: #4fb5ad;
-    color: #082f2c;
-}
 
-.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="update_snapshots"] {
-    background: #a8df57;
-    color: #17310b;
-}
 
-.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="overwrite_snapshots"] {
-    background: #f7ad43;
-    color: #3b2405;
-}
 
-.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_snapshots"] {
-    background: #e43d79;
-    color: #fff7fb;
-}
 
-.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_snapshot_permissions"] {
-    background: #f6e46f;
-    color: #1f2937;
-    text-decoration: none;
-}
 
 .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper {
     display: inline-flex;
@@ -3905,50 +3834,15 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
     line-height: 1;
 }
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="pause_selected_crawls"]::before {
-    content: "⏸";
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resume_selected_crawls"]::before {
-    content: "▶";
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="seal_selected_crawls"]::before {
-    content: "✓";
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_selected_batched"]::before {
-    content: "🗑";
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_crawl_permissions"]::before {
-    content: "👁";
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="pause_selected_crawls"] {
-    background: #4fb5ad;
-    color: #082f2c;
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resume_selected_crawls"] {
-    background: #a8df57;
-    color: #17310b;
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="seal_selected_crawls"] {
-    background: #f7ad43;
-    color: #3b2405;
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_selected_batched"] {
-    background: #e43d79;
-    color: #fff7fb;
-}
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_crawl_permissions"] {
-    background: #f6e46f;
-    color: #1f2937;
-}
 
 .model-crawl.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper {
     display: inline-flex;
@@ -4454,3 +4348,90 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
 .snapshot-changelist-toolbar>strong{margin-right:auto;font-weight:600}
 .snapshot-changelist-toolbar>.snapshot-export-block{min-width:100px}
 .snapshot-changelist-toolbar .library-export-toggle{font-size:12px}
+
+/* The same outlined controls are used for every admin action toolbar. */
+#content #changelist #changelist-form .actions .button {
+    min-height: 34px;
+    height: auto;
+    margin: 0;
+    padding: 7px 11px;
+    border: 1px solid var(--border-color, #d0d5dd);
+    border-radius: 6px;
+    background: var(--body-bg, #fff);
+    color: var(--body-quiet-color, #667085);
+    box-shadow: none;
+    font: 500 13px/1.35 var(--font-family-primary) !important;
+    gap: 7px;
+}
+#content #changelist #changelist-form .actions .button:hover {
+    background: var(--darkened-bg, #f8f9fb);
+    border-color: var(--body-quiet-color, #667085);
+    color: var(--body-fg, #344054);
+}
+#content #changelist #changelist-form .actions .button[name*="delete"] {
+    color: var(--error-fg, #b42318);
+}
+.admin-action-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+#content #changelist #changelist-form .actions .actions-tags-with-buttons {
+    height: auto;
+    min-height: 34px;
+    background: var(--body-bg, #fff);
+    border-color: var(--border-color, #d0d5dd);
+    border-radius: 6px;
+}
+#content #changelist #changelist-form .actions .actions-tags-with-buttons .button { width: 34px; min-width: 34px; border-width: 0 0 0 1px; border-radius: 0; padding: 7px; }
+#content #changelist #changelist-form .actions .actions-tags-with-buttons .button:last-child { border-radius: 0 5px 5px 0; }
+@media (max-width: 767px) {
+    .submit-row input, .submit-row button, .submit-row a.button,
+    #content .object-tools a, #content .object-tools button,
+    #content #changelist #changelist-form .actions .button { min-height: 44px; padding: 10px 12px; }
+    #content #changelist #changelist-form .actions .actions-tags-with-buttons .button { width: 44px; min-width: 44px; }
+}
+
+/* Selected-row controls get their own wrapping row rather than covering search. */
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist .changelist-form-container > div:has(.action-buttons:not([hidden])) {
+    grid-template-areas: "toolbar toolbar" "actions actions" "results results" "footer footer" !important;
+}
+#content #changelist #changelist-form > .actions-top:has(.action-buttons:not([hidden])) {
+    display: flex !important;
+    grid-area: actions !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 8px !important;
+    overflow: visible;
+}
+#content #changelist #changelist-form .actions:has(.action-buttons:not([hidden])) .actions-left {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    height: auto !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+}
+#content #changelist #changelist-form .actions .action-buttons {
+    display: flex !important;
+    flex-wrap: wrap;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    gap: 6px;
+}
+#content #changelist #changelist-form .actions .action-buttons[hidden] { display: none !important; }
+#content #changelist #changelist-form .actions .action-buttons .button { width: auto; }
+#content #changelist #changelist-form .actions .actions-tags-with-buttons {
+    flex: 1 1 180px;
+    width: auto !important;
+    max-width: 320px !important;
+}
+#content #changelist #changelist-form .actions .actions-folder label { gap: 6px; }
+#content #changelist #changelist-form .actions .actions-folder select { min-height: 34px; padding: 5px 8px; }
+#content #changelist #changelist-form .actions .action-summary { height: auto !important; margin-left: auto !important; }
+@media (max-width: 767px) {
+    #content #changelist #changelist-form .actions .actions-tags-with-buttons { max-width: none !important; flex-basis: 100%; }
+    #content #changelist #changelist-form .actions .actions-folder select { min-height: 44px; }
+    #content #changelist #changelist-form .actions .action-buttons { width: 100% !important; }
+    #content #changelist #changelist-form .actions .action-buttons > * { flex: 1 1 calc(50% - 6px); }
+    #content #changelist #changelist-form .actions .action-buttons .button { width: 100%; }
+}

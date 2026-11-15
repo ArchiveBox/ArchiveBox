@@ -492,96 +492,54 @@
                 width: 100% !important;
             }
 
-            /* ============================================
-               Button styling (shadcn-inspired)
-               ============================================ */
-
-            /* Base button styles */
-            input[type="submit"],
-            button,
-            .button,
-            .btn,
-            a.button,
-            .submit-row input,
-            .submit-row a.button {
+            /* Shared controls follow the library toolbar's neutral, outlined style. */
+            input[type="submit"], button, .button, .btn, a.button,
+            .submit-row input, .submit-row a.button {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 8px;
-                padding: 10px 18px;
-                font-size: 14px;
-                font-weight: 500;
-                font-family: var(--font-family-primary);
-                line-height: 1.4;
-                border-radius: 8px;
-                border: 1px solid transparent;
-                cursor: pointer;
-                transition: all 0.15s ease;
+                gap: 7px;
+                padding: 8px 12px;
+                border: 1px solid var(--border-color, #d0d5dd);
+                border-radius: 6px;
+                background: var(--body-bg, #fff);
+                color: var(--body-fg, #344054);
+                font: 500 13px/1.4 var(--font-family-primary);
                 text-decoration: none;
                 white-space: nowrap;
+                box-shadow: none;
+                cursor: pointer;
+                transition: background-color .12s ease, border-color .12s ease;
                 -webkit-font-smoothing: antialiased;
             }
-
-            /* Primary button (default) */
-            input[type="submit"],
-            button[type="submit"],
-            .button.default,
+            input[type="submit"]:hover, button:hover, .button:hover, .btn:hover,
+            .submit-row input:hover, .submit-row a.button:hover {
+                background: var(--darkened-bg, #f8f9fb);
+                border-color: var(--body-quiet-color, #667085);
+                color: var(--body-fg, #344054);
+            }
+            input[type="submit"]:focus-visible, button:focus-visible, .button:focus-visible,
+            .btn:focus-visible, .submit-row input:focus-visible {
+                outline: 2px solid var(--link-fg, #a51c50);
+                outline-offset: 2px;
+            }
+            input[type="submit"], button[type="submit"], .button.default,
             .submit-row input[type="submit"] {
-                background: #0f172a;
-                color: #fff;
-                border-color: #0f172a;
+                font-weight: 600;
             }
-
-            input[type="submit"]:hover,
-            button[type="submit"]:hover,
-            .button.default:hover,
-            .submit-row input[type="submit"]:hover {
-                background: #1e293b;
-                border-color: #1e293b;
+            button:disabled, input[type="submit"]:disabled, .button[aria-disabled="true"] {
+                opacity: .55;
+                cursor: default;
             }
-
-            input[type="submit"]:active,
-            button[type="submit"]:active {
-                background: #334155;
-                transform: translateY(1px);
+            .deletelink, a.deletelink, button.deletelink, input[name="delete"], .button.delete {
+                background: var(--body-bg, #fff);
+                color: var(--error-fg, #b42318);
+                border-color: var(--border-color, #d0d5dd);
             }
-
-            /* Secondary/outline buttons */
-            button:not([type="submit"]),
-            .button:not(.default),
-            a.button {
-                background: #fff;
-                color: #374151;
-                border-color: #d1d5db;
-            }
-
-            button:not([type="submit"]):hover,
-            .button:not(.default):hover,
-            a.button:hover {
-                background: #f9fafb;
-                border-color: #9ca3af;
-                color: #1f2937;
-            }
-
-            /* Danger button */
-            .deletelink,
-            a.deletelink,
-            button.deletelink,
-            input[name="delete"],
-            .button.delete {
-                background: #fff;
-                color: #dc2626;
-                border-color: #fecaca;
-            }
-
-            .deletelink:hover,
-            a.deletelink:hover,
-            button.deletelink:hover,
-            input[name="delete"]:hover,
-            .button.delete:hover {
-                background: #fef2f2;
-                border-color: #f87171;
-                color: #b91c1c;
+            .deletelink:hover, a.deletelink:hover, button.deletelink:hover,
+            input[name="delete"]:hover, .button.delete:hover {
+                color: var(--error-fg, #b42318);
+                background: color-mix(in srgb, var(--error-fg, #b42318) 7%, var(--body-bg, #fff));
             }
 
             /* Small buttons */
