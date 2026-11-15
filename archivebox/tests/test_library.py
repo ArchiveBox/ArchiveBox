@@ -34,7 +34,7 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert 'class="library-breadcrumbs"' not in html
     assert 'class="library-context"' not in html
     assert '<span class="folder-current">Papers</span>' in html
-    assert 'aria-label="Add folder in Research"' not in html
+    assert 'aria-label="Add folder in Research"' in html
     assert "Add subfolder" in html
     from html import unescape
     from urllib.parse import parse_qs, urlsplit
