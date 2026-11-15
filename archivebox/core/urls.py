@@ -29,11 +29,9 @@ from archivebox.search.views import public_snapshot_search_stream_view
 from archivebox.plugins.discovery import get_plugin_apps
 from archivebox.plugins.host import host
 from archivebox.config.rule_views import url_rules_preview
-from archivebox.config.settings_views import system_settings
 
 urlpatterns = [
-    path("admin/settings/", archivebox_admin.admin_view(system_settings), name="system-settings"),
-    path("admin/settings/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
+    path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
