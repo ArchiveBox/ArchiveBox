@@ -445,7 +445,9 @@ document.addEventListener('DOMContentLoaded', () => {
   try {desktopHidden = localStorage.getItem('archivebox.sidebar-hidden') === 'true';} catch (_) {}
   function viewportChanged() {
     const hidden = mobileViewport.matches ? mobileCollapsed : desktopHidden;
-    sidebar.classList.toggle('is-collapsed', mobileViewport.matches && mobileCollapsed);
+    // The mobile CSS owns the breakpoint. Preserve its state on desktop so a
+    // resize cannot briefly expand the folder tree before matchMedia fires.
+    sidebar.classList.toggle('is-collapsed', mobileCollapsed);
     library.classList.toggle('sidebar-hidden', !mobileViewport.matches && desktopHidden);
     reopenToggle.hidden = mobileViewport.matches || !desktopHidden;
     mobileToggle.setAttribute('aria-expanded', String(!hidden));
