@@ -1234,6 +1234,16 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
         raise Http404
 
     rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(snapshot, rel_path)
+    # The completed hashes result is the seal marker. Its DB revision avoids
+    # stat/read of hashes.json on every replay asset and WACZ range request.
+    hashes_result = (
+        snapshot.archiveresult_set.filter(plugin="hashes", status="succeeded").values("id", "modified_at", "output_files").first()
+    )
+    hashes_files = hashes_result["output_files"] if hashes_result else None
+    has_hashes = isinstance(hashes_files, dict) and any(
+        isinstance(hashes_files.get(path), dict) for path in ("hashes.json", "hashes/hashes.json")
+    )
+    request.archivebox_output_revision = f"{hashes_result['id'].hex}-{hashes_result['modified_at'].isoformat()}" if has_hashes else ""
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
     # Only the primary representation describes the page; logs and helper assets do not.

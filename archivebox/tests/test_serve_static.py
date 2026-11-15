@@ -335,6 +335,15 @@ def test_favicon_cache_policy_survives_replay_and_middleware(snapshot, admin_use
     (hashes / "hashes.json").write_text(
         json.dumps({"files": [{"path": "favicon/favicon.ico", "hash": hashlib.sha256(content).hexdigest()}]}),
     )
+    from archivebox.core.models import ArchiveResult
+
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="hashes",
+        status="succeeded",
+        output_str="Completed hashes",
+        output_files={"hashes.json": {"size": (hashes / "hashes.json").stat().st_size}},
+    )
     url = urlsplit(build_snapshot_url(str(snapshot.id), "favicon/favicon.ico"))
     client = Client()
     if permissions == "private":
