@@ -150,6 +150,14 @@ def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(
     first_end = snapshots[0].downloaded_at
     later_starts = [started for snapshot_id, started, _ended in hook_intervals if snapshot_id != first_id and started]
     assert later_starts and first_end <= min(later_starts), hook_intervals
+    measurements = [
+        datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
+        for stamp in re.findall(
+            r"\[([^]\n]+)\] INFO archivebox.services.runner Snapshot admission: concurrency limit=3, observed memory cost=[1-9]\d* bytes",
+            result.stderr,
+        )
+    ]
+    assert measurements and min(measurements) <= min(later_starts), result.stderr
     later_intervals = [
         (snapshot_id, started, ended) for snapshot_id, started, ended in hook_intervals if snapshot_id != first_id and started and ended
     ]

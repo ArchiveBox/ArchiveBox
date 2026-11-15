@@ -93,13 +93,22 @@ def test_merged_capture_can_rebuild_destination_search_index(initialized_archive
     destination.mkdir()
     run_archivebox_cmd(["init", "--quick"], cwd=destination, env=env, check=True)
     shutil.copytree(initialized_archive / "archive", destination / "archive", dirs_exist_ok=True, symlinks=True)
+    with use_archivebox_db(destination):
+        from archivebox.personas.models import Persona
+
+        destination_persona = Persona.find_named(source_metadata["persona_name"])
+        assert destination_persona is not None
+        destination_persona_id = str(destination_persona.pk)
+        destination_persona_config = dict(destination_persona.config)
+    expected_metadata = {**source_metadata, "persona_id": destination_persona_id}
     # Repeat discovery before indexing, to ensure a retry cannot reinstate the
     # source's completed search state or trigger a capture.
     for _ in range(2):
         run_archivebox_cmd(["update", "--rescan", "--migrate-only"], cwd=destination, env=env, check=True)
         assert not (destination / "search.sqlite3").exists()
         with use_archivebox_db(destination):
-            assert Snapshot.objects.get(pk=snapshot_id).to_json() == source_metadata
+            assert Snapshot.objects.get(pk=snapshot_id).to_json() == expected_metadata
+            assert Persona.objects.get(pk=destination_persona_id).config == destination_persona_config
     run_archivebox_cmd(["update", "--index-only"], cwd=destination, env=search_env, check=True)
     assert (destination / "search.sqlite3").is_file()
     with sqlite3.connect(destination / "search.sqlite3") as conn:

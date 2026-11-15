@@ -130,7 +130,7 @@ def test_behavior_update_yields_to_server_then_finishes_visible_indexing(tmp_pat
 
         server = start_archivebox_server(tmp_path, port=port, log_name="behavior-server-takes-update.log", env=env)
         assert get_http_response(port, host=f"archivebox.localhost:{port}").status_code < 500
-        wait_for_log(update_log, "A newer archivebox process took over the orchestrator, sonic", timeout=90)
+        wait_for_log(update_log, "A newer archivebox process took over the orchestrator and plugin services", timeout=90)
 
         stop_archivebox_process(server, signal.SIGTERM)
         server = None
@@ -230,7 +230,7 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
 
         server = start_archivebox_server(tmp_path, port=port, log_name="server-takes-real-sqlite-update.log", env=env)
         server_log = server.log_path
-        wait_for_log(update_log, "A newer archivebox process took over the orchestrator, sonic", timeout=90)
+        wait_for_log(update_log, "A newer archivebox process took over the orchestrator and plugin services", timeout=90)
         assert pid_is_alive(update_proc.pid)
         assert pid_is_alive(server.pid)
         server_text = server_log.read_text(encoding="utf-8", errors="replace")

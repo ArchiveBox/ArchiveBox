@@ -184,8 +184,24 @@ def _reconcile_directory(directory: Path, *, repair_unattributed_size: bool = Fa
             # that absent crawl metadata cannot be reconstructed exactly.
             if not crawl_record:
                 print(f"[yellow]    {directory}: no Crawl record; preserving ID with recovered metadata[/yellow]")
+            from archivebox.personas.models import Persona
+
+            persona_id = crawl_record.get("persona_id", record.get("persona_id"))
+            persona_name = crawl_record.get("persona_name", record.get("persona_name"))
+            persona = Persona.objects.filter(pk=persona_id).first() if persona_id else None
+            if persona is None and persona_name:
+                # Personas are collection-local credentials. Reuse a destination
+                # name without replacing its ID/config; otherwise retain only
+                # the exported identity, never a source browser profile.
+                defaults = {"created_by": user}
+                if persona_id:
+                    defaults["id"] = persona_id
+                persona = Persona.get_or_create_named(persona_name, defaults=defaults)
+            if persona_id and persona is None:
+                raise ValueError("unknown persona ID without an exported persona name")
             crawl = Crawl(
                 id=crawl_id,
+                persona=persona,
                 created_by=user,
                 status="sealed",
                 retry_at=None,

@@ -775,6 +775,11 @@ class CrawlRunner:
         config = await sync_to_async(lambda: get_config(crawl=self.crawl, overrides=self.config_overrides), thread_sensitive=True)()
         self.max_concurrent_snapshots = resource_admission.snapshot_limit(int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
 
+        # A task may finish during the DB reads above. Let its owning wait
+        # loop consume completion and record memory cost before admitting
+        # another capture, which would otherwise replace the warmup baseline.
+        if any(task.done() for task in self.snapshot_tasks.values()):
+            return
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
         active_memory = self._observe_snapshot_memory() if active_snapshot_ids else None
         available_slots = resource_admission.additional_snapshot_slots(

@@ -159,6 +159,7 @@ dev = [
     "pytest-timeout>=2.3.1",
     "pytest-xdist>=3.5.0",
     "playwright==1.64.1",
+    "lxml>=6.1.3",  # rendered HTML metadata/accessibility assertions
     "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
     ### LINTING

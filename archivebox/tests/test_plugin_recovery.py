@@ -9,7 +9,6 @@ import psutil
 
 from archivebox.plugins.discovery import get_plugin_catalog
 from archivebox.tests.conftest import cli_env, resolve_abxpkg_chrome_env, run_archivebox_cmd, wait_for_pid_to_disappear
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import wait_for_chrome_session_state
 
 
 def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, cached_abxpkg_lib_dir):
@@ -34,7 +33,15 @@ def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, 
                 text=True,
             )
             processes.append(process)
-            wait_for_chrome_session_state(directory, env=launch_env, require_browser_ready=True)
+            ready = subprocess.run(
+                [str(plugin.path / "on_CrawlSetup__91_chrome_wait.js"), "--url=about:blank"],
+                cwd=directory,
+                env=launch_env,
+                capture_output=True,
+                text=True,
+                timeout=70,
+            )
+            assert ready.returncode == 0, ready.stdout + ready.stderr
             assert process.poll() is None
             browsers.append(psutil.Process(int((directory / "chrome.pid").read_text())))
 
