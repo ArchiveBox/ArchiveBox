@@ -1,0 +1,11 @@
+{% extends "admin/archivebox_change_form.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>#machine_form #plugin-settings { grid-column: 1 / -1; }</style>
+{% endblock %}
+
+{% block field_sets %}
+{% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
+{{ block.super }}
+{% endblock %}

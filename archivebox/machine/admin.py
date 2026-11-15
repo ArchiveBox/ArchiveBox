@@ -11,11 +11,11 @@ from django.db.models.functions import Coalesce, Now
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.machine.env_util import env_to_dotenv_text
+from archivebox.machine.forms import MachineAdminForm
 from archivebox.machine.models import Binary, Machine, NetworkInterface, Process
 from archivebox.misc.logging_util import printable_filesize
 
@@ -72,6 +72,8 @@ def _format_process_duration_seconds(started_at, ended_at) -> str:
 
 
 class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
+    form = MachineAdminForm
+    change_form_template = "admin/machine/machine/change_form.html"
     list_display = (
         "id_display",
         "created_at",
@@ -151,21 +153,10 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
             },
         ),
         (
-            "Configuration",
+            "Additional configuration",
             {
                 "fields": ("config",),
                 "classes": ("card", "wide"),
-                "description": mark_safe(
-                    '<div style="padding:8px 10px;margin-bottom:8px;background:#fff7ed;'
-                    "border:1px solid #fed7aa;border-left:4px solid #f59e0b;border-radius:4px;"
-                    'color:#7c2d12;font-size:12px;line-height:1.45;">'
-                    "<b>Heads up:</b> saving here also rewrites "
-                    "<code>data/ArchiveBox.conf</code> on disk to match — the two stores are "
-                    "kept in 1:1 sync, so any keys you remove here will be removed from the file "
-                    "too. Edits to <code>ArchiveBox.conf</code> (or <code>archivebox config --set</code>) "
-                    "propagate back into this field on the next request."
-                    "</div>",
-                ),
             },
         ),
         (
