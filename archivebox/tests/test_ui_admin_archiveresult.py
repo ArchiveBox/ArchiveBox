@@ -77,6 +77,148 @@ def projected_noresults(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestArchiveResultAdminListView:
+    @pytest.mark.django_db(transaction=False)
+    @pytest.mark.parametrize(
+        "params",
+        [{}, {"status__exact": "succeeded"}, {"plugin__exact": "title"}, {"o": "3.-1"}, {"o": "5"}, {"q": "matching"}],
+    )
+    def test_pages_use_bounded_ids_without_counting_matches(self, admin_client, snapshot, settings, params):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import ArchiveResult, Tag
+
+        settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+        snapshot.tags.set([Tag.objects.create(name="matching alpha"), Tag.objects.create(name="matching beta")])
+        ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(
+                    snapshot=snapshot,
+                    plugin="title" if index % 5 else "headers",
+                    hook_name=f"page-{index}",
+                    status="succeeded" if index % 5 else "failed",
+                    output_str=f"matching result {index}",
+                )
+                for index in range(28)
+            ],
+        )
+        url = reverse("admin:core_archiveresult_changelist")
+        for page in (1, 2, 3):
+            with CaptureQueriesContext(connection) as queries:
+                response = admin_client.get(url, {**params, "p": page}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            cl = response.context["cl"]
+            expected = list(cl.queryset.values_list("pk", flat=True))
+            assert [row.pk for row in cl.result_list] == expected[(page - 1) * 10 : page * 10]
+            assert bool(cl.next_page_url) == (len(expected) > page * 10)
+            assert bool(cl.previous_page_url) == (page > 1)
+            assert cl.result_count_exact == (len(expected) <= page * 10)
+            if params.get("o") == "5":
+                assert all(row.snapshot_first_tag == "matching alpha" for row in cl.result_list)
+            result_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"]]
+            assert not any("COUNT(" in sql.upper() for sql in result_queries)
+            page_queries = [sql for sql in result_queries if "LIMIT 11" in sql]
+            assert len(page_queries) == (2 if page == 3 and any(key in params for key in ("status__exact", "plugin__exact", "q")) else 1)
+            assert all('"output_str"' not in sql.split(" FROM ")[0] for sql in page_queries)
+            if page < 3:
+                assert b"Select all matching rows" in response.content
+            if page == 1 and "status__exact" in params:
+                probes = [sql for sql in result_queries if 'FROM "core_archiveresult" ORDER BY' in sql and "LIMIT 88" in sql]
+                assert len(probes) == 1
+                if connection.vendor == "sqlite":
+                    with connection.cursor() as cursor:
+                        cursor.execute("EXPLAIN QUERY PLAN " + probes[0])
+                        plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                    assert "USING COVERING INDEX archiveresult_start_idx" in plan, plan
+
+    @pytest.mark.django_db(transaction=False)
+    def test_select_across_deletes_all_matches_beyond_displayed_page(self, admin_client, snapshot, settings):
+        from archivebox.core.models import ArchiveResult
+
+        settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+        results = ArchiveResult.objects.bulk_create(
+            [ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"selected-{index}", status="succeeded") for index in range(25)],
+        )
+        excluded = ArchiveResult.objects.create(snapshot=snapshot, plugin="title", status="failed")
+        response = admin_client.post(
+            reverse("admin:core_archiveresult_changelist") + "?status__exact=succeeded",
+            {"action": "delete_selected", "_selected_action": str(results[0].pk), "select_across": "1", "post": "yes"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert response.status_code == 302
+        assert list(ArchiveResult.objects.values_list("pk", flat=True)) == [excluded.pk]
+
+    @pytest.mark.django_db(transaction=False)
+    @pytest.mark.parametrize("total", [25, 205])
+    @pytest.mark.parametrize("page", [1, 2])
+    @pytest.mark.parametrize("model_name", ["archiveresult", "snapshot"])
+    def test_show_all_keeps_existing_limit(self, admin_client, snapshot, total, page, model_name):
+        from archivebox.core.models import ArchiveResult, Snapshot
+
+        if model_name == "archiveresult":
+            ArchiveResult.objects.bulk_create(
+                [ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"show-all-{index}") for index in range(total)],
+            )
+        else:
+            Snapshot.objects.bulk_create(
+                [
+                    Snapshot(url=f"https://example.com/{index}", crawl=snapshot.crawl, timestamp=str(1900800000 + index))
+                    for index in range(total - 1)
+                ],
+            )
+        response = admin_client.get(reverse(f"admin:core_{model_name}_changelist"), {"all": "", "p": page}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        cl = response.context["cl"]
+        assert len(cl.result_list) == (25 if total == 25 else 50)
+        assert cl.show_all == (total == 25)
+        assert cl.result_count_exact == (total == 25)
+        expected = list(cl.queryset.values_list("pk", flat=True))
+        assert [row.pk for row in cl.result_list] == (expected if total == 25 else expected[(page - 1) * 50 : page * 50])
+        assert "all=" not in (cl.next_page_url or "")
+        assert "all=" not in (cl.previous_page_url or "")
+
+    @pytest.mark.django_db(transaction=False)
+    def test_empty_filter_and_out_of_range_page(self, admin_client, snapshot, settings):
+        from archivebox.core.models import ArchiveResult
+
+        settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+        ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"out-of-range-{index}", status="succeeded")
+                for index in range(25)
+            ],
+        )
+        url = reverse("admin:core_archiveresult_changelist")
+        response = admin_client.get(url, {"status__exact": "paused"}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert response.context["cl"].result_list == []
+        assert response.context["cl"].result_count_exact
+        response = admin_client.get(url, {"p": 4}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 302
+        assert response.url == url + "?e=1"
+
+    def test_display_total_uses_background_count(self, admin_client, snapshot, settings):
+        from threading import enumerate as threads
+        from archivebox.core.models import ArchiveResult
+
+        settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+        ArchiveResult.objects.bulk_create(
+            [ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"cached-count-{index}") for index in range(25)],
+        )
+        url = reverse("admin:core_archiveresult_changelist")
+        response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        for thread in threads():
+            if thread.name == "snapshot-list-count":
+                thread.join(timeout=10)
+                assert not thread.is_alive()
+        response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        cl = response.context["cl"]
+        assert cl.result_count_cached
+        assert cl.display_result_count == 25
+        assert not cl.result_count_exact
+        assert len(cl.result_list) == 10
+
     def test_list_does_not_load_process_logs_or_machine_telemetry(self, admin_client, snapshot):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
@@ -126,7 +268,7 @@ class TestArchiveResultAdminListView:
             )
         assert response.status_code == 200
         assert [result.pk for result in response.context["cl"].result_list] == sorted((result.pk for result in results), reverse=True)[:50]
-        page_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"] and "LIMIT 50" in query["sql"]]
+        page_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"] and "LIMIT 51" in query["sql"]]
         assert len(page_queries) == 1
         ordering = page_queries[0].split(" ORDER BY ")[1]
         assert '"start_ts"' not in ordering

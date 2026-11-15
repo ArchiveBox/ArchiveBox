@@ -54,7 +54,7 @@
 </span>
 {% endif %}
 <button type="{% if cl.embedded_changelist %}button{% else %}submit{% endif %}" class="changelist-search-submit">{% translate 'Search' %}</button>
-{% if show_result_count and cl.opts.model_name != 'snapshot' %}
+{% if show_result_count and cl.display_result_count == None %}
     <span class="small quiet">{% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %} (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate "Show all" %}{% endif %}</a>)</span>
 {% endif %}
 {% for pair in cl.params.items %}

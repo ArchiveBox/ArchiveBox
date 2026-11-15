@@ -10,6 +10,7 @@ from urllib.parse import quote
 from django.contrib import admin
 from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+from django.contrib.admin.views.main import ChangeList
 from django.core.exceptions import PermissionDenied, SuspiciousOperation, ValidationError
 from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
@@ -33,7 +34,7 @@ from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
 from archivebox.machine.models import Process
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.plugins.discovery import get_plugin_icon
 from archivebox.plugins.views import LIVE_PLUGIN_BASE_URL
 
@@ -431,6 +432,44 @@ class ArchiveResultInline(admin.TabularInline):
             return []
 
 
+class ArchiveResultChangeList(ChangeList):
+    def get_results(self, request):
+        from django.contrib.admin.options import IncorrectLookupParameters
+        from archivebox.progressmonitor.collection import snapshot_list_count
+
+        start = (self.page_num - 1) * self.list_per_page
+        size = self.list_max_show_all if self.show_all else self.list_per_page
+        queryset_ids = self.queryset.values_list("pk", flat=True)
+        root_ids = self.root_queryset.values_list("pk", flat=True)
+        page_ids = snapshot_page(
+            queryset_ids,
+            base_queryset=root_ids,
+            start=0 if self.show_all else start,
+            size=size + 1,
+        )
+        if self.show_all and len(page_ids) > size:
+            self.show_all = False
+            size = self.list_per_page
+            page_ids = snapshot_page(queryset_ids, base_queryset=root_ids, start=start, size=size + 1) if start else page_ids[: size + 1]
+        elif self.show_all:
+            start = 0
+            self.page_num = 1
+        if not page_ids and start:
+            raise IncorrectLookupParameters
+        observed = start + len(page_ids)
+        self.result_count_exact = len(page_ids) <= size
+        self.queryset.query._archivebox_count_hint = observed
+        super().get_results(request)
+        # Sort only IDs, then load payloads and related rows for this page.
+        rows = {row.pk: row for row in self.queryset.filter(pk__in=page_ids[:size]).order_by()}
+        self.result_list = [rows[pk] for pk in page_ids[:size] if pk in rows]
+        summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
+        self.display_result_count = max(observed, summary["count"]) if summary else observed
+        self.result_count_cached = summary is not None
+        self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
+        self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
+
+
 class ArchiveResultAdmin(BaseModelAdmin):
     list_select_related = ()
     list_display = (
@@ -526,6 +565,9 @@ class ArchiveResultAdmin(BaseModelAdmin):
     class Meta:
         verbose_name = "Archive Result"
         verbose_name_plural = "Archive Results"
+
+    def get_changelist(self, request, **kwargs):
+        return ArchiveResultChangeList
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request

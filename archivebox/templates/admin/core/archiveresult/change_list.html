@@ -74,7 +74,7 @@
           {% endblock %}
           {% block pagination %}
           <div class="changelist-footer">
-            {% pagination cl %}
+            {% include "admin/core/snapshot/pagination.html" %}
             {% if cl.formset and cl.result_count %}<input type="submit" name="_save" class="default" value="{% translate 'Save' %}">{% endif %}
           </div>
           {% endblock %}

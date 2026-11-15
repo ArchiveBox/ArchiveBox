@@ -278,20 +278,25 @@ class SnapshotChangeList(SearchResultsChangeList):
 
         start = (self.page_num - 1) * self.list_per_page
         size = self.list_max_show_all if self.show_all else self.list_per_page
+        queryset_ids = self.queryset.values_list("pk", flat=True)
+        root_ids = self.root_queryset.values_list("pk", flat=True)
         page_ids = snapshot_page(
-            self.queryset.values_list("pk", flat=True),
-            base_queryset=self.root_queryset.values_list("pk", flat=True),
-            start=start,
+            queryset_ids,
+            base_queryset=root_ids,
+            start=0 if self.show_all else start,
             size=size + 1,
         )
+        if self.show_all and len(page_ids) > size:
+            self.show_all = False
+            size = self.list_per_page
+            page_ids = snapshot_page(queryset_ids, base_queryset=root_ids, start=start, size=size + 1) if start else page_ids[: size + 1]
+        elif self.show_all:
+            start = 0
+            self.page_num = 1
         if not page_ids and start:
             from django.contrib.admin.options import IncorrectLookupParameters
 
             raise IncorrectLookupParameters
-        if self.show_all and len(page_ids) > size:
-            self.show_all = False
-            size = self.list_per_page
-            page_ids = page_ids[: size + 1]
         observed = start + len(page_ids)
         self.result_count_exact = len(page_ids) <= size
         # Django's paginator needs only a lower bound for next/previous links.
@@ -306,8 +311,8 @@ class SnapshotChangeList(SearchResultsChangeList):
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
         self.display_result_count = max(observed, summary["count"]) if summary else observed
         self.result_count_cached = summary is not None
-        self.next_page_url = self.get_query_string({"p": self.page_num + 1}) if len(page_ids) > size else None
-        self.previous_page_url = self.get_query_string({"p": self.page_num - 1}) if self.page_num > 1 else None
+        self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
+        self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
         self._attach_archiveresult_summaries()
 
 
