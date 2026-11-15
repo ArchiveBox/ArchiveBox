@@ -897,7 +897,7 @@ def test_tags_autocomplete_allows_authenticated_user_when_public_index_disabled(
 @pytest.mark.parametrize("page", ["add", "persona_change"])
 def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_client, admin_user, page):
     from archivebox.plugins.discovery import get_plugin_catalog
-    from archivebox.config.common import ArchiveBoxConfig, config_field_metadata, find_config_section
+    from archivebox.config.common import ArchiveBoxConfig, config_field_metadata
     from archivebox.config import CONSTANTS_CONFIG
 
     if page == "add":
@@ -929,8 +929,9 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
                 for key in plugin.manifest.get("properties", {})
             )
         }
-        expected |= {
-            find_config_section(key).lower()
+        expected.add("crawl_defaults")
+        expected_keys = {
+            key
             for key, metadata in config_field_metadata(include_execution=True).items()
             if metadata["plugin"] == "archivebox"
             and key.isupper()
@@ -939,6 +940,9 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
             and key not in {"SECRET_KEY", "PERMISSIONS"}
             and metadata["scope"] in {"crawl_frozen", "crawl_execution"}
         }
+        core_cards = [plugin for group in form.plugin_groups for plugin in group["plugins"] if plugin.get("is_core")]
+        assert [plugin["name"] for plugin in core_cards] == ["crawl_defaults"]
+        assert {field["key"] for field in core_cards[0]["config_fields"]} == expected_keys
     assert set(names) == expected
     assert len(names) == len(expected)
     for name in expected:
