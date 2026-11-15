@@ -221,7 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
     folderForm.addEventListener('submit', async event => {
       event.preventDefault();
       const save = folderForm.querySelector('[type=submit]');
+      const saveLabel = save.textContent;
       save.disabled = true;
+      save.textContent = 'Saving…';
+      dialog.querySelector('.folder-form-error').textContent = '';
       try {
         const response = await fetch(folderForm.action, {method:'POST', body:new FormData(folderForm), credentials:'same-origin'});
         const result = await response.json();
@@ -234,9 +237,12 @@ document.addEventListener('DOMContentLoaded', () => {
           picker.dispatchEvent(new Event('change', {bubbles:true}));
           dialog.close();
           picker.focus();
-        } else location.reload();
+        } else {
+          dialog.close();
+          location.reload();
+        }
       } catch (error) {dialog.querySelector('.folder-form-error').textContent = error.message;}
-      finally {save.disabled = false;}
+      finally {save.disabled = false; save.textContent = saveLabel;}
     });
   }
   document.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
@@ -422,53 +428,80 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTree();
 
   if (!form) return;
+  // Prepare every row before measuring any: alternating writes/reads per row
+  // otherwise forces the browser to lay out the entire snapshot table repeatedly.
+  const pendingTagUpdates = new Set();
+  let tagUpdateFrame;
+  function flushTagUpdates() {
+    cancelAnimationFrame(tagUpdateFrame);
+    tagUpdateFrame = null;
+    const updates = [...pendingTagUpdates];
+    pendingTagUpdates.clear();
+    const measurements = updates.map(prepare => prepare());
+    const layouts = measurements.map(measure => measure());
+    layouts.forEach(apply => apply());
+  }
   form.querySelectorAll('.tag-pills-inline').forEach(pills => {
+    const editor = pills.closest('.tag-editor-inline');
+    const input = editor.querySelector('.tag-inline-input-sm');
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.className = 'library-tags-toggle'; toggle.hidden = true;
     pills.after(toggle);
-    function updateTags() {
+    function prepareTags() {
       const tags = [...pills.querySelectorAll('.tag-pill')];
       const count = tags.length;
-      const editing = pills.closest('.tag-editor-inline').querySelector('.tag-inline-input-sm')?.matches(':focus');
+      const editing = editor.matches(':focus-within') && document.activeElement !== toggle;
       const expanded = pills.classList.contains('library-tags-expanded') || editing;
       const compact = document.body.matches('.model-snapshot.change-list') && (pills.closest('.cards') || window.matchMedia('(max-width: 1500px)').matches);
       tags.forEach(tag => { tag.hidden = false; tag.style.removeProperty('max-width'); });
-      toggle.hidden = !expanded && pills.scrollHeight <= pills.clientHeight;
-      toggle.textContent = expanded ? 'Show fewer tags' : `Show all ${count} tags`;
-      if (compact && !expanded) {
-        const editor = pills.closest('.tag-editor-inline');
-        const input = editor.querySelector('.tag-inline-input-sm');
+      toggle.hidden = !compact && !expanded;
+      toggle.textContent = expanded ? 'Show fewer tags' : compact ? `+${count}` : `Show all ${count} tags`;
+      return () => {
+        if (!compact || expanded) {
+          const overflows = pills.scrollHeight > pills.clientHeight;
+          return () => {
+            toggle.hidden = !expanded && !overflows;
+            toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
+            toggle.setAttribute('aria-expanded', String(Boolean(expanded)));
+          };
+        }
         const gap = parseFloat(getComputedStyle(editor).columnGap) || 0;
         const tagGap = parseFloat(getComputedStyle(pills).columnGap) || 0;
-        let available = editor.clientWidth - (input ? input.getBoundingClientRect().width + gap : 0);
+        const available = editor.clientWidth - (input ? input.getBoundingClientRect().width + gap : 0);
         const widths = tags.map(tag => tag.getBoundingClientRect().width);
         const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, count - 1) * tagGap;
-        toggle.hidden = total <= available;
-        if (!toggle.hidden) {
-          toggle.textContent = `+${count}`;
-          available -= toggle.getBoundingClientRect().width + gap;
-          let used = 0;
-          let visible = 0;
-          tags.forEach((tag, index) => {
-            const next = widths[index] + (visible ? tagGap : 0);
-            tag.hidden = used + next > available;
-            if (!tag.hidden) { used += next; visible++; }
-          });
-          // Fit complete short labels first, then use the remaining space for
-          // one ellipsized label. Its title still exposes the full tag name.
-          const remaining = Math.floor(available - used - (visible ? tagGap : 0));
-          const extra = tags.find(tag => tag.hidden);
-          if (extra && remaining >= 56) {
-            extra.style.maxWidth = `${remaining}px`;
-            extra.hidden = false;
-            visible++;
+        const fits = total <= available;
+        const tagSpace = available - toggle.getBoundingClientRect().width - gap;
+        return () => {
+          let visible = count;
+          if (!fits) {
+            let used = 0;
+            visible = 0;
+            tags.forEach((tag, index) => {
+              const next = widths[index] + (visible ? tagGap : 0);
+              tag.hidden = used + next > tagSpace;
+              if (!tag.hidden) { used += next; visible++; }
+            });
+            // Preserve complete short labels and fit one ellipsized label in
+            // the remainder; its title still exposes the full tag name.
+            const remaining = Math.floor(tagSpace - used - (visible ? tagGap : 0));
+            const extra = tags.find(tag => tag.hidden);
+            if (extra && remaining >= 56) {
+              extra.style.maxWidth = `${remaining}px`;
+              extra.hidden = false;
+              visible++;
+            }
           }
           toggle.hidden = visible === count;
           toggle.textContent = `+${count - visible}`;
-        }
-      }
-      toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
-      toggle.setAttribute('aria-expanded', String(expanded));
+          toggle.setAttribute('aria-label', `Show all ${count} tags`);
+          toggle.setAttribute('aria-expanded', 'false');
+        };
+      };
+    }
+    function updateTags() {
+      pendingTagUpdates.add(prepareTags);
+      if (!tagUpdateFrame) tagUpdateFrame = requestAnimationFrame(flushTagUpdates);
     }
     toggle.addEventListener('click', event => {
       event.stopPropagation();
@@ -477,16 +510,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     new MutationObserver(updateTags).observe(pills, {childList:true,subtree:true});
     const tagResizeObserver = new ResizeObserver(updateTags);
-    tagResizeObserver.observe(pills.closest('.tag-editor-inline'));
-    const tagInput = pills.closest('.tag-editor-inline').querySelector('.tag-inline-input-sm');
-    if (tagInput) {
-      tagResizeObserver.observe(tagInput);
-      tagInput.addEventListener('focus', updateTags);
-      tagInput.addEventListener('blur', updateTags);
+    tagResizeObserver.observe(editor);
+    if (input) {
+      tagResizeObserver.observe(input);
     }
+    editor.addEventListener('focusin', updateTags);
+    editor.addEventListener('focusout', updateTags);
     window.addEventListener('resize', updateTags);
     updateTags();
   });
+  flushTagUpdates();
   function selectionChanged() {
     const checked = form.querySelector('input.action-select:checked');
     document.querySelectorAll('.actions-folder').forEach(field => {field.hidden = !checked;});

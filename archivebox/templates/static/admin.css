@@ -943,6 +943,16 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
     transition: box-shadow 140ms ease, transform 140ms ease;
 }
 
+@container snapshot-thumbnail (max-height: 64px) {
+    .snapshot-thumbnail-caption {
+        display: none;
+    }
+    .snapshot-thumbnail-initial {
+        font-size: clamp(10px, 55cqh, 28px) !important;
+        line-height: 1 !important;
+    }
+}
+
 #result_list tbody td.field-preview_icon > a:hover .snapshot-thumbnail,
 #result_list tbody td.field-preview_icon > a:focus-visible .snapshot-thumbnail {
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
@@ -2356,7 +2366,7 @@ tbody .output-link:hover {opacity: 1;}
         color: inherit !important;
         text-decoration: none;
     }
-    .model-snapshot.change-list #result_list tbody .tag-editor-inline:not(:has(.tag-inline-input-sm:focus)) .tag-remove-btn {
+    .model-snapshot.change-list #result_list tbody .tag-editor-inline:not(:focus-within) .tag-remove-btn {
         display: none;
     }
     .model-snapshot.change-list #result_list tbody input.tag-inline-input-sm {
@@ -2643,7 +2653,7 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 .model-snapshot.change-list .cards .tag-pill[hidden],
-.model-snapshot.change-list .cards .tag-editor-inline:not(:has(.tag-inline-input-sm:focus)) .tag-remove-btn {
+.model-snapshot.change-list .cards .tag-editor-inline:not(:focus-within) .tag-remove-btn {
     display: none !important;
 }
 

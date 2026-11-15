@@ -1932,21 +1932,11 @@
                 window.setCookie('GMT_OFFSET', window.GMT_OFFSET, 365)
             }
 
-            // change the admin actions button from a dropdown to buttons across
+            // Controls are server-rendered; initialization only attaches their behavior.
             function fix_actions() {
                 const container = $('div.actions')
-                if (container.find('.action-buttons').length) return
-
-                // too many actions to turn into buttons
-                if (container.find('select[name=action] option').length >= 11) return
-
-                // hide the empty default option thats just a placeholder with no value
-                container.find('label:nth-child(1), button[type=submit][name=index][value=0]').hide()
-
-                const buttons = $('<div></div>')
-                    .insertAfter('div.actions button[type=submit]')
-                    .css('display', 'inline')
-                    .addClass('action-buttons');
+                if (!container.find('.action-buttons').length || container.data('actionsReady')) return
+                container.data('actionsReady', true)
 
                 function flushPendingActionTags() {
                     const tagContainer = document.querySelector('.actions-tags')
@@ -1970,168 +1960,47 @@
                     hidden.dispatchEvent(new Event('change', { bubbles: true }))
                 }
 
-                const rearchiveActions = ['resnapshot_snapshot', 'update_snapshots', 'overwrite_snapshots']
-                const rearchiveItems = {
-                    resnapshot_snapshot: ['➕', 'Create fresh snapshot(s)'],
-                    update_snapshots: ['▶️', 'Retry only failed subtasks'],
-                    overwrite_snapshots: ['♻️', 'Reset & retry from scratch'],
-                }
-                let rearchiveBuilt = false
-
-                // for each action in the dropdown, turn it into a button instead
-                container.find('select[name=action] option:gt(0)').each(function () {
-                    const action_type = this.value
-                    if (rearchiveActions.includes(action_type)) {
-                        if (rearchiveBuilt) return
-                        rearchiveBuilt = true
-                        const wrapper = $('<span></span>')
-                            .addClass('action-rearchive-wrapper')
-                            .appendTo(buttons)
-                        const select = $('<select></select>')
-                            .addClass('action-rearchive-select')
-                            .attr('aria-label', 'Re-Archive')
-                            .appendTo(wrapper)
-                        $('<span>')
-                            .attr('aria-hidden', 'true')
-                            .addClass('button')
-                            .html('Re-Archive <span aria-hidden="true">▾</span>')
-                            .appendTo(wrapper)
-                        $('<option></option>').attr('value', '').attr('hidden', true).appendTo(select)
-                        rearchiveActions.forEach(function (action_value) {
-                            const opt = container.find('select[name=action] option[value="' + action_value + '"]')[0]
-                            if (!opt) return
-                            const [icon, label] = rearchiveItems[action_value]
-                            $('<option></option>')
-                                .attr('value', action_value)
-                                .text(icon + ' ' + label)
-                                .appendTo(select)
-                        })
-                        select.change(function () {
-                            const action_value = this.value
-                            if (!action_value) return
-                            const num_selected = (
-                                document.querySelector('.action-selected-count')?.textContent.split('/')[0].trim()
-                                || document.querySelector('.action-counter')?.textContent.split(' ')[0]
-                                || '0'
-                            )
-                            if (action_value === 'overwrite_snapshots') {
-                                const message = (
-                                    'Are you sure you want to re-archive (overwrite) ' + num_selected + ' Snapshots?\n\n' +
-                                    'This will delete all previously saved files from these Snapshots and re-archive them from scratch.\n\n'
-                                )
-                                if (!window.confirm(message)) {
-                                    this.value = ''
-                                    return
-                                }
-                            }
-                            container.find('select[name=action]')
-                                .val(action_value)
-                                .trigger('change')
-                            $('#changelist-form button[name="index"]').click()
-                            document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
-                        })
+                function submitAction(action, control) {
+                    const num_selected = (
+                        document.querySelector('.action-selected-count')?.textContent.split('/')[0].trim()
+                        || document.querySelector('.action-counter')?.textContent.split(' ')[0]
+                        || '0'
+                    )
+                    let message
+                    if (action === 'overwrite_snapshots') {
+                        message = 'Are you sure you want to re-archive (overwrite) ' + num_selected + ' Snapshots?\n\n' +
+                            'This will delete all previously saved files from these Snapshots and re-archive them from scratch.\n\n'
+                    } else if (action === 'delete_snapshots') {
+                        message = 'Are you sure you want to permanently delete ' + num_selected + ' Snapshots?\n\n' +
+                            'They will be removed from your index, and all their Snapshot content on disk will be permanently deleted.'
+                    }
+                    if (message && !window.confirm(message)) {
+                        if (control.tagName === 'SELECT') control.value = ''
                         return
                     }
-                    if (action_type === 'set_crawl_permissions' || action_type === 'set_snapshot_permissions') {
-                        const wrapper = $('<span></span>')
-                            .addClass('action-permissions-wrapper')
-                            .appendTo(buttons)
-                        const select = $('<select></select>')
-                            .addClass('action-permissions-select')
-                            .attr('aria-label', 'Permissions')
-                            .appendTo(wrapper)
-                        $('<span>')
-                            .attr('aria-hidden', 'true')
-                            .attr('name', action_type)
-                            .addClass('button')
-                            .text(this.text)
-                            .appendTo(wrapper)
-                        $('<option></option>').attr('value', '').attr('hidden', true).appendTo(select)
-                        ;[
-                            ['public', '👥', 'Public'],
-                            ['unlisted', '🔗', 'Unlisted'],
-                            ['private', '🔒', 'Private'],
-                        ].forEach(function (choice) {
-                            $('<option></option>')
-                                .attr('value', choice[0])
-                                .text(choice[1] + ' ' + choice[2])
-                                .appendTo(select)
-                        })
-                        select.change(function () {
-                            const permissions = this.value
-                            if (!permissions) return
-                            let permissionsInput = container.find('input[name=permissions]')
-                            if (!permissionsInput.length) {
-                                permissionsInput = $('<input type="hidden" name="permissions">').appendTo(container)
-                            }
-                            permissionsInput.val(permissions)
-                            container.find('select[name=action]')
-                                .val(action_type)
-                                .trigger('change')
-                            $('#changelist-form button[name="index"]').click()
-                            document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
-                        })
-                        return
-                    }
-                    $('<button>')
-                        .attr('type', 'button')
-                        .attr('name', action_type)
-                        .addClass('button')
-                        .text(this.text)
-                        .click(function (e) {
-                            e.preventDefault()
-                            e.stopPropagation()
-
-                            const num_selected = (
-                                document.querySelector('.action-selected-count')?.textContent.split('/')[0].trim()
-                                || document.querySelector('.action-counter')?.textContent.split(' ')[0]
-                                || '0'
-                            )
-
-                            if (action_type === 'overwrite_snapshots') {
-                                const message = (
-                                    'Are you sure you want to re-archive (overwrite) ' + num_selected + ' Snapshots?\n\n' +
-                                    'This will delete all previously saved files from these Snapshots and re-archive them from scratch.\n\n'
-                                )
-                                if (!window.confirm(message)) return false
-                            }
-                            if (action_type === 'delete_snapshots') {
-                                const message = (
-                                    'Are you sure you want to permanently delete ' + num_selected + ' Snapshots?\n\n' +
-                                    'They will be removed from your index, and all their Snapshot content on disk will be permanently deleted.'
-                                )
-                                if (!window.confirm(message)) return false
-                            }
-                            if (action_type === 'add_tags' || action_type === 'remove_tags') {
-                                flushPendingActionTags()
-                            }
-
-                            // select the action from the original Django admin dropdown
-                            container.find('select[name=action]')
-                                .val(action_type)
-                                .trigger('change')
-                            
-                            // click submit & replace the archivebox logo with a spinner
-                            $('#changelist-form button[name="index"]').click()
-                            document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
-                            return false
-                        })
-                        .appendTo(buttons)
-                })
-                console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
-                ;['.model-crawl.change-list', '.model-snapshot.change-list'].forEach(function(selector) {
-                    const scope = document.querySelector(selector)
-                    const addLink = scope?.querySelector('.object-tools a.addlink')
-                    const actionButtons = scope?.querySelector('.actions-top .action-buttons')
-                })
-                const tagContainer = document.querySelector('.actions-tags')
-                if (tagContainer) {
-                    const tagButtons = buttons.find('button[name="add_tags"], button[name="remove_tags"]')
-                    if (tagButtons.length) {
-                        tagContainer.classList.add('actions-tags-with-buttons')
-                        tagButtons.appendTo(tagContainer)
-                    }
+                    if (action === 'add_tags' || action === 'remove_tags') flushPendingActionTags()
+                    container.find('select[name=action]').val(action).trigger('change')
+                    $('#changelist-form button[name="index"]').click()
+                    document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
                 }
+
+                container.find('button[data-admin-action]').on('click', function(e) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    submitAction(this.dataset.adminAction, this)
+                })
+                container.find('.action-rearchive-select').on('change', function() {
+                    if (this.value) submitAction(this.value, this)
+                })
+                container.find('.action-permissions-select').on('change', function() {
+                    if (!this.value) return
+                    let permissionsInput = container.find('input[name=permissions]')
+                    if (!permissionsInput.length) {
+                        permissionsInput = $('<input type="hidden" name="permissions">').appendTo(container)
+                    }
+                    permissionsInput.val(this.value)
+                    submitAction(this.dataset.adminAction, this)
+                })
                 if (window.jQuery && window.jQuery.fn.select2) {
                     window.jQuery('select[multiple]').select2();
                 }
