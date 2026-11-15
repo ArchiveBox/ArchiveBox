@@ -108,9 +108,13 @@ async function prepareExports(page, adminBaseUrl, libraryUrl) {
   if (!snapshotIds.length) throw new Error('The export gallery folder has no real captures.');
   const urls = await page.$$eval('.folder-actions [data-export-format]', links => Object.fromEntries(links.map(link => [link.dataset.exportFormat, link.href])));
   for (const format of ['rss', 'csv', 'jsonl']) {
-    if (!urls[format]) throw new Error(`Missing native ${format} export link.`);
-    const url = new URL(urls[format]);
+    // Private RSS subscriptions intentionally carry the administrator's key.
+    // This anonymous gallery check uses the separate native public feed link.
+    const linkFormat = format === 'rss' ? 'rss_public' : format;
+    if (!urls[linkFormat]) throw new Error(`Missing native ${linkFormat} export link.`);
+    const url = new URL(urls[linkFormat]);
     if (['api_key', 'token', 'password'].some(key => url.searchParams.has(key))) throw new Error('Generated export links must not contain credentials.');
+    if (format === 'rss' && url.searchParams.get('public_only') !== '1') throw new Error('Public RSS export must preserve public-only visibility.');
     if (url.searchParams.get('folder') !== new URL(libraryUrl).searchParams.get('folder')) throw new Error('Export lost the selected folder.');
     const response = await page.evaluate(async url => { const response = await fetch(url, {credentials: 'omit'}); return {status: response.status, text: await response.text()}; }, url.href);
     if (response.status !== 200) throw new Error(`${format} export failed: ${response.status}`);

@@ -344,7 +344,7 @@ def test_folder_export_defaults_to_configured_content_search(admin_client, admin
 
 
 def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warning(live_server, admin_user, browser_runtime, settings):
-    from urllib.parse import urlsplit
+    from urllib.parse import parse_qs, urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.machine.models import Machine
 
@@ -354,6 +354,13 @@ def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warni
     machine.save(update_fields=["config"])
     settings.CONFIG = settings.CONFIG.model_copy(update={"BASE_URL": base_url, "PUBLIC_INDEX": True})
     admin_url = base_url.replace("//archivebox", "//admin.archivebox")
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    public = Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})
+    private_snapshot = Snapshot.objects.create(
+        url="https://news.ycombinator.com/newest",
+        crawl=crawl,
+        config={"PERMISSIONS": "private"},
+    )
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         try:
@@ -363,6 +370,25 @@ def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warni
             page.locator('[name="password"]').fill("testpassword")
             page.get_by_role("button", name="Log in", exact=True).click()
             page.wait_for_url(f"{admin_url}/admin/auth/user/")
+            for format in ("rss_public", "csv", "jsonl"):
+                url = page.locator(f'a[data-export-format="{format}"]').first.get_attribute("href")
+                query = parse_qs(urlsplit(url).query)
+                assert not {"api_key", "token", "password"}.intersection(query)
+                if format == "rss_public":
+                    assert query["public_only"] == ["1"]
+                response = page.evaluate(
+                    "async url => { const response = await fetch(url, {credentials: 'omit'}); return {status: response.status, body: await response.text()}; }",
+                    url,
+                )
+                assert response["status"] == 200
+                body = response["body"]
+                if format == "rss_public":
+                    ids = {item.findtext("guid") for item in ElementTree.fromstring(body).findall("./channel/item")}
+                else:
+                    rows = csv.DictReader(io.StringIO(body)) if format == "csv" else (json.loads(line) for line in body.splitlines())
+                    ids = {row["id"] for row in rows}
+                assert str(public.pk) in ids
+                assert str(private_snapshot.pk) not in ids
             dialogs = []
 
             def accept_warning(dialog):
