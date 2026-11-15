@@ -77,6 +77,40 @@ def projected_noresults(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestArchiveResultAdminListView:
+    def test_plugin_icons_and_names_stay_on_one_line(self, live_server, admin_user, snapshot, browser_runtime, tmp_path):
+        from playwright.sync_api import sync_playwright
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Machine
+
+        machine = Machine.current()
+        machine.config = {**machine.config, "BASE_URL": live_server.url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"}
+        machine.save(update_fields=["config"])
+        plugins = ("playwright", "archivewebpage", "screenshot", "parse_txt_urls")
+        for plugin in plugins:
+            ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin, hook_name=f"on_Snapshot__{plugin}", status="queued")
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+            page = browser.new_page()
+            page.goto(f"{live_server.url}/admin/login/?next=/admin/core/archiveresult/")
+            page.locator('[name="username"]').fill(admin_user.username)
+            page.locator('[name="password"]').fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            for width in (1600, 800, 390):
+                page.set_viewport_size({"width": width, "height": 1000})
+                page.locator("#result_list").wait_for()
+                page.evaluate("document.fonts.ready")
+                page.locator("td.field-plugin_with_icon").first.scroll_into_view_if_needed()
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                for plugin in plugins:
+                    cell = page.locator("td.field-plugin_with_icon").filter(has=page.get_by_text(plugin, exact=True))
+                    icon = cell.locator(".abx-output-icon").bounding_box()
+                    name = cell.locator("code").bounding_box()
+                    assert abs(icon["y"] + icon["height"] / 2 - name["y"] - name["height"] / 2) < 2
+                    assert icon["x"] + icon["width"] <= name["x"]
+                    assert cell.locator("code").inner_text() == plugin
+                page.screenshot(path=str(tmp_path / f"archiveresult-plugins-{width}.png"), full_page=True)
+            browser.close()
+
     def test_list_view_renders_readonly_tags_and_noresults_status(self, client, admin_user, snapshot, projected_noresults):
         from archivebox.core.models import ArchiveResult, Tag
 

@@ -1725,9 +1725,20 @@ body.model-archiveresult.change-list #result_list td.field-status_badge {
 
 body.model-archiveresult.change-list #result_list th.column-plugin_with_icon,
 body.model-archiveresult.change-list #result_list td.field-plugin_with_icon {
-    width: 92px;
-    max-width: 92px;
+    width: 140px;
+    max-width: 140px;
 }
+
+.archive-result-plugin-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+.archive-result-plugin-link > .abx-output-icon { flex-shrink: 0; }
+.archive-result-plugin-link > code { overflow: hidden; text-overflow: ellipsis; }
 
 body.model-archiveresult.change-list #result_list th.column-process_link,
 body.model-archiveresult.change-list #result_list td.field-process_link {
@@ -1756,8 +1767,7 @@ body.model-archiveresult.change-list #result_list td.field-snapshot_info a {
 
 body.model-archiveresult.change-list #result_list td.field-machine_link a,
 body.model-archiveresult.change-list #result_list td.field-output_str_display a,
-body.model-archiveresult.change-list #result_list td.field-output_str_display span,
-body.model-archiveresult.change-list #result_list td.field-plugin_with_icon a:last-child {
+body.model-archiveresult.change-list #result_list td.field-output_str_display span {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;

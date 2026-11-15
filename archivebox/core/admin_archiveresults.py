@@ -806,11 +806,10 @@ class ArchiveResultAdmin(BaseModelAdmin):
         # Resolves every plugin dir on disk; look it up once per row.
         plugin_admin_url = get_plugin_admin_url(result.plugin)
         return format_html(
-            '<a href="{}" title="{}">{}</a> <a href="{}"><code>{}</code></a>',
+            '<a class="archive-result-plugin-link" href="{}" title="{}">{}<code>{}</code></a>',
             plugin_admin_url,
             result.plugin,
             icon,
-            plugin_admin_url,
             result.plugin,
         )
 
