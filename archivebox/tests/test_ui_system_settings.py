@@ -120,6 +120,13 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                         panel = page.locator('[role="tabpanel"]:visible')
                         for key in keys:
                             expect(panel.locator(f'[data-config-key="{key}"][name]').first).to_be_visible()
+                        content = page.locator(".plugin-settings-content")
+                        assert content.evaluate("el => el.scrollHeight <= el.clientHeight + 1")
+                        panel.locator(".plugin-config-field:visible").last.scroll_into_view_if_needed()
+                        assert page.evaluate("window.scrollY") > 0
+                        assert content.evaluate("el => el.scrollTop") == 0
+                        assert page.locator(".plugin-settings-sidebar").bounding_box()["y"] >= 0
+                        page.evaluate("window.scrollTo(0, 0)")
                         page.screenshot(path=str(output / f"system-{tab.lower()}.png"), full_page=True)
                 page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
                 for plugin in discover_plugin_configs():
@@ -172,7 +179,8 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                 editable.fill("2")
                 search.fill("")
                 page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
-                page.locator(".plugin-settings-content").evaluate("element => element.scrollTop = 0")
+                assert page.locator(".plugin-settings-content").evaluate("el => el.scrollHeight <= el.clientHeight + 1")
+                page.evaluate("window.scrollTo(0, 0)")
                 page.screenshot(path=str(output / f"{surface}-defaults.png"), full_page=True)
                 if surface == "system":
                     page.locator(".plugin-settings-tabs").evaluate("element => element.scrollTop = 0")
@@ -278,7 +286,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             search.fill("")
             page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
             page.locator(".plugin-settings-tabs").evaluate("element => element.scrollTop = 0")
-            page.locator(".plugin-settings-content").evaluate("element => element.scrollTop = 0")
+            page.evaluate("window.scrollTo(0, 0)")
             page.screenshot(path=str(output / "system-core.png"), full_page=True)
             # Explicit zero overrides remain available without an extra mode click.
             for key in ("CRAWL_MAX_URLS", "CRAWL_MAX_SIZE", "SNAPSHOT_MAX_SIZE", "CRAWL_TIMEOUT", "CRAWL_MAX_CONCURRENT_SNAPSHOTS"):

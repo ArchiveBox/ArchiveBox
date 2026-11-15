@@ -77,12 +77,12 @@
     document.querySelectorAll('.plugin-config-form').forEach(settings => {
         const tabs = Array.from(settings.querySelectorAll('[role="tab"]'));
         const search = settings.querySelector('input[type="search"]');
-        const content = settings.querySelector('.plugin-settings-content');
         const empty = settings.querySelector('.plugin-settings-empty');
         const panelFor = tab => document.getElementById(tab.getAttribute('aria-controls'));
         let selected = null;
 
         function select(tab, focus = false) {
+            const changed = selected && selected !== tab;
             selected = tab;
             tabs.forEach(item => {
                 const active = item === tab;
@@ -92,7 +92,7 @@
                 if (sidebar) sidebar.tabIndex = active ? 0 : -1;
                 panelFor(item).hidden = !active;
             });
-            content.scrollTop = 0;
+            if (changed && settings.getBoundingClientRect().top < 0) settings.scrollIntoView({block: 'start'});
             if (tab && focus) tab.focus();
         }
         function filter() {
@@ -117,7 +117,8 @@
             });
             const visible = tabs.filter(tab => !tab.hidden);
             empty.hidden = visible.length > 0;
-            select(selected && !selected.hidden ? selected : visible[0] || null);
+            const exact = query && visible.find(tab => tab.dataset.plugin.toLowerCase() === query || tab.querySelector('.plugin-choice-name')?.textContent.trim().toLowerCase() === query);
+            select(exact || (selected && !selected.hidden ? selected : visible[0] || null));
         }
         tabs.forEach(tab => {
             tab.addEventListener('click', () => select(tab));
