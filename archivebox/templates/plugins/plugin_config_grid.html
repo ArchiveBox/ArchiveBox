@@ -92,6 +92,7 @@
                 if (sidebar) sidebar.tabIndex = active ? 0 : -1;
                 panelFor(item).hidden = !active;
             });
+            if (changed) settings.querySelector('.plugin-settings-content').scrollTop = 0;
             if (changed && settings.getBoundingClientRect().top < 0) settings.scrollIntoView({block: 'start'});
             if (tab && focus) tab.focus();
         }

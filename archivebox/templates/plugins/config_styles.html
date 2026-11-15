@@ -108,6 +108,12 @@
 }
 #add-form #plugin-settings label { font-size: 13px; }
 #add-form #plugin-settings .plugin-config-toggle { display: flex; }
+#add-form #plugin-settings { height: min(760px, 85dvh); min-height: 0; }
+#add-form .plugin-settings-sidebar { position: static; align-self: stretch; height: auto; min-height: 0; }
+#add-form .plugin-settings-content { min-height: 0; overflow-y: auto; }
+@media (max-width: 700px) {
+    #add-form .plugin-settings-sidebar { max-height: 45%; flex-shrink: 1; }
+}
 .plugin-config-field--editor .plugin-config-control { grid-column: 1 / -1; grid-row: 4; margin-top: 14px; }
 .plugin-config-field--editor .plugin-config-help { grid-column: 1 / -1; }
 .config-editor { border: 1px solid var(--border-color, #d0d5dd); border-radius: 8px; overflow: hidden; background: var(--body-bg, #fff); }

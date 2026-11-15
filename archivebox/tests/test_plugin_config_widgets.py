@@ -109,7 +109,11 @@ def test_config_widget_overrides_in_browser(initialized_archive, browser_runtime
                         )
                     expect(card.locator(".plugin-config-control").first).to_be_visible()
                     card.locator("textarea").evaluate_all("elements => elements.forEach(element => element.scrollTop = 0)")
-                    assert page.locator(".plugin-settings-content").evaluate("element => element.scrollHeight <= element.clientHeight + 1")
+                    assert page.locator(".plugin-settings-content").evaluate(
+                        "element => getComputedStyle(element).overflowY === 'auto'"
+                        if surface == "add"
+                        else "element => element.scrollHeight <= element.clientHeight + 1",
+                    )
                     page.evaluate("window.scrollTo(0, 0)")
                     page.locator(".plugin-config-form").screenshot(path=str(output / f"{surface}-{plugin}.png"))
                     if plugin in {"screenshot", "stagehand"}:
@@ -131,15 +135,41 @@ def test_config_widget_overrides_in_browser(initialized_archive, browser_runtime
                 search.fill("")
                 page.locator('[role="tab"][data-plugin="screenshot"]').click()
                 page.set_viewport_size({"width": 390, "height": 844})
-                assert page.locator(".plugin-settings-content").evaluate("element => element.scrollHeight <= element.clientHeight + 1")
+                assert page.locator(".plugin-settings-content").evaluate(
+                    "element => getComputedStyle(element).overflowY === 'auto'"
+                    if surface == "add"
+                    else "element => element.scrollHeight <= element.clientHeight + 1",
+                )
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 page.locator(".plugin-config-form").screenshot(path=str(output / f"{surface}-screenshot-mobile.png"))
                 page.evaluate("window.scrollTo(0, 0)")
                 page.screenshot(path=str(output / f"{surface}-screenshot-mobile-page.png"), full_page=True)
                 page.locator('[role="tab"][data-plugin="stagehand"]').click()
-                assert page.locator(".plugin-settings-content").evaluate("element => element.scrollHeight <= element.clientHeight + 1")
-                page.locator('.plugin-card[data-plugin-name="stagehand"] .plugin-config-field:visible').last.scroll_into_view_if_needed()
-                assert page.evaluate("window.scrollY") > 0
+                assert page.locator(".plugin-settings-content").evaluate(
+                    "element => getComputedStyle(element).overflowY === 'auto'"
+                    if surface == "add"
+                    else "element => element.scrollHeight <= element.clientHeight + 1",
+                )
+                content = page.locator(".plugin-settings-content")
+                if surface == "add":
+                    page.locator("#plugin-settings").scroll_into_view_if_needed()
+                    content.evaluate("element => element.scrollTop = 0")
+                    assert page.locator("#plugin-settings").bounding_box()["height"] <= 760
+                    sidebar_before = page.locator(".plugin-settings-sidebar").bounding_box()
+                    page_scroll = page.evaluate("window.scrollY")
+                    bounds = content.bounding_box()
+                    page.mouse.move(bounds["x"] + 8, bounds["y"] + bounds["height"] / 2)
+                    page.mouse.wheel(0, 400)
+                    page.wait_for_function("document.querySelector('.plugin-settings-content').scrollTop > 0")
+                    assert page.evaluate("window.scrollY") == page_scroll
+                    assert page.locator(".plugin-settings-sidebar").bounding_box() == sidebar_before
+                    page.locator('[role="tab"][data-plugin="screenshot"]').click()
+                    assert content.evaluate("element => element.scrollTop") == 0
+                else:
+                    page.locator(
+                        '.plugin-card[data-plugin-name="stagehand"] .plugin-config-field:visible',
+                    ).last.scroll_into_view_if_needed()
+                    assert page.evaluate("window.scrollY") > 0
                 page.set_viewport_size({"width": 1600, "height": 1100})
                 if surface == "persona":
                     page.locator('button[name="_continue"]').click()
