@@ -1,0 +1,39 @@
+bin/setup_ui_screenshot_data.js
+  s_532dc92fd8220a::t_cccd5e47f321aa 152-157
+archivebox/domains/wacz_gallery.js
+  s_532dc92fd8220a::t_cccd5e47f321aa 99-100,102-108,110,112,114-115
+  s_532dc92fd8220a::t_7ae999e7b8f9a4 109,111
+archivebox/tests/fixtures/site-navigation/index.html
+  s_532dc92fd8220a::t_cccd5e47f321aa 1-18
+archivebox/domains/gallery.js
+  s_532dc92fd8220a::t_cccd5e47f321aa 3,21,23,27-29,33,36,47-48,53,55-59,61-62,73-78,82,87-100,115,129-131,140,154,159,161,163
+  s_532dc92fd8220a::t_9d8bb5d4886f2c 4,66,79-80,83,155-157
+  s_532dc92fd8220a::t_689595cd1c1191 5,160,162
+archivebox/tests/fixtures/site-navigation/notebook.svg
+  s_532dc92fd8220a::t_cccd5e47f321aa 1-5
+archivebox/tests/test_gallery_site_navigation.py
+  s_532dc92fd8220a::t_70bce823aca550 46-142
+  s_532dc92fd8220a::t_d867e740a26e3f 1-45,143-147
+archivebox/tests/fixtures/site-navigation/chapter.html
+  s_532dc92fd8220a::t_cccd5e47f321aa 1-18
+archivebox/tests/fixtures/site-navigation/style.css
+  s_532dc92fd8220a::t_cccd5e47f321aa 1-8
+archivebox/tests/test_original_domain_replay.py
+  s_532dc92fd8220a::t_98b58f92829431 324-365
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31c1d9bb01d8e9d7e934d76e434793c53fcd29ba",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
