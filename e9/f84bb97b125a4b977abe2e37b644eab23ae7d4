@@ -1,0 +1,26 @@
+bin/setup_ui_screenshot_data.js
+  s_532dc92fd8220a::t_cd0c1fdb6d747d 160-163
+archivebox/tests/test_library_screenshots.py
+  s_532dc92fd8220a::t_6939940d7df0e8 94
+archivebox/domains/wacz_gallery.js
+  s_532dc92fd8220a::t_6939940d7df0e8 131
+  s_532dc92fd8220a::t_cd0c1fdb6d747d 122,126,132,135,171,173,179,186,191
+archivebox/core/library_screenshots.py
+  s_532dc92fd8220a::t_cd0c1fdb6d747d 7,99-111,117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e9f84bb97b125a4b977abe2e37b644eab23ae7d4",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
