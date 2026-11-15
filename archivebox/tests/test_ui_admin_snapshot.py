@@ -1649,7 +1649,14 @@ class TestAdminSnapshotListView:
         assert response.context["progress_endpoint"].endswith(f"?snapshot_id={snapshot.pk}")
         assert len(snapshot_reads) == 1
 
-    def test_snapshot_view_url_uses_canonical_live_detail_url_for_mode(self, snapshot):
+    @pytest.mark.parametrize(
+        ("mode", "host"),
+        [
+            ("safe-subdomains-fullreplay", "web.archivebox.localhost:5797"),
+            ("safe-onedomain-nojsreplay", "archivebox.localhost:5797"),
+        ],
+    )
+    def test_snapshot_view_url_uses_canonical_live_detail_url_for_mode(self, snapshot, mode, host):
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin
         from archivebox.config.common import get_config
@@ -1657,12 +1664,9 @@ class TestAdminSnapshotListView:
         admin = SnapshotAdmin(snapshot.__class__, archivebox_admin)
 
         request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:5797")
-        request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
+        request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": mode})
         admin.request = request
-        assert admin.get_snapshot_view_url(snapshot) == f"http://web.archivebox.localhost:5797/{snapshot.archive_path_from_db}"
-
-        request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
-        assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:5797/{snapshot.archive_path_from_db}"
+        assert admin.get_snapshot_view_url(snapshot) == f"http://{host}/{snapshot.archive_path_from_db}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
         from archivebox.core.models import Snapshot
