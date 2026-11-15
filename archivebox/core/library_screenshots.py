@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import requests
@@ -95,11 +96,25 @@ def select_gallery_snapshots(snapshots, urls, evidence):
             and snapshot.status == Snapshot.StatusChoices.SEALED
             and snapshot.output_size > 0,
         )
+        replay_url = url
+        final_url = navigation.get("finalUrl") if browser_ok else None
+        if usable and isinstance(final_url, str) and final_url != url:
+            # A recorded HTTP redirect changes the replay frame and its deep
+            # link. Accept only the settled URL retained in this same WACZ.
+            with zipfile.ZipFile(snapshot.output_dir / paths["wacz"]) as recording:
+                for name in ("pages/pages.jsonl", "pages/extraPages.jsonl"):
+                    if name not in recording.namelist():
+                        continue
+                    with recording.open(name) as pages:
+                        for line in pages:
+                            if json.loads(line).get("url") == final_url:
+                                replay_url = final_url
         records.append(
             {
                 "url": url,
                 "snapshot_id": str(snapshot.pk),
                 "browser_status": status,
+                "replay_url": replay_url,
                 "eligible": usable,
                 "results": {result.plugin: result.status for result in results},
             },

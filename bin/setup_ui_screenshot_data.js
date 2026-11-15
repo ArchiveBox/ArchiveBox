@@ -157,8 +157,10 @@ async function main() {
     featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const stories = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-urls.json'), 'utf8'));
-    featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').folderViews(page, library.url, stories, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
-    featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
+    const recordings = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-captures.json'), 'utf8'));
+    const replayUrls = Object.fromEntries(recordings.filter(record => record.eligible).map(record => [record.url, record.replay_url]));
+    featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').folderViews(page, library.url, stories, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL, replayUrls));
+    featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL, replayUrls[stories[1]]));
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

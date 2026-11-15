@@ -91,6 +91,7 @@ def test_gallery_features_complete_captures_and_retains_blocked_results(crawl, t
     assert json.loads((tmp_path / "hacker-news-urls.json").read_text()) == [snapshot.url for snapshot in featured]
     records = json.loads((tmp_path / "hacker-news-captures.json").read_text())
     assert len(records) == 7 and records[1]["browser_status"] == 403 and not records[1]["eligible"]
+    assert [record["replay_url"] for record in records] == urls
     assert records[1]["results"]["autotag"] == "noresults"
     failed.refresh_from_db()
     assert failed.status == "noresults"
