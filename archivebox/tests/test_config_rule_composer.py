@@ -29,7 +29,7 @@ def test_url_rule_composer_uses_crawl_filter_semantics(initialized_archive):
     try:
         session, _page, csrf = _login_to_add_view(port)
         host = f"admin.archivebox.localhost:{port}"
-        endpoint = f"http://127.0.0.1:{port}/admin/settings/url-rules/preview/"
+        endpoint = f"http://127.0.0.1:{port}/admin/machine/url-rules/preview/"
         headers = {"Host": host, "Referer": f"http://{host}/add/", "X-CSRFToken": csrf}
 
         def post(**payload):
@@ -248,13 +248,13 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
             page.get_by_label("Username:", exact=True).fill("apitestadmin")
             page.get_by_label("Password:", exact=True).fill("testpass123")
             page.get_by_role("button", name="Log in", exact=True).click()
-            page.goto(base + "/admin/settings/")
+            page.goto(base + f"/admin/machine/machine/{machine_id}/change/")
             plugins = page.locator(".config-plugin-list").filter(has=page.locator('[data-config-key="PLUGINS"][name]'))
             discovery = page.locator(".config-plugin-list").filter(has=page.locator('[data-config-key="CRAWL_DISCOVERY_PLUGINS"][name]'))
             expect(plugins.locator(".plugin-config-input")).to_have_value("wget, pdf")
             expect(plugins.locator(".config-plugin-chip")).to_have_count(2)
             expect(discovery.locator(".plugin-config-input")).to_have_value("parse_html_urls, parse_dom_outlinks")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored() == before, "Rendering chips and saving unchanged must preserve exact CSV spacing"
 
@@ -276,7 +276,7 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
             discovery.locator(".config-plugin-autocomplete").fill("parse_txt_urls")
             discovery.locator(".config-plugin-autocomplete").press("Enter")
             expect(discovery.locator(".plugin-config-input")).to_have_value("parse_html_urls,parse_txt_urls")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored() == {
                 **before,
@@ -295,7 +295,7 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
             for _ in range(4):
                 plugins.locator(".config-plugin-chip button").first.click()
             expect(plugins.locator(".plugin-config-input")).to_have_value("")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored().get("PLUGINS", "") == ""
             assert stored()["CRAWL_DISCOVERY_PLUGINS"] == "parse_html_urls,parse_txt_urls"

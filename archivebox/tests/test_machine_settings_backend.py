@@ -147,7 +147,7 @@ import django
 django.setup()
 from django.http import QueryDict
 from archivebox.config.common import get_config
-from archivebox.config.forms import MachineSettingsForm
+from archivebox.machine.forms import MachineAdminForm
 from archivebox.machine.models import Machine
 
 machine = Machine.current()
@@ -156,25 +156,28 @@ machine.config.update(TIMEOUT=baseline.TIMEOUT, TWOCAPTCHA_API_KEY='keep-this-se
 machine.save(update_fields=['config'])
 stored = dict(machine.config)
 unchanged = QueryDict('', mutable=True)
+unchanged.update(MachineAdminForm(instance=machine).initial)
 unchanged['plugin_config__base__TIMEOUT'] = str(baseline.TIMEOUT)
-form = MachineSettingsForm(unchanged, machine=machine)
+form = MachineAdminForm(unchanged, instance=machine)
 assert form.is_valid(), form.errors
 assert form.cleaned_data['config'] == stored
 data = QueryDict('', mutable=True)
+data.update(MachineAdminForm(instance=machine).initial)
 data.update(settings_editor='1', settings_changed='TWOCAPTCHA_API_KEY', plugin_config__twocaptcha__TWOCAPTCHA_API_KEY='********')
-form = MachineSettingsForm(data, machine=machine)
+form = MachineAdminForm(data, instance=machine)
 assert form.is_valid(), form.errors
 assert form.cleaned_data['config'] == stored
 data['settings_changed'] = 'TIMEOUT'
 data['plugin_config__base__TIMEOUT'] = str(baseline.TIMEOUT + 1)
-form = MachineSettingsForm(data, machine=machine)
+form = MachineAdminForm(data, instance=machine)
 assert form.is_valid(), form.errors
 assert form.cleaned_data['config'] == {**stored, 'TIMEOUT': baseline.TIMEOUT + 1}
 for key in ('URL_ALLOWLIST', 'URL_DENYLIST'):
     invalid = QueryDict('', mutable=True)
+    invalid.update(MachineAdminForm(instance=machine).initial)
     invalid.update(settings_editor='1', settings_changed=key)
     invalid['plugin_config__archivebox__' + key] = '['
-    form = MachineSettingsForm(invalid, machine=machine)
+    form = MachineAdminForm(invalid, instance=machine)
     assert not form.is_valid(), f'{key} must compile before saving'
     assert key in str(form.errors), form.errors
 machine.refresh_from_db()
@@ -218,7 +221,7 @@ import django
 django.setup()
 from django.http import QueryDict
 from archivebox.config.common import get_config
-from archivebox.config.forms import MachineSettingsForm
+from archivebox.machine.forms import MachineAdminForm
 from archivebox.machine.models import Machine
 from archivebox.personas.forms import PersonaAdminForm
 from archivebox.personas.models import Persona
@@ -245,7 +248,8 @@ for edits, expected_timeout, expected_wget_timeout, explicit in cases:
         data.update(name=subject.name, permissions='private', config=json.dumps(subject.config), import_mode='none', created_by=str(subject.created_by_id))
         form = PersonaAdminForm(data, instance=subject)
     else:
-        form = MachineSettingsForm(data, machine=subject)
+        data.update(MachineAdminForm(instance=subject).initial)
+        form = MachineAdminForm(data, instance=subject)
     assert form.is_valid(), (kind, edits, form.errors)
     merged = form.cleaned_data['config']
     assert ('WGET_TIMEOUT' in merged) is explicit, (kind, edits, merged.get('WGET_TIMEOUT'))

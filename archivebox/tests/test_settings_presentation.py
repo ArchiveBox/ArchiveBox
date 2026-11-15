@@ -47,7 +47,8 @@ def test_settings_advanced_search_and_native_validation(initialized_archive, bro
             page.get_by_label("Username:", exact=True).fill("apitestadmin")
             page.get_by_label("Password:", exact=True).fill("testpass123")
             page.get_by_role("button", name="Log in", exact=True).click()
-            page.goto(base + "/admin/settings/")
+            page.goto(base + "/admin/machine/machine/")
+            page.locator("#result_list tbody .field-id_display").filter(has_text="CURRENT").get_by_role("link").click()
             search = page.get_by_role("searchbox", name="Search plugin settings")
             page.locator('[role="tab"][data-plugin="wget"]').click()
             wget = page.locator('.plugin-card[data-plugin-name="wget"]')
@@ -81,13 +82,13 @@ def test_settings_advanced_search_and_native_validation(initialized_archive, bro
             page.locator('[role="tab"][data-plugin="screenshot"]').click()
             posted = []
             page.on("request", lambda request: posted.append(request.url) if request.method == "POST" else None)
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator('[role="tab"][data-plugin="search_backend_sonic"]')).to_have_attribute("aria-selected", "true")
             expect(advanced).to_have_js_property("open", True)
             expect(sonic_port).to_be_focused()
             assert posted == [], "Invalid advanced fields must be revealed before submitting"
             sonic_port.fill("1492")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             browser.close()
         saved = run_archivebox_cmd(

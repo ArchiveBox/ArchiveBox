@@ -24,7 +24,7 @@ from archivebox.tests.conftest import (
 @pytest.mark.django_db
 @pytest.mark.parametrize("method", ["get", "post"])
 def test_system_settings_requires_superuser(client, django_user_model, method):
-    url = reverse("system-settings")
+    url = reverse("admin:machine_machine_change", args=[Machine.current().pk])
     assert getattr(client, method)(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
     staff = django_user_model.objects.create_user(username="settings-staff", is_staff=True)
     client.force_login(staff)
@@ -99,8 +99,8 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
 
             for surface in ("system", "persona"):
                 if surface == "system":
-                    page.goto(base + "/admin/settings/")
-                    save = page.get_by_role("button", name="Save settings", exact=True)
+                    page.goto(base + f"/admin/machine/machine/{machine_id}/change/")
+                    save = page.locator('button[name="_continue"]')
                 else:
                     page.goto(base + "/admin/personas/persona/")
                     page.get_by_role("link", name="Research", exact=True).click()
@@ -125,7 +125,13 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                         panel.locator(".plugin-config-field:visible").last.scroll_into_view_if_needed()
                         assert page.evaluate("window.scrollY") > 0
                         assert content.evaluate("el => el.scrollTop") == 0
-                        assert page.locator(".plugin-settings-sidebar").bounding_box()["y"] >= 0
+                        sidebar = page.locator(".plugin-settings-sidebar").bounding_box()
+                        panel_bounds = page.locator("#plugin-settings").bounding_box()
+                        sticky_top = page.locator(".plugin-settings-sidebar").evaluate("el => parseFloat(getComputedStyle(el).top)")
+                        expected_top = max(
+                            panel_bounds["y"] + 1, min(sticky_top, panel_bounds["y"] + panel_bounds["height"] - sidebar["height"] - 1)
+                        )
+                        assert abs(sidebar["y"] - expected_top) <= 1
                         page.evaluate("window.scrollTo(0, 0)")
                         page.screenshot(path=str(output / f"system-{tab.lower()}.png"), full_page=True)
                 page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
@@ -226,7 +232,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             expect(rules.locator('[data-allowed="false"]')).to_have_count(1)
             page.screenshot(path=str(output / "persona-rules.png"), full_page=True)
 
-            page.goto(base + "/admin/settings/")
+            page.goto(base + f"/admin/machine/machine/{machine_id}/change/")
             page.locator('[role="tab"][data-plugin="screenshot"]').click()
             screenshot_timeout = page.locator(".plugin-config-field").filter(
                 has=page.locator('[data-config-key="SCREENSHOT_TIMEOUT"][name]'),
@@ -236,12 +242,12 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             search = page.get_by_role("searchbox", name="Search plugin settings")
             search.fill("URL_ALLOWLIST")
             page.locator('[name="plugin_config__archivebox__URL_ALLOWLIST"]').fill("[")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".errorlist").first).to_be_visible()
             assert stored_config("system") == initial_machine
             search.fill("URL_ALLOWLIST")
             page.locator('[name="plugin_config__archivebox__URL_ALLOWLIST"]').fill("")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == {**initial_machine, "SCREENSHOT_TIMEOUT": 91}
             assert read_ini_config(root / "ArchiveBox.conf")["SCREENSHOT_TIMEOUT"] == "91"
@@ -266,7 +272,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             retention.locator(".config-quantity-unit").select_option("d")
             retention.locator(".config-quantity-value").fill("30")
             expect(retention.locator("[name]")).to_have_value("30d")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             final_config = {
                 **initial_machine,
@@ -280,7 +286,7 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
             assert mirrored["CRAWL_MAX_URLS"] == "375"
             assert mirrored["CRAWL_MAX_SIZE"] == "2147483648"
             assert mirrored["DELETE_AFTER"] == "30d"
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config
             search.fill("")
@@ -296,13 +302,13 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                 field.locator(".config-zero-value, .config-quantity-value, .config-concurrency-value").fill("")
                 expect(canonical).to_have_value("0")
                 final_config[key] = 0
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config
             search.fill("CRAWL_MAX_CONCURRENT_SNAPSHOTS")
             expect(page.locator(".config-concurrency-value")).to_have_value("")
             expect(page.locator(".config-concurrency-value")).to_have_attribute("placeholder", "Automatic")
-            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.locator('button[name="_continue"]').click()
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config
             # Save as soon as it becomes clickable on a real, bandwidth-limited
@@ -313,9 +319,11 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                 "Network.emulateNetworkConditions",
                 {"offline": False, "latency": 0, "downloadThroughput": 256_000, "uploadThroughput": 256_000},
             )
-            page.goto(base + "/admin/settings/", wait_until="commit")
-            with page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/admin/settings/")) as submission:
-                page.get_by_role("button", name="Save settings", exact=True).click()
+            page.goto(base + f"/admin/machine/machine/{machine_id}/change/", wait_until="commit")
+            with page.expect_request(
+                lambda request: request.method == "POST" and request.url.endswith(f"/admin/machine/machine/{machine_id}/change/"),
+            ) as submission:
+                page.locator('button[name="_continue"]').click()
             assert "settings_editor=1" in submission.value.post_data
             expect(page.locator(".success")).to_be_visible()
             assert stored_config("system") == final_config

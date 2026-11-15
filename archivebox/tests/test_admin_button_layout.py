@@ -58,7 +58,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         # Slow execution exposes clicks arriving before tab handlers are installed.
         cdp = page.context.new_cdp_session(page)
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 6})
-        page.goto(base + "/admin/settings/", wait_until="commit")
+        page.goto(base + f"/admin/machine/machine/{machine.pk}/change/", wait_until="commit")
         wget_tab = page.locator('[role="tab"][data-plugin="wget"]')
         wget_tab.click()
         expect(wget_tab).to_have_attribute("aria-selected", "true")

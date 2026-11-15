@@ -20,7 +20,7 @@ django.setup()
 from html.parser import HTMLParser
 from django.template.loader import render_to_string
 from archivebox.config.common import config_field_metadata, get_config
-from archivebox.config.forms import MachineSettingsForm
+from archivebox.machine.forms import MachineAdminForm
 from archivebox.machine.models import Machine
 from archivebox.plugins.discovery import discover_plugin_configs
 
@@ -33,7 +33,7 @@ class Controls(HTMLParser):
         if tag in ('input', 'textarea'):
             self.controls.append(dict(attrs))
 
-form = MachineSettingsForm(machine=Machine.current())
+form = MachineAdminForm(instance=Machine.current())
 runtime = get_config()
 field = form._build_plugin_config_field('chrome_screencast', 'CHROME_SCREENCAST_SCALE', discover_plugin_configs()['chrome_screencast']['properties']['CHROME_SCREENCAST_SCALE'], runtime)
 controls = Controls(render_to_string('plugins/config_range.html', {'field': field})).controls

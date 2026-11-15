@@ -29,14 +29,15 @@ def test_plugin_array_enum_round_trips_through_settings(initialized_archive, bro
             page.get_by_label("Password:", exact=True).fill(env["DJANGO_SUPERUSER_PASSWORD"])
             page.get_by_role("button", name="Log in", exact=True).click()
             expect(page.locator(".navbar-username")).to_have_text(env["DJANGO_SUPERUSER_USERNAME"])
-            page.goto(base + "/admin/settings/")
+            page.goto(base + "/admin/machine/machine/")
+            page.locator("#result_list tbody .field-id_display").filter(has_text="CURRENT").get_by_role("link").click()
             search = page.get_by_role("searchbox", name="Search plugin settings")
             search.fill("GOOGLEDOCS_FORMATS")
             formats = page.locator('select[name="plugin_config__googledocs__GOOGLEDOCS_FORMATS"]')
             expect(formats).to_have_values(["docx", "xlsx", "pptx", "csv", "pdf", "svg"])
             for selection in (["pdf", "md"], [], ["docx", "xlsx", "pptx", "csv", "pdf", "svg"]):
                 formats.select_option(selection)
-                page.get_by_role("button", name="Save settings", exact=True).click()
+                page.locator('button[name="_continue"]').click()
                 expect(page.locator(".success")).to_be_visible()
                 search.fill("GOOGLEDOCS_FORMATS")
                 expect(formats).to_have_values(selection)
@@ -48,7 +49,7 @@ def test_plugin_array_enum_round_trips_through_settings(initialized_archive, bro
                 else:
                     assert len(matching) == 1, configs
                     assert matching[0]["GOOGLEDOCS_FORMATS"] == selection
-                page.get_by_role("button", name="Save settings", exact=True).click()
+                page.locator('button[name="_continue"]').click()
                 expect(page.locator(".success")).to_be_visible()
                 search.fill("GOOGLEDOCS_FORMATS")
                 expect(formats).to_have_values(selection)
