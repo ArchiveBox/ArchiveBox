@@ -11,9 +11,9 @@ from archivebox.plugins.discovery import (
 
 # Labels belong to the UI; plugin membership and ordering come from the catalog.
 OUTPUT_GROUPS = (
-    ("html", "HTML"),
-    ("raster", "Raster"),
+    ("html", "Web"),
     ("article_text", "Article text"),
+    ("images", "Images"),
     ("embedded_media", "Embedded media"),
     ("metadata", "Metadata"),
     ("other", "Other files"),

@@ -51,12 +51,12 @@
                         {% endwith %}
                     {% endfor %}
                     {% if loose_items or not STATIC_EXPORT %}
-                    <div class="thumb-card" data-other-files data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
+                    <div class="thumb-card" data-other-files data-preview-url="{% snapshot_files_url snapshot %}" data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
                             <div class="thumb-body">
                                 <div class="thumb-actions">
                                     <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" aria-label="Browse all snapshot files" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
-                                <h4><span class="card-title-icon" aria-hidden="true">📦</span> Other files</h4>
+                                <a href="{% snapshot_files_url snapshot %}" target="preview"><h4><span class="card-title-icon" aria-hidden="true">📦</span> Other files</h4></a>
                             </div>
                             <div class="thumbnail-wrapper other-files-preview">
                                 <small class="discovery-status" aria-live="polite"></small>
@@ -68,7 +68,7 @@
                                             <a href="{% snapshot_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
                                     {% empty %}
-                                        <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" target="_blank" rel="noopener">📁 Browse all files</a>
+                                        <a href="{% snapshot_files_url snapshot %}" target="preview">📁 Browse all files</a>
                                     {% endfor %}
                                 </div>
                             </div>

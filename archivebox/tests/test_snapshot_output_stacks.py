@@ -50,8 +50,8 @@ def test_icon_piles_match_detail_stack_priority(snapshot, client, settings, surf
     save_output(snapshot, "git", hook="60", extra_files=("extra.html",))
     expected_groups = [
         ["archivewebpage", "singlefile"],
-        ["screenshot", "pdf"],
         ["readability", "defuddle", "mercury", "trafilatura", "htmltotext"],
+        ["screenshot", "pdf"],
         ["papersdl", "git", "forumdl", "responses"],
         ["dns", "headers"],
     ]
@@ -268,16 +268,17 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 
     context = snapshot.get_html_details_context()
     groups = {group["id"]: group for group in context["output_groups"]}
-    assert list(groups) == ["html", "raster", "article_text", "embedded_media", "metadata", "other"]
+    assert list(groups) == ["html", "article_text", "images", "embedded_media", "metadata", "other"]
+    assert [group["label"] for group in groups.values()] == ["Web", "Article text", "Images", "Embedded media", "Metadata", "Other files"]
     outputs = context["archiveresults"]
 
     def names(group):
         return [output["name"] for output in outputs if output["output_group"] == group]
 
     assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom", "responses_html"]
-    assert names("raster") == ["screenshot", "pdf"]
+    assert names("images") == ["screenshot", "pdf", "liteparse"]
     assert names("article_text") == ["readability", "defuddle", "mercury", "trafilatura", "htmltotext", "opendataloader"]
-    assert "liteparse" in names("embedded_media")
+    assert "liteparse" not in names("embedded_media")
     assert "papersdl" in names("embedded_media")
     assert names("other") == ["custom_output"]
     assert context["best_result"]["name"] == "singlefile"
@@ -286,8 +287,8 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 @pytest.mark.parametrize(
     ("plugin", "server_plugin", "filename", "mimetype", "group"),
     [
-        ("chrome_extension_viewport", "screenshot", "screenshot.png", "image/png", "raster"),
-        ("chrome_extension_screenshot", "screenshot", "screenshot.png", "image/png", "raster"),
+        ("chrome_extension_viewport", "screenshot", "screenshot.png", "image/png", "images"),
+        ("chrome_extension_screenshot", "screenshot", "screenshot.png", "image/png", "images"),
         ("chrome_extension_singlefile", "singlefile", "singlefile.html", "text/html", "html"),
     ],
 )

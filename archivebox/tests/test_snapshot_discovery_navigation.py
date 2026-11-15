@@ -12,7 +12,8 @@ from archivebox.machine.models import Machine
 
 
 @pytest.mark.django_db(transaction=True)
-def test_discovered_cards_and_browse_all_files(snapshot, live_server, browser_runtime):
+@pytest.mark.parametrize("target", ["card", "browse_link"])
+def test_discovered_cards_and_browse_all_files(snapshot, live_server, browser_runtime, target):
     port = urlsplit(live_server.url).port
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
@@ -59,14 +60,20 @@ def test_discovered_cards_and_browse_all_files(snapshot, live_server, browser_ru
             page.locator(".output-stack-other").click()
             expect(discovered).to_be_visible()
             files_card = page.locator("#stack-tray [data-other-files]")
-            with page.expect_popup() as popup:
-                files_card.get_by_role("link", name="📁 Browse all files", exact=True).click()
-            files = popup.value
-            files.wait_for_load_state("domcontentloaded")
+            files = page.frame_locator("#main-frame")
             expect(files.locator(".directory-title")).to_have_text("/")
             files.get_by_role("link", name="git/", exact=True).click()
             expect(files.locator(".directory-title")).to_have_text("git/")
             expect(files.get_by_role("link", name="content.html", exact=True)).to_be_visible()
+            if target == "card":
+                bounds = files_card.bounding_box()
+                files_card.click(position={"x": bounds["width"] - 8, "y": bounds["height"] - 8})
+            else:
+                files_card.get_by_role("link", name="📁 Browse all files", exact=True).click()
+            expect(files.locator(".directory-title")).to_have_text("/")
+            expect(page.locator(".output-stack-other")).to_have_attribute("aria-expanded", "true")
+            expect(files_card).to_have_class("thumb-card selected-card")
+            assert len(page.context.pages) == 1
             assert not errors
         finally:
             browser.close()

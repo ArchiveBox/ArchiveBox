@@ -195,7 +195,7 @@ def test_empty_snapshot_loads_finished_results_from_scoped_poll(snapshot, live_s
         expect(page).to_have_title("Finished capture from live poll")
         if with_output:
             expect(page.locator("#snapshot-empty-state")).to_have_count(0)
-            page.get_by_role("button", name=re.compile("^HTML, 1 outputs")).click()
+            page.get_by_role("button", name=re.compile("^Web, 1 outputs")).click()
             expect(page.locator('.stack-tray .thumb-card[data-plugin-name="singlefile"]')).to_be_visible()
             expect(
                 page.frame_locator("#main-frame")

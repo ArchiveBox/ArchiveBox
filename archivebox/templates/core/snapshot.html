@@ -1797,7 +1797,7 @@
                 }
                 // Stack covers clone a card's links, but deliberately omit its
                 // output identity/revision. Only real cards can select a replay.
-                const previewLinks = [...document.querySelectorAll('.thumb-card[data-output-path] a[target=preview]')]
+                const previewLinks = [...document.querySelectorAll('.thumb-card[data-output-path] a[target=preview], .thumb-card[data-other-files] a[target=preview]')]
                 const pathMatch = previewLinks.find((link) => getPreviewHashValueFromHref(link.getAttribute('href')) === hashValue)
                 if (pathMatch) {
                     return pathMatch
@@ -1849,7 +1849,7 @@
 
             document.addEventListener('click', function(event) {
                 const card = event.target.closest('.thumb-card')
-                if (card?.dataset.outputPath) handleCardClick(card, event)
+                if (card?.dataset.outputPath || card?.hasAttribute('data-other-files')) handleCardClick(card, event)
             })
 
             function hideSnapshotHeader() {

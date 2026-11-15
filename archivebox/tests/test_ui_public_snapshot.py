@@ -539,7 +539,7 @@ class TestPublicIndex:
         assert expected_path in response.content
         assert f"/{snapshot.archive_path_from_db}/singlefile/".encode() not in response.content
         assert b"files-icon-pile--html" in response.content
-        assert b"files-icon-pile--raster" in response.content
+        assert b"files-icon-pile--images" in response.content
         assert b'data-tooltip="singlefile"' in response.content
         assert b'title="singlefile"' not in response.content
 

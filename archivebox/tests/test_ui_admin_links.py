@@ -341,10 +341,10 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
         assert member.evaluate("el => parseFloat(getComputedStyle(el).left) + el.getBoundingClientRect().width / 2") == 58
         browser.close()
     assert 'class="files-icon-pile-popup" popover="manual"' in file_icons
-    assert 'class="files-icon-pile-label">HTML</span>' in file_icons
+    assert 'class="files-icon-pile-label">Web</span>' in file_icons
     assert "interestfor=" not in file_icons
     assert 'style="font-size: 1em; opacity: 0.8;"' not in file_icons
-    assert 'data-tooltip="HTML"' in file_icons
+    assert 'data-tooltip="Web"' in file_icons
     assert 'data-tooltip="singlefile"' in file_icons
     assert 'title="singlefile"' not in file_icons
 
@@ -383,7 +383,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     )
     file_icons = str(admin.files(snapshot))
     assert "files-icon-plugin--screenshot" in file_icons
-    assert "files-icon-pile--raster" in file_icons
+    assert "files-icon-pile--images" in file_icons
     assert "files-icon-plugin--papersdl" in file_icons
     assert "files-icon-pile--embedded_media" in file_icons
     assert "files-icon-pile--other" not in file_icons
