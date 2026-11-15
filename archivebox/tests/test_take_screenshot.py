@@ -362,7 +362,7 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
                             {"path": str(output), "width": 1600, "height": 1000},
                             {"path": str(tmp_path / "folder-tablet.png"), "width": 1024, "height": 1366},
                             {"path": str(tmp_path / "folder-mobile.png"), "width": 390, "height": 844},
-                        ]
+                        ],
                     ),
                 }
                 if view == "search"
