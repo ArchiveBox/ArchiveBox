@@ -17,7 +17,7 @@ from archivebox.tests.test_snapshot_output_stacks import save_output, save_respo
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("path", ["/add/", "/admin/settings/"])
+@pytest.mark.parametrize("path", ["/add/", "/admin/machine/machine/{machine_id}/change/"])
 def test_gallery_settings_capture_includes_the_surrounding_page(admin_user, live_server, browser_runtime, tmp_path, path):
     import struct
 
@@ -25,6 +25,7 @@ def test_gallery_settings_capture_includes_the_surrounding_page(admin_user, live
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
     machine.save(update_fields=["config"])
+    path = path.format(machine_id=machine.pk)
     output = tmp_path / "settings-full-page.png"
     result = subprocess.run(
         [
