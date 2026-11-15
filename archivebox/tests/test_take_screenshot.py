@@ -221,6 +221,7 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
       const replay = page.frames().find(frame => frame.url().includes('/replay/w/'));
       assert(replay);
       assert(await replay.evaluate(() => document.body.innerText.includes('Drive')));
+      const input = await page.createCDPSession();
       for (const [width, height] of [[1600, 1000], [390, 844], [640, 240]]) {
         await page.setViewport({width, height});
         for (const expanded of [true, false]) {
@@ -235,23 +236,17 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
           await page.evaluate(y => scrollTo(0, y), position);
           const previous = await page.evaluate(() => scrollY);
           await page.mouse.move(width / 2, height / 2);
-          // Finish this gesture before resizing or toggling the next layout.
-          await page.evaluate(previous => {
-            window.galleryOuterScrollEnded = false;
-            const finished = () => {
-              if (scrollY <= previous) return;
-              window.galleryOuterScrollEnded = true;
-              window.removeEventListener('scrollend', finished);
-            };
-            window.addEventListener('scrollend', finished);
-          }, previous);
-          await page.mouse.wheel({deltaY: 600});
+          // A single mouseWheel dispatch leaves Chrome's wheel latch alive after
+          // DOM scrollend. Complete the mouse gesture before changing the layout.
+          await input.send('Input.synthesizeScrollGesture', {
+            x: width / 2, y: height / 2, yDistance: -600,
+            gestureSourceType: 'mouse', preventFling: true,
+          });
           try {
-            await page.waitForFunction(previous => window.galleryOuterScrollEnded && scrollY > previous, {}, previous);
+            await page.waitForFunction(previous => scrollY > previous, {}, previous);
           } catch (error) {
             console.error(JSON.stringify({width, height, expanded, previous, scroll: await page.evaluate(() => ({
               position: scrollY, maximum: document.documentElement.scrollHeight - innerHeight,
-              ended: window.galleryOuterScrollEnded,
               hit: document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.tagName,
             }))}));
             throw error;
@@ -262,6 +257,7 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
           }
         }
       }
+      await input.detach();
       await page.setViewport({width: 1600, height: 1000});
       await page.evaluate(() => scrollTo(0, 0));
       if (await page.$eval('.header-bottom', header => header.hidden)) await page.click('.header-toggle');
