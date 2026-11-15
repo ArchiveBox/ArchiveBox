@@ -1080,10 +1080,9 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         assert page.locator(".status-count-success").evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(172, 212, 182)"
         assert page.locator(".status-count-failed").evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(181, 42, 66)"
         assert actions.locator(".header-download-size").inner_text() == expected_size
-        assert actions.locator(".header-url-action").count() == 5
+        assert actions.locator(".header-url-action").count() == 4
         assert actions.locator(".header-url-action").evaluate_all("nodes => nodes.map(e => e.getAttribute('aria-label'))") == [
             "Public",
-            "Open original URL",
             "Search Archive.org",
             "Edit snapshot",
             "Download snapshot ZIP",
@@ -1091,7 +1090,7 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         assert actions.locator(".header-permission svg").count() == 1
         assert actions.locator(".header-permission").inner_text() == ""
         assert page.get_by_role("link", name="Search Archive.org", exact=True).count() == 1
-        original = actions.get_by_role("link", name="Open original URL", exact=True)
+        original = page.locator(".header-url-text")
         assert original.get_attribute("href") == snapshot.url
         assert original.get_attribute("target") == "_blank"
         assert (
@@ -1150,7 +1149,6 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
                 title_box = page.locator(".header-title-text").bounding_box()
                 assert favicon["y"] >= url["y"] + url["height"]
                 assert abs(favicon["y"] + favicon["height"] / 2 - title_box["y"] - title_box["height"] / 2) < 1
-                assert not actions.get_by_role("link", name="Open original URL", exact=True).is_visible()
                 assert "." not in actions.locator(".mobile-size").inner_text()
             if width > 480:
                 assert url["height"] == 28
