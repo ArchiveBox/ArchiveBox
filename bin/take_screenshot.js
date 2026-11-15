@@ -586,7 +586,12 @@ async function main() {
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         checks.model = await page.$eval('#model', canvas => ({format: document.body.dataset.modelFormat, meshes: Number(canvas.dataset.meshes), triangles: Number(canvas.dataset.triangles), renderedTriangles: Number(canvas.dataset.renderedTriangles)}));
       }
-      await page.screenshot({path: screenshotPath, fullPage});
+      const captureFullPage = process.env.SCREENSHOT_FULL_PAGE ? fullPage : Boolean(await page.$('#plugin-settings'));
+      if (captureFullPage) {
+        await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
+        await page.waitForFunction(() => window.scrollX === 0 && window.scrollY === 0);
+      }
+      await page.screenshot({path: screenshotPath, fullPage: captureFullPage});
       screenshotPaths.push(screenshotPath);
     };
     if (variants.length) {

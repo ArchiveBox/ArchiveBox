@@ -17,6 +17,43 @@ from archivebox.tests.test_snapshot_output_stacks import save_output, save_respo
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("path", ["/add/", "/admin/settings/"])
+def test_gallery_settings_capture_includes_the_surrounding_page(admin_user, live_server, browser_runtime, tmp_path, path):
+    import struct
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    output = tmp_path / "settings-full-page.png"
+    result = subprocess.run(
+        [
+            str(browser_runtime["node_binary"]),
+            str(REPO_ROOT / "bin/take_screenshot.js"),
+            f"http://admin.archivebox.localhost:{port}{path}",
+            str(output),
+        ],
+        env={
+            **os.environ,
+            "NODE_PATH": str(browser_runtime["node_path"]),
+            "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
+            "SCREENSHOT_LOGIN_USERNAME": admin_user.username,
+            "SCREENSHOT_LOGIN_PASSWORD": "testpassword",
+            "SCREENSHOT_SCROLL_SELECTOR": "#plugin-settings",
+            "SCREENSHOT_WIDTH": "1600",
+            "SCREENSHOT_HEIGHT": "1000",
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["checks"]["status"] == 200
+    width, height = struct.unpack(">II", output.read_bytes()[16:24])
+    assert width == 1600 and height > 1000
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("selection", ["automatic", "manual", "unsupported", "explicit"])
 def test_gallery_keeps_static_preview_until_real_replay_is_ready(snapshot, live_server, browser_runtime, tmp_path, selection):
     # Copying a WACZ does not install its viewer. A cold browser-only runtime
