@@ -13,11 +13,6 @@ PERMISSIONS_CHOICES = (
     (PERMISSIONS_PRIVATE, "Private"),
 )
 PERMISSIONS_VALUES = {value for value, _label in PERMISSIONS_CHOICES}
-PERMISSIONS_META = {
-    PERMISSIONS_PUBLIC: ("👥", "Public", "#047857", "#d1fae5"),
-    PERMISSIONS_UNLISTED: ("🔗", "Unlisted", "#1d4ed8", "#dbeafe"),
-    PERMISSIONS_PRIVATE: ("🔒", "Private", "#991b1b", "#fee2e2"),
-}
 
 
 def render_permission_icon(permissions):
@@ -31,6 +26,13 @@ def render_permission_icon(permissions):
         'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{}"/></svg>',
         permission_path,
     )
+
+
+PERMISSIONS_META = {
+    PERMISSIONS_PUBLIC: (render_permission_icon(PERMISSIONS_PUBLIC), "Public", "#047857", "#d1fae5"),
+    PERMISSIONS_UNLISTED: (render_permission_icon(PERMISSIONS_UNLISTED), "Unlisted", "#1d4ed8", "#dbeafe"),
+    PERMISSIONS_PRIVATE: (render_permission_icon(PERMISSIONS_PRIVATE), "Private", "#991b1b", "#fee2e2"),
+}
 
 
 def normalize_permissions(permissions: object, *, default: str = PERMISSIONS_PRIVATE) -> str:

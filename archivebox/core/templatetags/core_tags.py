@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
+from archivebox.core.permissions import render_permission_icon
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
@@ -39,6 +40,7 @@ from archivebox.plugins.discovery import (
 )
 
 register = template.Library()
+register.filter("permission_icon", render_permission_icon)
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
 
 

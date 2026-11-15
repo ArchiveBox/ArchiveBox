@@ -50,9 +50,9 @@
               <span class="action-permissions-wrapper">
                 <select class="action-permissions-select" aria-label="Permissions" data-admin-action="{{ value }}">
                   <option value="" hidden></option>
-                  <option value="public">👥 Public</option>
-                  <option value="unlisted">🔗 Unlisted</option>
-                  <option value="private">🔒 Private</option>
+                  <option value="public">Public</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="private">Private</option>
                 </select>
                 <span aria-hidden="true" name="{{ value }}" class="button">{% include "admin/action_icon.html" with action=value %}{{ label }}</span>
               </span>

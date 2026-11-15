@@ -627,3 +627,47 @@ def test_crawl_admin_resume_toolbar_browser(admin_user, crawl, live_server, brow
     }
     (tmp_path / "timings.json").write_text(json.dumps(timings, indent=2))
     print(f"Browser evidence: {tmp_path}")
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("surface", ["crawl", "snapshot"])
+def test_visibility_menu_keeps_shared_icons_after_saving(live_server, browser_runtime, admin_user, crawl, snapshot, settings, surface):
+    from lxml.html import fromstring
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.config.common import get_config
+    from archivebox.core.permissions import render_permission_icon
+    from archivebox.machine.models import Machine
+
+    settings.CONFIG = get_config(overrides={"BASE_URL": live_server.url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": live_server.url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"}
+    machine.save(update_fields=["config"])
+    obj = crawl if surface == "crawl" else snapshot
+    route = "crawls_crawl" if surface == "crawl" else "core_snapshot"
+    permissions_url = reverse(f"admin:{route}_set_permissions", args=[obj.pk])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1920, "height": 1000})
+        page.goto(f"{live_server.url}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.goto(live_server.url + reverse(f"admin:{route}_changelist"))
+        wrapper = page.locator(f'.snapshot-permissions-quick[data-permissions-url="{permissions_url}"]')
+        button = wrapper.locator(".snapshot-permissions-button")
+        for permission in ("unlisted", "private", "public"):
+            button.click()
+            choice = wrapper.locator(f'.snapshot-permissions-menu-item[data-permissions="{permission}"]')
+            expected_path = fromstring(str(render_permission_icon(permission))).xpath(".//path/@d")[0]
+            expect(choice.locator("svg path")).to_have_attribute("d", expected_path)
+            with page.expect_response(lambda response: permissions_url in response.url and response.request.method == "POST") as saved:
+                choice.click()
+            assert saved.value.ok
+            expect(wrapper).to_have_attribute("data-current-permissions", permission)
+            expect(button.locator("svg path")).to_have_attribute("d", expected_path)
+            expect(button).to_have_attribute("aria-label", f"Change {surface} permissions: {permission.title()}")
+            page.reload()
+            expect(button.locator("svg path")).to_have_attribute("d", expected_path)
+        browser.close()
+    obj.refresh_from_db()
+    assert obj.permissions == "public"

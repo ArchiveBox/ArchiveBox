@@ -2216,10 +2216,6 @@
                         const selectedIcon = wrapper.querySelector('.snapshot-permissions-menu-item.is-active svg')
                         if (icon && selectedIcon) {
                             icon.replaceChildren(selectedIcon.cloneNode(true))
-                        } else if (icon) {
-                            icon.textContent = data.icon
-                            icon.style.color = data.fg
-                            icon.style.background = data.bg
                         }
                         const compactIcon = wrapper.closest('tr')?.querySelector('.snapshot-row-permission')
                         if (compactIcon && selectedIcon) {
@@ -2231,7 +2227,7 @@
                         if (toggle) {
                             toggle.className = 'snapshot-permissions-button snapshot-permissions-' + data.permissions
                             toggle.title = data.label
-                            toggle.setAttribute('aria-label', 'Change snapshot permissions: ' + data.label)
+                            toggle.setAttribute('aria-label', toggle.getAttribute('aria-label').split(':')[0] + ': ' + data.label)
                             toggle.setAttribute('aria-expanded', 'false')
                         }
                         wrapper.classList.remove('is-open')

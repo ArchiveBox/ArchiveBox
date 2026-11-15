@@ -25,10 +25,9 @@ from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
     PERMISSIONS_META,
     PERMISSIONS_PRIVATE,
-    PERMISSIONS_PUBLIC,
-    PERMISSIONS_UNLISTED,
     PERMISSIONS_VALUES,
     normalize_permissions,
+    render_permission_icon,
 )
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
@@ -176,16 +175,7 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
         status = snapshot.status or "queued"
         color, bg = status_colors.get(status, ("#6c757d", "#f8f9fa"))
         permissions = snapshot.snapshot_permissions
-        permission_icon = {
-            PERMISSIONS_PUBLIC: "👁",
-            PERMISSIONS_UNLISTED: "🔗",
-            PERMISSIONS_PRIVATE: "🔒",
-        }[permissions]
-        permission_fg, permission_bg = {
-            PERMISSIONS_PUBLIC: ("#047857", "#d1fae5"),
-            PERMISSIONS_UNLISTED: ("#1d4ed8", "#dbeafe"),
-            PERMISSIONS_PRIVATE: ("#991b1b", "#fee2e2"),
-        }[permissions]
+        permission_icon, _permission_label, permission_fg, permission_bg = PERMISSIONS_META[permissions]
 
         # Calculate progress
         total = snapshot.total_results
@@ -311,7 +301,9 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
                 <thead>
                     <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Status</th>
-                        <th style="padding: 8px 4px; text-align: center; font-weight: 600; color: #333; width: 22px;">🔒</th>
+                        <th style="padding: 8px 4px; text-align: center; font-weight: 600; color: #333; width: 22px;" title="Visibility">{
+        render_permission_icon(PERMISSIONS_PRIVATE)
+    }</th>
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333; width: 24px;"></th>
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Title</th>
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">URL</th>
@@ -1068,7 +1060,10 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     def depth(self, obj):
         return obj.max_depth
 
-    @admin.display(description="👁", ordering="permissions")
+    @admin.display(
+        description=format_html('<span title="Visibility">{}</span>', render_permission_icon(PERMISSIONS_PRIVATE)),
+        ordering="permissions",
+    )
     def permissions_badge(self, obj):
         permissions = normalize_permissions(obj.permissions)
         icon, label, fg, bg = PERMISSIONS_META[permissions]
