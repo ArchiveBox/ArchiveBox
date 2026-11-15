@@ -10,6 +10,7 @@ import struct
 import sys
 import tomllib
 from datetime import datetime, timezone
+from email.utils import format_datetime, parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -111,6 +112,60 @@ def write_chrome_lifecycle_diagnostics(output_path: Path) -> None:
     with output_path.open("w", encoding="utf-8") as output:
         os.fchmod(output.fileno(), 0o600)
         json.dump(report, output, indent=2, sort_keys=True)
+        output.write("\n")
+
+
+def write_navigation_diagnostics(data_dir: Path, output_path: Path) -> None:
+    """Retain numeric navigation evidence and cooldown headers, never URLs or credentials."""
+    archive_dir = (data_dir / "archive").resolve()
+    records = []
+    for navigation_path in archive_dir.glob("**/chrome/navigation.json"):
+        if len(records) >= 128:
+            break
+        snapshot_dir = navigation_path.parent.parent
+        if not re.fullmatch(r"[0-9a-f-]{32,36}", snapshot_dir.name):
+            continue
+        record = {"snapshot_id": snapshot_dir.name, "navigation": {}, "headers_capture": {}}
+        for kind, source in (("navigation", navigation_path), ("headers_capture", snapshot_dir / "headers/headers.json")):
+            try:
+                if source.is_symlink() or not source.resolve().is_relative_to(archive_dir):
+                    continue
+                with source.open("rb") as saved:
+                    contents = saved.read(65537)
+                if len(contents) > 65536:
+                    continue
+                document = json.loads(contents)
+                if not isinstance(document, dict):
+                    continue
+            except (OSError, ValueError):
+                continue
+            keys = ("status", "elapsed", "attempts", "retry_after_ms") if kind == "navigation" else ("status",)
+            record[kind].update({key: document[key] for key in keys if type(document.get(key)) is int and document[key] >= 0})
+            if kind == "headers_capture":
+                headers = document.get("response_headers", document.get("headers", {}))
+                if not isinstance(headers, dict):
+                    continue
+                for name, value in headers.items():
+                    name = name.lower()
+                    if name not in ("retry-after", "date"):
+                        continue
+                    record[kind][name] = "invalid"
+                    if not isinstance(value, str):
+                        continue
+                    if name == "retry-after" and re.fullmatch(r"[0-9]{1,12}", value.strip()):
+                        record[kind][name] = value.strip()
+                    else:
+                        try:
+                            parsed = parsedate_to_datetime(value)
+                            if parsed.tzinfo is None:
+                                parsed = parsed.replace(tzinfo=timezone.utc)
+                            record[kind][name] = format_datetime(parsed.astimezone(timezone.utc), usegmt=True)
+                        except (ValueError, TypeError, OverflowError):
+                            pass
+        records.append(record)
+    with output_path.open("w", encoding="utf-8") as output:
+        os.fchmod(output.fileno(), 0o600)
+        json.dump(records, output, indent=2, sort_keys=True)
         output.write("\n")
 
 

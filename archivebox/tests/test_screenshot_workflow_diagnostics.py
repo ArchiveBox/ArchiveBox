@@ -13,6 +13,77 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_gallery_retains_navigation_and_cooldown_without_credentials(tmp_path):
+    secret = "credential-sentinel-do-not-export"
+    snapshot = tmp_path / "archive/users/system/snapshots/20261115/example.com/06af9ad7b9a17bf68000756c310c182d"
+    (snapshot / "chrome").mkdir(parents=True)
+    (snapshot / "headers").mkdir()
+    (snapshot / "chrome/navigation.json").write_text(
+        json.dumps(
+            {
+                "url": f"https://user:{secret}@example.com/?token={secret}",
+                "finalUrl": f"https://example.com/{secret}",
+                "error": f"HTTP 503: {secret}",
+                "status": 503,
+                "elapsed": 900,
+                "attempts": 1,
+                "retry_after_ms": 60000,
+                "waitUntil": "domcontentloaded",
+                "content_type": "text/html",
+            },
+        ),
+    )
+    (snapshot / "headers/headers.json").write_text(
+        json.dumps(
+            {
+                "status": 503,
+                "request_headers": {"Authorization": secret, "Cookie": secret},
+                "response_headers": {"Set-Cookie": secret, "Retry-After": "60", "Date": "Sun, 15 Nov 2026 13:03:05 GMT"},
+                "body": secret,
+            },
+        ),
+    )
+    generator = runpy.run_path(str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"))
+    output = tmp_path / "navigation.json"
+    generator["write_navigation_diagnostics"](tmp_path, output)
+    serialized = output.read_text()
+    report = json.loads(serialized)
+    assert report == [
+        {
+            "snapshot_id": snapshot.name,
+            "navigation": {"status": 503, "elapsed": 900, "attempts": 1, "retry_after_ms": 60000},
+            "headers_capture": {"status": 503, "retry-after": "60", "date": "Sun, 15 Nov 2026 13:03:05 GMT"},
+        },
+    ]
+    assert secret not in serialized
+    assert "example.com" not in serialized
+    assert output.stat().st_mode & 0o077 == 0
+
+    (snapshot / "headers/headers.json").write_text(
+        json.dumps(
+            {
+                "response_headers": {"Retry-After": "Sun, 15 Nov 2026 13:04:05 GMT"},
+            },
+        ),
+    )
+    generator["write_navigation_diagnostics"](tmp_path, output)
+    assert json.loads(output.read_text())[0]["headers_capture"] == {"retry-after": "Sun, 15 Nov 2026 13:04:05 GMT"}
+
+    # Absent/invalid Retry-After must stay distinguishable from a server's hint.
+    (snapshot / "headers/headers.json").write_text(
+        json.dumps(
+            {
+                "response_headers": {"Retry-After": secret, "Date": secret},
+            },
+        ),
+    )
+    generator["write_navigation_diagnostics"](tmp_path, output)
+    assert json.loads(output.read_text())[0]["headers_capture"] == {"retry-after": "invalid", "date": "invalid"}
+    (snapshot / "headers/headers.json").unlink()
+    generator["write_navigation_diagnostics"](tmp_path, output)
+    assert json.loads(output.read_text())[0]["headers_capture"] == {}
+
+
 def test_screenshot_failure_resource_diagnostics_are_bounded_and_private(tmp_path):
     workflow = yaml.load((REPO_ROOT / ".github/workflows/screenshots.yml").read_text(), Loader=yaml.BaseLoader)
     steps = workflow["jobs"]["deploy"]["steps"]

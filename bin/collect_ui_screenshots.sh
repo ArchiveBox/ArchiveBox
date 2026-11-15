@@ -99,8 +99,8 @@ PYSTOP
         ) >/dev/null 2>&1 || true
     fi
 
-    # Keep bounded text capture logs when a gallery run fails. Do not copy the
-    # browser profiles, auth storage, screenshots, or other capture data.
+    # Keep bounded logs and whitelisted navigation metadata when a gallery fails.
+    # Do not copy browser profiles, auth storage, screenshots, or response bodies.
     if [[ "$cleanup_status" != "0" && -n "${SCREENSHOT_FAILURE_DIR:-}" && "$SCREENSHOT_FAILURE_DIR" == /* ]]; then
         local diagnostics_dir
         diagnostics_dir="$SCREENSHOT_FAILURE_DIR/$(basename "$CAPTURE_ROOT")"
@@ -116,10 +116,12 @@ PYSTOP
                     cd "$DATA_DIR"
                     UI_SCREENSHOT_GENERATOR="$REPO_DIR/bin/generate_ui_screenshot_gallery.py" \
                     UI_SCREENSHOT_CHROME_DIAGNOSTICS="$diagnostics_dir/chrome-lifecycle.json" \
+                    UI_SCREENSHOT_NAVIGATION_DIAGNOSTICS="$diagnostics_dir/navigation.json" \
+                    UI_SCREENSHOT_DATA_DIR="$DATA_DIR" \
                         uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                        'import os, runpy; from pathlib import Path; runpy.run_path(os.environ["UI_SCREENSHOT_GENERATOR"])["write_chrome_lifecycle_diagnostics"](Path(os.environ["UI_SCREENSHOT_CHROME_DIAGNOSTICS"]))'
+                        'import os, runpy; from pathlib import Path; generator = runpy.run_path(os.environ["UI_SCREENSHOT_GENERATOR"]); generator["write_navigation_diagnostics"](Path(os.environ["UI_SCREENSHOT_DATA_DIR"]), Path(os.environ["UI_SCREENSHOT_NAVIGATION_DIAGNOSTICS"])); generator["write_chrome_lifecycle_diagnostics"](Path(os.environ["UI_SCREENSHOT_CHROME_DIAGNOSTICS"]))'
                 ) >/dev/null 2>&1; then
-                    echo '[!] Could not retain classified Chrome lifecycle diagnostics' >&2
+                    echo '[!] Could not retain Chrome lifecycle/navigation diagnostics' >&2
                 fi
             fi
             for diagnostic_log in \
