@@ -91,14 +91,6 @@ PYSTOP
         [[ "$cleanup_status" != "0" ]] || cleanup_status=1
     fi
 
-    if [[ "$CREATED_TEMP_USER" == "1" && -f "$DATA_DIR/index.sqlite3" ]]; then
-        (
-            cd "$DATA_DIR"
-            UI_SCREENSHOT_USERNAME="$USERNAME" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from django.contrib.auth import get_user_model; get_user_model().objects.filter(username=os.environ["UI_SCREENSHOT_USERNAME"]).delete()'
-        ) >/dev/null 2>&1 || true
-    fi
-
     # Keep bounded logs and whitelisted navigation metadata when a gallery fails.
     # Do not copy browser profiles, auth storage, screenshots, or response bodies.
     if [[ "$cleanup_status" != "0" && -n "${SCREENSHOT_FAILURE_DIR:-}" && "$SCREENSHOT_FAILURE_DIR" == /* ]]; then
@@ -160,6 +152,15 @@ PYSTOP
         else
             echo "[!] Could not retain bounded screenshot diagnostics in $SCREENSHOT_FAILURE_DIR" >&2
         fi
+    fi
+    # Deleting the temporary user also removes its captures and process rows.
+    # Retain failure evidence first, while those records still exist.
+    if [[ "$CREATED_TEMP_USER" == "1" && -f "$DATA_DIR/index.sqlite3" ]]; then
+        (
+            cd "$DATA_DIR"
+            UI_SCREENSHOT_USERNAME="$USERNAME" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from django.contrib.auth import get_user_model; get_user_model().objects.filter(username=os.environ["UI_SCREENSHOT_USERNAME"]).delete()'
+        ) >/dev/null 2>&1 || true
     fi
     exit "$cleanup_status"
 }
