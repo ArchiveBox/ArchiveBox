@@ -1,0 +1,40 @@
+archivebox/tests/test_ui_system_settings.py
+  s_784d0e5fa3aa29::t_301e7ff3cbda89 131-134,235,245,250,275,289,305,311,322-324
+  s_784d0e5fa3aa29::t_e9de8b8825ce8b 27,102-103,128-130,325-326
+archivebox/tests/test_admin_button_layout.py
+  s_14a19a88ce4adc::t_cec1a14ac6ffaf 61
+archivebox/tests/test_config_rule_composer.py
+  s_14a19a88ce4adc::t_4b47dbfb034afc 32,251,257,279,298
+archivebox/tests/test_machine_settings_backend.py
+  s_14a19a88ce4adc::t_2ebf6e7f08c4bb 150,159,161,165,167,172,177,180,224,251-252
+archivebox/tests/test_settings_presentation.py
+  s_784d0e5fa3aa29::t_8998c52c151637 50-51,85,91
+archivebox/tests/test_settings_review_regressions.py
+  s_14a19a88ce4adc::t_5555318095e22e 23,36
+archivebox/tests/test_ui_settings_multiselect.py
+  s_784d0e5fa3aa29::t_91660926f689f7 32-33,40,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0c78401512fffdc045249f17e5160d683b7089cb",
+  "prompts": {},
+  "sessions": {
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
