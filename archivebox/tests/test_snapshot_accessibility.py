@@ -172,12 +172,17 @@ def test_browser_accessibility_tree_and_keyboard(snapshot, admin_user, live_serv
                 assert not unnamed, (path, unnamed)
                 assert any(node.get("role", {}).get("value") == "main" and not node.get("ignored") for node in tree), path
                 if path in ("/add/", "/admin/personas/persona/add/"):
-                    config = page.locator(".plugin-config-marker:visible").first
+                    config = page.locator('[role="tab"][aria-selected="true"]')
+                    original = config.get_attribute("aria-controls")
                     config.focus()
-                    page.keyboard.press("Enter")
-                    assert config.get_attribute("aria-expanded") == "true"
-                    page.keyboard.press("Space")
-                    assert config.get_attribute("aria-expanded") == "false"
+                    page.keyboard.press("ArrowDown")
+                    selected = config.get_attribute("aria-controls")
+                    assert selected != original
+                    assert page.locator(f"#{selected}").is_visible()
+                    assert not page.locator(f"#{original}").is_visible()
+                    page.keyboard.press("ArrowUp")
+                    assert config.get_attribute("aria-controls") == original
+                    assert page.locator(f"#{original}").is_visible()
             # Screen readers see the current output and named embedded viewer.
             toggle = page.locator(".header-toggle")
             if toggle.get_attribute("aria-expanded") == "false":

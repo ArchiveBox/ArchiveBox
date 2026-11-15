@@ -134,3 +134,43 @@ def test_emitted_tags_belong_to_the_snapshot_owner(admin_user):
     reused.refresh_from_db()
     assert reused.created_by_id == other.pk
     assert set(snapshot.tags.values_list("name", flat=True)) == {"Hacker News", reused.name}
+
+
+def test_crawl_runner_projects_shipped_hook_tags():
+    import json
+
+    from archivebox.core.models import Snapshot
+    from abx_dl.events import SnapshotCompletedEvent
+    from archivebox.services.runner import CrawlRunner
+
+    first = _create_snapshot()
+    first.status = first.StatusChoices.QUEUED
+    first.save(update_fields=["status"])
+    crawl = first.crawl
+    snapshots = [first, *[Snapshot.objects.create(url=f"https://example.com/{index}", crawl=crawl) for index in range(3)]]
+    crawl.urls = "\n".join(snapshot.url for snapshot in snapshots)
+    crawl.config = {"PLUGINS": "parse_jsonl_urls", "CHROME_ENABLED": False}
+    crawl.save(update_fields=["urls", "config"])
+    for index, snapshot in enumerate(snapshots):
+        root = snapshot.output_dir
+        (root / "staticfile").mkdir(parents=True, exist_ok=True)
+        (root / "staticfile/stdin.txt").write_text(
+            json.dumps({"url": snapshot.url, "tags": [f"Native runner tag {index}"]}) + "\n",
+        )
+
+    runner = CrawlRunner(crawl, show_progress=False)
+    tags_at_completion = {}
+
+    async def observe_completion(event):
+        completed = await Snapshot.objects.aget(pk=event.snapshot_id)
+        tags_at_completion[event.snapshot_id] = [name async for name in completed.tags.values_list("name", flat=True)]
+
+    runner.bus.on(SnapshotCompletedEvent, observe_completion)
+    asyncio.run(runner.run())
+
+    for index, snapshot in enumerate(snapshots):
+        snapshot.refresh_from_db()
+        assert snapshot.status == snapshot.StatusChoices.SEALED
+        assert snapshot.archiveresult_set.filter(plugin="parse_jsonl_urls", status="succeeded").exists()
+        assert list(snapshot.tags.values_list("name", flat=True)) == [f"Native runner tag {index}"]
+        assert tags_at_completion[str(snapshot.pk)] == [f"Native runner tag {index}"]
