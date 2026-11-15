@@ -74,6 +74,7 @@ def test_python_and_shell_receive_full_input_and_ordered_arguments(admin_user, t
     assert all(process.started_at and process.ended_at and process.pid for process in processes)
     hook.refresh_from_db()
     assert hook.last_success and not hook.last_failure
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (1, 0)
 
 
 def test_failed_action_logs_and_stop_sequence_are_visible_in_admin(admin_user, admin_client, tmp_path, caplog):
@@ -107,6 +108,8 @@ def test_failed_action_logs_and_stop_sequence_are_visible_in_admin(admin_user, a
         emit_event(snapshot, "BEFORE_CAPTURE")
     assert marker.read_text() == "continued"
     assert [process.exit_code for process in action_processes(hook)] == [7, 7, 0]
+    hook.refresh_from_db()
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (0, 2)
 
 
 def test_actions_use_native_capture_settings_tags_and_folder(admin_user):
@@ -193,6 +196,37 @@ def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, l
     assert response["status_code"] == 200
     assert str(snapshot.pk) in response["body"]
     assert token.token not in process.stdout + process.stderr + json.dumps(process.env)
+    hook.refresh_from_db()
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (1, 0)
+
+    hook.actions[0]["endpoint"] = f"{live_server.url}/api/v1/core/missing-webhook-target"
+    hook.save(update_fields=["actions"])
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+        emit_event(snapshot, "BEFORE_CAPTURE")
+    hook.refresh_from_db()
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (1, 1)
+    processes = action_processes(hook)
+    assert [process.exit_code for process in processes] == [0, 1]
+    assert "404" in processes[1].stderr
+
+
+def test_endpoint_only_webhook_increments_preserved_counters(admin_user, live_server):
+    from archivebox.api.webhook_events import emit_event
+
+    hook = make_hook(
+        admin_user,
+        [],
+        endpoint=f"{live_server.url}/api/v1/core/missing-webhook-target",
+        headers={"Host": "admin.archivebox.localhost:5797"},
+        num_uses_succeeded=7,
+        num_uses_failed=3,
+    )
+    snapshot = make_snapshot(admin_user)
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+        emit_event(snapshot, "BEFORE_CAPTURE")
+    hook.refresh_from_db()
+    assert hook.last_failure
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (7, 4)
 
 
 def test_failed_action_in_initialized_collection_appears_in_admin_log_views(initialized_archive):

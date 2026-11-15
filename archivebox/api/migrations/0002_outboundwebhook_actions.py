@@ -4,6 +4,20 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def preserve_health_counters(apps, schema_editor):
+    # Legacy installations already have these columns. Register them in state
+    # before any SQLite table rebuild so their historical values survive.
+    table = apps.get_model("api", "OutboundWebhook")._meta.db_table
+    with schema_editor.connection.cursor() as cursor:
+        columns = {field.name for field in schema_editor.connection.introspection.get_table_description(cursor, table)}
+    quote = schema_editor.quote_name
+    for name in ("num_uses_failed", "num_uses_succeeded"):
+        if name not in columns:
+            schema_editor.execute(
+                f"ALTER TABLE {quote(table)} ADD COLUMN {quote(name)} integer NOT NULL DEFAULT 0 CHECK ({quote(name)} >= 0)",
+            )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("api", "0001_initial"),
@@ -11,6 +25,21 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.SeparateDatabaseAndState(
+            database_operations=[migrations.RunPython(preserve_health_counters, migrations.RunPython.noop)],
+            state_operations=[
+                migrations.AddField(
+                    model_name="outboundwebhook",
+                    name="num_uses_failed",
+                    field=models.PositiveIntegerField(default=0),
+                ),
+                migrations.AddField(
+                    model_name="outboundwebhook",
+                    name="num_uses_succeeded",
+                    field=models.PositiveIntegerField(default=0),
+                ),
+            ],
+        ),
         migrations.AlterField(
             model_name="outboundwebhook",
             name="last_success",

@@ -9,7 +9,7 @@ from django.utils import timezone
 from django_stubs_ext.db.models import TypedModelMeta
 from signal_webhooks.models import WebhookBase
 
-from archivebox.base_models.models import get_or_create_system_user_pk
+from archivebox.base_models.models import ModelWithHealthStats, get_or_create_system_user_pk
 
 
 def generate_secret_token() -> str:
@@ -41,7 +41,7 @@ class APIToken(models.Model):
         return not self.expires or self.expires >= (for_date or timezone.now())
 
 
-class OutboundWebhook(WebhookBase):
+class OutboundWebhook(WebhookBase, ModelWithHealthStats):
     emoji: str = "🪝"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)

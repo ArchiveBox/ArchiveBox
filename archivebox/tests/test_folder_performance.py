@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
@@ -129,8 +130,17 @@ def test_public_smart_witness_is_rechecked_after_visibility_changes(admin_user):
     assert smart.pk in {folder.pk for folder in Folder.tree(public=True)}
 
 
-def test_public_smart_folder_with_deleted_reference_is_empty():
+def test_referenced_folder_deletion_preserves_smart_folder_rules():
     source = Folder.objects.create(name="Removed folder")
     smart = Folder.objects.create(name="Reference", rules={"field": "folder", "lookup": "in_folder", "value": str(source.pk)})
+    with pytest.raises(ValidationError, match="Update the rules in Reference"):
+        source.delete()
+    assert Folder.objects.filter(pk=source.pk).exists()
+    smart.refresh_from_db()
+    assert smart.rules == {"field": "folder", "lookup": "in_folder", "value": str(source.pk)}
+    smart.rules = {"field": "title", "lookup": "exact", "value": "Reference"}
+    smart.save(update_fields=["rules"])
+    source_id = source.pk
     source.delete()
+    assert not Folder.objects.filter(pk=source_id).exists()
     assert smart.pk not in {folder.pk for folder in Folder.tree(public=True)}

@@ -538,6 +538,24 @@ def test_migration_preserves_users_groups_permissions_api_secrets_and_repeated_i
         verify_preserved_rows(db_path, original_data["preserved_rows"])
 
 
+def test_forward_migration_restores_missing_webhook_counter_columns(migration_08_data):
+    work_dir, db_path, original_data = migration_08_data
+    initialized = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert initialized.returncode == 0, initialized.stderr or initialized.stdout
+    previous = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "api", "0003", "--noinput"], timeout=90)
+    assert previous.returncode == 0, previous.stderr or previous.stdout
+    # Reproduce the shipped 0002 rebuild's resulting schema. These values are
+    # already gone at this point; a forward migration cannot reconstruct them.
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("ALTER TABLE api_outboundwebhook DROP COLUMN num_uses_failed")
+        conn.execute("ALTER TABLE api_outboundwebhook DROP COLUMN num_uses_succeeded")
+    repaired = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert repaired.returncode == 0, repaired.stderr or repaired.stdout
+    expected = dict(original_data["preserved_rows"])
+    expected["api_outboundwebhook"] = [(*row[:-2], 0, 0) for row in expected["api_outboundwebhook"]]
+    verify_preserved_rows(db_path, expected)
+
+
 def test_process_metadata_migration_rolls_back_completely_on_malformed_row(migration_08_data):
     work_dir, db_path, original_data = migration_08_data
     malformed_uuid = original_data["archiveresults"][0]["uuid"]

@@ -70,7 +70,7 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
     form = OutboundWebhookAdminForm
     list_display = ("created_at", "created_by", "id", *WebhookAdmin.list_display)
     sort_fields = _webhook_fields("created_at", "created_by", "id", "ref", "endpoint", "last_success", "last_failure")
-    readonly_fields = _webhook_fields("created_at", "modified_at", *WebhookAdmin.readonly_fields)
+    readonly_fields = _webhook_fields("created_at", "modified_at", "num_uses_succeeded", "num_uses_failed", *WebhookAdmin.readonly_fields)
 
     # Local action sequences can run code with the ArchiveBox service account.
     # Django's generic change permission must not bypass the editor's restriction.
@@ -101,7 +101,14 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
         (
             "Status",
             {
-                "fields": _webhook_fields("enabled", "last_success", "last_failure", "last_response"),
+                "fields": _webhook_fields(
+                    "enabled",
+                    "num_uses_succeeded",
+                    "num_uses_failed",
+                    "last_success",
+                    "last_failure",
+                    "last_response",
+                ),
                 "classes": ("card",),
             },
         ),

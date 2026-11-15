@@ -144,6 +144,7 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
                 success = not subscription.last_failure or bool(
                     subscription.last_success and subscription.last_success > subscription.last_failure,
                 )
+            subscription.increment_health_stats(success)
             succeeded = succeeded and success
             if success and subscription.stop_processing:
                 break

@@ -406,8 +406,6 @@ class TestPublicIndex:
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_pagination_replaces_page_and_preserves_other_query_values(self, client, admin_user):
-        from html import unescape
-
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
 
@@ -432,8 +430,9 @@ class TestPublicIndex:
             response = client.get(url, HTTP_HOST=WEB_TEST_HOST)
             assert response.status_code == 200
             assert response.context["page_obj"].number == expected_page
-            pagination = response.content.decode().split('<div class="public-pagination">', 1)[1].split("</div>", 1)[0]
-            links = {unescape(label): unescape(href) for href, label in re.findall(r'<a href="([^"]+)">([^<]+)</a>', pagination)}
+            pagination = fromstring(response.content).xpath('//*[@aria-label="Snapshot pages"]')
+            assert len(pagination) == 1
+            links = {link.text_content().strip(): link.get("href") for link in pagination[0].xpath(".//a[@href]")}
             assert direction in links
             for href in links.values():
                 params = parse_qs(urlsplit(href).query, keep_blank_values=True)
@@ -545,7 +544,7 @@ class TestPublicIndex:
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
-    def test_deep_public_page_walks_order_index_in_one_id_query(self, client, admin_user):
+    def test_deep_public_page_bounds_order_index_probes_and_hydration(self, client, admin_user):
         from datetime import timedelta
 
         from django.db import connection
@@ -593,15 +592,29 @@ class TestPublicIndex:
         # Count page reads separately from the sidebar's correlated visibility probe.
         snapshot_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_snapshot"\.', query["sql"])]
         folder_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_folder"\.', query["sql"])]
-        assert len(folder_reads) == 1 and "EXISTS" in folder_reads[0]
-        assert len(snapshot_reads) == 2, "A deep page must read one page of IDs, then only its displayed rows"
+        # Physical folders use a correlated visibility probe. Smart folders
+        # share one bounded witness query and one batch visibility query.
+        assert len(folder_reads) == 2 and all("EXISTS" in query for query in folder_reads)
+        witnesses = [
+            query
+            for query in snapshot_reads
+            if re.fullmatch(r'SELECT "core_snapshot"\."id" AS "pk" FROM "core_snapshot" ORDER BY .+ DESC LIMIT \d+', query)
+        ]
+        assert len(witnesses) == 1
+        assert int(witnesses[0].rsplit("LIMIT ", 1)[1]) <= 128
+        snapshot_reads = [query for query in snapshot_reads if query not in witnesses]
+        assert len(snapshot_reads) == 3, "A deep page probes bounded IDs, filters those IDs, then hydrates displayed rows"
+        assert all('"core_snapshot"."url"' not in query for query in snapshot_reads[:2])
+        assert int(snapshot_reads[0].rsplit("LIMIT ", 1)[1]) <= (100 + 51) * 8
+        assert snapshot_reads[1].endswith("LIMIT 51 OFFSET 100")
+        assert '"core_snapshot"."url"' in snapshot_reads[2]
         if connection.vendor == "sqlite":
             with connection.cursor() as cursor:
                 cursor.execute("EXPLAIN QUERY PLAN " + snapshot_reads[0])
                 plan = " ".join(str(row[-1]) for row in cursor.fetchall())
             # Walking the chronological index lets LIMIT stop early. Choosing
             # the permissions index instead sorts every public snapshot first.
-            assert "SCAN core_snapshot USING INDEX snapshot_public_order_idx" in plan, plan
+            assert "snapshot_public_order_idx" in plan and "SCAN core_snapshot" in plan, plan
             assert "TEMP B-TREE FOR ORDER BY" not in plan, plan
 
     @override_settings(PUBLIC_INDEX=True)

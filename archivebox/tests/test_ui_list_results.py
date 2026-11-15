@@ -18,6 +18,7 @@ from django.db import connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from lxml.html import fromstring
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_detail_path, get_snapshot_output_anchor
@@ -228,16 +229,22 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
     _assert_icons_drawn_from_one_sprite(response.content.decode())
 
 
-def test_admin_grid_draws_icons_from_one_sprite_even_when_first_card_is_running(client, admin_user, list_collection):
+def test_admin_grid_keeps_running_and_sealed_cards_without_hidden_file_icons(client, admin_user, list_collection):
     sealed, started = list_collection
-    # The newest card is the running one, whose icons the grid hides.
+    # The compact grid shows both captures without the desktop table's file piles.
     Snapshot.objects.filter(pk=started.pk).update(bookmarked_at=sealed.bookmarked_at + timedelta(minutes=1))
     client.force_login(admin_user)
     response = client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     html = response.content.decode()
-    assert html.index("Started list row") < html.index("Sealed list row")
-    _assert_icons_drawn_from_one_sprite(html)
+    cards = fromstring(html).find_class("cards")[0].xpath("./div")
+    assert len(cards) == 2
+    assert [card.find_class("title-text")[0].text_content() for card in cards] == ["Started list row", "Sealed list row"]
+    assert [card.xpath('.//input[@name="_selected_action"]/@value')[0] for card in cards] == [str(started.pk), str(sealed.pk)]
+    for card in cards:
+        thumbnails = card.find_class("card-thumbnail")
+        assert len(thumbnails) == 1 and thumbnails[0].tag == "a" and thumbnails[0].get("href")
+        assert not card.find_class("files-icons")
 
 
 def test_admin_icon_order_counts_all_hook_files_once(client, admin_user, list_collection):
