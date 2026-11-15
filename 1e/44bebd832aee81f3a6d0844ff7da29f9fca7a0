@@ -1,0 +1,444 @@
+docs/apidocs/archivebox/archivebox.progressmonitor.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_44bb1aaa453a35 33
+docs/apidocs/archivebox/archivebox.api.v1_core.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,23-25,27-29,31-33,35-37,39-41,43-45,47-49,51-53,55-57,59-61,63-65,67-69,71-73,75-77,79-81,83-85,87-89,91-93,95-97,99-101,103-105,114-137,340-406,410,427,432-435,440-442,478,483-485,586,591-593,863,868-870,964,969-971,1150-1156,1276,1281-1283,1306-1371,1559-1560,1562,1567-1569,1571,1576,1578-1579,1581,1583,1586-1590,1592,1643,1648-1661,1730,1735-1737,1782-1792,1823,1828-1871,2078-2085,2146,2151-2153,2312,2317-2319,2333,2338-2340,2354,2359-2361,2408,2413-2415,2495,2500-2502,2626,2631-2633,2691,2696-2698,2712,2717-2719,2755,2760-2762,2798,2803-2805,2841,2846-2847
+  s_14a19a88ce4adc::t_a5a2325a2cfdb7 2848
+docs/apidocs/archivebox/archivebox.services.archive_result_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,38-39,58-59,62-63,66-71,92-93,95,99,127-128,130,134-135,137,141-142,144-151,160-167
+  s_14a19a88ce4adc::t_5a1a9cbb984342 168
+docs/apidocs/archivebox/archivebox.core.management.commands.archivebox.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-33,47-49,55-56
+  s_14a19a88ce4adc::t_74238ce01a1b49 57
+docs/apidocs/archivebox/archivebox.core.admin_archiveresults.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,101,108,113-115,119,249-251,257-259,264,269-271,315,335,345,365,415,458-462,466-468,474-476,482-484,535-539
+  s_14a19a88ce4adc::t_2685a2fa63cc43 540-542
+docs/apidocs/archivebox/archivebox.workers.management.commands.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18
+docs/apidocs/archivebox/archivebox.cli.archivebox_persona.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 54-57,106,141,155-158
+  s_14a19a88ce4adc::t_039c445ca80806 159-161
+docs/apidocs/archivebox/archivebox.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 17,19,21,24
+docs/apidocs/archivebox/archivebox.workers.management.commands.supervisord_watchdog.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-33,47-49,55-56
+  s_14a19a88ce4adc::t_f37bde577eebd1 57
+docs/apidocs/archivebox/archivebox.api.v1_cli.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,27-29,31-33,35-37,39-41,43-45,136,141-143,222,227-238,250-260,415,420-433,568,573-575,633,638-651,796,801-803,850,855-856
+  s_14a19a88ce4adc::t_ccb210222129f1 857
+docs/apidocs/archivebox/archivebox.plugins.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_a17432710a4168 33
+docs/apidocs/archivebox/archivebox.api.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,38,43-45,66-70
+  s_14a19a88ce4adc::t_1b7e43c22a4340 71-73
+docs/apidocs/archivebox/archivebox.machine.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,38,43-44
+  s_14a19a88ce4adc::t_6319f9b2a66180 45
+docs/apidocs/archivebox/archivebox.services.snapshot_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,30-41,46-57,70-90,98-120,134,139-147,177-191,193
+  s_14a19a88ce4adc::t_76cf3a4f74b4cf 192,194
+docs/apidocs/archivebox/archivebox.config.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 20,22,24,28
+docs/apidocs/archivebox/archivebox.core.admin_tags.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,27-29,46,51-53,106,111-113,162,167-169,283-285,291-293,307-309,315-316
+  s_14a19a88ce4adc::t_397f8e12576a66 317
+docs/apidocs/archivebox/archivebox.misc.util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 54-55,58-71,190-191,194-195,198-199,202-203,401-402,404,406,411-413,415,417,422-427,429-432,434,436-440,443-444,446,448,453-454,456,458,463-464,466,468,473-474,476,480-481,483,487-488,490,494-495,497,501-502,504,550
+docs/apidocs/archivebox/archivebox.core.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-25,30-33,35-37,39-41,52-55,62-323,340,348-351,354-363,366-367,369,376,381-404,455-463,480-482,518-520,526-528,568,573-575,647,650,655-738,740,745-746,748,826,862,867-877,888-889,891,893,1079-1088,1242-1252,1282-1289,1295-1297,1355-1382,1428-1435,1484,1577-1579,1660-1667,1684-1693,1727,1795,1811,1896-1903,1912-1920,2006-2013,2022-2030,2063,2071-2072,2074,2079-2083,2085,2090-2092,2094,2260,2309,2317,2325,2344-2370,2375-2396,2401-2403,2545-2553,2815-2817,2875-2877,2942-2952,3048-3049,3051,3056-3058,3060,3065,3091-3092,3095,3108-3116,3125-3129,3131
+  s_14a19a88ce4adc::t_7d0b2286707ffe 3130,3132
+docs/apidocs/archivebox/archivebox.base_models.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 33-35,169,194,205,235-237,240,259-261,266,292,297-299,330-355,367-368
+  s_14a19a88ce4adc::t_04fbf34c5d70ee 369
+docs/apidocs/archivebox/archivebox.misc.logging_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 154
+docs/apidocs/archivebox/archivebox.crawls.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 33-35,56,87-89,95-97,109,199,310-312,445,465,475,490,501,515-517,563-565,576-578,783,788-790,824,831-840,864,884,891-898,902-904,926-928,934-935
+  s_14a19a88ce4adc::t_47f7721d9eb57a 936
+docs/apidocs/archivebox/archivebox.core.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_c206c5196a795c 33
+docs/apidocs/archivebox/archivebox.machine.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 38-41,130-137,246-265,326,331-341,558-560,573-582,620-622,645,650-660,827-829,876,891,899-903,905,908-910,915-917,1164,1178-1180,1226-1228,1349-1366,1370,1401,1409-1413,1415,1418-1420,1425-1427,1460,1465-1467,1823-1833,1881-1883,1939-1941,2079-2087,2302
+docs/apidocs/archivebox/archivebox.progressmonitor.views.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26-33,56-70
+docs/apidocs/archivebox/archivebox.core.shutdown_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 139
+docs/apidocs/archivebox/archivebox.api.v1_auth.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 42-45,72,111,138-142
+  s_14a19a88ce4adc::t_4f05ac80f0ef1f 143-144
+docs/apidocs/archivebox/archivebox.plugins.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 16,18,20,23
+docs/apidocs/archivebox/archivebox.core.takeover_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 164
+docs/apidocs/archivebox/archivebox.workers.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_bbccc93923489e 33
+docs/apidocs/archivebox/archivebox.misc.serve_static.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 30-31,38-41,86-107,146-147,150-151,154-155,158-159,162-163,174-177,194-195,199-218,223-224,226,237-243,348-351,353,355,358,375-376,380,385-386,390,395-396,400,463-499,501
+docs/apidocs/archivebox/archivebox.ldap.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26
+docs/apidocs/archivebox/archivebox.workers.management.commands.runner_watch.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-33,47-49,55-56
+  s_14a19a88ce4adc::t_eb985c7e92e12f 57
+docs/apidocs/archivebox/archivebox.services.tag_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,29-38,53
+docs/apidocs/archivebox/archivebox.core.recovery_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26
+docs/apidocs/archivebox/archivebox.core.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 27-28,32-33,36,40,44
+docs/apidocs/archivebox/archivebox.mcp.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_f4e62842017d9a 33
+docs/apidocs/archivebox/archivebox.personas.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-33,64-68
+  s_14a19a88ce4adc::t_96624ce6bd4818 69-71
+docs/apidocs/archivebox/archivebox.cli.archivebox_schedule.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 30
+docs/apidocs/archivebox/archivebox.services.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 17,46
+docs/apidocs/archivebox/archivebox.misc.logging.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 21-23,153-155,159-160
+  s_14a19a88ce4adc::t_8c9c6f5b89ab6b 161
+docs/apidocs/archivebox/archivebox.misc.monkey_patches.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 48,59-61,67-68
+  s_14a19a88ce4adc::t_903b704cad09df 69
+docs/apidocs/archivebox/archivebox.core.forms.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,102-110,141-150,371-378,382-384,477,482-484,488-490,495,516-518,524-525
+  s_14a19a88ce4adc::t_78fb051f5d15b1 526
+docs/apidocs/archivebox/archivebox.cli.archivebox_crawl.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 80,115
+docs/apidocs/archivebox/archivebox.config.configset.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 36-45,60-61,78,93-95,99,104-105,107,111,122-124,145-146,148,150-153,155,157-160,162-164,188
+docs/apidocs/archivebox/archivebox.workers.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,70,75-77,202,291-293,382-384,437
+docs/apidocs/archivebox/archivebox.progressmonitor.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 16,18
+docs/apidocs/archivebox/archivebox.personas.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19,66,71-75,77,80,137-139,155-157,163-165,177-202,263,280-287,328-329,331,336,344
+docs/apidocs/archivebox/archivebox.cli.archivebox_snapshot.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 131,159,166,187,201
+docs/apidocs/archivebox/archivebox.machine.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 21-23,25-27,29-31,70,95-104,138,158,191,196-198,262,282,307,312-314,378,398,423,428-430,454,494,514,524,534-535
+  s_14a19a88ce4adc::t_2a91a490b9a1e2 536
+docs/apidocs/archivebox/archivebox.core.context_processors.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,30-35
+  s_14a19a88ce4adc::t_ae0378c706cb6e 36
+docs/apidocs/archivebox/archivebox.core.middleware.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,30-33,88-94,144,149-150
+  s_14a19a88ce4adc::t_d300edf8f8b616 151
+docs/apidocs/archivebox/archivebox.api.v1_crawls.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,27-29,31-33,112,117-119,263-324,363,368-381,439,444-457,534,539-540
+  s_14a19a88ce4adc::t_162eb36d0061e9 541
+docs/apidocs/archivebox/archivebox.search.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 62
+docs/apidocs/archivebox/archivebox.core.asgi.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 12,18-19,24,36-47,50-53,55,57-63,66-69,71,73,77-83
+  s_14a19a88ce4adc::t_c9b4c7d0d0587c 84
+docs/apidocs/archivebox/archivebox.core.routes_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,118-129,170-197,206-209,230-237,272-298,327,334,369,376,383,390,397,404,411,425,432,453,467-488,495,502,509,516,523,530,537,544,551,558-607,620-626
+docs/apidocs/archivebox/archivebox.personas.importers.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 50-53,90-93,98-103,138-145,422-432,477,484-490,584-590,598-599,601-608,668-680
+  s_14a19a88ce4adc::t_a9e05943ad9b4c 681
+docs/apidocs/archivebox/archivebox.cli.archivebox_install.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-25,42-54
+  s_14a19a88ce4adc::t_eb0e5f498d9025 55
+docs/apidocs/archivebox/archivebox.cli.archivebox_update.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 34-37,95,102-109,116,123,130
+docs/apidocs/archivebox/archivebox.services.crawl_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,31-38
+  s_14a19a88ce4adc::t_643e8ccc30557a 39
+docs/apidocs/archivebox/archivebox.cli.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 29,33,35,38,44,120,218-219
+  s_14a19a88ce4adc::t_e78eade144efbf 220
+docs/apidocs/archivebox/archivebox.base_models.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,27-29,43-45,47-49,70-87,102,113-115,120,125-127,173-175,191-193,225,248-250,265,298-300,341,364-366,382-384,389,394-396,423-425,441-443,471,482,487-489,495-497,583-587,589
+  s_14a19a88ce4adc::t_02a3c565d3404b 588,590
+docs/apidocs/archivebox/archivebox.api.v1_api.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,93,98-115
+  s_14a19a88ce4adc::t_d05f5c2cba92f6 116
+docs/apidocs/archivebox/archivebox.core.views.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 23-25,27-29,51-53,55-57,59-61,118-119,122-123,126-127,130-131,134-135,138-139,142-143,150-155,182-189,194-197,217-238,255,262-271,334,352,357-359,370,375-378,387,415,440,447-448,450,454-455,457,461-462,464,468-469,471,475-476,478,482-483,485,489-490,492,503-504,506-513,531,549,567,585,603,608-610,633,655-657,668,679-681,687,695-697,710,715-717,749-751,762-769,789-791,805-807,812,817-819,836-843,855-857,862
+docs/apidocs/archivebox/archivebox.core.permissions.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,54-57,148-154,221-225
+  s_14a19a88ce4adc::t_646cbf7720be5f 226-227
+docs/apidocs/archivebox/archivebox.services.runner.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 50-51,66-69,94-97,130-137,190,197-198,200,226-232,240,252-294,347-355,374,383-398,458,462,495,502,524-525,527,531-532,534,538,545,552,559,588,595-609,616,623,637
+docs/apidocs/archivebox/archivebox.api.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,47,52-65,131-133,169-171,192,195-206,248-337,366-385,388-395,399-400
+  s_14a19a88ce4adc::t_421fbc892e672f 401
+docs/apidocs/archivebox/archivebox.machine.detect.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-25,78-81,114-136
+  s_14a19a88ce4adc::t_d3edbebdb141fd 137
+docs/apidocs/archivebox/archivebox.core.settings.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 38-41,98-101,162-189,202-205,402-403,405,407,412-413,415,417,525,545,562-571,715,722-791,822-831,1206
+docs/apidocs/archivebox/archivebox.services.binary_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 30-33,76,103-111,137,199-204
+  s_14a19a88ce4adc::t_dc6e1c62c6e8fa 205
+docs/apidocs/archivebox/archivebox.core.widgets.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 127,153-155,161-162
+  s_14a19a88ce4adc::t_586f782386bfb7 163
+docs/apidocs/archivebox/archivebox.core.admin_users.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,38,43-45,59,109-119,122-123,125
+docs/apidocs/archivebox/archivebox.search.backends.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-19,61-62,64
+docs/apidocs/archivebox/archivebox.config.common.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 36-39,48-55,64-67,96-99,120-123,140-143,148-151,184-187,192-195,244-251,280-283,328-341,373-393,408-414,514,647,731,771,802,919-929,1067-1074,1101-1111,1123-1166,1191,1222-1229,1232,1270-1291,1424-1443,1560,1628-1634,1649,1663-1664,1666,1668,1670-1673,1675,1699,1787,1829,1856-1893,1915,1950-1957,1964-1970,1978
+docs/apidocs/archivebox/archivebox.crawls.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,26,31-32
+  s_14a19a88ce4adc::t_1d15c549d5986d 33
+docs/apidocs/archivebox/archivebox.config.permissions.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-49,126-129,134-137,142-155,271,308-324,335-378
+  s_14a19a88ce4adc::t_8b7f2d073c26e1 379
+docs/apidocs/archivebox/archivebox.workers.supervisord_util.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 34-69,86-105,134-135,226-227,230-231,278-279,282-283,286-287,290-291,294-299,380,387-426,434-497,525,532,539,546,553,609-610,612,709,730,737,744,772-775,777,779,782-785,787,789,792-793,795,820-821,823,827-828,830
+docs/apidocs/archivebox/archivebox.cli.archivebox_extract.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-23,30-31,64-65,67-74,78,85-86,88
+docs/apidocs/archivebox/archivebox.cli.archivebox_run.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 92,99,106
+docs/apidocs/archivebox/archivebox.api.auth.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 120,148,166
+docs/apidocs/archivebox/archivebox.config.collection.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,117-139,168,175
+docs/apidocs/archivebox/archivebox.search.apps.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26
+docs/apidocs/archivebox/archivebox.services.machine_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,61-68
+  s_14a19a88ce4adc::t_53ea8b7c54e0c4 69
+docs/apidocs/archivebox/archivebox.personas.forms.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,50-96,216-217
+  s_14a19a88ce4adc::t_931acac676ce93 218
+docs/apidocs/archivebox/archivebox.uuid_compat.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 21-23,75,80-82,86-88,102-103
+  s_14a19a88ce4adc::t_4755e8f216716b 104
+docs/apidocs/archivebox/archivebox.api.v1_machine.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 23-25,31-33,92,311,316-318,398,602,607-608
+  s_14a19a88ce4adc::t_5f96dda959b05b 609
+docs/apidocs/archivebox/archivebox.misc.paginators.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 24-35,38,49-51,55-61
+docs/apidocs/archivebox/archivebox.mcp.server.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 22-25,42-49,54-77,82-85,92-119,122-171,186,193-233,241-255,262-304,311-317,330-347,349,378,386,396
+docs/apidocs/archivebox/archivebox.core.admin_site.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,54,59-62,65-67,72,77-79,123-125,148-150,161,164-166,172-173
+  s_14a19a88ce4adc::t_918e8eb5962466 174
+docs/apidocs/archivebox/archivebox.api.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 16-17,23-25,28,30-31
+docs/apidocs/archivebox/archivebox.api.v1_personas.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,27-29,31-33,84,89-91,105-106,117,124-133,154-174,188,193-195,252,257-259,366,371-372
+  s_14a19a88ce4adc::t_79db444d30856e 373
+docs/apidocs/archivebox/archivebox.personas.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,40-86,234-262,268-269
+  s_14a19a88ce4adc::t_095fa9871a6208 270
+docs/apidocs/archivebox/archivebox.core.admin_snapshots.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-29,107-115,126-127,131,134-139,142-223,249-251,257-259,264,295-297,303-305,310,341-343,349-351,356,387-389,395-397,402,433-435,441-443,448,479-481,487-489,528-537,589-591,596,601-610,641-648,652,662,732,759-766,800,815-817,820-821,823-839,847-849,855-857,897-928,972-974,1041-1042,1044-1052,1201-1205,1207
+  s_14a19a88ce4adc::t_63bb6e342c0e0b 1206,1208
+docs/apidocs/archivebox/archivebox.api.webhooks.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-25,34-37,64-77,91-97
+docs/apidocs/archivebox/archivebox.cli.archivebox_add.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 63
+docs/apidocs/archivebox/archivebox.crawls.models.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 20-23,30,35-45,163-165,201-203,218-220,247-263,274-292,297-317,408-417,615-617,663-665,728-730,784-792,802-803,805,810-811,813,901
+docs/apidocs/archivebox/archivebox.services.process_service.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,72-80,83,94
+docs/apidocs/archivebox/archivebox.crawls.locks.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 30-37,74-77,127-150
+  s_14a19a88ce4adc::t_b9fda62e735ab1 151
+docs/apidocs/archivebox/archivebox.misc.db.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-69,118-121,130-232
+docs/apidocs/archivebox/archivebox.misc.checks.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 42-45,108-115
+docs/apidocs/archivebox/archivebox.config.views.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,94-97,122-137
+  s_14a19a88ce4adc::t_62f45747a10002 138
+docs/apidocs/archivebox/archivebox.plugins.discovery.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 34-39,42-47,54-95,98-155,178-189,210-229,239,324-325,327,331-332,334-348,359-360,362-369,373-374,376,380-541,585-655
+docs/apidocs/archivebox/archivebox.workers.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26,30
+docs/apidocs/archivebox/archivebox.api.admin.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 19-21,23-25,27-29,57,62-64,147,152,155-163,168-170,211-231,233
+  s_14a19a88ce4adc::t_691a1989646f16 232,234
+docs/apidocs/archivebox/archivebox.config.ldap.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 26
+docs/apidocs/archivebox/archivebox.personas.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 20
+docs/apidocs/archivebox/archivebox.cli.archivebox_version.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 63
+docs/apidocs/archivebox/archivebox.core.templatetags.core_tags.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 12-23,30-45,82-91,122-125,154-157,162-165,170-187,198-201,206-209,214-237,254-257,270-273,282-291,298-305,340-370,391-402,404,406-416,431-457,486,521-529,531,535-542,584,591-597,698-704,712-718,726-748,750-757,768,775-781,789-795,803-869,896-902
+docs/apidocs/archivebox/archivebox.search.views.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 195
+docs/apidocs/archivebox/archivebox.config.paths.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 66-69,227,290-293
+  s_14a19a88ce4adc::t_5906a3add29db8 294-296
+docs/apidocs/archivebox/archivebox.config.django.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 76
+docs/apidocs/archivebox/archivebox.plugins.forms.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 34-37,54-57,78-79,102-103,128-129,131,133,155-161,190-196,235-244,255-288,313,355-356,358,369
+docs/apidocs/archivebox/archivebox.search.query.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 18-21,30-33,84-90,105-111,140
+docs/apidocs/archivebox/archivebox.misc.jsonl.md
+  s_14a19a88ce4adc::t_2fe3ff0f60af83 34-41,207-220
+docs/apidocs/archivebox/archivebox.api.v1_folders.md
+  s_10bc94d001be49::t_644f752afa18b3 1-414
+docs/apidocs/archivebox/archivebox.api.v1_importers.md
+  s_10bc94d001be49::t_c0e482024defd9 1-785
+docs/apidocs/archivebox/archivebox.api.webhook_actions.md
+  s_10bc94d001be49::t_cff11cef8cbeec 1-161
+docs/apidocs/archivebox/archivebox.api.webhook_events.md
+  s_10bc94d001be49::t_c14929bdf95ecf 1-189
+docs/apidocs/archivebox/archivebox.api.webhook_membership.md
+  s_10bc94d001be49::t_058f67959753b8 1-164
+docs/apidocs/archivebox/archivebox.api.webhook_screenshots.md
+  s_10bc94d001be49::t_fbee809aa8782c 1-64
+docs/apidocs/archivebox/archivebox.api.webhook_urls.md
+  s_10bc94d001be49::t_c25ed5dfd293cb 1-48
+docs/apidocs/archivebox/archivebox.api.webhook_views.md
+  s_10bc94d001be49::t_1381b01e210115 1-130
+docs/apidocs/archivebox/archivebox.auth.adapters.md
+  s_10bc94d001be49::t_df82de6857c1f3 1-72
+docs/apidocs/archivebox/archivebox.auth.apps.md
+  s_10bc94d001be49::t_1c55cdda76c840 1-64
+docs/apidocs/archivebox/archivebox.auth.md
+  s_10bc94d001be49::t_29cec97f400bf3 1-18
+docs/apidocs/archivebox/archivebox.cli.archivebox_check.md
+  s_10bc94d001be49::t_7ecc66b99f1f5e 1,3,6,18-19,26-27,29
+docs/apidocs/archivebox/archivebox.cli.archivebox_folder.md
+  s_10bc94d001be49::t_01cf3d03e314a3 1-108
+docs/apidocs/archivebox/archivebox.cli.archivebox_importer.md
+  s_10bc94d001be49::t_6b35f57b9d54e9 1-130
+docs/apidocs/archivebox/archivebox.cli.archivebox_plugin.md
+  s_10bc94d001be49::t_fb7108169c8f47 1-31
+docs/apidocs/archivebox/archivebox.cli.rescan.md
+  s_10bc94d001be49::t_d29fd05921b2e2 1-119
+docs/apidocs/archivebox/archivebox.config.allauth.md
+  s_10bc94d001be49::t_dca9f226ae9b03 1-210
+docs/apidocs/archivebox/archivebox.config.forms.md
+  s_10bc94d001be49::t_318c2b9a6100af 1-96
+docs/apidocs/archivebox/archivebox.config.rule_views.md
+  s_10bc94d001be49::t_3d7a174381a0ad 1-53
+docs/apidocs/archivebox/archivebox.config.settings_views.md
+  s_10bc94d001be49::t_d33f324d098687 1-31
+docs/apidocs/archivebox/archivebox.core.admin_folders.md
+  s_10bc94d001be49::t_dec68a913bed5f 1-226
+docs/apidocs/archivebox/archivebox.core.exports.md
+  s_10bc94d001be49::t_5189afc2e155a3 1-236
+docs/apidocs/archivebox/archivebox.core.library_screenshots.md
+  s_784d0e5fa3aa29::t_aeca509ed7e68c 1-75
+docs/apidocs/archivebox/archivebox.core.list_results_util.md
+  s_10bc94d001be49::t_32a2930913e2ae 1-278
+docs/apidocs/archivebox/archivebox.core.setup_wizard.md
+  s_10bc94d001be49::t_df39b68b69a295 1-53
+docs/apidocs/archivebox/archivebox.core.signals.md
+  s_10bc94d001be49::t_b1b79708cf0201 1,3,6,18-19,26-27,29,31
+docs/apidocs/archivebox/archivebox.core.smart_folders.md
+  s_10bc94d001be49::t_82edebc07b572b 1-169
+docs/apidocs/archivebox/archivebox.domains.actions.md
+  s_10bc94d001be49::t_fcc53a2773395c 1-31
+docs/apidocs/archivebox/archivebox.domains.export_service.md
+  s_10bc94d001be49::t_0647019be604ac 1-75
+docs/apidocs/archivebox/archivebox.domains.exports.md
+  s_10bc94d001be49::t_0f2659d3dd9daa 1,3,6,18-19,22-23,26-27,30-31,34-35,38-47,54-57,59,61,64-65,67,71-72,74,78-79,81,85-86,88,92-93,95
+docs/apidocs/archivebox/archivebox.domains.forms.md
+  s_10bc94d001be49::t_c3618dff1d9ca3 1-190
+docs/apidocs/archivebox/archivebox.domains.management.commands.md
+  s_10bc94d001be49::t_77fe54eba82d65 1-17
+docs/apidocs/archivebox/archivebox.domains.management.commands.site_export.md
+  s_10bc94d001be49::t_2857e0c7639044 1-60
+docs/apidocs/archivebox/archivebox.domains.management.md
+  s_10bc94d001be49::t_450913a35839d1 1-17
+docs/apidocs/archivebox/archivebox.domains.md
+  s_10bc94d001be49::t_caa5b7f0ea571f 1-33
+docs/apidocs/archivebox/archivebox.domains.scope.md
+  s_10bc94d001be49::t_d1d186685c4688 1-64
+docs/apidocs/archivebox/archivebox.domains.urls.md
+  s_10bc94d001be49::t_e502ed9d39934f 1-62
+docs/apidocs/archivebox/archivebox.domains.views.md
+  s_10bc94d001be49::t_7cbfacb5e5e4e6 1-119
+docs/apidocs/archivebox/archivebox.domains.wacz.md
+  s_10bc94d001be49::t_d6cb2b3e93e1e7 1-42
+docs/apidocs/archivebox/archivebox.importers.apps.md
+  s_10bc94d001be49::t_b89b683c372f30 1-62
+docs/apidocs/archivebox/archivebox.importers.catalog.md
+  s_10bc94d001be49::t_63ba515232f97e 1-194
+docs/apidocs/archivebox/archivebox.importers.diagnostics.md
+  s_10bc94d001be49::t_7b46a9477c8618 1-114
+docs/apidocs/archivebox/archivebox.importers.forms.md
+  s_10bc94d001be49::t_71df218e9a7770 1-159
+docs/apidocs/archivebox/archivebox.importers.gallery.md
+  s_10bc94d001be49::t_1b37a0fc58e484 1-31
+docs/apidocs/archivebox/archivebox.importers.management.commands.importers.md
+  s_10bc94d001be49::t_025b1367349f54 1-60
+docs/apidocs/archivebox/archivebox.importers.management.commands.md
+  s_10bc94d001be49::t_01dc9ebf93cf2b 1-17
+docs/apidocs/archivebox/archivebox.importers.management.md
+  s_10bc94d001be49::t_261ef04e439b33 1-17
+docs/apidocs/archivebox/archivebox.importers.md
+  s_10bc94d001be49::t_d350b5e7021b19 1-34
+docs/apidocs/archivebox/archivebox.importers.models.md
+  s_10bc94d001be49::t_d57bd24aeb9c34 1-621
+docs/apidocs/archivebox/archivebox.importers.service.md
+  s_10bc94d001be49::t_80c24bfad434a4 1-261
+docs/apidocs/archivebox/archivebox.importers.urls.md
+  s_10bc94d001be49::t_22cb1b4d791fd7 1-62
+docs/apidocs/archivebox/archivebox.importers.views.md
+  s_10bc94d001be49::t_e8b498f7dcf487 1-207
+docs/apidocs/archivebox/archivebox.memento.md
+  s_10bc94d001be49::t_ef3553a8af0df7 1-17
+docs/apidocs/archivebox/archivebox.memento.views.md
+  s_10bc94d001be49::t_7647da503a3cf0 1-119
+docs/apidocs/archivebox/archivebox.personas.state_forms.md
+  s_784d0e5fa3aa29::t_ae7502954ea68d 1-175
+docs/apidocs/archivebox/archivebox.plugins.documentation.md
+  s_10bc94d001be49::t_023a85f09e5e8c 1-78
+docs/apidocs/archivebox/archivebox.plugins.host.md
+  s_10bc94d001be49::t_a7bf3474340fbb 1-134
+docs/apidocs/archivebox/archivebox.plugins.output_groups.md
+  s_784d0e5fa3aa29::t_71826536ed1768 1-130
+docs/apidocs/archivebox/archivebox.plugins.services.md
+  s_10bc94d001be49::t_e85d48076e9b0e 1-64
+docs/apidocs/archivebox/archivebox.progressmonitor.collection.md
+  s_10bc94d001be49::t_5cf0d8802fdc1e 1-75
+docs/apidocs/archivebox/archivebox.progressmonitor.metrics.md
+  s_10bc94d001be49::t_789e7646a3ce2f 1-78
+docs/apidocs/archivebox/archivebox.services.resource_admission.md
+  s_10bc94d001be49::t_805927691af4d2 1-264
+docs/apidocs/archivebox/archivebox.workers.http_server.md
+  s_10bc94d001be49::t_0fa2eae8a3b18d 1-31
+docs/apidocs/archivebox/archivebox.workers.management.commands.runserver.md
+  s_10bc94d001be49::t_6f28089ed962d5 1-50
+docs/apidocs/archivebox/archivebox.workers.supervisord_parent_watchdog.md
+  s_10bc94d001be49::t_05aed3270a9d88 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e44bebd832aee81f3a6d0844ff7da29f9fca7a0",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
