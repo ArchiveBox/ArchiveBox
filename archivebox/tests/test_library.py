@@ -350,6 +350,52 @@ def test_inline_folder_save_validates_normalized_name(admin_client):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_public_folder_browser_keeps_navigation_readonly(live_server, admin_user, browser_runtime):
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.core.models import Folder, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+    from urllib.parse import urlsplit
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}", "PUBLIC_INDEX": True}
+    machine.save(update_fields=["config"])
+    folder = Folder.objects.create(name="Published research")
+    other = Folder.objects.create(name="Other reading")
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/paper",
+        title="Public paper",
+        crawl=crawl,
+        folder=folder,
+        permissions="public",
+    )
+    Snapshot.objects.create(url="https://example.com/other", title="Other paper", crawl=crawl, folder=other, permissions="public")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        response = page.goto(f"http://archivebox.localhost:{port}/public/?folder={folder.pk}")
+        assert response.status == 200
+        expect(page.locator(".snapshot-title")).to_have_text([snapshot.title])
+        expect(page.locator(".folder-new,.folder-edit,.folder-drop-target,#folder-dialog,[draggable=true]")).to_have_count(0)
+        page.get_by_role("button", name="Find a folder", exact=True).click()
+        page.get_by_role("searchbox", name="Find a folder").fill(folder.name)
+        expect(page.locator(f'[data-folder-id="{folder.pk}"]')).to_be_visible()
+        expect(page.locator(f'[data-folder-id="{other.pk}"]')).not_to_be_visible()
+        page.locator(f'[data-folder-id="{folder.pk}"]').hover()
+        page.get_by_role("button", name=f"Actions for {folder.name}", exact=True).click()
+        menu = page.locator(f"#folder-menu-{folder.pk}")
+        expect(menu).to_be_visible()
+        assert menu.locator("a[data-export-format]").count() > 0
+        expect(menu.get_by_role("button")).to_have_count(0)
+        assert not errors
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("view", ["table", "grid"])
 def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, browser_runtime, view):
     from playwright.sync_api import sync_playwright, expect

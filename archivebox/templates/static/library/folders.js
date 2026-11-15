@@ -473,6 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileToggle.focus();
   });
   renderTree();
+  // Public folders share navigation and exports, but have no move endpoint.
+  if (!sidebar.dataset.moveUrl) return;
 
   // CSS owns tag fitting. Only tag membership and explicit expansion change
   // this control; never measure rows or observe dimensions to decide visibility.
