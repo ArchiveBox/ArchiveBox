@@ -336,13 +336,26 @@ class ServerConfig(BaseConfigSet):
     CSRF_TRUSTED_ORIGINS: str = Field(default="")
     SERVER_SECURITY_MODE: str = Field(default="auto")
 
-    SNAPSHOTS_PER_PAGE: int = Field(default=50, ge=1)
+    SNAPSHOTS_PER_PAGE: int = Field(
+        default=50,
+        ge=1,
+        description="Number of rows that render in table and list UIs in the web interface.",
+    )
     FOOTER_INFO: str = Field(
         default="Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.",
     )
-    PUBLIC_INDEX: bool = Field(default=True)
-    PUBLIC_ADD_VIEW: bool = Field(default=False)
-    REWRITE_ARCHIVED_LINKS: bool = Field(default=False, description="Link saved pages to available archived URLs during replay.")
+    PUBLIC_INDEX: bool = Field(
+        default=True,
+        description="Let visitors browse and search public snapshots without signing in, so you can share your archive as a searchable collection.",
+    )
+    PUBLIC_ADD_VIEW: bool = Field(
+        default=False,
+        description="Let visitors submit URLs for your server to archive without signing in, so others can contribute to your collection.",
+    )
+    REWRITE_ARCHIVED_LINKS: bool = Field(
+        default=False,
+        description="When a saved page links to a URL with a public snapshot, open that saved copy to keep browsing within your archive.",
+    )
 
     ADMIN_USERNAME: str | None = Field(default=None)
     ADMIN_PASSWORD: str | None = Field(default=None)
