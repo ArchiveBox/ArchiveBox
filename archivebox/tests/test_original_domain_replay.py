@@ -242,8 +242,9 @@ const gallery = require(process.env.DOMAIN_GALLERY);
     assert result.returncode == 0, result.stdout + result.stderr
     report = json.loads(result.stdout)
     clone = Crawl.objects.get(pk=report["clone"]["crawlId"])
+    assert clone.urls.splitlines()[0] == "https://news.ycombinator.com/newest"
     assert clone.config["CRAWL_MAX_URLS"] == 5
-    assert not clone.config["ONLY_NEW"]
+    assert clone.config["ONLY_NEW"]
     assert clone.url_passes_filters("https://news.ycombinator.com/")
     assert clone.url_passes_filters("https://news.ycombinator.com/newest")
     for url in (

@@ -16,7 +16,9 @@ async function prepare(page, adminBaseUrl) {
       throw new Error(`Site clone field ${selector} was not entered correctly.`);
     }
   }
-  await fill('#id_url', 'https://news.ycombinator.com/');
+  // The library already captured the homepage; capture its navigation target
+  // directly instead of fetching the homepage again just to discover this URL.
+  await fill('#id_url', 'https://news.ycombinator.com/newest');
   await fill('#id_max_depth', '1');
   await fill('#id_max_urls', '5');
   await fill('#id_concurrency', '2');
@@ -33,8 +35,8 @@ async function prepare(page, adminBaseUrl) {
   if (await page.$eval('#id_tags', input => input.value.split(',').sort().join(',')) !== 'hacker-news,screenshot-gallery,site-clone') {
     throw new Error('Native tag editor did not preserve the selected tags.');
   }
-  // Existing captures must not turn this demonstration into an empty queue.
-  if (await page.$eval('#id_url_filters_only_new', (input) => input.checked)) await page.click('#id_url_filters_only_new');
+  // Keep the validated homepage if it is rediscovered from the newest page.
+  if (!await page.$eval('#id_url_filters_only_new', (input) => input.checked)) await page.click('#id_url_filters_only_new');
   const moreOptionsUrl = await page.$eval('#site-more-options', link => link.href);
   await Promise.all([
     page.waitForNavigation({waitUntil: 'domcontentloaded'}),
