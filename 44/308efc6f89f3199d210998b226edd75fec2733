@@ -1,0 +1,29 @@
+archivebox/config/forms.py
+  s_784d0e5fa3aa29::t_ea83711f6b8a81 8,18,20,22,28-32,35-38
+archivebox/tests/test_ui_machine_settings.py
+  s_784d0e5fa3aa29::t_2fad7db5a673f0 2-3,7,28-32,50,58,65
+  s_784d0e5fa3aa29::t_2658a7d6f4481e 1,4-6,8-27,33-42,46-49,51-57,59-64,66,68-72
+  s_784d0e5fa3aa29::t_2af659263bcc9b 43-45,67
+archivebox/templates/admin/machine/machine/change_form.html
+  s_784d0e5fa3aa29::t_2af659263bcc9b 1-11
+archivebox/machine/admin.py
+  s_784d0e5fa3aa29::t_53ef54afd01841 18,75-76,156
+archivebox/machine/forms.py
+  s_784d0e5fa3aa29::t_e3b708aec9d46b 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "44308efc6f89f3199d210998b226edd75fec2733",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
