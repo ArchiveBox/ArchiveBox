@@ -623,7 +623,7 @@ class TestPublicIndex:
         import time
 
         from django.core.cache import cache
-        from django.db import connection
+        from django.db import connection, transaction
         from django.db.backends.signals import connection_created
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import Snapshot
@@ -659,6 +659,15 @@ class TestPublicIndex:
 
         connection_created.connect(observe_background_connection)
         try:
+            # An uncommitted writer must not start a background count on a
+            # second connection, or consume its refresh throttle before commit.
+            with transaction.atomic():
+                Snapshot.objects.filter(crawl=crawl).update(title="Public count")
+                pending = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+                assert pending.status_code == 200
+                assert pending.context["public_snapshot_count"] is None
+                assert cache.get(f"{key}:refresh") is None
+
             with CaptureQueriesContext(connection) as queries:
                 response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
 

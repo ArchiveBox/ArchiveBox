@@ -90,6 +90,10 @@ def collection_summary(user, *, public=False):
     user_id = None if user.is_superuser else user.pk
     key = "progress-collection:public" if public else f"progress-collection:{'all' if user_id is None else user_id}"
     summary = cache.get(key)
+    # A separate connection cannot count this transaction's uncommitted rows
+    # and may block on its writes. Leave the next committed request to refresh.
+    if connections["default"].in_atomic_block:
+        return summary
     # Even indexed COUNT/SUM aggregates scan the index. Never make HTTP wait for
     # that scan on a large collection. Serve stale totals while one worker refreshes;
     # a single non-blocking lock prevents a queue of scans from concurrent clients.
