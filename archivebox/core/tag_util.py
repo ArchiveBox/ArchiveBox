@@ -6,8 +6,9 @@ from typing import Any
 from urllib.parse import unquote
 
 from django.contrib.auth.models import User
-from django.db.models import Count, Exists, F, OuterRef, Prefetch, QuerySet
-from django.db.models.functions import Lower
+from django.db import connection
+from django.db.models import CharField, Count, Exists, F, IntegerField, OuterRef, Prefetch, QuerySet, Subquery, Value
+from django.db.models.functions import Cast, Coalesce, Lower
 from django.http import HttpRequest
 from django.urls import reverse
 
@@ -69,8 +70,14 @@ def get_matching_tags(
     needs_snapshot_counts = sort.startswith("snapshots_")
 
     queryset = Tag.objects.select_related("created_by")
+    # Older SQLite collections retain a text tag_id in the through table.
+    # Comparing it with the integer tag PK bypasses its index; a text RHS
+    # permits indexed probes with both the legacy and current column affinity.
+    tag_id = Cast(OuterRef("pk"), output_field=CharField()) if connection.vendor == "sqlite" else OuterRef("pk")
+    memberships = SnapshotTag.objects.filter(tag_id=tag_id)
     if needs_snapshot_counts:
-        queryset = queryset.annotate(num_snapshots=Count("snapshot_set", distinct=True))
+        counts = memberships.order_by().values("tag_id").annotate(count=Count("*")).values("count")
+        queryset = queryset.annotate(num_snapshots=Coalesce(Subquery(counts, output_field=IntegerField()), Value(0)))
 
     query = normalize_tag_name(query)
     if query:
@@ -85,7 +92,7 @@ def get_matching_tags(
         queryset = queryset.filter(created_at__year=int(year))
 
     if has_snapshots != "all" and not needs_snapshot_counts:
-        queryset = queryset.annotate(has_snapshot=Exists(SnapshotTag.objects.filter(tag_id=OuterRef("pk"))))
+        queryset = queryset.annotate(has_snapshot=Exists(memberships))
 
     if has_snapshots == "yes":
         queryset = queryset.filter(num_snapshots__gt=0) if needs_snapshot_counts else queryset.filter(has_snapshot=True)
@@ -116,7 +123,7 @@ def add_snapshot_counts(tags: list[Tag], snapshot_queryset: QuerySet[Snapshot] |
     queryset = SnapshotTag.objects.filter(tag_id__in=tag_ids)
     if snapshot_queryset is not None:
         queryset = queryset.filter(snapshot_id__in=snapshot_queryset.values("id"))
-    counts = {int(row["tag_id"]): row["num_snapshots"] for row in queryset.values("tag_id").annotate(num_snapshots=Count("snapshot_id"))}
+    counts = {int(row["tag_id"]): row["num_snapshots"] for row in queryset.values("tag_id").annotate(num_snapshots=Count("*"))}
     for tag in tags:
         tag.num_snapshots = counts.get(int(tag.pk), 0)
 

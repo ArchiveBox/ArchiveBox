@@ -1,5 +1,7 @@
 from copy import copy
 from functools import wraps
+import logging
+from threading import Thread
 from urllib.parse import urlencode, urlsplit
 
 from django.contrib import messages
@@ -7,7 +9,7 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
-from django.db import connection
+from django.db import close_old_connections, connection, connections
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from django.http import Http404
@@ -23,6 +25,7 @@ from .scope import crawl_site_scope, normalize_site_scope, site_snapshot_filters
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.plugins.discovery import get_snapshot_role_names
+from archivebox.progressmonitor.collection import _refresh_lock
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
 from archivebox.core.routes_util import build_admin_url, build_original_url, build_snapshot_detail_url, is_snapshot_subdomain
 
@@ -43,6 +46,50 @@ def clone_admin(view):
     return wrapped
 
 
+def _domain_rows():
+    # Never publish uncommitted metadata to other requests or refresh it using
+    # a second connection that cannot see this transaction's writes.
+    if connection.in_atomic_block:
+        return Snapshot.objects.domain_summary()
+    key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
+    rows = cache.get(key)
+    if rows is None:
+        rows = Snapshot.objects.domain_summary()
+        cache.set(key, rows, timeout=3600)
+        cache.set(f"{key}:refresh", True, timeout=60)
+        return rows
+
+    # Keep the last complete domain list while refreshing its display totals.
+    # Use the shared nonblocking gate so statistics scans cannot pile up.
+    if _refresh_lock.acquire(blocking=False):
+        try:
+            refresh_due = cache.add(f"{key}:refresh", True, timeout=60)
+        except Exception:
+            _refresh_lock.release()
+            logging.getLogger(__name__).exception("Could not schedule domain metadata refresh")
+            return rows
+        if not refresh_due:
+            _refresh_lock.release()
+            return rows
+
+        def refresh():
+            try:
+                close_old_connections()
+                cache.set(key, Snapshot.objects.domain_summary(), timeout=3600)
+            except Exception:
+                logging.getLogger(__name__).exception("Could not refresh domain metadata")
+            finally:
+                connections.close_all()
+                _refresh_lock.release()
+
+        try:
+            Thread(target=refresh, name="domain-summary", daemon=True).start()
+        except RuntimeError:
+            _refresh_lock.release()
+            logging.getLogger(__name__).exception("Could not start domain metadata refresh")
+    return rows
+
+
 @clone_admin
 @require_http_methods(["GET", "POST"])
 def index(request):
@@ -55,12 +102,7 @@ def index(request):
         return redirect(crawl.admin_change_url)
     # This page is superuser-only. Cache raw metadata, never rendered URLs or
     # permission decisions; sorting/paging must not rescan the whole collection.
-    # A transaction's uncommitted rows must not escape into a shared cache.
-    rows = (
-        Snapshot.objects.domain_summary()
-        if connection.in_atomic_block
-        else cache.get_or_set(f"domain-summary:{CONSTANTS.COLLECTION_ID}", Snapshot.objects.domain_summary, timeout=60)
-    )
+    rows = _domain_rows()
     query = str(request.GET.get("q", "")).strip()
     if query:
         rows = [row for row in rows if query.casefold() in row["domain"].casefold()]

@@ -628,6 +628,11 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 "process__machine",
             )
         )
+        if ordering_fields:
+            # Django applies the selected columns and a deterministic PK tie
+            # break. Appending the default start_ts after that unique PK makes
+            # SQLite discard the created_at index and sort the whole table.
+            qs = qs.order_by()
         if request.resolver_match.url_name == "core_archiveresult_change":
             qs = qs.defer("notes")
         else:

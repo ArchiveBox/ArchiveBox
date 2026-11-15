@@ -318,6 +318,47 @@ def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(lis
     assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
 
 
+@pytest.mark.parametrize(
+    ("files", "expected"),
+    [
+        ({"output.html": 500, "nested/INDEX.HTML": 1, "other/index.html": 1000}, "nested/INDEX.HTML"),
+        ({"first/foo.html": 7, "second/bar.PDF": 8, "large.png": 1000}, "second/bar.PDF"),
+        ({"first/foo.html": 7, "second/bar.html": 7}, "first/foo.html"),
+        ({"image.png": 1000, "nested/.html": 9999, "article.json": 1}, "article.json"),
+        ({"nested/.html": 9999, "image.png": 1}, "image.png"),
+        ({"stdout.log": 1000, "hook.pid": 1000, "run.sh": 1000, "result.txt": 1}, "result.txt"),
+        ({"unknown": 1000, "nested/.html": 9999}, None),
+        ({"negative.html": -1, "valid.html": 1}, "valid.html"),
+    ],
+)
+def test_list_fallback_preserves_name_extension_size_and_tie_priorities(snapshot, files, expected):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={path: {"size": size} for path, size in files.items()},
+    )
+    expected_path = f"wget/{expected}" if expected is not None else None
+    assert result.embed_path() == expected_path
+    summary = load_snapshot_list_results([snapshot])[snapshot.pk]
+    assert next(row for row in summary.results if row.id == str(result.pk)).embed_path() == expected_path
+
+
+def test_list_fallback_ignores_malformed_sizes(snapshot):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"malformed.html": {"size": "invalid"}, "valid.html": {"size": 1}},
+    )
+    summary = load_snapshot_list_results([snapshot])[snapshot.pk]
+    assert next(row for row in summary.results if row.id == str(result.pk)).embed_path() == "wget/valid.html"
+
+
 @override_settings(PUBLIC_INDEX=True)
 def test_warm_public_list_reflects_result_save_without_modified_at(client, list_collection):
     snapshot = list_collection[0]

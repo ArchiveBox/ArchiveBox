@@ -77,6 +77,59 @@ def projected_noresults(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestArchiveResultAdminListView:
+    def test_created_sort_uses_date_index_without_redundant_default_order(self, admin_client, snapshot):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from django.utils import timezone
+        from archivebox.core.models import ArchiveResult
+
+        created = timezone.now()
+        results = ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"created-sort-{index}", created_at=created)
+                for index in range(60)
+            ],
+        )
+        with CaptureQueriesContext(connection) as queries:
+            response = admin_client.get(
+                reverse("admin:core_archiveresult_changelist"),
+                {"o": "3.-1"},
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+        assert response.status_code == 200
+        assert [result.pk for result in response.context["cl"].result_list] == sorted((result.pk for result in results), reverse=True)[:50]
+        page_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"] and "LIMIT 50" in query["sql"]]
+        assert len(page_queries) == 1
+        ordering = page_queries[0].split(" ORDER BY ")[1]
+        assert '"start_ts"' not in ordering
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("EXPLAIN QUERY PLAN " + page_queries[0])
+                plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+            assert "USING INDEX core_archiveresult_created_at" in plan, plan
+
+    @pytest.mark.parametrize("ordering", [None, "", "invalid", "99"])
+    def test_default_and_invalid_sort_keep_start_time_order(self, admin_client, snapshot, ordering):
+        from datetime import timedelta
+        from django.utils import timezone
+        from archivebox.core.models import ArchiveResult
+
+        now = timezone.now()
+        results = ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(snapshot=snapshot, plugin="title", hook_name=f"start-sort-{index}", start_ts=now - timedelta(minutes=index))
+                for index in range(3)
+            ],
+        )
+        response = admin_client.get(
+            reverse("admin:core_archiveresult_changelist"),
+            {} if ordering is None else {"o": ordering},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert response.status_code == 200
+        assert [result.pk for result in response.context["cl"].result_list] == [result.pk for result in results]
+        assert response.context["cl"].queryset.query.order_by[0] == "-start_ts"
+
     def test_plugin_icons_and_names_stay_on_one_line(self, live_server, admin_user, snapshot, browser_runtime, tmp_path):
         from playwright.sync_api import sync_playwright
         from archivebox.core.models import ArchiveResult

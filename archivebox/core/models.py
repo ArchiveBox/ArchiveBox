@@ -5315,30 +5315,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         plugin_name: str | None = None,
         output_file_map: dict[str, dict[str, Any]] | None = None,
     ) -> str | None:
-        ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid"}
-        # Responses/wget manifests can contain thousands of paths. Parse each
-        # once instead of rebuilding Path objects for every preferred filename
-        # and extension group, each time a list row selects a preview. Keys are
-        # normalized relative POSIX paths, so plain string splitting yields
-        # Path.name/Path.suffix without constructing thousands of Path objects
-        # per list page.
-        candidates = []
-        names = {}
-        extensions = {}
-        for path in output_file_paths:
-            name = path.rstrip("/").rpartition("/")[2]
-            dot = name.rfind(".")
-            extension = name[dot:].lower() if 0 < dot < len(name) - 1 else ""
-            if name in ignored or extension in (".pid", ".log", ".sh"):
-                continue
-            candidates.append(path)
-            names.setdefault(name.lower(), path)
-            extensions[path] = extension
-        if not candidates:
-            return None
-
-        output_file_map = output_file_map or {}
-        preferred_names = [
+        preferred_names = (
             "index.html",
             "index.htm",
             "output.html",
@@ -5354,11 +5331,28 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             "index.md",
             "index.json",
             "article.json",
-        ]
-        for preferred_name in preferred_names:
-            if preferred_name in names:
-                return names[preferred_name]
+        )
 
+        names = {}
+        candidates = []
+        # Test suffixes in C instead of parsing and indexing every asset's
+        # basename/extension. Most captures select HTML and never inspect the
+        # image/media groups or their metadata.
+        for path in output_file_paths:
+            normalized = path.rstrip("/").lower()
+            if normalized.endswith((".pid", ".log", ".sh")):
+                continue
+            candidates.append((path, normalized))
+            if normalized.endswith(preferred_names):
+                name = normalized.rpartition("/")[2]
+                if name == "index.html":
+                    return path
+                names.setdefault(name, path)
+        if not candidates:
+            return None
+        for name in preferred_names:
+            if name in names:
+                return names[name]
         from archivebox.plugins.discovery import get_plugin_output_extension_preference
 
         ext_groups = get_plugin_output_extension_preference(plugin_name or "") or (
@@ -5367,14 +5361,18 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv"),
             (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
         )
-        for ext_group in ext_groups:
-            group_candidates = [candidate for candidate in candidates if extensions[candidate] in ext_group]
+        output_file_map = output_file_map or {}
+        for group in ext_groups:
+            # Match only the final extension, preserving Path.suffix semantics.
+            suffixes = tuple(extension for extension in group if "." not in extension[1:])
+            group_candidates = [
+                path for path, normalized in candidates if normalized.endswith(suffixes) and normalized.rpartition("/")[2] not in group
+            ]
             if group_candidates:
                 return max(
                     group_candidates,
                     key=lambda path: ArchiveResult._coerce_output_file_size(output_file_map.get(path, {}).get("size")),
                 )
-
         return None
 
     @staticmethod

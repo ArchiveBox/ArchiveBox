@@ -260,6 +260,36 @@ def test_domain_metadata_is_reused_across_administrators(admin_client, admin_use
     assert response.status_code == 403
 
 
+def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_user):
+    from threading import enumerate as threads
+    from django.core.cache import cache
+    from archivebox.config import CONSTANTS
+
+    create_pages(admin_user, ["https://shared.example/"])
+    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
+    assert cache.touch(key, timeout=3600)
+    create_pages(admin_user, ["https://shared.example/article"])
+    cache.delete(f"{key}:refresh")
+    for thread in threads():
+        if thread.name in {"collection-summary", "snapshot-list-count"}:
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response.context["domains"][0]["snapshot_count"] == 1
+    assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
+    for thread in threads():
+        if thread.name == "domain-summary":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response.context["domains"][0]["snapshot_count"] == 2
+
+
 def test_domain_summary_later_pages_seek_id_range(admin_user):
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
     pages = Snapshot.objects.bulk_create(
