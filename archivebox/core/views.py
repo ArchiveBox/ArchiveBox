@@ -862,7 +862,7 @@ def _resolve_archiveresult_relpath(
             snapshot=snapshot,
             plugin=plugin,
             status=ArchiveResult.StatusChoices.SUCCEEDED,
-        ).only("plugin", "output_files"),
+        ).only("plugin", "output_str", "output_files"),
     )
     if not results:
         from archivebox.plugins.discovery import get_plugin_default_output_path
@@ -924,6 +924,12 @@ def _plugin_full_preview_response(
         # Defer to the file-serving response hook so unrelated outputs from the
         # same plugin continue through their normal MIME-specific renderer.
         return None
+
+    # A full viewer owns the main document and its alternate formats (for
+    # example content.md/content.txt), not every file in an exported folder.
+    if result and (main_output := result.embed_path()):
+        if Path(rel_path).with_suffix("") != Path(main_output).with_suffix(""):
+            return None
 
     # Preview templates can read saved artifacts before the static-file view.
     # Apply the same boundary here so a rendered preview cannot bypass the

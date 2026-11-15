@@ -103,7 +103,8 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
     const navigation = page.goto(process.env.SNAPSHOT_URL, {waitUntil: 'domcontentloaded'});
     await page.waitForFunction(() => document.querySelector('#main-frame')?.src.includes('/singlefile/content.html'));
     const staticFrame = await (await page.$('#main-frame')).contentFrame();
-    await staticFrame.waitForFunction(() => document.body?.innerText.includes('ArchiveBox consolelog preview fixture'));
+    const savedDocument = await (await staticFrame.waitForSelector('#document')).contentFrame();
+    await savedDocument.waitForFunction(() => document.body?.innerText.includes('ArchiveBox consolelog preview fixture'));
     assert.equal(await page.$eval('.selected-card[data-plugin-name]', card => card.dataset.pluginName), 'singlefile');
     assert.equal(await page.$('#replay-screenshot-cover'), null);
     if (['unsupported', 'explicit'].includes(process.env.SELECTION)) {
@@ -163,6 +164,36 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
         return navigation.responseStart - navigation.requestStart;
       }),
     }));
+    if (process.env.SELECTION === 'automatic') {
+      const replay = page.frames().find(frame => frame.url().includes('/replay/w/'));
+      assert(replay);
+      assert(await replay.evaluate(() => document.body.innerText.includes('Drive')));
+      for (const [width, height] of [[1600, 1000], [390, 844], [640, 240]]) {
+        await page.setViewport({width, height});
+        for (const expanded of [true, false]) {
+          await page.evaluate(() => scrollTo(0, 0));
+          if (await page.$eval('.header-bottom', header => !header.hidden) !== expanded) await page.click('.header-toggle');
+          await replay.waitForFunction(() => document.documentElement.scrollHeight <= innerHeight + 1);
+          assert.equal(await replay.evaluate(() => scrollY), 0);
+          if (process.env.REPLAY_VISUAL_DIR) {
+            await page.screenshot({path: `${process.env.REPLAY_VISUAL_DIR}/wacz-${width}x${height}-${expanded}.png`});
+          }
+          const position = await page.$eval('#main-frame', frame => frame.getBoundingClientRect().top + scrollY);
+          await page.evaluate(y => scrollTo(0, y), position);
+          const previous = await page.evaluate(() => scrollY);
+          await page.mouse.move(width / 2, height / 2);
+          await page.mouse.wheel({deltaY: 600});
+          await page.waitForFunction(previous => scrollY > previous, {}, previous);
+          assert.equal(await replay.evaluate(() => scrollY), 0);
+          if (process.env.REPLAY_VISUAL_DIR) {
+            await page.screenshot({path: `${process.env.REPLAY_VISUAL_DIR}/wacz-${width}x${height}-${expanded}-scrolled.png`});
+          }
+        }
+      }
+      await page.setViewport({width: 1600, height: 1000});
+      await page.evaluate(() => scrollTo(0, 0));
+      if (await page.$eval('.header-bottom', header => header.hidden)) await page.click('.header-toggle');
+    }
     // A still-connected card with a real server error must not be accepted.
     const missing = await frame.goto(new URL('/missing-gallery-card', frame.url()).href);
     assert.equal(missing.status(), 404);

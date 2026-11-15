@@ -186,7 +186,10 @@ def test_persona_browser_state_controls_in_real_browser(initialized_archive, bro
             page.get_by_label("Password:", exact=True).fill(env["DJANGO_SUPERUSER_PASSWORD"])
             page.get_by_role("button", name="Log in", exact=True).click()
             page.goto(base + "/admin/personas/persona/")
-            page.get_by_role("link", name="Browser State", exact=True).click()
+            with page.expect_response(lambda response: response.url.endswith("/browser-state/")) as inspected:
+                page.get_by_role("link", name="Browser State", exact=True).click()
+            assert inspected.value.ok, inspected.value.text()
+            assert inspected.value.json()["state"]["inventory_complete"] is True
             state = page.locator(".persona-browser-state")
             expect(state.locator("[data-state-total]")).to_have_text("2")
             expect(state.locator(".persona-state-heading")).to_have_css("color", "rgb(52, 64, 84)")

@@ -1552,8 +1552,11 @@
 
             let replayPreload = null
             let replayPreloadCard = null
+            let replayPreloadSize = null
 
             function cancelReplayPreload() {
+                replayPreloadSize?.disconnect()
+                replayPreloadSize = null
                 replayPreload?.remove()
                 replayPreload = null
                 replayPreloadCard = null
@@ -1578,6 +1581,10 @@
                 // display:none/animation-frame readiness deadlocks in browsers
                 // that suspend rendering of covered or hidden frames.
                 candidate.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none'
+                const matchPreviewSize = () => { candidate.style.height = `${frame.getBoundingClientRect().height}px` }
+                replayPreloadSize = new ResizeObserver(matchPreviewSize)
+                replayPreloadSize.observe(frame)
+                matchPreviewSize()
                 frame.style.cssText = 'position:relative;z-index:1;background:white'
                 if (isIsolatedPluginPreview(target)) candidate.removeAttribute('sandbox')
                 candidate.src = versionSnapshotPreviewUrl(target, card.dataset.outputRevision)
@@ -1602,6 +1609,8 @@
                 // navigation. Only the plugin knows whether archived content is
                 // actually ready; bootstrap/error pages must never replace HTML.
                 const card = replayPreloadCard
+                replayPreloadSize?.disconnect()
+                replayPreloadSize = null
                 frame.remove()
                 candidate.id = 'main-frame'
                 candidate.name = 'preview'
@@ -1866,6 +1875,7 @@
                 // context; thumbnail and previously selected frames cannot.
                 frame.style.height = `${Math.ceil(height)}px`
                 frame.style.flex = '0 0 auto'
+                if (replayPreload) replayPreload.style.height = `${frame.getBoundingClientRect().height}px`
             })
             window.addEventListener('message', (event) => {
                 const frame = document.getElementById('main-frame')

@@ -230,8 +230,9 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                     expect(preview.locator("body")).to_contain_text(manifest["title"])
             elif selected["format"] == "html":
                 preview.locator(".directory-link").filter(has_text=relative.name).click()
-                expect(preview.get_by_role("table")).to_have_count(4)
-                expect(preview.locator("body")).to_contain_text(manifest["title"])
+                document = preview.frame_locator("#document")
+                expect(document.get_by_role("table")).to_have_count(4)
+                expect(document.locator("body")).to_contain_text(manifest["title"])
             elif selected["format"] == "zip":
                 with zipfile.ZipFile(output / selected["path"]) as archive:
                     assert archive.testzip() is None

@@ -1,6 +1,8 @@
 """The snapshot shell and its preview must not nest viewport scrollbars."""
 
 import hashlib
+import os
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
@@ -29,7 +31,15 @@ def test_expanded_header_and_preview_share_outer_scroll(snapshot, live_server, b
     output.parent.mkdir(parents=True)
     output.write_text("<!doctype html><title>Long saved page</title>" + "<p>Archived paragraph</p>" * 400)
     original = hashlib.sha256(output.read_bytes()).hexdigest()
-    ArchiveResult.objects.create(snapshot=snapshot, plugin="singlefile", status="succeeded", output_str="singlefile/singlefile.html")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="singlefile",
+        status="succeeded",
+        output_str="singlefile/singlefile.html",
+        output_files={"singlefile.html": {"size": output.stat().st_size, "mimetype": "text/html"}},
+        output_size=output.stat().st_size,
+    )
+    snapshot.write_index_jsonl()
     host = "archivebox.localhost" if same_origin else "web.archivebox.localhost"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -57,6 +67,10 @@ def test_expanded_header_and_preview_share_outer_scroll(snapshot, live_server, b
             for child in (preview_frame, document_frame):
                 assert child.evaluate("document.documentElement.scrollHeight <= innerHeight + 1")
                 assert child.evaluate("scrollY") == 0
+            if evidence := os.environ.get("REPLAY_VISUAL_DIR"):
+                target = Path(evidence)
+                target.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(target / f"html-{viewport[0]}x{viewport[1]}-{expanded}.png"))
             page.evaluate("y => scrollTo(0, y)", frame["y"])
             previous_scroll = page.evaluate("scrollY")
             page.mouse.move(viewport[0] / 2, viewport[1] / 2)
