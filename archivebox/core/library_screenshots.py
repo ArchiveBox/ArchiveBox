@@ -148,7 +148,10 @@ def prepare(evidence_dir, *, model=""):
             if not tags or not {normalize_tag_name(tag).casefold() for tag in tags}.issubset(
                 {name.casefold() for name in snapshot.tags.values_list("name", flat=True)},
             ):
-                raise RuntimeError(f"Gallery capture has no real emitted tags: {snapshot.url}")
+                raise RuntimeError(
+                    f"Gallery tag projection mismatch for {snapshot.url}: "
+                    f"emitted={tags!r}, stored={list(snapshot.tags.values_list('name', flat=True))!r}"
+                )
             if not (snapshot.output_dir / "autosummary/summary.md").read_text().strip():
                 raise RuntimeError(f"Gallery capture has no real summary artifact: {snapshot.url}")
     if model:

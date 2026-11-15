@@ -12,7 +12,7 @@ def test_readwise_importer_preserves_metadata_and_password(initialized_archive, 
     root, url = import_site
     plugin = get_plugin_catalog()["importer_readwise"]
     assert not plugin.filter_hooks("Snapshot")
-    example = json.loads((plugin.path / "tests/fixtures/reader-list.json").read_text())
+    example = json.loads((plugin.path / "examples/reader-list.json").read_text())
     example["nextPageCursor"] = None
     (root / "reader.json").write_text(json.dumps(example))
     script = """
@@ -66,7 +66,7 @@ try:
     runner.load_run_state()
 finally:
     asyncio.run(runner.bus.destroy(clear=False))
-examples = json.loads((get_plugin_catalog()["importer_readwise"].path / "tests/fixtures/reader-list.json").read_text())["results"]
+examples = json.loads((get_plugin_catalog()["importer_readwise"].path / "examples/reader-list.json").read_text())["results"]
 assert Snapshot.objects.count() == len(examples)
 for document in examples:
     snapshot = Snapshot.objects.get(url=document["source_url"])
