@@ -45,76 +45,50 @@ stop_background_runner() {
 
 cleanup() {
     local cleanup_status=$?
-    if [[ -n "$SITE_EXPORT_SERVER_PID" ]]; then
-        for child_pid in $(pgrep -P "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true); do
-            kill "$child_pid" 2>/dev/null || true
-        done
-        kill "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true
-        wait "$SITE_EXPORT_SERVER_PID" 2>/dev/null || true
-    fi
-    if [[ -n "$SETUP_SERVER_PID" ]]; then
-        setup_server_children="$(pgrep -P "$SETUP_SERVER_PID" 2>/dev/null || true)"
-        for child_pid in $setup_server_children; do
-            kill "$child_pid" 2>/dev/null || true
-        done
-        kill "$SETUP_SERVER_PID" 2>/dev/null || true
-        for _attempt in $(seq 1 50); do
-            setup_server_running=0
-            kill -0 "$SETUP_SERVER_PID" 2>/dev/null && setup_server_running=1
-            for child_pid in $setup_server_children; do
-                kill -0 "$child_pid" 2>/dev/null && setup_server_running=1
-            done
-            [[ "$setup_server_running" == "0" ]] && break
-            sleep 0.1
-        done
-        for child_pid in $setup_server_children; do
-            kill -KILL "$child_pid" 2>/dev/null || true
-        done
-        kill -KILL "$SETUP_SERVER_PID" 2>/dev/null || true
-        wait "$SETUP_SERVER_PID" 2>/dev/null || true
-    fi
+    trap - EXIT INT TERM
+    # Capture every owned descendant before signaling any parent. Killing only
+    # uv's immediate child first reparents Chrome/hooks while they still write.
+    if uv run --no-sync --project "$REPO_DIR" python - "$$" \
+        "$SITE_EXPORT_SERVER_PID" "$SETUP_SERVER_PID" "$ARCHIVE_PID" "$SERVER_PID" <<'PYSTOP'
+import sys
+import psutil
+from archivebox.core.shutdown_util import kill_remaining_processes, wait_psutil_and_kill_children
 
-    if [[ -n "$ARCHIVE_PID" ]] && kill -0 "$ARCHIVE_PID" 2>/dev/null; then
-        archive_children="$(pgrep -P "$ARCHIVE_PID" 2>/dev/null || true)"
-        for child_pid in $archive_children; do
-            kill "$child_pid" 2>/dev/null || true
+owner_pid = int(sys.argv[1])
+trees = []
+for pid in filter(None, sys.argv[2:]):
+    try:
+        process = psutil.Process(int(pid))
+        if process.ppid() != owner_pid:
+            raise RuntimeError(f"Refusing to stop process {pid}: gallery no longer owns it")
+        trees.append((process, process.children(recursive=True)))
+    except psutil.NoSuchProcess:
+        pass
+for process, _children in trees:
+    try:
+        process.terminate()
+    except psutil.NoSuchProcess:
+        pass
+for process, children in trees:
+    try:
+        wait_psutil_and_kill_children(process, children, timeout=5.0)
+    except psutil.NoSuchProcess:
+        kill_remaining_processes(children)
+for process, children in trees:
+    for owned in [process, *children]:
+        try:
+            if owned.is_running() and owned.status() != psutil.STATUS_ZOMBIE:
+                raise RuntimeError(f"Gallery process {owned.pid} survived shutdown")
+        except psutil.NoSuchProcess:
+            pass
+PYSTOP
+    then
+        for owned_pid in "$SITE_EXPORT_SERVER_PID" "$SETUP_SERVER_PID" "$ARCHIVE_PID" "$SERVER_PID"; do
+            # Reap stopped shell children; their signal exit codes are expected.
+            [[ -z "$owned_pid" ]] || wait "$owned_pid" 2>/dev/null || true
         done
-        kill "$ARCHIVE_PID" 2>/dev/null || true
-        for _attempt in $(seq 1 50); do
-            archive_running=0
-            kill -0 "$ARCHIVE_PID" 2>/dev/null && archive_running=1
-            for child_pid in $archive_children; do
-                kill -0 "$child_pid" 2>/dev/null && archive_running=1
-            done
-            [[ "$archive_running" == "0" ]] && break
-            sleep 0.1
-        done
-        for child_pid in $archive_children; do
-            kill -KILL "$child_pid" 2>/dev/null || true
-        done
-        kill -KILL "$ARCHIVE_PID" 2>/dev/null || true
-        wait "$ARCHIVE_PID" 2>/dev/null || true
-    fi
-    if [[ -n "$SERVER_PID" ]]; then
-        server_children="$(pgrep -P "$SERVER_PID" 2>/dev/null || true)"
-        for child_pid in $server_children; do
-            kill "$child_pid" 2>/dev/null || true
-        done
-        kill "$SERVER_PID" 2>/dev/null || true
-        for _attempt in $(seq 1 50); do
-            server_running=0
-            kill -0 "$SERVER_PID" 2>/dev/null && server_running=1
-            for child_pid in $server_children; do
-                kill -0 "$child_pid" 2>/dev/null && server_running=1
-            done
-            [[ "$server_running" == "0" ]] && break
-            sleep 0.1
-        done
-        for child_pid in $server_children; do
-            kill -KILL "$child_pid" 2>/dev/null || true
-        done
-        kill -KILL "$SERVER_PID" 2>/dev/null || true
-        wait "$SERVER_PID" 2>/dev/null || true
+    else
+        [[ "$cleanup_status" != "0" ]] || cleanup_status=1
     fi
 
     if [[ "$CREATED_TEMP_USER" == "1" && -f "$DATA_DIR/index.sqlite3" ]]; then
@@ -185,8 +159,11 @@ cleanup() {
             echo "[!] Could not retain bounded screenshot diagnostics in $SCREENSHOT_FAILURE_DIR" >&2
         fi
     fi
+    exit "$cleanup_status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 mkdir -p "$DATA_DIR" "$OUTPUT_DIR" "$PUBLIC_OUTPUT_DIR"
 
