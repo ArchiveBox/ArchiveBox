@@ -4406,7 +4406,7 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
     max-width: 320px !important;
 }
 #content #changelist #changelist-form .actions .actions-folder label { gap: 6px; }
-#content #changelist #changelist-form .actions .actions-folder select { min-height: 34px; padding: 5px 8px; }
+#content #changelist #changelist-form .actions .actions-folder select { min-height: 34px; margin: 0; padding: 5px 8px; }
 #content #changelist #changelist-form .actions .action-summary { height: auto !important; margin-left: auto !important; }
 @media (max-width: 767px) {
     #content #changelist #changelist-form .actions .actions-tags-with-buttons { max-width: none !important; flex-basis: 100%; }

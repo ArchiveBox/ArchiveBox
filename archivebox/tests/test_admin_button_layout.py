@@ -36,6 +36,12 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             search_box = page.locator("#toolbar").bounding_box()
             actions_box = page.locator(".actions-top").bounding_box()
             rows_box = page.locator("#changelist-form > .results").bounding_box()
+            folder_box = page.locator(".actions-folder select").bounding_box()
+            move_box = buttons.first.bounding_box()
+            if width == 1280:
+                assert move_box["x"] - (folder_box["x"] + folder_box["width"]) >= 8
+            else:
+                assert move_box["y"] - (folder_box["y"] + folder_box["height"]) >= 8
             assert actions_box["y"] >= search_box["y"] + search_box["height"]
             assert rows_box["y"] >= actions_box["y"] + actions_box["height"]
             for control in buttons.all():
