@@ -1,0 +1,20 @@
+bin/collect_ui_screenshots.sh
+  s_784d0e5fa3aa29::t_b5f73b9773ed6c 51,77,86-88,90
+  s_784d0e5fa3aa29::t_59d88fd50b54f9 48-50,52-55,57-76,78-85,91,162,164-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb49ddf316b5592b61d7e39e2b6b24eb22792316",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
