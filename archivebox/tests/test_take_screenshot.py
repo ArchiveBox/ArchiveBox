@@ -182,8 +182,27 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
           await page.evaluate(y => scrollTo(0, y), position);
           const previous = await page.evaluate(() => scrollY);
           await page.mouse.move(width / 2, height / 2);
+          // Finish this gesture before resizing or toggling the next layout.
+          await page.evaluate(previous => {
+            window.galleryOuterScrollEnded = false;
+            const finished = () => {
+              if (scrollY <= previous) return;
+              window.galleryOuterScrollEnded = true;
+              window.removeEventListener('scrollend', finished);
+            };
+            window.addEventListener('scrollend', finished);
+          }, previous);
           await page.mouse.wheel({deltaY: 600});
-          await page.waitForFunction(previous => scrollY > previous, {}, previous);
+          try {
+            await page.waitForFunction(previous => window.galleryOuterScrollEnded && scrollY > previous, {}, previous);
+          } catch (error) {
+            console.error(JSON.stringify({width, height, expanded, previous, scroll: await page.evaluate(() => ({
+              position: scrollY, maximum: document.documentElement.scrollHeight - innerHeight,
+              ended: window.galleryOuterScrollEnded,
+              hit: document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.tagName,
+            }))}));
+            throw error;
+          }
           assert.equal(await replay.evaluate(() => scrollY), 0);
           if (process.env.REPLAY_VISUAL_DIR) {
             await page.screenshot({path: `${process.env.REPLAY_VISUAL_DIR}/wacz-${width}x${height}-${expanded}-scrolled.png`});
