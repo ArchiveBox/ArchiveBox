@@ -137,6 +137,10 @@ def test_persona_browser_state_controls_in_real_browser(initialized_archive, bro
     env = cli_env(
         BASE_URL=f"http://archivebox.localhost:{port}",
         BIND_ADDR=f"127.0.0.1:{port}",
+        # The UI starts the same real browser as the fixture when inspecting
+        # saved state; hosted Linux does not provide Chrome's user sandbox.
+        CHROME_BINARY=str(browser_runtime["chrome_binary"]),
+        CHROME_SANDBOX="False",
         DJANGO_SUPERUSER_USERNAME="state-review",
         DJANGO_SUPERUSER_PASSWORD="local-state-password",
         DJANGO_SUPERUSER_EMAIL="state@example.com",
