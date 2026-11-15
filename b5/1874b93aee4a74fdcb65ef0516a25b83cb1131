@@ -1,0 +1,23 @@
+archivebox/api/webhook_views.py
+  s_784d0e5fa3aa29::t_1614d163c6e24c 55-56
+archivebox/tests/test_webhook_actions.py
+  s_784d0e5fa3aa29::t_1614d163c6e24c 173,211-218
+archivebox/templates/static/api/webhooks.js
+  s_784d0e5fa3aa29::t_fbf01bdd26ca24 657
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b51874b93aee4a74fdcb65ef0516a25b83cb1131",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
