@@ -1051,7 +1051,7 @@ def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> l
 
     postgres = is_postgres()
     for root in roots:
-        for separator in ("/", "?", "#"):
+        for separator in ("/", "?", "#", ":"):
             prefix = f"{root}{separator}"
             if postgres:
                 domain_query |= Q(url__startswith=prefix)
@@ -1072,7 +1072,10 @@ def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> l
     return [
         snapshot
         for snapshot in candidates
-        if domain_authorized or can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot)
+        # A coarse host: prefix also matches userinfo such as host:password@other.
+        # Check the parsed hostname before granting access to any private row.
+        if urlsplit(snapshot.url).hostname == requested_domain
+        and (domain_authorized or can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot))
     ]
 
 
@@ -1083,11 +1086,10 @@ def _latest_replay_match(
 ) -> tuple[Snapshot, Path, Path] | None:
     if not domain or not rel_path:
         return None
-    requested_domain = domain.split(":", 1)[0].lower()
     rel_to_root = Path(rel_path)
     for snapshot in snapshots:
         snapshot_root = Path(snapshot.output_dir)
-        for replay_root in get_plugin_replay_roots(snapshot_root, f"https://{requested_domain}/"):
+        for replay_root in get_plugin_replay_roots(snapshot_root, snapshot.url):
             target = replay_root / rel_to_root
             try:
                 available = target.resolve().is_relative_to(snapshot_root.resolve()) and target.exists()
@@ -1101,9 +1103,8 @@ def _latest_replay_match(
 def _latest_replay_root(snapshots: list[Snapshot], domain: str) -> tuple[Snapshot, Path] | None:
     if not domain:
         return None
-    requested_domain = domain.split(":", 1)[0].lower()
     for snapshot in snapshots:
-        for replay_root in get_plugin_replay_roots(Path(snapshot.output_dir), f"https://{requested_domain}/"):
+        for replay_root in get_plugin_replay_roots(Path(snapshot.output_dir), snapshot.url):
             return snapshot, replay_root
     return None
 

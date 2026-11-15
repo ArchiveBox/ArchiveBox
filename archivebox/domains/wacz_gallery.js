@@ -96,26 +96,23 @@ async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'ht
 }
 
 async function exportViews(page, clone, directory, baseUrl) {
-  const {url} = await exportPlayer(page, clone.url, directory, baseUrl);
+  const {assertCapturedPage} = require('./gallery.js');
+  const {url} = await exportPlayer(page, clone.url, directory, baseUrl, clone.homeUrl);
   await page.goto(url, {waitUntil: 'domcontentloaded'});
-  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000}).catch(cause => {
-    throw new Error('WACZ site export did not open its recorded homepage frame.', {cause});
-  });
-  await frame.waitForSelector('#hnmain', {timeout: 45000});
-  let newest;
-  for (const anchor of await frame.$$('a[href]')) {
-    if (await anchor.evaluate(element => element.textContent.trim() === 'new')) { newest = anchor; break; }
-  }
-  if (!newest) throw new Error('The WACZ recording has no native newest link.');
-  await newest.click();
-  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/newest'), {timeout: 45000}).catch(cause => {
-    throw new Error('WACZ site export did not follow the recorded newest-page link.', {cause});
-  });
-  await next.waitForFunction(() => document.title.includes('New Links') && Boolean(document.querySelector('#hnmain')));
-  await page.waitForFunction(() => new URLSearchParams(location.hash.slice(1)).get('url') === 'https://news.ycombinator.com/newest');
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, clone.homeUrl), {timeout: 45000});
+  await assertCapturedPage(frame, 'Field Notes');
+  await frame.click('#chapter-link');
+  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, clone.nextUrl), {timeout: 45000});
+  await assertCapturedPage(next, 'A Walk by the River');
+  await page.waitForFunction(target => new URLSearchParams(location.hash.slice(1)).get('url') === target, {}, clone.nextUrl);
+  const nextPlayerUrl = page.url();
+  await page.evaluate(() => history.back());
+  await assertCapturedPage(await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, clone.homeUrl)), 'Field Notes');
+  await page.evaluate(() => history.forward());
+  await assertCapturedPage(await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, clone.nextUrl)), 'A Walk by the River');
   return [
-    {name: 'WACZ site export', url, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: 'wait-replay-url:https://news.ycombinator.com/'},
-    {name: 'WACZ export internal navigation', url: page.url(), path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: 'wait-replay-url:https://news.ycombinator.com/newest'},
+    {name: 'WACZ site export', url, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${clone.homeUrl}`},
+    {name: 'WACZ export internal navigation', url: nextPlayerUrl, path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: `wait-replay-url:${clone.nextUrl}`},
   ];
 }
 

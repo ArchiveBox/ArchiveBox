@@ -1,0 +1,8 @@
+html { color: #203829; background: #edf3ed; font: 18px/1.7 Georgia, serif; }
+body { margin: 0; padding: 4vw; }
+main { max-width: 42rem; margin: 4vh auto; padding: 3rem; background: white; border-top: 6px solid rgb(47, 111, 78); border-radius: 8px; }
+h1 { line-height: 1.15; font-size: clamp(2rem, 5vw, 3.5rem); }
+.eyebrow { font: 0.8rem/1.5 system-ui, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
+a { color: #2f6f4e; }
+nav { margin-top: 2rem; }
+@media (max-width: 600px) { main { padding: 1.5rem; } }

@@ -3,8 +3,6 @@
 import gzip
 import hashlib
 import json
-import os
-import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -191,73 +189,6 @@ def test_original_domain_replay_browser_navigation(saved_site, live_server, brow
     assert all(output.read_bytes() == body for _snapshot, output, body in saved_site)
 
 
-def test_gallery_clone_reserves_capacity_for_saved_internal_navigation(saved_site, admin_user, live_server, browser_runtime, tmp_path):
-    from archivebox.crawls.models import Crawl
-    from archivebox.machine.models import Machine
-
-    port = urlsplit(live_server.url).port
-    machine = Machine.current()
-    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
-    machine.save(update_fields=["config"])
-    result = subprocess.run(
-        [
-            str(browser_runtime["node_binary"]),
-            "-e",
-            r"""
-const puppeteer = require('puppeteer');
-const gallery = require(process.env.DOMAIN_GALLERY);
-(async () => {
-  const browser = await puppeteer.launch({executablePath: process.env.CHROME_BINARY, headless: true,
-    args: [...JSON.parse(process.env.CHROME_ARGS), '--no-sandbox']});
-  try {
-    const page = await browser.newPage();
-    await page.setViewport({width: 1600, height: 1000});
-    await page.goto(`${process.env.ADMIN_URL}/admin/login/`, {waitUntil: 'domcontentloaded'});
-    await page.type('#id_username', process.env.LOGIN_USERNAME);
-    await page.type('#id_password', 'testpassword');
-    await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-      page.click('button[type="submit"], input[type="submit"]')]);
-    const clone = await gallery.prepare(page, process.env.ADMIN_URL);
-    const views = await gallery.replayViews(page, clone);
-    await page.screenshot({path: process.env.SCREENSHOT_PATH, fullPage: true});
-    console.log(JSON.stringify({clone, views}));
-  } finally { await browser.close(); }
-})().catch(error => { console.error(error); process.exitCode = 1; });
-""",
-        ],
-        env={
-            **os.environ,
-            "NODE_PATH": str(browser_runtime["node_path"]),
-            "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
-            "CHROME_ARGS": json.dumps(browser_runtime["chrome_args"]),
-            "DOMAIN_GALLERY": str(Path(__file__).resolve().parents[1] / "domains/gallery.js"),
-            "ADMIN_URL": f"http://admin.archivebox.localhost:{port}",
-            "LOGIN_USERNAME": admin_user.username,
-            "SCREENSHOT_PATH": str(tmp_path / "gallery-saved-newest.png"),
-        },
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    report = json.loads(result.stdout)
-    clone = Crawl.objects.get(pk=report["clone"]["crawlId"])
-    assert clone.urls.splitlines()[0] == "https://news.ycombinator.com/newest"
-    assert clone.config["CRAWL_MAX_URLS"] == 5
-    assert clone.config["ONLY_NEW"]
-    assert clone.url_passes_filters("https://news.ycombinator.com/")
-    assert clone.url_passes_filters("https://news.ycombinator.com/newest")
-    for url in (
-        "https://news.ycombinator.com/news",
-        "https://news.ycombinator.com",
-        "https://news.ycombinator.com/newest?next=31",
-        "https://news.ycombinator.com/item?id=1",
-    ):
-        assert not clone.url_passes_filters(url), url
-    assert [view["path"] for view in report["views"]] == ["/", "/newest"]
-    assert all(output.read_bytes() == body for _snapshot, output, body in saved_site)
-
-
 def test_snapshot_replay_link_setting_hides_nondiscoverable_targets(client, saved_site):
     from archivebox.core.routes_util import build_snapshot_url
     from archivebox.machine.models import Machine
@@ -390,3 +321,45 @@ def test_large_saved_document_rewrite_preserves_embedded_payload_and_capture_byt
     assert f'href="http://{DOMAIN_HOST}/newest"'.encode() in response.content
     assert f"/_archivebox/files/{snapshot.id}/dom/".encode() in response.content
     assert output.read_bytes() == source
+
+
+@pytest.mark.parametrize("scheme,port", [("http", 80), ("https", 443), ("http", 8443)])
+def test_domain_grant_replays_explicit_ports_without_authorizing_url_userinfo(admin_client, saved_site, scheme, port):
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    original, _output, body = saved_site[0]
+    first = None
+    for url in (
+        f"{scheme}://news.ycombinator.com:{port}/port-page",
+        f"{scheme}://news.ycombinator.com:password@other.example/secret",
+        f"{scheme}://news.ycombinator.com.other.example/secret",
+        f"{scheme}://news.ycombinator.comx/secret",
+    ):
+        snapshot = Snapshot.objects.create(url=url, crawl=original.crawl, config={"PERMISSIONS": "private"}, output_size=len(body))
+        first = first or snapshot
+        saved = snapshot.output_dir / "dom/output.html"
+        saved.parent.mkdir(parents=True)
+        saved.write_bytes(body)
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="dom",
+            hook_name="on_Snapshot__53_dom.js",
+            status="succeeded",
+            output_str="dom/output.html",
+            output_files={"dom/output.html": {"size": len(body), "mimetype": "text/html"}},
+            output_size=len(body),
+        )
+    auth = admin_client.get(
+        "/admin/core/snapshot/replay-auth/",
+        {"snapshot": str(first.pk), "original_domain": "news.ycombinator.com", "next": "/port-page"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert auth.status_code == 302
+    grant = urlsplit(auth["Location"])
+    replay = Client()
+    assert replay.get(grant.path + "?" + grant.query, HTTP_HOST=DOMAIN_HOST).status_code == 302
+    page = replay.get("/port-page", HTTP_HOST=DOMAIN_HOST)
+    assert page.status_code == 200
+    assert b"Hacker News" in page.content
+    assert replay.get("/secret", HTTP_HOST=DOMAIN_HOST).status_code == 404
+    assert replay.get("/secret", HTTP_HOST="other.example.archivebox.localhost:5797").status_code == 404

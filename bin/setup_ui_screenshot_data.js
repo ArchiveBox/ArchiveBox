@@ -149,7 +149,12 @@ async function main() {
     featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
     featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
-    const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl);
+    // Mandatory replay navigation uses an owned two-page site. Live HN/story
+    // capture and eligibility remain independently checked below.
+    const siteDirectory = path.join(path.dirname(viewsFile), 'site-exports', 'site-navigation');
+    fs.cpSync(path.join(repoDir, 'archivebox/tests/fixtures/site-navigation'), siteDirectory, {recursive: true});
+    const siteUrl = new URL('site-navigation/index.html', process.env.UI_SITE_EXPORT_BASE_URL).href;
+    const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl, siteUrl);
     runWorker(['run', '--crawl-id', clone.crawlId]);
     featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
     featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
