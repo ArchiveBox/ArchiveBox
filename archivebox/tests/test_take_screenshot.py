@@ -272,3 +272,78 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
     assert evidence["frames"]
     assert evidence["documents"]
     assert any(record.get("status") == 200 and record["ttfbMs"] >= 0 for record in evidence["documents"])
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("filtered", [True, False])
+def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, filtered):
+    from archivebox.core.models import Folder
+
+    folder = Folder.objects.create(name="Gallery navigation", created_by=admin_user)
+    snapshot.folder = folder
+    snapshot.save(update_fields=["folder"])
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    path = "/admin/core/snapshot/"
+    expected = f"{path}?folder={folder.pk}&q="
+    output = tmp_path / "folder.png"
+    capture = subprocess.run(
+        [
+            str(browser_runtime["node_binary"]),
+            str(REPO_ROOT / "bin/take_screenshot.js"),
+            f"http://admin.archivebox.localhost:{port}{expected if filtered else path}",
+            str(output),
+        ],
+        env={
+            **os.environ,
+            "NODE_PATH": str(browser_runtime["node_path"]),
+            "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
+            "SCREENSHOT_LOGIN_USERNAME": admin_user.username,
+            "SCREENSHOT_LOGIN_PASSWORD": "testpassword",
+            "SCREENSHOT_WAIT_SELECTOR": "#result_list input.action-select",
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert capture.returncode == 0, capture.stdout + capture.stderr
+    assert output.stat().st_size > 1000
+    report = tmp_path / "folder.json"
+    report.write_text(capture.stdout)
+    assert json.loads(report.read_text())["checks"]["status"] == 200
+
+    def validate(expected_path):
+        return subprocess.run(
+            [
+                "uv",
+                "run",
+                "--no-sync",
+                "--project",
+                str(REPO_ROOT),
+                "python",
+                str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"),
+                "validate",
+                str(report),
+                expected_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+
+    assert validate(path).returncode == 0  # Existing path-only callers allow query strings.
+    matching = validate(expected)
+    assert matching.returncode == (0 if filtered else 1), matching.stdout + matching.stderr
+    if filtered:
+        reordered = validate(f"{path}?q=&folder={folder.pk}")
+        assert reordered.returncode == 0, reordered.stderr
+    else:
+        assert "expected final query" in matching.stderr
+    wrong_folder = validate(f"{path}?folder=wrong-folder&q=")
+    assert wrong_folder.returncode == 1
+    assert "expected final query" in wrong_folder.stderr
+    wrong_path = validate("/admin/core/tag/")
+    assert wrong_path.returncode == 1
+    assert "expected final path" in wrong_path.stderr
