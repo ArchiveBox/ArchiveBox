@@ -130,9 +130,9 @@ async function main() {
     }
     const runWorker = (args) => {
       const result = spawnSync('uv', ['run', '--no-sync', '--project', repoDir, 'archivebox', ...args], {
-        cwd: dataDir, encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: dataDir, encoding: 'utf8', env: process.env, stdio: ['ignore', 'inherit', 'inherit'],
       });
-      if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.stderr || result.stdout}`);
+      if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.error?.message || `exit ${result.status}, signal ${result.signal || 'none'}`}`);
     };
     const featureViews = [];
     const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);

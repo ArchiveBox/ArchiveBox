@@ -57,7 +57,15 @@ async function replayViews(page, clone) {
     throw new Error('Saved Hacker News did not load on its original-domain replay host.');
   }
   const next = await page.$$eval('a[href]', links => links.find(link => link.textContent.trim() === 'new')?.href);
-  if (!next || new URL(next).origin !== new URL(page.url()).origin) throw new Error('The saved newest page is not available for internal replay.');
+  if (!next || new URL(next).origin !== new URL(page.url()).origin) {
+    const current = new URL(page.url());
+    const link = next ? new URL(next) : null;
+    throw new Error(`The saved newest page is not available for internal replay: ${JSON.stringify({
+      page: current.origin + current.pathname,
+      title: (await page.title()).slice(0, 160),
+      next: link ? link.origin + link.pathname : null,
+    })}`);
+  }
   await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click(`a[href="${next}"]`)]);
   if (page.url() !== next || !(await page.title()).includes('New Links')) throw new Error('Captured internal-link navigation failed.');
   const newestAuth = new URL(authUrl);
