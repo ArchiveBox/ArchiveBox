@@ -275,8 +275,8 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("filtered", [True, False])
-def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, filtered):
+@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart"])
+def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
     from archivebox.core.models import Folder
 
     folder = Folder.objects.create(name="Gallery navigation", created_by=admin_user)
@@ -288,12 +288,61 @@ def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_
     machine.save(update_fields=["config"])
     path = "/admin/core/snapshot/"
     expected = f"{path}?folder={folder.pk}&q="
+    target = expected if view != "unfiltered" else path
+    admin_url = f"http://admin.archivebox.localhost:{port}"
+    if view == "smart":
+        snapshot.url = "https://news.ycombinator.com/"
+        snapshot.status = "sealed"
+        snapshot.save(update_fields=["url", "status"])
+        save_output(snapshot, "singlefile")
+        assert save_response_image(snapshot).output_size > 1024
+        prepared = subprocess.run(
+            [
+                str(browser_runtime["node_binary"]),
+                "-e",
+                r"""
+const puppeteer = require('puppeteer');
+const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
+(async () => {
+  const browser = await puppeteer.launch({executablePath: process.env.CHROME_BINARY, headless: true, args: JSON.parse(process.env.CHROME_ARGS)});
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({width: 1600, height: 1000});
+    await page.goto(`${process.env.ADMIN_URL}/admin/login/`, {waitUntil: 'domcontentloaded'});
+    await page.type('#id_username', process.env.LOGIN_USERNAME);
+    await page.type('#id_password', 'testpassword');
+    await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click('button[type="submit"], input[type="submit"]')]);
+    const result = await prepareSmartFolder(page, process.env.ADMIN_URL, process.env.CRAWL_ID);
+    console.log(JSON.stringify(result));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""",
+            ],
+            env={
+                **os.environ,
+                "NODE_PATH": str(browser_runtime["node_path"]),
+                "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
+                "CHROME_ARGS": json.dumps(browser_runtime["chrome_args"]),
+                "LIBRARY_GALLERY": str(REPO_ROOT / "archivebox/core/library_gallery.js"),
+                "ADMIN_URL": admin_url,
+                "LOGIN_USERNAME": admin_user.username,
+                "CRAWL_ID": str(snapshot.crawl_id),
+            },
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+        gallery = json.loads(prepared.stdout)
+        expected = gallery["path"]
+        actual_url = urlsplit(gallery["url"])
+        target = actual_url.path + "?" + actual_url.query
     output = tmp_path / "folder.png"
     capture = subprocess.run(
         [
             str(browser_runtime["node_binary"]),
             str(REPO_ROOT / "bin/take_screenshot.js"),
-            f"http://admin.archivebox.localhost:{port}{expected if filtered else path}",
+            admin_url + target,
             str(output),
         ],
         env={
@@ -335,11 +384,11 @@ def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_
 
     assert validate(path).returncode == 0  # Existing path-only callers allow query strings.
     matching = validate(expected)
-    assert matching.returncode == (0 if filtered else 1), matching.stdout + matching.stderr
-    if filtered:
+    assert matching.returncode == (1 if view == "unfiltered" else 0), matching.stdout + matching.stderr
+    if view == "folder":
         reordered = validate(f"{path}?q=&folder={folder.pk}")
         assert reordered.returncode == 0, reordered.stderr
-    else:
+    elif view == "unfiltered":
         assert "expected final query" in matching.stderr
     wrong_folder = validate(f"{path}?folder=wrong-folder&q=")
     assert wrong_folder.returncode == 1

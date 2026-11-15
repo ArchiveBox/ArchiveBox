@@ -294,7 +294,7 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
     await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('.folder-save')]);
     if (!(await saved).ok()) throw new Error('Saving nested smart-folder rules failed.');
   } else await page.click('.folder-dialog-heading .folder-dialog-close');
-  return {name:'Smart folder',url,path:`/admin/core/snapshot/?folder=${id}`,source:'archivebox/core/smart_folders.py'};
+  return {name:'Smart folder',url,path:new URL(url).pathname+new URL(url).search,source:'archivebox/core/smart_folders.py'};
 }
 
 async function openSmartFolder(page) {
