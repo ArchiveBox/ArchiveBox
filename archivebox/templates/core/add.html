@@ -13,10 +13,10 @@
 {% block extra_head %}
     {% if not can_override_crawl_config %}{% include 'plugins/config_quantity.html' %}{% endif %}
     <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}" />
-    <link rel="stylesheet" href="{% static 'add.css' %}" />
+    <link rel="stylesheet" href="{% static 'add.css' %}?v=subgrid-2" />
     {% if can_override_crawl_config %}
-    <link rel="stylesheet" href="{% static 'library/folders.css' %}" />
-    <script src="{% static 'library/folders.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'library/folders.css' %}?v=tags-css-1" />
+    <script src="{% static 'library/folders.js' %}?v=tags-css-1" defer></script>
     {% endif %}
 {% endblock %}
 
@@ -368,7 +368,6 @@
                 const urlTextarea = document.querySelector('textarea[name="url"]');
                 const urlCounter = document.getElementById('url-counter');
                 const urlHighlightLayer = document.getElementById('url-highlight-layer');
-                const detectedURLsPanel = document.querySelector('.detected-urls-panel');
                 const detectedURLsSummary = document.getElementById('detected-urls-summary');
                 const detectedURLsList = document.getElementById('detected-urls-list');
                 const maxURLsInput = document.querySelector('input[name="max_urls"]');
@@ -1075,29 +1074,6 @@
                     urlHighlightLayer.scrollLeft = urlTextarea.scrollLeft;
                 }
 
-                function syncHighlightMetrics() {
-                    const style = window.getComputedStyle(urlTextarea);
-                    urlHighlightLayer.style.font = style.font;
-                    urlHighlightLayer.style.fontFamily = style.fontFamily;
-                    urlHighlightLayer.style.fontSize = style.fontSize;
-                    urlHighlightLayer.style.fontWeight = style.fontWeight;
-                    urlHighlightLayer.style.fontStyle = style.fontStyle;
-                    urlHighlightLayer.style.lineHeight = style.lineHeight;
-                    urlHighlightLayer.style.letterSpacing = style.letterSpacing;
-                    urlHighlightLayer.style.wordSpacing = style.wordSpacing;
-                    urlHighlightLayer.style.textIndent = style.textIndent;
-                    urlHighlightLayer.style.textTransform = style.textTransform;
-                    urlHighlightLayer.style.tabSize = style.tabSize;
-                    urlHighlightLayer.style.paddingTop = style.paddingTop;
-                    urlHighlightLayer.style.paddingRight = style.paddingRight;
-                    urlHighlightLayer.style.paddingBottom = style.paddingBottom;
-                    urlHighlightLayer.style.paddingLeft = style.paddingLeft;
-                }
-
-                function syncPreviewPanelHeight() {
-                    detectedURLsPanel.style.height = `${urlTextarea.offsetHeight}px`;
-                }
-
                 function updateURLPreview() {
                     const matches = extractURLs(urlTextarea.value).map((match, index) => ({
                         ...match,
@@ -1186,16 +1162,6 @@
                     importURLFiles(Array.from(event.dataTransfer.files));
                 });
                 urlTextarea.addEventListener('scroll', syncHighlightScroll);
-                window.addEventListener('resize', syncHighlightMetrics);
-                window.addEventListener('resize', syncPreviewPanelHeight);
-                if (window.ResizeObserver) {
-                    new ResizeObserver(function() {
-                        syncHighlightMetrics();
-                        syncPreviewPanelHeight();
-                        syncHighlightScroll();
-                    }).observe(urlTextarea);
-                }
-
                 document.getElementById('add-form').addEventListener('input', function(event) {
                     if (
                         event.target === urlTextarea ||
@@ -1232,8 +1198,6 @@
                     setDenylistPatternEntry(button.dataset.pattern || '', button.dataset.active !== '1');
                 });
 
-                syncHighlightMetrics();
-                syncPreviewPanelHeight();
                 updateURLPreview(); // Initial count + preview
 
                 // Plugin Presets

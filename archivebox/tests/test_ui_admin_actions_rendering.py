@@ -53,7 +53,15 @@ def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
         page.locator('input[type="submit"]').click()
+        cdp = page.context.new_cdp_session(page)
+        cdp.send("Performance.enable")
+        before_layouts = {item["name"]: item["value"] for item in cdp.send("Performance.getMetrics")["metrics"]}["LayoutCount"]
         page.goto(f"{admin_url}/admin/core/snapshot/")
+        # Fifty tag rows must not each force a full-table layout, either during
+        # initialization or from dimension observers on the first rendered frame.
+        page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+        after_layouts = {item["name"]: item["value"] for item in cdp.send("Performance.getMetrics")["metrics"]}["LayoutCount"]
+        assert after_layouts - before_layouts < 20, "Tag rows forced repeated table layouts"
         print(
             "list navigation timings",
             page.evaluate("""() => {

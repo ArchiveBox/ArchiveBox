@@ -474,113 +474,36 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   renderTree();
 
-  // Prepare every row before measuring any: alternating writes/reads per row
-  // otherwise forces the browser to lay out the entire snapshot table repeatedly.
-  const pendingTagUpdates = new Set();
-  let tagUpdateFrame;
-  function flushTagUpdates() {
-    cancelAnimationFrame(tagUpdateFrame);
-    tagUpdateFrame = null;
-    const updates = [...pendingTagUpdates];
-    pendingTagUpdates.clear();
-    const measurements = updates.map(prepare => prepare());
-    const layouts = measurements.map(measure => measure());
-    layouts.forEach(apply => apply());
-  }
+  // CSS owns tag fitting. Only tag membership and explicit expansion change
+  // this control; never measure rows or observe dimensions to decide visibility.
   const cleanupTagRows = [];
   function initializeTagRows() {
     cleanupTagRows.splice(0).forEach(cleanup => cleanup());
-    pendingTagUpdates.clear();
     form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
       const editor = pills.closest('.tag-editor-inline');
-      const input = editor.querySelector('.tag-inline-input-sm');
       const toggle = document.createElement('button');
-      toggle.type = 'button'; toggle.className = 'library-tags-toggle'; toggle.hidden = true;
+      toggle.type = 'button'; toggle.className = 'library-tags-toggle';
       pills.after(toggle);
-      function prepareTags() {
-        const tags = [...pills.querySelectorAll('.tag-pill')];
-        const count = tags.length;
-        const editing = editor.matches(':focus-within') && document.activeElement !== toggle;
-        const expanded = pills.classList.contains('library-tags-expanded') || editing;
-        const compact = document.body.matches('.model-snapshot.change-list') && (pills.closest('.cards') || window.matchMedia('(max-width: 1500px)').matches);
-        tags.forEach(tag => { tag.hidden = false; tag.style.removeProperty('max-width'); });
-        toggle.hidden = !compact && !expanded;
-        toggle.textContent = expanded ? 'Show fewer tags' : compact ? `+${count}` : `Show all ${count} tags`;
-        return () => {
-          if (!compact || expanded) {
-            const overflows = pills.scrollHeight > pills.clientHeight;
-            return () => {
-              toggle.hidden = !expanded && !overflows;
-              toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
-              toggle.setAttribute('aria-expanded', String(Boolean(expanded)));
-            };
-          }
-          const gap = parseFloat(getComputedStyle(editor).columnGap) || 0;
-          const tagGap = parseFloat(getComputedStyle(pills).columnGap) || 0;
-          const available = editor.clientWidth - (input ? input.getBoundingClientRect().width + gap : 0);
-          const widths = tags.map(tag => tag.getBoundingClientRect().width);
-          const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, count - 1) * tagGap;
-          const fits = total <= available;
-          const tagSpace = available - toggle.getBoundingClientRect().width - gap;
-          return () => {
-            let visible = count;
-            if (!fits) {
-              let used = 0;
-              visible = 0;
-              tags.forEach((tag, index) => {
-                const next = widths[index] + (visible ? tagGap : 0);
-                tag.hidden = used + next > tagSpace;
-                if (!tag.hidden) { used += next; visible++; }
-              });
-              // Preserve complete short labels and fit one ellipsized label in
-              // the remainder; its title still exposes the full tag name.
-              const remaining = Math.floor(tagSpace - used - (visible ? tagGap : 0));
-              const extra = tags.find(tag => tag.hidden);
-              if (extra && remaining >= 56) {
-                extra.style.maxWidth = `${remaining}px`;
-                extra.hidden = false;
-                visible++;
-              }
-            }
-            toggle.hidden = visible === count;
-            toggle.textContent = `+${count - visible}`;
-            toggle.setAttribute('aria-label', `Show all ${count} tags`);
-            toggle.setAttribute('aria-expanded', 'false');
-          };
-        };
-      }
       function updateTags() {
-        pendingTagUpdates.add(prepareTags);
-        if (!tagUpdateFrame) tagUpdateFrame = requestAnimationFrame(flushTagUpdates);
+        const count = pills.querySelectorAll('.tag-pill').length;
+        const expanded = pills.classList.contains('library-tags-expanded');
+        toggle.hidden = count <= 2;
+        toggle.textContent = expanded ? 'Show fewer tags' : `+${count - 2}`;
+        toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
+        toggle.setAttribute('aria-expanded', String(expanded));
       }
-      // Pointer focus would reveal the tag delete controls and move this button
-      // between pointerdown and click. Keyboard focus still behaves normally.
       toggle.addEventListener('pointerdown', event => event.preventDefault());
       toggle.addEventListener('click', event => {
         event.stopPropagation();
         if (editor.contains(document.activeElement) && document.activeElement !== toggle) document.activeElement.blur();
         pills.classList.toggle('library-tags-expanded');
         updateTags();
-        flushTagUpdates();
       });
-      const tagMutationObserver = new MutationObserver(updateTags);
-      tagMutationObserver.observe(pills, {childList:true,subtree:true});
-      const tagResizeObserver = new ResizeObserver(updateTags);
-      tagResizeObserver.observe(editor);
-      if (input) {
-        tagResizeObserver.observe(input);
-      }
-      editor.addEventListener('focusin', updateTags);
-      editor.addEventListener('focusout', updateTags);
-      window.addEventListener('resize', updateTags);
-      cleanupTagRows.push(() => {
-        tagMutationObserver.disconnect();
-        tagResizeObserver.disconnect();
-        window.removeEventListener('resize', updateTags);
-      });
+      const observer = new MutationObserver(updateTags);
+      observer.observe(pills, {childList: true});
+      cleanupTagRows.push(() => observer.disconnect());
       updateTags();
     });
-    flushTagUpdates();
   }
   function selectionChanged() {
     const checked = form?.querySelector('input.action-select:checked');

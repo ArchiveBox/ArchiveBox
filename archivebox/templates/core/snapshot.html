@@ -256,7 +256,7 @@
             .header-tags [hidden] { display: none !important; }
             .header-tags .snapshot-variants-list { display: flex; flex-wrap: wrap; gap: 6px; width: 280px; }
             .header-top .header-tags .snapshot-variants-list .tag-pill { max-width: 100%; height: auto; white-space: normal; overflow-wrap: anywhere; }
-            .header-top .header-tags .tag-pill { flex: 0 0 auto; min-width: 0; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
+            .header-top .header-tags .tag-pill { flex: 0 1 auto; min-width: 0; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
             .header-text-dot { flex: 0 0 auto; color: #ffffff60; }
             .header-url-actions { display: flex; align-self: stretch; flex: 0 0 auto; }
             .header-url-tools { display: flex; align-self: stretch; min-height: 26px; }
@@ -500,14 +500,17 @@
                 order: 2;
                 flex: 1 0 auto;
                 min-height: 40dvh;
-                display: flex;
-                flex-direction: column;
+                display: grid;
+                grid-template-rows: auto auto;
+                grid-template-columns: minmax(0, 1fr);
+                align-content: start;
             }
             #main-frame-wrapper iframe {
                 width: 100%;
                 height: 100%;
                 border: none;
             }
+            #main-frame-wrapper > #main-frame { height: 80dvh; }
             #replay-screenshot-cover {
                 position: absolute;
                 inset: 0;
@@ -520,7 +523,7 @@
                 pointer-events: none;
             }
             #snapshot-progress-wrapper {
-                flex: 0 0 auto;
+                grid-area: 1 / 1;
                 width: 100%;
             }
             #snapshot-progress-wrapper #progress-monitor .progress-content {
@@ -534,7 +537,7 @@
             #main-frame-wrapper > #main-frame,
             #main-frame-wrapper > #snapshot-empty-state {
                 /* Progress grows above the preview; the document owns scrolling. */
-                flex: 1 0 auto;
+                grid-area: 2 / 1;
                 min-height: 40dvh;
             }
             .full-page-wrapper {
@@ -1251,8 +1254,8 @@
                                     <span class="header-text-dot header-tags-dot" aria-hidden="true">·</span>
                                     <details class="header-tags snapshot-variants">
                                         <summary aria-label="Show all tags">
-                                            {% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}
-                                            <span class="header-tags-more">Tags</span>
+                                            {% for tag in title_tags|slice:":2" %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}
+                                            {% if title_tags|length > 2 %}<span class="header-tags-more">+{{ title_tags|length|add:"-2" }}</span>{% endif %}
                                         </summary>
                                         <div class="snapshot-variants-list">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}">{{tag.name}}</span>{% endfor %}</div>
                                     </details>
@@ -1386,40 +1389,6 @@
                     img.style.display = 'block'
                     img.style.margin = '0 auto'
                 } catch (err) {}
-            }
-
-            // Keep whole labels in the header; use the same +N overflow pattern
-            // as snapshot rows without expanding the navigation bar.
-            const headerTags = document.querySelector('.header-tags')
-            if (headerTags) {
-                const summary = headerTags.querySelector('summary')
-                const pills = [...summary.querySelectorAll('.tag-pill')]
-                const more = summary.querySelector('.header-tags-more')
-                function layoutHeaderTags() {
-                    pills.forEach(pill => { pill.hidden = false })
-                    more.hidden = false
-                    more.textContent = `+${pills.length}`
-                    const widths = pills.map(pill => pill.getBoundingClientRect().width)
-                    const gap = parseFloat(getComputedStyle(summary).columnGap) || 0
-                    const total = widths.reduce((sum, width) => sum + width, 0) + gap * (pills.length - 1)
-                    headerTags.style.width = `${total}px`
-                    const available = summary.getBoundingClientRect().width
-                    const limit = total <= available + 0.5 ? available + 0.5 : available - more.getBoundingClientRect().width - gap
-                    let used = 0
-                    let visible = 0
-                    pills.forEach((pill, index) => {
-                        const next = widths[index] + (visible ? gap : 0)
-                        pill.hidden = used + next > limit
-                        if (!pill.hidden) { used += next; visible++ }
-                    })
-                    more.textContent = `+${pills.length - visible}`
-                    more.hidden = visible === pills.length
-                    // Return unused space to the URL/title after hiding pills.
-                    headerTags.style.width = `${used + (more.hidden ? 0 : (visible ? gap : 0) + more.getBoundingClientRect().width)}px`
-                }
-                new ResizeObserver(layoutHeaderTags).observe(document.querySelector('.header-nav'))
-                document.fonts.ready.then(layoutHeaderTags)
-                layoutHeaderTags()
             }
 
             function attachPreviewFrameHandlers(frame) {
@@ -1598,11 +1567,8 @@
 
             let replayPreload = null
             let replayPreloadCard = null
-            let replayPreloadSize = null
 
             function cancelReplayPreload() {
-                replayPreloadSize?.disconnect()
-                replayPreloadSize = null
                 replayPreload?.remove()
                 replayPreload = null
                 replayPreloadCard = null
@@ -1626,11 +1592,7 @@
                 // Keep the replay at the real viewport size behind useful HTML.
                 // display:none/animation-frame readiness deadlocks in browsers
                 // that suspend rendering of covered or hidden frames.
-                candidate.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none'
-                const matchPreviewSize = () => { candidate.style.height = `${frame.getBoundingClientRect().height}px` }
-                replayPreloadSize = new ResizeObserver(matchPreviewSize)
-                replayPreloadSize.observe(frame)
-                matchPreviewSize()
+                candidate.style.cssText = 'grid-area:2 / 1 / 3 / 2;position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none'
                 frame.style.cssText = 'position:relative;z-index:1;background:white'
                 if (isIsolatedPluginPreview(target)) candidate.removeAttribute('sandbox')
                 candidate.src = versionSnapshotPreviewUrl(target, card.dataset.outputRevision)
@@ -1656,8 +1618,6 @@
                 // navigation. Only the plugin knows whether archived content is
                 // actually ready; bootstrap/error pages must never replace HTML.
                 const card = replayPreloadCard
-                replayPreloadSize?.disconnect()
-                replayPreloadSize = null
                 frame.remove()
                 candidate.id = 'main-frame'
                 candidate.name = 'preview'
@@ -1903,7 +1863,6 @@
                     frame.dataset.sizeMode = 'viewport'
                     frame.style.height = '80dvh'
                     frame.style.flex = '0 0 auto'
-                    if (replayPreload) replayPreload.style.height = `${frame.getBoundingClientRect().height}px`
                     return
                 }
                 const height = event.data.height
@@ -1912,7 +1871,6 @@
                 // context; thumbnail and previously selected frames cannot.
                 frame.style.height = `${Math.ceil(height)}px`
                 frame.style.flex = '0 0 auto'
-                if (replayPreload) replayPreload.style.height = `${frame.getBoundingClientRect().height}px`
             })
             window.addEventListener('message', (event) => {
                 const frame = document.getElementById('main-frame')

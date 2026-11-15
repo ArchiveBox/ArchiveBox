@@ -365,12 +365,15 @@ select {
 .url-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  gap: 18px;
+  column-gap: 18px;
   align-items: start;
 }
 
 .url-editor-column {
   min-width: 0;
+  display: grid;
+  grid-row: 1 / span 4;
+  grid-template-rows: subgrid;
 }
 
 .url-file-dragover {
@@ -404,6 +407,16 @@ select {
 
 .url-editor-shell {
   position: relative;
+}
+
+.url-editor-shell :is(textarea[name="url"], .url-highlight-layer) {
+  font: 400 14px/1.5 var(--font-family-primary);
+  padding: 8px 12px;
+  tab-size: 8;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-indent: 0;
+  text-transform: none;
 }
 
 .url-editor-shell textarea[name="url"] {
@@ -454,8 +467,10 @@ select {
 .detected-urls-panel {
   display: flex;
   flex-direction: column;
-  margin-top: 38px;
-  min-height: 240px;
+  grid-area: 2 / 2;
+  align-self: stretch;
+  contain: size;
+  min-height: 0;
   padding: 12px 14px;
   background: linear-gradient(180deg, #fff 0%, #f6f8fb 100%);
   border: 1px solid #d7e2eb;
@@ -837,8 +852,14 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .url-editor-column {
+    display: block;
+    grid-row: auto;
+  }
+
   .detected-urls-panel {
-    margin-top: 0;
+    grid-area: auto;
+    height: 240px;
   }
 
   .url-filters-grid {

@@ -1,9 +1,9 @@
 {% load i18n static %}
 <link rel="stylesheet" href="{% static 'admin/css/changelists.css' %}">
-<link rel="stylesheet" href="{% static 'library/folders.css' %}">
+<link rel="stylesheet" href="{% static 'library/folders.css' %}?v=tags-css-1">
 <script src="{% url 'admin:jsi18n' %}"></script>
 {{ media }}
-<script src="{% static 'library/folders.js' %}" defer></script>
+<script src="{% static 'library/folders.js' %}?v=tags-css-1" defer></script>
 <div class="snapshot-changelist-widget model-snapshot change-list embedded-change-list">
   <div class="snapshot-changelist-toolbar">
     <strong>{% translate "Snapshots" %}</strong>

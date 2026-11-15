@@ -198,3 +198,9 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog.has-rules .folder-rules{overflow:auto;min-height:0;padding-right:2px}
 #folder-dialog.has-rules .folder-dialog-heading,#folder-dialog.has-rules .folder-name-field,#folder-dialog.has-rules .folder-dialog-footer{flex-shrink:0}
 #folder-dialog.has-rules .folder-dialog-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline-color,#e4e7ec)}
+
+/* Bound compact tag rows with CSS, without per-row layout reads in JavaScript. */
+.model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-editor-inline:not(:focus-within) .tag-pills-inline:not(.library-tags-expanded) .tag-pill:nth-child(n+3){display:none}
+.model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-pills-inline:not(.library-tags-expanded) .tag-pill{flex:0 1 auto;min-width:0;max-width:180px}
+.model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-pills-inline:not(.library-tags-expanded) .tag-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-editor-inline:focus-within .tag-pills-inline{flex-wrap:wrap;max-height:none;overflow:visible}
