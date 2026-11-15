@@ -309,7 +309,7 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart", "search", "folder-menu", "import-menu"])
+@pytest.mark.parametrize("view", ["folder", "unfiltered", "nested", "smart", "search", "folder-menu", "import-menu"])
 def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
     from archivebox.core.models import Folder
 
@@ -326,7 +326,7 @@ def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_
     expected = f"{path}?folder={folder.pk}&q="
     target = expected if view != "unfiltered" else path
     admin_url = f"http://admin.archivebox.localhost:{port}"
-    if view == "smart":
+    if view in {"nested", "smart"}:
         snapshot.url = "https://news.ycombinator.com/"
         snapshot.status = "sealed"
         snapshot.save(update_fields=["url", "status"])
@@ -338,7 +338,7 @@ def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_
                 "-e",
                 r"""
 const puppeteer = require('puppeteer');
-const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
+const gallery = require(process.env.LIBRARY_GALLERY);
 (async () => {
   const browser = await puppeteer.launch({executablePath: process.env.CHROME_BINARY, headless: true, args: [...JSON.parse(process.env.CHROME_ARGS), '--no-sandbox']});
   try {
@@ -348,7 +348,7 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
     await page.type('#id_username', process.env.LOGIN_USERNAME);
     await page.type('#id_password', 'testpassword');
     await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click('button[type="submit"], input[type="submit"]')]);
-    const result = await prepareSmartFolder(page, process.env.ADMIN_URL, process.env.CRAWL_ID);
+    const result = await gallery[process.env.PREPARE_HELPER](page, process.env.ADMIN_URL, process.env.CRAWL_ID);
     console.log(JSON.stringify(result));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
@@ -360,6 +360,7 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
                 "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
                 "CHROME_ARGS": json.dumps(browser_runtime["chrome_args"]),
                 "LIBRARY_GALLERY": str(REPO_ROOT / "archivebox/core/library_gallery.js"),
+                "PREPARE_HELPER": "prepare" if view == "nested" else "prepareSmartFolder",
                 "ADMIN_URL": admin_url,
                 "LOGIN_USERNAME": admin_user.username,
                 "CRAWL_ID": str(snapshot.crawl_id),

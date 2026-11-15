@@ -21,16 +21,17 @@ async function prepare(page, adminBaseUrl, crawlId) {
       await page.goto(`${adminBaseUrl}/add/?url=https%3A%2F%2Fnews.ycombinator.com%2F`, {waitUntil: 'domcontentloaded'});
       await page.click('.folder-field .folder-new');
     }
+    await page.waitForSelector('#folder-dialog[open] .folder-save:not([disabled])');
     await page.type('#folder-name', name);
     if (await page.$eval('#folder-parent', select => select.value) !== parent) throw new Error('New folder dialog lost the selected parent.');
     const saved = page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method() === 'POST');
-    if (parent) await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click('.folder-save')]);
-    else await page.click('.folder-save');
+    await page.click('.folder-save');
     const response = await saved;
     if (!response.ok()) throw new Error(`Creating the gallery folder failed: HTTP ${response.status()}`);
+    const created = await response.json();
+    await page.waitForSelector('#folder-dialog:not([open])');
+    if (parent) await page.waitForSelector(`.folder-row[data-folder-id="${created.id}"][data-parent-id="${parent}"]`);
     if (!parent) {
-      const created = await response.json();
-      await page.waitForSelector('#folder-dialog:not([open])');
       if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/') throw new Error('Creating a folder lost the Add form state.');
     }
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
@@ -270,9 +271,12 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
     await page.type('.rule-condition:nth-child(4) input[aria-label="Amount"]','1');
     await page.select('.rule-condition:nth-child(4) select[aria-label="Unit"]','KB');
     const saved=page.waitForResponse(response => response.url().endsWith('/admin/core/folder/save/') && response.request().method()==='POST');
-    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('.folder-save')]);
+    await page.click('.folder-save');
     const response=await saved;
     if (!response.ok()) throw new Error(`Saving smart folder failed: HTTP ${response.status()}`);
+    const created=await response.json();
+    await page.waitForSelector('#folder-dialog:not([open])');
+    await page.waitForSelector(`.folder-row[data-folder-id="${created.id}"]`);
     id=await page.$$eval('.folder-row',(rows,name)=>rows.find(row=>row.dataset.folderName===name)?.dataset.folderId,name);
     if (!id) throw new Error('Saved smart folder is missing from the sidebar.');
   }
@@ -317,7 +321,8 @@ async function openSmartFolder(page) {
   const checks=await page.evaluate(()=>({
     binary:[...document.querySelectorAll('.rule-group')].every(group=>{
       const count=group.querySelectorAll(':scope > .rule-group,:scope > .rule-condition').length;
-      return count<=2 && (count<2 || !group.querySelector(':scope > .rule-group-toolbar'));
+      const toolbar=group.querySelector(':scope > .rule-group-toolbar');
+      return count<=2 && (group.parentElement.matches('.folder-rules') ? toolbar?.querySelectorAll('button').length===2 : count<2 || !toolbar);
     }),
     choices:[...document.querySelectorAll('.rule-condition')].filter(row=>row.querySelector('[aria-label="Field"]').value==='status').every(row=>Boolean(row.querySelector('.rule-value select')) && !row.querySelector('.rule-value input')),
     heading:document.querySelector('#folder-dialog-title').textContent,
