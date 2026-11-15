@@ -612,7 +612,12 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
         )
         image_requests = []
         page.on("request", lambda request: image_requests.append(request.url) if "/responses/all/" in request.url else None)
-        page.goto(f"http://{host}:{port}/_card/{result.id}", wait_until="networkidle")
+        response = page.goto(f"http://{host}:{port}/_card/{result.id}", wait_until="networkidle")
+        assert response is not None
+        initial_html = re.sub(r"<noscript\b[^>]*>.*?</noscript>", "", response.text(), flags=re.DOTALL)
+        # Selection must happen before the browser sees fetchable image URLs;
+        # lazy loading can otherwise request insertion-order tiles before JS.
+        assert not re.search(r"<img\b[^>]*\bsrc=", initial_html)
         tiles = page.locator(".responses-thumbnail > *").evaluate_all(
             "tiles => tiles.filter(tile => tile.getClientRects().length).map(tile => {"
             "const box = tile.getBoundingClientRect(); return {name: tile.dataset.name, width: box.width, height: box.height};})",
