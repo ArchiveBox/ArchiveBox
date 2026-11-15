@@ -1,0 +1,26 @@
+.github/workflows/test-parallel.yml
+  s_532dc92fd8220a::t_d00ccea1343474 407-425,433-434
+  s_532dc92fd8220a::t_832c9e5256e64f 406
+archivebox/tests/test_workflow_persona_merge.py
+  s_532dc92fd8220a::t_110697c9ac1dd7 39-46,75-79
+  s_532dc92fd8220a::t_c1588bc5eacb97 1-38,47-74
+.github/workflows/screenshots.yml
+  s_532dc92fd8220a::t_d00ccea1343474 182-200,208-209
+  s_532dc92fd8220a::t_aec0c68ca47306 181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d3a66536ff2b250f4c513c13ed82a79657d2f4c",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
