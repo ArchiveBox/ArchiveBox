@@ -3824,26 +3824,6 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
     display: none !important;
 }
 
-.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button::before {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    min-width: 14px;
-    font-size: 13px;
-    line-height: 1;
-}
-
-
-
-
-
-
-
-
-
-
-
 .model-crawl.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper {
     display: inline-flex;
     min-width: 130px;
