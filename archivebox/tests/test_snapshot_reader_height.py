@@ -3,10 +3,12 @@
 import gzip
 import hashlib
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from django.db import connections
 from playwright.sync_api import sync_playwright
 
 from archivebox.core.models import ArchiveResult
@@ -29,14 +31,21 @@ def test_article_viewer_height_grows_and_shrinks_without_nested_scrolling(snapsh
     shutil.copyfile(fixtures / "crontab-resources/page.html", root / "tall.html")
     (root / "table.html").write_bytes(gzip.decompress((fixtures / "original-domain-replay/front.html.gz").read_bytes()))
     original = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in root.iterdir()}
-    ArchiveResult.objects.create(
+    result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin=plugin,
         status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_str="tall.html",
         output_files={path.name: {"size": path.stat().st_size, "mimetype": "text/html"} for path in root.iterdir()},
     )
-    with sync_playwright() as playwright:
+    def select_primary_article(filename):
+        try:
+            result.output_str = filename
+            result.save(update_fields=["output_str"])
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=1) as writer, sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),
             args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
@@ -45,6 +54,9 @@ def test_article_viewer_height_grows_and_shrinks_without_nested_scrolling(snapsh
             page = browser.new_page()
             target = f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html"
             for filename in ("tall.html", "short.html", "table.html", "tall.html"):
+                # Exercise the plugin reader for each primary article; subsidiary
+                # HTML files intentionally use the generic saved-page viewer.
+                writer.submit(select_primary_article, filename).result()
                 page.goto(f"{target}#{plugin}/{filename}?preview=1", wait_until="domcontentloaded")
                 viewer = page.locator("#main-frame").content_frame
                 article = viewer.locator("#reader").content_frame
