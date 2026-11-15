@@ -25,7 +25,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 
-from archivebox.config import VERSION
+from archivebox.config import CONSTANTS, VERSION
 from archivebox.core.context_processors import get_static_cache_key
 from archivebox.core.routes_util import is_allowed_archivebox_redirect_url
 
@@ -177,6 +177,9 @@ class ArchiveBoxAdmin(admin.AdminSite):
         models_by_table: dict[str, list[dict[str, Any]]] = {}
         for app in response.context_data.get("app_list", []):
             for model in app.get("models", []):
+                if model.get("name") == "Logs" and request.user.is_superuser:
+                    count, label, _ = self._format_object_count(sum(path.is_file() for path in CONSTANTS.LOGS_DIR.glob("*.log")))
+                    model.update(object_count=count, object_count_label=label, object_count_title=f"Log files: {count:,}")
                 model_class = model.get("model")
                 if not model_class or not model.get("perms", {}).get("view"):
                     continue
