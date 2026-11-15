@@ -215,14 +215,18 @@ async function openFolderSearch(page) {
   const aligned = await page.evaluate(() => {
     const box = selector => document.querySelector(selector).getBoundingClientRect();
     const heading = box('.folder-section-heading');
-    const rootIcon = box('.folder-row[data-parent-id=""] .folder-toggle>svg,.folder-row[data-parent-id=""] .folder-link>svg'), rootText = box('.folder-row[data-parent-id=""] .folder-link>span');
+    const root = document.querySelector('.folder-row[data-parent-id=""]:not([hidden])');
+    const icon = [...root.querySelectorAll('.folder-toggle>svg,.folder-toggle>.folder-title-emoji,.folder-link>svg,.folder-link>.folder-title-emoji')].find(node => node.getClientRects().length);
+    const rootIcon = icon.getBoundingClientRect(), rootText = root.querySelector('.folder-link>span:not(.folder-title-emoji)').getBoundingClientRect();
     const input = box('.folder-search'), toggle = box('.folder-search-toggle');
-    return input.x === rootIcon.x
-      && rootIcon.y + rootIcon.height / 2 === rootText.y + rootText.height / 2
-      && input.y + input.height / 2 === toggle.y + toggle.height / 2
-      && (innerWidth >= 768 || heading.top === box('.folder-sidebar').top);
+    return {
+      left: input.x - rootIcon.x,
+      labelCenter: rootIcon.y + rootIcon.height / 2 - rootText.y - rootText.height / 2,
+      searchCenter: input.y + input.height / 2 - toggle.y - toggle.height / 2,
+      mobileHeading: innerWidth >= 768 ? 0 : heading.top - box('.folder-sidebar').top,
+    };
   });
-  if (!aligned) throw new Error('Folder navigation icons, labels or search controls are misaligned.');
+  if (Object.values(aligned).some(offset => offset !== 0)) throw new Error(`Folder navigation icons, labels or search controls are misaligned: ${JSON.stringify(aligned)}`);
 }
 module.exports.openFolderSearch = openFolderSearch;
 

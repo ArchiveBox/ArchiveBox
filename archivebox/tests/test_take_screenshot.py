@@ -275,11 +275,13 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart"])
+@pytest.mark.parametrize("view", ["folder", "unfiltered", "smart", "search"])
 def test_gallery_navigation_validates_real_folder_filter_report(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
     from archivebox.core.models import Folder
 
-    folder = Folder.objects.create(name="Gallery navigation", created_by=admin_user)
+    folder = Folder.objects.create(name="📥 Gallery inbox" if view == "search" else "Gallery navigation", created_by=admin_user)
+    if view == "search":
+        Folder.objects.create(name="Other folder", position=1, created_by=admin_user)
     snapshot.folder = folder
     snapshot.save(update_fields=["folder"])
     port = urlsplit(live_server.url).port
@@ -352,6 +354,20 @@ const {prepareSmartFolder} = require(process.env.LIBRARY_GALLERY);
             "SCREENSHOT_LOGIN_USERNAME": admin_user.username,
             "SCREENSHOT_LOGIN_PASSWORD": "testpassword",
             "SCREENSHOT_WAIT_SELECTOR": "#result_list input.action-select",
+            **(
+                {
+                    "SCREENSHOT_LIBRARY_MENU": "search",
+                    "SCREENSHOT_VARIANTS_JSON": json.dumps(
+                        [
+                            {"path": str(output), "width": 1600, "height": 1000},
+                            {"path": str(tmp_path / "folder-tablet.png"), "width": 1024, "height": 1366},
+                            {"path": str(tmp_path / "folder-mobile.png"), "width": 390, "height": 844},
+                        ]
+                    ),
+                }
+                if view == "search"
+                else {}
+            ),
         },
         capture_output=True,
         text=True,
