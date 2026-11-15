@@ -22,6 +22,9 @@ async function prepare(page, adminBaseUrl) {
   await fill('#id_concurrency', '2');
   await fill('#id_timeout_minutes', '30');
   await page.click('#siteclone-form .url-filter-patterns > summary');
+  // Reserve the bounded crawl for the two pages used by replay/export proofs;
+  // homepage aliases and story links otherwise consume its discovery slots.
+  await fill('#id_url_filters_allowlist', '^https://news\\.ycombinator\\.com/(?:newest)?$');
   await fill('#id_url_filters_denylist', '/(?:login|logout|submit|vote|hide|fave)(?:/|[?]|$)'); // codespell:ignore fave
   for (const tag of ['hacker-news', 'site-clone', 'screenshot-gallery']) {
     await page.type('#id_tags_input', tag);
