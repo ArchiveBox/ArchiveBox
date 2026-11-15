@@ -1,0 +1,54 @@
+archivebox/templates/admin/base.html
+  s_10bc94d001be49::t_ade9b864c368a8 495-497,501-507,510-512,515-519,521-524,526-528,530-532,534-537,539-542
+archivebox/templates/admin/actions.html
+  s_10bc94d001be49::t_bf24432294ef2a 14,46,57,60
+archivebox/templates/static/library/folders.css
+  s_10bc94d001be49::t_bf24432294ef2a 123,179
+archivebox/tests/test_admin_button_layout.py
+  s_10bc94d001be49::t_52105dd444a238 1-35,41-44,48-50,52-61,63-81,91
+  s_10bc94d001be49::t_35e7d869b6c4d3 46
+  s_532dc92fd8220a::t_cb91939d9a5352 36-40,88-90
+  s_10bc94d001be49::t_de05785becb726 45,47
+  s_10bc94d001be49::t_e3917f9eed395e 51,62,82-87
+archivebox/templates/admin/action_icon.html
+  s_10bc94d001be49::t_bf24432294ef2a 1-12
+archivebox/templates/static/admin.css
+  s_10bc94d001be49::t_ade9b864c368a8 135-140,142-143,4351-4389,4423,4431
+  s_532dc92fd8220a::t_9f6adfd82ec08f 4392-4397,4404,4409,4414,4420,4427,4437
+  s_784d0e5fa3aa29::t_1c5d8b83611b4c 4429
+  s_10bc94d001be49::t_20ba5910d52bd8 4390-4391,4398-4403,4405-4408,4410-4413,4415-4419,4421-4422,4424-4426,4428,4430,4432-4436
+archivebox/templates/plugins/config_styles.html
+  s_10bc94d001be49::t_4e9f0cdfdb5e52 3-5,8-9,19,21-22,24,26,28,30-33,40,51,53,60-61,65,79-81,99,111-112,114,117,121,124-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f227c009e0bac9e408d5b88194a4d448edb4de5d",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
