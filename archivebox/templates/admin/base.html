@@ -1291,12 +1291,14 @@
                 color: #1d4ed8;
             }
 
+            .action-folder-wrapper,
             .action-rearchive-wrapper {
                 position: relative;
                 display: inline-block;
             }
 
             /* The native select receives the actual click, including in WKWebView. */
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-folder-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-rearchive-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-permissions-select {
                 position: absolute;
@@ -1309,6 +1311,7 @@
                 margin: 0;
             }
 
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .action-folder-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-rearchive-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-permissions-wrapper > .button {
                 padding: 8px 18px !important;
@@ -1319,6 +1322,7 @@
                 white-space: nowrap;
             }
 
+            .action-folder-wrapper:focus-within,
             .action-rearchive-wrapper:focus-within,
             .action-permissions-wrapper:focus-within {
                 outline: 2px solid #2563eb;
@@ -1947,6 +1951,10 @@
                     e.stopPropagation()
                     submitAction(this.dataset.adminAction, this)
                 })
+                container.find('.action-folder-select').each(function() { this.selectedIndex = -1 })
+                    .on('change', function() {
+                        if (this.selectedIndex >= 0) submitAction('move_to_folder', this)
+                    }).on('blur', function() { this.selectedIndex = -1 })
                 container.find('.action-rearchive-select').on('change', function() {
                     if (this.value) submitAction(this.value, this)
                 })
@@ -1972,6 +1980,7 @@
                 document.querySelectorAll('.action-buttons, .actions-tags-with-buttons').forEach(function(el) {
                     el.hidden = checked === 0
                 })
+                if (!checked) document.querySelectorAll('.action-folder-select').forEach(function(el) { el.selectedIndex = -1 })
             }
             function setupActionSummary() {
                 const summary = document.querySelector('.action-summary')

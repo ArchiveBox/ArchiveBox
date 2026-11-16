@@ -36,12 +36,22 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             search_box = page.locator("#toolbar").bounding_box()
             actions_box = page.locator(".actions-top").bounding_box()
             rows_box = page.locator("#changelist-form > .results").bounding_box()
-            folder_box = page.locator(".actions-folder select").bounding_box()
-            move_box = buttons.first.bounding_box()
-            if width == 1280:
-                assert move_box["x"] - (folder_box["x"] + folder_box["width"]) >= 8
-            else:
-                assert move_box["y"] - (folder_box["y"] + folder_box["height"]) >= 8
+            assert page.locator(".actions-folder").count() == 0
+            folder_select = page.get_by_role("combobox", name="Move to folder", exact=True)
+            expect(folder_select).to_be_visible()
+            assert folder_select.evaluate("node => getComputedStyle(node).opacity") == "0"
+            folder_box = folder_select.bounding_box()
+            move_box = page.locator(".action-folder-wrapper > .button").bounding_box()
+            assert abs(folder_box["x"] - move_box["x"]) < 1
+            assert abs(folder_box["width"] - move_box["width"]) < 1
+            folder_select.focus()
+            page.keyboard.press("Escape")
+            page.get_by_role("combobox", name="Permissions", exact=True).focus()
+            assert folder_select.evaluate("node => node.selectedIndex") == -1
+            page.locator("input.action-select").first.uncheck()
+            expect(folder_select).not_to_be_visible()
+            page.locator("input.action-select").first.check()
+            expect(folder_select).to_be_visible()
             assert actions_box["y"] >= search_box["y"] + search_box["height"]
             assert rows_box["y"] >= actions_box["y"] + actions_box["height"]
             for control in buttons.all():
@@ -107,4 +117,36 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         page.emulate_media(color_scheme="dark")
         expect(card.get_by_role("button", name="Desktop")).to_be_visible()
         page.locator("#plugin-settings").screenshot(path=str(output / "plugin-controls-dark-preference.png"))
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browser_runtime, admin_user, crawl):
+    from archivebox.core.models import Folder
+
+    snapshot = Snapshot.objects.create(url="https://example.com/folder-menu", crawl=crawl)
+    folder = Folder.objects.create(name="Reading")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 940, "height": 700})
+        page.goto(live_server.url + "/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.goto(live_server.url + "/admin/core/snapshot/")
+        for destination in (str(folder.pk), "", str(folder.pk)):
+            checkbox = page.locator(f'input.action-select[value="{snapshot.pk}"]')
+            checkbox.check()
+            menu = page.get_by_role("combobox", name="Move to folder", exact=True)
+            expect(menu).to_be_visible()
+            assert menu.evaluate("node => node.selectedIndex") == -1
+            menu.focus()
+            page.keyboard.press("Escape")
+            page.get_by_role("combobox", name="Re-Archive", exact=True).focus()
+            assert menu.evaluate("node => node.selectedIndex") == -1
+            with page.expect_navigation(wait_until="domcontentloaded"):
+                menu.select_option(destination)
+            snapshot.refresh_from_db()
+            assert str(snapshot.folder_id or "") == destination
+            expect(menu).not_to_be_visible()
         browser.close()

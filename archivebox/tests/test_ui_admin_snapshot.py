@@ -2056,16 +2056,30 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
         for width, height in (
             (320, 900),
             (390, 900),
+            (700, 900),
+            (844, 390),
+            (932, 430),
+            (701, 600),
             (744, 1133),
-            (800, 900),
+            (820, 1180),
+            (834, 1194),
+            (1024, 1366),
+            (800, 600),
+            (940, 700),
             (1000, 900),
             (1001, 900),
             (1024, 768),
             (1133, 744),
             (1280, 900),
+            (1331, 894),
             (1920, 900),
         ):
             page.set_viewport_size({"width": width, "height": height})
+            # A desktop viewport can contain a narrower embedded results area.
+            page.locator("#changelist-form > .results").evaluate(
+                "(node, width) => node.style.maxWidth = width === 1331 ? '752px' : ''",
+                width,
+            )
             today_row = page.locator("#result_list tbody tr").filter(has_text="Pokémon Legends: Z-A")
             older_row = page.locator("#result_list tbody tr").filter(has_text="Older snapshot")
             original_url = today_row.locator(".snapshot-original-url")
@@ -2074,8 +2088,9 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             page.evaluate("document.fonts.ready")
             assert today_row.locator(".field-title_str b").evaluate("(node) => getComputedStyle(node).fontFamily").startswith('"Open Sans"')
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            assert page.locator("#result_list thead").is_visible() == (width > 1000)
-            if width > 1000:
+            compact = width <= 700 or (width <= 1024 and height >= width) or (width <= 939 and height <= 500)
+            assert page.locator("#result_list thead").is_visible() != compact
+            if not compact:
                 assert today_row.evaluate("(row) => getComputedStyle(row).display") == "table-row"
                 for row in (today_row, older_row):
                     for field in (
@@ -2159,7 +2174,7 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
 
         # Verify the tablet table is interactive, not merely styled as a table.
         # Follow the real admin sort links and assert the returned row order.
-        for width, height in ((1024, 768), (1133, 744)):
+        for width, height in ((701, 600), (940, 700), (1024, 768), (1133, 744), (1331, 894)):
             page.set_viewport_size({"width": width, "height": height})
             rows = page.locator("#result_list tbody tr .action-select")
             for column, ascending in (
@@ -2168,12 +2183,21 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
                 ("tags_inline", [str(older.pk), str(today.pk)]),
             ):
                 page.goto(f"{live_server.url}/admin/core/snapshot/")
+                if width == 1331:
+                    page.locator("#changelist-form > .results").evaluate("node => node.style.maxWidth = '752px'")
                 header = page.locator(f"#result_list thead th.column-{column}")
                 link = header.locator(".text a")
                 directions = set()
                 for _ in range(2):
                     with page.expect_navigation(wait_until="domcontentloaded"):
                         link.click()
+                    if width == 1331:
+                        results = page.locator("#changelist-form > .results")
+                        results.evaluate("node => node.style.maxWidth = '752px'")
+                        assert results.bounding_box()["width"] <= 752
+                        assert results.evaluate("node => getComputedStyle(node).overflowX") == "auto"
+                        assert page.locator("#result_list thead").is_visible()
+                        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                     direction = "ascending" if "ascending" in header.get_attribute("class").split() else "descending"
                     assert direction in header.get_attribute("class").split()
                     directions.add(direction)
@@ -2324,3 +2348,93 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     today.refresh_from_db()
     assert today.permissions == "private"
     assert today.tags.filter(name="mobile-added-tag").exists()
+
+
+@pytest.mark.parametrize("status", ["queued", "deleting"])
+def test_compact_rows_keep_untitled_capture_readable(live_server, browser_runtime, admin_user, crawl, status):
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.models import Snapshot
+
+    snapshot = Snapshot.objects.create(
+        url="https://www.iana.org/domains/idn-tables/tables/youtube_telu_1.0.txt",
+        title="",
+        crawl=crawl,
+        status=status,
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(f"{live_server.url}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.goto(f"{live_server.url}/admin/core/snapshot/")
+        row = page.locator("#result_list tbody tr").filter(has=page.locator(f'input[value="{snapshot.pk}"]'))
+        for width in (320, 390, 700):
+            page.set_viewport_size({"width": width, "height": 900})
+            title = row.locator(".snapshot-title-fallback")
+            assert title.is_visible()
+            assert title.inner_text() == "youtube_telu_1.0.txt"
+            assert title.get_attribute("href").endswith(f"/{snapshot.archive_path_from_db}")
+            date = row.locator(".field-created_at_display").bounding_box()
+            status = row.locator(".field-status_with_progress").bounding_box()
+            assert abs(date["y"] + date["height"] / 2 - status["y"] - status["height"] / 2) < 2
+            assert date["x"] + date["width"] <= status["x"]
+            assert row.bounding_box()["height"] < 85
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            row.locator(".action-select").check()
+            assert row.locator(".action-select").is_checked()
+            row.locator(".action-select").uncheck()
+        browser.close()
+
+
+@pytest.mark.parametrize("title", [None, "", "Pending...", "https://www.iana.org/domains/idn-tables/tables/youtube_telu_1.0.txt"])
+def test_snapshot_list_has_meaningful_untitled_link(admin_client, snapshot, title):
+    snapshot.url = "https://www.iana.org/domains/idn-tables/tables/youtube_telu_1.0.txt"
+    snapshot.title = title
+    snapshot.save(update_fields=["url", "title"])
+    response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'class="snapshot-title-fallback"' in html
+    assert ">youtube_telu_1.0.txt</b></a>" in html
+
+
+@pytest.mark.parametrize("url", ["https://[broken", "https://[broken/<script>alert(1)</script>"])
+def test_snapshot_list_legacy_malformed_url_fallback_is_escaped(admin_client, snapshot, url):
+    from html import escape
+    from archivebox.core.models import Snapshot
+
+    # Preserve a real corrupt legacy row, bypassing only model normalization on write.
+    Snapshot.objects.filter(pk=snapshot.pk).update(url=url, title="")
+    response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'class="snapshot-title-fallback"' in html
+    assert f">{escape(url)}</b></a>" in html
+    assert "<script>alert(1)</script>" not in html
+
+
+def test_deleting_list_row_uses_only_status_cell(admin_client, snapshot):
+    from archivebox.core.models import Snapshot
+
+    Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.DELETING_STATE)
+    response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'class="snapshot-status-deleting"' in html
+    assert "snapshot-delete-status" not in html
+    assert "verifying file removal" not in html
+
+
+def test_snapshot_folder_action_is_one_native_button_menu(admin_client, snapshot):
+    from archivebox.core.models import Folder
+
+    folder = Folder.objects.create(name="Research")
+    response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'class="actions-folder"' not in html
+    assert html.count('name="folder_destination"') == 1
+    assert 'class="action-folder-select" aria-label="Move to folder"' in html
+    assert f'value="{folder.pk}"' in html

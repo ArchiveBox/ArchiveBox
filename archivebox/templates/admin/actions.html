@@ -17,7 +17,7 @@
             {% endif %}
           </span>
         {% elif field.name == "folder_destination" %}
-          <span class="actions-folder" hidden><label>{{ field.label }} {{ field }}</label></span>
+          {% if enhanced_actions >= 11 %}<span class="actions-folder" hidden><label>{{ field.label }} {{ field }}</label></span>{% endif %}
         {% elif field.name == "action" and enhanced_actions < 11 %}
           <span hidden>{{ field }}</span>
         {% else %}
@@ -55,6 +55,15 @@
                   <option value="private">Private</option>
                 </select>
                 <span aria-hidden="true" name="{{ value }}" class="button">{% include "admin/action_icon.html" with action=value %}{{ label }}</span>
+              </span>
+            {% elif value == 'move_to_folder' %}
+              <span class="action-folder-wrapper">
+                <select name="folder_destination" class="action-folder-select" aria-label="Move to folder">
+                  {% for folder_value, folder_label in action_form.folder_destination.field.choices %}
+                    <option value="{{ folder_value }}">{{ folder_label }}</option>
+                  {% endfor %}
+                </select>
+                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}Move to folder <span aria-hidden="true">▾</span></span>
               </span>
             {% elif value and value != 'add_tags' and value != 'remove_tags' %}
               <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% include "admin/action_icon.html" with action=value %}{% if value == 'delete_selected' %}Delete{% else %}{{ label }}{% endif %}</button>

@@ -4,6 +4,7 @@ import json
 from copy import copy
 from html import escape
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -1057,6 +1058,22 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 urldecode(htmldecode(title_raw)),
             )
 
+        else:
+            # Untitled documents still need a readable primary link in compact rows.
+            # Keep the full URL below it for disambiguation, without inventing a title.
+            try:
+                parsed_url = urlsplit(url_raw)
+                fallback = urldecode(parsed_url.path.rstrip("/").rsplit("/", 1)[-1]) or parsed_url.hostname or url_raw
+            except ValueError:
+                # Legacy rows can contain malformed netlocs; rendering must not 500.
+                fallback = url_raw
+            title_html = format_html(
+                '<a class="snapshot-title-fallback" href="{}" title="{}"><b>{}</b></a>',
+                detail_url,
+                url_raw,
+                fallback,
+            )
+
         favicon = self._get_favicon_data(obj) or {}
         favicon_html = (
             format_html(
@@ -1069,14 +1086,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return format_html(
             '<a class="snapshot-title-detail-hitbox" href="{}" aria-label="Open snapshot details"></a>'
             "{}"
-            "{}"
             '<div class="snapshot-title-url">'
             '<a class="snapshot-original-url" href="{}">{}<code style="user-select: all;">{}</code></a>'
             "</div>",
             detail_url,
-            format_html('<strong class="snapshot-delete-status">{}</strong>', "Deleting — verifying file removal")
-            if obj.status == Snapshot.DELETING_STATE
-            else "",
             title_html,
             (url_raw or obj.url) if show_title else detail_url,
             favicon_html,
