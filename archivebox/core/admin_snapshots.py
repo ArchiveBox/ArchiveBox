@@ -1618,11 +1618,71 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.action(description="🗑️ Delete", permissions=["delete"])
     def delete_selected(self, request, queryset):
-        from django.contrib.admin.actions import delete_selected
+        from django.core import signing
+        from django.template.response import TemplateResponse
 
+        if not self.has_delete_permission(request):
+            raise PermissionDenied
+        if not request.user.is_superuser:
+            # Staff retain related-model permission and protected-object checks.
+            # Never let Django's confirmed action physically delete the rows.
+            from django.contrib.admin.actions import delete_selected
+
+            if request.POST.get("post"):
+                _, _, permissions, protected = self.get_deleted_objects(queryset, request)
+                if permissions:
+                    raise PermissionDenied
+                if not protected:
+                    return self.delete_snapshots(request, queryset)
+            return delete_selected(self, request, queryset)
+        salt = "archivebox.snapshot-delete-selection"
+        limit = 25000
         if request.POST.get("post"):
-            return self.delete_snapshots(request, queryset)
-        return delete_selected(self, request, queryset)
+            try:
+                selection = signing.loads(request.POST.get("selection", ""), salt=salt, max_age=3600)
+                ids = selection["ids"]
+                if (
+                    selection["user"] != str(request.user.pk)
+                    or selection["scope"] != request.get_full_path()
+                    or not isinstance(ids, list)
+                    or not 0 < len(ids) <= limit
+                ):
+                    raise ValueError("Invalid selection")
+            except (signing.BadSignature, KeyError, TypeError, ValueError):
+                return HttpResponseBadRequest("Deletion confirmation expired or is invalid. Select snapshots again.")
+            # Reapply current admin authorization/filtering, but never expand the
+            # immutable confirmed set, including when select_across was used.
+            from archivebox.api.webhook_membership import track_membership
+
+            total = 0
+            # One membership transition, even for limit-based smart folders;
+            # each durable status update still uses a short bounded statement.
+            with track_membership(lambda: ids):
+                for start in range(0, len(ids), 400):
+                    total += queryset.filter(pk__in=ids[start : start + 400]).exclude(status=Snapshot.DELETING_STATE).request_delete()
+            messages.success(request, f"Queued {total} snapshots for deletion. The background runner will remove and verify their files.")
+            return None
+
+        # Do not call Django's nested deletion collector: cleanup is asynchronous,
+        # and enumerating ArchiveResults/processes/files can take minutes on NAS.
+        ids = [str(pk) for pk in queryset.order_by("pk").values_list("pk", flat=True)[: limit + 1]]
+        if len(ids) > limit:
+            return HttpResponseBadRequest(f"Select at most {limit:,} snapshots per deletion confirmation.")
+        if not ids:
+            return None
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Confirm snapshot deletion",
+            "opts": self.model._meta,
+            "selection": signing.dumps(
+                {"user": str(request.user.pk), "scope": request.get_full_path(), "ids": ids}, salt=salt, compress=True
+            ),
+            "count": len(ids),
+            "preview": list(queryset.filter(pk__in=ids[:20]).order_by("pk").values_list("pk", "url")),
+            "first_id": ids[0],
+            "confirmation_url": request.get_full_path(),
+        }
+        return TemplateResponse(request, "admin/core/snapshot/queue_deletion_confirmation.html", context)
 
     @admin.action(
         description="🗑️ Delete",

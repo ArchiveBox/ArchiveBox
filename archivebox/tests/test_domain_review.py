@@ -60,18 +60,24 @@ def test_domain_delete_post_uses_native_confirmation_without_javascript(admin_cl
         data = {"delete_domain": "example.com"}
     response = admin_client.post("/admin/domains/actions/", data, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert response.context["title"] == "Delete multiple objects"
+    assert response.context["title"] == "Confirm snapshot deletion"
     assert selected.url.encode() in response.content
     assert unrelated.url.encode() not in response.content
-    assert list(response.context["queryset"].values_list("pk", flat=True)) == [selected.pk]
+    assert [row[0] for row in response.context["preview"]] == [selected.pk]
     selected.refresh_from_db()
     unrelated.refresh_from_db()
     assert selected.status != "deleting"
     assert unrelated.status != "deleting"
     newly_captured = Snapshot.objects.create(crawl=crawl, url="https://example.com/after-confirmation")
     confirmed = admin_client.post(
-        "/admin/domains/actions/",
-        {"action": "delete_selected", "post": "yes", "_selected_action": [str(selected.pk)]},
+        response.context["confirmation_url"],
+        {
+            "action": "delete_selected",
+            "post": "yes",
+            "select_across": "1",
+            "_selected_action": [str(selected.pk)],
+            "selection": response.context["selection"],
+        },
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert confirmed.status_code == 302

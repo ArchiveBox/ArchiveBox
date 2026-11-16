@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Queue exactly {{ count }} selected snapshots for deletion? Their saved files will be removed by the background runner. This cannot be undone.</p>
+<p>Showing up to 20 selected URLs:</p>
+<ul>{% for id, url in preview %}<li>{{ url }}</li>{% endfor %}</ul>
+<form method="post" action="{{ confirmation_url }}">{% csrf_token %}
+<input type="hidden" name="action" value="delete_selected">
+<input type="hidden" name="post" value="yes">
+<input type="hidden" name="select_across" value="1">
+<input type="hidden" name="_selected_action" value="{{ first_id }}">
+<input type="hidden" name="selection" value="{{ selection }}">
+<input type="submit" value="Yes, queue deletion">
+<a href="{{ request.path }}">Cancel</a>
+</form>
+{% endblock %}

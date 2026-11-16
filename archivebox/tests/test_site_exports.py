@@ -175,10 +175,10 @@ def test_domain_delete_uses_native_confirmation_then_queues(admin_client, saved_
     selection = {"action": "delete_selected", "select_across": "1", "_selected_action": ["*.news.ycombinator.com"]}
     preview = admin_client.post(endpoint, selection, HTTP_HOST=ADMIN_TEST_HOST)
     assert preview.status_code == 200
-    assert any(template.name == "admin/delete_selected_confirmation.html" for template in preview.templates)
+    assert any(template.name == "admin/core/snapshot/queue_deletion_confirmation.html" for template in preview.templates)
     assert Snapshot.objects.filter(pk__in=ids, status="deleting").count() == 0
     assert all(source.read_bytes() == original for _, source, original in saved_site)
-    confirmed = admin_client.post(endpoint, {**selection, "post": "yes"}, HTTP_HOST=ADMIN_TEST_HOST)
+    confirmed = admin_client.post(endpoint, {**selection, "post": "yes", "selection": preview.context["selection"]}, HTTP_HOST=ADMIN_TEST_HOST)
     assert confirmed.status_code == 302
     assert Snapshot.objects.filter(pk__in=ids, status="deleting").count() == len(ids)
     assert all(source.read_bytes() == original for _, source, original in saved_site)
