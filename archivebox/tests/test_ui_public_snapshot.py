@@ -679,7 +679,16 @@ class TestPublicIndex:
             deadline = time.monotonic() + 5
             while cache.get(key) is None and time.monotonic() < deadline:
                 time.sleep(0.01)
-            assert cache.get(key)["snapshots"] == 125
+                # A smart-folder witness may own the shared refresh gate on
+                # the first request. Totals refresh on a later ordinary GET,
+                # not through a queued count or client-side polling.
+                with CaptureQueriesContext(connection) as queries:
+                    refreshed = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+                assert refreshed.status_code == 200
+                assert not any("COUNT(" in q["sql"] for q in queries), "Reloads must not wait for a count"
+            summary = cache.get(key)
+            assert summary is not None, "A later public request must schedule the background total"
+            assert summary["snapshots"] == 125
 
             reloaded = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
             assert reloaded.context["public_snapshot_count"] == 125

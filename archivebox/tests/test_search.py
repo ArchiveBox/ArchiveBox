@@ -1490,7 +1490,15 @@ def test_live_public_search_disconnect_reaps_backend(initialized_archive):
             lines = response.iter_lines()
             assert int(next(lines).strip()) == 0
             assert int(next(lines).strip()) == 1
-            children = [child for child in psutil.Process(server.pid).children(recursive=True) if query in " ".join(child.cmdline())]
+            for child in psutil.Process(server.pid).children(recursive=True):
+                try:
+                    cmdline = child.cmdline()
+                except psutil.NoSuchProcess:
+                    # Unrelated workers can finish after the process-tree snapshot.
+                    # The two query-specific children still have to be alive below.
+                    continue
+                if query in " ".join(cmdline):
+                    children.append(child)
             assert len(children) == 2
             for child in children:
                 if Path(child.exe()).name == Path(rg).name:
