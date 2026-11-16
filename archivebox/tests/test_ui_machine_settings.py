@@ -38,11 +38,19 @@ def test_machine_admin_uses_shared_settings_and_preserves_custom_config(live_ser
         page.get_by_label("Password:", exact=True).fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         expect(page.locator("#plugin-settings")).to_be_visible()
-        expect(page.get_by_role("tab", name="Server", exact=True)).to_be_visible()
+        server_tab = page.get_by_role("tab", name="Server", exact=True)
+        expect(server_tab).to_be_visible()
         expect(page.get_by_role("tab", name="Authentication", exact=True)).to_be_visible()
-        settings_box = page.locator("#plugin-settings").bounding_box()
-        assert settings_box["width"] >= page.locator("#machine_form").bounding_box()["width"] * 0.95
-        assert page.locator(".field-hostname").bounding_box()["y"] > settings_box["y"] + settings_box["height"]
+        # The initial fallback renders every panel until the tabs are initialized.
+        expect(server_tab).to_be_enabled()
+        layout = page.evaluate("""() => {
+            const settings = document.querySelector('#plugin-settings').getBoundingClientRect();
+            const form = document.querySelector('#machine_form').getBoundingClientRect();
+            const hostname = document.querySelector('.field-hostname').getBoundingClientRect();
+            return {settingsWidth: settings.width, formWidth: form.width, settingsBottom: settings.bottom, hostnameTop: hostname.top};
+        }""")
+        assert layout["settingsWidth"] >= layout["formWidth"] * 0.95
+        assert layout["hostnameTop"] > layout["settingsBottom"]
         assert "machine-settings-secret" not in page.content()
         save = page.locator('button[name="_continue"]')
         save.click()
