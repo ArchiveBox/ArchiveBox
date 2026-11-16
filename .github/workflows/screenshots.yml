@@ -159,13 +159,14 @@ jobs:
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
           FIGMA_AUTH_STORAGE_JSON: ${{ secrets.FIGMA_AUTH_STORAGE_JSON }}
+          CANVA_AUTH_STORAGE_JSON: ${{ secrets.CANVA_AUTH_STORAGE_JSON }}
         run: |
           set -Eeuo pipefail
           test -n "$PROVIDER_AUTH_STORAGE_JSON"
           umask 077
           auth_file="$RUNNER_TEMP/provider-auth.json"
           printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
-          # The filtered Figma refresh must not replace other providers' sessions.
+          # Provider-specific refreshes must preserve unrelated sessions.
           uv run --no-project python - "$auth_file" <<'PYAUTH'
           import json
           import os
@@ -173,15 +174,17 @@ jobs:
           from pathlib import Path
           from urllib.parse import urlsplit
 
-          refresh = os.environ.get("FIGMA_AUTH_STORAGE_JSON")
-          if refresh:
-              path = Path(sys.argv[1])
-              original = json.loads(path.read_text())
-              figma = json.loads(refresh)
+          path = Path(sys.argv[1])
+          original = json.loads(path.read_text())
+          for secret, domain in (("FIGMA_AUTH_STORAGE_JSON", "figma.com"), ("CANVA_AUTH_STORAGE_JSON", "canva.com")):
+              refresh = os.environ.get(secret)
+              if not refresh:
+                  continue
+              provider = json.loads(refresh)
 
               # Both browser storage exports and extension exports are accepted
               # by Chrome. Normalize extension cookies before combining formats.
-              for auth in (original, figma):
+              for auth in (original, provider):
                   assert isinstance(auth.get("cookies", []), list), "Expected a cookies array"
                   if auth.get("SOURCE") != "archivebox-browser-extension":
                       continue
@@ -199,16 +202,16 @@ jobs:
                       auth["cookies"] = converted
                   auth.pop("SOURCE")
 
-              def is_figma(item, key):
+              def is_provider(item, key):
                   value = item.get(key) or item.get("url") or ""
                   host = urlsplit(value if "://" in value else "//" + value.lstrip(".")).hostname or ""
-                  return host == "figma.com" or host.endswith(".figma.com")
+                  return host == domain or host.endswith("." + domain)
 
               for field, key in (("cookies", "domain"), ("origins", "origin"), ("tabs", "url")):
-                  if field not in figma:
+                  if field not in provider:
                       continue
-                  incoming = [item for item in figma.get(field, []) if is_figma(item, key)]
-                  original[field] = [item for item in original.get(field, []) if not is_figma(item, key)] + incoming
+                  incoming = [item for item in provider.get(field, []) if is_provider(item, key)]
+                  original[field] = [item for item in original.get(field, []) if not is_provider(item, key)] + incoming
               path.write_text(json.dumps(original))
           PYAUTH
           sudo apt-get update
