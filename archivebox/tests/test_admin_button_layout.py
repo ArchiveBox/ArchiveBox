@@ -1,10 +1,12 @@
 """Shared admin controls remain usable in narrow screens and plugin settings."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from django.db import connections
 from playwright.sync_api import expect, sync_playwright
 
 from archivebox.core.models import Snapshot
@@ -124,16 +126,30 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
 def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browser_runtime, admin_user, crawl):
     from archivebox.core.models import Folder
 
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
     snapshot = Snapshot.objects.create(url="https://example.com/folder-menu", crawl=crawl)
     folder = Folder.objects.create(name="Reading")
-    with sync_playwright() as playwright:
+    base = live_server.url.replace("localhost", "admin.archivebox.localhost")
+
+    def current_folder_id():
+        # Playwright's synchronous API still runs an asyncio loop on this thread.
+        # Keep each real committed-DB assertion on a separate synchronous thread.
+        try:
+            snapshot.refresh_from_db()
+            return str(snapshot.folder_id or "")
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=1) as reader, sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(viewport={"width": 940, "height": 700})
-        page.goto(live_server.url + "/admin/login/")
+        page.goto(base + "/admin/login/")
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
-        page.goto(live_server.url + "/admin/core/snapshot/")
+        page.goto(base + "/admin/core/snapshot/")
         for destination in (str(folder.pk), "", str(folder.pk)):
             checkbox = page.locator(f'input.action-select[value="{snapshot.pk}"]')
             checkbox.check()
@@ -146,7 +162,6 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
             assert menu.evaluate("node => node.selectedIndex") == -1
             with page.expect_navigation(wait_until="domcontentloaded"):
                 menu.select_option(destination)
-            snapshot.refresh_from_db()
-            assert str(snapshot.folder_id or "") == destination
+            assert reader.submit(current_folder_id).result() == destination
             expect(menu).not_to_be_visible()
         browser.close()
