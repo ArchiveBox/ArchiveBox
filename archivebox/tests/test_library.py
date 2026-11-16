@@ -398,6 +398,7 @@ def test_public_folder_browser_keeps_navigation_readonly(live_server, admin_user
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("view", ["table", "grid"])
 def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, browser_runtime, view):
+    from django.core import signing
     from playwright.sync_api import sync_playwright, expect
     from archivebox.core.models import Folder, Snapshot
     from archivebox.crawls.models import Crawl
@@ -478,15 +479,22 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
         expect(page.locator('input[name="post"][value="yes"]')).to_have_count(1)
-        expect(page.locator(".cancel-link")).to_be_visible()
-        assert set(page.locator('input[name="_selected_action"]').evaluate_all("nodes => nodes.map(node => node.value)")) == {
-            str(snapshot.pk) for snapshot in snapshots[1:]
-        }
-        page.locator(".cancel-link").click()
+        confirmation = page.get_by_role("main", name="Confirm snapshot deletion", exact=True)
+        cancel = confirmation.get_by_role("link", name="Cancel", exact=True)
+        expect(cancel).to_be_visible()
+        selection = signing.loads(
+            confirmation.locator('input[name="selection"]').input_value(),
+            salt="archivebox.snapshot-delete-selection",
+            max_age=3600,
+        )
+        assert set(selection["ids"]) == {str(snapshot.pk) for snapshot in snapshots[1:]}
+        assert set(confirmation.locator("li").all_text_contents()) == {snapshot.url for snapshot in snapshots[1:]}
+        cancel.click()
         expect(page.locator("#changelist-form")).to_be_visible()
         browser.close()
     for snapshot in snapshots:
         snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.INITIAL_STATE
     assert snapshots[0].folder_id == child.pk
     items = parent.children.get(name="Items")
     assert {snapshot.folder_id for snapshot in snapshots[1:]} == {items.pk}

@@ -10,6 +10,39 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize("endpoint", ["/admin/core/snapshot/", "/admin/core/snapshot/grid/"])
+def test_cancel_delete_confirmation_preserves_exact_selection(admin_client, crawl, endpoint):
+    from django.core import signing
+    from django.test import SimpleTestCase
+    from django.utils.html import format_html
+
+    rows = [Snapshot.objects.create(crawl=crawl, url=f"https://cancel-fixture.test/{i}") for i in range(3)]
+    selected = {str(row.pk) for row in rows[1:]}
+    response = admin_client.post(
+        endpoint,
+        {"action": "delete_selected", "_selected_action": list(selected)},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assertions = SimpleTestCase()
+    token = response.context["selection"]
+    assertions.assertContains(response, format_html('<input type="hidden" name="selection" value="{}">', token), html=True)
+    selection = signing.loads(
+        token,
+        salt="archivebox.snapshot-delete-selection",
+        max_age=3600,
+    )
+    assert set(selection["ids"]) == selected
+    assert {url for _, url in response.context["preview"]} == {row.url for row in rows[1:]}
+    for row in rows[1:]:
+        assertions.assertContains(response, format_html("<li>{}</li>", row.url), html=True)
+    assertions.assertContains(response, format_html('<a href="{}">Cancel</a>', endpoint), html=True)
+    returned = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
+    assert returned.status_code == 200
+    assert b'id="changelist-form"' in returned.content
+    assert set(Snapshot.objects.values_list("pk", "status")) == {(row.pk, Snapshot.INITIAL_STATE) for row in rows}
+
+
 def test_large_delete_confirmation_is_bounded_and_immutable(admin_client, crawl):
     rows = Snapshot.objects.bulk_create(
         [
