@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover every test once, batching measured short files."""
+"""Discover every test once, batching measured files within a bounded budget."""
 
 import json
 import os
@@ -15,7 +15,9 @@ def main() -> None:
 
     # These are observed per-file pytest seconds, including fixture/startup
     # time. Shared job setup is paid once per batch. Unknown/long files, optional
-    # dependencies and hosted-only requirements keep independent jobs.
+    # dependencies and hosted-only requirements keep independent jobs. Known
+    # medium files share the same 180-second budget: a 60-second file need not
+    # pay a fresh runner queue, checkout, dependency install and worker startup.
     durations = json.loads((root / ".github/test-durations.json").read_text())["seconds"]
     environments = {
         path: line.removeprefix("# ci-environment: ").strip()
@@ -43,7 +45,15 @@ def main() -> None:
             continue
         test_path = path.relative_to(root).as_posix()
         duration = durations.get(test_path, 60)
-        if duration >= 60 or path in hosted or path in max_workers or path.stem == "test_auth_ldap" or test_path == requested:
+        if (
+            test_path not in durations
+            or duration >= 180
+            or path in hosted
+            or path in max_workers
+            or path.stem in {"test_auth_ldap", "test_postgres_backend"}
+            or "test_allauth_" in test_path
+            or test_path == requested
+        ):
             batches.append([test_path])
             continue
         if batch and (len(batch) == 8 or batch_seconds + duration > 180):

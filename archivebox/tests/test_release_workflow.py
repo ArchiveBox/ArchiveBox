@@ -541,3 +541,36 @@ def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_pat
     assert int(written["CI_TEST_WORKERS"]) == (min(available, limit) if limit else available)
     assert written["DATA_DIR"] == str(tmp_path / "archivebox-test-data")
     assert written["PERSONAS_DIR"] == str(tmp_path / "abx-personas")
+
+
+def test_ci_measured_batches_keep_budget_and_specialized_files_independent():
+    result = subprocess.run(
+        ["uv", "run", "--no-cache", "--no-project", "python", str(REPO_ROOT / ".github/scripts/discover_test_matrix.py")],
+        env={**os.environ, "TEST_FILE": "", "UGNAS_CI_MAX_JOBS": "3"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    matrix = json.loads(result.stdout.splitlines()[1])
+    durations = json.loads((REPO_ROOT / ".github/test-durations.json").read_text())["seconds"]
+    medium_batched = []
+    for item in matrix:
+        paths = item["paths"]
+        if len(paths) > 1:
+            assert not item["environment"]
+            assert item["max_workers"] == 0
+            assert all(path in durations for path in paths)
+            assert sum(durations[path] for path in paths) <= 180
+            assert len(paths) <= 8
+            medium_batched.extend(path for path in paths if 60 <= durations[path] < 180)
+        for path in paths:
+            headers = (REPO_ROOT / path).read_text().splitlines()[:5]
+            if (
+                path not in durations
+                or durations[path] >= 180
+                or any(line.startswith(("# ci-runner: hosted", "# ci-workers:", "# ci-environment:")) for line in headers)
+                or Path(path).stem in {"test_auth_ldap", "test_postgres_backend"}
+                or "test_allauth_" in path
+            ):
+                assert paths == [path]
+    assert medium_batched, "Measured medium files should share bounded jobs, not each pay runner setup"
