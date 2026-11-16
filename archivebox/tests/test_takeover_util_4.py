@@ -60,9 +60,8 @@ def test_behavior_update_index_only_keeps_server_http_and_search_visible(tmp_pat
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite",
         SEARCH_BACKEND_ENGINE="sqlite",
-        SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
+        SEARCH_BACKEND_SONIC_ENABLED="False",
     )
-    env.update(_resolve_sonic_env(env))
     root_url = recursive_test_site["root_url"]
     _archive_pages_for_sqlite_reindexing(tmp_path, env, root_url)
 
@@ -104,9 +103,8 @@ def test_behavior_update_yields_to_server_then_finishes_visible_indexing(tmp_pat
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite",
         SEARCH_BACKEND_ENGINE="sqlite",
-        SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
+        SEARCH_BACKEND_SONIC_ENABLED="False",
     )
-    env.update(_resolve_sonic_env(env))
     root_url = recursive_test_site["root_url"]
     _archive_pages_for_sqlite_reindexing(tmp_path, env, root_url)
 
