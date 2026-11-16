@@ -376,7 +376,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 }
 
 .model-snapshot.change-list #result_list {
-    min-width: 1060px;
+    min-width: min(1060px, 100%);
 }
 
 @media (max-width: 1180px) {
@@ -1908,7 +1908,7 @@ tbody .output-link:hover {opacity: 1;}
     border-radius: 4px;
 }
 
-@media (max-width: 1500px) {
+@media (max-width: 1000px) {
     .model-snapshot.change-list #result_list {
         display: block;
         min-width: 0 !important;
@@ -2136,7 +2136,7 @@ tbody .output-link:hover {opacity: 1;}
 /* Keep title, source, and tags in one reading column at every compact width. */
 .snapshot-row-permission,
 .snapshot-created-at__relative { display: none; }
-@media (max-width: 1500px) {
+@media (max-width: 1000px) {
     .model-snapshot.change-list #result_list {
         container: snapshot-rows / inline-size;
     }

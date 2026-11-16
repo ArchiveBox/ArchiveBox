@@ -2053,8 +2053,19 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
         page.locator("#id_password").fill("testpassword")
         page.locator('input[type="submit"]').click()
         page.goto(f"{live_server.url}/admin/core/snapshot/")
-        for width in (320, 390, 800, 1280, 1500, 1501, 1920):
-            page.set_viewport_size({"width": width, "height": 900})
+        for width, height in (
+            (320, 900),
+            (390, 900),
+            (744, 1133),
+            (800, 900),
+            (1000, 900),
+            (1001, 900),
+            (1024, 768),
+            (1133, 744),
+            (1280, 900),
+            (1920, 900),
+        ):
+            page.set_viewport_size({"width": width, "height": height})
             today_row = page.locator("#result_list tbody tr").filter(has_text="Pokémon Legends: Z-A")
             older_row = page.locator("#result_list tbody tr").filter(has_text="Older snapshot")
             original_url = today_row.locator(".snapshot-original-url")
@@ -2063,7 +2074,8 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             page.evaluate("document.fonts.ready")
             assert today_row.locator(".field-title_str b").evaluate("(node) => getComputedStyle(node).fontFamily").startswith('"Open Sans"')
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            if width > 1500:
+            assert page.locator("#result_list thead").is_visible() == (width > 1000)
+            if width > 1000:
                 assert today_row.evaluate("(row) => getComputedStyle(row).display") == "table-row"
                 for row in (today_row, older_row):
                     for field in (
@@ -2144,6 +2156,31 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             tag_input.blur()
             today_row.locator(".action-select").uncheck()
             today_row.locator(".action-select").blur()
+
+        # Verify the tablet table is interactive, not merely styled as a table.
+        # Follow the real admin sort links and assert the returned row order.
+        for width, height in ((1024, 768), (1133, 744)):
+            page.set_viewport_size({"width": width, "height": height})
+            rows = page.locator("#result_list tbody tr .action-select")
+            for column, ascending in (
+                ("title_str", [str(older.pk), str(today.pk)]),
+                ("created_at_display", [str(older.pk), str(today.pk)]),
+                ("tags_inline", [str(older.pk), str(today.pk)]),
+            ):
+                page.goto(f"{live_server.url}/admin/core/snapshot/")
+                header = page.locator(f"#result_list thead th.column-{column}")
+                link = header.locator(".text a")
+                directions = set()
+                for _ in range(2):
+                    with page.expect_navigation(wait_until="domcontentloaded"):
+                        link.click()
+                    direction = "ascending" if "ascending" in header.get_attribute("class").split() else "descending"
+                    assert direction in header.get_attribute("class").split()
+                    directions.add(direction)
+                    assert rows.evaluate_all("(inputs) => inputs.map((input) => input.value)") == (
+                        ascending if direction == "ascending" else ascending[::-1]
+                    )
+                assert directions == {"ascending", "descending"}
         browser.close()
 
 

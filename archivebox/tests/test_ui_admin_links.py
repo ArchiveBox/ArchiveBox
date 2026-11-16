@@ -326,7 +326,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
-        # File columns are visible in the desktop table above the 1500px card breakpoint.
+        # File columns are visible in the full table layout.
         page = browser.new_page(viewport={"width": 1920, "height": 1080})
         page.goto(f"{live_server.url}/admin/login/?next=/admin/core/snapshot/")
         page.locator('[name="username"]').fill(admin_user.username)
