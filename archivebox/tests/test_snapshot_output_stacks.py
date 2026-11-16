@@ -1230,9 +1230,17 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
         group.click()
         stack = page.locator(".header-bottom")
         bottom_card = page.locator("#stack-tray .thumb-card").last
+        header_position = """e => ({
+            top: e.getBoundingClientRect().top,
+            scrollY: window.scrollY,
+            width: window.innerWidth,
+            height: window.innerHeight,
+        })"""
         for width, height in ((390, 844), (844, 390), (640, 240), (390, 844), (1920, 1080)):
             page.set_viewport_size({"width": width, "height": height})
             assert group.get_attribute("aria-expanded") == "true"
+            baseline_header = page.locator(".header-top").evaluate(header_position)
+            assert abs(baseline_header["top"] + baseline_header["scrollY"]) <= 1, baseline_header
             bottom_card.scroll_into_view_if_needed()
             assert stack.evaluate("e => e.scrollTop === 0 && e.scrollHeight === e.clientHeight")
             if height <= 844:
@@ -1243,24 +1251,53 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             selected_path = bottom_card.get_attribute("data-output-path")
             assert selected_path in page.locator("#main-frame").get_attribute("src")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            assert abs(page.locator(".header-top").bounding_box()["y"] + page.evaluate("scrollY")) <= 1
+            # Preview sizing can scroll-anchor the page between browser calls.
+            # Read viewport position and scroll offset in the same JS execution.
+            scrolled_header = page.locator(".header-top").evaluate(header_position)
+            assert abs(scrolled_header["top"] + scrolled_header["scrollY"]) <= 1, (baseline_header, scrolled_header)
             preview_box = page.locator("#main-frame").bounding_box()
             wrapper_box = page.locator("#main-frame-wrapper").bounding_box()
             assert preview_box["height"] >= height * 0.4 - 1, (width, height, preview_box)
             progress = page.locator("#snapshot-progress-wrapper")
             monitor = progress.locator("#progress-monitor")
             details = monitor.locator(".progress-content")
-            assert monitor.bounding_box()["height"] <= progress.bounding_box()["height"]
+            progress_heights = progress.evaluate(
+                """e => ({
+                    wrapper: e.getBoundingClientRect().height,
+                    monitor: e.querySelector('#progress-monitor').getBoundingClientRect().height,
+                })""",
+            )
+            assert progress_heights["monitor"] <= progress_heights["wrapper"], (width, height, progress_heights)
             assert details.evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
             assert details.evaluate("e => getComputedStyle(e).overflowY") == "visible"
             assert monitor.locator(".tree-container").evaluate("e => e.scrollHeight === e.clientHeight && e.scrollTop === 0")
-            assert details.bounding_box()["y"] + details.bounding_box()["height"] <= preview_box["y"] + 1
-            natural_progress = monitor.locator(".header-bar").bounding_box()["height"] + details.evaluate("e => e.scrollHeight") + 1
-            expected_progress = natural_progress
-            assert abs(progress.bounding_box()["height"] - expected_progress) <= 1, (
+            # These viewport rectangles must also come from one layout: preview
+            # loads can change scroll anchoring between separate browser calls.
+            progress_bounds = details.evaluate(
+                """e => ({
+                    details: e.getBoundingClientRect().toJSON(),
+                    preview: document.querySelector('#main-frame').getBoundingClientRect().toJSON(),
+                    scrollY: window.scrollY,
+                })""",
+            )
+            assert progress_bounds["details"]["y"] + progress_bounds["details"]["height"] <= progress_bounds["preview"]["y"] + 1, (
                 width,
                 height,
-                progress.bounding_box(),
+                progress_bounds,
+            )
+            progress_size = progress.evaluate(
+                """e => ({
+                    wrapper: e.getBoundingClientRect().height,
+                    header: e.querySelector('#progress-monitor .header-bar').getBoundingClientRect().height,
+                    content: e.querySelector('#progress-monitor .progress-content').scrollHeight,
+                })""",
+            )
+            natural_progress = progress_size["header"] + progress_size["content"] + 1
+            expected_progress = natural_progress
+            assert abs(progress_size["wrapper"] - expected_progress) <= 1, (
+                width,
+                height,
+                progress_size,
                 expected_progress,
             )
             assert wrapper_box["height"] >= height * 0.4 - 1
