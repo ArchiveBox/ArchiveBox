@@ -3,7 +3,7 @@ import re
 from urllib.parse import urlsplit, urlunsplit
 
 from django import forms
-from django.db import transaction
+from django.db import connections, router, transaction
 from django.utils import timezone
 
 from archivebox.config.common import get_config
@@ -145,22 +145,36 @@ class DomainCrawlForm(forms.Form):
             "ONLY_NEW": filters.get("only_new") is True,
             "PERMISSIONS": next(value for value, _label in PERMISSIONS_CHOICES if value == data["permissions"]),
         }
-        with transaction.atomic():
-            crawl = Crawl.objects.create(
-                urls="\n".join(dict.fromkeys([data["url"], sitemap])),
-                label=parts.hostname[:64],
-                created_by=user,
-                persona=persona,
-                max_depth=data["max_depth"],
-                tags_str=",".join(Crawl.parse_tag_names([*Crawl.parse_tag_names(data["tags"]), "site-clone"])),
-                config=dict(clone_config),
-            )
-            if data["schedule"]:
-                CrawlSchedule.objects.create(
-                    template=crawl,
-                    schedule=data["schedule"],
-                    config=clone_config,
-                    label=crawl.label,
+        alias = router.db_for_write(Crawl)
+        connection = connections[alias]
+        connection.ensure_connection()
+        previous_mode = getattr(connection, "transaction_mode", None)
+        if connection.vendor == "sqlite":
+            # Reserve the writer before Crawl.save reads its configuration.
+            # A deferred WAL snapshot cannot upgrade after a concurrent commit.
+            # The normal domains POST owns this outer transaction; nested
+            # callers retain their existing transaction and savepoint semantics.
+            connection.transaction_mode = "IMMEDIATE"
+        try:
+            with transaction.atomic(using=alias):
+                crawl = Crawl.objects.using(alias).create(
+                    urls="\n".join(dict.fromkeys([data["url"], sitemap])),
+                    label=parts.hostname[:64],
                     created_by=user,
+                    persona=persona,
+                    max_depth=data["max_depth"],
+                    tags_str=",".join(Crawl.parse_tag_names([*Crawl.parse_tag_names(data["tags"]), "site-clone"])),
+                    config=dict(clone_config),
                 )
-            return crawl
+                if data["schedule"]:
+                    CrawlSchedule.objects.using(alias).create(
+                        template=crawl,
+                        schedule=data["schedule"],
+                        config=clone_config,
+                        label=crawl.label,
+                        created_by=user,
+                    )
+                return crawl
+        finally:
+            if connection.vendor == "sqlite":
+                connection.transaction_mode = previous_mode
