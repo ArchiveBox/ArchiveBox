@@ -10,7 +10,7 @@ import textwrap
 import pytest
 
 
-@pytest.mark.parametrize("workflow", ["screenshots.yml", "test-parallel.yml"])
+@pytest.mark.parametrize("workflow", ["screenshots.yml", "provider-replay.yml"])
 @pytest.mark.parametrize("provider_domain", ["figma.com", "canva.com"])
 @pytest.mark.parametrize("base_extension", [False, True])
 @pytest.mark.parametrize("refresh_extension", [False, True])
@@ -82,7 +82,7 @@ def test_workflow_persona_merge(tmp_path, workflow, provider_domain, base_extens
     }
 
 
-@pytest.mark.parametrize("workflow", ["screenshots.yml", "test-parallel.yml"])
+@pytest.mark.parametrize("workflow", ["screenshots.yml", "provider-replay.yml"])
 def test_workflow_persona_refreshes_are_optional_and_domain_scoped(tmp_path, workflow):
     import yaml
 

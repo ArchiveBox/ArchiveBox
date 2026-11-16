@@ -23,7 +23,7 @@ def main() -> None:
         for line in path.read_text().splitlines()[:5]
         if line.startswith("# ci-environment: ")
     }
-    if set(environments.values()) - {"provider-capture"}:
+    if set(environments.values()) - {"provider-capture", "live-provider"}:
         raise SystemExit("Unknown ci-environment requirement")
     hosted = {path for path in archivebox_tests if "# ci-runner: hosted" in path.read_text().splitlines()[:5]}
     max_workers = {

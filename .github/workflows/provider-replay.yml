@@ -1,0 +1,328 @@
+name: Live provider replay
+
+# External sessions are monitored independently, never a release prerequisite.
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/provider-replay.yml'
+      - '.github/scripts/discover_test_matrix.py'
+      - 'archivebox/tests/test_authenticated_provider_replay.py'
+      - 'archivebox/tests/test_iwork_live_replay.py'
+      - 'archivebox/tests/test_provider_plugin_replay.py'
+  schedule:
+    - cron: '17 6,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-provider-replay
+  cancel-in-progress: false
+
+env:
+  CI_PYTHON_VERSION: '3.13'
+  UV_NO_SOURCES: '1'
+
+jobs:
+  discover-tests:
+    if: github.repository == 'ArchiveBox/ArchiveBox' && (github.event_name == 'schedule' || github.ref == 'refs/heads/dev')
+    runs-on: ubuntu-24.04
+    outputs:
+      provider-tests: ${{ steps.discover.outputs.provider-tests }}
+      sha: ${{ steps.discover.outputs.sha }}
+      public-tests: ${{ steps.discover.outputs.public-tests }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+      - name: Discover live tests without dropping coverage
+        id: discover
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          python - <<'PYDISCOVER'
+          import json
+          import os
+          import subprocess
+          import sys
+          result = subprocess.check_output([sys.executable, '.github/scripts/discover_test_matrix.py'], text=True)
+          print(result.splitlines()[0])
+          matrix = json.loads(result.splitlines()[1])
+          providers = [item for item in matrix if item['environment'] == 'provider-capture']
+          public = [item for item in matrix if item['environment'] == 'live-provider']
+          assert providers and public, 'Missing live provider test classification'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('provider-tests=' + json.dumps(providers, separators=(',', ':')) + '\n')
+              output.write('public-tests=' + json.dumps(public, separators=(',', ':')) + '\n')
+          PYDISCOVER
+
+  provider-capture:
+    name: Authenticated provider replay
+    needs: discover-tests
+    if: needs.discover-tests.outputs.provider-tests != '[]' && github.repository == 'ArchiveBox/ArchiveBox'
+    runs-on: ubuntu-24.04
+    environment: provider-capture
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJSON(needs.discover-tests.outputs.provider-tests) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          ref: ${{ needs.discover-tests.outputs.sha }}
+      - name: Use the standard Ubuntu archive on hosted Linux
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: |
+          # Apply the same mirror policy as the main matrix before installing
+          # display tools or Puppeteer's Chromium/font dependencies.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+          fi
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.13.5"
+          enable-cache: false
+      - name: Install browser display and PDF inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+      - name: Install locked test dependencies
+        run: uv sync --no-cache --locked --dev --no-sources
+      - name: Install the matching Chrome sandbox helper
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
+        run: |
+          chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          # CHROME_BINARY may be a provider launcher, not the native executable.
+          native_chrome = subprocess.check_output([
+              env["NODE_BINARY"], "-e", r"""
+              const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+              const {execFileSync} = require('node:child_process');
+              const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+              getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                  const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                  if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                  console.log(matches[0].executablePath);
+              }).catch(error => { console.error(error); process.exit(1); });
+              """,
+          ], env={**os.environ, **env}, text=True).strip()
+          helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+          # Match plugin CI: keep software 2D rendering; emulating the whole GPU
+          # can stall document exports on CPU-limited runners.
+          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+      - name: Prepare authorized provider persona
+        env:
+          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+          FIGMA_AUTH_STORAGE_JSON: ${{ secrets.FIGMA_AUTH_STORAGE_JSON }}
+          CANVA_AUTH_STORAGE_JSON: ${{ secrets.CANVA_AUTH_STORAGE_JSON }}
+        run: |
+          set -Eeuo pipefail
+          : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
+          umask 077
+          auth_file="$(mktemp --suffix=.json "$RUNNER_TEMP/provider-auth.XXXXXX")"
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
+          chmod 600 "$auth_file"
+          # Provider-specific refreshes must preserve unrelated sessions.
+          uv run --no-project python - "$auth_file" <<'PYAUTH'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          path = Path(sys.argv[1])
+          original = json.loads(path.read_text())
+          for secret, domain in (("FIGMA_AUTH_STORAGE_JSON", "figma.com"), ("CANVA_AUTH_STORAGE_JSON", "canva.com")):
+              refresh = os.environ.get(secret)
+              if not refresh:
+                  continue
+              provider = json.loads(refresh)
+
+              # Both browser storage exports and extension exports are accepted
+              # by Chrome. Normalize extension cookies before combining formats.
+              for auth in (original, provider):
+                  assert isinstance(auth.get("cookies", []), list), "Expected a cookies array"
+                  if auth.get("SOURCE") != "archivebox-browser-extension":
+                      continue
+                  converted = []
+                  for cookie in auth.get("cookies", []):
+                      assert not cookie.get("partitionKey"), "Partitioned extension cookies are unsupported"
+                      item = {key: cookie[key] for key in ("name", "value", "domain", "path", "secure", "httpOnly") if key in cookie}
+                      if cookie.get("expirationDate") is not None:
+                          item["expires"] = cookie["expirationDate"]
+                      same_site = str(cookie.get("sameSite") or "").lower()
+                      if same_site and same_site != "unspecified":
+                          item["sameSite"] = {"no_restriction": "None", "none": "None", "lax": "Lax", "strict": "Strict"}[same_site]
+                      converted.append(item)
+                  if "cookies" in auth:
+                      auth["cookies"] = converted
+                  auth.pop("SOURCE")
+
+              def is_provider(item, key):
+                  value = item.get(key) or item.get("url") or ""
+                  host = urlsplit(value if "://" in value else "//" + value.lstrip(".")).hostname or ""
+                  return host == domain or host.endswith("." + domain)
+
+              for field, key in (("cookies", "domain"), ("origins", "origin"), ("tabs", "url")):
+                  if field not in provider:
+                      continue
+                  incoming = [item for item in provider.get(field, []) if is_provider(item, key)]
+                  original[field] = [item for item in original.get(field, []) if not is_provider(item, key)] + incoming
+              path.write_text(json.dumps(original))
+          PYAUTH
+          {
+            echo "AUTH_STORAGE_FILE=$auth_file"
+            echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
+            echo "DATA_DIR=$RUNNER_TEMP/provider-test-data"
+            echo "PERSONAS_DIR=$RUNNER_TEMP/provider-personas"
+          } >> "$GITHUB_ENV"
+      - name: Run real authenticated CLI and replay acceptance
+        env:
+          TEST_PATH: ${{ matrix.test.paths_arg }}
+          CHROME_HEADLESS: "false"
+        run: |
+          set -Eeuo pipefail
+          test -f "$AUTH_STORAGE_FILE"
+          test -f "$TEST_PATH"
+          xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
+            --basetemp="$RUNNER_TEMP/provider-pytest" \
+            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Remove authentication and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/provider-auth.*
+          rm -rf "$RUNNER_TEMP/provider-pytest" "$RUNNER_TEMP/provider-personas" \
+            "$RUNNER_TEMP/provider-test-data" "$RUNNER_TEMP/provider-runtime" \
+            "$RUNNER_TEMP/provider-pytest-cache"
+
+  public-replay:
+    name: Public iCloud replay
+    needs: discover-tests
+    if: needs.discover-tests.outputs.public-tests != '[]' && github.repository == 'ArchiveBox/ArchiveBox'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJSON(needs.discover-tests.outputs.public-tests) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          ref: ${{ needs.discover-tests.outputs.sha }}
+      - name: Use the standard Ubuntu archive on hosted Linux
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: |
+          # Apply the same mirror policy as the main matrix before installing
+          # display tools or Puppeteer's Chromium/font dependencies.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+          fi
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.13.5"
+          enable-cache: false
+      - name: Install browser display and PDF inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+      - name: Install locked test dependencies
+        run: uv sync --no-cache --locked --dev --no-sources
+      - name: Install the matching Chrome sandbox helper
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
+        run: |
+          chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          # CHROME_BINARY may be a provider launcher, not the native executable.
+          native_chrome = subprocess.check_output([
+              env["NODE_BINARY"], "-e", r"""
+              const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+              const {execFileSync} = require('node:child_process');
+              const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+              getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                  const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                  if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                  console.log(matches[0].executablePath);
+              }).catch(error => { console.error(error); process.exit(1); });
+              """,
+          ], env={**os.environ, **env}, text=True).strip()
+          helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+          # Match plugin CI: keep software 2D rendering; emulating the whole GPU
+          # can stall document exports on CPU-limited runners.
+          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+      - name: Prepare isolated public replay paths
+        run: |
+          {
+            echo 'AUTH_STORAGE_FILE='
+            echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
+            echo "DATA_DIR=$RUNNER_TEMP/provider-test-data"
+            echo "PERSONAS_DIR=$RUNNER_TEMP/provider-personas"
+          } >> "$GITHUB_ENV"
+      - name: Run real public CLI and replay acceptance
+        env:
+          TEST_PATH: ${{ matrix.test.paths_arg }}
+          CHROME_HEADLESS: "true"
+          AUTH_STORAGE_FILE: ""
+        run: |
+          set -Eeuo pipefail
+          test -f "$TEST_PATH"
+          xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
+            --basetemp="$RUNNER_TEMP/provider-pytest" \
+            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Remove authentication and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/provider-auth.*
+          rm -rf "$RUNNER_TEMP/provider-pytest" "$RUNNER_TEMP/provider-personas" \
+            "$RUNNER_TEMP/provider-test-data" "$RUNNER_TEMP/provider-runtime" \
+            "$RUNNER_TEMP/provider-pytest-cache"

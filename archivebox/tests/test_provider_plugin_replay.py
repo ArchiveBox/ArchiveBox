@@ -37,7 +37,6 @@ DOCUMENT_PROVIDERS = {"microsoft365", "notion", "figma", "tldraw", "excalidraw",
         "onedrive",
         "microsoft365",
         "iclouddrive",
-        "iwork",
         "wetransfer",
     ],
 )
