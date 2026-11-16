@@ -1675,7 +1675,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             "title": "Confirm snapshot deletion",
             "opts": self.model._meta,
             "selection": signing.dumps(
-                {"user": str(request.user.pk), "scope": request.get_full_path(), "ids": ids}, salt=salt, compress=True
+                {"user": str(request.user.pk), "scope": request.get_full_path(), "ids": ids},
+                salt=salt,
+                compress=True,
             ),
             "count": len(ids),
             "preview": list(queryset.filter(pk__in=ids[:20]).order_by("pk").values_list("pk", "url")),

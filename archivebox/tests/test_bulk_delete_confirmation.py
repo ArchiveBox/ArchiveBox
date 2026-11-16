@@ -15,10 +15,10 @@ def test_large_delete_confirmation_is_bounded_and_immutable(admin_client, crawl)
         [
             Snapshot(crawl=crawl, url=f"https://delete-fixture.test/{i}", timestamp=str(1800000000 + i), status="sealed")
             for i in range(14273)
-        ]
+        ],
     )
     ArchiveResult.objects.bulk_create(
-        [ArchiveResult(snapshot=s, plugin="dom", status="succeeded", output_str="dom/output.html") for s in rows[:3000]]
+        [ArchiveResult(snapshot=s, plugin="dom", status="succeeded", output_str="dom/output.html") for s in rows[:3000]],
     )
     endpoint = "/admin/core/snapshot/?domain=delete-fixture.test"
     data = {"action": "delete_selected", "select_across": "1", "_selected_action": [str(rows[0].pk)]}
@@ -46,7 +46,9 @@ def test_large_delete_confirmation_is_bounded_and_immutable(admin_client, crawl)
     token = response.context["selection"]
     assert admin_client.post(endpoint, {**data, "post": "yes", "selection": token + "x"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
     confirmed = admin_client.post(
-        endpoint, {**data, "post": "yes", "selection": token, "_selected_action": [str(outside.pk)]}, HTTP_HOST=ADMIN_TEST_HOST
+        endpoint,
+        {**data, "post": "yes", "selection": token, "_selected_action": [str(outside.pk)]},
+        HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert confirmed.status_code == 302
     assert Snapshot.objects.filter(status="deleting").count() == 14272
@@ -108,10 +110,10 @@ def test_native_collector_baseline(admin_user, crawl):
         [
             Snapshot(crawl=crawl, url=f"https://collector-fixture.test/{i}", timestamp=str(1810000000 + i), status="sealed")
             for i in range(2000)
-        ]
+        ],
     )
     ArchiveResult.objects.bulk_create(
-        [ArchiveResult(snapshot=s, plugin="dom", status="succeeded", output_str="dom/output.html") for s in rows]
+        [ArchiveResult(snapshot=s, plugin="dom", status="succeeded", output_str="dom/output.html") for s in rows],
     )
     request = RequestFactory().post("/admin/core/snapshot/")
     request.user = admin_user
@@ -124,7 +126,7 @@ def test_native_collector_baseline(admin_user, crawl):
     assert not permissions and not protected
     assert objects
     print(
-        f"Native collector baseline2000 snapshots+2000 outputs: {elapsed:.3f}s, {len(queries)} queries, {len(str(objects))} serialized chars"
+        f"Native collector baseline2000 snapshots+2000 outputs: {elapsed:.3f}s, {len(queries)} queries, {len(str(objects))} serialized chars",
     )
 
 
@@ -133,7 +135,7 @@ def test_staff_related_delete_permission_is_not_bypassed(client, admin_user, cra
 
     staff = admin_user.__class__.objects.create_user(username="staffdeleter", password="test", is_staff=True)
     staff.user_permissions.add(
-        *Permission.objects.filter(content_type__app_label="core", codename__in=["view_snapshot", "delete_snapshot"])
+        *Permission.objects.filter(content_type__app_label="core", codename__in=["view_snapshot", "delete_snapshot"]),
     )
     selected = Snapshot.objects.create(crawl=crawl, url="https://staff-fixture.test/")
     ArchiveResult.objects.create(snapshot=selected, plugin="dom", status="succeeded")
