@@ -1499,27 +1499,27 @@ class PublicIndexView(ListView):
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
-        # Let the database walk snapshot_public_order_idx, test visibility, and
-        # skip earlier rows in one statement. Doing that walk in Python hydrated
-        # and discarded every earlier and private row in keyset batches, which
-        # dominated server CPU once crawlers requested deep pages.
-        # Filter on the JSON source of the generated permissions column: an
-        # equality on the indexed column makes SQLite pick the permissions
-        # index and sort every public snapshot before LIMIT. A composite
-        # permissions/order index measured faster only on very deep pages.
-        # OFFSET must stay ID-only: wide columns and owner joins would also be
-        # computed for every skipped row.
+        # Walk the permission-prefixed order index for ordinary pages. Reading
+        # only IDs here keeps OFFSET from fetching each skipped row (including
+        # its JSON config) and preserves stable ordering at timestamp ties.
         start = (page_number - 1) * page_size
-        if self.folder_query is not None:
-            page_query = Snapshot.objects.filter(self.folder_query, config__PERMISSIONS=PERMISSIONS_PUBLIC)
+        if self.folder_query is None:
+            page_ids = list(
+                Snapshot.objects.filter(permissions=PERMISSIONS_PUBLIC)
+                .order_by(*self.ordering, "id")
+                .values_list("id", flat=True)[start : start + page_size + 1],
+            )
         else:
-            page_query = Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
-        page_ids = snapshot_page(
-            page_query.order_by(*self.ordering, "id").values_list("id", flat=True),
-            base_queryset=Snapshot.objects.values_list("id", flat=True),
-            start=start,
-            size=page_size + 1,
-        )
+            # Folder/smart-folder predicates can prefer their own indexes or
+            # custom ordering. Keep the bounded probe and fallback for them.
+            page_ids = snapshot_page(
+                Snapshot.objects.filter(self.folder_query, config__PERMISSIONS=PERMISSIONS_PUBLIC)
+                .order_by(*self.ordering, "id")
+                .values_list("id", flat=True),
+                base_queryset=Snapshot.objects.values_list("id", flat=True),
+                start=start,
+                size=page_size + 1,
+            )
         return list(
             Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
             .select_related("crawl__created_by")

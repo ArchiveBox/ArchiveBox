@@ -544,7 +544,7 @@ class TestPublicIndex:
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
-    def test_deep_public_page_bounds_order_index_probes_and_hydration(self, client, admin_user):
+    def test_deep_public_page_seeks_permission_order_index_and_hydrates_only_page(self, client, admin_user):
         from datetime import timedelta
 
         from django.db import connection
@@ -575,7 +575,7 @@ class TestPublicIndex:
                     config={"PERMISSIONS": permissions},
                     status="sealed",
                 )
-                for index in range(160)
+                for index in range(1220)
                 for offset, permissions in enumerate(("public", "private"))
             ],
         )
@@ -584,10 +584,10 @@ class TestPublicIndex:
                 cursor.execute("ANALYZE core_snapshot")
 
         with CaptureQueriesContext(connection) as queries:
-            response = client.get("/public/?page=3", HTTP_HOST=WEB_TEST_HOST)
+            response = client.get("/public/?page=24", HTTP_HOST=WEB_TEST_HOST)
 
         assert response.status_code == 200
-        assert [snapshot.title for snapshot in response.context["object_list"]] == [f"public {index}" for index in range(100, 150)]
+        assert [snapshot.title for snapshot in response.context["object_list"]] == [f"public {index}" for index in range(1150, 1200)]
         assert response.context["page_obj"].has_next()
         # Count page reads separately from the sidebar's correlated visibility probe.
         snapshot_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_snapshot"\.', query["sql"])]
@@ -603,18 +603,16 @@ class TestPublicIndex:
         assert len(witnesses) == 1
         assert int(witnesses[0].rsplit("LIMIT ", 1)[1]) <= 128
         snapshot_reads = [query for query in snapshot_reads if query not in witnesses]
-        assert len(snapshot_reads) == 3, "A deep page probes bounded IDs, filters those IDs, then hydrates displayed rows"
-        assert all('"core_snapshot"."url"' not in query for query in snapshot_reads[:2])
-        assert int(snapshot_reads[0].rsplit("LIMIT ", 1)[1]) <= (100 + 51) * 8
-        assert snapshot_reads[1].endswith("LIMIT 51 OFFSET 100")
-        assert '"core_snapshot"."url"' in snapshot_reads[2]
+        assert len(snapshot_reads) == 2, "A public page should read IDs once, then hydrate just the displayed rows"
+        assert '"core_snapshot"."url"' not in snapshot_reads[0]
+        assert '"core_snapshot"."config"' not in snapshot_reads[0]
+        assert snapshot_reads[0].endswith("LIMIT 51 OFFSET 1150")
+        assert '"core_snapshot"."url"' in snapshot_reads[1]
         if connection.vendor == "sqlite":
             with connection.cursor() as cursor:
                 cursor.execute("EXPLAIN QUERY PLAN " + snapshot_reads[0])
                 plan = " ".join(str(row[-1]) for row in cursor.fetchall())
-            # Walking the chronological index lets LIMIT stop early. Choosing
-            # the permissions index instead sorts every public snapshot first.
-            assert "snapshot_public_order_idx" in plan and "SCAN core_snapshot" in plan, plan
+            assert "snapshot_public_page_idx" in plan and "permissions=?" in plan, plan
             assert "TEMP B-TREE FOR ORDER BY" not in plan, plan
 
     @override_settings(PUBLIC_INDEX=True)
