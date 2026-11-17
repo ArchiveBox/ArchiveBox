@@ -328,7 +328,7 @@ class HomepageView(View):
             return redirect("/admin/core/snapshot/")
 
         if request_config.PUBLIC_INDEX:
-            return redirect("/public")
+            return redirect("public-index")
 
         return _admin_login_redirect_or_forbidden(request)
 

@@ -2,9 +2,11 @@
   "source_runs": [
     "https://github.com/ArchiveBox/ArchiveBox/actions/runs/37190995942",
     "https://github.com/ArchiveBox/ArchiveBox/actions/runs/37237793977",
-    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/43767606082"
+    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/43767606082",
+    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/43950313816",
+    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/43974720094"
   ],
-  "measurement": "Unbatched files use successful per-file pytest step wall seconds from run 37237793977, including process and fixture startup, on their actual hosted or ugNAS runner. Already-batched files retain prior JUnit measurements plus 9 seconds startup. Queue and shared job setup are excluded; unknown files remain independent. Missing entries were filled from successful single-file pytest steps on hosted ubuntu-24.04 runners in run 43767606082 (rc223), from the official public Observatory snapshot generated 2026-11-15T23:59:47Z. Existing measurements were retained; failed, cancelled and unknown files were not estimated.",
+  "measurement": "Unbatched files use successful per-file pytest step wall seconds from run 37237793977, including process and fixture startup, on their actual hosted or ugNAS runner. Already-batched files retain prior JUnit measurements plus 9 seconds startup. Queue and shared job setup are excluded; unknown files remain independent. Missing entries were filled from successful single-file pytest steps on hosted ubuntu-24.04 runners in run 43767606082 (rc223), from the official public Observatory snapshot generated 2026-11-15T23:59:47Z. Other existing measurements were retained; failed, cancelled and unknown files were not estimated. The hosted single-worker CLI server lane uses the rounded mean of its successful 347s and 297s test steps from the final two runs.",
   "seconds": {
     "archivebox/tests/test_add_panel_layout.py": 58,
     "archivebox/tests/test_add_plugin_presets.py": 59,
@@ -99,7 +101,7 @@
     "archivebox/tests/test_cli_schedule.py": 59,
     "archivebox/tests/test_cli_search.py": 25,
     "archivebox/tests/test_cli_seed_urls.py": 27,
-    "archivebox/tests/test_cli_server.py": 126,
+    "archivebox/tests/test_cli_server.py": 322,
     "archivebox/tests/test_cli_shell.py": 17,
     "archivebox/tests/test_cli_snapshot.py": 55,
     "archivebox/tests/test_cli_status.py": 46,

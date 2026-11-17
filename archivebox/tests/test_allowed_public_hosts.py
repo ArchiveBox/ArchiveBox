@@ -29,6 +29,46 @@ def test_allowed_public_alias_serves_index(client, host, mode):
     assert b"ArchiveBox" in response.content
 
 
+@pytest.mark.parametrize("host", ["demo.archivebox.localhost", "archive.example.test", "web.archivebox.localhost"])
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "auto"])
+def test_public_homepage_reaches_index_in_one_redirect(client, host, mode):
+    configure_hosts(mode=mode)
+    response = client.get("/", HTTP_HOST=f"{host}:5797", follow=True)
+    assert response.redirect_chain == [("/public/", 302)]
+    assert response.status_code == 200
+    assert response.resolver_match.url_name == "public-index"
+    assert b"ArchiveBox" in response.content
+
+
+def test_authenticated_homepage_still_redirects_to_admin(client, admin_user):
+    configure_hosts(mode="safe-onedomain-nojsreplay")
+    client.force_login(admin_user)
+    response = client.get("/", HTTP_HOST="archivebox.localhost:5797")
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/core/snapshot/"
+
+
+@pytest.mark.parametrize("config", [{"BASE_URL": ""}, {"PUBLIC_INDEX": False}])
+def test_homepage_without_public_index_or_base_url_keeps_login_redirect(client, config):
+    configure_hosts(mode="safe-onedomain-nojsreplay", allowed="archivebox.localhost")
+    machine = Machine.current()
+    machine.config = {**machine.config, **config}
+    machine.save(update_fields=["config"])
+    response = client.get("/", HTTP_HOST="archivebox.localhost:5797")
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/login/?next=/"
+
+
+def test_disabled_public_homepage_without_control_plane_remains_forbidden(client):
+    configure_hosts(mode="unsafe-onedomain-noadmin")
+    machine = Machine.current()
+    machine.config = {**machine.config, "PUBLIC_INDEX": False}
+    machine.save(update_fields=["config"])
+    response = client.get("/", HTTP_HOST="archivebox.localhost:5797")
+    assert response.status_code == 403
+    assert "Location" not in response
+
+
 @pytest.mark.parametrize(
     "mode",
     ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay", "auto"],
