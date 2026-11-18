@@ -45,7 +45,7 @@ def test_search_waits_for_final_table(live_server, admin_user, crawl, browser_ru
                         "latency": 1500,
                         "downloadThroughput": -1,
                         "uploadThroughput": -1,
-                    }
+                    },
                 ],
             },
         )
