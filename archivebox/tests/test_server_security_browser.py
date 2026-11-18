@@ -185,6 +185,15 @@ async function main() {
   ]);
   await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
 
+  const waybackControl = await page.waitForSelector("#archivebox-setup-archivedotorg", {visible: true});
+  if (!await waybackControl.evaluate((input) => input.checked)) {
+    throw new Error("Fresh setup did not preserve the default Wayback submission setting");
+  }
+  await waybackControl.click();
+  if (await waybackControl.evaluate((input) => input.checked)) {
+    throw new Error("Could not turn off Wayback submission in the setup wizard");
+  }
+
   await page.$eval(
     'input[name="archivebox-hosting-location"][value="private"]',
     (input) => input.click(),
@@ -209,7 +218,9 @@ async function main() {
   await page.waitForFunction(() => {
     const value = document.querySelector('input[name="config"]')?.value || "{}";
     const saved = JSON.parse(value);
-    return saved.BASE_URL && saved.SERVER_SECURITY_MODE === "safe-onedomain-nojsreplay";
+    const wayback = document.querySelector('#plugin-settings input[type="checkbox"][data-config-key="ARCHIVEDOTORG_ENABLED"]');
+    return saved.BASE_URL && saved.SERVER_SECURITY_MODE === "safe-onedomain-nojsreplay"
+      && wayback && !wayback.checked;
   }, {timeout: 15000});
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
@@ -716,6 +727,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     )
     env.pop("BASE_URL", None)
     env.pop("SERVER_SECURITY_MODE", None)
+    env.pop("SAVE_ARCHIVEDOTORG", None)
     init_result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=60)
     assert init_result.returncode == 0, init_result.stderr or init_result.stdout
 
@@ -768,6 +780,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     for key, expected in (
         ("BASE_URL", f"http://{public_host}"),
         ("SERVER_SECURITY_MODE", "safe-onedomain-nojsreplay"),
+        ("ARCHIVEDOTORG_ENABLED", "false"),
     ):
         config_result = run_archivebox_cmd(["config", "--get", key], cwd=tmp_path, env=env, timeout=60)
         assert config_result.returncode == 0, config_result.stderr or config_result.stdout

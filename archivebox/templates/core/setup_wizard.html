@@ -102,6 +102,15 @@
       </div>
     </div>
 
+    <div class="abx-setup-row">
+      <span class="abx-setup-label">External archiving:</span>
+      <label class="abx-check">
+        <input id="archivebox-setup-archivedotorg" type="checkbox"{% if archivedotorg_enabled %} checked{% endif %}>
+        <span><b>Send captured URLs to the public Wayback Machine</b><br>
+          <small>ArchiveBox sends the original URLs to archive.org, which may make them public even when your local snapshots are private. Turn this off for confidential URLs or links containing access tokens.</small></span>
+      </label>
+    </div>
+
     <section class="abx-preview" aria-labelledby="archivebox-setup-preview-title">
       <h3 id="archivebox-setup-preview-title">Live access preview</h3>
       <p class="abx-preview-copy">These examples update as you change the form. They show routing and anonymous exposure separately.</p>
@@ -133,4 +142,4 @@
     </div>
   </div>
 </div>
-<script src="{% static 'setup_wizard.js' %}?v=20260726-1" defer></script>
+<script src="{% static 'setup_wizard.js' %}?v=20261118-1" defer></script>

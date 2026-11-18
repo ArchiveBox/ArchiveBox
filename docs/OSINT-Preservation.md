@@ -13,7 +13,7 @@ archivebox config --get ARCHIVEDOTORG_ENABLED PERMISSIONS
 
 For Docker, prefix these commands with `docker compose run --rm archivebox`. If Compose also sets these environment variables, update it and recreate the container: environment values can override the file. Check the effective configuration inside the running container too. Per-crawl options can change plugin selection; inspect them before submitting a target.
 
-`ARCHIVEDOTORG_ENABLED` defaults to `True` and submits URLs to the public Wayback Machine. `PERMISSIONS=private` restricts local snapshot access; it does not disable external submissions. `SAVE_ARCHIVEDOTORG` remains a supported legacy alias. `SAVE_ARCHIVE_DOT_ORG` is a typo and has no effect. Current development builds warn about this specific typo at startup without changing the setting or printing its value.
+`ARCHIVEDOTORG_ENABLED` defaults to `True` and submits URLs to the public Wayback Machine. In first-time server setup, uncheck **Send captured URLs to the public Wayback Machine** and save the reviewed Machine settings to opt out. `PERMISSIONS=private` restricts local snapshot access; it does not disable external submissions. `SAVE_ARCHIVEDOTORG` remains a legacy alias. The historical spelling `SAVE_ARCHIVE_DOT_ORG` also works in ArchiveBox, but is deprecated; use `ARCHIVEDOTORG_ENABLED` in new configurations. If both of those last two names are set in the same source, the canonical setting wins.
 
 Legacy `PUBLIC_INDEX` and `PUBLIC_SNAPSHOTS` are translated when `PERMISSIONS` is absent. Prefer an explicit `PERMISSIONS` setting for new deployments. It supplies the default for new captures; audit existing snapshots separately.
 

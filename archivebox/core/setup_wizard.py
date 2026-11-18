@@ -22,6 +22,7 @@ def get_setup_wizard_context(request, config) -> dict[str, Any]:
         "public_index": config.PUBLIC_INDEX,
         "public_add_view": config.PUBLIC_ADD_VIEW,
         "permissions": config.PERMISSIONS,
+        "archivedotorg_enabled": config.ARCHIVEDOTORG_ENABLED,
     }
     if request is None:
         return context
@@ -38,9 +39,11 @@ def get_setup_wizard_context(request, config) -> dict[str, Any]:
     machine_admin_url = ""
     if is_superuser:
         try:
+            from archivebox.config.common import get_request_config
             from archivebox.machine.models import Machine
 
             machine_admin_url = f"/admin/machine/machine/{Machine.current().id}/change/"
+            context["archivedotorg_enabled"] = get_request_config(request, resolve_plugins=True).ARCHIVEDOTORG_ENABLED
         except (ImportError, RuntimeError, TypeError, ValueError):
             machine_admin_url = ""
 

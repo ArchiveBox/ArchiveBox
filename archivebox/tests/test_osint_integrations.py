@@ -77,7 +77,7 @@ def test_startup_warns_about_file_privacy_typo_without_values(initialized_archiv
     with config_file.open("a") as config:
         config.write("\n[OSINT_TEST]\nSAVE_ARCHIVE_DOT_ORG = False\nUNRECOGNIZED_SECRET = must-not-appear\n")
     original = config_file.read_bytes()
-    result = run_archivebox_cmd(["config", "--get", "PERMISSIONS"], cwd=initialized_archive)
+    result = run_archivebox_cmd(["config", "--get", "ARCHIVEDOTORG_ENABLED"], cwd=initialized_archive)
     assert config_file.read_bytes() == original
     assert result.returncode == 0, result.stderr or result.stdout
     output = result.stdout + result.stderr
@@ -86,17 +86,21 @@ def test_startup_warns_about_file_privacy_typo_without_values(initialized_archiv
     assert "ARCHIVEDOTORG_ENABLED" in output
     assert "UNRECOGNIZED_SECRET" not in output
     assert "must-not-appear" not in output
+    assert "ARCHIVEDOTORG_ENABLED = false" in result.stdout
+    assert "is ignored" not in output
 
 
-def test_startup_warns_about_ignored_environment_privacy_typo(initialized_archive):
+def test_startup_accepts_environment_privacy_legacy_alias(initialized_archive):
     result = run_archivebox_cmd(
-        ["config", "--get", "PERMISSIONS"],
+        ["config", "--get", "ARCHIVEDOTORG_ENABLED"],
         cwd=initialized_archive,
         env={"SAVE_ARCHIVE_DOT_ORG": "False"},
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "SAVE_ARCHIVE_DOT_ORG" in result.stderr
     assert "ARCHIVEDOTORG_ENABLED" in result.stderr
+    assert "ARCHIVEDOTORG_ENABLED = false" in result.stdout
+    assert "is ignored" not in result.stderr
 
 
 def test_startup_accepts_supported_legacy_alias(initialized_archive):
@@ -108,6 +112,82 @@ def test_startup_accepts_supported_legacy_alias(initialized_archive):
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ARCHIVEDOTORG_ENABLED = false" in result.stdout
     assert "SAVE_ARCHIVE_DOT_ORG" not in result.stderr
+
+
+def test_startup_canonical_privacy_setting_wins_over_legacy_alias(initialized_archive):
+    result = run_archivebox_cmd(
+        ["config", "--get", "ARCHIVEDOTORG_ENABLED"],
+        cwd=initialized_archive,
+        env={"ARCHIVEDOTORG_ENABLED": "true", "SAVE_ARCHIVE_DOT_ORG": "false"},
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ARCHIVEDOTORG_ENABLED = true" in result.stdout
+
+
+def test_environment_legacy_privacy_opt_out_overrides_file_opt_in(initialized_archive):
+    with (initialized_archive / "ArchiveBox.conf").open("a") as config:
+        config.write("\n[PRIVACY_PRECEDENCE_TEST]\nARCHIVEDOTORG_ENABLED = True\n")
+    result = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            "from archivebox.config.common import get_config; print('ENV_FILE_VALUE=' + str(get_config(include_machine=False).ARCHIVEDOTORG_ENABLED))",
+        ],
+        cwd=initialized_archive,
+        env={"SAVE_ARCHIVE_DOT_ORG": "false"},
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ENV_FILE_VALUE=False" in result.stdout
+
+
+def test_privacy_alias_scope_and_source_reporting():
+    from archivebox.config.common import _normalize_legacy_archivedotorg_config, find_config_source, normalize_runtime_config
+
+    unchanged = {"ARCHIVEDOTORG_ENABLED": True, "UNRELATED": "preserved"}
+    assert _normalize_legacy_archivedotorg_config(unchanged) is unchanged
+    legacy = {"SAVE_ARCHIVE_DOT_ORG": False}
+    assert _normalize_legacy_archivedotorg_config(legacy) == {"ARCHIVEDOTORG_ENABLED": False}
+    assert legacy == {"SAVE_ARCHIVE_DOT_ORG": False}
+
+    assert normalize_runtime_config({"SAVE_ARCHIVE_DOT_ORG": False}, exclude_crawl_execution=True) == {}
+    assert normalize_runtime_config({"SAVE_ARCHIVE_DOT_ORG": False}, only_crawl_execution=True) == {"ARCHIVEDOTORG_ENABLED": False}
+    assert (
+        find_config_source(
+            "ARCHIVEDOTORG_ENABLED",
+            {"ARCHIVEDOTORG_ENABLED": False},
+            source_inputs=(("Environment", {"SAVE_ARCHIVE_DOT_ORG": False}), ("File", {"ARCHIVEDOTORG_ENABLED": True})),
+        )
+        == "Environment"
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_privacy_legacy_alias_in_machine_and_persona_config(initialized_archive):
+    from django.contrib.auth import get_user_model
+
+    from archivebox.config.common import get_config
+    from archivebox.machine.models import Machine
+    from archivebox.personas.models import Persona
+
+    with use_archivebox_db(initialized_archive):
+        user = get_user_model().objects.create_user(username="privacy-alias-regression")
+        machine = Machine.current()
+        machine.config = {"SAVE_ARCHIVE_DOT_ORG": False}
+        machine.save(update_fields=["config"])
+        assert get_config(machine=machine).ARCHIVEDOTORG_ENABLED is False
+        machine.config["ARCHIVEDOTORG_ENABLED"] = True
+        machine.save(update_fields=["config"])
+        assert get_config(machine=machine).ARCHIVEDOTORG_ENABLED is True
+        persona = Persona.objects.create(
+            name="Privacy alias regression",
+            created_by=user,
+            config={"PERMISSIONS": "private", "SAVE_ARCHIVE_DOT_ORG": False},
+        )
+        assert get_config(persona=persona, include_machine=False).ARCHIVEDOTORG_ENABLED is False
+        persona.config["ARCHIVEDOTORG_ENABLED"] = True
+        persona.save(update_fields=["config"])
+        assert get_config(persona=persona, include_machine=False).ARCHIVEDOTORG_ENABLED is True
 
 
 @pytest.mark.django_db(transaction=True)

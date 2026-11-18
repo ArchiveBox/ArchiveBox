@@ -200,6 +200,16 @@ def redact_sensitive_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
     return redacted
 
 
+def _normalize_legacy_archivedotorg_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Resolve the historical Wayback spelling within one config source."""
+    if "SAVE_ARCHIVE_DOT_ORG" not in config:
+        return config
+    normalized = dict(config)
+    value = normalized.pop("SAVE_ARCHIVE_DOT_ORG")
+    normalized.setdefault("ARCHIVEDOTORG_ENABLED", value)
+    return normalized
+
+
 def normalize_runtime_config(
     config: BaseConfigSet | Mapping[str, Any] | str | None,
     *,
@@ -218,6 +228,7 @@ def normalize_runtime_config(
     else:
         config = dict(config)
 
+    config = _normalize_legacy_archivedotorg_config(config)
     runtime_derived_keys = ArchiveBoxConfig.runtime_derived_config_keys() if exclude_runtime_derived else frozenset()
     filtered = {
         key: value
@@ -677,7 +688,7 @@ def _plugin_user_config(config: Mapping[str, object]) -> dict[str, str]:
 def _plugin_input_config(config: Mapping[str, object]) -> dict[str, object]:
     """Return raw config inputs understood by core or plugin schemas."""
     input_names = _archivebox_config_input_names()
-    return {str(key): value for key, value in config.items() if str(key) in input_names}
+    return {str(key): value for key, value in _normalize_legacy_archivedotorg_config(config).items() if str(key) in input_names}
 
 
 def _explicit_plugin_enabled_keys(config: Mapping[str, object]) -> set[str]:
@@ -688,7 +699,7 @@ def _explicit_plugin_enabled_keys(config: Mapping[str, object]) -> set[str]:
     alias-resolved ``WGET_ENABLED=False`` must survive the model validator that
     expands ``PLUGINS`` into concrete booleans.
     """
-    provided = {str(key) for key in config}
+    provided = {str(key) for key in _normalize_legacy_archivedotorg_config(config)}
     return {key for key, input_names in _plugin_enabled_input_names() if provided & input_names}
 
 
@@ -1178,8 +1189,8 @@ def _config_source_inputs(machine: Any, merged_config: Mapping[str, Any]) -> tup
     machine_config = _sanitize_machine_config(machine.config, lib_dir=merged_config.get("ABXPKG_LIB_DIR")) if machine is not None else {}
     return (
         ("Machine", normalize_runtime_config(machine_config, exclude_runtime_derived=True, json_safe=False)),
-        ("Environment", {key.upper(): value for key, value in os.environ.items()}),
-        ("File", BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)),
+        ("Environment", _normalize_legacy_archivedotorg_config({key.upper(): value for key, value in os.environ.items()})),
+        ("File", _normalize_legacy_archivedotorg_config(BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE))),
     )
 
 
@@ -1212,7 +1223,9 @@ def find_config_source(
         # Plugin resolution chooses the canonical input before its aliases.
         for input_name in input_names:
             for source, inputs in source_inputs:
-                if input_name in inputs:
+                # Also support callers providing their own raw source inputs,
+                # without copying every source map for every config field.
+                if input_name in inputs or (input_name == "ARCHIVEDOTORG_ENABLED" and "SAVE_ARCHIVE_DOT_ORG" in inputs):
                     return source
         fallback = candidate_prop.get("x-fallback")
         if not fallback or fallback not in merged_config or merged_config.get(candidate) != merged_config[fallback]:
@@ -1357,7 +1370,7 @@ def get_config(
         legacy_config = {**file_config, **os.environ}
         if "SAVE_ARCHIVE_DOT_ORG" in legacy_config and "SAVE_ARCHIVE_DOT_ORG" not in _WARNED_CONFIG_TYPOS:
             _STDERR_CONSOLE.print(
-                "[!] SAVE_ARCHIVE_DOT_ORG is ignored; use ARCHIVEDOTORG_ENABLED instead.",
+                "[!] SAVE_ARCHIVE_DOT_ORG is deprecated; use ARCHIVEDOTORG_ENABLED instead.",
                 markup=False,
             )
             _WARNED_CONFIG_TYPOS.add("SAVE_ARCHIVE_DOT_ORG")

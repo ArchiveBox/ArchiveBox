@@ -121,6 +121,58 @@ def test_key_value_widget_prefills_known_config_values_from_query_string():
     assert "window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash)" in html
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+def test_setup_wizard_shows_effective_wayback_setting(enabled):
+    config = get_config(include_machine=False).model_copy(update={"ARCHIVEDOTORG_ENABLED": enabled})
+    context = get_setup_wizard_context(None, config)
+    html = render_to_string("core/setup_wizard.html", context)
+    assert ('id="archivebox-setup-archivedotorg" type="checkbox" checked' in html) is enabled
+    assert 'id="archivebox-setup-archivedotorg" type="checkbox"' in html
+
+
+@pytest.mark.django_db
+def test_setup_wizard_uses_persisted_wayback_setting_for_admin(admin_user):
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "ARCHIVEDOTORG_ENABLED": False}
+    machine.save(update_fields=["config"])
+    request = RequestFactory().get("/admin/", HTTP_HOST="archivebox.example.test")
+    request.user = admin_user
+    context = get_setup_wizard_context(request, get_config(include_machine=False, include_file=False))
+    assert context["can_configure"]
+    assert context["archivedotorg_enabled"] is False
+
+
+@pytest.mark.django_db
+def test_machine_review_saves_wayback_opt_out(admin_client):
+    import json
+
+    from django.urls import reverse
+
+    from archivebox.machine.forms import MachineAdminForm
+    from archivebox.machine.models import Machine
+    from archivebox.tests.conftest import ADMIN_TEST_HOST
+
+    machine = Machine.current()
+    assert get_config(machine=machine).ARCHIVEDOTORG_ENABLED is True
+    url = reverse("admin:machine_machine_change", args=[machine.pk])
+    data = MachineAdminForm(instance=machine).initial
+    data.update(
+        config=json.dumps(machine.config),
+        stats=json.dumps(machine.stats),
+        settings_editor="1",
+        settings_changed="ARCHIVEDOTORG_ENABLED",
+        plugin_config__archivedotorg__ARCHIVEDOTORG_ENABLED="false",
+        _continue="1",
+    )
+    response = admin_client.post(url, data, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302, response.context["adminform"].form.errors
+    machine.refresh_from_db()
+    assert machine.config["ARCHIVEDOTORG_ENABLED"] is False
+    assert get_config(machine=machine).ARCHIVEDOTORG_ENABLED is False
+
+
 def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     html = render_to_string(
         "core/system_warnings_banner.html",
@@ -133,6 +185,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
             "public_index": True,
             "public_add_view": False,
             "permissions": "private",
+            "archivedotorg_enabled": True,
         },
     )
 
@@ -145,6 +198,8 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'id="archivebox-setup-public-index"' in html
     assert 'id="archivebox-setup-public-add"' in html
     assert 'id="archivebox-setup-permissions"' in html
+    assert 'id="archivebox-setup-archivedotorg" type="checkbox" checked' in html
+    assert 'Send captured URLs to the public Wayback Machine' in html
     assert 'id="archivebox-setup-effective-mode"' in html
     assert 'id="archivebox-setup-browser-url"' in html
     assert 'id="archivebox-setup-configured-url"' in html
@@ -205,7 +260,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'aria-controls="archivebox-setup-dns-options"' in html
     assert 'data-status-id="archivebox-setup-tls-status"' in html
     assert 'aria-controls="archivebox-setup-tls-options"' in html
-    assert "setup_wizard.js?v=20260726-1" in html
+    assert "setup_wizard.js?v=20261118-1" in html
 
 
 def test_first_admin_setup_suppresses_unconfigured_warning():

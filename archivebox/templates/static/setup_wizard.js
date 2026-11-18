@@ -7,6 +7,7 @@
   var publicIndexInput = document.getElementById('archivebox-setup-public-index');
   var publicAddInput = document.getElementById('archivebox-setup-public-add');
   var permissionsInput = document.getElementById('archivebox-setup-permissions');
+  var archivedotorgInput = document.getElementById('archivebox-setup-archivedotorg');
   var hostingInputs = document.querySelectorAll('input[name="archivebox-hosting-location"]');
   var dnsInputs = document.querySelectorAll('input[name="archivebox-dns-mode"]');
   var tlsInputs = document.querySelectorAll('input[name="archivebox-tls-mode"]');
@@ -437,6 +438,9 @@
     machineAdminUrl.searchParams.set('PUBLIC_INDEX', publicIndexInput.checked ? 'True' : 'False');
     machineAdminUrl.searchParams.set('PUBLIC_ADD_VIEW', publicAddInput.checked ? 'True' : 'False');
     machineAdminUrl.searchParams.set('PERMISSIONS', permissionsInput.value);
+    if (archivedotorgInput && archivedotorgInput.checked !== archivedotorgInput.defaultChecked) {
+      machineAdminUrl.searchParams.set('ARCHIVEDOTORG_ENABLED', archivedotorgInput.checked ? 'True' : 'False');
+    }
     machineAdminUrl.hash = 'BASE_URL';
     window.location.assign(machineAdminUrl.pathname + machineAdminUrl.search + machineAdminUrl.hash);
   });

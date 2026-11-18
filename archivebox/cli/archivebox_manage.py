@@ -27,7 +27,15 @@ def manage(args: list[str] | None = None) -> None:
         with migration_lock(), checked_database_migration():
             execute_from_command_line(["manage.py", *args])
     else:
-        execute_from_command_line(["manage.py", *(args or ["help"])])
+        try:
+            execute_from_command_line(["manage.py", *(args or ["help"])])
+        except EOFError:
+            if not args or args[0] != "changepassword":
+                raise
+            raise click.ClickException(
+                "Password input ended before both passwords were received. "
+                "Run changepassword in an interactive terminal, or provide both password lines on standard input.",
+            ) from None
 
 
 @click.command(add_help_option=False, context_settings=dict(ignore_unknown_options=True))

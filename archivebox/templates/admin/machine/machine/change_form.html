@@ -7,5 +7,21 @@
 
 {% block field_sets %}
 {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('BASE_URL')) return;
+    const selected = url.searchParams.get('ARCHIVEDOTORG_ENABLED');
+    if (selected !== 'True' && selected !== 'False') return;
+    const settings = document.getElementById('plugin-settings');
+    const input = settings?.querySelector('input[type="checkbox"][data-config-key="ARCHIVEDOTORG_ENABLED"]');
+    if (!input) return;
+    input.checked = selected === 'True';
+    input.dispatchEvent(new Event('change', {bubbles: true}));
+    settings.querySelector('button[data-plugin="archivedotorg"]')?.click();
+    url.searchParams.delete('ARCHIVEDOTORG_ENABLED');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+});
+</script>
 {{ block.super }}
 {% endblock %}
