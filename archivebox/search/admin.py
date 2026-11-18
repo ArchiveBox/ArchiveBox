@@ -78,11 +78,12 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
                 cached_ids = state.get("ids") or []
                 if not cached_ids:
                     return queryset.none(), False
+                request._archivebox_search_ranks = {snapshot_id: index for index, snapshot_id in enumerate(cached_ids)}
                 search_rank = Case(
                     *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(cached_ids)),
                     output_field=IntegerField(),
                 )
-                ranked = queryset.filter(pk__in=cached_ids).annotate(search_rank=search_rank)
+                ranked = queryset.filter(pk__in=cached_ids).alias(search_rank=search_rank)
                 return (ranked if "o" in request.GET else ranked.order_by("search_rank")), False
             return queryset.none(), False
 

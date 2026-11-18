@@ -316,6 +316,12 @@ class SnapshotChangeList(SearchResultsChangeList):
         # loading only displayed rows, not the lookahead or discarded probes.
         rows = {obj.pk: obj for obj in self.queryset.filter(pk__in=page_ids[:size]).order_by()}
         self.result_list = [rows[pk] for pk in page_ids[:size] if pk in rows]
+        # Rank is a presentation attribute only on displayed rows. Keep the
+        # database expression as an ordering alias, not a repeated SELECT.
+        search_ranks = getattr(request, "_archivebox_search_ranks", None)
+        if search_ranks is not None:
+            for obj in self.result_list:
+                obj.search_rank = search_ranks[obj.pk.hex]
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
         self.display_result_count = max(observed, summary["count"]) if summary else observed
         self.result_count_cached = summary is not None
