@@ -586,11 +586,18 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
     wget_binary = resolved_lib_dir / "env" / "bin" / "wget"
     assert wget_binary.is_symlink()
     external_binary = Path(sys.executable)
+    missing_binary = tmp_path / "missing-binary"
+    broken_binary = tmp_path / "broken-binary"
+    broken_binary.symlink_to(missing_binary)
+    assert not missing_binary.exists()
+    assert broken_binary.is_symlink() and not broken_binary.exists()
 
     machine = Machine.current()
     machine.config = {
         "WGET_BINARY": str(wget_binary),
         "YTDLP_BINARY": str(external_binary),
+        "CURL_BINARY": str(missing_binary),
+        "NODE_BINARY": str(broken_binary),
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
         "CHROME_ISOLATION": "snapshot",
         "CHROME_USER_DATA_DIR": "/tmp/stale-profile",
@@ -610,13 +617,12 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
     runner = CrawlRunner(crawl)
     snapshot_ids = runner.load_run_state()
 
-    # ``derived_config`` is Machine.config sanitized against ABXPKG_LIB_DIR. Binary
-    # paths outside ABXPKG_LIB_DIR drop out (YTDLP_BINARY → ``/tmp/...``); the
-    # ArchiveBox.conf mirror values (CHROME_ISOLATION, CHROME_USER_DATA_DIR,
-    # ABX_INSTALL_CACHE) survive so plugin hooks see the same runtime cache
-    # the user/runner persisted.
+    # Existing external binary overrides survive alongside managed binaries.
+    # Missing paths and broken symlinks must not leak into runner config.
+    # ArchiveBox.conf mirror values remain unchanged for plugin hooks.
     assert runner.derived_config == {
         "WGET_BINARY": str(wget_binary),
+        "YTDLP_BINARY": str(external_binary),
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
         "CHROME_ISOLATION": "snapshot",
         "CHROME_USER_DATA_DIR": "/tmp/stale-profile",
