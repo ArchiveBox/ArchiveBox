@@ -1,3 +1,6 @@
+# ci-workers: 1
+# Keep the concurrent-capture assertion on real admission without competing
+# pytest workers on the same runner. I/O pressure can correctly serialize it.
 """Live progress UI tests."""
 
 import json
