@@ -31,6 +31,7 @@ def test_observer_real_process_growth_and_failure(mode):
         pattern = (
             r"worker_memory_growth pid=\d+ rss_bytes=\d+ sampled_peak_bytes=\d+ kernel_peak_bytes=\d+ growth_bytes=\d+ active_categories="
             r"replay:\d+,search:\d+,export:\d+,render:\d+,database:\d+,view:\d+,plugin:\d+,other:\d+,unobserved:\d+"
+            r" outer_families=original_replay:\d+,snapshot_replay:\d+,static:\d+,admin:\d+,search:\d+,opencode:\d+,other:\d+,unobserved:\d+,depth_limited:\d+"
         )
         assert all(re.fullmatch(pattern, row) for row in rows[1:])
 

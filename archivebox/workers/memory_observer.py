@@ -22,34 +22,76 @@ _FRAME_GROUPS = (
 )
 
 
-def thread_categories() -> dict[str, int]:
+def thread_activity() -> tuple[dict[str, int], dict[str, int]]:
     """Count active code families, NOT owners of RSS. Never inspect locals."""
     counts = dict.fromkeys(("replay", "search", "export", "render", "database", "view", "plugin", "other", "unobserved"), 0)
+    outer = dict.fromkeys(
+        ("original_replay", "snapshot_replay", "static", "admin", "search", "opencode", "other", "unobserved", "depth_limited"), 0
+    )
     frames = sys._current_frames()
     counts["unobserved"] = max(0, len(frames) - 64)
+    outer["unobserved"] = counts["unobserved"]
     frame = None
     try:
         for index, frame in enumerate(frames.values()):
             if index == 64:
                 break
             category = "other"
+            family = "other"
             for _ in range(64):
                 if frame is None:
                     break
                 module = frame.f_globals.get("__name__", "")
-                category = next(
+                matched = next(
                     (label for prefix, label in _FRAME_GROUPS if isinstance(module, str) and module.startswith(prefix)),
                     "other",
                 )
-                if category != "other":
-                    break
+                if category == "other":
+                    category = matched
+                # Code identity only: never inspect arguments, URLs or locals.
+                name = frame.f_code.co_name
+                if module == "archivebox.core.views":
+                    if name in {"_serve_original_domain_replay", "_visible_replay_snapshots_for_domain"}:
+                        family = "original_replay"
+                    elif name == "_serve_snapshot_replay":
+                        family = "snapshot_replay"
+                elif module == "archivebox.misc.serve_static" and name == "serve_static_with_byterange_support":
+                    family = "static"
+                elif module == "archivebox.core.admin_snapshots" and name in {"changelist_view", "get_queryset", "get_results"}:
+                    family = "admin"
+                elif module == "archivebox.search.views" and name in {
+                    "admin_snapshot_search_stream_view",
+                    "public_snapshot_search_stream_view",
+                    "run_search",
+                    "iter_search_result_ids",
+                    "iter_meta_search_ids",
+                    "iter_url_prefix_search_ids",
+                }:
+                    family = "search"
+                elif module == "abx_plugins.plugins.opencode.archivebox.views" and name in {
+                    "_dispatch",
+                    "agent_view",
+                    "opencode_proxy_view",
+                    "agent_browser_view",
+                    "websocket_view",
+                    "_websocket_context",
+                }:
+                    family = "opencode"
                 frame = frame.f_back
+            if frame is not None:
+                outer["depth_limited"] += 1
+            outer[family] += 1
             counts[category] += 1
     finally:
         # Do not retain application frames, request objects or their inputs.
         frame = None
         frames.clear()
-    return counts
+    return counts, outer
+
+
+def thread_categories() -> dict[str, int]:
+    """Backward-compatible inner-stage counters."""
+    return thread_activity()[0]
 
 
 def kernel_peak_rss() -> int:
@@ -123,15 +165,16 @@ class MemoryObserver:
                     continue
                 # A retained kernel peak may predate these active stacks; the
                 # categories never attribute that peak to the sampled threads.
-                categories = thread_categories()
+                categories, outer = thread_activity()
                 self.logger.warning(
-                    "worker_memory_growth pid=%d rss_bytes=%d sampled_peak_bytes=%d kernel_peak_bytes=%d growth_bytes=%d active_categories=%s",
+                    "worker_memory_growth pid=%d rss_bytes=%d sampled_peak_bytes=%d kernel_peak_bytes=%d growth_bytes=%d active_categories=%s outer_families=%s",
                     process.pid,
                     rss,
                     sampled_peak,
                     kernel_peak,
                     growth,
                     ",".join(f"{key}:{value}" for key, value in categories.items()),
+                    ",".join(f"{key}:{value}" for key, value in outer.items()),
                 )
                 reported_sampled, reported_kernel, last_report = sampled_peak, kernel_peak, now
         except Exception:
