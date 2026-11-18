@@ -393,8 +393,9 @@ def test_memento_range_and_conditional_responses(client, captures):
 
 @pytest.mark.django_db(transaction=True)
 def test_raw_output_enclosures_only_resolve_archive_paths(client, captures, archive_files):
-    import cProfile
-    import pstats
+    import sys
+
+    from archivebox.memento.views import _enclosures
 
     snapshot = captures[0]
     directory = snapshot.output_dir / "responses"
@@ -406,20 +407,27 @@ def test_raw_output_enclosures_only_resolve_archive_paths(client, captures, arch
         path.write_text(f"Captured asset {index}")
         files[name] = {"size": path.stat().st_size, "mimetype": "text/plain"}
     ArchiveResult.objects.create(snapshot=snapshot, plugin="responses", status="succeeded", output_files=files)
-    profile = cProfile.Profile()
-    with CaptureQueriesContext(connection) as queries, profile:
-        response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/singlefile.html"))
+    resolved_paths = []
+
+    def observe(frame, event, _arg):
+        if event == "call" and frame.f_code is ArchiveResult.output_file_path.__code__:
+            if frame.f_back is not None and frame.f_back.f_code is _enclosures.__code__:
+                resolved_paths.append(frame.f_locals["path"])
+
+    # Observe real call frames on this request thread, not cProfile's aggregate
+    # caller attribution (which can misattribute calls across other threads).
+    previous_profile = sys.getprofile()
+    try:
+        sys.setprofile(observe)
+        with CaptureQueriesContext(connection) as queries:
+            response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/singlefile.html"))
+    finally:
+        sys.setprofile(previous_profile)
     assert response.status_code == 200
     assert b"Saved on day 1" in b"".join(response.streaming_content)
     assert len([link for link in requests.utils.parse_header_links(response["Link"]) if link["rel"] == "enclosure"]) == 3
-    path_resolutions = sum(
-        calls[0]
-        for (_filename, _line, function), values in pstats.Stats(profile).stats.items()
-        if function == "output_file_path"
-        for (_caller_file, _caller_line, caller), calls in values[4].items()
-        if caller == "_enclosures"
-    )
-    assert path_resolutions == 3, path_resolutions
+    assert len(resolved_paths) == 3, resolved_paths
+    assert set(resolved_paths) == set(archive_files), resolved_paths
     manifest_queries = [query["sql"] for query in queries if '"core_archiveresult"."output_files"' in query["sql"]]
     enclosure_query = manifest_queries[-1]
     assert '"output_str"' not in enclosure_query.split(" FROM ")[0]
