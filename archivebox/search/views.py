@@ -215,14 +215,17 @@ def iter_meta_search_ids(query, queryset):
             yield pk
 
     crawl_metadata_wave = Q(crawl__notes__icontains=query) | Q(crawl__label__icontains=query) | Q(crawl__created_by__username=query)
-    if not seen:
-        for pk in queryset.filter(crawl_metadata_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
-            seen.add(pk)
-            yield pk
+    for pk in queryset.filter(crawl_metadata_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
+        if pk in seen:
+            continue
+        seen.add(pk)
+        yield pk
 
-    config_wave = crawl_config_values_search_wave(query)
-    if config_wave is not None and not seen:
+    config_wave = crawl_config_values_search_wave(query, crawl_ids=queryset.order_by().values("crawl_id"))
+    if config_wave is not None:
         for pk in queryset.filter(config_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
+            if pk in seen:
+                continue
             seen.add(pk)
             yield pk
 

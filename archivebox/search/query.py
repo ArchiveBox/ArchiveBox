@@ -83,13 +83,16 @@ def escape_like_query(query: str) -> str:
     return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def crawl_config_values_search_wave(query: str) -> Q | None:
+def crawl_config_values_search_wave(query: str, *, crawl_ids=None) -> Q | None:
     """Build a Snapshot Q predicate matching values inside Crawl.config."""
     from archivebox.crawls.models import Crawl
 
     pattern = f"%{escape_like_query(query).lower()}%"
+    crawls = Crawl.objects.all()
+    if crawl_ids is not None:
+        crawls = crawls.filter(pk__in=crawl_ids)
     if connection.vendor == "sqlite":
-        matching_crawls = Crawl.objects.extra(
+        matching_crawls = crawls.extra(
             where=[
                 """
                 EXISTS (
@@ -106,7 +109,7 @@ def crawl_config_values_search_wave(query: str) -> Q | None:
         # Match only scalar config *values*, not keys (mirrors SQLite's
         # json_tree.atom). jsonb_path_query('$.**') walks every nested node;
         # keep the non-container leaves and compare their text form.
-        matching_crawls = Crawl.objects.extra(
+        matching_crawls = crawls.extra(
             where=[
                 """
                 EXISTS (
