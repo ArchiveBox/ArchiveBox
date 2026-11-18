@@ -363,3 +363,19 @@ def test_domain_grant_replays_explicit_ports_without_authorizing_url_userinfo(ad
     assert b"Hacker News" in page.content
     assert replay.get("/secret", HTTP_HOST=DOMAIN_HOST).status_code == 404
     assert replay.get("/secret", HTTP_HOST="other.example.archivebox.localhost:5797").status_code == 404
+
+
+def test_original_domain_defers_wide_crawl_fields_but_keeps_owner_joined(saved_site, django_assert_num_queries):
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+    from archivebox.core.views import _visible_replay_snapshots_for_domain
+
+    request = RequestFactory().get("/", HTTP_HOST=DOMAIN_HOST)
+    request.user = AnonymousUser()
+    with django_assert_num_queries(1):
+        rows = _visible_replay_snapshots_for_domain(request, "news.ycombinator.com")
+        assert {row.pk for row in rows} == {snapshot.pk for snapshot, _, _ in saved_site}
+        for row in rows:
+            assert {"urls", "config", "notes"} <= row.crawl.get_deferred_fields()
+            assert row.crawl.created_by_id == saved_site[0][0].crawl.created_by_id
+            assert row.output_dir == next(snapshot.output_dir for snapshot, _, _ in saved_site if snapshot.pk == row.pk)

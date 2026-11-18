@@ -1079,7 +1079,7 @@ def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> l
     candidates = (
         Snapshot.objects.filter(pk__in=domain_ids)
         .select_related("crawl", "crawl__created_by")
-        .defer("crawl__urls")
+        .defer("crawl__urls", "crawl__config", "crawl__notes")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )
     domain_authorized = _has_original_domain_replay_cookie(request, requested_domain)
