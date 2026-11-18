@@ -40,6 +40,7 @@ jobs:
           # APT's stall timeout: https://github.com/actions/runner-images/issues/14823
           if [[ -f /etc/apt/apt-mirrors.txt ]]; then
             sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+            sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
           fi
 
       ### Set up Python
