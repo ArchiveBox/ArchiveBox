@@ -113,6 +113,13 @@ jobs:
           # need not be visible in an ephemeral resolver's cached index yet.
           uv sync --locked --no-sources --no-install-project
           CHROME_SCHEMA="$(uv run --no-sync --no-sources python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "chrome" / "config.json")')"
+          # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
+          if [[ "$RUNNER_OS" == "Linux" && "$RUNNER_ENVIRONMENT" == "github-hosted" ]]; then
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+              sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
+            fi
+          fi
           uv run --no-sync --no-sources abxpkg env --install --json --deps-from="$CHROME_SCHEMA:required_binaries" > "$RUNNER_TEMP/browser-env.json"
           CHROME_BINARY="$(uv run --no-sync --no-sources python -c 'import json, sys; print(json.load(open(sys.argv[1]))["CHROME_BINARY"])' "$RUNNER_TEMP/browser-env.json")"
           export CHROME_BINARY
