@@ -274,40 +274,45 @@ if [[ -z "$PLUGIN_VIEWS" ]]; then
 )
 fi
 
-# Do not mistake another collection's server for this gallery's ready process.
-uv run --no-project python - "$PORT" <<'PYPORT'
+start_gallery_server() {
+    # Neither another collection nor a surviving old worker is the new server.
+    uv run --no-project python - "$PORT" <<'PYPORT'
 import socket, sys
 with socket.socket() as listener:
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(("127.0.0.1", int(sys.argv[1])))
 PYPORT
-echo "[*] Starting ArchiveBox on port $PORT"
-(
-    cd "$DATA_DIR"
-    # Use the real server command so the runner, worker, and log views describe
-    # the same persistent runtime that an operator sees.
-    exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
-) >"$DATA_DIR/ui-screenshot-server.log" 2>&1 &
-SERVER_PID=$!
+    echo "[*] Starting ArchiveBox on port $PORT"
+    (
+        cd "$DATA_DIR"
+        # Use the real server command so the runner, worker, and log views describe
+        # the same persistent runtime that an operator sees.
+        exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
+    ) >>"$DATA_DIR/ui-screenshot-server.log" 2>&1 &
+    SERVER_PID=$!
 
-ready=0
-for _attempt in $(seq 1 60); do
-    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-        echo "[!] ArchiveBox exited before becoming ready" >&2
+    local ready=0 _attempt
+    for _attempt in $(seq 1 60); do
+        if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "[!] ArchiveBox exited before becoming ready" >&2
+            tail -100 "$DATA_DIR/ui-screenshot-server.log" >&2
+            exit 1
+        fi
+        if curl --fail --silent --show-error --resolve "$ADMIN_HOST:$PORT:127.0.0.1" "$ADMIN_BASE_URL/admin/login/" >/dev/null; then
+            ready=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [[ "$ready" != "1" ]]; then
+        echo "[!] ArchiveBox did not become ready within 60 seconds" >&2
         tail -100 "$DATA_DIR/ui-screenshot-server.log" >&2
         exit 1
     fi
-    if curl --fail --silent --show-error --resolve "$ADMIN_HOST:$PORT:127.0.0.1" "$ADMIN_BASE_URL/admin/login/" >/dev/null; then
-        ready=1
-        break
-    fi
-    sleep 1
-done
 
-if [[ "$ready" != "1" ]]; then
-    echo "[!] ArchiveBox did not become ready within 60 seconds" >&2
-    tail -100 "$DATA_DIR/ui-screenshot-server.log" >&2
-    exit 1
-fi
+}
+start_gallery_server
 
 # The persistent collection can contain old runnable work unrelated to this
 # gallery. Keep the real server stack, but stop its general queue consumer;
@@ -507,7 +512,10 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     config_after_click_selector=""
     [[ "$capture_mode" != "navbar-tools" ]] || config_click_selector=".library-tools > summary"
     [[ "$capture_mode" != "navbar-account" ]] || config_click_selector=".navbar-user-menu > summary"
-    [[ "$capture_mode" != navbar-* ]] || config_after_click_selector=".navbar-dropdown[open] .navbar-menu"
+    [[ "$capture_mode" != "navbar-tools" ]] || config_after_click_selector=".library-tools[open] .navbar-menu"
+    [[ "$capture_mode" != "navbar-account" ]] || config_after_click_selector=".navbar-user-menu[open] .navbar-menu"
+    config_required_in_frame=""
+    [[ "$capture_mode" != "navbar-tools" ]] || config_required_in_frame="$config_after_click_selector"
     if [[ "$capture_mode" == plugin-config:* ]]; then
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="[role='tab'][data-plugin='${capture_mode#plugin-config:}']"
@@ -586,6 +594,8 @@ PY
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$setup_variants" \
                     SCREENSHOT_WAIT_SELECTOR="#archivebox-setup-wizard #archivebox-setup-validation.is-success" \
+                    SCREENSHOT_SCROLL_SELECTOR='label:has(#archivebox-setup-archivedotorg:checked)' \
+                    SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR='label:has(#archivebox-setup-archivedotorg:checked)' \
                     SCREENSHOT_HOST_RESOLVER_RULES="$SETUP_HOST_RESOLVER_RULES" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$SETUP_BASE_URL/admin/login/?next=/admin/" "$screenshot_path" >"$capture_dir/report.json"
                 url="$SETUP_BASE_URL/admin/"
@@ -641,6 +651,7 @@ PY
                     SCREENSHOT_CLICK_SELECTOR="$config_click_selector" \
                     SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR="$config_after_click_selector" \
                     SCREENSHOT_SCROLL_SELECTOR="$config_selector" \
+                    SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR="$config_required_in_frame" \
                     SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
@@ -709,17 +720,43 @@ PY
                 --directory "$CAPTURE_ROOT/site-exports"
         ) >"$CAPTURE_ROOT/site-export-server.log" 2>&1 &
         SITE_EXPORT_SERVER_PID=$!
-        NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
-            CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
-            SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
-            UI_LIBRARY_CRAWL_ID="$UI_LIBRARY_CRAWL_ID" \
-            UI_LIBRARY_PUBLIC_URL="$PUBLIC_BASE_URL" \
-            UI_LIBRARY_DATA_DIR="$DATA_DIR" \
-            UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/library-views.txt" \
-            UI_SITE_EXPORT_BASE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/" \
-            CREATE_API_TOKEN="$CREATE_API_TOKEN" \
-            CREATE_WEBHOOK="$CREATE_WEBHOOK" \
-            node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
+        for gallery_phase in prepare replay; do
+            NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+                SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+                UI_LIBRARY_CRAWL_ID="$UI_LIBRARY_CRAWL_ID" \
+                UI_LIBRARY_PUBLIC_URL="$PUBLIC_BASE_URL" \
+                UI_LIBRARY_DATA_DIR="$DATA_DIR" \
+                UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/library-views.txt" \
+                UI_SITE_EXPORT_BASE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/" \
+                CREATE_API_TOKEN="$CREATE_API_TOKEN" \
+                CREATE_WEBHOOK="$CREATE_WEBHOOK" \
+                node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME" "$gallery_phase"
+            if [[ "$gallery_phase" == prepare ]]; then
+                # The real UI has warmed process-local Domains metadata before
+                # the foreground capture. Begin verification in a fresh serving
+                # process, without altering the collection or retrying a page.
+                kill -TERM "$SERVER_PID"
+                for _stop_attempt in $(seq 1 60); do
+                    if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
+                    sleep 1
+                done
+                if kill -0 "$SERVER_PID" 2>/dev/null; then
+                    echo "[!] Owned gallery server did not stop within 60 seconds" >&2
+                    tail -100 "$DATA_DIR/ui-screenshot-server.log" >&2
+                    exit 1
+                fi
+                stop_status=0
+                wait "$SERVER_PID" || stop_status=$?
+                if [[ "$stop_status" != 0 && "$stop_status" != 143 ]]; then
+                    echo "[!] Owned gallery server stopped with unexpected status $stop_status" >&2
+                    exit 1
+                fi
+                SERVER_PID=""
+                start_gallery_server
+                stop_background_runner
+            fi
+        done
 
         while IFS= read -r library_view; do
             [[ -z "$library_view" ]] || VIEWS+=("$library_view")

@@ -5,9 +5,10 @@ const path = require('path');
 const puppeteer = require('puppeteer');
 const {spawnSync} = require('child_process');
 
-const [adminBaseUrl, username] = process.argv.slice(2);
+const [adminBaseUrl, username, phase] = process.argv.slice(2);
+if (!['prepare', 'replay'].includes(phase)) throw new Error('Gallery requires prepare or replay phase');
 if (!adminBaseUrl || !username || !process.env.SCREENSHOT_USER_DATA_DIR) {
-  throw new Error('usage: setup_ui_screenshot_data.js ADMIN_BASE_URL USERNAME (with SCREENSHOT_USER_DATA_DIR)');
+  throw new Error('usage: setup_ui_screenshot_data.js ADMIN_BASE_URL USERNAME prepare|replay (with SCREENSHOT_USER_DATA_DIR)');
 }
 
 function chromePath() {
@@ -104,13 +105,13 @@ async function main() {
     await page.goto(`${adminBaseUrl}/admin/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     if (page.url().includes('/admin/login/')) throw new Error('screenshot persona is not logged in');
 
-    if (process.env.CREATE_API_TOKEN === '1') {
+    if (phase === 'prepare' && process.env.CREATE_API_TOKEN === '1') {
       await submitAdminAdd(page, `${adminBaseUrl}/admin/api/apitoken/add/`, async () => {
         await selectUser(page);
       });
     }
 
-    if (process.env.CREATE_WEBHOOK === '1') await submitAdminAdd(page, `${adminBaseUrl}/admin/api/outboundwebhook/add/`, async () => {
+    if (phase === 'prepare' && process.env.CREATE_WEBHOOK === '1') await submitAdminAdd(page, `${adminBaseUrl}/admin/api/outboundwebhook/add/`, async () => {
       await replaceText(page, '#id_name', 'Snapshot completion notifications');
       await selectFirstRealOption(page, '#id_signal');
       await selectFirstRealOption(page, '#id_ref');
@@ -134,30 +135,42 @@ async function main() {
       });
       if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.error?.message || `exit ${result.status}, signal ${result.signal || 'none'}`}`);
     };
-    const featureViews = [];
-    const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
-    featureViews.push(library);
-    featureViews.push({...library, name: 'Navigation tools menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-tools'});
-    featureViews.push({...library, name: 'Navigation account menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-account'});
-    const smart = await require('../archivebox/core/library_gallery.js').prepareSmartFolder(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
-    featureViews.push(smart, {...smart, name: 'Smart folder rule editor', mode: 'smart-folder'});
-    featureViews.push({...library, name: 'Current view export menu', mode: 'view-export-menu'});
-    featureViews.push({...library, name: 'Folder search', mode: 'folder-search'});
-    featureViews.push({...library, name: 'Folder export menu', mode: 'folder-menu'});
-    featureViews.push({...library, name: 'Import sources menu', mode: 'import-menu'});
-    featureViews.push(await require('../archivebox/core/public_library_gallery.js').prepare(page, process.env.UI_LIBRARY_PUBLIC_URL, library.url));
-    featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
-    featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
-    featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
-    // Mandatory replay navigation uses an owned two-page site. Live HN/story
-    // capture and eligibility remain independently checked below.
-    const siteDirectory = path.join(path.dirname(viewsFile), 'site-exports', 'site-navigation');
-    fs.cpSync(path.join(repoDir, 'archivebox/tests/fixtures/site-navigation'), siteDirectory, {recursive: true});
-    const siteUrl = new URL('site-navigation/index.html', process.env.UI_SITE_EXPORT_BASE_URL).href;
-    const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl, siteUrl);
-    runWorker(['run', '--crawl-id', clone.crawlId]);
-    featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
-    featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
+    const checkpoint = `${viewsFile}.prepared.json`;
+    if (phase === 'prepare') {
+      const featureViews = [];
+      const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
+      featureViews.push(library);
+      featureViews.push({...library, name: 'Navigation tools menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-tools'});
+      featureViews.push({...library, name: 'Navigation account menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-account'});
+      const smart = await require('../archivebox/core/library_gallery.js').prepareSmartFolder(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
+      featureViews.push(smart, {...smart, name: 'Smart folder rule editor', mode: 'smart-folder'});
+      featureViews.push({...library, name: 'Current view export menu', mode: 'view-export-menu'});
+      featureViews.push({...library, name: 'Folder search', mode: 'folder-search'});
+      featureViews.push({...library, name: 'Folder export menu', mode: 'folder-menu'});
+      featureViews.push({...library, name: 'Import sources menu', mode: 'import-menu'});
+      featureViews.push(await require('../archivebox/core/public_library_gallery.js').prepare(page, process.env.UI_LIBRARY_PUBLIC_URL, library.url));
+      featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
+      featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
+      featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
+      // Mandatory replay navigation uses an owned two-page site. Live HN/story
+      // capture and eligibility remain independently checked below.
+      const siteDirectory = path.join(path.dirname(viewsFile), 'site-exports', 'site-navigation');
+      fs.cpSync(path.join(repoDir, 'archivebox/tests/fixtures/site-navigation'), siteDirectory, {recursive: true});
+      const siteUrl = new URL('site-navigation/index.html', process.env.UI_SITE_EXPORT_BASE_URL).href;
+      const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl, siteUrl);
+      runWorker(['run', '--crawl-id', clone.crawlId]);
+      featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
+      featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
+      fs.writeFileSync(checkpoint, JSON.stringify({adminBaseUrl, crawlId: process.env.UI_LIBRARY_CRAWL_ID, profile: path.resolve(process.env.SCREENSHOT_USER_DATA_DIR), featureViews, library, clone}));
+      return;
+    }
+    // Reopen the same authenticated persona after the fixture owner starts a
+    // fresh server. Never retry a stale page or weaken actual replay/export checks.
+    const prepared = JSON.parse(fs.readFileSync(checkpoint, 'utf8'));
+    if (prepared.adminBaseUrl !== adminBaseUrl || prepared.crawlId !== process.env.UI_LIBRARY_CRAWL_ID || prepared.profile !== path.resolve(process.env.SCREENSHOT_USER_DATA_DIR)) {
+      throw new Error('Gallery preparation belongs to a different server, crawl, or persona');
+    }
+    const {featureViews, library, clone} = prepared;
     featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
     featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));

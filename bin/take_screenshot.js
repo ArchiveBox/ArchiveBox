@@ -25,6 +25,7 @@ Environment:
   SCREENSHOT_VARIANTS_JSON   JSON array of {path,width,height} captures from one loaded page
   SCREENSHOT_FULL_PAGE       Set to 1 to capture the full page, defaults to viewport only
   SCREENSHOT_SCROLL_SELECTOR Scroll this selector into view before capture
+  SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR Require this control within each screenshot viewport
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
   SCREENSHOT_WAIT_FOR_TEXT   Wait for this visible page text before capture
   SCREENSHOT_PREVIEW_WAIT_FOR_TEXT Wait for this text in the selected snapshot preview iframe
@@ -590,6 +591,17 @@ async function main() {
       if (captureFullPage) {
         await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
         await page.waitForFunction(() => window.scrollX === 0 && window.scrollY === 0);
+      }
+      if (process.env.SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR) {
+        const selector = process.env.SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR;
+        await page.waitForSelector(selector, {visible: true, timeout: 45000});
+        const inFrame = await page.$eval(selector, element => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 &&
+            rect.top >= -1 && rect.left >= -1 &&
+            rect.bottom <= innerHeight + 1 && rect.right <= innerWidth + 1;
+        });
+        if (!inFrame) throw new Error(`Screenshot control is outside the viewport: ${selector}`);
       }
       await page.screenshot({path: screenshotPath, fullPage: captureFullPage});
       screenshotPaths.push(screenshotPath);

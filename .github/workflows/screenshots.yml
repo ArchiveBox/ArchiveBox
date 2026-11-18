@@ -273,6 +273,13 @@ jobs:
           assert provenance["version"] == version, provenance
           assert provenance["capture_count"] >= 3 * 35, provenance
           assert len(provenance["files"]) == provenance["capture_count"], provenance
+          required = {
+              f"{view}-{profile}.png"
+              for view in ("navigation-tools-menu", "first-time-setup-wizard")
+              for profile in ("desktop", "tablet", "mobile")
+          }
+          missing = required.difference(provenance["files"])
+          assert not missing, f"Missing required gallery images: {sorted(missing)}"
           assert all(not re.match(r"^\d+-", name) for name in provenance["files"]), provenance
           PY
 

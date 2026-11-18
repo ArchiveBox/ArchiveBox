@@ -26,6 +26,9 @@ concurrency:
 
 jobs:
   build:
+    # A failed capture has no validated new artifact. Leave the published
+    # gallery alone; don't make the failure look like a successful refresh.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
