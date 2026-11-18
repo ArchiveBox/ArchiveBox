@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/stable/howto/deployment/asgi/
 from django.core.handlers.asgi import ASGIHandler
 
 from archivebox.config.django import setup_django
+from archivebox.core.replay_timing import ReplayPhaseObserver
 
 setup_django(check_db=True)
 
@@ -26,7 +27,7 @@ class ArchiveBoxASGIHandler(ASGIHandler):
         return super().create_request(scope, body_file)
 
 
-django_application = ArchiveBoxASGIHandler()
+django_application = ReplayPhaseObserver(ArchiveBoxASGIHandler())
 
 
 async def application(scope, receive, send):

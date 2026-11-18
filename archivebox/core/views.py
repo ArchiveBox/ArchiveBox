@@ -1269,8 +1269,12 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    from archivebox.core.replay_timing import mark_replay_phase
+
+    mark_replay_phase(request, "replay_entry")
     started, cpu_started = time.perf_counter(), time.thread_time()
     response = _build_snapshot_replay_response(request, snapshot, path)
+    mark_replay_phase(request, "replay_built")
     # Response construction only, not body streaming or time queued before the
     # view. Thread CPU excludes other capture workers; wall time includes waits.
     timings = f"replay;dur={(time.perf_counter() - started) * 1000:.1f}, replay_cpu;dur={(time.thread_time() - cpu_started) * 1000:.1f}"

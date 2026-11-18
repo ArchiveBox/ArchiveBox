@@ -686,3 +686,6 @@ if DEBUG_REQUESTS_TRACKER:
             r"^SELECT .* FROM django_migrations WHERE app = 'auth'",
         ),
     }
+
+# Opt-in numeric replay phases; slow records are limited to one/minute/worker.
+REPLAY_PHASE_TIMING = os.environ.get("ARCHIVEBOX_REPLAY_PHASE_TIMING") == "1"

@@ -34,6 +34,7 @@ from archivebox.core.routes_util import (
     is_public_host,
     split_host_port,
 )
+from archivebox.core.replay_timing import mark_replay_phase
 from archivebox.core.views import REPLAY_COOKIE_PREFIX, HealthCheckView, OriginalDomainHostView, SnapshotHostView
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
 
@@ -105,6 +106,7 @@ def detect_timezone(request, activate: bool = True):
 
 def TimezoneMiddleware(get_response):
     def middleware(request):
+        mark_replay_phase(request, "timezone_entry")
         detect_timezone(request, activate=True)
         return get_response(request)
 
