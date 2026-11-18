@@ -8,6 +8,22 @@ from ipaddress import IPv6Address, ip_address
 
 import uvicorn
 
+from archivebox.workers.memory_observer import MemoryObserver
+
+
+class ObservedServer(uvicorn.Server):
+    memory_observer: MemoryObserver
+
+    async def shutdown(self, sockets=None):
+        try:
+            await super().shutdown(sockets=sockets)
+        finally:
+            stopped = self.memory_observer.stop()
+            logging.getLogger("uvicorn.error").log(
+                logging.INFO if stopped else logging.WARNING,
+                "worker_memory_stopped" if stopped else "worker_memory_stop_pending",
+            )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -49,7 +65,10 @@ def main() -> None:
         # Match Uvicorn's bind_socket announcement for prebound listeners.
         for listener in sockets:
             logging.getLogger("uvicorn.error").info("Uvicorn running on socket %s", listener.getsockname())
-        uvicorn.Server(config).run(sockets=sockets)
+        server = ObservedServer(config)
+        with MemoryObserver() as observer:
+            server.memory_observer = observer
+            server.run(sockets=sockets)
 
 
 if __name__ == "__main__":
