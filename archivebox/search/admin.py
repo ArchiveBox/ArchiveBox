@@ -11,7 +11,7 @@ from archivebox.search.config import (
     get_search_mode_base,
     get_search_mode_options,
 )
-from archivebox.search.query import query_search_index
+from archivebox.search.query import query_search_index, url_search_q
 from archivebox.search.views import get_cached_admin_search_state
 
 
@@ -71,6 +71,9 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
         if not search_term:
             return super().get_search_results(request, queryset, search_term)
         search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
+        if get_search_mode_base(search_mode, config=request.archivebox_config) == "url":
+            request._archivebox_search_complete = True
+            return queryset.filter(url_search_q(search_term)), False
         if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
             state = get_cached_admin_search_state(request)
             request._archivebox_search_complete = bool(state and state.get("done"))

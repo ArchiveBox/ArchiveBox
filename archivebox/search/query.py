@@ -232,6 +232,8 @@ def apply_snapshot_search(
     search_mode = get_search_mode(search_mode, config=config)
     search_mode_base = get_search_mode_base(search_mode, config=config)
     search_mode_backend = get_search_mode_backend(search_mode, config=config)
+    if search_mode_base == "url":
+        return base_queryset.filter(url_search_q(query))
     metadata_filter = Q()
     for wave in snapshot_metadata_search_waves(query, include_id_matches=include_id_matches):
         metadata_filter |= wave
@@ -303,6 +305,11 @@ def iter_query_search_ids(
     search_mode = "contents" if search_mode is None else get_search_mode(search_mode, config=config)
     search_mode_base = get_search_mode_base(search_mode, config=config)
     forced_backend = get_search_mode_backend(search_mode, config=config)
+    if search_mode_base == "url":
+        from archivebox.core.models import Snapshot
+
+        yield from Snapshot.objects.filter(url_search_q(query.strip())).values_list("pk", flat=True)[:max_results].iterator()
+        return
     if search_mode_base == "meta":
         return
 

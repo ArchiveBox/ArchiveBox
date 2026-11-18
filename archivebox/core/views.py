@@ -113,6 +113,7 @@ from archivebox.search.config import (
     get_search_mode_base,
     get_search_mode_options,
 )
+from archivebox.search.query import url_search_q
 from archivebox.search.views import get_cached_public_search_state
 
 
@@ -1573,7 +1574,9 @@ class PublicIndexView(ListView):
         search_mode_backend = get_search_mode_backend(search_mode, config=runtime_config)
         query = self.request.GET.get("q", default="").strip()
         public_search_state = self.__dict__.get("public_search_state")
-        public_search_pending = bool(query and (public_search_state is None or not public_search_state.get("done")))
+        public_search_pending = bool(
+            query and search_mode != "url" and (public_search_state is None or not public_search_state.get("done")),
+        )
         context = {
             **super().get_context_data(**kwargs),
             "VERSION": VERSION,
@@ -1684,6 +1687,9 @@ class PublicIndexView(ListView):
 
         if not query:
             return qs
+
+        if get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config) == "url":
+            return qs.filter(url_search_q(query))
 
         cached_state = get_cached_public_search_state(self.request)
         self.public_search_state = cached_state

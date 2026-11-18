@@ -852,6 +852,7 @@
                 const mode = String(formData.get('search_mode') || 'meta')
                 const query = String(formData.get('q') || '').trim()
                 if (!query) return
+                if (mode === 'url') return
 
                 if (eventOrForm && eventOrForm.preventDefault) eventOrForm.preventDefault()
                 if (activeSearch) activeSearch.abort()

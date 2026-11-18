@@ -75,6 +75,7 @@
       var mode = String(formData.get("search_mode") || "meta");
       var query = String(formData.get("q") || "").trim();
       if (!query) return;
+      if (mode === "url") return;
 
       var isSubmission = Boolean(eventOrForm && eventOrForm.preventDefault);
       if (isSubmission) eventOrForm.preventDefault();

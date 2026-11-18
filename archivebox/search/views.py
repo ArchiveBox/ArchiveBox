@@ -271,11 +271,12 @@ def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05)
 def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None):
     """Yield filtered Snapshot IDs from the selected search provider."""
     search_mode_base = get_search_mode_base(search_mode, config=config)
-    provider = (
-        iter_meta_search_ids(query, base_queryset)
-        if search_mode_base == "meta"
-        else iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event)
-    )
+    if search_mode_base == "url":
+        provider = base_queryset.filter(url_search_q(query.strip())).values_list("pk", flat=True).iterator(chunk_size=1000)
+    elif search_mode_base == "meta":
+        provider = iter_meta_search_ids(query, base_queryset)
+    else:
+        provider = iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event)
     try:
         yield from iter_filtered_search_result_ids(provider, base_queryset)
     finally:

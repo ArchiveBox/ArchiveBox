@@ -6,7 +6,7 @@ from archivebox.config.common import get_config
 from archivebox.search.backends import get_available_backends, normalize_search_backend_name
 
 
-SEARCH_MODES = ("meta", "contents", "deep")
+SEARCH_MODES = ("meta", "url", "contents", "deep")
 
 
 def get_default_search_mode(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
@@ -63,6 +63,7 @@ def get_search_mode_options(config: dict[str, Any] | None = None, **config_kwarg
     ]
     options = [
         {"value": "meta", "label": "meta"},
+        {"value": "url", "label": "URL"},
         {"value": "contents", "label": "deep"},
     ]
     if backend_names:
