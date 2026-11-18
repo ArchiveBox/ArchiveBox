@@ -1534,6 +1534,17 @@ class PublicIndexView(ListView):
 
     def paginate_queryset(self, queryset, page_size):
         if self.request.GET.get("q", default="").strip():
+            state = self.__dict__.get("public_search_state")
+            mode = get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config)
+            if mode != "url" and (state is None or not state.get("done")):
+                # An expired/in-flight search has not established its page count.
+                # Render a provisional first page without changing the requested
+                # URL; the stream settles that original page when complete.
+                requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
+                if str(requested).isdigit() and int(requested) > 1:
+                    paginator = self.get_paginator(queryset, page_size, allow_empty_first_page=True)
+                    page = paginator.page(1)
+                    return paginator, page, page.object_list, page.has_other_pages()
             return super().paginate_queryset(queryset, page_size)
 
         page_kwarg = self.kwargs.get(self.page_kwarg)

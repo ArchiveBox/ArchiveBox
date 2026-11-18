@@ -45,10 +45,15 @@ def get_admin_search_cache_key(request, url: str | None = None) -> str:
 
 
 def get_public_search_cache_key(request, url: str | None = None) -> str:
-    """Build the cache key for one public search URL."""
+    """Share public membership across pages, retaining route, mode and scope."""
+    target = urlsplit(url or request.get_full_path())
+    params = QueryDict(target.query, mutable=True)
+    params.pop("page", None)
     payload = json.dumps(
         {
-            "url": url or request.get_full_path(),
+            "path": target.path,
+            "params": sorted((key, params.getlist(key)) for key in params),
+            "mode": get_search_mode(params.get("search_mode"), config=request.archivebox_config),
         },
         sort_keys=True,
     )

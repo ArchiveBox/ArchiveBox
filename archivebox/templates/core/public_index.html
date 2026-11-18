@@ -865,8 +865,10 @@
                 function buildListUrl() {
                     const url = new URL(window.location.href)
                     for (const pair of formData.entries()) url.searchParams.set(pair[0], pair[1])
-                    url.searchParams.delete('page')
-                    url.searchParams.delete('p')
+                    if (eventOrForm && eventOrForm.preventDefault) {
+                        url.searchParams.delete('page')
+                        url.searchParams.delete('p')
+                    }
                     return url
                 }
 
@@ -942,10 +944,12 @@
             document.addEventListener('input', cancelActiveSearch)
             document.addEventListener('change', cancelActiveSearch)
             document.addEventListener('submit', streamPublicSnapshotSearch)
+            {% if public_search_stream_pending %}
             const initialForm = document.getElementById('changelist-search')
             if (initialForm && initialForm.tagName === 'FORM' && String(new FormData(initialForm).get('q') || '').trim()) {
                 streamPublicSnapshotSearch(initialForm)
             }
+            {% endif %}
         })()
     </script>
 {% endblock %}
