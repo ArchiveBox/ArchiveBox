@@ -166,11 +166,38 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl, replay
   }
   if (!storyLink) throw new Error('The folder WACZ has no Hacker News link to an actually captured story.');
   const replayUrl = replayUrls[storyUrl] || storyUrl;
-  await storyLink.click();
-  const next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, replayUrl), {timeout: 45000}).catch(cause => {
-    throw new Error(`Folder WACZ export did not follow its recorded story link to ${new URL(storyUrl).hostname}.`, {cause});
-  });
-  await next.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
+  const {safeReplayUrl, replayFailureDetails} = require('./replay_diagnostics.js');
+  const failures = [];
+  const recordFailure = (request, status) => {
+    if (failures.length >= 10) return;
+    const requestUrl = URL.parse(request.url());
+    const prefix = new URL('replay/w/', url);
+    if (requestUrl?.origin === prefix.origin && requestUrl.pathname.startsWith(prefix.pathname)) {
+      failures.push({url: safeReplayUrl(request.url()), status});
+    }
+  };
+  const onFailed = request => recordFailure(request, 'requestfailed');
+  const onResponse = response => { if (response.status() >= 400) recordFailure(response.request(), response.status()); };
+  page.on('requestfailed', onFailed);
+  page.on('response', onResponse);
+  let next;
+  try {
+    await storyLink.click();
+    next = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, replayUrl), {timeout: 45000}).catch(cause => {
+      throw new Error(`Folder WACZ export did not follow its recorded story link to ${new URL(storyUrl).hostname}.`, {cause});
+    });
+    await next.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
+  } catch (cause) {
+    try {
+      console.error('Folder WACZ linked-story failure:', JSON.stringify(await replayFailureDetails(next, storyUrl, replayUrl, failures)));
+    } catch {
+      console.error('Folder WACZ linked-story diagnostics unavailable.');
+    }
+    throw cause;
+  } finally {
+    page.off('requestfailed', onFailed);
+    page.off('response', onResponse);
+  }
   const text = await next.evaluate(() => document.body.innerText);
   if (text.includes('Archived Page Not Found')) throw new Error('The linked story is missing from the selected folder WACZ.');
   await page.waitForFunction(story => new URLSearchParams(location.hash.slice(1)).get('url') === story, {}, replayUrl);
