@@ -2,6 +2,11 @@
 
 import os
 import signal
+import time
+from contextlib import closing
+from threading import Event, Timer
+
+from watchfiles import watch
 
 import pytest
 
@@ -15,6 +20,32 @@ from archivebox.tests.conftest import (
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def wait_for_projected_process(archive, parser_id, previous_process_id, *, deadline):
+    """A hook's HTTP request can precede its asynchronous DB projection."""
+    remaining = deadline - time.monotonic()
+    assert remaining > 0, "Timed out before waiting for hook projection"
+    stopped = Event()
+    timer = Timer(remaining, stopped.set)
+    timer.start()
+    try:
+        # Watch the directory, not a WAL inode that SQLite may replace. Timeout
+        # yields also cover a commit between the first read and watcher startup.
+        with closing(
+            watch(archive, recursive=False, watch_filter=None, yield_on_timeout=True, rust_timeout=1000, stop_event=stopped),
+        ) as changes:
+            while True:
+                with use_archivebox_db(archive):
+                    parser = ArchiveResult.objects.select_related("process").get(pk=parser_id)
+                if parser.process_id != previous_process_id:
+                    return parser
+                assert not stopped.is_set(), "Hook did not project its new Process before the phase deadline"
+                if next(changes, None) is None:
+                    raise AssertionError("Hook did not project its new Process before the phase deadline")
+    finally:
+        timer.cancel()
+        timer.join()
 
 
 def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialized_archive, blocking_http_server):
@@ -45,6 +76,7 @@ def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialize
         assert parser.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert parser.output_str == "1 URLs parsed"
         parser_id = parser.pk
+        initial_process_id = parser.process_id
         unrelated_result = ArchiveResult.objects.filter(snapshot_id=snapshot_id, plugin="hashes").values().get()
         assert unrelated_result["status"] == ArchiveResult.StatusChoices.SUCCEEDED
 
@@ -66,15 +98,23 @@ def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialize
         start_new_session=True,
     )
     try:
-        assert blocking_http_server.request_started.wait(30), "Parser did not request the snapshot URL"
-        with use_archivebox_db(initialized_archive):
-            parser = ArchiveResult.objects.select_related("process").get(pk=parser_id)
-            assert parser.status == ArchiveResult.StatusChoices.STARTED
-            hook_pid = parser.process.pid
+        deadline = time.monotonic() + 30
+        assert blocking_http_server.request_started.wait(max(0, deadline - time.monotonic())), "Parser did not request the snapshot URL"
+        parser = wait_for_projected_process(initialized_archive, parser_id, initial_process_id, deadline=deadline)
+        assert parser.status == ArchiveResult.StatusChoices.STARTED
+        # A waiter arriving after the commit must not need another WAL event.
+        assert (
+            wait_for_projected_process(initialized_archive, parser_id, initial_process_id, deadline=deadline).process_id
+            == parser.process_id
+        )
+        hook_pid = parser.process.pid
         assert urls_path.read_bytes() == previous_output
         os.kill(hook_pid, signal.SIGKILL)
         stdout, stderr = interrupted.communicate(timeout=30)
         assert interrupted.returncode == 0, stderr or stdout
+    except BaseException:
+        blocking_http_server.release_response.set()
+        raise
     finally:
         cleanup_process_group(interrupted.pid)
 
@@ -106,11 +146,12 @@ def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialize
         start_new_session=True,
     )
     try:
-        assert blocking_http_server.request_started.wait(30), "Rerun did not request the snapshot URL"
+        deadline = time.monotonic() + 30
+        assert blocking_http_server.request_started.wait(max(0, deadline - time.monotonic())), "Rerun did not request the snapshot URL"
+        parser = wait_for_projected_process(initialized_archive, parser_id, failed_process_id, deadline=deadline)
+        assert parser.status == ArchiveResult.StatusChoices.STARTED
+        assert parser.process_id != failed_process_id
         with use_archivebox_db(initialized_archive):
-            parser = ArchiveResult.objects.get(pk=parser_id)
-            assert parser.status == ArchiveResult.StatusChoices.STARTED
-            assert parser.process_id != failed_process_id
             assert ArchiveResult.objects.filter(pk=unrelated_result["id"]).values().get() == unrelated_result
         assert urls_path.read_bytes() == previous_output
         assert hashes_path.read_bytes() == previous_hashes
@@ -140,3 +181,20 @@ def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialize
         assert ArchiveResult.objects.filter(pk=unrelated_result["id"]).values().get() == unrelated_result
     assert not urls_path.exists()
     assert hashes_path.read_bytes() == previous_hashes
+
+
+def test_projection_wait_expires_when_process_identity_does_not_change(initialized_archive):
+    from archivebox.crawls.models import Crawl
+
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.create(urls="https://example.com/projection-deadline")
+        snapshot = Snapshot.objects.create(url="https://example.com/projection-deadline", crawl=crawl)
+        parser = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__parse",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+        )
+        parser_id = parser.pk
+    with pytest.raises(AssertionError, match="phase deadline"):
+        wait_for_projected_process(initialized_archive, parser_id, None, deadline=time.monotonic() + 0.1)
