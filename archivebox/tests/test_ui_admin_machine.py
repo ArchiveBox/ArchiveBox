@@ -228,3 +228,50 @@ class TestMachineAdmin:
         assert row.archiveresult.snapshot_id == snapshot.id
         assert str(snapshot.id) in str(changelist.model_admin.snapshot_link(row))
         assert str(snapshot.crawl_id) in str(changelist.model_admin.crawl_link(row))
+
+
+def test_process_list_defers_logs_but_search_detail_and_actions_preserve_them(admin_client, tmp_path):
+    import sys
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.machine.models import Machine, Process
+
+    processes = []
+    for index in range(3):
+        process = Process.objects.create(
+            machine=Machine.current(),
+            pwd=str(tmp_path / str(index)),
+            cmd=[
+                sys.executable,
+                "-c",
+                "import hashlib,sys; print(hashlib.sha256(b'out').hexdigest()); print(hashlib.sha256(b'err').hexdigest(), file=sys.stderr)",
+            ],
+        )
+        process.launch()
+        process.refresh_from_db()
+        assert process.exit_code == 0
+        processes.append(process)
+    process = processes[0]
+    list_url = reverse("admin:machine_process_changelist")
+    for params in ({}, {"q": process.stdout.strip()}, {"q": process.stderr.strip()}):
+        with CaptureQueriesContext(connection) as queries:
+            response = admin_client.get(list_url, params, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            rows = list(response.context["cl"].result_list)
+            assert {row.pk for row in rows} == {row.pk for row in processes}
+            assert all({"stdout", "stderr"} <= row.get_deferred_fields() for row in rows)
+        # Rendering must never trigger a deferred-field lookup for each row.
+        for query in queries.captured_queries:
+            projection = query["sql"].split(" FROM ", 1)[0]
+            assert '"machine_process"."stdout"' not in projection
+            assert '"machine_process"."stderr"' not in projection
+    detail = admin_client.get(reverse("admin:machine_process_change", args=[process.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert detail.status_code == 200
+    assert process.stdout.strip().encode() in detail.content
+    assert process.stderr.strip().encode() in detail.content
+    assert not {"stdout", "stderr"} & detail.context["original"].get_deferred_fields()
+    # POST action querysets stay unchanged; previewing deletion deletes nothing.
+    preview = admin_client.post(list_url, {"action": "delete_selected", "_selected_action": str(process.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert preview.status_code == 200
+    assert not {"stdout", "stderr"} & preview.context["queryset"][0].get_deferred_fields()
+    assert Process.objects.filter(pk=process.pk).exists()

@@ -505,7 +505,7 @@ class ProcessAdmin(BaseModelAdmin):
     change_actions = ("kill_process",)
 
     def get_queryset(self, request):
-        return (
+        queryset = (
             super()
             .get_queryset(request)
             .select_related(
@@ -521,6 +521,16 @@ class ProcessAdmin(BaseModelAdmin):
                 ),
             )
         )
+
+        # List rows never render log bodies. Keep search predicates intact,
+        # and leave detail/action querysets fully loaded for their consumers.
+        if (
+            request.method == "GET"
+            and request.resolver_match is not None
+            and request.resolver_match.url_name == "machine_process_changelist"
+        ):
+            return queryset.defer("stdout", "stderr")
+        return queryset
 
     def _terminate_processes(self, request, processes):
         terminated = 0
