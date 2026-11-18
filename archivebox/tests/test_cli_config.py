@@ -349,3 +349,33 @@ class TestConfigCLI:
         assert result.returncode == 0
         assert "--get" in result.stdout
         assert "--set" in result.stdout
+
+
+@pytest.mark.parametrize("queue_add", [False, True])
+def test_external_binary_survives_config_read_and_queued_add(initialized_archive, queue_add):
+    """A real external executable must survive the file/DB config mirror."""
+    import shutil
+    from pathlib import Path
+
+    node = shutil.which("node")
+    assert node, "The CLI test runtime requires Node"
+    binary = str(Path(node).resolve())
+    result = run_archivebox_cmd(["config", "--set", f"NODE_BINARY={binary}"], cwd=initialized_archive)
+    assert result.returncode == 0, result.stderr
+    commands = [["config", "--get", "NODE_BINARY"]]
+    if queue_add:
+        commands.append(["add", "--bg", "--plugins=[]", "https://example.test/external-binary"])
+    for args in commands:
+        result = run_archivebox_cmd(args, cwd=initialized_archive)
+        assert result.returncode == 0, result.stderr
+        assert binary in (initialized_archive / "ArchiveBox.conf").read_text()
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            configs = [json.loads(row[0]) for row in db.execute("SELECT config FROM machine_machine")]
+        assert any(config.get("NODE_BINARY") == binary for config in configs)
+    if queue_add:
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            rows = db.execute("SELECT urls FROM crawls_crawl").fetchall()
+        assert rows == [("https://example.test/external-binary",)]
+        result = run_archivebox_cmd(["config", "--get", "NODE_BINARY"], cwd=initialized_archive)
+        assert result.returncode == 0, result.stderr
+        assert binary in result.stdout.replace("\n", "")

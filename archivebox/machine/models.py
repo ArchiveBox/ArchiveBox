@@ -147,9 +147,10 @@ def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str
 def _sanitize_machine_config(config: dict[str, Any] | None, *, lib_dir: str | Path | None = None) -> dict[str, Any]:
     """Validate ``Machine.config`` in place.
 
-    Drops stale ``*_BINARY`` overrides whose path no longer exists or whose
-    path falls outside of ``ABXPKG_LIB_DIR`` (so a binary uninstall or a lib_dir
-    move clears the override automatically). Non-``_BINARY`` keys
+    Drops stale ``*_BINARY`` overrides whose path no longer exists (including
+    broken managed symlinks after uninstall or a lib_dir move). Existing
+    external paths are valid user overrides, regardless of ``lib_dir``.
+    This is stale-path cleanup, not executable/provider validation. Non-``_BINARY`` keys
     (``BASE_URL``, ``SERVER_SECURITY_MODE``, plugin tunables, etc.) are
     pass-through — they're arbitrary config overrides and not ours to filter.
     """
@@ -157,7 +158,6 @@ def _sanitize_machine_config(config: dict[str, Any] | None, *, lib_dir: str | Pa
         return {}
 
     sanitized = dict(config)
-    active_lib_dir = Path(lib_dir).expanduser().absolute() if lib_dir else None
     for key, value in list(sanitized.items()):
         if not str(key).endswith("_BINARY"):
             continue
@@ -173,12 +173,6 @@ def _sanitize_machine_config(config: dict[str, Any] | None, *, lib_dir: str | Pa
                 if not path.exists():
                     sanitized.pop(key, None)
                     continue
-                if active_lib_dir is not None:
-                    resolved_path = path.absolute()
-                    try:
-                        resolved_path.relative_to(active_lib_dir)
-                    except ValueError:
-                        sanitized.pop(key, None)
             except OSError:
                 sanitized.pop(key, None)
     return sanitized

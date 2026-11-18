@@ -354,7 +354,7 @@ class TestMachineModel:
         ``Machine.config`` is the file ↔ DB mirror of ``ArchiveBox.conf``, so
         non-binary keys (``CHROME_ISOLATION``, ``CHROMIUM_VERSION``, etc.) are
         preserved on read. Only ``_BINARY`` paths get validated against
-        ``ABXPKG_LIB_DIR`` and dropped when stale/missing.
+        the filesystem and dropped when stale/missing.
         """
         import archivebox.machine.models as models
 
@@ -388,9 +388,8 @@ class TestMachineModel:
         assert refreshed.config.get("CHROME_ISOLATION") == "snapshot"
         assert refreshed.config.get("CHROME_USER_DATA_DIR") == "/tmp/profile"
         assert refreshed.config.get("CHROMIUM_VERSION") == "123.4.5"
-        # Stale binary paths get dropped: YTDLP_BINARY outside ABXPKG_LIB_DIR,
-        # WGET_BINARY path doesn't exist.
-        assert "YTDLP_BINARY" not in refreshed.config
+        # Existing external paths remain valid overrides; missing paths are stale.
+        assert refreshed.config["YTDLP_BINARY"] == str(external_path)
         assert "WGET_BINARY" not in refreshed.config
 
     def test_get_config_auto_applies_current_machine_config(self, hermetic_lib_dir):
@@ -1141,3 +1140,35 @@ def test_process_cleanup_releases_reads_before_process_checks(cleanup, tmp_path)
         assert len(checks) >= len(processes)
         assert blocked == []
         assert Process.objects.filter(pk__in=[p.pk for p in processes], status=Process.StatusChoices.RUNNING).count() == len(processes)
+
+
+def test_binary_config_sanitizer_preserves_existing_external_paths(tmp_path):
+    from archivebox.machine.models import _sanitize_machine_config
+
+    active_lib = tmp_path / "active-lib"
+    old_lib = tmp_path / "old-lib"
+    old_lib.mkdir()
+    external = Path(sys.executable)
+    managed = old_lib / "python"
+    managed.symlink_to(external)
+    broken = old_lib / "missing-python"
+    broken.symlink_to(old_lib / "missing-target")
+    regular = tmp_path / "not-executable"
+    regular.write_text("configuration is not binary execution validation")
+    relative = os.path.relpath(external, Path.cwd())
+    config = {
+        "PYTHON_BINARY": str(external),
+        "OLD_BINARY": str(managed),
+        "RELATIVE_BINARY": relative,
+        "NAME_BINARY": "python3",
+        "REGULAR_BINARY": str(regular),
+        "MISSING_BINARY": str(old_lib / "absent"),
+        "BROKEN_BINARY": str(broken),
+        "EMPTY_BINARY": " ",
+        "TIMEOUT": 42,
+    }
+    result = _sanitize_machine_config(config, lib_dir=active_lib)
+    assert result == {key: value for key, value in config.items() if key not in {"MISSING_BINARY", "BROKEN_BINARY", "EMPTY_BINARY"}}
+    # A real uninstall/move still clears a now-missing managed symlink.
+    managed.unlink()
+    assert "OLD_BINARY" not in _sanitize_machine_config(config, lib_dir=active_lib)
