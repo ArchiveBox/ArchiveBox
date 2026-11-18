@@ -14,6 +14,7 @@ from signal_webhooks.utils import model_from_reference
 
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.models import Folder, Snapshot
+from archivebox.core.widgets import TagEditorWidget
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .models import OutboundWebhook
@@ -66,6 +67,7 @@ def editor_data():
         "folders": [{"id": str(folder_id), "name": label} for folder_id, label in Folder.path_choices()],
         "plugins": sorted(get_plugin_catalog()),
         "config_fields": sorted(configurable_fields()),
+        "tag_editor": str(TagEditorWidget().render("webhook_action_tags_TOKEN", None)),
     }
 
 

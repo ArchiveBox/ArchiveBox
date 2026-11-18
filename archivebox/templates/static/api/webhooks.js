@@ -274,9 +274,7 @@
         a.value,
         "Maximum crawl depth",
       );
-    return `<input aria-label="Tags" value="${esc(
-      a.value,
-    )}" placeholder="Tags, comma separated">`;
+    return '<div data-tag-editor></div>';
   }
   // Universal actions remain available for every model; typed actions edit existing
   // Snapshot/Crawl config and fields through the same app functions as their APIs.
@@ -300,6 +298,37 @@
     current.actions = current.actions.filter((action) =>
       available.has(action.type),
     );
+  }
+  const tagEditors = new WeakMap();
+  let tagEditorSequence = 0;
+  function mountTagEditor(action, placeholder) {
+    let editor = tagEditors.get(action);
+    if (!editor) {
+      const id = `webhook_action_tags_${++tagEditorSequence}`;
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = initial.tag_editor.replaceAll("webhook_action_tags_TOKEN", id);
+      editor = {wrapper, id};
+      tagEditors.set(action, editor);
+      placeholder.replaceWith(wrapper);
+      // This script is emitted by TagEditorWidget, never built from tag values.
+      // Inserting HTML alone does not initialize its existing widget handlers.
+      for (const original of wrapper.querySelectorAll("script")) {
+        const script = document.createElement("script");
+        script.textContent = original.textContent;
+        original.replaceWith(script);
+      }
+      wrapper.querySelector('input[type="hidden"]').value = action.value || "";
+      window[`setTags_${id}`](action.value || "", {skipHiddenUpdate: true});
+      wrapper.querySelector(".tag-inline-input").setAttribute("aria-label", "Tags");
+    } else {
+      // Keep the live widget (including pending text) when actions move or rerender.
+      placeholder.replaceWith(editor.wrapper);
+    }
+  }
+  function flushActionTags() {
+    for (const input of $("actions").querySelectorAll(".tag-inline-input")) {
+      if (input.value.trim()) input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true, cancelable: true}));
+    }
   }
   function renderActions() {
     const available = availableActions();
@@ -337,6 +366,10 @@
           }">${actionFields(a)}</div></div>`,
       )
       .join("");
+    for (const row of $("actions").querySelectorAll(".action-row")) {
+      const placeholder = row.querySelector("[data-tag-editor]");
+      if (placeholder) mountTagEditor(current.actions[Number(row.dataset.index)], placeholder);
+    }
     $("action-count").textContent = current.actions.length;
   }
   async function openEditor(id) {
@@ -470,6 +503,10 @@
     const row = e.target.closest(".action-row");
     if (!row) return;
     const a = current.actions[Number(row.dataset.index)];
+    if (e.target.classList.contains("tag-inline-input")) {
+      setDirty();
+      return;
+    }
     if (e.target.classList.contains("http-auth-token")) {
       current.auth_token = e.target.value;
       setDirty();
@@ -511,7 +548,7 @@
     setDirty();
   };
   $("actions").onclick = (e) => {
-    const button = e.target.closest("button");
+    const button = e.target.closest("button[data-remove], button[data-move]");
     if (!button) return;
     const i = Number(button.closest(".action-row").dataset.index);
     if (button.hasAttribute("data-remove")) current.actions.splice(i, 1);
@@ -682,6 +719,7 @@
       }),
   );
   function outboundWebhookData(webhook) {
+    if (webhook === current) flushActionTags();
     return {
       id: webhook.id,
       auth_token: webhook.auth_token || "",
