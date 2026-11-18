@@ -18,6 +18,7 @@ from signal_webhooks.utils import truncate
 
 from archivebox.config.common import ArchiveBoxConfig, config_field_metadata, get_config
 from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
+from archivebox.plugins.selection import format_plugin_selection, parse_plugin_selection
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def validate_actions(hook):
                 resolved = get_config(overrides=overrides, include_machine=False).model_dump(mode="json")
                 action[kind] = {key: resolved[key] for key in overrides}
                 if "PLUGINS" in overrides:
-                    if any(name.strip() not in get_plugin_catalog() for name in str(overrides["PLUGINS"]).split(",") if name.strip()):
+                    if any(name not in get_plugin_catalog() for name in (parse_plugin_selection(overrides["PLUGINS"]) or ())):
                         raise ValueError("PLUGINS must contain installed plugin names.")
             elif kind == "max_depth":
                 depth = action.get(kind)
@@ -166,15 +167,13 @@ def _apply_capture_action(action, instance):
         config.update(action[kind])
     else:
         effective = get_config(crawl=crawl, snapshot=instance if is_snapshot else None, overrides=config)
-        selected = str(effective.PLUGINS or "").strip()
-        names = {name.strip() for name in selected.split(",") if name.strip()} if selected else set(get_enabled_plugins(config=effective))
+        selected = parse_plugin_selection(effective.PLUGINS)
+        names = set(get_enabled_plugins(config=effective) if selected is None else selected)
         if kind == "enable_plugins":
             names.update(action[kind])
         else:
             names.difference_update(action[kind])
-        if not names:
-            raise ValueError("Cannot disable every plugin: empty PLUGINS selects ambient defaults.")
-        config["PLUGINS"] = ",".join(sorted(names))
+        config["PLUGINS"] = format_plugin_selection(sorted(names))
     instance.config = config
     instance.save(update_fields=["config", "modified_at"])
     return {"config": {key: config[key] for key in (action.get("config_overrides") or {"PLUGINS": None})}}

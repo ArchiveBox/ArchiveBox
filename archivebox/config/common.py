@@ -25,6 +25,7 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDic
 from rich.console import Console
 
 from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource, decode_config_inputs
+from archivebox.plugins.selection import parse_plugin_selection
 
 from .constants import CONSTANTS
 from .allauth import AllauthConfig
@@ -518,7 +519,7 @@ class ArchivingConfig(BaseConfigSet):
     PLUGINS: str = Field(
         default="",
         description=(
-            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. Leave blank to use enabled plugins."
+            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. Leave blank to inherit enabled plugins, or use [] to run no capture plugins."
         ),
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
@@ -968,7 +969,7 @@ class ArchiveBoxBaseConfig(
         return self
 
     def _derive_plugin_enabled_config(self, *, respect_current_enabled: bool) -> None:
-        plugin_names = _normalize_plugins_config_value(self.PLUGINS)
+        plugin_names = parse_plugin_selection(self.PLUGINS)
         enabled_config_keys = _plugin_enabled_config_keys()
         disabled_plugins = []
         if respect_current_enabled:
@@ -986,12 +987,12 @@ class ArchiveBoxBaseConfig(
         else:
             selected_plugins = set()
         search_backend = self.SEARCH_BACKEND_ENGINE.strip().lower()
-        if search_backend:
+        if search_backend and plugin_names != []:
             selected_plugins.add(f"search_backend_{search_backend}")
         if respect_current_enabled:
             selected_plugins.difference_update(disabled_plugins)
         for plugin_name, enabled_key in enabled_config_keys.items():
-            if plugin_names or plugin_name in selected_plugins:
+            if plugin_names is not None or plugin_name in selected_plugins:
                 setattr(self, enabled_key, plugin_name in selected_plugins)
 
 
@@ -1045,27 +1046,6 @@ def load_source_config(*, include_file: bool = True) -> ArchiveBoxBaseConfig:
     # Validate with the plain model: pydantic routes BaseSettings.model_validate()
     # through BaseSettings.__init__, which would reload every source again.
     return ArchiveBoxConfig.model_validate(values)
-
-
-def _normalize_plugins_config_value(value: Any) -> set[str]:
-    if value is None:
-        return set()
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            return set()
-        if raw.startswith("["):
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, list):
-                return {str(plugin).strip().lower() for plugin in parsed if str(plugin).strip()}
-        return {plugin.strip().lower() for plugin in raw.split(",") if plugin.strip()}
-    if isinstance(value, (list, tuple, set)):
-        return {str(plugin).strip().lower() for plugin in value if str(plugin).strip()}
-    normalized = str(value).strip().lower()
-    return {normalized} if normalized else set()
 
 
 @lru_cache(maxsize=1)
@@ -1435,7 +1415,7 @@ def get_config(
     explicit_plugin_enabled_keys: set[str] = set()
     if resolve_plugins:
         plugin_global_config = {key: str(value) if isinstance(value, Path) else value for key, value in config_data.items()}
-        crawl_selected_plugins = crawl_config_base and bool(_normalize_plugins_config_value(dict(crawl.config or {}).get("PLUGINS")))
+        crawl_selected_plugins = crawl_config_base and parse_plugin_selection(dict(crawl.config or {}).get("PLUGINS")) is not None
         # A frozen crawl-level PLUGINS selector is the exact extractor set for
         # this crawl. Env/file *_ENABLED values are ambient defaults and must
         # not be re-applied after validation, or a later process env can change
@@ -1498,7 +1478,7 @@ def get_config(
     for key in explicit_plugin_enabled_keys:
         if key in config_data:
             setattr(config, key, _BOOL_ADAPTER.validate_python(config_data[key]))
-    if config.PLUGINS:
+    if parse_plugin_selection(config.PLUGINS) is not None:
         config._derive_plugin_enabled_config(respect_current_enabled=True)
     if redact_sensitive:
         for key in type(config).model_fields:

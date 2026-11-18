@@ -73,6 +73,7 @@ from archivebox.base_models.models import PagedQuerySet
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.plugins.selection import parse_plugin_selection
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
 from archivebox.crawls.locks import crawl_lifecycle_lock
@@ -132,7 +133,7 @@ def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: st
 
 
 def _count_selected_hooks(catalog: PluginCatalog, selected_plugins: list[str] | None) -> int:
-    selected = catalog.select(selected_plugins) if selected_plugins else catalog
+    selected = catalog.select(selected_plugins) if selected_plugins is not None else catalog
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
@@ -870,16 +871,16 @@ class CrawlRunner:
         self.crawl_output_dir = str(self.crawl.output_dir)
         Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
         if self.selected_plugins is None:
-            raw_plugins = str(self.base_config.get("PLUGINS") or "").strip()
-            if raw_plugins:
-                self.selected_plugins = [name.strip() for name in raw_plugins.split(",") if name.strip()]
+            configured_plugins = parse_plugin_selection(self.base_config.get("PLUGINS"))
+            if configured_plugins is not None:
+                self.selected_plugins = configured_plugins
             else:
                 enabled_plugins = get_enabled_plugins(config=self.base_config)
                 runtime_events = ("CrawlSetup", "CrawlCleanup", "Snapshot", "SnapshotCleanup")
                 runtime_plugins = {
                     plugin.name for event_name in runtime_events for plugin, _hook in self.catalog.hooks(event_name, names=enabled_plugins)
                 }
-                self.selected_plugins = sorted(runtime_plugins) or None
+                self.selected_plugins = sorted(runtime_plugins)
         if self.crawl.is_paused:
             return []
         if self.initial_snapshot_ids:
@@ -1055,7 +1056,9 @@ class CrawlRunner:
                 "LINES": str(terminal_height),
             },
         )
-        plugins_label = ", ".join(self.selected_plugins) if self.selected_plugins else f"all ({len(self.catalog)} available)"
+        plugins_label = (
+            f"all ({len(self.catalog)} available)" if self.selected_plugins is None else ", ".join(self.selected_plugins) or "none"
+        )
         live_ui = LiveBusUI(
             self.bus,
             total_hooks=_count_selected_hooks(self.catalog, self.selected_plugins),
@@ -1142,8 +1145,8 @@ class CrawlRunner:
                 },
             )
             normalized_config = normalize_runtime_config(config)
-            configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
-            if configured_plugins:
+            configured_plugins = parse_plugin_selection(normalized_config.get("PLUGINS"))
+            if configured_plugins is not None:
                 selected_plugin_names = set(self.catalog.select(configured_plugins))
                 for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
                     normalized_config.setdefault(enabled_key, plugin_name in selected_plugin_names)
@@ -1160,7 +1163,7 @@ class CrawlRunner:
                 "retry_at": snapshot.retry_at,
                 "output_dir": snapshot_output_dir,
                 "config": normalized_config,
-                "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
+                "selected_plugins": parse_plugin_selection((snapshot.config or {}).get("PLUGINS")),
                 "retry_plugins": list((snapshot.config or {}).get("RETRY_PLUGINS") or []),
                 "_snapshot": snapshot,
             }
@@ -1357,8 +1360,19 @@ class CrawlRunner:
                 await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id)
                 return
             config = normalize_runtime_config(snapshot["config"])
-            snapshot_selected_plugins = (
-                self.requested_plugins or snapshot["retry_plugins"] or snapshot["selected_plugins"] or self.selected_plugins
+            # An explicitly empty selection must not fall back to the crawl.
+            snapshot_selected_plugins = next(
+                (
+                    selected
+                    for selected in (
+                        self.requested_plugins,
+                        snapshot["retry_plugins"] or None,
+                        snapshot["selected_plugins"],
+                        self.selected_plugins,
+                    )
+                    if selected is not None
+                ),
+                None,
             )
             # All remaining URLs share the crawl budget, including explicitly
             # submitted roots. abx-dl only enforces the current snapshot's size.
@@ -1370,7 +1384,7 @@ class CrawlRunner:
                 return
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
-            plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
+            plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins is not None else self.catalog
             if self.requested_plugins is not None:
                 _enable_requested_plugins(config, plugins)
             abx_snapshot = AbxSnapshot(
@@ -1933,8 +1947,9 @@ def _run_due_snapshot_locked(
     from archivebox.plugins.discovery import get_enabled_plugins
 
     config = get_config(crawl=snapshot.crawl, persona=snapshot.crawl.resolve_persona())
-    configured_plugins = {name.strip().lower() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()}
-    chrome_selected = "chrome" in (configured_plugins or set(get_enabled_plugins(config=config)))
+    # The effective catalog includes required dependencies, unlike the raw
+    # selector. Plan shared-browser lifecycle from the same flags as hooks.
+    chrome_selected = "chrome" in get_enabled_plugins(config=config)
     if chrome_selected and str(config.get("CHROME_ISOLATION") or "crawl").lower() == "crawl":
         # The due Snapshot is only the scheduler's admission signal. Running
         # it as an explicit one-snapshot CrawlRunner tears down CrawlSetup after

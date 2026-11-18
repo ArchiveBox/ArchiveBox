@@ -641,7 +641,7 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
         urls="https://example.com",
         config={
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
-            "PLUGINS": "__archivebox_test_no_plugins__",
+            "PLUGINS": "[]",
             "CHROME_BINARY": "",
         },
         created_by_id=get_or_create_system_user_pk(),

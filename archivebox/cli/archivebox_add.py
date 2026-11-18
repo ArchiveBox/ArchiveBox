@@ -382,7 +382,12 @@ def add(
 @click.option("--url-allowlist", "--domain-allowlist", default="", help="Comma-separated URL/domain allowlist for this crawl")
 @click.option("--url-denylist", "--domain-denylist", default="", help="Comma-separated URL/domain denylist for this crawl")
 @click.option("--parser", default="auto", help="Parser for reading input URLs (auto, txt, html, rss, json, jsonl, netscape, ...)")
-@click.option("--plugins", "-p", default="", help="Comma-separated list of plugins to run e.g. title,favicon,screenshot,singlefile,...")
+@click.option(
+    "--plugins",
+    "-p",
+    default="",
+    help="Comma-separated capture plugins (e.g. title,screenshot), blank to inherit, or [] for none.",
+)
 @click.option("--extract", default="", help="Comma-separated plugins or output types to extract e.g. title,pdf,text/html,image,...")
 @click.option("--persona", default="Default", help="Authentication profile to use when archiving")
 @click.option(

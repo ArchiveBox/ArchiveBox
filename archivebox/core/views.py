@@ -1858,6 +1858,7 @@ class AddView(UserPassesTestMixin, FormView):
 
     def _create_crawl_from_form(self, form, *, created_by_id=None) -> Crawl:
         from archivebox.cli.archivebox_add import add
+        from archivebox.plugins.selection import format_plugin_selection
 
         urls_input = form.cleaned_data["url"]
         urls = urls_input
@@ -1886,7 +1887,10 @@ class AddView(UserPassesTestMixin, FormView):
         crawl_max_concurrent_snapshots = int(form.cleaned_data["crawl_max_concurrent_snapshots"])
         permissions = str(form.cleaned_data.get("permissions") or "public").strip().lower()
         can_override_crawl_config = self._can_override_crawl_config()
-        plugins = ",".join(form.cleaned_data.get("plugins", [])) if can_override_crawl_config else ""
+        selected_plugins = form.cleaned_data.get("plugins", [])
+        plugins = ""
+        if can_override_crawl_config and (selected_plugins or form.data.get("capture_plugins") == "explicit"):
+            plugins = format_plugin_selection(selected_plugins)
         schedule = form.cleaned_data.get("schedule", "").strip() if can_override_crawl_config else ""
         persona = form.cleaned_data.get("persona")
         start_paused = form.cleaned_data.get("start_paused", False) if can_override_crawl_config else False
@@ -1900,6 +1904,8 @@ class AddView(UserPassesTestMixin, FormView):
         custom_config = self._get_custom_config_overrides(form)
         custom_config.pop("DEFAULT_PERSONA", None)
         custom_config.pop("PERMISSIONS", None)
+        if plugins and not str(custom_config.get("PLUGINS") or "").strip():
+            custom_config.pop("PLUGINS", None)
         if persona:
             persona.ensure_dirs()
 
