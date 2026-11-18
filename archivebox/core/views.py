@@ -859,7 +859,7 @@ def _resolve_archiveresult_relpath(
         result._render_output_file_map = output_files
         for candidate in (plugin_relpath, rel_path):
             output_path = result.output_file_path(candidate, output_file_map=output_files)
-            if output_path and output_path not in {path for path, _result in declared_paths}:
+            if output_path:
                 declared_paths.append((output_path, result))
 
         # Partially migrated 0.7 rows can declare ``singlefile.html`` while
@@ -872,6 +872,13 @@ def _resolve_archiveresult_relpath(
 
     if declared_paths:
         primary_path, primary_result = declared_paths[0]
+        # Shared plugin directories can be declared by several lifecycle rows.
+        # Use the row whose primary output is this path so its full viewer is
+        # not rejected as an unrelated helper file from another hook.
+        primary_result = next(
+            (result for path, result in declared_paths if path == primary_path and result.embed_path() == primary_path),
+            primary_result,
+        )
         fallbacks = tuple(
             dict.fromkeys(
                 path for path in (*[path for path, _result in declared_paths[1:]], *historical_fallbacks) if path != primary_path
