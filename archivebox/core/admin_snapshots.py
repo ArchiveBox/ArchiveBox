@@ -280,6 +280,10 @@ class SnapshotChangeList(SearchResultsChangeList):
             return
         from archivebox.progressmonitor.collection import snapshot_list_count
 
+        # An expired/in-flight search cannot validate a later page yet. Keep
+        # its URL intact while showing provisional rows until the stream settles.
+        if self.query and request.GET.get("_embedded") != "crawl" and not getattr(request, "_archivebox_search_complete", False):
+            self.page_num = 1
         start = (self.page_num - 1) * self.list_per_page
         size = self.list_max_show_all if self.show_all else self.list_per_page
         queryset_ids = self.queryset.values_list("pk", flat=True)

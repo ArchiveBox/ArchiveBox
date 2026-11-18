@@ -76,7 +76,8 @@
       var query = String(formData.get("q") || "").trim();
       if (!query) return;
 
-      if (eventOrForm && eventOrForm.preventDefault) eventOrForm.preventDefault();
+      var isSubmission = Boolean(eventOrForm && eventOrForm.preventDefault);
+      if (isSubmission) eventOrForm.preventDefault();
       if (activeSearch) activeSearch.abort();
 
       var controller = new AbortController();
@@ -93,7 +94,7 @@
       function buildListUrl() {
         var url = new URL(window.location.href);
         for (var pair of formData.entries()) url.searchParams.set(pair[0], pair[1]);
-        url.searchParams.delete("p");
+        if (isSubmission) url.searchParams.delete("p");
         return url;
       }
 
@@ -168,7 +169,7 @@
       var streamUrl = new URL("{% url 'admin:core_snapshot_search_stream' %}", window.location.href);
       streamUrl.searchParams.set("q", query);
       streamUrl.searchParams.set("search_mode", mode);
-      // The backend cache key is this exact changelist URL plus the user id.
+      // The cache key is membership filters plus user; pages and sort reuse it.
       // Stream chunks only say "new result count"; the page fetch reads IDs from cache.
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
       fetch(streamUrl, {signal: controller.signal})
@@ -188,6 +189,9 @@
               setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
               if (lines.length) renderSoon();
               if (!result.done) return read();
+              // A resumed later page needs settled pagination, even if the last
+              // count matches a provisional first-page render.
+              if (!isSubmission && listUrl.searchParams.has("p")) renderedVersion = -1;
               // Keep the progress state until the final table is actually installed.
               // The stream can finish while an earlier wave is still rendering.
               return renderNow().then(function() {
@@ -209,10 +213,12 @@
     document.addEventListener("input", cancelActiveSearch);
     document.addEventListener("change", cancelActiveSearch);
     document.addEventListener("submit", streamSnapshotSearch);
+    {% if not cl.search_stream_complete %}
     var initialForm = document.getElementById("changelist-search");
     if (initialForm && initialForm.tagName === "FORM" && String(new FormData(initialForm).get("q") || "").trim()) {
       streamSnapshotSearch(initialForm);
     }
+    {% endif %}
   })();
 </script>
 {% endif %}

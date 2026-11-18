@@ -25,13 +25,19 @@ URL_PREFIX_SEARCH_LIMIT = 500
 
 
 def get_admin_search_cache_key(request, url: str | None = None) -> str:
-    """Build the cache key for one user and changelist URL."""
-    # Search streams publish IDs for one exact changelist URL. Keeping the URL
-    # whole makes sidebar filters, ordering, and user scope part of the key.
+    """Key membership by user, route and filters, not page or display ordering."""
+    target = urlsplit(url or request.get_full_path())
+    params = QueryDict(target.query, mutable=True)
+    for key in ("o", "p"):
+        params.pop(key, None)
+    # Preserve each key's value order: repeated values may be meaningful to
+    # filters. Sorting keys only makes equivalent URL parameter order stable.
     payload = json.dumps(
         {
             "user": str(request.user.pk or "anon"),
-            "url": url or request.get_full_path(),
+            "path": target.path,
+            "params": sorted((key, params.getlist(key)) for key in params),
+            "mode": get_search_mode(params.get("search_mode"), config=request.archivebox_config),
         },
         sort_keys=True,
     )
@@ -49,12 +55,16 @@ def get_public_search_cache_key(request, url: str | None = None) -> str:
     return f"abx:public-search:{hashlib.sha256(payload.encode()).hexdigest()}"
 
 
+def get_cached_admin_search_state(request):
+    """Read one membership cache once for consistent IDs and completion state."""
+    cached = cache.get(get_admin_search_cache_key(request))
+    return cached if isinstance(cached, dict) else None
+
+
 def get_cached_admin_search_ids(request) -> list[str] | None:
     """Return streamed admin search IDs from Django cache."""
-    cached = cache.get(get_admin_search_cache_key(request))
-    if isinstance(cached, dict):
-        return cached.get("ids") or []
-    return None
+    cached = get_cached_admin_search_state(request)
+    return (cached.get("ids") or []) if cached is not None else None
 
 
 def get_cached_public_search_ids(request) -> list[str] | None:
@@ -305,6 +315,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
 
         def run_search():
             iterator = None
+            completed = False
             try:
                 close_old_connections()
                 iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config, stop_event=stop_event)
@@ -318,8 +329,10 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                     ids.append(snapshot_id)
                     if len(ids) == 1 or time.monotonic() - last_sent_at >= stream_max_delay:
                         publish_count()
-                if not stop_event.is_set() and len(ids) != last_sent:
-                    publish_count(done=True)
+                if not stop_event.is_set():
+                    completed = True
+                    if len(ids) != last_sent:
+                        publish_count(done=True)
             except BaseException as err:
                 emit(err)
             finally:
@@ -328,7 +341,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                         iterator.close()
                     except AttributeError:
                         pass
-                cache.set(cache_key, {"ids": list(ids), "done": True}, SEARCH_RESULT_CACHE_TTL)
+                cache.set(cache_key, {"ids": list(ids), "done": completed}, SEARCH_RESULT_CACHE_TTL)
                 close_old_connections()
                 emit(None)
 

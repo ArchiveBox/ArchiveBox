@@ -12,7 +12,7 @@ from archivebox.search.config import (
     get_search_mode_options,
 )
 from archivebox.search.query import query_search_index
-from archivebox.search.views import get_cached_admin_search_ids
+from archivebox.search.views import get_cached_admin_search_state
 
 
 class SearchResultsChangeList(ChangeList):
@@ -24,6 +24,7 @@ class SearchResultsChangeList(ChangeList):
         self.search_mode_backend = get_search_mode_backend(self.search_mode, config=request.archivebox_config)
         super().__init__(request, *args, **kwargs)
         self.embedded_changelist = request.GET.get("_embedded") == "crawl"
+        self.search_stream_complete = bool(getattr(request, "_archivebox_search_complete", False))
 
     def get_results(self, request):
         """Populate normal admin results plus search-index hint state."""
@@ -71,15 +72,18 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
             return super().get_search_results(request, queryset, search_term)
         search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
         if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
-            cached_ids = get_cached_admin_search_ids(request)
-            if cached_ids is not None:
+            state = get_cached_admin_search_state(request)
+            request._archivebox_search_complete = bool(state and state.get("done"))
+            if state is not None:
+                cached_ids = state.get("ids") or []
                 if not cached_ids:
                     return queryset.none(), False
                 search_rank = Case(
                     *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(cached_ids)),
                     output_field=IntegerField(),
                 )
-                return queryset.filter(pk__in=cached_ids).annotate(search_rank=search_rank).order_by("search_rank"), False
+                ranked = queryset.filter(pk__in=cached_ids).annotate(search_rank=search_rank)
+                return (ranked if "o" in request.GET else ranked.order_by("search_rank")), False
             return queryset.none(), False
 
         if get_search_mode_base(search_mode, config=request.archivebox_config) == "meta":
