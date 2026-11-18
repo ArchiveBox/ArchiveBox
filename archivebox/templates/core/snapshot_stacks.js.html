@@ -82,16 +82,20 @@ function initializeOutputStacks() {
             const fragment = new DOMParser().parseFromString(await response.text(), 'text/html');
             if (!fragment.querySelector('[data-other-files]')) throw new Error('Invalid discovery response');
             const knownPaths = new Set(cards.map(card => card.dataset.outputPath).filter(Boolean));
+            let knownChrome = cards.some(card => card.dataset.pluginName?.toLowerCase() === 'chrome');
+            const updatedGroups = new Set([group]);
             for (const card of fragment.querySelectorAll('.thumb-card[data-output-path]')) {
-                if (knownPaths.has(card.dataset.outputPath)) continue;
+                if (knownPaths.has(card.dataset.outputPath) || (knownChrome && card.dataset.pluginName?.toLowerCase() === 'chrome')) continue;
                 knownPaths.add(card.dataset.outputPath);
+                if (card.dataset.pluginName?.toLowerCase() === 'chrome') knownChrome = true;
                 card.classList.remove('selected-card');
-                card.dataset.outputGroup = 'other';
-                group.cards.push(card);
+                const targetGroup = groups.find(item => item.id === card.dataset.outputGroup) || group;
+                targetGroup.cards.push(card);
+                updatedGroups.add(targetGroup);
                 cards.push(card);
                 setPreviewResourcePriority(card, false);
                 observer.observe(card, {attributes: true, attributeFilter: ['class']});
-                movePreviewNode(card, active === group ? trayCards : parked);
+                movePreviewNode(card, active === targetGroup ? trayCards : parked);
             }
             const existingItems = other.querySelector('.loose-items');
             const knownLinks = new Set([...existingItems.querySelectorAll('a')].map(link => link.href));
@@ -101,9 +105,13 @@ function initializeOutputStacks() {
                     existingItems.append(link);
                 }
             }
-            buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
-            buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs`);
-            updateGroupSize(group);
+            for (const updated of updatedGroups) {
+                const button = buttons.get(updated.id);
+                button.querySelector('.stack-count').textContent = String(updated.cards.length);
+                button.setAttribute('aria-label', `${updated.label}, ${updated.cards.length} outputs`);
+                updateGroupSize(updated);
+                if (updated !== group) renderStackPile(updated, button.querySelector('.stack-pile'));
+            }
             status.textContent = '';
             const coverItems = buttons.get(group.id).querySelector('.stack-cover .loose-items');
             if (coverItems) coverItems.replaceChildren(...[...existingItems.children].map(item => item.cloneNode(true)));
@@ -138,26 +146,8 @@ function initializeOutputStacks() {
         tray.hidden = false;
         if (group.id === 'other') discoverOtherFiles(group);
     }
-    for (const group of groups) {
-        if (group.id === 'other' && !group.cards.length) continue;
-        const button = el('button', `output-stack output-stack-${group.id}`);
-        button.type = 'button';
-        button.setAttribute('aria-expanded', 'false');
-        button.setAttribute('aria-controls', tray.id);
-        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs`);
-        const heading = el('span', 'stack-heading');
-        const headingLabel = el('span', 'stack-heading-label');
-        headingLabel.append(el('strong', '', group.label));
-        const size = el('span', 'stack-size', formatStackSize(groupSize(group)));
-        size.hidden = !size.textContent;
-        headingLabel.append(size);
-        const headingRight = el('span', 'stack-heading-right');
-        const chevron = el('span', 'stack-chevron');
-        chevron.setAttribute('aria-hidden', 'true');
-        headingRight.append(el('span', 'stack-count', String(group.cards.length)), chevron);
-        heading.append(headingLabel, headingRight);
-        const pile = el('span', 'stack-pile');
-        pile.setAttribute('aria-hidden', 'true');
+    function renderStackPile(group, pile) {
+        pile.replaceChildren();
         const top = group.cards[0];
         const availableLayers = Math.min(3, group.cards.length);
         for (let index = availableLayers - 1; index >= 0; index--) {
@@ -180,6 +170,28 @@ function initializeOutputStacks() {
             pile.append(layer);
         }
         if (!top) pile.append(el('span', 'stack-no-output', 'No captures'));
+    }
+    for (const group of groups) {
+        if (group.id === 'other' && !group.cards.length) continue;
+        const button = el('button', `output-stack output-stack-${group.id}`);
+        button.type = 'button';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-controls', tray.id);
+        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs`);
+        const heading = el('span', 'stack-heading');
+        const headingLabel = el('span', 'stack-heading-label');
+        headingLabel.append(el('strong', '', group.label));
+        const size = el('span', 'stack-size', formatStackSize(groupSize(group)));
+        size.hidden = !size.textContent;
+        headingLabel.append(size);
+        const headingRight = el('span', 'stack-heading-right');
+        const chevron = el('span', 'stack-chevron');
+        chevron.setAttribute('aria-hidden', 'true');
+        headingRight.append(el('span', 'stack-count', String(group.cards.length)), chevron);
+        heading.append(headingLabel, headingRight);
+        const pile = el('span', 'stack-pile');
+        pile.setAttribute('aria-hidden', 'true');
+        renderStackPile(group, pile);
         button.append(heading, pile);
         button.addEventListener('click', () => {
             const opening = active !== group;

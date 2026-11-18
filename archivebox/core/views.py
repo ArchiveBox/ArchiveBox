@@ -419,9 +419,16 @@ class SnapshotView(View):
             request.archivebox_cache_policy = "private"
             initial_context = snapshot.get_html_details_context(request=request)
             known_paths = {output["path"] for output in initial_context["archiveresults"]}
+            known_chrome = any(output["name"] == "chrome" for output in initial_context["archiveresults"])
             context = snapshot.get_html_details_context(request=request, discover_files=True)
-            context["archiveresults"] = [output for output in context["archiveresults"] if output["path"] not in known_paths]
+            context["archiveresults"] = [
+                output
+                for output in context["archiveresults"]
+                if output["path"] not in known_paths and not (known_chrome and output["name"] == "chrome")
+            ]
             for output in context["archiveresults"]:
+                if output["name"] == "chrome":
+                    continue
                 output["output_group"] = "other"
                 output["folder_path"] = str(Path(output["path"]).parent)
             response = render(request, "core/snapshot_output_cards.html", context)
