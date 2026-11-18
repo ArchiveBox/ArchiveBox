@@ -6,7 +6,7 @@ from django.conf import settings
 from django.urls import path, re_path, include
 from django.views import static
 from django.views.generic.base import RedirectView
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
 
 from archivebox.config.constants import CONSTANTS
 from archivebox.misc.serve_static import serve_static
@@ -30,6 +30,13 @@ from archivebox.plugins.discovery import get_plugin_apps
 from archivebox.plugins.host import host
 from archivebox.config.rule_views import url_rules_preview
 
+
+def legacy_rules_redirect(request, suffix=""):
+    """Keep old admin bookmarks and POST clients on the same native rules view."""
+    target = request.get_full_path().replace("/admin/webhooks/", "/admin/rules/", 1)
+    return HttpResponseRedirect(target, preserve_request=True)
+
+
 urlpatterns = [
     path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
     re_path(r"^static/(?P<path>.*)$", serve_static),
@@ -38,7 +45,8 @@ urlpatterns = [
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *(route for app in get_plugin_apps().values() if (routes := getattr(app, "get_urlpatterns", None)) for route in routes(host)),
     path("admin/importers/", include("archivebox.importers.urls")),
-    path("admin/webhooks/", include("archivebox.api.webhook_urls")),
+    path("admin/rules/", include("archivebox.api.webhook_urls")),
+    re_path(r"^admin/webhooks/(?P<suffix>.*)$", legacy_rules_redirect),
     path("admin/domains/", include("archivebox.domains.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),

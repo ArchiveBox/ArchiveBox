@@ -8,7 +8,7 @@ from django.conf import settings
 
 pytestmark = pytest.mark.django_db(transaction=True)
 HOST = "admin.archivebox.localhost:5797"
-BASE = "/admin/webhooks/"
+BASE = "/admin/rules/"
 
 
 def webhook_input(**overrides):
@@ -177,7 +177,7 @@ def test_editor_catalog_and_openapi_are_generated_from_installed_models(admin_cl
     assert data["plugins"] == sorted(get_plugin_catalog())
     assert all(model["emoji"] and model["events"] for model in data["models"])
     html = admin_client.get(BASE, HTTP_HOST=HOST).content.decode()
-    assert "<h1>Webhooks</h1>" in html
+    assert "<h1>Rules</h1>" in html
     assert 'data-api-url="/api/v1/openapi.json"' in html
     assert "archivebox-webhook-mockup" not in html and "Interactive mockup" not in html
     response = admin_client.get("/api/v1/openapi.json", HTTP_HOST=HOST)

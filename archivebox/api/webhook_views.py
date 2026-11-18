@@ -76,7 +76,7 @@ def index(request):
     return render(
         request,
         "api/webhooks.html",
-        {**archivebox_admin.each_context(request), "title": "Webhooks", "webhook_editor": editor_data()},
+        {**archivebox_admin.each_context(request), "title": "Rules", "webhook_editor": editor_data()},
     )
 
 

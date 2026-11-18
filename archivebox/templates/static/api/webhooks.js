@@ -49,7 +49,7 @@
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw Error(error.error || "Could not save webhook");
+      throw Error(error.error || "Could not save rule");
     }
     return response.json();
   }
@@ -171,7 +171,7 @@
       })
       .join("");
     $("total").textContent = hooks.length;
-    $("row-count").textContent = visible.length + " webhooks";
+    $("row-count").textContent = visible.length + " rules";
     $("enabled-count").textContent =
       hooks.filter((h) => h.enabled).length + " enabled";
   }
@@ -357,8 +357,8 @@
     $("process-logs").href = processLogsURL(current.id);
     $("workspace").classList.remove("full");
     $("editor-title").textContent = hooks.some((h) => h.id === id)
-      ? "Edit webhook"
-      : "New webhook";
+      ? "Edit rule"
+      : "New rule";
     $("name").value = current.name;
     $("object-type").value = current.ref;
     $("enabled").setAttribute("aria-checked", current.enabled);
@@ -578,24 +578,24 @@
       $("delete-hook").hidden = false;
       $("process-logs").hidden = false;
       $("process-logs").href = processLogsURL(saved.id);
-      $("editor-title").textContent = "Edit webhook";
+      $("editor-title").textContent = "Edit rule";
       $("save-state").textContent = "Saved";
       renderList();
       renderActivity();
-      toast("Webhook saved");
+      toast("Rule saved");
       history.replaceState(null, "", baseURL + "?webhook=" + current.id);
     } catch (error) {
       toast(error.message);
     }
   };
   $("delete-hook").onclick = async () => {
-    if (!current?.id || !confirm("Delete this webhook?")) return;
+    if (!current?.id || !confirm("Delete this rule?")) return;
     try {
       await post(current.id + "/delete/", {});
       hooks = hooks.filter((h) => h.id !== current.id);
       closeEditor();
       renderActivity();
-      toast("Webhook deleted");
+      toast("Rule deleted");
     } catch (error) {
       toast(error.message);
     }

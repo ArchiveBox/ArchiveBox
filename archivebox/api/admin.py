@@ -85,7 +85,7 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
 
     fieldsets = (
         (
-            "Webhook",
+            "Rule",
             {
                 "fields": _webhook_fields("name", "signal", "ref", "endpoint", "headers", "keep_last_response"),
                 "classes": ("card", "wide"),

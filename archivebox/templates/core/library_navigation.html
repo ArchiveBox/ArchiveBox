@@ -9,7 +9,7 @@
         {% if user.is_superuser %}
         <a href="{% url 'importers:index' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 14v6h16v-6"/></svg>Importers</a>
         <a href="/admin/domains/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Domains</a>
-        <a href="/admin/webhooks/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v4m0 4v10M12 3v10m0 4v4M20 3v4m0 4v10"/><path d="M1 7h6v4H1zM9 13h6v4H9zM17 7h6v4h-6z"/></svg>Rules Engine</a>
+        <a href="/admin/rules/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v4m0 4v10M12 3v10m0 4v4M20 3v4m0 4v10"/><path d="M1 7h6v4H1zM9 13h6v4H9zM17 7h6v4h-6z"/></svg>Rules Engine</a>
         {% endif %}
         <a href="/admin/" class="navbar-mobile-admin"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Admin</a>
         {% if user.is_superuser %}

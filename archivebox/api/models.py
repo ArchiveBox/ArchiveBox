@@ -63,7 +63,8 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
 
     class Meta(WebhookBase.Meta):
         app_label = "api"
-        verbose_name = "API Outbound Webhook"
+        verbose_name = "Rule"
+        verbose_name_plural = "Rules"
         ordering = ("position", "created_at", "pk")
         constraints = []
 

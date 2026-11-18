@@ -208,7 +208,7 @@ def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, a
     processes = action_processes(hook)
     assert [process.exit_code for process in processes] == [0, 1]
     assert "404" in processes[1].stderr
-    activity = admin_client.get("/admin/webhooks/data/", HTTP_HOST="admin.archivebox.localhost:5797")
+    activity = admin_client.get("/admin/rules/data/", HTTP_HOST="admin.archivebox.localhost:5797")
     assert activity.status_code == 200
     hook_data = next(row for row in activity.json()["hooks"] if row["id"] == str(hook.pk))
     assert (hook_data["num_uses_succeeded"], hook_data["num_uses_failed"]) == (1, 1)

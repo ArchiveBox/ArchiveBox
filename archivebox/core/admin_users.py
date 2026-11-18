@@ -135,7 +135,7 @@ class CustomUserAdmin(UserAdmin):
             + f'<br/><a href="/admin/api/apitoken/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
         )
 
-    @admin.display(description="API Outbound Webhooks")
+    @admin.display(description="Rules")
     def outboundwebhook_set(self, obj):
         total_count = obj.outboundwebhook_set.count()
         return mark_safe(

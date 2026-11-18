@@ -14,7 +14,7 @@ def authenticated_session(base_url, username, password):
     token = unescape(re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', response.text).group(1))
     response = session.post(
         response.url,
-        data={"csrfmiddlewaretoken": token, "username": username, "password": password, "next": "/admin/webhooks/"},
+        data={"csrfmiddlewaretoken": token, "username": username, "password": password, "next": "/admin/rules/"},
         headers={"Referer": response.url},
         timeout=30,
     )
@@ -29,7 +29,7 @@ def authenticated_session(base_url, username, password):
 def prepare(base_url, username, password):
     """Create the folder and hooks before normal, full-plugin news captures."""
     session = authenticated_session(base_url, username, password)
-    response = session.get(f"{base_url}/admin/webhooks/data/", timeout=30)
+    response = session.get(f"{base_url}/admin/rules/data/", timeout=30)
     response.raise_for_status()
     existing = response.json()
     folder = next((folder for folder in existing["folders"] if folder["name"] == "Hacker News"), None)
@@ -88,7 +88,7 @@ def prepare(base_url, username, password):
         previous = next((item for item in existing["hooks"] if item["name"] == hook["name"]), None)
         if previous:
             hook["id"] = previous["id"]
-        response = session.post(f"{base_url}/admin/webhooks/save/", json=hook, timeout=30)
+        response = session.post(f"{base_url}/admin/rules/save/", json=hook, timeout=30)
         response.raise_for_status()
         ids.append(response.json()["hook"]["id"])
     return ids
@@ -97,7 +97,7 @@ def prepare(base_url, username, password):
 def verify_actions(base_url, username, password, webhook_ids):
     """Update captured news through the REST API and check real action delivery."""
     session = authenticated_session(base_url, username, password)
-    response = session.get(f"{base_url}/admin/webhooks/data/", timeout=30)
+    response = session.get(f"{base_url}/admin/rules/data/", timeout=30)
     response.raise_for_status()
     previous = next(item for item in response.json()["hooks"] if item["id"] == webhook_ids[2])["last_success"]
     response = session.post(f"{base_url}/api/v1/auth/get_api_token", json={"username": username, "password": password}, timeout=30)
@@ -118,7 +118,7 @@ def verify_actions(base_url, username, password, webhook_ids):
     )
     response.raise_for_status()
     assert "webhook-reviewed" in response.json()["tags"]
-    response = session.get(f"{base_url}/admin/webhooks/data/", timeout=30)
+    response = session.get(f"{base_url}/admin/rules/data/", timeout=30)
     response.raise_for_status()
     hook = next(item for item in response.json()["hooks"] if item["id"] == webhook_ids[2])
     assert hook["last_success"] and (not previous or hook["last_success"] > previous)
@@ -127,13 +127,13 @@ def verify_actions(base_url, username, password, webhook_ids):
 
 
 def gallery_entries(base_url, webhook_ids):
-    editor = f"{base_url}/admin/webhooks/?webhook={webhook_ids[0]}"
+    editor = f"{base_url}/admin/rules/?webhook={webhook_ids[0]}"
     return [
-        f"Webhooks|{base_url}/admin/webhooks/|/admin/webhooks/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
-        f"Webhook actions|{editor}|/admin/webhooks/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:Save webhook",
-        f"Webhook event input|{editor}&preview=1|/admin/webhooks/?webhook=…&preview=1|archivebox/templates/api/webhooks.html|wait-text:Planned actions",
-        f"Webhook activity|{base_url}/admin/webhooks/?view=activity|/admin/webhooks/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
-        f"Webhook events|{base_url}/admin/webhooks/?view=events|/admin/webhooks/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
-        f"Webhook scripts|{base_url}/admin/webhooks/?webhook={webhook_ids[2]}|/admin/webhooks/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
+        f"Rules|{base_url}/admin/rules/|/admin/rules/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
+        f"Rule actions|{editor}|/admin/rules/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:Save rule",
+        f"Rule event input|{editor}&preview=1|/admin/rules/?webhook=…&preview=1|archivebox/templates/api/webhooks.html|wait-text:Planned actions",
+        f"Rule activity|{base_url}/admin/rules/?view=activity|/admin/rules/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
+        f"Rule events|{base_url}/admin/rules/?view=events|/admin/rules/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
+        f"Rule scripts|{base_url}/admin/rules/?webhook={webhook_ids[2]}|/admin/rules/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
         f"Webhook process logs|{base_url}/admin/machine/process/?worker_type=webhook&q={webhook_ids[2]}|/admin/machine/process/|archivebox/machine/admin.py|wait-text:webhook",
     ]
