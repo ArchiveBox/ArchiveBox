@@ -490,6 +490,18 @@ def test_plugin_setup_images_are_real_and_admin_only(admin_client):
 
 def test_importer_brands_and_setup_assets(admin_client):
     import re
+    from html.parser import HTMLParser
+
+    class NamedElements(HTMLParser):
+        def __init__(self, html):
+            super().__init__()
+            self.elements = []
+            self.feed(html)
+
+        def handle_starttag(self, tag, attrs):
+            attributes = dict(attrs)
+            if "name" in attributes:
+                self.elements.append((tag, attributes))
 
     response = admin_client.get("/admin/importers/", HTTP_HOST=ADMIN_TEST_HOST)
     html = response.content.decode()
@@ -513,7 +525,14 @@ def test_importer_brands_and_setup_assets(admin_client):
     assert 'name="persona"' in basic
     assert 'name="setting_IMPORTERS_BROWSER_ACCOUNT"' not in basic
     advanced = advanced.split("</details>", 1)[0]
-    assert set(re.findall(r'name="([^"]+)"', advanced)) == {
+    # Parse elements, not selector strings in the tag editor's inline script.
+    # The CSRF lookup mentions name="csrfmiddlewaretoken" but is not a field.
+    setup_basic = basic.split('<form method="post" class="card form-card">', 1)[1]
+    basic_tokens = [attrs for tag, attrs in NamedElements(setup_basic).elements if attrs["name"] == "csrfmiddlewaretoken"]
+    assert len(basic_tokens) == 1
+    assert basic_tokens[0]["type"] == "hidden"
+    assert basic_tokens[0]["value"]
+    assert {attrs["name"] for _, attrs in NamedElements(advanced).elements} == {
         "folder",
         "name",
         "limit",
