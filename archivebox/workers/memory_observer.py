@@ -26,7 +26,8 @@ def thread_activity() -> tuple[dict[str, int], dict[str, int]]:
     """Count active code families, NOT owners of RSS. Never inspect locals."""
     counts = dict.fromkeys(("replay", "search", "export", "render", "database", "view", "plugin", "other", "unobserved"), 0)
     outer = dict.fromkeys(
-        ("original_replay", "snapshot_replay", "static", "admin", "search", "opencode", "other", "unobserved", "depth_limited"), 0
+        ("original_replay", "snapshot_replay", "static", "admin", "search", "opencode", "other", "unobserved", "depth_limited"),
+        0,
     )
     frames = sys._current_frames()
     counts["unobserved"] = max(0, len(frames) - 64)
