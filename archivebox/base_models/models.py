@@ -401,7 +401,13 @@ class ModelWithOutputDir(ModelWithUUID):
             if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
                 path.unlink(missing_ok=True)
             elif stat.S_ISDIR(mode):
-                shutil.rmtree(path)
+                try:
+                    shutil.rmtree(path)
+                except FileNotFoundError:
+                    # A concurrent remover or remote filesystem can remove the
+                    # root during rmtree. Still verify absence below; a missing
+                    # descendant must not hide a root that remains or reappears.
+                    pass
             # lstat also catches dangling symlinks and propagates mount and
             # permission errors rather than mistaking them for absence.
             try:

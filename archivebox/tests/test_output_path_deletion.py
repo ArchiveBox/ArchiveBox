@@ -112,3 +112,69 @@ def test_scheduled_deletion_preserves_unsafe_row_and_continues_next_page(admin_u
     assert (external / "saved.txt").read_bytes() == b"preserve outside"
     assert not Snapshot.objects.filter(pk=safe.pk).exists()
     assert not safe_path.exists()
+
+
+@pytest.mark.parametrize("recreate_root", [False, True])
+def test_scheduled_deletion_verifies_root_after_real_rmdir_race(admin_user, recreate_root):
+    import inspect
+    import shutil
+    import sys
+
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://archivebox.io/tests/rmdir-race", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, status="deleting", fs_version=Snapshot._fs_current_version())
+    path = snapshot.output_dir
+    path.mkdir(parents=True)
+    removed = False
+    recreated = False
+    source = inspect.getsourcelines(shutil._rmtree_safe_fd)
+    rmdir_line = source[1] + next(i for i, line in enumerate(source[0]) if "os.rmdir(name, dir_fd=dirfd)" in line)
+
+    def coordinate_real_filesystem_race(frame, event, arg):
+        nonlocal removed, recreated
+        if frame.f_code is shutil._rmtree_safe_fd.__code__ and event == "line" and frame.f_lineno == rmdir_line and not removed:
+            # Remove the real, now-empty root after rmtree opened it. The
+            # following real os.rmdir raises ENOENT, as on the remote mount.
+            path.rmdir()
+            removed = True
+        if frame.f_code is shutil.rmtree.__code__ and event == "exception" and removed and recreate_root and not recreated:
+            path.mkdir()
+            (path / "new.txt").write_text("must remain queued")
+            recreated = True
+        return coordinate_real_filesystem_race
+
+    assert sys.gettrace() is None
+    try:
+        sys.settrace(coordinate_real_filesystem_race)
+        Snapshot.delete_requested(batch_size=1)
+    finally:
+        sys.settrace(None)
+
+    assert removed
+    assert Snapshot.objects.filter(pk=snapshot.pk, status="deleting").exists() is recreate_root
+    if recreate_root:
+        assert recreated
+        assert (path / "new.txt").read_text() == "must remain queued"
+    else:
+        assert not path.exists()
+
+
+def test_scheduled_deletion_retains_row_on_real_permission_error(admin_user):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://archivebox.io/tests/delete-permission", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, status="deleting", fs_version=Snapshot._fs_current_version())
+    path = snapshot.output_dir
+    path.mkdir(parents=True)
+    saved = path / "saved.txt"
+    saved.write_text("retain on error")
+    path.chmod(0o500)
+    try:
+        Snapshot.delete_requested(batch_size=1)
+        assert Snapshot.objects.filter(pk=snapshot.pk, status="deleting").exists()
+        assert saved.read_text() == "retain on error"
+    finally:
+        path.chmod(0o700)
