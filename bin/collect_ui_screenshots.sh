@@ -520,6 +520,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
         config_click_selector="[role='tab'][data-plugin='${capture_mode#plugin-config:}']"
         config_after_click_selector="$config_selector:not([hidden])"
+        config_required_in_frame="$config_after_click_selector .plugin-title-row"
     fi
     screenshot_user_data_dir="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile"
     [[ "$capture_mode" != "public" ]] || screenshot_user_data_dir="$CAPTURE_ROOT/public-browser-profile"
@@ -647,6 +648,7 @@ PY
                     SCREENSHOT_WIDTH=1600 \
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
+                    SCREENSHOT_FULL_PAGE=0 \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     SCREENSHOT_CLICK_SELECTOR="$config_click_selector" \
                     SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR="$config_after_click_selector" \

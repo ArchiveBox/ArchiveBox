@@ -370,6 +370,7 @@ def admin_snapshot_search_stream_view(model_admin, request):
     filter_request.path_info = target_url.path or request.path_info
     filter_request.GET = target_get
     filter_request.archivebox_config = config
+    filter_request._archivebox_search_filter_only = True
 
     # Build the same filtered base queryset the changelist uses, but with the
     # search params stripped. The stream intersects each wave with this queryset

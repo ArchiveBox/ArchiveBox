@@ -275,6 +275,8 @@ class SnapshotChangeList(SearchResultsChangeList):
             obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
 
     def get_results(self, request):
+        if getattr(request, "_archivebox_search_filter_only", False):
+            return
         from archivebox.progressmonitor.collection import snapshot_list_count
 
         start = (self.page_num - 1) * self.list_per_page

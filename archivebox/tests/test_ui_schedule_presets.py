@@ -36,7 +36,6 @@ def test_schedule_shortcuts_overwrite_without_submitting(live_server, admin_user
         field.fill("0 3 * * 1")
         expect(field).to_have_value("0 3 * * 1")
         assert page.url == url
-        assert not ImporterSource.objects.exists()
         geometry = page.locator(".schedule-presets").evaluate("""element => {
             const input = element.querySelector('input').getBoundingClientRect();
             const buttons = element.querySelector('.schedule-presets-shortcuts').getBoundingClientRect();
@@ -47,3 +46,4 @@ def test_schedule_shortcuts_overwrite_without_submitting(live_server, admin_user
         assert geometry["buttonsRight"] <= geometry["inputRight"]
         assert 0 <= geometry["buttonsLeft"] < geometry["buttonsRight"] <= geometry["viewport"]
         browser.close()
+    assert not ImporterSource.objects.exists()

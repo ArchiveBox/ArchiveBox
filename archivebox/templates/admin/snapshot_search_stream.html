@@ -86,6 +86,7 @@
       var resultVersion = 0;
       var pendingRender = null;
       var renderInFlight = false;
+      var renderPromise = Promise.resolve();
       var renderedVersion = -1;
       var lastRender = 0;
 
@@ -99,12 +100,13 @@
       function renderNow() {
         clearTimeout(pendingRender);
         pendingRender = null;
-        if (controller.signal.aborted || renderInFlight || renderedVersion === resultVersion) return;
+        if (controller.signal.aborted || (renderedVersion === resultVersion && !renderInFlight)) return Promise.resolve();
+        if (renderInFlight) return renderPromise;
         var url = buildListUrl();
         renderInFlight = true;
         renderedVersion = resultVersion;
         lastRender = Date.now();
-        fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
+        renderPromise = fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
           .then(function(response) { return response.text(); })
           .then(function(html) {
             if (controller.signal.aborted) return;
@@ -152,6 +154,7 @@
             renderInFlight = false;
             if (renderedVersion !== resultVersion) renderSoon();
           });
+        return renderPromise;
       }
 
       function renderSoon(force) {
@@ -185,7 +188,11 @@
               setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
               if (lines.length) renderSoon();
               if (!result.done) return read();
-              renderSoon(true);
+              // Keep the progress state until the final table is actually installed.
+              // The stream can finish while an earlier wave is still rendering.
+              return renderNow().then(function() {
+                if (renderedVersion !== resultVersion) return renderNow();
+              });
             });
           }
           return read();
