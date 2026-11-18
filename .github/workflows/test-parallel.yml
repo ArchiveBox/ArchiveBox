@@ -142,10 +142,12 @@ jobs:
       - name: Use the standard Ubuntu archive on hosted Linux
         if: runner.os == 'Linux' && runner.environment == 'github-hosted'
         run: |
+          # Prefer the public archive over the remaining cloud-local mirror.
           # The Azure mirror can trickle bytes indefinitely without triggering
           # APT's stall timeout: https://github.com/actions/runner-images/issues/14823
           if [[ -f /etc/apt/apt-mirrors.txt ]]; then
             sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+            sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
           fi
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
