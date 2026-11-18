@@ -727,6 +727,8 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     )
     env.pop("BASE_URL", None)
     env.pop("SERVER_SECURITY_MODE", None)
+    # This test checks the fresh Wayback default, not the no-extractors selector.
+    env.pop("PLUGINS", None)
     env.pop("SAVE_ARCHIVEDOTORG", None)
     init_result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=60)
     assert init_result.returncode == 0, init_result.stderr or init_result.stdout

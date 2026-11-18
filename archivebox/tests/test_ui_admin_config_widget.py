@@ -199,7 +199,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'id="archivebox-setup-public-add"' in html
     assert 'id="archivebox-setup-permissions"' in html
     assert 'id="archivebox-setup-archivedotorg" type="checkbox" checked' in html
-    assert 'Send captured URLs to the public Wayback Machine' in html
+    assert "Send captured URLs to the public Wayback Machine" in html
     assert 'id="archivebox-setup-effective-mode"' in html
     assert 'id="archivebox-setup-browser-url"' in html
     assert 'id="archivebox-setup-configured-url"' in html
