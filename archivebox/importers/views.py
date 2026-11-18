@@ -88,7 +88,7 @@ def configure(request, plugin=None, feed=None, source_id=None):
         except ValueError as error:
             form.add_error(None, str(error))
         else:
-            messages.success(request, "Importer saved. Check access or preview the first items before importing.")
+            messages.success(request, "Importer saved. Check access or use Dry Run to inspect discovered items before importing.")
             return redirect(source)
     return page(
         request,

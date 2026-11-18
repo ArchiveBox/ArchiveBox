@@ -5,6 +5,18 @@
 <div class="run-metadata">
 <dl><div><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd></div><div><dt>Persona</dt><dd>{% if run.source.persona_id %}<a href="{% url 'admin:personas_persona_change' run.source.persona_id %}">{{ run.source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd></div><div><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd></div><div><dt>Started</dt><dd>{% if run.started_at %}{{ run.started_at|date:"Y-m-d H:i:s T" }}{% elif run.status == "cancelled" %}Not started{% else %}—{% endif %}</dd></div><div><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd></div>{% if run.diagnostics.sessions %}<div><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd></div>{% endif %}</dl>
 </div>
+{% if run.action == "preview" %}
+<section class="discovered-items" aria-label="Discovered items">
+<h2>Discovered items · {{ run.items|length }}</h2>
+<p class="muted">Dry Run only: no captures were created and discovery progress was not advanced. This sample does not indicate whether items are already archived.</p>
+{% if run.items %}
+{% if run.items|length > 20 %}<p class="muted">Showing the first 20 items. Items JSON contains all saved records.</p>{% endif %}
+<ol>{% for item in run.discovered_items %}<li><strong>{% if item.href %}<a href="{{ item.href }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</strong><div class="muted discovered-url">{{ item.url }}</div></li>{% endfor %}</ol>
+{% elif run.status == "succeeded" %}<p>No items discovered in this Dry Run.</p>
+{% elif run.status == "queued" or run.status == "running" %}<p>Waiting for discovery results.</p>
+{% else %}<p>No discovered items were saved. Check the run status and logs above and below.</p>{% endif %}
+</section>
+{% endif %}
 {% include "importers/screenshots.html" %}
 {% if run.diagnostics.latest %}<p>{{ run.diagnostics.latest }}</p>{% endif %}
 {% if run.diagnostics.error %}<pre class="run-error">{{ run.diagnostics.error }}</pre>{% endif %}

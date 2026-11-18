@@ -7,6 +7,6 @@
 <td>{{ run.items|length }}<br><a href="{% url 'importers:run' run.pk %}">View items</a></td>
 <td>{% include "importers/sessions.html" %}</td>
 <td>{% include "importers/run_links.html" %}</td>
-</tr>{% empty %}<tr><td colspan="5">No runs yet. Check access, then preview the source.</td></tr>{% endfor %}
+</tr>{% empty %}<tr><td colspan="5">No runs yet. Check access, then use Dry Run.</td></tr>{% endfor %}
 </tbody></table></div>
 <nav class="actions section" aria-label="Run history pages">{% if runs.has_previous %}<a href="{{ source_url }}?page={{ runs.previous_page_number }}">← Newer runs</a>{% endif %}{% if runs.has_next %}<a href="{{ source_url }}?page={{ runs.next_page_number }}">Older runs →</a>{% endif %}</nav>

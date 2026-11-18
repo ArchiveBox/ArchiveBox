@@ -12,7 +12,7 @@ Provider-specific browser behavior stays in plugins.
 2. Sync that profile to a server Persona and select it in the importer. The
    signed-in account is detected automatically and remembered after verification.
    Public feeds and CSV sources only need a URL.
-3. **Check access**, then **Preview**. Neither advances progress or creates captures.
+3. **Check access**, then **Dry Run**. Neither advances progress or creates captures. Dry Run displays up to 20 discovered titles/URLs on its run page; it does not classify them as new or already archived. The API/CLI action remains `preview`.
 4. **Import all** continues through every batch until the plugin reports the end
    of the available history. Advanced options contain batch size, tags, schedule,
    optional source overrides, and a display name. Batch size is never a total cap.
@@ -107,4 +107,4 @@ uv run pytest archivebox/tests/test_importers.py -q
 
 The tests use real HTTP feeds/CSV files, executable plugin commands, database rows,
 and ordinary title/wget captures. Live social-site validation is additionally
-required: successful preview alone does not establish full-history completeness.
+required: a successful Dry Run alone does not establish full-history completeness.

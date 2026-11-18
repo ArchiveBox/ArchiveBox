@@ -1,4 +1,5 @@
 from typing import ClassVar
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import models
@@ -104,6 +105,33 @@ class ImporterRun(models.Model):
     items = models.JSONField(default=list)
     result = models.JSONField(default=dict)
     message = models.TextField(blank=True)
+
+    def get_action_display(self):
+        # Keep the public API/CLI action and migration state unchanged.
+        return "Dry Run" if self.action == self.Action.PREVIEW else dict(self.Action.choices).get(self.action, self.action)
+
+    @property
+    def discovered_items(self):
+        """Bounded, escaped-by-template display data; never expose raw metadata."""
+        if self.action != self.Action.PREVIEW:
+            return []
+        items = []
+        for item in self.items[:20]:
+            url = str(item.get("url", ""))
+            try:
+                parsed = urlsplit(url)
+                safe = parsed.scheme in {"http", "https"} and bool(parsed.hostname) and not parsed.username and not parsed.password
+                safe = safe and not any(ord(char) < 32 for char in url)
+            except ValueError:
+                safe = False
+            items.append(
+                {
+                    "title": str(item.get("title") or "Untitled item"),
+                    "url": url if safe else "Unsupported or credential-bearing URL",
+                    "href": url if safe else "",
+                },
+            )
+        return items
 
     def to_json(self):
         return {
