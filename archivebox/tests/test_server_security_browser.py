@@ -185,6 +185,27 @@ async function main() {
   ]);
   await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
 
+  const originalViewport = page.viewport();
+  await page.setViewport({width: 390, height: 844});
+  const mobileLayout = await page.$eval("#archivebox-setup-archivedotorg", (input) => {
+    const label = input.closest("label");
+    const panel = input.closest(".abx-setup-panel");
+    label.scrollIntoView({block: "start", inline: "nearest"});
+    const bounds = panel.getBoundingClientRect();
+    const control = label.getBoundingClientRect();
+    return {
+      dialogFits: bounds.top >= 0 && bounds.bottom <= innerHeight,
+      disclosureFits: control.top >= bounds.top && control.bottom <= bounds.bottom,
+      dialog: {top: bounds.top, bottom: bounds.bottom},
+      disclosure: {top: control.top, bottom: control.bottom},
+      viewportHeight: innerHeight,
+    };
+  });
+  if (!mobileLayout.dialogFits || !mobileLayout.disclosureFits) {
+    throw new Error(`The Wayback setup option is clipped on mobile: ${JSON.stringify(mobileLayout)}`);
+  }
+  await page.setViewport(originalViewport);
+
   const waybackControl = await page.waitForSelector("#archivebox-setup-archivedotorg", {visible: true});
   if (!await waybackControl.evaluate((input) => input.checked)) {
     throw new Error("Fresh setup did not preserve the default Wayback submission setting");

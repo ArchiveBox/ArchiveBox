@@ -1,5 +1,5 @@
 #archivebox-setup-wizard { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.68); color:#0f172a; font:14px/1.5 var(--font-family-primary); }
-#archivebox-setup-wizard .abx-setup-panel { width:min(1040px,100%); max-height:calc(100vh - 48px); overflow:auto; background:#fff; border-radius:12px; box-shadow:0 24px 70px rgba(0,0,0,.38); padding:24px; }
+#archivebox-setup-wizard .abx-setup-panel { box-sizing:border-box; width:min(1040px,100%); max-height:calc(100vh - 48px); overflow:auto; background:#fff; border-radius:12px; box-shadow:0 24px 70px rgba(0,0,0,.38); padding:24px; }
 #archivebox-setup-wizard .abx-setup-eyebrow { color:#aa1e55; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 #archivebox-setup-title { margin:4px 0 6px; font-size:24px; line-height:1.2; }
 #archivebox-setup-wizard .abx-setup-row { margin-top:18px; padding:16px; border:1px solid #dbe3ee; border-radius:9px; background:#fff; }
