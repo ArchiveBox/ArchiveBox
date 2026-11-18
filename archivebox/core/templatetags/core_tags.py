@@ -783,6 +783,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
                 **context.flatten(),
                 "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
                 "card_modified_at": snapshot.modified_at,
+                "defer_admin_card": admin,
                 "host": host,
                 "initial": host[:1].upper(),
                 "hue": hue,
@@ -985,11 +986,21 @@ def plugin_card(context, result) -> str:
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
-        return mark_safe(
+        card_html = (
             f'<iframe src="{escape(_version_card_url(context, result, card_url))}" title="{escape(plugin)} card" '
             'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
-            'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>',
+            'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>'
         )
+        if context.get("defer_admin_card"):
+            # Native lazy loading admits many compact list rows far below the
+            # viewport. Keep their navigation dormant until actually visible.
+            # Keep its layout box observable while the existing letter/link
+            # remains the no-JS fallback. No noscript nodes: DOMParser-based
+            # list updates would adopt their fallback CSS/iframes as live DOM.
+            return mark_safe(
+                card_html.replace(' src="', ' data-admin-preview-src="', 1).replace('border:0"', 'border:0;visibility:hidden"', 1),
+            )
+        return mark_safe(card_html)
     return render_plugin_card_document(context, result)
 
 

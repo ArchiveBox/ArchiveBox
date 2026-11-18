@@ -1,0 +1,126 @@
+"""Admin preview navigation is viewport bounded, without changing replay URLs."""
+
+import re
+import pytest
+from django.template import Context
+from archivebox.tests.test_snapshot_output_stacks import save_output
+
+pytestmark = pytest.mark.django_db
+
+
+def test_only_admin_thumbnail_defers_card_navigation(snapshot):
+    from archivebox.core.templatetags.core_tags import snapshot_thumbnail
+
+    result = save_output(snapshot, "singlefile")
+    snapshot._snapshot_thumbnail_result = result
+    for admin in (False, True):
+        html = str(snapshot_thumbnail(Context(), snapshot, admin=admin))
+        first = re.search(r"<iframe[^>]+>", html).group()
+        assert ("data-admin-preview-src=" in first) == admin
+        assert (" src=" in first) != admin
+        assert f"_card/{result.pk}" in first
+        assert 'sandbox="allow-scripts allow-same-origin"' in first
+        assert 'loading="lazy"' in first
+        assert "<noscript>" not in html
+        assert ("visibility:hidden" in first) == admin
+        assert "snapshot-thumbnail-initial" in html
+
+
+@pytest.mark.django_db(transaction=True)
+def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user, live_server, browser_runtime):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    for index in range(50):
+        row = Snapshot.objects.create(url=f"https://example.com/preview/{index}", crawl=snapshot.crawl)
+        from pathlib import Path
+        import shutil
+        from archivebox.core.models import ArchiveResult
+
+        output = Path(row.output_dir) / "screenshot/screenshot.png"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(__file__).parents[2] / "publicsite/assets/social-card.png", output)
+        ArchiveResult.objects.create(
+            snapshot=row,
+            plugin="screenshot",
+            status="succeeded",
+            output_str="screenshot/screenshot.png",
+            output_files={"screenshot.png": {"size": output.stat().st_size, "mimetype": "image/png"}},
+            output_size=output.stat().st_size,
+        )
+    origin = f"http://admin.archivebox.localhost:{port}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        requests = []
+        page.on("request", lambda request: requests.append(request.url) if "/_card/" in request.url else None)
+        page.goto(f"{origin}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.wait_for_url(f"{origin}/admin/")
+        requests.clear()
+        page.goto(f"{origin}/admin/core/snapshot/", wait_until="load")
+        frames = page.locator(".snapshot-thumbnail iframe")
+        expect(frames).to_have_count(50)
+        expect(frames.first).to_have_attribute("src", re.compile(r"/_card/"))
+        print("INITIAL", {"assigned": page.locator(".snapshot-thumbnail iframe[src]").count(), "card_requests": len(requests)})
+        assert len(requests) < 25
+        assert page.locator(".snapshot-thumbnail iframe[src]").count() < 25
+        last = frames.last
+        assert last.get_attribute("src") is None
+        target = last.get_attribute("data-admin-preview-src")
+        last.scroll_into_view_if_needed()
+        expect(last).to_have_attribute("src", target)
+        expect(last).not_to_have_attribute("data-admin-preview-src", re.compile(".+"))
+        page.wait_for_load_state("networkidle")
+        print(
+            "SCROLLED",
+            {
+                "assigned": page.locator(".snapshot-thumbnail iframe[src]").count(),
+                "card_requests": len(requests),
+                "target_requested": target in requests,
+            },
+        )
+        assert target in requests
+        page.goto(f"{origin}/admin/core/snapshot/?view=grid", wait_until="load")
+        expect(page.locator(".snapshot-thumbnail iframe").first).to_have_attribute("src", re.compile(r"/_card/"))
+        # Replace the panel via the real search stream, without reloading.
+        old_row = page.locator(".snapshot-thumbnail").first.element_handle()
+        page.locator('select[name="search_mode"]').select_option("meta")
+        page.locator('#changelist-search input[name="q"]').fill("preview")
+        page.locator('#changelist-search input[name="q"]').press("Enter")
+        page.wait_for_function("row => !row.isConnected", arg=old_row)
+        expect(page.locator(".snapshot-thumbnail iframe").first).to_have_attribute("src", re.compile(r"/_card/"))
+        expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
+        page.wait_for_load_state("networkidle")
+        expect(page.locator(".snapshot-thumbnail iframe").first).to_have_attribute("src", re.compile(r"/_card/"))
+        print("PARTIAL_SEARCH", {"assigned": page.locator(".snapshot-thumbnail iframe[src]").count()})
+        assert page.locator(".snapshot-thumbnail iframe[src]").count() < 25
+        # Without JS, the original visible letter/icon and native anchor remain.
+        nojs = browser.new_context(java_script_enabled=False, storage_state=page.context.storage_state())
+        fallback = nojs.new_page()
+        fallback.goto(f"{origin}/admin/core/snapshot/", wait_until="load")
+        expect(fallback.locator(".snapshot-thumbnail iframe[src]")).to_have_count(0)
+        expect(fallback.locator(".snapshot-thumbnail iframe[data-admin-preview-src]")).to_have_count(50)
+        assert not fallback.locator(".snapshot-thumbnail iframe").first.is_visible()
+        thumbnail = fallback.locator(".snapshot-thumbnail").first
+        assert thumbnail.is_visible()
+        assert thumbnail.locator(".snapshot-thumbnail-initial").is_visible()
+        link = thumbnail.locator("xpath=..").get_attribute("href")
+        assert link
+        with fallback.expect_navigation() as navigation:
+            thumbnail.click()
+        from urllib.parse import urljoin
+
+        assert fallback.url == urljoin(origin, link)
+        assert navigation.value.status == 200
+        print("NOJS", {"letter_visible": True, "native_link_opened": True, "dormant_iframes": 50})
+        nojs.close()
+        browser.close()

@@ -1,6 +1,6 @@
 {% extends "admin/change_list.html" %}{% load static %}
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}?v=tags-css-1">{% endblock %}
-{% block extrahead %}{{ block.super }}<script src="{% static 'library/folders.js' %}?v=tags-css-1" defer></script>{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'admin-snapshot-previews.js' %}" defer></script><script src="{% static 'library/folders.js' %}?v=tags-css-1" defer></script>{% endblock %}
 {% block content %}
 {% if not embedded_changelist %}<div class="snapshot-library">
 {% include "core/folder_sidebar.html" %}{% endif %}
