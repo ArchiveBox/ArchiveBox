@@ -59,6 +59,7 @@ from archivebox.core.models import Tag, Snapshot, ArchiveResult, Folder
 from archivebox.core.smart_folders import CHILDREN_RULES
 from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.crawls.models import Crawl
+from archivebox.core.admin_timing import timed_snapshot_changelist
 from archivebox.core.admin_archiveresults import render_archiveresults_list
 from archivebox.progressmonitor.views import progress_endpoint
 from archivebox.core.permissions import (
@@ -602,6 +603,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             ),
         )
 
+    @timed_snapshot_changelist
     def changelist_view(self, request, extra_context=None):
         # Django shares ModelAdmin instances; deferred rendering must keep its own request.
         self = copy(self)
