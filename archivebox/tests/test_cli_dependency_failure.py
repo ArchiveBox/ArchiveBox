@@ -1,16 +1,31 @@
 """A failed optional dependency must not stop unrelated real captures."""
 
 import pytest
+import json
+import shutil
+
+from abx_plugins import get_plugins_dir
 from pathlib import Path
 
+from archivebox.config import CONSTANTS
 from archivebox.core.models import ArchiveResult, Snapshot
-from archivebox.machine.models import Process
+from archivebox.machine.models import Binary, Process
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
 @pytest.mark.django_db(transaction=True)
 def test_add_preserves_failed_dependency_and_captures_healthy_plugin(initialized_archive, tmp_path, httpserver):
+    # Use the supported collection override, keeping the real hook and all
+    # healthy dependencies. Only the deliberately absent binary is env-only;
+    # searching remote package managers cannot make this fixture available.
+    plugin_dir = initialized_archive / CONSTANTS.CUSTOM_PLUGINS_DIR_NAME / "ytdlp"
+    shutil.copytree(Path(get_plugins_dir()) / "ytdlp", plugin_dir)
+    manifest_path = plugin_dir / "config.json"
+    manifest = json.loads(manifest_path.read_text())
+    missing_dependency = next(item for item in manifest["required_binaries"] if item["name"] == "{YTDLP_BINARY}")
+    missing_dependency["binproviders"] = "env"
+    manifest_path.write_text(json.dumps(manifest))
     missing_binary = tmp_path / "missing-yt-dlp"
     env = cli_env(YTDLP_BINARY=str(missing_binary))
     installed = run_archivebox_cmd(["install", "ytdlp"], cwd=initialized_archive, env=env)
@@ -39,10 +54,11 @@ def test_add_preserves_failed_dependency_and_captures_healthy_plugin(initialized
         assert failed_hook.process.exit_code == 1
         assert failed_hook.process.status == Process.StatusChoices.EXITED
         assert failed_hook.process.ended_at is not None
-        # Dependency diagnostics abbreviate the home directory, including the
-        # CI workspace. Expand that display prefix before checking the path.
-        stderr = failed_hook.process.stderr.replace("~/", f"{Path.home()}/")
-        assert str(missing_binary) in stderr
+        # The env provider identifies the missing binary by name; the actual
+        # hook record must retain the exact absolute override it received.
+        assert failed_hook.process.env["YTDLP_BINARY"] == str(missing_binary)
+        assert f"Unable to install binary {missing_binary.name} via providers env." in failed_hook.process.stderr
+        assert Binary.objects.get(name=missing_binary.name).binproviders == "env"
         wget = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
         assert wget.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert wget.process.exit_code == 0
