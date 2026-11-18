@@ -48,7 +48,7 @@ def test_add_reuses_persona_ignoring_case(initialized_archive, httpserver, perso
 
 
 @pytest.mark.parametrize("contents,explicit", [("", True), ("not JSON", True), ("not JSON", False)])
-def test_add_rejects_invalid_persona_auth_with_file_path(initialized_archive, httpserver, contents, explicit):
+def test_add_rejects_invalid_persona_auth_with_safe_diagnostic(initialized_archive, httpserver, contents, explicit):
     persona_dir = initialized_archive / "personas" / "Default"
     persona_dir.mkdir(parents=True, exist_ok=True)
     auth_file = persona_dir / "auth.json"
@@ -68,7 +68,21 @@ def test_add_rejects_invalid_persona_auth_with_file_path(initialized_archive, ht
     assert result.returncode == 1, result.stdout + result.stderr
     logs = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/*.stderr.log"))
     assert logs
-    assert f"Invalid JSON cookie export: {auth_file}" in "\n".join(log.read_text() for log in logs)
+    stderr = "\n".join(log.read_text() for log in logs)
+    prefix = "ERROR: chrome startup "
+    diagnostics = [json.loads(line.removeprefix(prefix)) for line in stderr.splitlines() if line.startswith(prefix)]
+    expected_reason = "invalid_auth_json" if contents else "empty_auth_json"
+    expected_message = (
+        "Invalid JSON cookie export: expected a JSON object containing a cookies array"
+        if contents
+        else "Invalid JSON cookie export: file is empty"
+    )
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["reason"] == expected_reason
+    assert diagnostics[0]["message"] == expected_message
+    assert str(auth_file) not in stderr
+    if contents:
+        assert contents not in stderr
     assert not list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
     assert auth_file.read_text() == contents
 
