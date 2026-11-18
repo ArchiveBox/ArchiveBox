@@ -35,6 +35,13 @@ jobs:
       run: uv sync --no-cache --frozen
     - name: Install the matching Chrome sandbox helper
       run: |
+        # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
+        if [[ "$RUNNER_OS" == "Linux" && "$RUNNER_ENVIRONMENT" == "github-hosted" ]]; then
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+            sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
+          fi
+        fi
         chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
         import json
         import os
