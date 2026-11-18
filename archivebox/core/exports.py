@@ -358,6 +358,9 @@ def _job_data(process, *, api=False):
 
 @never_cache
 def snapshot_export_view(request, format="rss", *, api=False, session_authorized=False):
+    from archivebox.workers.request_activity import mark_request_family
+
+    mark_request_family(request, "export")
     from archivebox.config import CONSTANTS
 
     format = request.POST.get("format", format) if request.method == "POST" else format
@@ -437,6 +440,9 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
 
 @never_cache
 def snapshot_export_job_view(request, process_id, *, action="status", api=False):
+    from archivebox.workers.request_activity import mark_request_family
+
+    mark_request_family(request, "export")
     if not apps.is_installed("archivebox.domains"):
         return HttpResponse(status=404)
     from archivebox.domains.export_service import export_jobs, export_log_prefix

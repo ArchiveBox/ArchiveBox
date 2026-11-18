@@ -8,6 +8,8 @@ import time
 
 import psutil
 
+from archivebox.workers.request_activity import request_activity
+
 
 # Match names internally; only these fixed labels and integer counts are logged.
 _FRAME_GROUPS = (
@@ -168,7 +170,7 @@ class MemoryObserver:
                 # categories never attribute that peak to the sampled threads.
                 categories, outer = thread_activity()
                 self.logger.warning(
-                    "worker_memory_growth pid=%d rss_bytes=%d sampled_peak_bytes=%d kernel_peak_bytes=%d growth_bytes=%d active_categories=%s outer_families=%s",
+                    "worker_memory_growth pid=%d rss_bytes=%d sampled_peak_bytes=%d kernel_peak_bytes=%d growth_bytes=%d active_categories=%s outer_families=%s pending_asgi=%s",
                     process.pid,
                     rss,
                     sampled_peak,
@@ -176,6 +178,7 @@ class MemoryObserver:
                     growth,
                     ",".join(f"{key}:{value}" for key, value in categories.items()),
                     ",".join(f"{key}:{value}" for key, value in outer.items()),
+                    ",".join(f"{key}:{value}" for key, value in request_activity().items()),
                 )
                 reported_sampled, reported_kernel, last_report = sampled_peak, kernel_peak, now
         except Exception:

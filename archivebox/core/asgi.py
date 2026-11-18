@@ -11,6 +11,7 @@ from django.core.handlers.asgi import ASGIHandler
 
 from archivebox.config.django import setup_django
 from archivebox.core.replay_timing import ReplayPhaseObserver
+from archivebox.workers.request_activity import RequestActivityObserver
 
 setup_django(check_db=True)
 
@@ -30,6 +31,7 @@ class ArchiveBoxASGIHandler(ASGIHandler):
 django_application = ReplayPhaseObserver(ArchiveBoxASGIHandler())
 
 
+@RequestActivityObserver
 async def application(scope, receive, send):
     if scope["type"] == "websocket":
         from django.urls import Resolver404, resolve

@@ -12,6 +12,7 @@ import time
 import pytest
 
 from archivebox.workers.memory_observer import MemoryObserver
+from archivebox.workers.request_activity import request_activity
 
 
 @pytest.mark.parametrize("mode", ["growth", "audit-denial", "transient"])
@@ -33,6 +34,7 @@ def test_observer_real_process_growth_and_failure(mode):
             r"replay:\d+,search:\d+,export:\d+,render:\d+,database:\d+,view:\d+,plugin:\d+,other:\d+,unobserved:\d+"
             r" outer_families=original_replay:\d+,snapshot_replay:\d+,static:\d+,admin:\d+,search:\d+,opencode:\d+,other:\d+,unobserved:\d+,depth_limited:\d+"
         )
+        pattern += r" pending_asgi=" + ",".join(re.escape(key) + r":\d+" for key in request_activity())
         assert all(re.fullmatch(pattern, row) for row in rows[1:])
 
 

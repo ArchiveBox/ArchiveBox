@@ -1283,6 +1283,9 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    from archivebox.workers.request_activity import mark_request_family
+
+    mark_request_family(request, "snapshot_replay")
     from archivebox.core.replay_timing import mark_replay_phase
 
     mark_replay_phase(request, "replay_entry")
@@ -1308,6 +1311,9 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
 
 
 def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str = ""):
+    from archivebox.workers.request_activity import mark_request_family
+
+    mark_request_family(request, "original_replay")
     request_config = get_request_config(request, resolve_plugins=False)
     request.archivebox_config = request_config
     domain = domain.split(":", 1)[0].lower()
