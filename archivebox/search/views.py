@@ -98,6 +98,15 @@ def iter_url_search_prefixes(query: str):
         if prefix and prefix not in prefixes:
             prefixes.append(prefix)
 
+    # For a bare hostname, prefer its domain boundary to lexical lookalikes
+    # such as example.com-news.test. Reuse the existing indexed, filtered
+    # prefix scan; retain every original wave below for complete recall.
+    if "://" not in query and "." in query and not any(char in query for char in "/:?#@"):
+        for scheme in ("https://", "http://"):
+            add(f"{scheme}{query}/")
+            alternate = query[4:] if query.startswith("www.") else f"www.{query}"
+            add(f"{scheme}{alternate}/")
+
     add(query)
     if "://" in query:
         parsed = urlsplit(query)
