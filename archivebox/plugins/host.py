@@ -5,6 +5,11 @@ from uuid import UUID
 
 
 class ArchiveBoxHost:
+    def plugin_catalog(self):
+        from archivebox.plugins.discovery import get_plugin_catalog
+
+        return get_plugin_catalog()
+
     def request_config(self, request=None):
         from archivebox.config.common import get_config, get_request_config
         from archivebox.config.constants import CONSTANTS
