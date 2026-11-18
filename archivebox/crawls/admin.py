@@ -31,7 +31,7 @@ from archivebox.core.permissions import (
     render_permission_icon,
 )
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_export_urls, build_snapshot_role_output_url
-from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.plugins.discovery import get_snapshot_role_names
@@ -438,7 +438,7 @@ class CrawlAdminForm(forms.ModelForm):
         if "folder" in self.fields:
             self.fields["folder"].choices = [
                 ("", "No folder"),
-                *((folder.pk, folder.path_label) for folder in Folder.tree() if not folder.is_smart or folder.is_container),
+                *Folder.path_choices(folder for folder in Folder.tree() if not folder.is_smart or folder.is_container),
             ]
         config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
         if self.instance and self.instance.pk:
@@ -1224,7 +1224,15 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         return mark_safe(html)
 
 
+class CrawlScheduleAdminForm(forms.ModelForm):
+    class Meta:
+        model = CrawlSchedule
+        fields = "__all__"
+        widgets = {"schedule": ScheduleWidget()}
+
+
 class CrawlScheduleAdmin(BaseModelAdmin):
+    form = CrawlScheduleAdminForm
     list_display = ("id", "created_at", "created_by", "label", "notes", "template_str", "crawls", "num_crawls", "num_snapshots")
     sort_fields = ("id", "created_at", "created_by", "label", "notes", "template_str")
     search_fields = ("id", "created_by__username", "label", "notes", "schedule", "template__id", "template__urls")

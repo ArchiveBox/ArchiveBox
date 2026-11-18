@@ -7,8 +7,27 @@ from django import forms
 from django.db.models.manager import BaseManager
 from django.db.models.query import QuerySet
 from django.template.loader import render_to_string
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
+
+
+class ScheduleWidget(forms.TextInput):
+    """Editable schedule with local, non-submitting alias shortcuts."""
+
+    class Media:
+        css = {"all": ["schedule-presets.css"]}
+        js = ["schedule-presets.js"]
+
+    def render(self, name, value, attrs=None, renderer=None):
+        input_html = super().render(name, value, attrs, renderer)
+        return format_html(
+            '<span class="schedule-presets">{}'
+            '<span class="schedule-presets-shortcuts" role="group" aria-label="Schedule shortcuts">'
+            '<button type="button" data-schedule-preset="daily" aria-label="Set schedule to daily">[daily]</button>'
+            '<button type="button" data-schedule-preset="weekly" aria-label="Set schedule to weekly">[weekly]</button>'
+            "</span></span>",
+            input_html,
+        )
 
 
 class TagEditorWidget(forms.Widget):

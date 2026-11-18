@@ -63,7 +63,7 @@ def editor_data():
         "hooks": [webhook_data(hook) for hook in OutboundWebhook.objects.all().order_by("created_at", "pk")],
         "models": event_catalog(),
         "signal_labels": dict(OutboundWebhook._meta.get_field("signal").choices),
-        "folders": [{"id": str(folder.pk), "name": folder.path_label} for folder in Folder.tree()],
+        "folders": [{"id": str(folder_id), "name": label} for folder_id, label in Folder.path_choices()],
         "plugins": sorted(get_plugin_catalog()),
         "config_fields": sorted(configurable_fields()),
     }

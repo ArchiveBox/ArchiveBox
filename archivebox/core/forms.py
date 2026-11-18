@@ -9,7 +9,7 @@ from archivebox.base_models.admin import KeyValueWidget
 from archivebox.config.common import get_config, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
-from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
 from archivebox.personas.models import Persona
@@ -293,7 +293,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         label="Repeat schedule",
         max_length=64,
         required=False,
-        widget=forms.TextInput(
+        widget=ScheduleWidget(
             attrs={
                 "placeholder": "e.g., daily, weekly, 0 */6 * * * (every 6 hours)",
             },
@@ -339,7 +339,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             )
             self.fields["folder"].choices = [
                 ("", "No folder"),
-                *((folder.pk, folder.path_label) for folder in self.folder_tree if not folder.is_smart or folder.is_container),
+                *Folder.path_choices(folder for folder in self.folder_tree if not folder.is_smart or folder.is_container),
             ]
         else:
             self.fields.pop("folder")

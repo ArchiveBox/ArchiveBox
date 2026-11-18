@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block extra_head %}
+    {{ form.media }}
     {% if not can_override_crawl_config %}{% include 'plugins/config_quantity.html' %}{% endif %}
     <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}" />
     <link rel="stylesheet" href="{% static 'add.css' %}?v=subgrid-2" />

@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from archivebox.config.common import get_config
 from archivebox.core.permissions import PERMISSIONS_CHOICES
-from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
 from archivebox.personas.models import Persona
@@ -42,7 +42,7 @@ class DomainCrawlForm(forms.Form):
         required=False,
         max_length=64,
         label="Repeat (optional)",
-        widget=forms.TextInput(attrs={"placeholder": "One-time"}),
+        widget=ScheduleWidget(attrs={"placeholder": "One-time"}),
         help_text="Repeat hourly, daily, weekly, or use a cron expression. Each run keeps these domain and capture limits.",
     )
     persona = forms.ModelChoiceField(

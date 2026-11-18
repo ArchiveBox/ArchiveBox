@@ -243,15 +243,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Could not save folder.');
         if (picker) {
-          const parent = folderForm.elements.parent.selectedOptions[0];
-          const label = parent.value ? `${parent.textContent} / ${result.name}` : result.name;
+          const label = result.path_label;
           picker.add(new Option(label, String(result.id), true, true));
           folderForm.elements.parent.add(new Option(label, String(result.id)));
           picker.dispatchEvent(new Event('change', {bubbles:true}));
           dialog.close();
           picker.focus();
         } else if (refreshTree) {
-          refreshFolderTree(result.folder_html, result.id);
+          refreshFolderTree(result.folder_html, result.id, result.folder_choices, result.move_folder_choices);
           dialog.close();
         } else {
           dialog.close();
@@ -384,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
   }
-  function refreshFolderTree(html, createdId) {
+  function refreshFolderTree(html, createdId, parentChoices, moveChoices) {
     const tree = sidebar.querySelector('.folder-tree');
     tree.innerHTML = html;
     rows = [...tree.querySelectorAll('.folder-row')];
@@ -402,10 +401,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedValue = select.value;
       const root = select.options[0].cloneNode(true);
       select.replaceChildren(root);
-      rows.forEach(row => {
-        if (select.name === 'folder_destination' && row.dataset.smart === 'true' && row.dataset.container !== 'true') return;
-        select.add(new Option(row.querySelector('.folder-link').title, row.dataset.folderId));
-      });
+      const choices = select.name === 'folder_destination' ? moveChoices : parentChoices;
+      choices.forEach(([id, label]) => select.add(new Option(label, id)));
       select.value = selectedValue;
     });
   }

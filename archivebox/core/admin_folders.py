@@ -93,7 +93,7 @@ class FolderAdmin(admin.ModelAdmin):
                 "fields": RuleQuery.schema(),
                 "sort_fields": RuleQuery.sort_fields(),
                 "operators": OPERATORS,
-                "folders": [{"id": str(folder.pk), "name": folder.path_label} for folder in folders],
+                "folders": [{"id": str(pk), "name": label} for pk, label in Folder.path_choices(folders)],
                 "unavailable_parents": [str(pk) for pk in Folder.subtree_ids(current.pk)] if current else [],
                 "rules": current.rules if current else None,
                 "container": current.is_container if current else False,
@@ -156,11 +156,12 @@ class FolderAdmin(admin.ModelAdmin):
             last_position = Folder.objects.filter(parent=folder.parent).aggregate(last=Max("position"))["last"]
             folder.position = last_position + 1 if last_position is not None else 0
         self.save_model(request, folder, form, change=bool(folder_id))
-        result = {"id": str(folder.pk), "name": folder.name}
+        folders = Folder.tree()
+        choices = Folder.path_choices(folders)
+        result = {"id": str(folder.pk), "name": folder.name, "path_label": dict(choices)[folder.pk]}
         if request.POST.get("refresh_tree") == "1":
             from archivebox.core.routes_util import build_snapshot_export_urls
 
-            folders = Folder.tree()
             for item in folders:
                 filters = request.GET.copy()
                 filters["folder"] = str(item.pk)
@@ -170,10 +171,17 @@ class FolderAdmin(admin.ModelAdmin):
                 {"folder_tree": folders, "selected_folder": request.GET.get("folder", "")},
                 request=request,
             )
+            result["folder_choices"] = choices
+            result["move_folder_choices"] = Folder.path_choices(folder for folder in folders if not folder.is_smart or folder.is_container)
         return JsonResponse(result)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        excluded = set()
         if db_field.name == "parent" and request.resolver_match.kwargs.get("object_id"):
             folder_id = compact_uuid(request.resolver_match.kwargs["object_id"])
-            kwargs["queryset"] = Folder.objects.exclude(pk__in=Folder.subtree_ids(folder_id))
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+            excluded = set(Folder.subtree_ids(folder_id))
+            kwargs["queryset"] = Folder.objects.exclude(pk__in=excluded)
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "parent":
+            field.choices = [("", field.empty_label), *Folder.path_choices(folder for folder in Folder.tree() if folder.pk not in excluded)]
+        return field

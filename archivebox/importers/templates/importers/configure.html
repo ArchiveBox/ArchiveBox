@@ -7,5 +7,18 @@
 <details class="advanced" {% if form.advanced_errors %}open{% endif %}><summary>Advanced options</summary><p class="help">Optional name, scheduling, and capture settings.</p>
 {% for field in form.advanced_fields %}{% include "importers/field.html" %}{% endfor %}</details>
 <div class="actions"><button class="primary" type="submit">Save importer</button><a class="button" href="{% url 'importers:index' %}">Cancel</a></div></form>
-{% if definition.setup %}<aside class="setup-guide"><h2>How to connect</h2><ol>{% for step in definition.setup %}<li><h3>{{ step.title }}</h3><p>{{ step.description }}</p>{% if step.image %}<a href="{% url 'importers:guide-image' definition.plugin definition.feed forloop.counter0 %}" target="_blank" rel="noopener"><img src="{% url 'importers:guide-image' definition.plugin definition.feed forloop.counter0 %}" alt="{{ step.title }}" loading="lazy"></a>{% endif %}</li>{% endfor %}</ol></aside>{% endif %}</div>
+{% if definition.setup %}
+<aside class="setup-guide"><h2>How to connect</h2><ol>
+{% for step in definition.setup %}
+  <li><h3>{{ step.title }}</h3><p>{{ step.description }}</p>
+    {% if step.image %}
+      {% url 'importers:guide-image' definition.plugin definition.feed forloop.counter0 as image_url %}
+      {% if not step.image_inline %}<a href="{{ image_url }}" target="_blank" rel="noopener">{% endif %}
+      <img src="{{ image_url }}" alt="{{ step.image_alt|default:step.title }}" loading="lazy">
+      {% if not step.image_inline %}</a>{% endif %}
+    {% endif %}
+  </li>
+{% endfor %}
+</ol></aside>
+{% endif %}</div>
 {% endblock %}

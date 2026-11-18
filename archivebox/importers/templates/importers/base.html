@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% block extrahead %}{{ block.super }}{{ form.media }}{% endblock %}
 {% block title %}{{ title }}{% endblock %}
 {% block extrastyle %}{{ block.super }}{% include "importers/style.html" %}{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'importers:index' %}">Importers</a>{% if source %} &rsaquo; {{ source.name }}{% endif %}</div>{% endblock %}

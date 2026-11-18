@@ -1831,6 +1831,7 @@ class AddView(UserPassesTestMixin, FormView):
             "recent_personas": recent_personas,
             "can_override_crawl_config": can_override_crawl_config,
             "folder_tree": context["form"].folder_tree,
+            "folder_choices": Folder.path_choices(context["form"].folder_tree),
             "stdout": "",
         }
 

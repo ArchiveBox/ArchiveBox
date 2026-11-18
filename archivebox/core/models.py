@@ -306,6 +306,15 @@ class Folder(models.Model):
             pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
         return result
 
+    @classmethod
+    def path_choices(cls, folders=None):
+        """Native select labels in tree order; callers retain their eligibility rules.
+
+        Pass an already-loaded tree (or filtered subset) to avoid another query.
+        Compute the tree before filtering so excluded parents remain in labels.
+        """
+        return [(folder.pk, folder.path_label) for folder in (cls.tree() if folders is None else folders)]
+
     def to_json(self):
         return {
             "type": "Folder",

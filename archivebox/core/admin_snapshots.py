@@ -120,7 +120,7 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
     parameter_name = "folder"
 
     def lookups(self, request, model_admin):
-        return list(Folder.objects.values_list("pk", "name"))
+        return Folder.path_choices(getattr(request, "_archivebox_folder_tree", None))
 
     def queryset(self, request, queryset):
         try:
@@ -508,6 +508,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         "delete_snapshots",
     ]
     inlines = []  # Removed TagInline, using TagEditorWidget instead
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "folder":
+            field.choices = [("", field.empty_label), *Folder.path_choices()]
+        return field
+
     list_per_page = 50
 
     @admin.display(description="Date", ordering="created_at")
@@ -611,6 +618,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
         extra_context["folder_tree"] = Folder.tree()
+        request._archivebox_folder_tree = extra_context["folder_tree"]
+        # Reuse the loaded tree's paths/order without evaluating another folder
+        # queryset. Match SnapshotActionForm's destination eligibility exactly.
+        extra_context["move_folder_choices"] = Folder.path_choices(
+            folder for folder in extra_context["folder_tree"] if folder.rules is None or folder.rules == CHILDREN_RULES
+        )
+        extra_context["folder_choices"] = Folder.path_choices(extra_context["folder_tree"])
         for folder in extra_context["folder_tree"]:
             filters = request.GET.copy()
             filters["folder"] = str(folder.pk)

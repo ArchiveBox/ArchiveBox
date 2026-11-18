@@ -7,6 +7,104 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 pytestmark = pytest.mark.django_db
 
 
+@pytest.mark.parametrize("view", ["/admin/core/snapshot/", "/admin/core/snapshot/grid/", "/admin/core/snapshot/?_embedded=crawl"])
+def test_move_destination_labels_match_refreshed_folder_paths(admin_client, view):
+    from archivebox.core.models import Folder
+    from archivebox.core.smart_folders import CHILDREN_RULES
+
+    parent = Folder.objects.create(name="2026", rules=CHILDREN_RULES, position=0)
+    child = Folder.objects.create(name="OneTab", parent=parent)
+    nested = Folder.objects.create(name="Reading", parent=child)
+    other = Folder.objects.create(name="2025", position=1)
+    duplicate = Folder.objects.create(name="OneTab", parent=other)
+    smart = Folder.objects.create(name="Smart", rules={"field": "url", "lookup": "icontains", "value": "example"}, position=2)
+    limited = Folder.objects.create(name="Limited", rules={**CHILDREN_RULES, "sort": "-created_at", "limit": 2})
+    expected = [
+        ("", "No folder"),
+        (parent.pk, "2026"),
+        (child.pk, "2026 / OneTab"),
+        (nested.pk, "2026 / OneTab / Reading"),
+        (other.pk, "2025"),
+        (duplicate.pk, "2025 / OneTab"),
+    ]
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get(view, HTTP_HOST=ADMIN_TEST_HOST)
+    folder_reads = [query["sql"] for query in queries if 'FROM "core_folder"' in query["sql"]]
+    assert len(folder_reads) == 1, folder_reads
+    assert response.status_code == 200
+    field = response.context["action_form"].fields["folder_destination"]
+    import html
+    import re
+
+    def choices(response):
+        select = re.search(r'<select[^>]*name="folder_destination"[^>]*>(.*?)</select>', response.content.decode(), re.DOTALL)
+        assert select is not None
+        return [
+            (html.unescape(value), html.unescape(label))
+            for value, label in re.findall(r'<option value="([^"]*)">(.*?)</option>', select[1])
+        ]
+
+    assert choices(response) == [(str(value), label) for value, label in expected]
+    assert field.queryset.filter(pk=parent.pk).exists()
+    assert not field.queryset.filter(pk=smart.pk).exists()
+    assert not field.queryset.filter(pk=limited.pk).exists()
+
+    renamed = admin_client.post(
+        "/admin/core/folder/save/",
+        {"folder_id": str(child.pk), "name": "Bookmarks", "parent": str(parent.pk), "refresh_tree": "1"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert renamed.status_code == 200, renamed.content
+    tree = renamed.json()["folder_html"]
+    assert renamed.json()["path_label"] == "2026 / Bookmarks"
+    assert dict(renamed.json()["folder_choices"])[str(nested.pk)] == "2026 / Bookmarks / Reading"
+    assert str(smart.pk) not in dict(renamed.json()["move_folder_choices"])
+    # Preserve the existing live-refresh eligibility (broader than the initial
+    # action field for containers carrying sort/limit metadata).
+    assert str(limited.pk) in dict(renamed.json()["move_folder_choices"])
+    assert 'title="2026 / Bookmarks"' in tree
+    assert 'title="2026 / Bookmarks / Reading"' in tree
+    updated = admin_client.get(view, HTTP_HOST=ADMIN_TEST_HOST)
+    labels = dict(choices(updated))
+    assert labels[str(child.pk)] == "2026 / Bookmarks"
+    assert labels[str(nested.pk)] == "2026 / Bookmarks / Reading"
+
+
+def test_folder_path_choices_and_admin_foreign_keys(admin_client, snapshot):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.core.models import Folder
+
+    parent = Folder.objects.create(name="2026")
+    child = Folder.objects.create(name="OneTab", parent=parent)
+    grandchild = Folder.objects.create(name="Research", parent=child)
+    other = Folder.objects.create(name="2025")
+    duplicate = Folder.objects.create(name="OneTab", parent=other)
+    tree = Folder.tree()
+    with CaptureQueriesContext(connection) as queries:
+        choices = Folder.path_choices(folder for folder in tree if folder.pk != parent.pk)
+    assert len(queries) == 0
+    assert dict(choices)[child.pk] == "2026 / OneTab"
+    assert dict(choices)[grandchild.pk] == "2026 / OneTab / Research"
+    assert dict(choices)[duplicate.pk] == "2025 / OneTab"
+
+    response = admin_client.get(f"/admin/core/snapshot/{snapshot.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    field = response.context["adminform"].form.fields["folder"]
+    assert dict(field.choices)[child.pk] == "2026 / OneTab"
+    assert field.queryset.filter(pk=child.pk).exists()
+    response = admin_client.get(f"/admin/core/folder/{child.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    field = response.context["adminform"].form.fields["parent"]
+    assert dict(field.choices)[duplicate.pk] == "2025 / OneTab"
+    assert child.pk not in dict(field.choices)
+    assert grandchild.pk not in dict(field.choices)
+    assert not field.queryset.filter(pk__in=[child.pk, grandchild.pk]).exists()
+
+
 def test_nested_folders_filter_and_export(admin_client, admin_user):
     from archivebox.core.models import Folder, Snapshot
     from archivebox.crawls.models import Crawl
