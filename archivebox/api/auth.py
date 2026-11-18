@@ -21,7 +21,7 @@ def get_or_create_api_token(user: User | None):
             api_token = api_tokens.last()
         else:
             # does not exist, create a new one
-            api_token = APIToken.objects.create(created_by_id=user.pk, expires=timezone.now() + timedelta(days=30))
+            api_token = APIToken.objects.create(created_by_id=user.pk, expires=timezone.now() + timedelta(days=120))
 
         if api_token is None:
             return None
