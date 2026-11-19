@@ -484,6 +484,50 @@ capture_index=0
 while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     view="${VIEWS[$capture_index]}"
     IFS='|' read -r name url expected_path source capture_mode <<<"$view"
+    if [[ "$capture_mode" == "live-progress" ]]; then
+        EXAMPLE_CAPTURE_STARTED_AT="$( (
+            cd "$DATA_DIR"
+            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'from django.utils import timezone; print(timezone.now().isoformat())'
+        ) | tail -1)"
+        echo "[*] Starting a real Ars Technica capture for the live progress view"
+        (
+            cd "$DATA_DIR"
+            exec uv run --no-cache --project "$REPO_DIR" archivebox add \
+                --depth=0 \
+                --overwrite \
+                --tag=screenshot-gallery \
+                "$EXAMPLE_URL"
+        ) >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
+        ARCHIVE_PID=$!
+
+        # Open the detail page once archiving starts, so its initial state and
+        # the live monitor both show the capture in progress.
+        LIVE_SNAPSHOT_VIEW_URL=""
+        for _attempt in $(seq 1 120); do
+            LIVE_SNAPSHOT_RECORD="$( (
+                cd "$DATA_DIR"
+                UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" UI_SCREENSHOT_CAPTURE_STARTED_AT="$EXAMPLE_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
+            ) | tail -1)"
+            if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
+                IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH <<<"$LIVE_SNAPSHOT_RECORD"
+                break
+            fi
+            if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
+                echo "[!] Ars Technica capture exited before an active snapshot could be opened" >&2
+                tail -100 "$CAPTURE_ROOT/article-live-capture.log" >&2
+                exit 1
+            fi
+            sleep 1
+        done
+        if [[ -z "$LIVE_SNAPSHOT_VIEW_URL" ]]; then
+            echo "[!] Timed out waiting for the live Ars Technica snapshot" >&2
+            exit 1
+        fi
+        url="$LIVE_SNAPSHOT_VIEW_URL"
+        expected_path="$LIVE_SNAPSHOT_VIEW_PATH"
+    fi
     capture_index=$((capture_index + 1))
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//; s/-$//')"
     echo "[*] $name: $url"
@@ -775,48 +819,10 @@ PY
             [[ -z "$webhook_view" ]] || VIEWS+=("$webhook_view")
         done <"$CAPTURE_ROOT/webhook-views.txt"
 
-        EXAMPLE_CAPTURE_STARTED_AT="$( (
-            cd "$DATA_DIR"
-            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'from django.utils import timezone; print(timezone.now().isoformat())'
-        ) | tail -1)"
-        echo "[*] Starting a real Ars Technica capture for the live progress view"
-        (
-            cd "$DATA_DIR"
-            exec uv run --no-cache --project "$REPO_DIR" archivebox add \
-                --depth=0 \
-                --overwrite \
-                --tag=screenshot-gallery \
-                "$EXAMPLE_URL"
-        ) >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
-        ARCHIVE_PID=$!
-
-        # Open the detail page once archiving starts, so its initial state and
-        # the live monitor both show the capture in progress.
-        LIVE_SNAPSHOT_VIEW_URL=""
-        for _attempt in $(seq 1 120); do
-            LIVE_SNAPSHOT_RECORD="$( (
-                cd "$DATA_DIR"
-                UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" UI_SCREENSHOT_CAPTURE_STARTED_AT="$EXAMPLE_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
-            ) | tail -1)"
-            if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
-                IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH <<<"$LIVE_SNAPSHOT_RECORD"
-                break
-            fi
-            if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
-                echo "[!] Ars Technica capture exited before an active snapshot could be opened" >&2
-                tail -100 "$CAPTURE_ROOT/article-live-capture.log" >&2
-                exit 1
-            fi
-            sleep 1
-        done
-        if [[ -z "$LIVE_SNAPSHOT_VIEW_URL" ]]; then
-            echo "[!] Timed out waiting for the live Ars Technica snapshot" >&2
-            exit 1
-        fi
+        # Start this capture only when its three-viewport group is dequeued.
+        # Earlier library/Rules screenshots may take longer than the capture.
         VIEWS+=(
-            "Snapshot View (capture in progress)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|live-progress"
+            "Snapshot View (capture in progress)|||archivebox/templates/core/snapshot.html|live-progress"
         )
 
         RECORD_CONFIG="$( (
