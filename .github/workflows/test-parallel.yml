@@ -238,7 +238,8 @@ jobs:
       - name: Restore verified Noble font archive
         if: >-
           runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' &&
-          (contains(matrix.test.paths, 'archivebox/tests/test_plugin_recovery.py') ||
+          (contains(matrix.test.paths, 'archivebox/tests/test_plugin_config_widgets.py') ||
+           contains(matrix.test.paths, 'archivebox/tests/test_plugin_recovery.py') ||
            contains(matrix.test.paths, 'archivebox/tests/test_snapshot_viewport_preview.py') ||
            contains(matrix.test.paths, 'archivebox/tests/test_ui_live_progress.py'))
         id: noble-font-archive
