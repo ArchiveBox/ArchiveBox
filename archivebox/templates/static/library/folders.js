@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
       folderForm.elements.parent.value = button.dataset.parent || picker?.value || '';
       document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
       dialog.querySelector('.folder-form-error').textContent = '';
-      dialog.querySelector('.folder-delete').hidden=true;
       dialog.showModal();
       (moving ? folderForm.elements.parent : folderForm.elements.name).focus();
       const kind = dialog.querySelector('#folder-kind');
@@ -37,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupRules(schema, smart) {
       const kind = dialog.querySelector('#folder-kind');
       const root = dialog.querySelector('.folder-rules');
-      dialog.querySelector('.folder-delete').hidden=!schema.can_delete || dialog.dataset.mode==='move';
       const defaultRule = () => ({field:'url', lookup:'icontains', value:''});
       const negatives={not_exact:'exact',not_contains:'icontains',not_in:'in',not_in_folder:'in_folder'};
       function normalize(node) {
@@ -214,18 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (button) openFolder(button);
     });
     dialog.querySelectorAll('.folder-dialog-close').forEach(button => button.addEventListener('click', () => dialog.close()));
-    dialog.querySelector('.folder-delete').addEventListener('click', async event => {
-      if (!window.confirm(`Delete “${folderForm.elements.name.value}”?`)) return;
-      event.currentTarget.disabled=true;
-      try {
-        const response=await fetch(folderForm.dataset.deleteUrl,{method:'POST',body:new FormData(folderForm),credentials:'same-origin'});
-        const result=await response.json();
-        if (!response.ok) throw new Error(result.error || 'Could not delete folder.');
-        const url=new URL(location.href);
-        if (url.searchParams.get('folder')===folderForm.elements.folder_id.value) url.searchParams.delete('folder');
-        location.assign(url.href);
-      } catch (error) {dialog.querySelector('.folder-form-error').textContent=error.message;event.currentTarget.disabled=false;}
-    });
     folderForm.addEventListener('submit', async event => {
       event.preventDefault();
       const save = folderForm.querySelector('[type=submit]');
@@ -264,6 +250,59 @@ document.addEventListener('DOMContentLoaded', () => {
     root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
       const menu = document.getElementById(button.getAttribute('popovertarget'));
       const items = [...menu.querySelectorAll('[role=menuitem]')];
+      const removal = menu.querySelector('.folder-delete-snapshots');
+      let removalGeneration = 0;
+      async function refreshRemoval() {
+        if (!removal || !folderForm) return;
+        const generation = ++removalGeneration;
+        removal.removeAttribute('href');
+        removal.dataset.action = '';
+        removal.setAttribute('aria-disabled', 'true');
+        removal.querySelector('.folder-menu-label').textContent = 'Checking folder…';
+        try {
+          const url = new URL(folderForm.dataset.deleteUrl, location.href);
+          url.searchParams.set('intent', 'empty_only');
+          url.searchParams.set('folder_id', removal.dataset.folderId);
+          const response = await fetch(url, {credentials:'same-origin'});
+          if (!response.ok) throw new Error('Could not check folder.');
+          const state = await response.json();
+          if (['has_snapshots','has_children','can_delete'].some(key => typeof state[key] !== 'boolean')) throw new Error('Invalid folder state.');
+          if (generation !== removalGeneration || !menu.matches(':popover-open')) return;
+          removal.querySelector('.folder-menu-label').textContent = state.has_snapshots ? 'Delete snapshots' : 'Delete folder';
+          if (state.has_snapshots && removal.dataset.canDeleteSnapshots === 'true') {
+            removal.href = removal.dataset.deleteSnapshotsUrl;
+            removal.dataset.action = 'snapshots';
+          } else if (!state.has_snapshots && state.can_delete && !state.has_children) {
+            removal.dataset.action = 'folder';
+          }
+          removal.title = state.has_children && !state.has_snapshots ? 'Move or delete child folders first.' : '';
+          removal.setAttribute('aria-disabled', String(!removal.dataset.action));
+        } catch (_error) {
+          if (generation === removalGeneration) removal.querySelector('.folder-menu-label').textContent = 'Could not check folder';
+        }
+      }
+      removal?.addEventListener('click', async event => {
+        if (removal.dataset.action === 'snapshots') return;
+        event.preventDefault();
+        if (removal.dataset.action !== 'folder') return;
+        if (!window.confirm(`Delete empty folder “${menu.getAttribute('aria-label')}”?`)) return;
+        removal.dataset.action = '';
+        removal.setAttribute('aria-disabled', 'true');
+        const data = new FormData(folderForm);
+        data.set('folder_id', removal.dataset.folderId);
+        data.set('intent', 'empty_only');
+        try {
+          const response = await fetch(folderForm.dataset.deleteUrl, {method:'POST',body:data,credentials:'same-origin'});
+          const result = await response.json();
+          if (!response.ok || !result.deleted) throw new Error(result.error || 'Could not delete folder.');
+          const url = new URL(location.href);
+          if (url.searchParams.get('folder') === removal.dataset.folderId) url.searchParams.delete('folder');
+          location.assign(url.href);
+        } catch (error) { window.alert(error.message); await refreshRemoval(); }
+      });
+      removal?.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); removal.click();}
+      });
       function positionMenu() {
         const rect = button.getBoundingClientRect();
         const box = menu.getBoundingClientRect();
@@ -275,11 +314,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const open = event.newState === 'open';
         button.setAttribute('aria-expanded', String(open));
         if (open) {
+          refreshRemoval();
           positionMenu();
           items[0]?.focus({preventScroll:true});
           window.addEventListener('resize', positionMenu);
           window.addEventListener('scroll', positionMenu, true);
         } else {
+          removalGeneration++;
           window.removeEventListener('resize', positionMenu);
           window.removeEventListener('scroll', positionMenu, true);
         }

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import path
 
-from archivebox.core.models import Folder
+from archivebox.core.models import Folder, Snapshot
 from archivebox.uuid_compat import compact_uuid
 
 
@@ -51,35 +51,94 @@ class FolderAdmin(admin.ModelAdmin):
         return model_export_response((folder.to_json() for folder in folders), format, name="folders")
 
     def delete_folder(self, request):
-        if request.method != "POST":
+        empty_only = request.GET.get("intent") == "empty_only" or request.POST.get("intent") == "empty_only"
+        if request.method != "POST" and not (request.method == "GET" and empty_only):
             return HttpResponseNotAllowed(["POST"])
         try:
-            folder_id = compact_uuid(request.POST.get("folder_id", ""))
+            folder_id = compact_uuid((request.GET if request.method == "GET" else request.POST).get("folder_id", ""))
         except ValueError:
             return JsonResponse({"error": "Invalid folder."}, status=400)
-        folder = get_object_or_404(Folder, pk=folder_id)
-        if not self.has_delete_permission(request, folder):
-            raise PermissionDenied
-        try:
-            folder.validate_deletion()
-            self.log_deletions(request, [folder])
-            self.delete_model(request, folder)
-        except ValidationError as error:
-            return JsonResponse({"error": " ".join(error.messages)}, status=400)
+        if request.method == "GET":
+            folder = get_object_or_404(Folder, pk=folder_id)
+            snapshot_admin = self.admin_site.get_model_admin(Snapshot)
+            can_delete_snapshots = snapshot_admin.has_view_or_change_permission(request) and snapshot_admin.has_delete_permission(request)
+            if not (
+                self.has_view_or_change_permission(request, folder) or self.has_delete_permission(request, folder) or can_delete_snapshots
+            ):
+                raise PermissionDenied
+            has_snapshots, has_children = self.removal_state(folder)
+            return JsonResponse(
+                {
+                    "has_snapshots": has_snapshots,
+                    "has_children": has_children,
+                    "can_delete": self.has_delete_permission(request, folder),
+                },
+            )
+        with transaction.atomic():
+            folder = get_object_or_404(Folder.objects.select_for_update(), pk=folder_id)
+            if not self.has_delete_permission(request, folder):
+                raise PermissionDenied
+            has_snapshots, has_children = self.removal_state(folder)
+            if has_snapshots:
+                return JsonResponse(
+                    {"error": "Delete snapshots first and wait for their removal before deleting this folder."},
+                    status=409,
+                )
+            if has_children:
+                return JsonResponse({"error": "Move or delete child folders first."}, status=409)
+            try:
+                folder.validate_deletion()
+                self.log_deletions(request, [folder])
+                self.delete_model(request, folder)
+            except ValidationError as error:
+                return JsonResponse({"error": " ".join(error.messages)}, status=400)
         return JsonResponse({"deleted": True})
+
+    @staticmethod
+    def removal_state(folder):
+        has_children = folder.children.exists()
+        # No changelist filters, cached counts or deletion-state exclusions.
+        has_snapshots = Snapshot.objects.filter(folder=folder).exists()
+        if not has_snapshots and (folder.is_smart or has_children):
+            from archivebox.core.smart_folders import RuleQuery
+
+            compiler = RuleQuery()
+            current = compiler.folders[str(folder.pk)]
+            if current.rules:
+                current.rules = {key: value for key, value in current.rules.items() if key != "limit"}
+            has_snapshots = Snapshot.objects.filter(compiler.folder(folder.pk)).exists()
+        return has_snapshots, has_children
+
+    def validate_empty_removal(self, folder):
+        has_snapshots, has_children = self.removal_state(folder)
+        if has_snapshots:
+            raise ValidationError("Delete snapshots first and wait for their removal before deleting this folder.")
+        if has_children:
+            raise ValidationError("Move or delete child folders first.")
+        folder.validate_deletion()
+
+    def delete_model(self, request, obj):
+        with transaction.atomic():
+            locked = get_object_or_404(Folder.objects.select_for_update(), pk=obj.pk)
+            self.validate_empty_removal(locked)
+            super().delete_model(request, locked)
 
     def get_deleted_objects(self, objs, request):
         deleted, counts, perms, protected = super().get_deleted_objects(objs, request)
         for folder in objs:
             try:
-                folder.validate_deletion()
+                self.validate_empty_removal(folder)
             except ValidationError as error:
                 protected.extend(error.messages)
         return deleted, counts, perms, protected
 
     def delete_queryset(self, request, queryset):
-        for folder in queryset:
-            folder.delete()
+        with transaction.atomic():
+            folders = list(queryset.select_for_update())
+            for folder in folders:
+                self.validate_empty_removal(folder)
+            for folder in folders:
+                folder.delete()
 
     def rule_schema(self, request):
         from archivebox.core.smart_folders import RuleQuery, OPERATORS

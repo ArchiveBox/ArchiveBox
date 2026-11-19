@@ -183,7 +183,7 @@ def test_both_tags_without_excluded_tag(admin_user):
     assert list(Snapshot.objects.filter(RuleQuery().compile(rules))) == [examples[("A", "B")]]
 
 
-def test_folder_type_is_immutable_and_delete_preserves_snapshots(admin_client, admin_user):
+def test_folder_type_is_immutable_and_nonempty_admin_delete_is_blocked(admin_client, admin_user):
     from archivebox.tests.conftest import ADMIN_TEST_HOST
 
     host = {"HTTP_HOST": ADMIN_TEST_HOST}
@@ -198,10 +198,10 @@ def test_folder_type_is_immutable_and_delete_preserves_snapshots(admin_client, a
     crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
     snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, folder_id=manual.pk)
     response = admin_client.post("/admin/core/folder/remove/", {"folder_id": str(manual.pk)}, **host)
-    assert response.status_code == 200, response.content
+    assert response.status_code == 409, response.content
     snapshot.refresh_from_db()
-    assert snapshot.folder_id is None
-    assert not Folder.objects.filter(pk=manual.pk).exists()
+    assert snapshot.folder_id == manual.pk
+    assert Folder.objects.filter(pk=manual.pk).exists()
 
 
 @pytest.mark.parametrize("clear_assignment", [False, True])
