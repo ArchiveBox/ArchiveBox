@@ -32,8 +32,12 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.plugin_revision != '' && 'plugin-capture' || 'default' }}
-  cancel-in-progress: false
+  # New automatic captures supersede obsolete source instead of blocking repairs.
+  # Explicit manual captures have their own group and cannot be preempted.
+  # Publication remains serialized by the separate Pages workflow.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}-{1}', inputs.plugin_revision != '' && 'plugin-capture' || 'default', github.run_id) || 'default' }}
+  # A scheduled no-op must not cancel an in-flight repair.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   changes:
@@ -47,6 +51,12 @@ jobs:
 
   deploy:
     needs: changes
+    # All automatic/manual/plugin captures share the provider persona serially.
+    # Keep explicitly requested pending jobs instead of replacing them.
+    concurrency:
+      group: gallery-provider-capture-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
     if: (needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-24.04
     environment: provider-capture

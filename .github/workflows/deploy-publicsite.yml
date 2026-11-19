@@ -38,6 +38,8 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.ref || env.DEFAULT_BRANCH }}
           persist-credentials: false
+          # Select capture artifacts by immutable Core ancestry, not finish time.
+          fetch-depth: 0
       - name: Record website source revision
         id: source
         run: echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"

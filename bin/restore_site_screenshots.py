@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import re
+import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -22,6 +23,16 @@ BASE = "https://archivebox.io/screenshots/"
 MANIFEST = "build.json"
 
 
+def capture_revision_order(repo_dir):
+    # Use immutable source ancestry, not upload time: an older manual capture
+    # can finish after a newer automatic capture. Fail closed on shallow clones.
+    shallow = subprocess.check_output(["git", "rev-parse", "--is-shallow-repository"], cwd=repo_dir, text=True).strip()
+    if shallow != "false":
+        raise ValueError("Screenshot source ordering requires complete Git history")
+    revisions = subprocess.check_output(["git", "rev-list", "--first-parent", "HEAD"], cwd=repo_dir, text=True).splitlines()
+    return {revision: rank for rank, revision in enumerate(revisions)}
+
+
 def validate(destination, run=None):
     manifest = json.loads((destination / MANIFEST).read_text())
     if run and manifest["revision"] != run["head_sha"]:
@@ -35,6 +46,13 @@ def validate(destination, run=None):
     if not (destination / "index.html").is_file():
         raise ValueError("Missing gallery content for the current renderer")
     return manifest
+
+
+def capture_meets_published_floor(revision, published, revision_order):
+    published_revision = published["revision"]
+    if published_revision not in revision_order:
+        raise ValueError("Published screenshot source is outside the checked-out Core lineage")
+    return revision in revision_order and revision_order[revision] <= revision_order[published_revision]
 
 
 def normalize_filenames(destination):
@@ -61,8 +79,15 @@ def main():
     parser.add_argument("destination", type=Path)
     args = parser.parse_args()
     args.destination.mkdir(parents=True, exist_ok=True)
+    # An expired artifact must not let an older manual re-capture replace the
+    # already-published gallery. Unknown/unavailable provenance fails closed.
+    raw = artifacts.fetch(BASE, MANIFEST)
+    manifest = json.loads(raw)
     if os.environ.get("GH_TOKEN"):
-        for run in artifacts.runs(REPO, "screenshots.yml", BRANCH):
+        revision_order = capture_revision_order(Path(__file__).resolve().parents[1])
+        for run in artifacts.runs(REPO, "screenshots.yml", BRANCH, revision_order=revision_order):
+            if not capture_meets_published_floor(run["head_sha"], manifest, revision_order):
+                continue
             if "site-screenshots" not in artifacts.names(REPO, run):
                 continue
             artifacts.download(REPO, run, "site-screenshots", args.destination)
@@ -70,8 +95,6 @@ def main():
             normalize_filenames(args.destination)
             print(f"Restored validated screenshots from {run['id']} ({run['head_sha']})")
             return
-    raw = artifacts.fetch(BASE, MANIFEST)
-    manifest = json.loads(raw)
     names = [*manifest["files"], "index.html"]
 
     def restore(name):

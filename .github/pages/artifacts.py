@@ -20,7 +20,16 @@ def trusted(run, repo, workflow, branch, successful=True):
     )
 
 
-def runs(repo, workflow, branch, successful=True, artifact_names=("site-screenshots",)):
+def ordered_candidates(candidates, revision_order=None):
+    ordered = sorted(candidates, key=lambda item: item["created_at"], reverse=True)
+    if revision_order is not None:
+        # Stable sorting retains newest artifacts for identical source revisions.
+        ordered = [item for item in ordered if (item.get("workflow_run") or {}).get("head_sha") in revision_order]
+        ordered.sort(key=lambda item: revision_order[item["workflow_run"]["head_sha"]])
+    return ordered
+
+
+def runs(repo, workflow, branch, successful=True, artifact_names=("site-screenshots",), revision_order=None):
     # Ask for capture artifacts directly instead of checking every historical
     # workflow run (most app runs never produce a complete screenshot set).
     # Artifact creation time also includes fresh captures from old rerun jobs.
@@ -39,7 +48,7 @@ def runs(repo, workflow, branch, successful=True, artifact_names=("site-screensh
         )
         candidates.extend(json.loads(row) for row in rows.splitlines())
     seen = set()
-    for artifact in sorted(candidates, key=lambda item: item["created_at"], reverse=True):
+    for artifact in ordered_candidates(candidates, revision_order):
         source = artifact.get("workflow_run") or {}
         run_id = source.get("id")
         if (
