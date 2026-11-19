@@ -1522,7 +1522,14 @@ def merge_tag(request: HttpRequest, tag_id: int, data: TagMergeSchema):
     except Tag.DoesNotExist as err:
         raise HttpError(404, "Tag not found") from err
     try:
-        target = get_tag_by_ref(data.target)
+        if isinstance(data.target, str) and data.target.strip().isdigit():
+            # A digit-only string may be a tag name; prefer that, then fall back to treating it as an id.
+            try:
+                target = Tag.objects.get(name__iexact=data.target.strip())
+            except Tag.DoesNotExist:
+                target = get_tag_by_ref(data.target)
+        else:
+            target = get_tag_by_ref(data.target)
     except Tag.DoesNotExist as err:
         raise HttpError(404, "Target tag not found") from err
     if source.pk == target.pk:

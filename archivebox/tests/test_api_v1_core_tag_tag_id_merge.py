@@ -108,3 +108,20 @@ def test_merge_tags_service_merges_several_sources(crawl, api_admin_user):
     assert Tag.objects.filter(pk=target.pk).exists()
     assert set(target.snapshot_set.values_list("pk", flat=True)) == {one.pk, two.pk}
     assert merge_tags([target], target) == 0
+
+
+def test_merge_target_numeric_string_prefers_tag_name(client, api_admin_user, api_headers):
+    source = Tag.objects.create(name="api-merge-numeric-source", created_by=api_admin_user)
+    Tag.objects.create(name="api-merge-other", created_by=api_admin_user)
+    numeric = Tag.objects.create(name="2024", created_by=api_admin_user)
+
+    response = api_client_request(
+        client,
+        "post",
+        f"/api/v1/core/tag/{source.id}/merge",
+        payload={"target": "2024"},
+        headers=api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    assert response.json()["target_tag_id"] == numeric.id

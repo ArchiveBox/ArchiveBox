@@ -282,22 +282,23 @@ def merge_tag_names(names: Iterable[str], into: str) -> int:
         rprint("[red]--into must be a non-empty tag name[/red]", file=sys.stderr)
         return 1
 
-    sources: list[Tag] = []
+    sources: dict[int, Tag] = {}
     for name in dict.fromkeys(normalize_tag_name(name) for name in names):
         if not name:
             continue
-        try:
-            sources.append(Tag.objects.get(name__iexact=name))
-        except Tag.DoesNotExist:
+        # Tag names are only unique per exact case, so one name can match several tags.
+        matches = list(Tag.objects.filter(name__iexact=name))
+        if not matches:
             rprint(f"[red]Tag not found: {name}[/red]", file=sys.stderr)
             return 1
+        sources.update({tag.pk: tag for tag in matches})
 
     if not sources:
         rprint("[yellow]No tag names provided to merge[/yellow]", file=sys.stderr)
         return 1
 
     target, _created = get_or_create_tag(into_name)
-    merged = [tag for tag in sources if tag.pk != target.pk]
+    merged = [tag for tag in sources.values() if tag.pk != target.pk]
     if not merged:
         rprint("[yellow]Nothing to merge: every tag is already the target tag[/yellow]", file=sys.stderr)
         return 0
