@@ -1111,6 +1111,9 @@ class CrawlRunner:
             # thread used by unrelated result writes. Keep ORM reads above and
             # use this snapshot's materialized context, not mutable runner state.
             if create_outputs:
+                # Re-read persisted privacy immediately before hook preparation;
+                # config defaults/overrides must never grant external disclosure.
+                snapshot.refresh_from_db(fields=["permissions"])
                 snapshot.crawl.migrate_legacy_output_dir()
             runtime_chrome_overrides = {}
             if create_outputs and str(base_config.get("CHROME_ISOLATION") or "crawl").lower() == "snapshot":
@@ -1160,6 +1163,7 @@ class CrawlRunner:
                 "tags": tags,
                 "depth": snapshot.depth,
                 "status": snapshot.status,
+                "permissions": snapshot.permissions,
                 "retry_at": snapshot.retry_at,
                 "output_dir": snapshot_output_dir,
                 "config": normalized_config,
@@ -1387,6 +1391,9 @@ class CrawlRunner:
             plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins is not None else self.catalog
             if self.requested_plugins is not None:
                 _enable_requested_plugins(config, plugins)
+            config["PERMISSIONS"] = snapshot["permissions"]
+            if snapshot["permissions"] != "public":
+                config["ARCHIVEDOTORG_ENABLED"] = False
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
                 url=snapshot["url"],
@@ -1416,6 +1423,9 @@ class CrawlRunner:
                 config["ABX_RUNTIME"] = "archivebox"
                 if self.requested_plugins is not None:
                     _enable_requested_plugins(config, plugins)
+                config["PERMISSIONS"] = prepared["permissions"]
+                if prepared["permissions"] != "public":
+                    config["ARCHIVEDOTORG_ENABLED"] = False
                 snapshot_service.config = RuntimeConfig(user=GlobalConfig(**config), derived=derived_config)
                 await self.bus.emit(MachineEvent(config=config, config_type="user")).now()
 

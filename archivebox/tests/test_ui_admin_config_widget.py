@@ -128,6 +128,7 @@ def test_setup_wizard_shows_effective_wayback_setting(enabled):
     html = render_to_string("core/setup_wizard.html", context)
     assert ('id="archivebox-setup-archivedotorg" type="checkbox" checked' in html) is enabled
     assert 'id="archivebox-setup-archivedotorg" type="checkbox"' in html
+    assert "Private and unlisted snapshots are never submitted." in html
 
 
 @pytest.mark.django_db
@@ -199,7 +200,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'id="archivebox-setup-public-add"' in html
     assert 'id="archivebox-setup-permissions"' in html
     assert 'id="archivebox-setup-archivedotorg" type="checkbox" checked' in html
-    assert "Send captured URLs to the public Wayback Machine" in html
+    assert "Send public snapshots to the Wayback Machine" in html
     assert 'id="archivebox-setup-effective-mode"' in html
     assert 'id="archivebox-setup-browser-url"' in html
     assert 'id="archivebox-setup-configured-url"' in html

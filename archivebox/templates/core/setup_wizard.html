@@ -106,8 +106,8 @@
       <span class="abx-setup-label">External archiving:</span>
       <label class="abx-check">
         <input id="archivebox-setup-archivedotorg" type="checkbox"{% if archivedotorg_enabled %} checked{% endif %}>
-        <span><b>Send captured URLs to the public Wayback Machine</b><br>
-          <small>ArchiveBox sends the original URLs to archive.org, which may make them public even when your local snapshots are private. Turn this off for confidential URLs or links containing access tokens.</small></span>
+        <span><b>Send public snapshots to the Wayback Machine</b><br>
+          <small>Only public snapshots are submitted to archive.org. Private and unlisted snapshots are never submitted. Turn this off for public URLs containing access tokens or other confidential information.</small></span>
       </label>
     </div>
 
