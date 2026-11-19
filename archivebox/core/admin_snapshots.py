@@ -27,7 +27,7 @@ from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
-from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
+from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.search.query import apply_snapshot_filters
 from archivebox.core.routes_util import (
@@ -288,16 +288,18 @@ class SnapshotChangeList(SearchResultsChangeList):
         size = self.list_max_show_all if self.show_all else self.list_per_page
         queryset_ids = self.queryset.values_list("pk", flat=True)
         root_ids = self.root_queryset.values_list("pk", flat=True)
-        page_ids = snapshot_page(
-            queryset_ids,
-            base_queryset=root_ids,
-            start=0 if self.show_all else start,
-            size=size + 1,
-        )
+
+        def read_page(offset, limit):
+            cached_page = cached_search_rank_page(request, start=offset, size=limit)
+            if cached_page is not None:
+                return cached_page
+            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit)
+
+        page_ids = read_page(0 if self.show_all else start, size + 1)
         if self.show_all and len(page_ids) > size:
             self.show_all = False
             size = self.list_per_page
-            page_ids = snapshot_page(queryset_ids, base_queryset=root_ids, start=start, size=size + 1) if start else page_ids[: size + 1]
+            page_ids = read_page(start, size + 1) if start else page_ids[: size + 1]
         elif self.show_all:
             start = 0
             self.page_num = 1

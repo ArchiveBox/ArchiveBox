@@ -1,8 +1,10 @@
 __package__ = "archivebox.search"
 
+from itertools import batched
+
 from django.contrib import admin
 from django.contrib.admin.views.main import ChangeList
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, Expression, IntegerField, Value, When
 
 from archivebox.search.config import (
     get_default_search_mode,
@@ -13,6 +15,41 @@ from archivebox.search.config import (
 )
 from archivebox.search.query import query_search_index, url_search_q
 from archivebox.search.views import get_cached_admin_search_state
+
+
+class CachedSearchRank(Expression):
+    """Compile the full cached rank only when the complete queryset is ordered."""
+
+    def __init__(self, ids):
+        super().__init__(output_field=IntegerField())
+        self.ids = tuple(ids)
+
+    def as_sql(self, compiler, connection):
+        rank = Case(
+            *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(self.ids)),
+            output_field=self.output_field,
+        )
+        return compiler.compile(rank.resolve_expression(compiler.query))
+
+
+def cached_search_rank_page(request, *, start, size):
+    """Read cached rank in bounded batches, rechecking the current filter scope."""
+    scope = getattr(request, "_archivebox_search_rank_scope", None)
+    if scope is None or "o" in request.GET:
+        return None
+    page = []
+    for batch in batched(request._archivebox_search_ranks, 512):
+        valid = {pk.hex: pk for pk in scope.filter(pk__in=batch).order_by().values_list("pk", flat=True)}
+        for snapshot_id in batch:
+            if snapshot_id not in valid:
+                continue
+            if start:
+                start -= 1
+                continue
+            page.append(valid[snapshot_id])
+            if len(page) == size:
+                return page
+    return page
 
 
 class SearchResultsChangeList(ChangeList):
@@ -82,11 +119,8 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
                 if not cached_ids:
                     return queryset.none(), False
                 request._archivebox_search_ranks = {snapshot_id: index for index, snapshot_id in enumerate(cached_ids)}
-                search_rank = Case(
-                    *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(cached_ids)),
-                    output_field=IntegerField(),
-                )
-                ranked = queryset.filter(pk__in=cached_ids).alias(search_rank=search_rank)
+                request._archivebox_search_rank_scope = queryset
+                ranked = queryset.filter(pk__in=cached_ids).alias(search_rank=CachedSearchRank(cached_ids))
                 return (ranked if "o" in request.GET else ranked.order_by("search_rank")), False
             return queryset.none(), False
 
