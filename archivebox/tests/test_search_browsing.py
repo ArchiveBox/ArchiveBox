@@ -81,3 +81,37 @@ def test_search_key_preserves_user_mode_and_multivalue_filters(admin_client, adm
     other = django_user_model.objects.create_user(username="cache-other")
     request.user = other
     assert expected != key("q=amazon.com&search_mode=meta&tag=a&tag=b")
+
+
+@pytest.mark.parametrize("sort", [None, "4"])
+def test_cached_search_does_not_display_results_moved_out_of_folder(admin_client, crawl, sort):
+    folder = Folder.objects.create(name="Search scope")
+    other = Folder.objects.create(name="Outside search scope")
+    rows = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://www.amazon.com/{i:03}",
+                title=f"Title {59 - i:05}",
+                timestamp=str(1900000000 + i),
+                crawl=crawl,
+                folder=folder,
+            )
+            for i in range(60)
+        ],
+    )
+    params = {"q": "amazon.com", "search_mode": "meta", "folder": str(folder.pk)}
+    path = complete_search(admin_client, params)
+    expected = admin_client.get(path, params, HTTP_HOST=ADMIN_TEST_HOST)
+    assert expected.context["cl"].search_stream_complete
+    moved = expected.context["cl"].result_list[0]
+    Snapshot.objects.filter(pk=moved.pk).update(folder=other)
+    if sort is not None:
+        params["o"] = sort
+    response = admin_client.get(path, params, HTTP_HOST=ADMIN_TEST_HOST)
+    changelist = response.context["cl"]
+    assert changelist.search_stream_complete
+    assert len(changelist.result_list) == 50
+    assert moved.pk not in {row.pk for row in changelist.result_list}
+    assert set(changelist.queryset.values_list("pk", flat=True)) == {row.pk for row in rows} - {moved.pk}
+    if sort is not None:
+        assert [row.title for row in changelist.result_list] == sorted(row.title for row in rows if row.pk != moved.pk)[:50]

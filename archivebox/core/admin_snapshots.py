@@ -316,7 +316,11 @@ class SnapshotChangeList(SearchResultsChangeList):
         # Keep wide snapshot columns and related rows out of the full sort and
         # OFFSET scan, as on the public index. Preserve the selected order while
         # loading only displayed rows, not the lookahead or discarded probes.
-        rows = {obj.pk: obj for obj in self.queryset.filter(pk__in=page_ids[:size]).order_by()}
+        # Cached-search page IDs were already intersected with the changelist
+        # scope. Recheck that scope on fetch, without binding every cached ID
+        # again just to read the displayed rows.
+        rank_scope = getattr(request, "_archivebox_search_rank_scope", self.queryset)
+        rows = {obj.pk: obj for obj in rank_scope.filter(pk__in=page_ids[:size]).order_by()}
         self.result_list = [rows[pk] for pk in page_ids[:size] if pk in rows]
         # Rank is a presentation attribute only on displayed rows. Keep the
         # database expression as an ordering alias, not a repeated SELECT.
