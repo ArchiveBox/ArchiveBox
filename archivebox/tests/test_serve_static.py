@@ -819,3 +819,50 @@ def test_directory_index_reads_each_entry_metadata_once(tmp_path):
         target = f"{path.name}/?files=1" if path == folder else path.name
         assert f'href="{target}"'.encode() in response.content
     assert metadata_reads == dict.fromkeys(paths, 1), metadata_reads
+
+
+@pytest.mark.parametrize("use_asgi", [False, True])
+def test_directory_zip_head_keeps_headers_without_generating_zip(tmp_path, use_asgi):
+    import asyncio
+    import io
+    import zipfile
+
+    from django.test import AsyncRequestFactory
+
+    root = tmp_path / "download"
+    root.mkdir()
+    payload = b"captured payload\n"
+    (root / "capture.txt").write_bytes(payload)
+    request_factory = AsyncRequestFactory() if use_asgi else RequestFactory()
+
+    def serve(request):
+        return serve_static_with_byterange_support(
+            request,
+            "",
+            document_root=root,
+            show_indexes=True,
+            is_archive_replay=True,
+        )
+
+    async def collect_async(response):
+        return b"".join([chunk async for chunk in response.streaming_content])
+
+    def collect(response):
+        try:
+            return asyncio.run(collect_async(response)) if use_asgi else b"".join(response.streaming_content)
+        finally:
+            response.close()
+
+    head = serve(request_factory.head("/?download=zip"))
+    get = serve(request_factory.get("/?download=zip"))
+    assert head.status_code == get.status_code == 200
+    assert head.is_async == get.is_async == use_asgi
+    assert dict(head.headers) == dict(get.headers)
+    assert head.headers["Content-Disposition"] == 'attachment; filename="download.zip"'
+    assert "Content-Length" not in head.headers
+    # Uvicorn discards every HEAD body byte, but Django still consumes its
+    # iterator. Keeping that iterator empty avoids opening and compressing files.
+    assert collect(head) == b""
+    with zipfile.ZipFile(io.BytesIO(collect(get))) as archive:
+        assert archive.namelist() == ["download/capture.txt"]
+        assert archive.read("download/capture.txt") == payload

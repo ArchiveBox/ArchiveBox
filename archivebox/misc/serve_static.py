@@ -208,6 +208,7 @@ def _build_directory_zip_response(
     *,
     is_archive_replay: bool,
     use_async_stream: bool,
+    head_only: bool,
     config=None,
 ) -> StreamingHttpResponse:
     root_name = _safe_zip_stem(fullpath.name or Path(path).name or "archivebox")
@@ -241,6 +242,8 @@ def _build_directory_zip_response(
             pass
 
     def iter_zip_chunks():
+        if head_only:
+            return
         # Emit a meaningful first chunk quickly so browsers show the download
         # immediately instead of waiting on dozens of tiny ZIP header writes.
         first_chunk = bytearray()
@@ -281,9 +284,13 @@ def _build_directory_zip_response(
             close_stream()
 
     async def stream_zip_async():
+        if head_only:
+            # The transport suppresses HEAD body bytes, but Django would still
+            # drive the iterator and compress the entire directory.
+            return
         # Django ASGI buffers sync StreamingHttpResponse iterators by consuming
         # them into a list. Drive the same sync iterator from a worker thread so
-        # Daphne can send each chunk as it arrives instead of buffering the ZIP.
+        # the HTTP server can send each chunk as it arrives.
         iterator = iter(iter_zip_chunks())
         try:
             while True:
@@ -902,6 +909,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 path,
                 is_archive_replay=is_archive_replay,
                 use_async_stream=_is_asgi_request(request),
+                head_only=request.method == "HEAD",
                 config=config,
             )
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
