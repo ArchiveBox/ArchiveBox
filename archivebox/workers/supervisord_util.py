@@ -70,21 +70,38 @@ def _read_cgroup_limit(path: Path) -> int | None:
         return None
 
 
-def effective_available_memory_bytes() -> int:
-    available = psutil.virtual_memory().available + psutil.swap_memory().free
-
-    cgroup_root = Path("/sys/fs/cgroup")
+def _cgroup_available_memory_bytes(cgroup_root: Path) -> int | None:
     memory_max = _read_cgroup_limit(cgroup_root / "memory.max")
     memory_current = _read_cgroup_limit(cgroup_root / "memory.current")
+    if memory_max is None or memory_current is None:
+        return None
+
+    try:
+        stat = dict(line.split() for line in (cgroup_root / "memory.stat").read_text().splitlines())
+        # Match resource admission: dirty/writeback pages cannot make room
+        # immediately, but clean file cache is reclaimable under pressure.
+        cache = max(
+            0,
+            int(stat.get("active_file", 0))
+            + int(stat.get("inactive_file", 0))
+            - int(stat.get("file_dirty", 0))
+            - int(stat.get("file_writeback", 0)),
+        )
+    except (OSError, ValueError):
+        cache = 0
+    memory_current = max(memory_current - cache, 0)
+    cgroup_available = max(memory_max - memory_current, 0)
     swap_max = _read_cgroup_limit(cgroup_root / "memory.swap.max")
     swap_current = _read_cgroup_limit(cgroup_root / "memory.swap.current")
-    if memory_max is not None and memory_current is not None:
-        cgroup_available = max(memory_max - memory_current, 0)
-        if swap_max is not None and swap_current is not None:
-            cgroup_available += max(swap_max - swap_current, 0)
-        available = min(available, cgroup_available)
+    if swap_max is not None and swap_current is not None:
+        cgroup_available += max(swap_max - swap_current, 0)
+    return cgroup_available
 
-    return available
+
+def effective_available_memory_bytes() -> int:
+    available = psutil.virtual_memory().available + psutil.swap_memory().free
+    cgroup_available = _cgroup_available_memory_bytes(Path("/sys/fs/cgroup"))
+    return available if cgroup_available is None else min(available, cgroup_available)
 
 
 def _require_available_memory(operation: str, idle_message: str, available_bytes: int, required_bytes: int) -> None:
