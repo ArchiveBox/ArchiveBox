@@ -1048,3 +1048,88 @@ def test_run_without_message_displays_its_lifecycle(admin_client, import_site, s
             assert "Importer is running. No activity update yet." in html
         if status == "cancelled":
             assert "Not started" in html
+
+
+def test_worker_stop_preserves_pending_page_and_restarts_from_last_committed_page(admin_client, httpserver):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from django.db import connections
+    from werkzeug import Response
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    url = httpserver.url_for("/reading.xml")
+    feed = (
+        "<rss version='2.0'><channel><title>Reading list</title>"
+        + "".join(f"<item><guid>page-{i}</guid><title>Page {i}</title><link>{url}/{i}</link></item>" for i in range(3))
+        + "</channel></rss>"
+    )
+    waiting, release, stop = Event(), Event(), Event()
+
+    def blocked_feed(_request):
+        waiting.set()
+        release.wait()
+        return Response(feed, content_type="application/rss+xml")
+
+    httpserver.expect_ordered_request("/reading.xml").respond_with_data(feed, content_type="application/rss+xml")
+    httpserver.expect_ordered_request("/reading.xml").respond_with_handler(blocked_feed)
+    httpserver.expect_request("/reading.xml").respond_with_data(feed, content_type="application/rss+xml")
+
+    assert (
+        admin_client.post(
+            "/admin/importers/new/importer_rss/feed/",
+            {"name": "Paginated feed", "setting_IMPORTER_RSS_URL": url, "limit": 1, "schedule": "daily"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        ).status_code
+        == 302
+    )
+    source = ImporterSource.objects.get(name="Paginated feed")
+    import_url = f"/admin/importers/{source.pk}/import/"
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    source.refresh_from_db()
+    checkpoint = source.checkpoint
+    next_run_at = source.next_run_at
+    assert source.enabled and next_run_at is not None
+    first, next_page = source.runs.order_by("created_at")
+    assert first.status == "succeeded"
+    assert [item["url"] for item in first.items] == [f"{url}/0"]
+    assert next_page.request["checkpoint"] == checkpoint
+
+    def run():
+        try:
+            return run_next_importer(stop)
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(run)
+        try:
+            assert waiting.wait(20), "Importer did not request the continuation feed"
+            stop.set()
+            assert future.result(timeout=20)
+        finally:
+            release.set()
+
+    next_page.refresh_from_db()
+    source.refresh_from_db()
+    assert not next_page.cancel_requested
+    assert next_page.status == "failed"
+    assert "worker stopped" in next_page.message
+    assert next_page.crawl_id is None
+    assert source.checkpoint == checkpoint
+    assert source.enabled and source.next_run_at == next_run_at
+    assert Crawl.objects.count() == 1
+
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    assert run_next_importer()
+    assert not run_next_importer()
+    delivered = [item["url"] for run in source.runs.order_by("created_at") for item in run.items]
+    assert delivered == [f"{url}/{i}" for i in range(3)]
+    assert Crawl.objects.count() == 3
+    source.refresh_from_db()
+    assert source.enabled and source.next_run_at == next_run_at

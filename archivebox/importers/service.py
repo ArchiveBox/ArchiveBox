@@ -12,7 +12,7 @@ from abx_dl.execution import iter_plugin_command
 from abx_dl.models import PluginEnv
 from abx_plugins.plugins.base.importers import read_records
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import Case, F, Value, When
 from django.utils import timezone
 
 from archivebox.config.common import build_crawl_config_snapshot, get_config
@@ -28,6 +28,7 @@ from .models import ImporterRun, ImporterSource
 
 logger = logging.getLogger(__name__)
 ACTIVE_STATUSES = (ImporterRun.Status.QUEUED, ImporterRun.Status.RUNNING)
+WORKER_INTERRUPTED_MESSAGE = "The importer worker stopped. Progress was not advanced; run it again to resume."
 
 
 def enqueue(source: ImporterSource, action: str) -> ImporterRun:
@@ -292,16 +293,21 @@ def run_next_importer(stop_event=None, *, run_id=None) -> bool:
     except (Exception, KeyboardInterrupt) as error:  # - isolate optional plugin failures from capture dispatch
         if isinstance(error, subprocess.CalledProcessError) and error.stderr:
             (output_dir / "command-error.log").write_text(str(error.stderr))
-        cancelled = isinstance(error, (InterruptedError, KeyboardInterrupt))
         # Command arguments never contain cookies or source settings; those use env/stdin.
-        message = (
+        message: str | Case = (
             str(error)[:2000]
             if isinstance(error, (ValueError, InterruptedError))
             else f"{type(error).__name__}: importer command failed; progress was not advanced."
         )
         logger.warning("Importer run %s failed (%s)", run.pk, type(error).__name__)
+        status: str | Case = ImporterRun.Status.FAILED
+        if isinstance(error, (InterruptedError, KeyboardInterrupt)):
+            # The command sees both Pause and worker shutdown as interruption.
+            # Classify against the durable Pause flag in the same write.
+            status = Case(When(cancel_requested=True, then=Value(ImporterRun.Status.CANCELLED)), default=Value(status))
+            message = Case(When(cancel_requested=True, then=Value(message)), default=Value(WORKER_INTERRUPTED_MESSAGE))
         ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.RUNNING).update(
-            status=ImporterRun.Status.CANCELLED if cancelled else ImporterRun.Status.FAILED,
+            status=status,
             message=message,
             finished_at=timezone.now(),
         )
@@ -313,7 +319,7 @@ def recover_interrupted() -> None:
         if run.owner is None or not run.owner.is_running:
             ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.RUNNING).update(
                 status=ImporterRun.Status.FAILED,
-                message="The importer worker stopped. Progress was not advanced; run it again to resume.",
+                message=WORKER_INTERRUPTED_MESSAGE,
                 finished_at=timezone.now(),
             )
 
