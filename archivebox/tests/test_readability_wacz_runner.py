@@ -16,7 +16,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 def test_archivewebpage_capture_supplies_readability_without_other_html_producers(
     initialized_archive: Path,
     browser_runtime,
-    httpserver,
+    httpserver_ipv4,
 ) -> None:
     """The real runner must make the stopped WACZ available to Readability."""
 
@@ -30,9 +30,9 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
         + "".join(f"<p>{passage}</p>" for _ in range(6))
         + "</article></main></body></html>"
     )
-    httpserver.expect_request("/article").respond_with_data(html, content_type="text/html; charset=utf-8")
-    httpserver.expect_request("/favicon.ico").respond_with_data("", status=204)
-    url = httpserver.url_for("/article")
+    httpserver_ipv4.expect_request("/article").respond_with_data(html, content_type="text/html; charset=utf-8")
+    httpserver_ipv4.expect_request("/favicon.ico").respond_with_data("", status=204)
+    url = httpserver_ipv4.url_for("/article")
     lib_dir = browser_runtime["lib_dir"]
     selection = "archivewebpage,readability"
     env = cli_env(
@@ -67,6 +67,8 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
         timeout=120,
     )
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+    assert "total urls snapshotted: 1" in result.stdout, f"{result.stdout}\n{result.stderr}"
 
     with use_archivebox_db(initialized_archive):
         snapshot = Snapshot.objects.get(url=url)
