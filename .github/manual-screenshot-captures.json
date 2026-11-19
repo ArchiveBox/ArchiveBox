@@ -73,5 +73,23 @@
     "source_revision": "e66137580ace6997f59c080239e036fbb80f66fd",
     "plugin_revision": "85c63881e86be8986a48cf8f50e0acdfa8ee130a",
     "source_path": "archivebox/personas/state_forms.py"
+  },
+  "first-time-setup-wizard": {
+    "name": "First-time Setup Wizard",
+    "url": "http://admin.archivebox.localhost:18767/admin/",
+    "path": "/admin/",
+    "ttfb_ms": 150.8,
+    "captured_at": "2026-11-19T22:55:09.453599+00:00",
+    "source_revision": "67edf368090e013854e9f795ce8675a509209320",
+    "source_path": "archivebox/templates/core/setup_wizard.html"
+  },
+  "navigation-tools-menu": {
+    "name": "Navigation Tools Menu",
+    "url": "http://admin.archivebox.localhost:18768/admin/core/snapshot/",
+    "path": "/admin/core/snapshot/",
+    "ttfb_ms": 19.5,
+    "captured_at": "2026-11-19T22:55:37.187200+00:00",
+    "source_revision": "67edf368090e013854e9f795ce8675a509209320",
+    "source_path": "archivebox/templates/core/library_navigation.html"
   }
 }
