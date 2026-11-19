@@ -130,6 +130,7 @@ def gallery_entries(base_url, webhook_ids):
     editor = f"/admin/rules/?webhook={webhook_ids[0]}"
     event_input = f"{editor}&preview=1"
     scripts = f"/admin/rules/?webhook={webhook_ids[2]}"
+    processes = f"/admin/machine/process/?worker_type=webhook&q={webhook_ids[2]}"
     return [
         f"Rules|{base_url}/admin/rules/|/admin/rules/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
         f"Rule actions|{base_url}{editor}|{editor}|archivebox/templates/api/webhooks.html|wait-text:Save rule",
@@ -137,5 +138,5 @@ def gallery_entries(base_url, webhook_ids):
         f"Rule activity|{base_url}/admin/rules/?view=activity|/admin/rules/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
         f"Rule events|{base_url}/admin/rules/?view=events|/admin/rules/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
         f"Rule scripts|{base_url}{scripts}|{scripts}|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
-        f"Webhook process logs|{base_url}/admin/machine/process/?worker_type=webhook&q={webhook_ids[2]}|/admin/machine/process/|archivebox/machine/admin.py|wait-text:webhook",
+        f"Webhook process logs|{base_url}{processes}|{processes}|archivebox/machine/admin.py|wait-text:bash -c cat",
     ]
