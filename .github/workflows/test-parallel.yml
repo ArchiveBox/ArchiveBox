@@ -232,6 +232,58 @@ jobs:
             extra_args=(--extra "$TEST_EXTRA")
           fi
           uv sync --no-cache --locked --dev "${extra_args[@]}"
+      # These hosted Chrome lanes repeatedly timed out acquiring this 7.5 MB
+      # Noble universe package. Populate only APT's download cache: the native
+      # Puppeteer dependency installer still resolves and installs the fonts.
+      - name: Restore verified Noble font archive
+        if: >-
+          runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' &&
+          (contains(matrix.test.paths, 'archivebox/tests/test_plugin_recovery.py') ||
+           contains(matrix.test.paths, 'archivebox/tests/test_snapshot_viewport_preview.py') ||
+           contains(matrix.test.paths, 'archivebox/tests/test_ui_live_progress.py'))
+        id: noble-font-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/noble-font-archive
+          key: noble-font-v1-0.9.45-8-496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
+
+      - name: Verify and stage Noble font archive for APT
+        if: steps.noble-font-archive.outcome == 'success'
+        id: stage-noble-font
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=fonts-wqy-zenhei_0.9.45-8_all.deb
+          # Ubuntu's signed noble/universe/binary-amd64/Packages record.
+          checksum=496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
+          archive_dir="$RUNNER_TEMP/noble-font-archive"
+          archive="$archive_dir/$package"
+          mkdir -p "$archive_dir"
+          if [[ ! -f "$archive" ]]; then
+            temp="$(mktemp "$archive_dir/download.XXXXXX")"
+            trap 'rm -f -- "$temp"' EXIT
+            if ! curl --fail --silent --show-error --max-time 45 \
+              "https://mirrors.edge.kernel.org/ubuntu/pool/universe/f/fonts-wqy-zenhei/$package" \
+              --output "$temp"; then
+              echo '::warning::Font archive prefetch unavailable; APT will acquire its own package.'
+              exit 0
+            fi
+            printf '%s  %s\n' "$checksum" "$temp" | sha256sum --check --strict
+            mv "$temp" "$archive"
+          fi
+          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --strict
+          sudo install -m 0644 "$archive" "/var/cache/apt/archives/$package"
+          echo 'verified=true' >> "$GITHUB_OUTPUT"
+
+      - name: Save verified Noble font archive
+        if: >-
+          steps.stage-noble-font.outputs.verified == 'true' && steps.noble-font-archive.outputs.cache-hit != 'true' &&
+          contains(matrix.test.paths, 'archivebox/tests/test_ui_live_progress.py')
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/noble-font-archive
+          key: ${{ steps.noble-font-archive.outputs.cache-primary-key }}
+
       - name: Run ${{ matrix.test.name }}
         env:
           TEST_PATHS: ${{ matrix.test.paths_arg }}
