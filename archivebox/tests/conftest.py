@@ -2112,6 +2112,14 @@ def browser_runtime(cached_abxpkg_lib_dir):
         CHROME_ISOLATION="snapshot",
     )
     env.pop("CHROME_BINARY", None)
+    # Stage only the signed archive on hosted Noble before native installation.
+    # Transitive browser fixtures need not be listed individually in the matrix.
+    if env.get("ABX_CI_STAGE_NOBLE_FONT") == "true":
+        subprocess.run(
+            ["bash", str(REPO_ROOT / ".github/ci_stage_noble_font.sh"), "--lazy"],
+            check=True,
+            env=env,
+        )
     resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
     chrome_config = get_config(
         Path(get_plugins_dir()) / "chrome" / "config.json",

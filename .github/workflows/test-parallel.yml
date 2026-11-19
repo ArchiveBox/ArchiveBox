@@ -252,29 +252,7 @@ jobs:
         if: steps.noble-font-archive.outcome == 'success'
         id: stage-noble-font
         shell: bash
-        run: |
-          set -euo pipefail
-          package=fonts-wqy-zenhei_0.9.45-8_all.deb
-          # Ubuntu's signed noble/universe/binary-amd64/Packages record.
-          checksum=496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
-          archive_dir="$RUNNER_TEMP/noble-font-archive"
-          archive="$archive_dir/$package"
-          mkdir -p "$archive_dir"
-          if [[ ! -f "$archive" ]]; then
-            temp="$(mktemp "$archive_dir/download.XXXXXX")"
-            trap 'rm -f -- "$temp"' EXIT
-            if ! curl --fail --silent --show-error --max-time 45 \
-              "https://mirrors.edge.kernel.org/ubuntu/pool/universe/f/fonts-wqy-zenhei/$package" \
-              --output "$temp"; then
-              echo '::warning::Font archive prefetch unavailable; APT will acquire its own package.'
-              exit 0
-            fi
-            printf '%s  %s\n' "$checksum" "$temp" | sha256sum --check --strict
-            mv "$temp" "$archive"
-          fi
-          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --strict
-          sudo install -m 0644 "$archive" "/var/cache/apt/archives/$package"
-          echo 'verified=true' >> "$GITHUB_OUTPUT"
+        run: bash .github/ci_stage_noble_font.sh
 
       - name: Save verified Noble font archive
         if: >-
@@ -289,6 +267,7 @@ jobs:
         env:
           TEST_PATHS: ${{ matrix.test.paths_arg }}
           CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ABX_CI_STAGE_NOBLE_FONT: ${{ runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' }}
         run: |
           set -Eeuo pipefail
           echo "Running pytest with $CI_TEST_WORKERS workers on $CI_RUNNER_ENVIRONMENT"
