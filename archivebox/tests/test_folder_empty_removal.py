@@ -147,3 +147,29 @@ def test_folder_state_preserves_snapshot_delete_authority(client, django_user_mo
     response = client.post(URL, {"folder_id": str(folder.pk), "intent": "empty_only"}, **HOST)
     assert response.status_code == post_status
     assert Folder.objects.filter(pk=folder.pk).exists() is (post_status != 200)
+
+
+@pytest.mark.parametrize("populated", [False, True])
+@pytest.mark.parametrize("intent", ["", "empty_only"])
+def test_reference_validation_precedes_empty_removal(admin_client, populated, intent):
+    from django.core.exceptions import ValidationError
+    from archivebox.core.admin_site import archivebox_admin
+
+    folder = Folder.objects.create(name="Referenced target")
+    rules = {"field": "folder", "lookup": "in_folder", "value": str(folder.pk)}
+    dependent = Folder.objects.create(name="Saved selection", rules=rules)
+    if populated:
+        crawl = Crawl.objects.create(urls="https://example.com/")
+        snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, folder=folder, status=Snapshot.DELETING_STATE)
+    response = admin_client.post(URL, {"folder_id": str(folder.pk), "intent": intent}, **HOST)
+    assert response.status_code == 400
+    assert response.json()["error"] == "Update the rules in Saved selection before deleting this folder."
+    with pytest.raises(ValidationError, match="Update the rules in Saved selection"):
+        archivebox_admin.get_model_admin(Folder).validate_empty_removal(folder)
+    assert Folder.objects.filter(pk=folder.pk).exists()
+    dependent.refresh_from_db()
+    assert dependent.rules == rules
+    if populated:
+        snapshot.refresh_from_db()
+        assert snapshot.folder_id == folder.pk
+        assert snapshot.status == Snapshot.DELETING_STATE

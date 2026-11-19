@@ -78,6 +78,10 @@ class FolderAdmin(admin.ModelAdmin):
             folder = get_object_or_404(Folder.objects.select_for_update(), pk=folder_id)
             if not self.has_delete_permission(request, folder):
                 raise PermissionDenied
+            try:
+                folder.validate_deletion()
+            except ValidationError as error:
+                return JsonResponse({"error": " ".join(error.messages)}, status=400)
             has_snapshots, has_children = self.removal_state(folder)
             if has_snapshots:
                 return JsonResponse(
@@ -87,7 +91,6 @@ class FolderAdmin(admin.ModelAdmin):
             if has_children:
                 return JsonResponse({"error": "Move or delete child folders first."}, status=409)
             try:
-                folder.validate_deletion()
                 self.log_deletions(request, [folder])
                 self.delete_model(request, folder)
             except ValidationError as error:
@@ -110,12 +113,12 @@ class FolderAdmin(admin.ModelAdmin):
         return has_snapshots, has_children
 
     def validate_empty_removal(self, folder):
+        folder.validate_deletion()
         has_snapshots, has_children = self.removal_state(folder)
         if has_snapshots:
             raise ValidationError("Delete snapshots first and wait for their removal before deleting this folder.")
         if has_children:
             raise ValidationError("Move or delete child folders first.")
-        folder.validate_deletion()
 
     def delete_model(self, request, obj):
         with transaction.atomic():
