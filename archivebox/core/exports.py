@@ -303,7 +303,28 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
         request.GET = normalize_export_query(request.GET)
         if public_only:
             request.GET["public_only"] = "1"
-        response = _snapshots_rss_response(request, snapshots=snapshots.select_related("crawl__created_by").prefetch_related("tags"))
+        # A crawl can hold megabytes of intake. Select only the fields needed
+        # by RSS (including archive_path_from_db), and prefetch tags in batches.
+        rss_snapshots = (
+            snapshots.select_related("crawl__created_by")
+            .prefetch_related("tags")
+            .only(
+                "id",
+                "url",
+                "title",
+                "timestamp",
+                "bookmarked_at",
+                "created_at",
+                "modified_at",
+                "fs_version",
+                "crawl_id",
+                "crawl__id",
+                "crawl__created_by_id",
+                "crawl__created_by__id",
+                "crawl__created_by__username",
+            )
+        )
+        response = _snapshots_rss_response(request, snapshots=rss_snapshots.iterator(chunk_size=100))
         output.write(response.content.decode())
         return
     if format not in {"csv", "jsonl"}:
