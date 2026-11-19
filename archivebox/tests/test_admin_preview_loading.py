@@ -16,13 +16,12 @@ def test_only_admin_thumbnail_defers_card_navigation(snapshot):
     for admin in (False, True):
         html = str(snapshot_thumbnail(Context(), snapshot, admin=admin))
         first = re.search(r"<iframe[^>]+>", html).group()
-        assert ("data-admin-preview-src=" in first) == admin
-        assert (" src=" in first) != admin
+        assert ("<template data-admin-preview>" in html) == admin
+        assert ' src="' in first
         assert f"_card/{result.pk}" in first
         assert 'sandbox="allow-scripts allow-same-origin"' in first
         assert 'loading="lazy"' in first
         assert "<noscript>" not in html
-        assert ("visibility:hidden" in first) == admin
         assert "snapshot-thumbnail-initial" in html
 
 
@@ -68,17 +67,18 @@ def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user
         requests.clear()
         page.goto(f"{origin}/admin/core/snapshot/", wait_until="load")
         frames = page.locator(".snapshot-thumbnail iframe")
-        expect(frames).to_have_count(50)
         expect(frames.first).to_have_attribute("src", re.compile(r"/_card/"))
         print("INITIAL", {"assigned": page.locator(".snapshot-thumbnail iframe[src]").count(), "card_requests": len(requests)})
         assert len(requests) < 25
         assert page.locator(".snapshot-thumbnail iframe[src]").count() < 25
-        last = frames.last
-        assert last.get_attribute("src") is None
-        target = last.get_attribute("data-admin-preview-src")
-        last.scroll_into_view_if_needed()
-        expect(last).to_have_attribute("src", target)
-        expect(last).not_to_have_attribute("data-admin-preview-src", re.compile(".+"))
+        assert frames.count() + page.locator(".snapshot-thumbnail template[data-admin-preview]").count() == 50
+        last_thumbnail = page.locator(".snapshot-thumbnail").last
+        assert last_thumbnail.locator("iframe").count() == 0
+        template = last_thumbnail.locator("template[data-admin-preview]")
+        target = template.evaluate("node => node.content.querySelector('iframe').src")
+        last_thumbnail.scroll_into_view_if_needed()
+        expect(last_thumbnail.locator("iframe")).to_have_attribute("src", target)
+        expect(template).to_have_count(0)
         page.wait_for_load_state("networkidle")
         print(
             "SCROLLED",
@@ -108,8 +108,8 @@ def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user
         fallback = nojs.new_page()
         fallback.goto(f"{origin}/admin/core/snapshot/", wait_until="load")
         expect(fallback.locator(".snapshot-thumbnail iframe[src]")).to_have_count(0)
-        expect(fallback.locator(".snapshot-thumbnail iframe[data-admin-preview-src]")).to_have_count(50)
-        assert not fallback.locator(".snapshot-thumbnail iframe").first.is_visible()
+        expect(fallback.locator(".snapshot-thumbnail template[data-admin-preview]")).to_have_count(50)
+        expect(fallback.locator(".snapshot-thumbnail iframe")).to_have_count(0)
         thumbnail = fallback.locator(".snapshot-thumbnail").first
         assert thumbnail.is_visible()
         assert thumbnail.locator(".snapshot-thumbnail-initial").is_visible()
@@ -121,6 +121,6 @@ def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user
 
         assert fallback.url == urljoin(origin, link)
         assert navigation.value.status == 200
-        print("NOJS", {"letter_visible": True, "native_link_opened": True, "dormant_iframes": 50})
+        print("NOJS", {"letter_visible": True, "native_link_opened": True, "inert_templates": 50})
         nojs.close()
         browser.close()

@@ -992,14 +992,9 @@ def plugin_card(context, result) -> str:
             'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>'
         )
         if context.get("defer_admin_card"):
-            # Native lazy loading admits many compact list rows far below the
-            # viewport. Keep their navigation dormant until actually visible.
-            # Keep its layout box observable while the existing letter/link
-            # remains the no-JS fallback. No noscript nodes: DOMParser-based
-            # list updates would adopt their fallback CSS/iframes as live DOM.
-            return mark_safe(
-                card_html.replace(' src="', ' data-admin-preview-src="', 1).replace('border:0"', 'border:0;visibility:hidden"', 1),
-            )
+            # Keep both offscreen navigation and browsing-context creation inert.
+            # The visible initial/native link remains usable without JavaScript.
+            return mark_safe(f"<template data-admin-preview>{card_html}</template>")
         return mark_safe(card_html)
     return render_plugin_card_document(context, result)
 
