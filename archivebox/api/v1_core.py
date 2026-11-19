@@ -45,6 +45,7 @@ from archivebox.core.tag_util import (
     get_matching_tags,
     get_or_create_tag,
     get_tag_by_ref,
+    merge_tags as merge_tag_records,
     normalize_created_by_filter,
     normalize_created_year_filter,
     normalize_has_snapshots_filter,
@@ -1353,6 +1354,18 @@ class TagUpdateResponseSchema(Schema):
     tag_name: str
 
 
+class TagMergeSchema(Schema):
+    target: int | str
+
+
+class TagMergeResponseSchema(Schema):
+    success: bool
+    source_tag_id: int
+    target_tag_id: int
+    target_tag_name: str
+    snapshots_retagged: int
+
+
 class TagDeleteResponseSchema(Schema):
     success: bool
     tag_id: int
@@ -1498,6 +1511,30 @@ def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
         "success": True,
         "tag_id": tag.pk,
         "tag_name": tag.name,
+    }
+
+
+@router.post("/tag/{tag_id}/merge", response=TagMergeResponseSchema, url_name="merge_tag")
+def merge_tag(request: HttpRequest, tag_id: int, data: TagMergeSchema):
+    """Move all snapshots from this tag onto the target tag (by id or name), then delete this tag."""
+    try:
+        source = get_tag_by_ref(tag_id)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, "Tag not found") from err
+    try:
+        target = get_tag_by_ref(data.target)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, "Target tag not found") from err
+    if source.pk == target.pk:
+        raise HttpError(400, "Cannot merge a tag into itself")
+
+    snapshots_retagged = merge_tag_records([source], target)
+    return {
+        "success": True,
+        "source_tag_id": int(tag_id),
+        "target_tag_id": target.pk,
+        "target_tag_name": target.name,
+        "snapshots_retagged": snapshots_retagged,
     }
 
 

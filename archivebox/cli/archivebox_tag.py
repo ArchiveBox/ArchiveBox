@@ -10,6 +10,7 @@ Actions:
     list    - List Tags as JSONL (with optional filters)
     update  - Update Tags from stdin JSONL
     delete  - Delete Tags from stdin JSONL
+    merge   - Merge Tags into another Tag
 
 Examples:
     # Create
@@ -25,6 +26,9 @@ Examples:
 
     # Delete
     archivebox tag list --name=unused | archivebox tag delete --yes
+
+    # Merge duplicates into one tag (snapshots are retagged, the merged tags are deleted)
+    archivebox tag merge --into news "News" "news-articles"
 """
 
 __package__ = "archivebox.cli"
@@ -254,6 +258,59 @@ def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
 
 
 # =============================================================================
+# MERGE
+# =============================================================================
+
+
+def merge_tag_names(names: Iterable[str], into: str) -> int:
+    """
+    Merge the named Tags into the ``into`` Tag.
+
+    Every snapshot tagged with one of ``names`` is tagged with ``into`` instead
+    and the merged tags are deleted. ``into`` is created if it doesn't exist yet,
+    which also allows merging several tags under a brand new name.
+
+    Exit codes:
+        0: Success
+        1: Invalid arguments or a tag to merge was not found
+    """
+    from archivebox.core.models import Tag
+    from archivebox.core.tag_util import get_or_create_tag, merge_tags, normalize_tag_name
+
+    into_name = normalize_tag_name(into)
+    if not into_name:
+        rprint("[red]--into must be a non-empty tag name[/red]", file=sys.stderr)
+        return 1
+
+    sources: list[Tag] = []
+    for name in dict.fromkeys(normalize_tag_name(name) for name in names):
+        if not name:
+            continue
+        try:
+            sources.append(Tag.objects.get(name__iexact=name))
+        except Tag.DoesNotExist:
+            rprint(f"[red]Tag not found: {name}[/red]", file=sys.stderr)
+            return 1
+
+    if not sources:
+        rprint("[yellow]No tag names provided to merge[/yellow]", file=sys.stderr)
+        return 1
+
+    target, _created = get_or_create_tag(into_name)
+    merged = [tag for tag in sources if tag.pk != target.pk]
+    if not merged:
+        rprint("[yellow]Nothing to merge: every tag is already the target tag[/yellow]", file=sys.stderr)
+        return 0
+
+    retagged = merge_tags(merged, target)
+    rprint(
+        f"[green]Merged {len(merged)} tags into {target.name} ({retagged} snapshots retagged)[/green]",
+        file=sys.stderr,
+    )
+    return 0
+
+
+# =============================================================================
 # CLI Commands
 # =============================================================================
 
@@ -293,6 +350,14 @@ def update_cmd(name: str | None):
 def delete_cmd(yes: bool, dry_run: bool):
     """Delete Tags from stdin JSONL."""
     sys.exit(delete_tags(yes=yes, dry_run=dry_run))
+
+
+@main.command("merge")
+@click.argument("names", nargs=-1, required=True)
+@click.option("--into", "-i", required=True, help="Name of the tag to merge into (created if missing)")
+def merge_cmd(names: tuple, into: str):
+    """Merge the given tags into another tag, retagging their snapshots."""
+    sys.exit(merge_tag_names(names, into))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from collections.abc import Iterable
 from typing import Any
 from urllib.parse import unquote
 
@@ -181,6 +182,31 @@ def rename_tag(tag: Tag, name: str) -> Tag:
 
 def delete_tag(tag: Tag) -> tuple[int, dict[str, int]]:
     return tag.delete()
+
+
+def merge_tags(sources: Iterable[Tag], target: Tag) -> int:
+    """Move every snapshot tagged with any of ``sources`` onto ``target``, then delete the sources.
+
+    Snapshots that already carry ``target`` simply lose the source tag, so no
+    duplicate links are created. Each snapshot is retagged through
+    ``add_tag_ids``/``remove_tag_ids`` so webhooks and folder membership events
+    fire as they would for a manual edit. The operation is idempotent: if it is
+    interrupted, rerunning it finishes the merge. Returns the number of
+    snapshots that were retagged.
+    """
+    source_ids = {tag.pk for tag in sources if tag.pk != target.pk}
+    if not source_ids:
+        return 0
+
+    snapshot_ids = SnapshotTag.objects.filter(tag_id__in=source_ids).values_list("snapshot_id", flat=True).distinct()
+    retagged = 0
+    for snapshot in Snapshot.objects.filter(pk__in=list(snapshot_ids)):
+        snapshot.add_tag_ids([target.pk])
+        snapshot.remove_tag_ids(source_ids)
+        retagged += 1
+
+    Tag.objects.filter(pk__in=source_ids).delete()
+    return retagged
 
 
 def export_tag_urls(tag: Tag) -> str:
