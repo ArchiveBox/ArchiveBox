@@ -2203,7 +2203,9 @@ class Process(ModelWithDeleteAfter, models.Model):
                 self.exit_code = 137
             self.ended_at = timezone.now()
             self.status = self.StatusChoices.EXITED
-            self.save()
+            # Another lifecycle writer may have cleared related rows since
+            # this instance was loaded. Persist only the exit transition.
+            self.save(update_fields=["stdout", "stderr", "exit_code", "ended_at", "status", "modified_at"])
             return self.exit_code
 
         return None  # Still running
