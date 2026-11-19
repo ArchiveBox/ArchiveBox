@@ -33,7 +33,7 @@ uv = "2026-10-23T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.13.369"
+version = "1.13.370"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins" },
@@ -47,14 +47,14 @@ dependencies = [
     { name = "rich" },
     { name = "rich-click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/0e/8b44a7940128963c09234a311a8117f1eedbf54fb7ba590c6417d09710f2/abx_dl-1.13.369.tar.gz", hash = "sha256:0ce19b63cd5c744709705dde3243c38d6117d9e6ac0e36adf1ec4045dd450de7", size = 115895, upload-time = "2026-11-19T06:49:31.291Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/af/4b96ef89304370082e24532b087c5f149dc93de851f4a19878a32cc6b0a1/abx_dl-1.13.370.tar.gz", hash = "sha256:110ba6154496d51b8584005012ed421c47ee5812b18a965880c456ae2073e2aa", size = 115877, upload-time = "2026-11-19T21:28:56.114Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/17/024a35849d21f9c613cdd8089354d59b239346f1009ea81fcb3db288d9e2/abx_dl-1.13.369-py3-none-any.whl", hash = "sha256:ea57cd9741f078816d0be5b75381e8b962d03d6283fd99e76068803dd4769252", size = 119303, upload-time = "2026-11-19T06:49:29.64Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/f2/581e839611886b4bba270ebce88a3accba968bbfc2910df76678aede4054/abx_dl-1.13.370-py3-none-any.whl", hash = "sha256:aa3f0b9130816d12954161df30479f1fae5224daa14394d588e8010fc98bcd25", size = 119301, upload-time = "2026-11-19T21:28:54.055Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.776"
+version = "1.13.788"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus" },
@@ -64,10 +64,11 @@ dependencies = [
     { name = "psutil" },
     { name = "rich-click" },
     { name = "uv" },
+    { name = "warcio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/4d/cdba7f254a2d7bbfdea513622cd6d8454830bcc7fc290e1fa7d8ef82729e/abx_plugins-1.13.776.tar.gz", hash = "sha256:448ae63ae9001ddac2421d94543b1d602df9f004d6f82a6579ada3669bbdc0cd", size = 1660591, upload-time = "2026-11-19T05:07:34.858Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/17/14b454177753ad5d177759c69d02cd06408386403e6f2cc3182816477170/abx_plugins-1.13.788.tar.gz", hash = "sha256:1b61cf6917b3eec898c92799b2dcd489c8468613d41b15352f0f322ad2dac215", size = 1664811, upload-time = "2026-11-19T21:12:43.186Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/0a/9ca576a4cec261a5db3f4eba96fc192f75fc8cd5ab90e9fcc7170acf21cd/abx_plugins-1.13.776-py3-none-any.whl", hash = "sha256:56cae29d7df215287777a4292e19d73fac371e9f5152e01834bfcd0862c6dc32", size = 1977464, upload-time = "2026-11-19T05:07:33.331Z" },
+    { url = "https://files.pythonhosted.org/packages/06/29/fe7ac16ac6d866ec4c0676585fd08d9ddc8714d3e1d62a8c7020a235dbb9/abx_plugins-1.13.788-py3-none-any.whl", hash = "sha256:13d0f6f3b23d3bd03a6d9c6b329f12a6288c771506a3a9d79b9db00f9638fe0f", size = 1981203, upload-time = "2026-11-19T21:12:41.16Z" },
 ]
 
 [package.optional-dependencies]
@@ -257,8 +258,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.13.369" },
-    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.776" },
+    { name = "abx-dl", specifier = "==1.13.370" },
+    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.788" },
     { name = "abxbus", specifier = "==2.5.91" },
     { name = "abxpkg", specifier = "==1.13.101" },
     { name = "archivebox", extras = ["allauth"], marker = "extra == 'saml'" },
@@ -3451,6 +3452,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/be/77/5138921cc21adf763e941671b4cc6bbf00813663c983aa3fb8dac273f081/w3lib-2.5.0.tar.gz", hash = "sha256:a7ddf714508ddc1b8563bd19ace2feb28080bbaca39326cbc964359f6754f615", size = 385035, upload-time = "2026-09-30T10:10:54.571Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/bb/e977329315ba4e14f6f6ca0fee7de816a80d161c115a181405bbab92aecf/w3lib-2.5.0-py3-none-any.whl", hash = "sha256:136fd5edfe64b53b8579838e2a7e803495bbbe6b69ddfaeed3c29a794b44f6ba", size = 37047, upload-time = "2026-09-30T10:10:53.179Z" },
+]
+
+[[package]]
+name = "warcio"
+version = "1.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/ba/15db78cf7c722376f1e8007a4f3d7b13ca0328576e0b94b2c80f05ff7cff/warcio-1.8.2.tar.gz", hash = "sha256:03e2b024c9d08523dbed7363e97abe8d56918626c00a1b94c2864b919c1927c8", size = 66566, upload-time = "2026-10-28T19:07:07.442Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/14/0dcbcc0080bc83304fc0c923965afda562fc6bcbd152d65f31b1872826e8/warcio-1.8.2-py2.py3-none-any.whl", hash = "sha256:4fc9c12ed7e846dcb51103074d0aa964ea52a739fb95dd9f6f8a7db8388b0f01", size = 41940, upload-time = "2026-10-28T19:07:06.238Z" },
 ]
 
 [[package]]
