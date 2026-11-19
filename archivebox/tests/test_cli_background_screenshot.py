@@ -6,10 +6,14 @@ import subprocess
 
 import pytest
 
+from archivebox.tests.conftest import resolve_abxpkg_chrome_env
 
-@pytest.mark.timeout(180)
-def test_cli_crawl_captures_background_screenshots(tmp_path):
-    env = {**os.environ, "SCREENSHOT_TIMEOUT": "5"}
+
+# Provision the real browser before measuring the multi-page capture lifecycle.
+@pytest.mark.timeout(180, func_only=True)
+def test_cli_crawl_captures_background_screenshots(tmp_path, browser_runtime):
+    env = {**os.environ, "ABXPKG_LIB_DIR": str(browser_runtime["lib_dir"]), "SCREENSHOT_TIMEOUT": "5"}
+    env.update(resolve_abxpkg_chrome_env(browser_runtime["lib_dir"], env))
     initialized = subprocess.run(
         ["archivebox", "init", "--quick"],
         cwd=tmp_path,
