@@ -1,8 +1,8 @@
 {% load i18n %}
 
 <article class="abx-admin-card abx-admin-card--{{ model.object_name|default:model.name|slugify }} abx-admin-card--{{ tone|default:'default' }}{% if model.object_name == 'Crawl' %} abx-admin-card--has-action{% endif %}">
-    {% if model.admin_url %}
-    <a class="abx-admin-card__main abx-admin-card__main--link" href="{{ model.admin_url }}">
+    {% if card_url or model.admin_url %}
+    <a class="abx-admin-card__main abx-admin-card__main--link" href="{{ card_url|default:model.admin_url }}">
     {% else %}
     <div class="abx-admin-card__main">
     {% endif %}
@@ -60,6 +60,8 @@
                         {% translate "Admin Users" %}
                     {% elif model.name == "Configuration" %}
                         {% translate "Admin Configuration" %}
+                    {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                        {% translate "Rules Engine" %}
                     {% else %}
                         {{ model.name }}
                     {% endif %}
@@ -94,7 +96,7 @@
                 {% elif model.object_name == "APIToken" %}
                     API credentials for automation.
                 {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
-                    Outbound webhook integrations.
+                    Trigger actions when archive events happen.
                 {% elif model.name == "Configuration" %}
                     Live settings and plugin configuration.
                 {% elif model.name == "Dependencies" %}
@@ -110,7 +112,7 @@
                 {% endif %}
             </span>
         </span>
-    {% if model.admin_url %}
+    {% if card_url or model.admin_url %}
     </a>
     {% else %}
     </div>

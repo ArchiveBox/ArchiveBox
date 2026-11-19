@@ -965,7 +965,6 @@ def test_run_activity_links_recorded_sessions_and_protects_logs(admin_client, im
 
 
 def test_importer_navigation_table_and_paginated_history(admin_client, import_site):
-    import re
     from archivebox.importers.models import ImporterSource
 
     _, url = import_site
@@ -987,10 +986,30 @@ def test_importer_navigation_table_and_paginated_history(admin_client, import_si
     assert response.json()["html"].split("<tbody>")[1].split("</tbody>")[0].count("<tr>") == 2
     html = admin_client.get("/admin/importers/", HTTP_HOST=ADMIN_TEST_HOST).content.decode()
     assert f'href="{source.get_absolute_url()}"' in html.split("<tbody>")[1].split("</tbody>")[0]
-    home = admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST).content.decode()
-    row = re.search(r'abx-admin-flow__row--child">(.*?)abx-admin-flow__row--grandchild', home, re.S).group(1)
-    assert 'href="/admin/core/snapshot/"' in row
-    assert 'href="/admin/importers/"' in row
+
+
+def test_admin_dashboard_groups_capture_and_management_cards(admin_client):
+    from lxml.html import fromstring
+
+    home = admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert home.status_code == 200
+    dashboard = fromstring(home.content)
+    capture_rows = dashboard.find_class("abx-admin-flow__row")
+
+    def links(row):
+        return [anchor.get("href") for anchor in row.find_class("abx-admin-card__main--link")]
+
+    assert links(capture_rows[0]) == ["/admin/crawls/crawl/", "/admin/crawls/crawlschedule/", "/admin/importers/"]
+    assert links(capture_rows[1]) == ["/admin/core/snapshot/", "/admin/domains/"]
+    assert links(capture_rows[2]) == ["/admin/core/archiveresult/"]
+    titles = {
+        " ".join(anchor.find_class("abx-admin-card__title")[0].text_content().split()): anchor.get("href")
+        for anchor in dashboard.find_class("abx-admin-card__main--link")
+    }
+    assert titles["Rules Engine"] == "/admin/rules/"
+    assert "Webhooks" not in titles
+    for title in ("Importers", "Domains", "Rules Engine"):
+        assert admin_client.get(titles[title], HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
 
 
 @pytest.mark.parametrize("status", ["queued", "running", "succeeded", "failed", "needs_login", "cancelled"])
