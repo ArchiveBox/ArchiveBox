@@ -191,11 +191,13 @@ def test_run_rejects_file_url_injected_directly_into_crawl_urls_with_db_update(i
     assert secret_url not in snapshot_urls
 
 
-@pytest.mark.timeout(180)
-def test_add_tagged_single_url_seals_without_duplicate_snapshot_tags(initialized_archive):
+# Provision the real managed browser in setup, outside the capture behavior budget.
+@pytest.mark.timeout(180, func_only=True)
+def test_add_tagged_single_url_seals_without_duplicate_snapshot_tags(initialized_archive, browser_runtime):
     env = os.environ.copy()
     env.update(
         {
+            "ABXPKG_LIB_DIR": str(browser_runtime["lib_dir"]),
             "USE_COLOR": "False",
             "SHOW_PROGRESS": "False",
             "PLUGINS": "parse_txt_urls,title",
@@ -203,6 +205,7 @@ def test_add_tagged_single_url_seals_without_duplicate_snapshot_tags(initialized
             "CRAWL_MAX_CONCURRENT_SNAPSHOTS": "1",
         },
     )
+    env.update(resolve_abxpkg_chrome_env(browser_runtime["lib_dir"], env))
     result = run_archivebox_cmd(
         [
             "add",

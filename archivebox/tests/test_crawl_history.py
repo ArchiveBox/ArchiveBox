@@ -20,7 +20,7 @@ from archivebox.services.runner import CrawlRunner, run_install
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("timeout_page", [False, True])
-def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserver, hermetic_lib_dir, timeout_page):
+def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserver, cached_abxpkg_lib_dir, timeout_page):
     urls = []
     response_started = threading.Event()
     release_response = threading.Event()
@@ -48,11 +48,13 @@ def test_completed_snapshots_expire_after_database_projection(tmp_path, httpserv
             content_type="text/html",
         )
         urls.append(httpserver.url_for(path))
+    # Keep the real capture dependencies, but do not force a separate cold
+    # browser installation for each event-history variant.
     run_install(plugin_names=["title"])
     crawl = Crawl.objects.create(
         urls="\n".join(urls),
         config={
-            "ABXPKG_LIB_DIR": str(hermetic_lib_dir),
+            "ABXPKG_LIB_DIR": str(cached_abxpkg_lib_dir),
             "PLUGINS": "title",
             "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 1,
             "CHROME_PAGELOAD_TIMEOUT": 5,
