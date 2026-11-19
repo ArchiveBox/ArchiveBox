@@ -5,6 +5,7 @@ captures. Existing /archive/<url> and snapshot?format=link routes provide the
 TimeGate (URI-G) and TimeMap (URI-T), without capture hooks or new archive steps.
 """
 
+from datetime import UTC, datetime
 from urllib.parse import quote
 
 from django.http import Http404, HttpResponse
@@ -112,11 +113,32 @@ def timegate_response(request, url):
     # RFC 7089 4.5.3 requires strict IMF-fixdate and a 400 for invalid dates.
     if requested is not None and (timestamp is None or http_date(timestamp) != requested):
         return HttpResponse("Invalid Accept-Datetime", status=400)
-    captures = list(_captures(request, url))
-    if not captures:
+    # Negotiation needs identity and the persisted replay path, not Crawl.urls,
+    # config, notes, or user credentials repeated for every candidate.
+    captures = _captures(request, url).only(
+        "id",
+        "url",
+        "downloaded_at",
+        "fs_version",
+        "timestamp",
+        "bookmarked_at",
+        "created_at",
+        "crawl_id",
+        "crawl__created_by_id",
+        "crawl__created_by__username",
+    )
+    if timestamp is None:
+        selected = captures.order_by("-downloaded_at", "-id").first()
+    else:
+        target = datetime.fromtimestamp(timestamp, tz=UTC)
+        # Only the closest capture on each side can win. Keep the first id at
+        # each timestamp, matching the original ascending list's stable tie rule.
+        before = captures.filter(downloaded_at__lte=target).order_by("-downloaded_at", "id").first()
+        after = captures.filter(downloaded_at__gte=target).order_by("downloaded_at", "id").first()
+        candidates = [capture for capture in (before, after) if capture is not None]
+        selected = min(candidates, key=lambda capture: abs(capture.downloaded_at.timestamp() - timestamp)) if candidates else None
+    if selected is None:
         raise Http404
-    # Nearest includes out-of-range endpoints; sorted captures break ties earlier.
-    selected = captures[-1] if timestamp is None else min(captures, key=lambda capture: abs(capture.downloaded_at.timestamp() - timestamp))
     # Pattern 2.1: the negotiation redirect itself is not a Memento (RFC 7089 4.2.1).
     response = redirect(build_snapshot_detail_url(selected.archive_path_from_db, request=request))
     response["Link"] = ", ".join(_links(request, selected))

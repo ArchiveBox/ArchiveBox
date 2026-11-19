@@ -432,3 +432,60 @@ def test_raw_output_enclosures_only_resolve_archive_paths(client, captures, arch
     enclosure_query = manifest_queries[-1]
     assert '"output_str"' not in enclosure_query.split(" FROM ")[0]
     assert "\"status\" = 'succeeded'" in enclosure_query
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("viewer", ["anonymous", "member", "staff", "inactive_staff"])
+def test_timegate_bounded_projection_preserves_ties_and_permissions(admin_user, django_user_model, viewer):
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+    from archivebox.core.routes_util import build_snapshot_detail_url
+    from archivebox.memento.views import _links, timegate_response
+    from django.http import Http404
+
+    url = "https://memento.example.invalid/ties"
+    dt = datetime(2026, 1, 1, tzinfo=UTC)
+    crawls = [Crawl(created_by=admin_user, urls=url, config={"HEAVY": "x" * 10000}) for _ in range(8)]
+    Crawl.objects.bulk_create(crawls)
+    rows = [
+        Snapshot(
+            timestamp=str(1710000000 + i),
+            url=url,
+            crawl=crawls[i],
+            bookmarked_at=dt,
+            downloaded_at=dt + timedelta(seconds=(i // 2) * 10),
+            fs_version="0.9.5" if i % 2 else "0.7.0",
+            output_size=1,
+            config={"PERMISSIONS": "public" if i < 4 else ("unlisted" if i < 6 else "private")},
+        )
+        for i in range(8)
+    ]
+    Snapshot.objects.bulk_create(rows)
+    request = RequestFactory().get("/archive/" + url)
+    request.user = (
+        AnonymousUser()
+        if viewer == "anonymous"
+        else django_user_model.objects.create_user(username=viewer, is_staff=viewer.endswith("staff"), is_active=viewer != "inactive_staff")
+    )
+    visible = sorted(rows if viewer == "staff" else rows[:4], key=lambda x: (x.downloaded_at, x.id))
+    for seconds in [None, -10, 0, 5, 10, 15, 25, 35]:
+        user = request.user
+        headers = {} if seconds is None else {"HTTP_ACCEPT_DATETIME": http_date((dt + timedelta(seconds=seconds)).timestamp())}
+        request = RequestFactory().get("/archive/" + url, **headers)
+        request.user = user
+        expected = visible[-1] if seconds is None else min(visible, key=lambda x: abs((x.downloaded_at - dt).total_seconds() - seconds))
+        with CaptureQueriesContext(connection) as queries:
+            response = timegate_response(request, url)
+        assert response.status_code == 302
+        assert response["Location"] == build_snapshot_detail_url(expected.archive_path_from_db, request=request)
+        assert response["Link"] == ", ".join(_links(request, expected))
+        assert response["Vary"] == "Accept-Datetime"
+        assert response["Cache-Control"] == "private, no-store"
+        assert "Memento-Datetime" not in response
+        capture_queries = [q["sql"] for q in queries if 'FROM "core_snapshot"' in q["sql"]]
+        assert len(capture_queries) == (1 if seconds is None else 2)
+        assert all(
+            "LIMIT 1" in sql and '"crawls_crawl"."urls"' not in sql and '"auth_user"."password"' not in sql for sql in capture_queries
+        )
+    with pytest.raises(Http404):
+        timegate_response(request, url + "/missing")
