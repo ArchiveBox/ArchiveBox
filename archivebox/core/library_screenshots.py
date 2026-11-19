@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import requests
@@ -155,6 +156,37 @@ def validate_ai_result(snapshot, plugin):
     return False
 
 
+@contextmanager
+def homepage_capture_budget(homepage_url):
+    """Allow the real homepage's 60-second server cooldown, only in this fixture."""
+    from archivebox.api.models import OutboundWebhook
+    from archivebox.core.models import Folder
+
+    folder = Folder.objects.create(
+        name="Gallery homepage cooldown",
+        rules={"field": "url", "lookup": "exact", "value": homepage_url},
+    )
+    rule = None
+    try:
+        candidate = OutboundWebhook(
+            name="Gallery homepage cooldown",
+            ref="archivebox.core.models.Snapshot",
+            signal="FOLDER_ENTERED",
+            folder=folder,
+            enabled=True,
+            actions=[{"type": "config_overrides", "config_overrides": {"CHROME_TIMEOUT": 90}}],
+        )
+        candidate.full_clean()
+        candidate.save()
+        rule = candidate
+        yield
+    finally:
+        # Do not leave a fixture-only rule/folder in the user-facing Rules shots.
+        if rule is not None:
+            rule.delete()
+        folder.delete()
+
+
 def prepare(evidence_dir, *, model=""):
     from archivebox.config import CONSTANTS
     from archivebox.core.models import Snapshot
@@ -188,21 +220,22 @@ def prepare(evidence_dir, *, model=""):
         persona.save(update_fields=["config"])
     started = timezone.now()
     try:
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "archivebox",
-                "add",
-                "--no-only-new",
-                "--tag=screenshot-library",
-                "--max-urls=7",
-                *urls,
-            ],
-            cwd=CONSTANTS.DATA_DIR,
-            env=capture_env,
-            check=True,
-        )
+        with homepage_capture_budget(urls[0]):
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "archivebox",
+                    "add",
+                    "--no-only-new",
+                    "--tag=screenshot-library",
+                    "--max-urls=7",
+                    *urls,
+                ],
+                cwd=CONSTANTS.DATA_DIR,
+                env=capture_env,
+                check=True,
+            )
     finally:
         if persona is not None:
             persona.config = previous_persona_config
