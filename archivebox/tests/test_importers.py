@@ -39,6 +39,7 @@ def test_import_catalog_is_rendered_from_real_plugins(admin_client):
     assert b"Importers" in response.content
     assert b"RSS" in response.content
     assert b"Spreadsheet" in response.content
+    assert response.content.rindex(b'<article class="provider-card">') < response.content.index(b"<h3>Readwise</h3>")
 
 
 @pytest.mark.parametrize("scenario", ["failure", "selected-source", "drain"])

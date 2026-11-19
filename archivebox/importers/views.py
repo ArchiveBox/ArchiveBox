@@ -67,7 +67,8 @@ def index(request):
     for source in sources:
         source.definition = definitions.get((source.plugin, source.feed))
         source.latest_run = next(iter(source.latest_runs), None)
-    return page(request, "importers/index.html", {"sources": sources, "providers": providers.values(), "title": "Importers"})
+    ordered_providers = sorted(providers.values(), key=lambda group: group["definition"].plugin == "importer_readwise")
+    return page(request, "importers/index.html", {"sources": sources, "providers": ordered_providers, "title": "Importers"})
 
 
 @importer_admin
