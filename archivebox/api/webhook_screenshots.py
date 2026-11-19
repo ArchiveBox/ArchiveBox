@@ -127,13 +127,15 @@ def verify_actions(base_url, username, password, webhook_ids):
 
 
 def gallery_entries(base_url, webhook_ids):
-    editor = f"{base_url}/admin/rules/?webhook={webhook_ids[0]}"
+    editor = f"/admin/rules/?webhook={webhook_ids[0]}"
+    event_input = f"{editor}&preview=1"
+    scripts = f"/admin/rules/?webhook={webhook_ids[2]}"
     return [
         f"Rules|{base_url}/admin/rules/|/admin/rules/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
-        f"Rule actions|{editor}|/admin/rules/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:Save rule",
-        f"Rule event input|{editor}&preview=1|/admin/rules/?webhook=…&preview=1|archivebox/templates/api/webhooks.html|wait-text:Planned actions",
+        f"Rule actions|{base_url}{editor}|{editor}|archivebox/templates/api/webhooks.html|wait-text:Save rule",
+        f"Rule event input|{base_url}{event_input}|{event_input}|archivebox/templates/api/webhooks.html|wait-text:Planned actions",
         f"Rule activity|{base_url}/admin/rules/?view=activity|/admin/rules/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
         f"Rule events|{base_url}/admin/rules/?view=events|/admin/rules/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
-        f"Rule scripts|{base_url}/admin/rules/?webhook={webhook_ids[2]}|/admin/rules/?webhook=…|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
+        f"Rule scripts|{base_url}{scripts}|{scripts}|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
         f"Webhook process logs|{base_url}/admin/machine/process/?worker_type=webhook&q={webhook_ids[2]}|/admin/machine/process/|archivebox/machine/admin.py|wait-text:webhook",
     ]
