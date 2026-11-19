@@ -223,7 +223,10 @@ def test_delete_after_real_add_page_and_rest_create_paths(client, recursive_test
             "schedule": "",
             "persona": "Default",
             "permissions": "public",
-            "index_only": "on",
+            # Retention uses a real bounded capture, not every default plugin.
+            "capture_plugins": "explicit",
+            "main_plugins": ["wget"],
+            "metadata_plugins": ["hashes"],
             "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
@@ -234,6 +237,7 @@ def test_delete_after_real_add_page_and_rest_create_paths(client, recursive_test
 
     ui_crawl = Crawl.objects.get(urls=ui_url)
     assert ui_crawl.config["DELETE_AFTER"] == "2h"
+    assert set(ui_crawl.config["PLUGINS"].split(",")) == {"wget", "hashes"}
     assert ui_crawl.delete_at is not None
     from archivebox.services.runner import run_due_crawl
 
@@ -271,8 +275,9 @@ def test_delete_after_real_add_page_and_rest_create_paths(client, recursive_test
     assert rest_snapshot.delete_at is not None
     from archivebox.core.models import ArchiveResult
 
-    for plugin in ("wget", "hashes"):
-        result = rest_snapshot.archiveresult_set.get(plugin=plugin)
-        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert result.delete_at is not None
-        assert result.output_size > 0
+    for snapshot in (ui_snapshot, rest_snapshot):
+        for plugin in ("wget", "hashes"):
+            result = snapshot.archiveresult_set.get(plugin=plugin)
+            assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+            assert result.delete_at is not None
+            assert result.output_size > 0
