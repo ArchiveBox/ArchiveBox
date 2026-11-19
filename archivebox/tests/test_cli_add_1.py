@@ -217,7 +217,7 @@ def assert_no_file_or_shell_payload_snapshots(cwd: Path, *, canary: Path) -> Non
     "choice,plugins",
     [(choice, "chrome") for choice in ["skip", "retry", "abort", "ctrl-c", "noninteractive"]] + [("noninteractive", "archivewebpage")],
 )
-def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
+def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_browser_dependency_cache):
     env = cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True")
     # The timed observation below is for a running navigate hook. Resolve the
     # selected plugin's real binaries before starting it, so a cold install is

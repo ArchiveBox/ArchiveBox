@@ -2096,7 +2096,19 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
 
 
 @pytest.fixture
-def browser_runtime(cached_abxpkg_lib_dir):
+def ci_browser_dependency_cache():
+    """Stage the hosted font archive without replacing native CLI installation."""
+    # Stage only the signed archive on hosted Noble before native installation.
+    # Transitive browser fixtures need not be listed individually in the matrix.
+    if os.environ.get("ABX_CI_STAGE_NOBLE_FONT") == "true":
+        subprocess.run(
+            ["bash", str(REPO_ROOT / ".github/ci_stage_noble_font.sh"), "--lazy"],
+            check=True,
+        )
+
+
+@pytest.fixture
+def browser_runtime(cached_abxpkg_lib_dir, ci_browser_dependency_cache):
     from abx_plugins import get_plugins_dir
     from abx_plugins.plugins.base.utils import get_config
 
@@ -2112,14 +2124,6 @@ def browser_runtime(cached_abxpkg_lib_dir):
         CHROME_ISOLATION="snapshot",
     )
     env.pop("CHROME_BINARY", None)
-    # Stage only the signed archive on hosted Noble before native installation.
-    # Transitive browser fixtures need not be listed individually in the matrix.
-    if env.get("ABX_CI_STAGE_NOBLE_FONT") == "true":
-        subprocess.run(
-            ["bash", str(REPO_ROOT / ".github/ci_stage_noble_font.sh"), "--lazy"],
-            check=True,
-            env=env,
-        )
     resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
     chrome_config = get_config(
         Path(get_plugins_dir()) / "chrome" / "config.json",
