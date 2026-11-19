@@ -13,6 +13,9 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("connection", ["cold", "persona", "cdp"])
+# Provision managed browser dependencies in setup, not inside the readiness
+# budgets. The cold variant still starts a new browser owned by the importer.
+@pytest.mark.usefixtures("browser_runtime")
 def test_browser_importer_preserves_connection_ownership_on_cancel(initialized_archive, installed_opencode, connection):
     from django.contrib.auth import get_user_model
 
