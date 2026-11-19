@@ -11,6 +11,26 @@ def test_sonic_dir_is_allowed_inside_data_dir():
     assert "sonic" in CONSTANTS.ALLOWED_IN_DATA_DIR
 
 
+def test_distributed_sonic_config_uses_canonical_password():
+    import tomllib
+
+    from abx_plugins.plugins.search_backend_sonic.daemon import load_sonic_config
+
+    config_path = Path(__file__).resolve().parents[2] / "etc" / "sonic.cfg"
+    config = tomllib.loads(config_path.read_text())
+    assert config["channel"]["auth_password"] == "${env.SEARCH_BACKEND_SONIC_PASSWORD}"
+    for key in ("SEARCH_BACKEND_SONIC_PASSWORD", "SEARCH_BACKEND_PASSWORD", "SONIC_PASSWORD"):
+        resolved = load_sonic_config({key: "test-sonic-password"})
+        assert resolved.SEARCH_BACKEND_SONIC_PASSWORD == "test-sonic-password"
+    resolved = load_sonic_config(
+        {
+            "SEARCH_BACKEND_SONIC_PASSWORD": "canonical-password",
+            "SEARCH_BACKEND_PASSWORD": "legacy-password",
+        },
+    )
+    assert resolved.SEARCH_BACKEND_SONIC_PASSWORD == "canonical-password"
+
+
 def test_runtime_config_model_is_separate_from_source_loading():
     from pydantic_settings import BaseSettings
     from archivebox.config.common import ArchiveBoxConfig, ArchiveBoxSourceSettings, get_all_configs
