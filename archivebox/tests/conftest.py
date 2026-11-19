@@ -534,6 +534,22 @@ def cached_abxpkg_lib_dir():
             os.environ["ABXPKG_LIB_DIR"] = original_lib_dir
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_fixture_setup(fixturedef, request):
+    if fixturedef.argname != "installed_opencode":
+        return (yield)
+
+    import fcntl
+
+    # The plugin fixture installs and verifies the actual OpenCode executable.
+    # pnpm links its wrapper before postinstall finishes, so share this critical
+    # section across workers using the same managed library.
+    lib_dir = request.getfixturevalue("cached_abxpkg_lib_dir")
+    with (lib_dir / ".opencode_install.lock").open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return (yield)
+
+
 @pytest.fixture
 def initialized_archive(tmp_path):
     """
