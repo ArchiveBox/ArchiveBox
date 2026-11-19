@@ -40,3 +40,14 @@ def test_rule_gallery_validates_exact_editor_url(tmp_path, label):
         missing_preview = validate(capture_url.removesuffix("&preview=1"))
         assert missing_preview.returncode == 1
         assert "expected final query" in missing_preview.stderr
+
+
+def test_rule_preview_gallery_requires_rendered_table_heading():
+    # Native Brave reproduction: Django admin renders th text uppercase. The
+    # screenshot runner checks visible innerText, not the mixed-case DOM source.
+    entry = next(
+        entry
+        for entry in gallery_entries("http://admin.archivebox.localhost:5797", ["first", "second", "third"])
+        if entry.startswith("Rule event input|")
+    )
+    assert entry.split("|")[4] == "wait-text:PLANNED ACTIONS"

@@ -133,7 +133,7 @@ def gallery_entries(base_url, webhook_ids):
     return [
         f"Rules|{base_url}/admin/rules/|/admin/rules/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
         f"Rule actions|{base_url}{editor}|{editor}|archivebox/templates/api/webhooks.html|wait-text:Save rule",
-        f"Rule event input|{base_url}{event_input}|{event_input}|archivebox/templates/api/webhooks.html|wait-text:Planned actions",
+        f"Rule event input|{base_url}{event_input}|{event_input}|archivebox/templates/api/webhooks.html|wait-text:PLANNED ACTIONS",
         f"Rule activity|{base_url}/admin/rules/?view=activity|/admin/rules/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
         f"Rule events|{base_url}/admin/rules/?view=events|/admin/rules/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
         f"Rule scripts|{base_url}{scripts}|{scripts}|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
