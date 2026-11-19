@@ -272,6 +272,28 @@ let probeStage = "launch";
 const probeConsoleMessages = [];
 const probeRequestFailures = [];
 const probeDownloads = [];
+// Failure-only, bounded metadata: never retain response headers, URLs or bodies.
+const probeReplayResponses = [];
+let probeReplayResponsesDropped = 0;
+function replayResponseMetadata(url, status, location, fromServiceWorker) {
+  const source = new URL(url);
+  if (!source.pathname.startsWith("/replay/w/")) return null;
+  let redirect = "none";
+  if (location) {
+    try {
+      const target = new URL(location, source);
+      if (target.href === source.href) redirect = "same-url";
+      else if (target.origin !== source.origin) redirect = "different-origin";
+      else if (target.pathname === source.pathname) redirect = "same-path";
+      else if (target.pathname.startsWith("/replay/w/")) redirect = "other-replay-path";
+      else redirect = "other-local-path";
+    } catch (_error) {
+      redirect = "invalid-location";
+    }
+  }
+  return {status, redirect, fromServiceWorker};
+}
+
 
 function isDescendantOf(frame, ancestor) {
   let parent = frame.parentFrame();
@@ -345,6 +367,16 @@ async function main() {
 
   const page = await browser.newPage();
   probePage = page;
+  page.on("response", (response) => {
+    if (response.request().resourceType() !== "document") return;
+    const metadata = replayResponseMetadata(
+      response.url(), response.status(), response.headers().location,
+      response.fromServiceWorker(),
+    );
+    if (!metadata) return;
+    if (probeReplayResponses.length < 64) probeReplayResponses.push(metadata);
+    else probeReplayResponsesDropped += 1;
+  });
   page.on("console", (message) => {
     probeConsoleMessages.push({type: message.type(), text: message.text()});
   });
@@ -412,6 +444,8 @@ main().catch(async (error) => {
   const page = probePage;
   const diagnostics = {
     stage: probeStage,
+    replayResponses: probeReplayResponses,
+    replayResponsesDropped: probeReplayResponsesDropped,
     error: String(error),
     stack: error.stack,
     finalUrl: page ? page.url() : null,
