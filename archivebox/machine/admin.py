@@ -529,7 +529,9 @@ class ProcessAdmin(BaseModelAdmin):
             and request.resolver_match is not None
             and request.resolver_match.url_name == "machine_process_changelist"
         ):
-            return queryset.defer("stdout", "stderr")
+            # List rows only use the linked Crawl ID, not its potentially large
+            # seed URL list or config. Keep the join so links never refetch it.
+            return queryset.defer("stdout", "stderr", "archiveresult__snapshot__crawl__urls", "archiveresult__snapshot__crawl__config")
         return queryset
 
     def _terminate_processes(self, request, processes):

@@ -275,3 +275,65 @@ def test_process_list_defers_logs_but_search_detail_and_actions_preserve_them(ad
     assert preview.status_code == 200
     assert not {"stdout", "stderr"} & preview.context["queryset"][0].get_deferred_fields()
     assert Process.objects.filter(pk=process.pk).exists()
+
+
+def test_process_list_defers_crawl_payload_without_refetching_links(admin_client, admin_user, rf, snapshot, tmp_path):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from django.urls import resolve
+
+    from archivebox.core.models import ArchiveResult
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine, Process
+
+    machine = Machine.objects.create(
+        guid=f"test-guid-{uuid.uuid4()}",
+        hostname="test-host",
+        hw_manufacturer="Test",
+        hw_product="Test Product",
+        hw_uuid=f"test-hw-{uuid.uuid4()}",
+        os_arch="x86_64",
+        os_family="linux",
+        os_platform="linux",
+        os_release="test",
+        os_kernel="test-kernel",
+    )
+    crawl = snapshot.crawl
+    urls = "https://example.com/large-seed\n" * 4096
+    config = {**crawl.config, "FIXTURE_CRAWL_CONFIG": "x" * 65536}
+    Crawl.objects.filter(pk=crawl.pk).update(urls=urls, config=config)
+    process = Process.objects.create(machine=machine, pwd=str(tmp_path), cmd=["test-process"], stdout="test-process-log")
+    ArchiveResult.objects.create(snapshot=snapshot, process=process, plugin="hashes", hook_name="test-hash")
+    list_url = reverse("admin:machine_process_changelist")
+    detail_url = reverse("admin:machine_process_change", args=[process.pk])
+
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get(list_url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert reverse("admin:crawls_crawl_change", args=[crawl.pk]).rstrip("/").encode() in response.content
+        row = next(obj for obj in response.context["cl"].result_list if obj.pk == process.pk)
+        assert {"urls", "config"} <= row.archiveresult.snapshot.crawl.get_deferred_fields()
+    for query in queries.captured_queries:
+        projection = query["sql"].split(" FROM ", 1)[0]
+        assert '"crawls_crawl"."urls"' not in projection
+        assert '"crawls_crawl"."config"' not in projection
+
+    detail = admin_client.get(detail_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert detail.status_code == 200
+    assert b"test-process-log" in detail.content
+    detail_crawl = detail.context["original"].archiveresult.snapshot.crawl
+    assert not detail_crawl.get_deferred_fields()
+    assert detail_crawl.urls == urls
+    assert detail_crawl.config == config
+
+    search = admin_client.get(list_url, {"q": "test-process-log"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert search.status_code == 200
+    assert [row.pk for row in search.context["cl"].result_list] == [process.pk]
+
+    request = rf.post(list_url)
+    request.resolver_match = resolve(list_url)
+    request.user = admin_user
+    action_crawl = response.context["cl"].model_admin.get_queryset(request).get(pk=process.pk).archiveresult.snapshot.crawl
+    assert not action_crawl.get_deferred_fields()
+    assert action_crawl.urls == urls
+    assert action_crawl.config == config
