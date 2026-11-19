@@ -8,12 +8,13 @@ TimeGate (URI-G) and TimeMap (URI-T), without capture hooks or new archive steps
 from datetime import UTC, datetime
 from urllib.parse import quote
 
+from django.db.models import Prefetch
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.utils.cache import patch_vary_headers
 from django.utils.http import http_date, parse_http_date_safe
 
-from archivebox.core.models import Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.permissions import discoverable_snapshots_queryset
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, build_web_url
 from archivebox.misc.util import equivalent_urls, iri_to_uri
@@ -91,7 +92,26 @@ def add_memento_headers(request, snapshot, response, path="", primary=True):
 def timemap_response(request, snapshot):
     # Link format is required by https://www.rfc-editor.org/rfc/rfc7089.html#section-5
     links = _links(request, snapshot, relation="self")
-    captures = _captures(request, snapshot.url).prefetch_related("archiveresult_set")
+    # TimeMaps need replay identities and enclosure manifests, never capture logs
+    # or whole Crawl input lists duplicated across every joined capture.
+    captures = (
+        _captures(request, snapshot.url)
+        .only(
+            "id",
+            "url",
+            "downloaded_at",
+            "fs_version",
+            "timestamp",
+            "bookmarked_at",
+            "created_at",
+            "crawl_id",
+            "crawl__created_by_id",
+            "crawl__created_by__username",
+        )
+        .prefetch_related(
+            Prefetch("archiveresult_set", queryset=ArchiveResult.objects.only("snapshot_id", "plugin", "status", "output_files")),
+        )
+    )
     for capture in captures:
         url = build_snapshot_detail_url(capture.archive_path_from_db, request=request)
         links.append(f'<{url}>; rel="memento"; datetime="{http_date(capture.downloaded_at.timestamp())}"')

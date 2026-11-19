@@ -489,3 +489,48 @@ def test_timegate_bounded_projection_preserves_ties_and_permissions(admin_user, 
         )
     with pytest.raises(Http404):
         timegate_response(request, url + "/missing")
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("viewer", ["anonymous", "staff"])
+@pytest.mark.parametrize("manifest_kind", ["mapping", "paths", "records", "json", "single", "empty"])
+def test_timemap_projects_paths_and_preserves_legacy_manifests(captures, archive_files, admin_user, viewer, manifest_kind):
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+    from archivebox.memento.views import _captures, _enclosures, _links, timemap_response
+
+    manifests = {
+        "mapping": {"capture.warc": {"size": 12}, "capture.wacz": {"root_relative": True}, "../escape.warc": {}},
+        "paths": ["capture.warc", "capture.wacz"],
+        "records": [{"path": "capture.warc", "size": 12}, {"path": "capture.wacz", "root_relative": True}],
+        "json": json.dumps({"capture.warc": {"size": 12}}),
+        "single": "capture.warc",
+        "empty": {},
+    }
+    ArchiveResult.objects.filter(plugin="webrecorder").update(
+        output_files=manifests[manifest_kind],
+        output_str="capture log\n" * 1000,
+        output_json={"detail": "x" * 10000},
+    )
+    Snapshot.objects.filter(pk=captures[0].pk).update(fs_version="0.7.0")
+    snapshot = Snapshot.objects.select_related("crawl__created_by").get(pk=captures[0].pk)
+    request = RequestFactory().get("/ignored")
+    request.user = admin_user if viewer == "staff" else AnonymousUser()
+    # Build the same complete link document from full rows; the projected view
+    # must preserve legacy manifests, permission membership and enclosure order.
+    links = _links(request, snapshot, relation="self")
+    for capture in _captures(request, snapshot.url).prefetch_related("archiveresult_set"):
+        url = build_snapshot_detail_url(capture.archive_path_from_db, request=request)
+        links.append(f'<{url}>; rel="memento"; datetime="{http_date(capture.downloaded_at.timestamp())}"')
+        links.extend(_enclosures(request, capture))
+    with CaptureQueriesContext(connection) as queries:
+        response = timemap_response(request, snapshot)
+    assert response.status_code == 200
+    assert response.content.decode() == ",\n".join(links) + "\n"
+    assert response["Link"] == ", ".join(links[:3])
+    assert response["Cache-Control"] == "private, no-store"
+    assert response["Content-Type"].startswith("application/link-format")
+    assert len(queries) == 2
+    selected = " ".join(query["sql"].split(" FROM ")[0] for query in queries)
+    for unwanted in ['"output_str"', '"output_json"', '"password"', '"urls"', '"config"']:
+        assert unwanted not in selected
