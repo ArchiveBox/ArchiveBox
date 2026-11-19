@@ -22,6 +22,8 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
 
     from warcio.archiveiterator import ArchiveIterator
 
+    from archivebox.plugins.discovery import get_plugin_catalog
+
     marker = "The tide gauges recorded a sustained rise across the southern harbor."
     passage = f"{marker} Researchers compared twelve years of observations with the local weather station to separate seasonal effects from the long-term trend."
     html = (
@@ -34,11 +36,16 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
     httpserver_ipv4.expect_request("/favicon.ico").respond_with_data("", status=204)
     url = httpserver_ipv4.url_for("/article")
     lib_dir = browser_runtime["lib_dir"]
-    selection = "archivewebpage,readability"
+    # Inherit enabled flags rather than force-enable an explicit plugin closure.
+    # Keep other producers disabled so only the WACZ can supply the article.
+    disabled_plugins = {
+        plugin.enabled_key: "False" for plugin in get_plugin_catalog().values() if plugin.enabled_key in plugin.config.properties
+    }
+    disabled_plugins.update(CHROME_ENABLED="True", ARCHIVEWEBPAGE_ENABLED="True", READABILITY_ENABLED="True")
     env = cli_env(
-        PLUGINS=selection,
+        **disabled_plugins,
+        PLUGINS="",
         URL_ALLOWLIST=r"127\.0\.0\.1[:/].*",
-        ARCHIVEDOTORG_ENABLED="False",
         ABXPKG_LIB_DIR=str(lib_dir),
         NODE_PATH=str(browser_runtime["node_path"]),
         NODE_MODULES_DIR=str(browser_runtime["node_modules_dir"]),
@@ -46,11 +53,6 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
         CHROME_BINARY=str(browser_runtime["chrome_binary"]),
         CHROME_HEADLESS="True",
         CHROME_ISOLATION="snapshot",
-        ARCHIVEWEBPAGE_ENABLED="True",
-        READABILITY_ENABLED="True",
-        # Explicitly disable DOM so the catalog selects Readability's declared
-        # ArchiveWeb.page fallback instead of pulling DOM in as a dependency.
-        DOM_ENABLED="False",
     )
     result = run_archivebox_cmd(
         ["install", "archivewebpage", "readability"],
@@ -61,7 +63,7 @@ def test_archivewebpage_capture_supplies_readability_without_other_html_producer
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
     result = run_archivebox_cmd(
-        ["add", "--depth=0", "--max-urls=1", f"--plugins={selection}", url],
+        ["add", "--depth=0", "--max-urls=1", url],
         cwd=initialized_archive,
         env=env,
         timeout=120,
