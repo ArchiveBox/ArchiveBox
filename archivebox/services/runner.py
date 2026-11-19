@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from contextlib import nullcontext
-from datetime import timedelta
+from datetime import datetime, timedelta
 from itertools import batched
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -205,6 +205,7 @@ class CrawlRunner:
         config_overrides: dict[str, Any] | None = None,
         schedule_all_crawls: bool = False,
         wait_for_resources: bool = True,
+        claimed_snapshot: tuple[str, str, datetime] | None = None,
     ):
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
@@ -225,6 +226,7 @@ class CrawlRunner:
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.schedule_all_crawls = schedule_all_crawls
         self.wait_for_resources = wait_for_resources
+        self.claimed_snapshot = claimed_snapshot
         self._scheduler_yielded = False
         self.show_progress = show_progress
         self.interactive_interrupts = interactive_interrupts
@@ -471,7 +473,7 @@ class CrawlRunner:
             raise_on_first_signal=False,
         ):
             try:
-                if not await self.wait_for_resource_admission():
+                if not await self.wait_for_resource_admission(claimed_snapshot=self.claimed_snapshot):
                     return
                 # Startup and its first snapshot are one admission. Browser
                 # startup can itself cause reclaim; checking again immediately
@@ -534,7 +536,7 @@ class CrawlRunner:
                 if self._user_aborted:
                     raise KeyboardInterrupt
 
-    async def wait_for_resource_admission(self) -> bool:
+    async def wait_for_resource_admission(self, *, claimed_snapshot: tuple[str, str, datetime] | None = None) -> bool:
         # Foreground callers retain this bus and its observers while waiting.
         # Collection scheduling instead returns deferred work after cleanup so
         # the outer scheduler can reconsider all crawls using its normal order.
@@ -545,6 +547,7 @@ class CrawlRunner:
                 self.crawl,
                 required_memory=self._observed_snapshot_cost,
                 config_overrides=self.config_overrides,
+                claimed_snapshot=claimed_snapshot if not self.wait_for_resources or self.schedule_all_crawls else None,
             )
             if not self._resource_deferred:
                 return True
@@ -1554,6 +1557,7 @@ def run_crawl(
     config_overrides: dict[str, Any] | None = None,
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
+    claimed_snapshot: tuple[str, str, datetime] | None = None,
 ) -> None:
     with crawl_lifecycle_lock(crawl_id):
         _run_crawl_locked(
@@ -1566,6 +1570,7 @@ def run_crawl(
             config_overrides=config_overrides,
             schedule_all_crawls=schedule_all_crawls,
             wait_for_resources=wait_for_resources,
+            claimed_snapshot=claimed_snapshot,
         )
 
 
@@ -1580,6 +1585,7 @@ def _run_crawl_locked(
     config_overrides: dict[str, Any] | None = None,
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
+    claimed_snapshot: tuple[str, str, datetime] | None = None,
 ) -> None:
     from archivebox.crawls.models import Crawl
     from django.db import close_old_connections
@@ -1599,6 +1605,7 @@ def _run_crawl_locked(
                 config_overrides=config_overrides,
                 schedule_all_crawls=schedule_all_crawls,
                 wait_for_resources=wait_for_resources,
+                claimed_snapshot=claimed_snapshot,
             )
             asyncio.run(runner.run())
             if runner._resource_deferred and wait_for_resources and schedule_all_crawls:
@@ -1720,7 +1727,14 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     return True
 
 
-def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None, config_overrides=None) -> bool:
+def defer_crawl_for_resources(
+    crawl,
+    *,
+    excluded_snapshot_ids=(),
+    required_memory: int | None = None,
+    config_overrides=None,
+    claimed_snapshot: tuple[str, str, datetime] | None = None,
+) -> bool:
     """Leave extraction durable; never delay cancellation or final cleanup."""
     from archivebox.core.models import Snapshot
     from archivebox.config.common import get_config
@@ -1750,6 +1764,11 @@ def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memor
         modified_at=now,
     )
     pending.filter(retry_at__lte=now).update(retry_at=retry_at, modified_at=now)
+    if claimed_snapshot is not None:
+        # Initial admission started no hook. Release only this scheduler claim,
+        # not another live owner, changed lease, or concurrently paused row.
+        snapshot_id, status, owned_retry_at = claimed_snapshot
+        pending.filter(pk=snapshot_id, status=status, retry_at=owned_retry_at).update(retry_at=retry_at, modified_at=now)
     return True
 
 
@@ -2028,6 +2047,7 @@ def _run_due_snapshot_locked(
     _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
     run_crawl(
         str(snapshot.crawl_id),
+        claimed_snapshot=(str(snapshot.id), snapshot.status, snapshot.retry_at),
         snapshot_ids=[str(snapshot.id)],
         selected_plugins=None,
         process_discovered_snapshots_inline=True,

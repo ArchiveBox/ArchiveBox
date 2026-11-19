@@ -1417,3 +1417,77 @@ def test_delayed_snapshot_completion_cannot_seal_new_run():
     snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.STARTED
     assert snapshot.retry_at == new_retry_at
+
+
+@pytest.mark.django_db(transaction=True)
+def test_deferred_snapshot_releases_owned_lease(crawl):
+    from datetime import timedelta
+
+    import psutil
+    from django.utils import timezone
+
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import run_due_snapshot
+    from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS
+
+    reserve = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    crawl.status = crawl.StatusChoices.STARTED
+    crawl.config = {**crawl.config, "PLUGINS": "wget", "MEMORY_MIN_FREE": reserve}
+    crawl.retry_at = timezone.now()
+    crawl.save()
+    snapshot = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://example.com/lease",
+        status=Snapshot.StatusChoices.QUEUED,
+        retry_at=timezone.now(),
+    )
+    other_lease = timezone.now() + timedelta(minutes=5)
+    other = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://example.com/other-owner",
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=other_lease,
+    )
+    before = timezone.now()
+    assert run_due_snapshot(snapshot, lock_seconds=60, wait_for_resources=False)
+    snapshot.refresh_from_db()
+    assert snapshot.retry_at <= timezone.now() + timedelta(seconds=RESOURCE_RECHECK_SECONDS)
+    assert snapshot.retry_at >= before
+    assert not snapshot.archiveresult_set.exists()
+    other.refresh_from_db()
+    assert other.retry_at == other_lease
+    assert other.status == Snapshot.StatusChoices.STARTED
+
+
+@pytest.mark.parametrize("change", ["lease", "paused", "excluded", "no_claim"])
+def test_resource_deferral_preserves_unowned_snapshot_lease(crawl, change):
+    from datetime import timedelta
+
+    import psutil
+    from django.utils import timezone
+
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import defer_crawl_for_resources
+
+    crawl.status = crawl.StatusChoices.STARTED
+    crawl.save()
+    lease = timezone.now() + timedelta(minutes=5)
+    snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/owner", status=Snapshot.StatusChoices.STARTED, retry_at=lease)
+    claim = (str(snapshot.pk), snapshot.status, lease)
+    if change == "lease":
+        snapshot.retry_at = lease + timedelta(minutes=1)
+    elif change == "paused":
+        snapshot.status = Snapshot.StatusChoices.PAUSED
+    snapshot.save()
+    expected = (snapshot.status, snapshot.retry_at)
+    # A due sibling keeps genuine admission relevant even when this row pauses.
+    Snapshot.objects.create(crawl=crawl, url="https://example.com/due", status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
+    reserve = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    assert defer_crawl_for_resources(
+        crawl,
+        config_overrides={"MEMORY_MIN_FREE": reserve},
+        claimed_snapshot=None if change == "no_claim" else claim,
+        excluded_snapshot_ids=[snapshot.pk] if change == "excluded" else (),
+    )
+    snapshot.refresh_from_db()
+    assert (snapshot.status, snapshot.retry_at) == expected
