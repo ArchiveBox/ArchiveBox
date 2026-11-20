@@ -305,3 +305,59 @@ def test_machine_plugin_toggles_and_discovery_chips_preserve_settings(initialize
             browser.close()
     finally:
         stop_archivebox_process(server)
+
+
+def test_settings_enable_plugin_outside_legacy_selection(initialized_archive, browser_runtime):
+    root = initialized_archive
+    create_admin_and_token(root)
+    stdout, stderr, code = run_python_cwd(
+        "import django, json; django.setup(); "
+        "from archivebox.machine.models import Machine; from archivebox.personas.models import Persona; "
+        "machine=Machine.current(); machine.config['PLUGINS']='wget, pdf'; machine.save(update_fields=['config']); "
+        "persona=Persona.objects.create(name='Legacy Plugins', config={'PLUGINS': 'wget, pdf'}); "
+        "print(json.dumps([str(machine.pk), str(persona.pk)]))",
+        cwd=root,
+    )
+    assert code == 0, stderr
+    machine_id, persona_id = json.loads(stdout.strip().splitlines()[-1])
+    port = get_free_port()
+    server = start_archivebox_server(
+        root,
+        env=cli_env(BASE_URL=f"http://archivebox.localhost:{port}", BIND_ADDR=f"127.0.0.1:{port}"),
+        port=port,
+        log_name="legacy-plugins-browser.log",
+    )
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            base = f"http://admin.archivebox.localhost:{port}"
+            page.goto(base + "/admin/login/")
+            page.get_by_label("Username:", exact=True).fill("apitestadmin")
+            page.get_by_label("Password:", exact=True).fill("testpass123")
+            page.get_by_role("button", name="Log in", exact=True).click()
+
+            for route, extra in (("personas/persona", f"persona=Persona.objects.get(pk={persona_id!r})"), ("machine/machine", "")):
+                object_id = persona_id if extra else machine_id
+                page.goto(base + f"/admin/{route}/{object_id}/change/")
+                screenshot = page.get_by_role("switch", name="Enable screenshot from sidebar", exact=True)
+                expect(screenshot).not_to_be_checked()
+                screenshot.check()
+                page.locator('button[name="_continue"]').click()
+                expect(page.locator(".success")).to_be_visible()
+                expect(screenshot).to_be_checked()
+
+                stdout, stderr, code = run_python_cwd(
+                    "import django, json; django.setup(); "
+                    "from archivebox.config.common import get_config; "
+                    "from archivebox.personas.models import Persona; "
+                    "from archivebox.plugins.discovery import get_enabled_plugins; "
+                    f"config=get_config({extra}); active=get_enabled_plugins(config=config); "
+                    "print(json.dumps([config.PLUGINS, config.SCREENSHOT_ENABLED, 'screenshot' in active, 'ytdlp' in active]))",
+                    cwd=root,
+                )
+                assert code == 0, stderr
+                assert json.loads(stdout.strip().splitlines()[-1]) == ["wget,pdf,screenshot", True, True, False]
+            browser.close()
+    finally:
+        stop_archivebox_process(server)

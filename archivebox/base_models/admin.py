@@ -908,6 +908,10 @@ class ConfigEditorMixin(admin.ModelAdmin):
                         continue
                     if key in stored:
                         new_config[key] = stored[key]
+            if getattr(form, "ui_plugin_selection", None) is not None:
+                # Only a validated native settings edit can update this
+                # selector; free-form config and unrelated saves cannot.
+                new_config["PLUGINS"] = form.ui_plugin_selection
             obj.config = new_config
         super().save_model(request, obj, form, change)
 

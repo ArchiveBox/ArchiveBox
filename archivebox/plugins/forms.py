@@ -244,6 +244,26 @@ class PluginConfigFormMixin:
                         pass  # The field cleaner reports this error.
                 merged.pop(key, None)
         merged.update(overrides)
+        # The raw editor cannot submit PLUGINS. An explicit enable outside a
+        # stored legacy allowlist still needs a root in that selector, or the
+        # runtime will turn the plugin back off even after a successful save.
+        from archivebox.config.common import _plugin_enabled_config_keys, SYSTEM_PLUGIN_NAMES
+        from archivebox.plugins.selection import format_plugin_selection, parse_plugin_selection
+
+        legacy_plugins = parse_plugin_selection((self.instance.config or {}).get("PLUGINS"))
+        if legacy_plugins is not None:
+            merged["PLUGINS"] = self.instance.config["PLUGINS"]
+            if changed is not None:
+                selected = set(get_plugin_catalog().select(legacy_plugins))
+                additions = [
+                    name
+                    for name, key in _plugin_enabled_config_keys().items()
+                    if name not in selected and name not in SYSTEM_PLUGIN_NAMES and overrides.get(key) is True
+                ]
+                if additions:
+                    self.ui_plugin_selection = format_plugin_selection([*legacy_plugins, *additions])
+                    merged["PLUGINS"] = self.ui_plugin_selection
+
         from pydantic import ValidationError
 
         try:
