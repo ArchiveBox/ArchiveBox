@@ -146,7 +146,7 @@ def test_tag_list_inline_create_and_native_actions_in_browser(live_server, admin
         expect(page.locator('#tag_list_create_datalist option[value="fixture existing"]')).to_have_count(1)
         field.fill("fixture new tag")
         with page.expect_response(
-            lambda response: "/api/v1/core/tags/create/" in response.url and response.request.method == "POST"
+            lambda response: "/api/v1/core/tags/create/" in response.url and response.request.method == "POST",
         ) as request:
             field.press("Enter")
         assert request.value.ok

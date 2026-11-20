@@ -97,7 +97,11 @@ def test_merge_blocks_active_tag_consumers_without_changing_any_rows(admin_clien
         (
             "Importer",
             ImporterSource.objects.create(
-                name="Fixture importer", plugin="fixture", feed="fixture", tags=first.name, created_by=admin_user
+                name="Fixture importer",
+                plugin="fixture",
+                feed="fixture",
+                tags=first.name,
+                created_by=admin_user,
             ),
         ),
     ]
@@ -189,7 +193,10 @@ def test_merge_blocks_enabled_schedule_and_active_crawl(admin_client, admin_user
 
     first, second, target, _other, _snapshots = merge_records
     template = Crawl.objects.create(
-        urls="https://example.com", tags_str=first.name, created_by=admin_user, status=Crawl.StatusChoices.PAUSED
+        urls="https://example.com",
+        tags_str=first.name,
+        created_by=admin_user,
+        status=Crawl.StatusChoices.PAUSED,
     )
     schedule = CrawlSchedule.objects.create(template=template, schedule="daily", created_by=admin_user)
     response = post_merge(admin_client, [first, second], target.name)
@@ -233,7 +240,12 @@ def test_merge_bounds_snapshot_links_and_runs_in_bulk(admin_user, crawl):
     selection = Tag.objects.filter(pk__in=[first.pk, second.pk])
     with pytest.raises(ValueError, match="over 2,500 Snapshot links"):
         merge_selected_tags(
-            selection, "Fixture cap target", user=admin_user, can_create=True, selected_count="2", snapshot_scope=Snapshot.objects.all()
+            selection,
+            "Fixture cap target",
+            user=admin_user,
+            can_create=True,
+            selected_count="2",
+            snapshot_scope=Snapshot.objects.all(),
         )
     assert selection.count() == 2
     assert not Tag.objects.filter(name="Fixture cap target").exists()
@@ -241,7 +253,12 @@ def test_merge_bounds_snapshot_links_and_runs_in_bulk(admin_user, crawl):
     t0 = perf_counter()
     with CaptureQueriesContext(connection) as queries:
         target, retired, changed = merge_selected_tags(
-            selection, "Fixture cap target", user=admin_user, can_create=True, selected_count="2", snapshot_scope=Snapshot.objects.all()
+            selection,
+            "Fixture cap target",
+            user=admin_user,
+            can_create=True,
+            selected_count="2",
+            snapshot_scope=Snapshot.objects.all(),
         )
     elapsed = (perf_counter() - t0) * 1000
     print(f"SQLite merge at {MERGE_MAX_LINKS:,} links: {elapsed:.1f}ms, {len(queries)} SQL statements incl. commit")
@@ -286,7 +303,11 @@ def test_merge_blocks_encoded_importer_tag_reference(admin_client, admin_user, m
     first.name = "Fixture Foo & Bar"
     first.save(update_fields=["name"])
     ImporterSource.objects.create(
-        name="Fixture importer", plugin="fixture", feed="fixture", tags="Fixture Foo &amp; Bar", created_by=admin_user
+        name="Fixture importer",
+        plugin="fixture",
+        feed="fixture",
+        tags="Fixture Foo &amp; Bar",
+        created_by=admin_user,
     )
     assert b"Update Importer" in post_merge(admin_client, [first, second], target.name).content
     assert Tag.objects.filter(pk__in=[first.pk, second.pk]).count() == 2
@@ -308,7 +329,7 @@ def test_merge_rolls_back_after_real_sqlite_delete_failure(admin_user, merge_rec
     with connection.cursor() as cursor:
         cursor.execute(
             f"CREATE TEMP TRIGGER fixture_reject_tag_merge BEFORE DELETE ON {table} "
-            f"WHEN OLD.id = {int(first.pk)} BEGIN SELECT RAISE(ABORT, 'fixture merge delete rejected'); END"
+            f"WHEN OLD.id = {int(first.pk)} BEGIN SELECT RAISE(ABORT, 'fixture merge delete rejected'); END",
         )
     try:
         with pytest.raises(IntegrityError, match="fixture merge delete rejected"):

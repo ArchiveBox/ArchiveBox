@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from html import unescape
 from typing import Any
 from urllib.parse import unquote
 
 from django.contrib.auth.models import User
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.models import CharField, Count, Exists, F, IntegerField, OuterRef, Prefetch, QuerySet, Subquery, Value
 from django.db.models.functions import Cast, Coalesce, Lower
 from django.http import HttpRequest
@@ -174,16 +175,25 @@ def get_or_create_tag(name: str, created_by: User | None = None) -> tuple[Tag, b
 
 def rename_tag(tag: Tag, name: str) -> Tag:
     normalized_name = normalize_tag_name(name)
-    if not normalized_name:
+    # Tag.save() decodes sanitized text before storing it (e.g. "A & B").
+    # Look up that stored spelling so literals are neither renamed twice nor
+    # missed by the case-insensitive conflict check.
+    stored_name = unescape(normalized_name).strip()
+    if not stored_name:
         raise ValueError("Tag name is required")
-
-    existing = Tag.objects.filter(name__iexact=normalized_name).exclude(pk=tag.pk).first()
-    if existing:
+    conflicts = Tag.objects.filter(name__iexact=stored_name).exclude(pk=tag.pk)
+    if existing := conflicts.first():
         raise ValueError(f'Tag "{existing.name}" already exists')
 
-    if tag.name != normalized_name:
+    if tag.name != stored_name:
         tag.name = normalized_name
-        tag.save()
+        try:
+            with transaction.atomic():
+                tag.save(update_fields=["name", "modified_at"])
+        except IntegrityError:
+            if existing := conflicts.first():
+                raise ValueError(f'Tag "{existing.name}" already exists') from None
+            raise
     return tag
 
 

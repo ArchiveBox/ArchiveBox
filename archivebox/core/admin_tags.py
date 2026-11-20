@@ -9,12 +9,12 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.options import ActionLocation, IS_POPUP_VAR
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import OperationalError, connection
-from django.http import HttpRequest, HttpResponseRedirect, QueryDict
+from django.http import HttpRequest, HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse, QueryDict
 from django.db.models import CharField, Prefetch
 from django.db.models.functions import Cast
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
@@ -24,7 +24,7 @@ from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag,
 from archivebox.core.smart_folders import CHILDREN_RULES
 from archivebox.core.tag_merge import MERGE_MAX_TAGS, merge_selected_tags
 from archivebox.core.widgets import TagEditorWidget
-from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards
+from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards, rename_tag
 from archivebox.core.routes_util import build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.plugins.discovery import get_snapshot_role_names
 
@@ -124,6 +124,75 @@ class TagAdmin(BaseModelAdmin):
         ),
     )
 
+    class Media:
+        css = {"all": ("admin-tag-rename.css",)}
+        js = ("admin-tag-rename.js",)
+
+    def get_urls(self):
+        return [
+            path("<int:tag_id>/rename/", self.admin_site.admin_view(self.rename_tag), name="core_tag_rename"),
+            *super().get_urls(),
+        ]
+
+    def get_list_display(self, request):
+        fields = super().get_list_display(request)
+        if IS_POPUP_VAR in request.GET or not self.has_change_permission(request):
+            return fields
+
+        @admin.display(description="Name", ordering="name")
+        def name(tag):
+            change_url = reverse("admin:core_tag_change", args=[tag.pk])
+            if not self.has_change_permission(request, tag):
+                return format_html('<a href="{}">{}</a>', change_url, tag.name)
+            return format_html(
+                '<span class="tag-inline-cell" data-tag-rename-url="{}">'
+                '<a class="tag-inline-name" href="{}">{}</a>'
+                '<button type="button" class="tag-inline-pencil" aria-label="Rename tag {}" title="Rename tag">'
+                '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                '<path d="m15 5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/></svg></button>'
+                '<input class="tag-inline-input" type="text" maxlength="{}" aria-label="Tag name" autocomplete="off" hidden>'
+                '<span class="tag-inline-error" role="alert" hidden></span></span>',
+                reverse("admin:core_tag_rename", args=[tag.pk]),
+                change_url,
+                tag.name,
+                tag.name,
+                Tag._meta.get_field("name").max_length,
+            )
+
+        return tuple(name if field == "name" else field for field in fields)
+
+    def get_list_display_links(self, request, list_display):
+        # The editable name column already owns its link and adjacent button.
+        if any(callable(field) and field.__name__ == "name" for field in list_display):
+            return None
+        return super().get_list_display_links(request, list_display)
+
+    def rename_tag(self, request, tag_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        tag = self.get_object(request, str(tag_id))
+        if tag is None:
+            return JsonResponse({"error": "Tag not found."}, status=404)
+        if not self.has_change_permission(request, tag):
+            raise PermissionDenied
+
+        try:
+            name = forms.CharField(max_length=Tag._meta.get_field("name").max_length).clean(request.POST.get("name"))
+        except ValidationError as error:
+            return JsonResponse({"error": " ".join(error.messages)}, status=400)
+
+        original_name = tag.name
+        try:
+            rename_tag(tag, name)
+        except ValueError as error:
+            return JsonResponse({"error": str(error)}, status=400)
+        if tag.name != original_name:
+            self.log_change(request, tag, [{"changed": {"fields": ["name"]}}])
+        return JsonResponse({"name": tag.name})
+
     def get_fieldsets(self, request: HttpRequest, obj: Tag | None = None):
         return self.fieldsets if obj else self.add_fieldsets
 
@@ -146,7 +215,7 @@ class TagAdmin(BaseModelAdmin):
             self.has_change_permission(request)
             and self.has_delete_permission(request)
             and snapshot_admin
-            and snapshot_admin.has_change_permission(request)
+            and snapshot_admin.has_change_permission(request),
         )
 
     @admin.action(permissions=["merge"], description="Merge Tags")
@@ -155,7 +224,9 @@ class TagAdmin(BaseModelAdmin):
             raise PermissionDenied
         if any(value not in {"", "0"} for value in request.POST.getlist("select_across")):
             self.message_user(
-                request, "Select the individual tags to merge. Select all matching tags is not supported.", level=messages.ERROR
+                request,
+                "Select the individual tags to merge. Select all matching tags is not supported.",
+                level=messages.ERROR,
             )
             return None
         if request.POST.get("confirm_tag_merge") != "1":
@@ -183,7 +254,9 @@ class TagAdmin(BaseModelAdmin):
             if connection.vendor != "sqlite" or "locked" not in str(err).lower():
                 raise
             self.message_user(
-                request, "The database was busy. No tags were merged. Try again after active writes finish.", level=messages.ERROR
+                request,
+                "The database was busy. No tags were merged. Try again after active writes finish.",
+                level=messages.ERROR,
             )
             return None
         self.message_user(

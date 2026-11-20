@@ -1,0 +1,36 @@
+.tag-inline-cell {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.tag-inline-cell [hidden] {
+    display: none;
+}
+
+.tag-inline-pencil {
+    display: inline-grid;
+    place-items: center;
+    padding: 0.2rem;
+    border: 0;
+    border-radius: 0.25rem;
+    color: var(--body-quiet-color);
+    background: transparent;
+    cursor: pointer;
+}
+
+.tag-inline-pencil:hover,
+.tag-inline-pencil:focus-visible {
+    color: var(--body-fg);
+    background: var(--darkened-bg);
+}
+
+.tag-inline-input {
+    width: min(22rem, 100%);
+}
+
+.tag-inline-error {
+    flex-basis: 100%;
+    color: var(--error-fg);
+}
