@@ -214,7 +214,7 @@ def test_add_rule_composer_and_concurrency_save_existing_values(initialized_arch
         stop_archivebox_process(server)
 
 
-def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser_runtime):
+def test_machine_plugin_toggles_and_discovery_chips_preserve_settings(initialized_archive, browser_runtime):
     root = initialized_archive
     create_admin_and_token(root)
     stdout, stderr, code = run_python_cwd(
@@ -249,56 +249,59 @@ def test_machine_plugin_chips_preserve_and_save_csv(initialized_archive, browser
             page.get_by_label("Password:", exact=True).fill("testpass123")
             page.get_by_role("button", name="Log in", exact=True).click()
             page.goto(base + f"/admin/machine/machine/{machine_id}/change/")
-            plugins = page.locator(".config-plugin-list").filter(has=page.locator('[data-config-key="PLUGINS"][name]'))
+            expect(page.locator('[data-config-key="PLUGINS"][name]')).to_have_count(0)
+            expect(page.locator('.kv-key[value="PLUGINS"]')).to_have_count(0)
             discovery = page.locator(".config-plugin-list").filter(has=page.locator('[data-config-key="CRAWL_DISCOVERY_PLUGINS"][name]'))
-            expect(plugins.locator(".plugin-config-input")).to_have_value("wget, pdf")
-            expect(plugins.locator(".config-plugin-chip")).to_have_count(2)
+            wget = page.get_by_role("switch", name="Enable wget from sidebar", exact=True)
+            expect(wget).to_be_checked()
             expect(discovery.locator(".plugin-config-input")).to_have_value("parse_html_urls, parse_dom_outlinks")
-            page.locator('button[name="_continue"]').click()
+            save = page.locator('button[name="_continue"]')
+            save.click()
             expect(page.locator(".success")).to_be_visible()
-            assert stored() == before, "Rendering chips and saving unchanged must preserve exact CSV spacing"
+            assert stored() == before, "An unrelated save must preserve stored CSV spacing"
 
+            wget.uncheck()
             page.locator('[role="tab"][data-plugin="crawl_defaults"]').click()
-            plugins.locator('.config-plugin-chip[title="pdf"] button').click()
-            entry = plugins.locator(".config-plugin-autocomplete")
-            expect(plugins.locator('datalist option[value="title"]')).to_have_count(1)
-            assert entry.get_attribute("list") == plugins.locator("datalist").get_attribute("id")
-            entry.fill("title")
-            entry.press("Enter")
-            expect(plugins.locator(".plugin-config-input")).to_have_value("wget,title")
-            page.evaluate("navigator.clipboard.writeText('pdf,screenshot')")
-            entry.focus()
-            entry.press("ControlOrMeta+V")
-            expect(plugins.locator(".plugin-config-input")).to_have_value("wget,title,pdf,screenshot")
             search = page.get_by_role("searchbox", name="Search plugin settings")
             search.fill("CRAWL_DISCOVERY_PLUGINS")
             discovery.locator('.config-plugin-chip[title="parse_dom_outlinks"] button').click()
-            discovery.locator(".config-plugin-autocomplete").fill("parse_txt_urls")
-            discovery.locator(".config-plugin-autocomplete").press("Enter")
+            entry = discovery.locator(".config-plugin-autocomplete")
+            expect(discovery.locator('datalist option[value="parse_txt_urls"]')).to_have_count(1)
+            assert entry.get_attribute("list") == discovery.locator("datalist").get_attribute("id")
+            entry.fill("parse_txt_urls")
+            entry.press("Enter")
             expect(discovery.locator(".plugin-config-input")).to_have_value("parse_html_urls,parse_txt_urls")
-            page.locator('button[name="_continue"]').click()
+            page.evaluate("navigator.clipboard.writeText('parse_dom_outlinks,parse_html_urls')")
+            entry.focus()
+            entry.press("ControlOrMeta+V")
+            expect(discovery.locator(".plugin-config-input")).to_have_value("parse_html_urls,parse_txt_urls,parse_dom_outlinks")
+            save.click()
             expect(page.locator(".success")).to_be_visible()
+            expect(wget).not_to_be_checked()
             assert stored() == {
                 **before,
-                "PLUGINS": "wget,title,pdf,screenshot",
-                "CRAWL_DISCOVERY_PLUGINS": "parse_html_urls,parse_txt_urls",
+                "WGET_ENABLED": False,
+                "CRAWL_DISCOVERY_PLUGINS": "parse_html_urls,parse_txt_urls,parse_dom_outlinks",
             }
 
             page.locator('[role="tab"][data-plugin="crawl_defaults"]').click()
             search.fill("CRAWL_DISCOVERY_PLUGINS")
-            expect(discovery.locator(".config-plugin-autocomplete")).to_be_visible()
-            search.fill("")
+            expect(entry).to_be_visible()
             if artifact_dir := os.environ.get("ABX_SETTINGS_ARTIFACT_DIR"):
                 artifacts = Path(artifact_dir)
                 artifacts.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(artifacts / "system-plugins.png"), full_page=True)
-            for _ in range(4):
-                plugins.locator(".config-plugin-chip button").first.click()
-            expect(plugins.locator(".plugin-config-input")).to_have_value("")
-            page.locator('button[name="_continue"]').click()
+            for _ in range(3):
+                discovery.locator(".config-plugin-chip button").first.click()
+            expect(discovery.locator(".plugin-config-input")).to_have_value("")
+            search.fill("")
+            wget.check()
+            save.click()
             expect(page.locator(".success")).to_be_visible()
-            assert stored().get("PLUGINS", "") == ""
-            assert stored()["CRAWL_DISCOVERY_PLUGINS"] == "parse_html_urls,parse_txt_urls"
+            expect(wget).to_be_checked()
+            assert stored()["PLUGINS"] == before["PLUGINS"]
+            assert stored().get("WGET_ENABLED", True) is True
+            assert stored().get("CRAWL_DISCOVERY_PLUGINS", "") == ""
             browser.close()
     finally:
         stop_archivebox_process(server)
