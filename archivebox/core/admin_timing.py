@@ -3,18 +3,25 @@
 from functools import wraps
 from time import perf_counter, thread_time
 
+from django.utils.cache import patch_cache_control
+
+QUERY_FLAG = "_admin_timing"
+
 
 def timed_snapshot_changelist(view):
     @wraps(view)
     def measured(self, request, *args, **kwargs):
-        enabled = (
-            request.method == "GET"
-            and request.headers.get("X-ArchiveBox-Admin-Timing") == "1"
-            and request.user.is_active
-            and request.user.is_staff
-            and request.GET.get("_embedded") != "crawl"
-        )
-        if not enabled:
+        eligible = request.method == "GET" and request.user.is_active and request.user.is_staff and request.GET.get("_embedded") != "crawl"
+        if not eligible:
+            return view(self, request, *args, **kwargs)
+        query_enabled = request.GET.get(QUERY_FLAG) == "1"
+        if QUERY_FLAG in request.GET:
+            # Keep diagnostics out of admin filters, saved navigation and cache keys.
+            query = request.GET.copy()
+            query.pop(QUERY_FLAG)
+            request.GET = query
+            request.META["QUERY_STRING"] = query.urlencode()
+        if not query_enabled and request.headers.get("X-ArchiveBox-Admin-Timing") != "1":
             return view(self, request, *args, **kwargs)
         started, cpu_started = perf_counter(), thread_time()
         response = view(self, request, *args, **kwargs)
@@ -23,6 +30,8 @@ def timed_snapshot_changelist(view):
         # Redirects/errors are not measurements of a rendered changelist.
         if response.status_code != 200 or not hasattr(response, "render") or response.is_rendered:
             return response
+        if query_enabled:
+            response.context_data["admin_timing_clean_url"] = request.get_full_path()
         original_render = response.render
         original_instance_render = response.__dict__.get("render")
 
@@ -44,6 +53,7 @@ def timed_snapshot_changelist(view):
                 f"admin_render;dur={elapsed:.1f}, admin_render_cpu;dur={cpu_elapsed:.1f}"
             )
             rendered["Server-Timing"] = ", ".join(filter(None, (rendered.get("Server-Timing"), metrics)))
+            patch_cache_control(rendered, private=True, no_store=True)
             return rendered
 
         # Only this response is wrapped. The clocks start on its rendering thread,
