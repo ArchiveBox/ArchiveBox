@@ -5,8 +5,10 @@ import shlex
 from pathlib import Path
 
 from django.contrib import admin, messages
+from django.contrib.admin.options import IncorrectLookupParameters
+from django.contrib.admin.views.main import ChangeList
 from django.db import DatabaseError
-from django.db.models import DurationField, ExpressionWrapper, F
+from django.db.models import DurationField, ExpressionWrapper, F, Prefetch
 from django.db.models.functions import Coalesce, Now
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -18,6 +20,7 @@ from archivebox.machine.env_util import env_to_dotenv_text
 from archivebox.machine.forms import MachineAdminForm
 from archivebox.machine.models import Binary, Machine, NetworkInterface, Process
 from archivebox.misc.logging_util import printable_filesize
+from archivebox.misc.paginators import AcceleratedPaginator
 
 
 def _render_copy_block(text: str, *, multiline: bool = False):
@@ -411,6 +414,32 @@ class ProcessExitCodeFilter(admin.AllValuesFieldListFilter):
         self.lookup_choices = (*sorted(common_codes), None)
 
 
+class ProcessChangeList(ChangeList):
+    def get_results(self, request):
+        if request.method != "GET" or (request.GET.keys() - {"p"}):
+            return super().get_results(request)
+
+        # Match the Snapshot changelist's bounded first render: a lookahead
+        # row supplies Next without counting every stored Process. Keep the
+        # stock exact paginator for every explicit filter or action.
+        if self.page_num < 1:
+            raise IncorrectLookupParameters
+        start = (self.page_num - 1) * self.list_per_page
+        rows = list(self.queryset[start : start + self.list_per_page + 1])
+        if start and not rows:
+            raise IncorrectLookupParameters
+        observed = start + len(rows)
+        self.queryset.query._archivebox_count_hint = observed
+        super().get_results(request)
+
+        has_next = len(rows) > self.list_per_page
+        self.result_list = rows[: self.list_per_page]
+        self.result_count_exact = not has_next
+        self.display_result_count = observed
+        self.next_page_url = self.get_query_string({"p": self.page_num + 1}) if has_next else None
+        self.previous_page_url = self.get_query_string({"p": self.page_num - 1}) if self.page_num > 1 else None
+
+
 class ProcessAdmin(BaseModelAdmin):
     list_display = (
         "id",
@@ -516,19 +545,18 @@ class ProcessAdmin(BaseModelAdmin):
     show_full_result_count = False
     ordering = ("-created_at",)
     list_per_page = 100
+    paginator = AcceleratedPaginator
     actions = ("kill_processes", "delete_selected")
     change_actions = ("kill_process",)
+
+    def get_changelist(self, request, **kwargs):
+        return ProcessChangeList
 
     def get_queryset(self, request):
         queryset = (
             super()
             .get_queryset(request)
-            .select_related(
-                "machine",
-                "binary",
-                "iface",
-                "archiveresult__snapshot__crawl",
-            )
+            .select_related("binary", "iface", "archiveresult__snapshot__crawl")
             .annotate(
                 runtime_sort=ExpressionWrapper(
                     Coalesce(F("ended_at"), Now()) - F("started_at"),
@@ -544,10 +572,18 @@ class ProcessAdmin(BaseModelAdmin):
             and request.resolver_match is not None
             and request.resolver_match.url_name == "machine_process_changelist"
         ):
-            # List rows only use the linked Crawl ID, not its potentially large
-            # seed URL list or config. Keep the join so links never refetch it.
-            return queryset.defer("stdout", "stderr", "archiveresult__snapshot__crawl__urls", "archiveresult__snapshot__crawl__config")
-        return queryset
+            # The Machine INNER JOIN made SQLite walk per-machine Process
+            # indexes and sort millions of rows just to display the newest 100.
+            # Fetch their labels after pagination so the time index can drive it.
+            return queryset.defer(
+                "stdout",
+                "stderr",
+                "archiveresult__snapshot__crawl__urls",
+                "archiveresult__snapshot__crawl__config",
+            ).prefetch_related(
+                Prefetch("machine", queryset=Machine.objects.only("id", "hostname")),
+            )
+        return queryset.select_related("machine")
 
     def _terminate_processes(self, request, processes):
         terminated = 0
