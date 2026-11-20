@@ -211,6 +211,18 @@ def test_docker_entrypoint_keeps_root_pgid_and_validates_it_in_real_docker():
     assert '"PUID=1201 PGID=0" "-" pass 1201 0' in docker_validator
 
 
+def test_docker_entrypoint_leaves_read_only_image_dirs_and_validates_it_in_real_docker():
+    entrypoint = (Path(__file__).parents[2] / "bin" / "docker_entrypoint.sh").read_text(encoding="utf-8")
+    docker_validator = (Path(__file__).parents[2] / "bin" / "validate_docker_uid_gid.sh").read_text(encoding="utf-8")
+    lib_repairs = entrypoint.partition('if ! is_read_only_mount "$ABXPKG_LIB_DIR"; then')[2].partition("\nfi\n")[0]
+
+    assert 'ensure_dir "$ABXPKG_LIB_DIR"' in lib_repairs
+    assert 'ensure_file_owner "$package_dir/derived.env"' in lib_repairs
+    assert 'if ! is_read_only_mount "$CONFIG_DIR"; then' in entrypoint
+    assert 'run_read_only_root_case "read-only root filesystem uses preinstalled dependencies"' in docker_validator
+    assert 'run_read_only_root_case "read-only root filesystem started as root keeps the default user"' in docker_validator
+
+
 def test_root_handoff_never_selects_filesystem_root():
     from archivebox.config.permissions import root_data_dir_handoff_paths
 

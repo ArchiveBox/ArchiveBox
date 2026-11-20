@@ -356,13 +356,19 @@ def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_ex
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.misc.logging import STDERR
     from archivebox.misc.logging_util import pretty_path
-    from archivebox.config.paths import dir_is_writable, get_or_create_working_lib_dir
+    from archivebox.config.paths import dir_is_read_only_mount, dir_is_writable, get_or_create_working_lib_dir
     from archivebox.config.common import get_config
 
     config = config or get_config(**config_kwargs)
     lib_dir = lib_dir or config.ABXPKG_LIB_DIR
 
     if not must_exist and not os.path.isdir(lib_dir):
+        return True
+
+    # Docker images ship every dependency preinstalled, so their lib dir can be
+    # mounted read-only (e.g. Kubernetes readOnlyRootFilesystem). Preinstalled
+    # dependencies keep working; only new installs are impossible.
+    if dir_is_read_only_mount(lib_dir) and os.access(lib_dir, os.R_OK | os.X_OK):
         return True
 
     lib_is_valid = False
