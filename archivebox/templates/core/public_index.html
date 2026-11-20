@@ -3,8 +3,8 @@
 {% load core_tags %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'library/folders.css' %}?v=tags-css-1">
-<script src="{% static 'library/folders.js' %}?v=tags-css-1" defer></script>
+<link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+<script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
 <style>
     #content.flex {
         padding: 0;
