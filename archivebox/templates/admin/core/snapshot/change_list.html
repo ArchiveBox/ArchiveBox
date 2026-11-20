@@ -2,7 +2,7 @@
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">{% endblock %}
 {% block extrahead %}
 {% if admin_timing_clean_url %}<script>history.replaceState(history.state, '', '{{ admin_timing_clean_url|escapejs }}' + location.hash);</script>{% endif %}
-{{ block.super }}<script src="{% static 'admin-snapshot-previews.js' %}" defer></script><script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endblock %}
+{{ block.super }}<script src="{% static 'admin-snapshot-previews.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script><script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endblock %}
 {% block content %}
 {% if not embedded_changelist %}<div class="snapshot-library">
 {% include "core/folder_sidebar.html" %}{% endif %}
