@@ -78,6 +78,8 @@ jobs:
             plugins: parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps
           - lane: web
             plugins: forumdl,gallerydl
+          - lane: browser-automation
+            plugins: playwright,puppeteer
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

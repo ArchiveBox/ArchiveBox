@@ -40,7 +40,7 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
     matrix = public["strategy"]["matrix"]["include"]
     assert {item["lane"]: tuple(item["plugins"].split(",")) for item in matrix} == assembler["PUBLIC_LANES"]
-    assert len(matrix) == 10
+    assert len(matrix) == 11
     assert "environment" not in public
     assert "secrets." not in str(public)
     assert "inputs.plugin_revision == ''" in public["if"]
@@ -92,10 +92,22 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     full = set(recipes(plan, False))
     base = set(recipes(plan, True))
     moved = full - base
-    assert len(moved) == 20  # Five proven singleton visits + 15 compound visits.
-    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 22
+    assert len(moved) == 22  # Five singleton, 15 compound and two browser automation visits.
+    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 24
     assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= assembler["PUBLIC_VIEWS"]["cad"]
     assert "Snapshot View (opendataloader)" in assembler["PUBLIC_VIEWS"]["documents"]
+    automation = assembler["PUBLIC_LANES"]["browser-automation"]
+    assert assembler["PUBLIC_VIEWS"]["browser-automation"] == {f"Snapshot View ({plugin})" for plugin in automation}
+    assert {recipe for recipe in moved if recipe.split("|")[0] in automation} == {
+        f"{plugin}|https://pirate.github.io/stress-tests/challenge.html?plugin={plugin}" for plugin in automation
+    }
+    for plugin in automation:
+        override = plan["overrides"][plugin]
+        assert override["output_plugin"] == "screenshot"
+        config = override["config_overrides"]
+        assert config.keys() == {f"{plugin.upper()}_SCRIPT", f"{plugin.upper()}_TIMEOUT"}
+        assert config[f"{plugin.upper()}_SCRIPT"]
+        assert [example["plugins"] for example in plan["examples"] if example["url"] == override["url"]] == [[plugin]]
 
     # Whole source groups, including the same PDF visited for both extractors,
     # must reproduce the locked full plan. A newly coupled protected provider fails.
