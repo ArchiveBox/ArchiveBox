@@ -4,6 +4,7 @@ from typing import Any
 from copy import copy
 
 from django import forms
+from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 
 from archivebox.config.common import get_config
@@ -138,11 +139,17 @@ class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
                 "Use the custom path/CDP option if the browser data lives elsewhere."
             )
 
-        runtime = get_config(persona=self.instance) if not self.instance._state.adding else get_config()
-        self.settings_sources = {
-            key: "Persona" if key in (self.instance.config or {}) else "System default" for key in runtime.model_dump()
-        }
+        # A successful admin POST never renders the grid. Keep binary-link
+        # lookups and other presentation work out of the writer transaction.
+        self._plugin_grid_persona = copy(self.instance)
+
+    @cached_property
+    def plugin_groups(self) -> list[dict[str, Any]]:
+        persona = self._plugin_grid_persona
+        runtime = get_config() if persona._state.adding else get_config(persona=persona)
+        self.settings_sources = {key: "Persona" if key in (persona.config or {}) else "System default" for key in runtime.model_dump()}
         self.build_plugin_groups(runtime)
+        return self.__dict__["plugin_groups"]
 
     def clean_name(self) -> str:
         name = str(self.cleaned_data.get("name") or "").strip()

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
+from django.db import connections, router
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
@@ -142,6 +143,20 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
                 "state_url": reverse("admin:personas_persona_browser_state", args=[obj.pk]),
             },
         )
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        connection = connections[router.db_for_write(self.model)]
+        if request.method != "POST" or connection.vendor != "sqlite":
+            return super().change_view(request, object_id, form_url, extra_context)
+        # Reserve the SQLite writer before the admin reads this Persona and
+        # its masked settings; another commit would invalidate a deferred read.
+        connection.ensure_connection()
+        previous_mode = connection.transaction_mode
+        connection.transaction_mode = "IMMEDIATE"
+        try:
+            return super().change_view(request, object_id, form_url, extra_context)
+        finally:
+            connection.transaction_mode = previous_mode
 
     def get_fieldsets(self, request, obj=None):
         return self.change_fieldsets if obj else self.add_fieldsets

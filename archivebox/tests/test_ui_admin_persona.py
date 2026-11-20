@@ -279,6 +279,100 @@ def test_existing_persona_does_not_offer_bootstrap(admin_client, admin_user):
     assert b"Create a new Persona" not in response.content
 
 
+@pytest.mark.django_db(transaction=True)
+def test_persona_edit_reserves_sqlite_writer_before_reading(admin_client, admin_user):
+    import json
+    import sqlite3
+
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    credential = "synthetic-persona-test-value"
+    persona = Persona.objects.create(name="WriterReservation", created_by=admin_user, config={"KAGI_SEARCH_API_KEY": credential})
+    url = reverse("admin:personas_persona_change", args=[persona.pk])
+    with CaptureQueriesContext(connection) as get_queries:
+        page = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert page.status_code == 200
+    assert credential.encode() not in page.content
+    assert b'data-plugin-name="importer_search"' in page.content
+    previous_mode = getattr(connection, "transaction_mode", None)
+    if connection.vendor == "sqlite":
+        assert all(query["sql"] != "BEGIN IMMEDIATE" for query in get_queries)
+        with connection.cursor() as cursor:
+            assert cursor.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+    competing_writer_results = []
+
+    def post(name):
+        return admin_client.post(
+            url,
+            {
+                "name": name,
+                "created_by": str(admin_user.pk),
+                "permissions": "public",
+                "config": json.dumps({"KAGI_SEARCH_API_KEY": "", "USER_AGENT": "Persona writer test"}),
+                "_save": "Save",
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+    if connection.vendor == "sqlite":
+        other = sqlite3.connect(connection.settings_dict["NAME"], timeout=0, isolation_level=None)
+
+        def compete_after_persona_read(execute, sql, params, many, context):
+            result = execute(sql, params, many, context)
+            if (
+                not competing_writer_results
+                and sql.lstrip().upper().startswith("SELECT")
+                and "personas_persona" in sql
+                and connection.in_atomic_block
+            ):
+                # Write a different row on a real WAL connection after this request
+                # established its read snapshot, before Django's model UPDATE.
+                try:
+                    other.execute("UPDATE auth_user SET last_name='competing writer' WHERE id=?", (admin_user.pk,))
+                except sqlite3.OperationalError as error:
+                    assert error.sqlite_errorcode == sqlite3.SQLITE_BUSY
+                    competing_writer_results.append("reserved")
+                else:
+                    competing_writer_results.append("committed")
+            return result
+
+        try:
+            with connection.execute_wrapper(compete_after_persona_read), CaptureQueriesContext(connection) as queries:
+                response = post(persona.name)
+            assert competing_writer_results == ["reserved"]
+            assert any(query["sql"] == "BEGIN IMMEDIATE" for query in queries)
+            assert not any('FROM "machine_binary"' in query["sql"] for query in queries)
+            assert connection.transaction_mode == previous_mode
+            other.execute("UPDATE auth_user SET last_name='competing writer' WHERE id=?", (admin_user.pk,))
+        finally:
+            other.close()
+    else:
+        response = post(persona.name)
+
+    assert response.status_code == 302
+    persona.refresh_from_db()
+    assert persona.config["KAGI_SEARCH_API_KEY"] == credential
+    assert persona.config["USER_AGENT"] == "Persona writer test"
+
+    binary_link_reads = []
+
+    def observe_render_sql(execute, sql, params, many, context):
+        if 'FROM "machine_binary"' in sql:
+            binary_link_reads.append(connection.in_atomic_block)
+        return execute(sql, params, many, context)
+
+    with connection.execute_wrapper(observe_render_sql):
+        invalid = post("")
+    assert binary_link_reads and not any(binary_link_reads)
+    assert invalid.status_code == 200
+    assert "name" in invalid.context["adminform"].form.errors
+    assert credential.encode() not in invalid.content
+    assert b'data-plugin-name="importer_search"' in invalid.content
+    assert getattr(connection, "transaction_mode", None) == previous_mode
+
+
 def test_persona_rejects_schema_pattern_before_saving(admin_client, admin_user):
     response = admin_client.post(
         reverse("admin:personas_persona_add"),
