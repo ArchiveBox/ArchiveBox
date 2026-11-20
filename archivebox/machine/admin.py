@@ -397,6 +397,20 @@ class BinaryAdmin(BaseModelAdmin):
         return format_html('<span style="color: {};">{}</span>', color, h)
 
 
+class ProcessExitCodeFilter(admin.AllValuesFieldListFilter):
+    """Keep exact exit-code URLs without enumerating the process history."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        common_codes = {0, 1, 2, 124, 125, 126, 127, 130, 137, 143}
+        for value in self.lookup_val or ():
+            try:
+                common_codes.add(int(value))
+            except (TypeError, ValueError):
+                pass
+        self.lookup_choices = (*sorted(common_codes), None)
+
+
 class ProcessAdmin(BaseModelAdmin):
     list_display = (
         "id",
@@ -498,7 +512,8 @@ class ProcessAdmin(BaseModelAdmin):
         ),
     )
 
-    list_filter = ("status", "exit_code", "machine_id")
+    list_filter = ("status", ("exit_code", ProcessExitCodeFilter), "machine_id")
+    show_full_result_count = False
     ordering = ("-created_at",)
     list_per_page = 100
     actions = ("kill_processes", "delete_selected")
