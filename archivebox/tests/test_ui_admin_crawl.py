@@ -736,3 +736,60 @@ def test_visibility_menu_keeps_shared_icons_after_saving(live_server, browser_ru
         browser.close()
     obj.refresh_from_db()
     assert obj.permissions == "public"
+
+
+def test_crawl_admin_prioritizes_running_before_pagination(admin_client, admin_user):
+    from datetime import timedelta
+
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from django.utils import timezone
+
+    now = timezone.now()
+    labels = ("running-new", "running-old", "queued", "paused")
+    states = (Crawl.StatusChoices.STARTED, Crawl.StatusChoices.STARTED, Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.PAUSED)
+    seeded = [
+        Crawl(
+            urls=f"https://example.com/{label}",
+            label=f"priority-test {label}",
+            status=state,
+            created_at=now - timedelta(days=days),
+            created_by=admin_user,
+        )
+        for label, state, days in zip(labels, states, (1, 2, 0, 0), strict=True)
+    ]
+    older = [
+        Crawl(
+            urls=f"https://example.com/sealed-{i}",
+            label=f"priority-test sealed-{i}",
+            status=Crawl.StatusChoices.SEALED,
+            created_at=now - timedelta(days=3),
+            created_by=admin_user,
+        )
+        for i in range(50)
+    ]
+    Crawl.objects.bulk_create([*seeded, *older])
+    url = reverse("admin:crawls_crawl_changelist")
+    # Old sortable links cannot undo the running-first/newest-first contract.
+    with CaptureQueriesContext(connection) as queries:
+        first = admin_client.get(url, {"q": "priority-test", "o": "3"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert first.status_code == 200
+    first_list = first.context["cl"]
+    assert first_list.list_display.index("owner") + 1 == first_list.list_display.index("num_total_snapshots")
+    assert first_list.list_display.index("num_total_snapshots") + 1 == first_list.list_display.index("depth")
+    assert "num_archived_snapshots" not in first_list.list_display
+    actual = [row.pk for row in first_list.result_list]
+    expected = (
+        [row.pk for row in seeded[:2]]
+        + sorted((row.pk for row in seeded[2:]), reverse=True)
+        + sorted((row.pk for row in older), reverse=True)
+    )
+    assert actual == expected[:50]
+    count_queries = [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and "GROUP BY" in query["sql"]]
+    assert len(count_queries) == 1
+    assert "FILTER" in count_queries[0]  # Sealed count still drives the stop reason.
+
+    second = admin_client.get(url, {"q": "priority-test", "p": 2}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert [row.pk for row in second.context["cl"].result_list] == expected[50:]
+    filtered = admin_client.get(url, {"q": "priority-test", "status__exact": Crawl.StatusChoices.QUEUED}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert [row.pk for row in filtered.context["cl"].result_list] == [seeded[2].pk]

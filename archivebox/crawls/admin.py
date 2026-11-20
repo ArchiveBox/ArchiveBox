@@ -7,9 +7,10 @@ from urllib.parse import urlparse
 
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.views.main import ChangeList
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Case, Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -626,6 +627,12 @@ class CrawlAdminForm(forms.ModelForm):
         return instance
 
 
+class CrawlChangeList(ChangeList):
+    def get_ordering(self, request, queryset):
+        # Keep running jobs first even when an old sortable-column URL supplies ?o=.
+        return self.model_admin.get_ordering(request)
+
+
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     form = CrawlAdminForm
     change_form_template = "admin/crawls/crawl/change_form.html"
@@ -637,28 +644,17 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         "permissions_badge",
         "created_at",
         "owner",
+        "num_total_snapshots",
         "depth",
         "status_with_stop_reason",
         "pause_resume_control",
         "label",
-        "notes",
+        "notes_preview",
         "urls_preview",
         "schedule_str",
         "retry_at",
-        "num_archived_snapshots",
-        "num_total_snapshots",
     )
-    sort_fields = (
-        "id",
-        "created_at",
-        "created_by",
-        "max_depth",
-        "label",
-        "notes",
-        "schedule_str",
-        "status",
-        "retry_at",
-    )
+    sortable_by = ()
     search_fields = (
         "id",
         "created_by__username",
@@ -729,7 +725,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     )
 
     list_filter = (MaxDepthListFilter, "schedule", "created_by", "status", "retry_at")
-    ordering = ("-created_at", "-retry_at")
+    ordering = (
+        Case(When(status=Crawl.StatusChoices.STARTED, then=Value(0)), default=Value(1), output_field=IntegerField()),
+        "-created_at",
+        "-pk",
+    )
     list_per_page = 50
     actions = (
         "pause_selected_crawls",
@@ -749,34 +749,24 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("admin/crawls/crawl_change.css",)}
         js: ClassVar[tuple[str, ...]] = ("admin/crawls/crawl_admin.js",)
 
+    def get_changelist(self, request, **kwargs):
+        return CrawlChangeList
+
     def changelist_view(self, request, extra_context=None):
         self.request = request
         self.crawl_admin_base_config = request.archivebox_config
         self.stop_reason_cache = {}
         response = super().changelist_view(request, extra_context)
-        if not isinstance(response, TemplateResponse):
-            return response
-        cl = response.context_data.get("cl")
-        if cl is not None and not self.should_annotate_snapshot_counts(request):
+        if isinstance(response, TemplateResponse) and (cl := response.context_data.get("cl")) is not None:
             self.hydrate_visible_snapshot_counts(cl.result_list)
         return response
-
-    def should_annotate_snapshot_counts(self, request):
-        ordering = request.GET.get("o", "")
-        if not ordering:
-            return False
-        list_display = list(self.get_list_display(request))
-        count_positions = {
-            str(list_display.index("num_archived_snapshots") + 1),
-            str(list_display.index("num_total_snapshots") + 1),
-        }
-        return any(part.lstrip("-") in count_positions for part in ordering.split("."))
 
     def hydrate_visible_snapshot_counts(self, crawls):
         crawl_list = list(crawls)
         crawl_ids = [crawl.pk for crawl in crawl_list]
         if not crawl_ids:
             return
+        # The sealed count feeds the stop reason even when not shown as a column.
         counts = Snapshot.crawl_total_and_status_counts(crawl_ids, status=Snapshot.StatusChoices.SEALED)
         for crawl in crawl_list:
             row = counts.get(str(crawl.pk), {})
@@ -784,22 +774,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             crawl.num_archived_snapshots_cached = row.get("status", 0)
 
     def get_queryset(self, request):
-        """Keep joins page-local while computing per-row snapshot counts in the page query."""
-        queryset = (
-            super()
-            .get_queryset(request)
-            .prefetch_related(
-                "created_by",
-                "persona",
-                "schedule__template",
-            )
-        )
-        if self.should_annotate_snapshot_counts(request):
-            queryset = queryset.annotate(
-                num_snapshots_cached=Snapshot.crawl_count_expr(),
-                num_archived_snapshots_cached=Snapshot.crawl_count_expr(status=Snapshot.StatusChoices.SEALED),
-            )
-        return queryset
+        return super().get_queryset(request).prefetch_related("created_by", "persona", "schedule__template")
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
@@ -1121,11 +1096,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             obj.pk,
         )
 
-    @admin.display(description="Archived", ordering="num_archived_snapshots_cached")
-    def num_archived_snapshots(self, obj):
-        return obj.num_archived_snapshots_cached
+    @admin.display(description="Notes")
+    def notes_preview(self, obj):
+        return format_html('<div class="crawl-list-notes">{}</div>', obj.notes) if obj.notes else None
 
-    @admin.display(description="Snapshots", ordering="num_snapshots_cached")
+    @admin.display(description="Snapshots")
     def num_total_snapshots(self, obj):
         return obj.num_snapshots_cached
 

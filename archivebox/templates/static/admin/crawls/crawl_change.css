@@ -287,3 +287,10 @@ body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .
         box-sizing: border-box;
     }
 }
+
+body.model-crawl.change-list .crawl-list-notes {
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
