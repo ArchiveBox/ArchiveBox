@@ -107,11 +107,19 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
 
 
 def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
-    snapshots = list(snapshots)
-    if not snapshots:
+    sources = []
+
+    def remember_sources():
+        # Replay selection needs prefetched results only for the current batch.
+        # Retain paths, not ORM rows and their output manifests, for later passes.
+        for snapshot in snapshots:
+            sources.append((snapshot.pk, snapshot.output_dir.resolve(), Path(snapshot.static_archive_path)))
+            yield snapshot
+
+    pages = captured_pages(remember_sources())
+    if not sources:
         raise ValueError("No snapshots match these filters.")
-    snapshots_by_id = {snapshot.pk: snapshot for snapshot in snapshots}
-    pages = captured_pages(snapshots)
+    archive_paths = {snapshot_id: relative_root for snapshot_id, _, relative_root in sources}
     # Prefer the site root as the entry point; snapshots arrive newest-first.
     pages.sort(key=lambda page: (urlsplit(page[1]).path not in {"", "/"}, len(urlsplit(page[1]).path)))
     links = {key: f"pages/{snapshot_id}/{path}" for snapshot_id, _, _, path, key in pages}
@@ -131,12 +139,10 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
         size += count
         now = time.monotonic()
         if now - reported_at >= 1:
-            progress({"pages": completed, "total_pages": len(snapshots), "bytes": size})
+            progress({"pages": completed, "total_pages": len(sources), "bytes": size})
             reported_at = now
 
-    for index, snapshot in enumerate(snapshots):
-        root = snapshot.output_dir.resolve()
-        relative_root = Path(snapshot.static_archive_path)
+    for index, (_, root, relative_root) in enumerate(sources):
         if relative_root.is_absolute() or ".." in relative_root.parts:
             raise ValueError("Snapshot files must be inside the collection archive.")
         target_root = destination / relative_root
@@ -158,22 +164,21 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
                         report_bytes(len(chunk))
                         copied.write(chunk)
         completed = index + 1
-        progress({"pages": completed, "total_pages": len(snapshots), "bytes": size})
+        progress({"pages": completed, "total_pages": len(sources), "bytes": size})
 
     previews = {}
     for snapshot_id, page_url, root, path, key in pages:
         _write_page(destination, snapshot_id, page_url, root, path, links, report_bytes)
-        snapshot = snapshots_by_id[snapshot_id]
-        previews[str(snapshot_id)] = {path: posixpath.relpath(links[key], snapshot.static_archive_path)}
+        previews[str(snapshot_id)] = {path: posixpath.relpath(links[key], archive_paths[snapshot_id])}
 
     # The collection index and details are the same renderers used by the CLI
     # and live snapshot UI; only their destination and relative URLs differ.
-    queryset = Snapshot.objects.filter(pk__in=[snapshot.pk for snapshot in snapshots]).prefetch_related("tags", "archiveresult_set")
+    queryset = Snapshot.objects.filter(pk__in=archive_paths).prefetch_related("tags", "archiveresult_set")
     (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews))
     (destination / "pages.json").write_text(json.dumps([{"url": page_url, "path": links[key]} for _, page_url, _, _, key in pages]))
     assets = None
-    for snapshot in snapshots:
-        target_root = destination / snapshot.static_archive_path
+    for _, _, relative_root in sources:
+        target_root = destination / relative_root
         if any(path.suffix.lower() == ".wacz" for path in target_root.rglob("*.wacz")):
             if assets is None:
                 from archivebox.config.common import get_config
@@ -186,8 +191,8 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
                     asset.write(data)
     final_size = sum(path.stat().st_size for path in destination.rglob("*") if path.is_file())
     report_bytes(final_size - size)
-    progress({"pages": len(snapshots), "total_pages": len(snapshots), "bytes": final_size})
-    return len(snapshots)
+    progress({"pages": len(sources), "total_pages": len(sources), "bytes": final_size})
+    return len(sources)
 
 
 def write_wacz_site(destination, snapshots, *, title, progress):
