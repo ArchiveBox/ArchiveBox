@@ -467,9 +467,24 @@ def download_url(url: str, timeout: int | None = None, config: "ArchiveBoxBaseCo
             if cookie.value is not None:
                 session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
 
+    # Resolve the native identity only for the matching local browser launch.
+    # The plugin cache is keyed by binary, headless setting and launch arguments.
+    browser_identity_config = config.model_dump(
+        mode="json",
+        include={
+            "USER_AGENT",
+            "ABXPKG_LIB_DIR",
+            "CHROME_BINARY",
+            "CHROME_HEADLESS",
+            "CHROME_IS_LOCAL",
+            "CHROME_CDP_URL",
+            "CHROME_ARGS",
+            "CHROME_ARGS_EXTRA",
+        },
+    )
     response = session.get(
         url,
-        headers={"User-Agent": resolve_user_agent({"USER_AGENT": config.USER_AGENT, "ABXPKG_LIB_DIR": str(config.ABXPKG_LIB_DIR)}) or None},
+        headers={"User-Agent": resolve_user_agent(browser_identity_config) or None},
         verify=config.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )

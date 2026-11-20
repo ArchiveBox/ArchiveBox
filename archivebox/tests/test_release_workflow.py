@@ -195,6 +195,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
             "archivebox/core/admin*",
             "archivebox/core/models.py",
             "bin/collect_ui_screenshots.sh",
+            "bin/assemble_screenshot_gallery.py",
             "bin/generate_ui_screenshot_gallery.py",
             "archivebox/templates/**",
             "archivebox/core/templatetags/core_tags.py",
@@ -211,7 +212,9 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert screenshots["jobs"]["deploy"]["if"] == (
         "(needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'"
     )
-    assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
+    assert screenshots["jobs"]["public_recipes"]["needs"] == "changes"
+    assert screenshots["jobs"]["assemble"]["needs"] == ["deploy", "public_recipes"]
+    assert screenshots["jobs"]["complete"]["needs"] == ["changes", "assemble"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
         if name not in {"prepare", "required", "dev-image"}:
