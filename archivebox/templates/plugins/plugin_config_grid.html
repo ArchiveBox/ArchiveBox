@@ -48,6 +48,7 @@
                     <p class="plugin-choice-description">{{ plugin.description }}</p>
                     {% if plugin.docs_url %}<div class="plugin-settings-links"><a href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Docs ↗</a><a href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a></div>{% endif %}
                     {% include 'plugins/config_preview.html' %}
+                    {% if plugin.provider_key_panel %}<div class="plugin-settings-links"><a data-provider-keys-link href="{{ plugin.provider_key_panel }}">Edit API keys via OpenCode →</a></div>{% endif %}
                 </header>
                 <div class="plugin-config-details">
                     {% if plugin.config_fields %}
@@ -170,9 +171,23 @@
         });
         settings.addEventListener('plugin-config-updated', updateStatus);
         filter();
-        const panelId = window.location.hash.slice(1);
-        const linkedTab = tabs.find(tab => tab.getAttribute('aria-controls') === panelId);
-        if (linkedTab) select(linkedTab);
+        function selectSettingsPanel(panelId, focus = false) {
+            const linkedTab = tabs.find(tab => tab.getAttribute('aria-controls') === panelId);
+            if (!linkedTab) return;
+            if (focus && search.value) {
+                search.value = '';
+                filter();
+            }
+            select(linkedTab);
+            if (focus) panelFor(linkedTab).focus();
+        }
+        selectSettingsPanel(window.location.hash.slice(1));
+        settings.querySelectorAll('[data-provider-keys-link]').forEach(link => {
+            link.addEventListener('click', event => {
+                if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                selectSettingsPanel(link.hash.slice(1), true);
+            });
+        });
         updateStatus();
         // Do not lose sidebar interactions while the settings form is still parsing.
         tabs.forEach(tab => { tab.disabled = false; });

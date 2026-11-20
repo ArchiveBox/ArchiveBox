@@ -12,7 +12,14 @@ from django.utils.html import format_html
 from archivebox.config import CONSTANTS_CONFIG
 from archivebox.config.common import ArchiveBoxConfig, get_config, UI_MANAGED_CONFIG_KEYS
 from archivebox.plugins.documentation import get_plugin_documentation
-from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_catalog, get_plugin_icon, get_plugins
+from archivebox.plugins.discovery import (
+    OPENCODE_PROVIDER_SETTINGS_PLUGIN,
+    discover_plugin_configs,
+    get_opencode_provider_keys,
+    get_plugin_catalog,
+    get_plugin_icon,
+    get_plugins,
+)
 
 
 PLUGIN_CONFIG_FIELD_PREFIX = "plugin_config__"
@@ -188,13 +195,24 @@ class PluginConfigFormMixin:
             | UI_MANAGED_CONFIG_KEYS
             | (RUNTIME_REPORTING_CONFIG_KEYS if getattr(self, "system_settings", False) else host_config_keys())
         )
+        provider_keys = get_opencode_provider_keys() if getattr(self, "include_core_settings", False) else frozenset()
         schemas = {
             name: {
                 **schema,
+                "provider_key_panel": bool(
+                    provider_keys
+                    and name != OPENCODE_PROVIDER_SETTINGS_PLUGIN
+                    and (
+                        OPENCODE_PROVIDER_SETTINGS_PLUGIN in (schema.get("required_plugins") or ())
+                        or provider_keys.intersection(schema.get("properties") or {})
+                    ),
+                ),
                 "properties": {
                     key: prop
                     for key, prop in (schema.get("properties") or {}).items()
-                    if key not in excluded and (self.settings_scopes is None or ArchiveBoxConfig.scope_for_key(key) in self.settings_scopes)
+                    if key not in excluded
+                    and (name == OPENCODE_PROVIDER_SETTINGS_PLUGIN or key not in provider_keys)
+                    and (self.settings_scopes is None or ArchiveBoxConfig.scope_for_key(key) in self.settings_scopes)
                 },
             }
             for name, schema in discover_plugin_configs().items()
@@ -454,6 +472,9 @@ class PluginConfigFormMixin:
                     ),
                     "config_fields": config_fields,
                     "config_count": len(config_fields),
+                    "provider_key_panel": f"#plugin-panel-shared_settings-{OPENCODE_PROVIDER_SETTINGS_PLUGIN}"
+                    if schema.get("provider_key_panel")
+                    else "",
                 },
             )
         return cards
