@@ -2192,11 +2192,21 @@ class Process(ModelWithDeleteAfter, models.Model):
                     proc.wait(timeout=0.001)
                 except Exception:
                     pass
-            # Process exited - read output and copy to DB
-            if self.stdout_file and self.stdout_file.exists():
-                self.stdout = self.stdout_file.read_text(errors="replace")
-            if self.stderr_file and self.stderr_file.exists():
-                self.stderr = self.stderr_file.read_text(errors="replace")
+            # The complete logs remain on disk. Site exports can append one
+            # progress line per snapshot, so polling their state must not load
+            # or persist the entire log on an interactive request.
+            if self.worker_type == "site-export":
+                from archivebox.misc.logging_util import read_process_log_tail
+
+                if self.stdout_file:
+                    self.stdout = read_process_log_tail(self.stdout_file).decode("utf-8", errors="replace")
+                if self.stderr_file:
+                    self.stderr = read_process_log_tail(self.stderr_file).decode("utf-8", errors="replace")
+            else:
+                if self.stdout_file and self.stdout_file.exists():
+                    self.stdout = self.stdout_file.read_text(errors="replace")
+                if self.stderr_file and self.stderr_file.exists():
+                    self.stderr = self.stderr_file.read_text(errors="replace")
 
             self.exit_code = self.exit_code if self.exit_code is not None else _default_exit_code_for_unowned_process(self.process_type)
             if self.exit_code == -1:

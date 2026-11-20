@@ -28,6 +28,18 @@ from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import ANSI
 
 
+def read_process_log_tail(path: Path, max_bytes: int = 65536) -> bytes:
+    """Return at most max_bytes from one opened log, even if it grows."""
+    size = max(0, max_bytes)
+    try:
+        with path.open("rb") as log:
+            end = log.seek(0, os.SEEK_END)
+            log.seek(max(0, end - size))
+            return log.read(size)
+    except FileNotFoundError:
+        return b""
+
+
 class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 

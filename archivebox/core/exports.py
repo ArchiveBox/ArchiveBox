@@ -470,7 +470,7 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
     from archivebox.machine.models import Process
 
     try:
-        process = get_object_or_404(Process, pk=process_id, worker_type="site-export")
+        process = get_object_or_404(Process.objects.defer("stdout", "stderr"), pk=process_id, worker_type="site-export")
     except (Http404, ValidationError, ValueError):
         return HttpResponse(status=404)
     args = process.cmd

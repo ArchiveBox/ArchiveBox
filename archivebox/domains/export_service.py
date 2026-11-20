@@ -7,6 +7,7 @@ from pathlib import Path
 
 from archivebox.config import CONSTANTS
 from archivebox.machine.models import Machine, Process
+from archivebox.misc.logging_util import read_process_log_tail
 from django.utils import timezone
 from .scope import crawl_site_scope, site_snapshot_filters
 
@@ -72,23 +73,22 @@ def launch_export(crawl=None, *, scope=None, query=None, user=None, public_only=
 def export_jobs(crawl=None, *, scope=None, query=None, user=None, public_only=False, process_id=None):
     query = query if query is not None else site_snapshot_filters(scope or crawl_site_scope(crawl))
     prefix = export_log_prefix(query=query, user=user, public_only=public_only)
-    selected = Process.objects.filter(worker_type="site-export", pwd__startswith=prefix).order_by("-created_at")
+    selected = Process.objects.filter(worker_type="site-export", pwd__startswith=prefix).defer("stdout", "stderr").order_by("-created_at")
     jobs = list(selected.filter(pk=process_id) if process_id is not None else selected[:10])
     for process in jobs:
         process.poll()
         process.export_report = {}
         path = process.stdout_file
-        if path and path.is_file():
-            # Progress is one bounded JSON line, even for multi-day exports.
-            with path.open("rb") as source:
-                source.seek(max(0, path.stat().st_size - 65536))
-                for line in source.read().splitlines():
-                    try:
-                        entry = json.loads(line)
-                    except (ValueError, UnicodeDecodeError):
-                        continue
-                    if isinstance(entry, dict) and "destination" in entry:
-                        process.export_report = entry
+        if path:
+            # Only the latest complete progress record is needed.
+            for line in reversed(read_process_log_tail(path).splitlines()):
+                try:
+                    entry = json.loads(line)
+                except (ValueError, UnicodeDecodeError):
+                    continue
+                if isinstance(entry, dict) and "destination" in entry:
+                    process.export_report = entry
+                    break
         if not process.export_report and "--destination" in process.cmd:
             process.export_report = {"destination": process.cmd[process.cmd.index("--destination") + 1]}
         format = process.cmd[process.cmd.index("--format") + 1]
