@@ -150,7 +150,7 @@ def test_server_config_stays_available_without_entering_crawl_or_snapshot_runtim
     persona = _persona(user)
     crawl = Crawl.objects.create(urls="https://example.com", persona=persona, created_by=user, config={"TIMEOUT": 11})
     assert all(get_config()[key] == value for key, value in server_config.items())
-    assert {key: crawl.config[key] for key in retained} == retained
+    assert not retained.keys() & crawl.config.keys()
     assert not server_config.keys() & crawl.config.keys()
     assert all(get_config(crawl=crawl)[key] == value for key, value in server_config.items())
     crawl.config.update({**server_config, "FAVICON_PROVIDER": "https://example.com/explicit.ico", "CUSTOM_PLUGIN_OPTION": "preserve"})
@@ -193,11 +193,11 @@ def test_config_scopes_are_derived_from_section_and_field_metadata():
     from archivebox.config.common import ArchiveBoxConfig
 
     assert ArchiveBoxConfig.scope_for_key("TIMEOUT") == "crawl_frozen"
-    assert ArchiveBoxConfig.scope_for_key("DEBUG") == "crawl_execution"
+    assert ArchiveBoxConfig.scope_for_key("DEBUG") == "server"
     assert ArchiveBoxConfig.scope_for_key("DEFAULT_PERSONA") == "crawl_execution"
     assert ArchiveBoxConfig.scope_for_key("WGET_ENABLED") == "crawl_execution"
-    assert ArchiveBoxConfig.scope_for_key("SEARCH_BACKEND_SQLITE_ENABLED") == "crawl_execution"
-    assert ArchiveBoxConfig.scope_for_key("SEARCH_BACKEND_ENGINE") == "crawl_execution"
+    assert ArchiveBoxConfig.scope_for_key("SEARCH_BACKEND_SQLITE_ENABLED") == "server"
+    assert ArchiveBoxConfig.scope_for_key("SEARCH_BACKEND_ENGINE") == "server"
     assert ArchiveBoxConfig.scope_for_key("WGET_WARC_ENABLED") == "crawl_frozen"
     assert ArchiveBoxConfig.scope_for_key("SECRET_KEY") == "server"
     assert ArchiveBoxConfig.scope_for_key("DATABASE_NAME") == "server"
@@ -402,3 +402,167 @@ def test_crawl_config_backfill_migration_uses_frozen_config_helper(archivebox_db
     assert "CRAWL_DIR" not in crawl.config
     assert "SNAP_DIR" not in crawl.config
     assert "SECRET_KEY" not in crawl.config
+
+
+def test_host_config_does_not_follow_persona_crawl_or_snapshot(archivebox_db):
+    import json
+    import sys
+    from django.test import Client
+
+    from abx_dl.config import dump_to_dotenv_format
+    from abx_dl.models import PluginEnv
+    from archivebox.config.common import filter_crawl_env, get_config
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    admin = _user("settings-scope-admin")
+    machine = Machine.current()
+    machine_keys = {"BASE_URL": "https://machine.example", "DEBUG": True, "USE_COLOR": True, "SHOW_PROGRESS": True}
+    stale_values = {
+        "BASE_URL": "https://old-crawl.example",
+        "DEBUG": False,
+        "USE_COLOR": False,
+        "SHOW_PROGRESS": False,
+        "IS_TTY": not sys.stdout.isatty(),
+        "IN_DOCKER": True,
+        "IN_QEMU": True,
+        "ANSI": {"reset": "legacy"},
+    }
+    machine.config = {**machine.config, **machine_keys, **{k: stale_values[k] for k in ("IS_TTY", "ANSI")}}
+    machine.save(update_fields=["config"])
+    persona = _persona(admin)
+    persona.config.update(stale_values)
+    persona.save(update_fields=["config"])
+    crawl = Crawl.objects.create(
+        urls="https://example.com/settings-scope", persona=persona, created_by=admin, config={"TIMEOUT": 11, **stale_values}
+    )
+    assert not stale_values.keys() & crawl.config.keys()
+
+    # Re-create a legacy row without invoking normal config snapshot logic.
+    old_crawl_config = {**crawl.config, **stale_values}
+    Crawl.objects.filter(pk=crawl.pk).update(config=old_crawl_config)
+    crawl.refresh_from_db()
+    crawl.save(update_fields=["label"])
+    crawl.refresh_from_db()
+    assert crawl.config == old_crawl_config
+    snapshot = Snapshot.objects.create(url="https://example.com/settings-scope", crawl=crawl, config={"TIMEOUT": 22, **stale_values})
+    current = get_config(machine=machine)
+    assert current.IS_TTY is sys.stdout.isatty()
+    assert current.ANSI != stale_values["ANSI"]
+
+    effective = get_config(crawl=crawl, snapshot=snapshot, machine=machine)
+    assert effective.TIMEOUT == 22 and effective.USER_AGENT == "Frozen UA"
+    hook = effective.for_crawl_runtime(crawl=crawl, snapshot=snapshot, persona=persona, runtime_overrides=stale_values)
+    assert {key: hook[key] for key in stale_values} == {key: current[key] for key in stale_values}
+    assert {key: hook[key] for key in machine_keys} == machine_keys
+    wire_env = filter_crawl_env(PluginEnv.from_config(hook, run_output_dir=snapshot.output_dir).to_env())
+    assert {key: wire_env[key] for key in stale_values} == {key: dump_to_dotenv_format(current[key]) for key in stale_values}
+
+    from archivebox.machine.forms import MachineAdminForm
+
+    machine_form = MachineAdminForm(instance=machine)
+    groups = {
+        card["name"]: card["config_fields"] for group in machine_form.plugin_groups for card in group["plugins"] if card.get("is_core")
+    }
+    for key in machine_keys:
+        assert key not in {field["key"] for field in groups["crawl_defaults"]}
+        assert key in {field["key"] for field in groups["server"]}
+    for key in set(stale_values) - machine_keys.keys():
+        assert key not in {field["key"] for field in groups["server"]}
+
+    client = Client(HTTP_HOST="machine.example")
+    client.force_login(admin)
+    for path in (f"/admin/personas/persona/{persona.pk}/change/", f"/admin/crawls/crawl/{crawl.pk}/change/"):
+        response = client.get(path)
+        assert response.status_code == 200
+        html = response.content.decode()
+        for key in stale_values:
+            assert f'value="{key}"' not in html
+            assert f'plugin_config__archivebox__{key}"' not in html
+
+    changed = client.post(
+        f"/admin/personas/persona/{persona.pk}/change/",
+        {
+            "name": persona.name,
+            "created_by": str(admin.pk),
+            "permissions": "private",
+            "config": json.dumps({"BASE_URL": "https://forged.example", "TIMEOUT": 41}),
+            "import_mode": "none",
+            "_save": "Save",
+        },
+    )
+    assert changed.status_code == 302
+    persona.refresh_from_db()
+    assert persona.config["TIMEOUT"] == 41
+    assert {key: persona.config[key] for key in stale_values} == stale_values
+
+    details = client.get("/admin/environment/config/ANSI/")
+    assert details.status_code == 200
+    assert "read-only, calculated at runtime" in details.content.decode()
+    assert "Edit <code>ANSI</code> in Machine.config" not in details.content.decode()
+
+
+def test_open_code_and_search_are_system_settings_without_removing_base_capture_fields(archivebox_db):
+    from archivebox.config.common import ArchiveBoxConfig, get_config, host_config_keys
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.forms import MachineAdminForm
+    from archivebox.machine.models import Machine
+    from archivebox.personas.forms import PersonaAdminForm
+
+    admin = _user("service-settings-admin")
+    machine = Machine.current()
+    settings = {
+        "OPENCODE_ENABLED": True,
+        "OPENCODE_PORT": 4503,
+        "OPENCODE_STATE_DIR": "/tmp/opencode-service",
+        "SEARCH_BACKEND_ENGINE": "sqlite",
+        "SEARCH_BACKEND_SQLITE_ENABLED": True,
+        "SEARCH_BACKEND_SONIC_ENABLED": False,
+        "SEARCH_BACKEND_RIPGREP_ENABLED": False,
+        "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.2",
+    }
+    machine.config = {**machine.config, **settings}
+    machine.save(update_fields=["config"])
+    persona = _persona(admin, name="Service scope persona")
+    legacy = {
+        "OPENCODE_ENABLED": False,
+        "OPENCODE_PORT": 4502,
+        "OPENCODE_STATE_DIR": "/tmp/legacy-persona",
+        "SEARCH_BACKEND_ENGINE": "ripgrep",
+        "SEARCH_BACKEND_SQLITE_ENABLED": False,
+        "SEARCH_BACKEND_SONIC_ENABLED": True,
+        "SEARCH_BACKEND_RIPGREP_ENABLED": True,
+        "SONIC_HOST": "legacy.example",
+    }
+    persona.config.update(legacy)
+    persona.save(update_fields=["config"])
+    crawl = Crawl.objects.create(
+        urls="https://example.com/service-settings", persona=persona, config={**legacy, "PLUGINS": "title", "TIMEOUT": 61}
+    )
+    assert not legacy.keys() & crawl.config.keys()
+    Crawl.objects.filter(pk=crawl.pk).update(config={**crawl.config, **legacy})
+    crawl.refresh_from_db()
+    effective = get_config(crawl=crawl)
+    assert effective.TIMEOUT == 61
+    assert {key: effective[key] for key in settings} == settings
+    wire = effective.for_crawl_runtime(crawl=crawl, runtime_overrides=legacy)
+    assert "SEARCH_BACKEND_ENGINE" not in wire
+    assert {key: wire[key] for key in set(settings) - {"SEARCH_BACKEND_ENGINE"}} == {
+        key: value for key, value in settings.items() if key != "SEARCH_BACKEND_ENGINE"
+    }
+    assert ArchiveBoxConfig.scope_for_key("NODE_BINARY") == "crawl_execution"
+    assert ArchiveBoxConfig.scope_for_key("GIT_BINARY") == "crawl_execution"
+    assert "NODE_V8_COVERAGE" not in host_config_keys()
+
+    def fields(form):
+        return {card["name"]: card["config_fields"] for group in form.plugin_groups for card in group["plugins"] if card["config_fields"]}
+
+    persona_cards = fields(PersonaAdminForm(instance=persona))
+    machine_cards = fields(MachineAdminForm(instance=machine))
+    names = {"opencode", "search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+    assert not names & persona_cards.keys()
+    assert names <= machine_cards.keys()
+    assert {field["key"] for field in persona_cards["base"]} >= {"TIMEOUT", "MEMORY_LIMIT", "MEMORY_MIN_FREE", "USER_AGENT"}
+    for groups in (persona_cards, machine_cards):
+        assert next(field for field in groups["base"] if field["key"] == "NODE_V8_COVERAGE")["advanced"]

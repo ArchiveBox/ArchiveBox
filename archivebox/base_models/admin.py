@@ -73,6 +73,10 @@ class KeyValueWidget(forms.Widget):
         }
         js: ClassVar[list[str]] = []
 
+    def __init__(self, attrs=None, *, excluded_keys: frozenset[str] = frozenset()):
+        super().__init__(attrs)
+        self.excluded_keys = excluded_keys
+
     def _get_config_options(self) -> dict[str, ConfigOption]:
         """Get available config options from plugins."""
         try:
@@ -80,6 +84,8 @@ class KeyValueWidget(forms.Widget):
 
             options: dict[str, ConfigOption] = {}
             for key, metadata in config_field_metadata().items():
+                if key in self.excluded_keys:
+                    continue
                 option_type = metadata.get("type", "string")
                 option: ConfigOption = {
                     "plugin": str(metadata.get("plugin", "archivebox")),
@@ -118,7 +124,7 @@ class KeyValueWidget(forms.Widget):
         attrs: Mapping[str, str] | None = None,
         renderer: BaseRenderer | None = None,
     ) -> SafeString:
-        data = self._parse_value(value)
+        data = {key: item for key, item in self._parse_value(value).items() if key.upper() not in self.excluded_keys}
 
         widget_id = attrs.get("id", name) if attrs else name
         config_options = self._get_config_options()
@@ -830,6 +836,13 @@ class ConfigEditorMixin(admin.ModelAdmin):
     Provides a key-value editor widget with autocomplete for available config keys.
     """
 
+    config_includes_machine_settings = False
+
+    def config_excluded_keys(self) -> frozenset[str]:
+        from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS
+
+        return RUNTIME_REPORTING_CONFIG_KEYS if self.config_includes_machine_settings else host_config_keys()
+
     def formfield_for_dbfield(
         self,
         db_field: models.Field,
@@ -838,7 +851,7 @@ class ConfigEditorMixin(admin.ModelAdmin):
     ) -> forms.Field | None:
         """Use KeyValueWidget for the config JSON field."""
         if db_field.name == "config":
-            kwargs["widget"] = KeyValueWidget()
+            kwargs["widget"] = KeyValueWidget(excluded_keys=self.config_excluded_keys())
             kwargs["show_hidden_initial"] = False  # The default hidden initial exposes write-only credentials.
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
@@ -856,13 +869,19 @@ class ConfigEditorMixin(admin.ModelAdmin):
         """
         from archivebox.config.common import is_sensitive_config_key
 
+        stored = {}
         if change and obj.pk and obj.config is not None:
             try:
                 stored = type(obj).objects.filter(pk=obj.pk).values_list("config", flat=True).first() or {}
             except (AttributeError, DatabaseError, TypeError, ValueError):
                 stored = {}
+        if isinstance(obj.config, dict):
+            excluded = self.config_excluded_keys()
+            new_config = {key: value for key, value in obj.config.items() if key.upper() not in excluded}
             if isinstance(stored, dict):
-                new_config = dict(obj.config or {})
+                # Hidden host settings remain inert on old rows; neither form
+                # submissions nor an unrelated save can update or remove them.
+                new_config.update({key: value for key, value in stored.items() if key.upper() in excluded})
                 for key, new_value in list(new_config.items()):
                     if not is_sensitive_config_key(key):
                         continue
@@ -870,7 +889,7 @@ class ConfigEditorMixin(admin.ModelAdmin):
                         continue
                     if key in stored:
                         new_config[key] = stored[key]
-                obj.config = new_config
+            obj.config = new_config
         super().save_model(request, obj, form, change)
 
 

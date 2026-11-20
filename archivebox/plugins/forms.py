@@ -180,17 +180,21 @@ class PluginConfigFormMixin:
         return self.data.get(name)
 
     def settings_schemas(self):
+        from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS, SYSTEM_PLUGIN_NAMES
+
         derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
+        excluded = derived | (RUNTIME_REPORTING_CONFIG_KEYS if getattr(self, "system_settings", False) else host_config_keys())
         schemas = {
             name: {
                 **schema,
                 "properties": {
                     key: prop
                     for key, prop in (schema.get("properties") or {}).items()
-                    if key not in derived and (self.settings_scopes is None or ArchiveBoxConfig.scope_for_key(key) in self.settings_scopes)
+                    if key not in excluded and (self.settings_scopes is None or ArchiveBoxConfig.scope_for_key(key) in self.settings_scopes)
                 },
             }
             for name, schema in discover_plugin_configs().items()
+            if getattr(self, "system_settings", False) or name not in SYSTEM_PLUGIN_NAMES
         }
         if getattr(self, "include_core_settings", False):
             from archivebox.config.common import config_field_metadata
@@ -202,7 +206,7 @@ class PluginConfigFormMixin:
                     if meta["plugin"] == "archivebox"
                     and key.isupper()
                     and key not in CONSTANTS_CONFIG
-                    and key not in derived
+                    and key not in excluded
                     and key != "SECRET_KEY"
                     and (key != "PERMISSIONS" or getattr(self, "system_settings", False))
                     and (getattr(self, "system_settings", False) or meta["scope"] in {"crawl_frozen", "crawl_execution"})
@@ -259,7 +263,11 @@ class PluginConfigFormMixin:
 
     def build_plugin_groups(self, runtime_config: Mapping[str, Any] | None = None) -> None:
         catalog = get_plugin_catalog()
+        from archivebox.config.common import SYSTEM_PLUGIN_NAMES
+
         all_plugins = set(catalog)
+        if not getattr(self, "system_settings", False):
+            all_plugins.difference_update(SYSTEM_PLUGIN_NAMES)
         plugin_configs = self.settings_schemas()
         runtime_config = runtime_config or get_config()
         binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
@@ -275,7 +283,7 @@ class PluginConfigFormMixin:
         group_specs = []
         field_choices: dict[str, list[tuple[str, str]]] = {}
         for category, field_name, title in category_specs:
-            plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []))
+            plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []) if plugin.name in all_plugins)
             group_specs.append((field_name, title, "", "", "", plugin_names))
             if field_name in self.fields:
                 field_choices.setdefault(field_name, []).extend(
@@ -544,6 +552,7 @@ class PluginConfigFormMixin:
             "plugin_choices": plugin_choices,
             "source": getattr(self, "settings_sources", {}).get(config_key, ""),
             "advanced": bool(prop_schema.get("x-advanced"))
+            or config_key == "NODE_V8_COVERAGE"
             or bool(re.search(r"(?:_BINARY(?:_ARGS)?|_ARGS|_DIR|_PATH|_PORT|_ENDPOINT)$", config_key)),
             "range_max": prop_schema.get("maximum", 100 * 1024**3 if quantity_kind == "bytes" else (86400000 if unit == "ms" else 86400)),
             "exclusive_minimum": prop_schema.get("exclusiveMinimum"),
@@ -752,7 +761,6 @@ def get_plugin_config_binary_urls(
     urls: dict[str, str] = {}
     for key in binary_keys:
         value = str(runtime_config.get(key) or "").strip()
-        if not value:
-            continue
-        urls[key] = binary_url_lookup[value]
+        if value and value in binary_url_lookup:
+            urls[key] = binary_url_lookup[value]
     return urls

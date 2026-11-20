@@ -24,7 +24,13 @@ from pydantic._internal._utils import deep_update
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 from rich.console import Console
 
-from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource, decode_config_inputs
+from archivebox.config.configset import (
+    COMPUTED_CONFIG_KEYS,
+    RUNTIME_REPORTING_CONFIG_KEYS,
+    BaseConfigSet,
+    IniConfigSettingsSource,
+    decode_config_inputs,
+)
 from archivebox.plugins.selection import parse_plugin_selection
 
 from .constants import CONSTANTS
@@ -148,6 +154,23 @@ SENSITIVE_CONFIG_VALUE_REDACTED = "********"
 _SCOPE_CRAWL_FROZEN = "crawl_frozen"
 _SCOPE_CRAWL_EXECUTION = "crawl_execution"
 _SCOPE_SERVER = "server"
+_MACHINE_ONLY_CORE_KEYS = frozenset({"BASE_URL", "DEBUG", "USE_COLOR", "SHOW_PROGRESS", "SEARCH_BACKEND_ENGINE"})
+SYSTEM_PLUGIN_NAMES = frozenset({"opencode", "search_backend_ripgrep", "search_backend_sonic", "search_backend_sqlite"})
+
+
+@cache
+def machine_only_config_keys() -> frozenset[str]:
+    """Machine owns service settings, not shared capture dependencies."""
+    owned = _plugin_config_properties({name: schema for name, schema in PLUGIN_CONFIG_SCHEMAS.items() if name in SYSTEM_PLUGIN_NAMES})
+    shared = _plugin_config_properties({name: schema for name, schema in PLUGIN_CONFIG_SCHEMAS.items() if name not in SYSTEM_PLUGIN_NAMES})
+    return _MACHINE_ONLY_CORE_KEYS | frozenset(
+        input_name for key in owned.keys() - shared.keys() for input_name in (key, *(owned[key].get("x-aliases") or ()))
+    )
+
+
+@cache
+def host_config_keys() -> frozenset[str]:
+    return machine_only_config_keys() | RUNTIME_REPORTING_CONFIG_KEYS
 
 
 @lru_cache(maxsize=1)
@@ -217,6 +240,7 @@ def normalize_runtime_config(
     only_crawl_execution: bool = False,
     exclude_runtime_derived: bool = False,
     exclude_crawl_execution: bool = False,
+    exclude_keys: frozenset[str] = frozenset(),
     json_safe: bool = True,
 ) -> dict[str, Any]:
     """Return config filtered for runtime/frozen usage, optionally JSON-safe."""
@@ -236,6 +260,7 @@ def normalize_runtime_config(
         for key, value in config.items()
         if (
             value is not None
+            and (not exclude_keys or str(key).upper() not in exclude_keys)
             and (not only_crawl_execution or ArchiveBoxConfig.scope_for_key(str(key)) == _SCOPE_CRAWL_EXECUTION)
             and (not exclude_runtime_derived or str(key) not in runtime_derived_keys)
             and (not exclude_crawl_execution or ArchiveBoxConfig.scope_for_key(str(key)) != _SCOPE_CRAWL_EXECUTION)
@@ -255,7 +280,9 @@ def build_crawl_config_snapshot(
     """Build the frozen crawl config stored on Crawl.config at creation time."""
     explicit_overrides = set(overrides or {})
     plugin_owned_keys = set(_plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)) - set(ArchiveBoxBaseConfig.model_fields)
-    effective = get_config(persona=persona, base_config=base_config, overrides=overrides)
+    effective = get_config(
+        persona=persona, base_config=base_config, overrides=normalize_runtime_config(overrides, exclude_keys=host_config_keys())
+    )
     frozen = effective.for_crawl_frozen()
     # Persona-owned plugin values stay live unless the crawl explicitly overrides them.
     if persona is not None:
@@ -273,7 +300,7 @@ def rprint(*args, file=None, **kwargs):
 
 class ShellConfig(BaseConfigSet):
     toml_section_header: str = "SHELL_CONFIG"
-    _scope: str = PrivateAttr(default=_SCOPE_CRAWL_EXECUTION)
+    _scope: str = PrivateAttr(default=_SCOPE_SERVER)
 
     DEBUG: bool = Field(default="--debug" in sys.argv)
 
@@ -343,7 +370,7 @@ class ServerConfig(BaseConfigSet):
 
     SECRET_KEY: str = Field(default_factory=lambda: "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
     BIND_ADDR: str = Field(default="127.0.0.1:5797")
-    BASE_URL: str = Field(default="", json_schema_extra={"scope": _SCOPE_CRAWL_FROZEN})
+    BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="")
     SERVER_SECURITY_MODE: str = Field(default="auto")
@@ -671,7 +698,7 @@ class SearchBackendConfig(BaseConfigSet):
     toml_section_header: str = "SEARCH_BACKEND_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
 
-    SEARCH_BACKEND_ENGINE: str = Field(default="sonic", json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
+    SEARCH_BACKEND_ENGINE: str = Field(default="sonic")
 
 
 def _plugin_user_config_value(value: Any) -> str:
@@ -755,7 +782,7 @@ def _archivebox_config_input_names() -> set[str]:
 
 def filter_crawl_env(env: Mapping[str, Any]) -> dict[str, Any]:
     """Project known config inputs for hooks; preserve tool env and plugin credentials."""
-    allowed = ArchiveBoxConfig._crawl_runtime_keys() - {"PLUGINS", "SEARCH_BACKEND_ENGINE"}
+    allowed = (ArchiveBoxConfig._crawl_runtime_keys() | host_config_keys()) - {"PLUGINS", "SEARCH_BACKEND_ENGINE"}
     inputs = _archivebox_config_input_names()
     return {key: value for key, value in env.items() if key not in inputs or key in allowed}
 
@@ -841,6 +868,8 @@ class ArchiveBoxBaseConfig(
     @classmethod
     @cache
     def scope_for_key(cls, key: str) -> str:
+        if key in host_config_keys():
+            return _SCOPE_SERVER
         plugin_enabled = False
         for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
             properties = schema.get("properties") if isinstance(schema, dict) else None
@@ -889,7 +918,8 @@ class ArchiveBoxBaseConfig(
         )
 
     def _scoped_config(self, *, include_execution: bool) -> dict[str, Any]:
-        keys = type(self)._crawl_runtime_keys() if include_execution else type(self)._crawl_frozen_keys()
+        # Hooks retain effective host values without treating them as crawl settings.
+        keys = (type(self)._crawl_runtime_keys() | host_config_keys()) if include_execution else type(self)._crawl_frozen_keys()
         payload = self.model_dump(mode="json")
         return {key: payload[key] for key in keys if payload.get(key, None) is not None}
 
@@ -931,7 +961,7 @@ class ArchiveBoxBaseConfig(
             config["SNAP_DIR"] = str(snapshot_output_dir if snapshot_output_dir is not None else snapshot.output_dir)
 
         if runtime_overrides:
-            config.update(normalize_runtime_config(runtime_overrides, json_safe=False))
+            config.update(normalize_runtime_config(runtime_overrides, exclude_keys=host_config_keys(), json_safe=False))
 
         _resolve_cookie_file_paths(config)
 
@@ -992,6 +1022,12 @@ class ArchiveBoxBaseConfig(
         if respect_current_enabled:
             selected_plugins.difference_update(disabled_plugins)
         for plugin_name, enabled_key in enabled_config_keys.items():
+            if plugin_name in SYSTEM_PLUGIN_NAMES:
+                # Keep system search flags independent of the crawl extractor
+                # selection. The configured backend still supplies its default.
+                if plugin_name == f"search_backend_{search_backend}" and plugin_name in selected_plugins:
+                    setattr(self, enabled_key, True)
+                continue
             if plugin_names is not None or plugin_name in selected_plugins:
                 setattr(self, enabled_key, plugin_name in selected_plugins)
 
@@ -1056,7 +1092,9 @@ def _plugin_enabled_config_keys() -> dict[str, str]:
         if not isinstance(properties, dict):
             continue
         enabled_key = f"{str(plugin_name).upper()}_ENABLED"
-        if enabled_key in properties and ArchiveBoxConfig.scope_for_key(enabled_key) == _SCOPE_CRAWL_EXECUTION:
+        if enabled_key in properties and (
+            ArchiveBoxConfig.scope_for_key(enabled_key) == _SCOPE_CRAWL_EXECUTION or plugin_name.startswith("search_backend_")
+        ):
             enabled_keys[str(plugin_name).lower()] = enabled_key
     return enabled_keys
 
@@ -1072,8 +1110,10 @@ def config_field_metadata(*, include_execution: bool = False) -> dict[str, dict[
     properties = ArchiveBoxConfig.model_json_schema(by_alias=False).get("properties", {})
     for key, field in ArchiveBoxConfig.model_fields.items():
         if (
-            not include_execution and ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION
-        ) or key in ArchiveBoxConfig.computed_config_keys:
+            (not include_execution and ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION)
+            or key in ArchiveBoxConfig.computed_config_keys
+            or key in RUNTIME_REPORTING_CONFIG_KEYS
+        ):
             continue
         default = field.default
         try:
@@ -1095,7 +1135,7 @@ def config_field_metadata(*, include_execution: bool = False) -> dict[str, dict[
         if not isinstance(properties, dict):
             continue
         for key, prop in properties.items():
-            if not isinstance(prop, Mapping):
+            if not isinstance(prop, Mapping) or key in _MACHINE_ONLY_CORE_KEYS or key in RUNTIME_REPORTING_CONFIG_KEYS:
                 continue
             if not include_execution and ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_EXECUTION:
                 continue
@@ -1189,6 +1229,8 @@ def find_config_source(
             machine = Machine.current_readonly()
         source_inputs = _config_source_inputs(machine, merged_config)
 
+    if key in RUNTIME_REPORTING_CONFIG_KEYS:
+        return "Environment" if any(source == "Environment" and key in inputs for source, inputs in source_inputs) else "Derived"
     properties = _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)
     prop = properties.get(key)
     candidate = key
@@ -1307,6 +1349,9 @@ def get_config(
         crawl = snapshot.crawl
 
     crawl_config_base = crawl is not None and base_config is None
+    frozen_config = normalize_runtime_config(
+        crawl.config if crawl is not None else None, exclude_crawl_execution=True, exclude_keys=host_config_keys(), json_safe=False
+    )
 
     if include_machine and machine is None:
         try:
@@ -1333,7 +1378,7 @@ def get_config(
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )
-        config_data.update(normalize_runtime_config(dict(crawl.config or {}), exclude_crawl_execution=True, json_safe=False))
+        config_data.update(frozen_config)
     elif base_config is not None:
         if isinstance(base_config, ArchiveBoxBaseConfig):
             base_config_payload.update(base_config.model_dump(mode="json"))
@@ -1376,14 +1421,19 @@ def get_config(
                 machine_config,
                 only_crawl_execution=crawl_config_base,
                 exclude_runtime_derived=True,
+                exclude_keys=RUNTIME_REPORTING_CONFIG_KEYS,
                 json_safe=False,
             ),
         )
+        if crawl_config_base:
+            # These stay live like execution settings but are solely Machine-owned.
+            scope_overrides.update({key: machine_config[key] for key in machine_only_config_keys() if machine_config.get(key) is not None})
 
     if persona is not None:
         persona_config = normalize_runtime_config(
             persona.get_derived_config(),
             exclude_runtime_derived=not crawl_config_base,
+            exclude_keys=host_config_keys(),
             json_safe=False,
         )
         if crawl_config_base:
@@ -1397,13 +1447,24 @@ def get_config(
         scope_overrides.update(persona_config)
 
     if crawl is not None and crawl.config and not crawl_config_base:
-        scope_overrides.update(normalize_runtime_config(crawl.config, exclude_crawl_execution=True, json_safe=False))
+        scope_overrides.update(frozen_config)
 
     if snapshot is not None and snapshot.config:
-        scope_overrides.update(normalize_runtime_config(snapshot.config, exclude_crawl_execution=True, json_safe=False))
+        scope_overrides.update(
+            normalize_runtime_config(snapshot.config, exclude_crawl_execution=True, exclude_keys=host_config_keys(), json_safe=False)
+        )
 
     if overrides:
-        scope_overrides.update(normalize_runtime_config(overrides, exclude_crawl_execution=True, json_safe=False))
+        scope_overrides.update(
+            normalize_runtime_config(
+                overrides,
+                exclude_crawl_execution=True,
+                exclude_keys=host_config_keys()
+                if persona is not None or crawl is not None or snapshot is not None
+                else RUNTIME_REPORTING_CONFIG_KEYS,
+                json_safe=False,
+            )
+        )
 
     legacy_scope_permissions = permissions_from_legacy_public_flags(scope_overrides)
     if legacy_scope_permissions:
@@ -1420,8 +1481,8 @@ def get_config(
         # this crawl. Env/file *_ENABLED values are ambient defaults and must
         # not be re-applied after validation, or a later process env can change
         # which hooks an already-queued crawl runs.
-        if not crawl_selected_plugins:
-            explicit_plugin_enabled_keys.update(_explicit_plugin_enabled_keys(os.environ))
+        env_enabled = _explicit_plugin_enabled_keys(os.environ)
+        explicit_plugin_enabled_keys.update(env_enabled & machine_only_config_keys() if crawl_selected_plugins else env_enabled)
         explicit_plugin_enabled_keys.update(_explicit_plugin_enabled_keys(scope_overrides))
         plugin_user_config = _plugin_user_config(
             {
@@ -1458,7 +1519,7 @@ def get_config(
                 },
             )
         if crawl_config_base:
-            config_data.update(normalize_runtime_config(dict(crawl.config or {}), exclude_crawl_execution=True, json_safe=False))
+            config_data.update(frozen_config)
         config_data.update(archivebox_scope_overrides)
         if crawl_selected_plugins:
             # Crawl PLUGINS is a frozen selector. Drop ambient enable flags from
@@ -1466,7 +1527,8 @@ def get_config(
             # set is derived from the crawl, not from the worker process that
             # happens to resume it.
             for enabled_key in _plugin_enabled_config_keys().values():
-                config_data.pop(enabled_key, None)
+                if enabled_key not in machine_only_config_keys():
+                    config_data.pop(enabled_key, None)
 
     config_data = decode_config_inputs(ArchiveBoxConfig, config_data)
 

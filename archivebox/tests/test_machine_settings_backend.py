@@ -41,7 +41,7 @@ assert metadata['TIMEOUT']['schema']['type'] == 'integer'
 assert metadata['SEARCH_BACKEND_ENGINE']['schema']['type'] == 'string'
 assert metadata['URL_ALLOWLIST']['schema']['default'] is None
 assert {'type': 'null'} in metadata['URL_ALLOWLIST']['schema']['anyOf']
-assert 'SEARCH_BACKEND_ENGINE' not in config_field_metadata()
+assert config_field_metadata()['SEARCH_BACKEND_ENGINE']['scope'] == 'server'
 resolved = get_config(machine=machine).model_dump(mode='json')
 assert {key: row['value'] for key, row in values.items()} == resolved
 machine.refresh_from_db()

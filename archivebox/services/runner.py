@@ -63,6 +63,7 @@ from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelled
 from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
 
 from archivebox.config.common import (
+    RUNTIME_REPORTING_CONFIG_KEYS,
     ArchiveBoxBaseConfig,
     filter_crawl_env,
     normalize_runtime_config,
@@ -864,7 +865,7 @@ class CrawlRunner:
         self.derived_config = {
             key: value
             for key, value in (machine.config or {}).items()
-            if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}
+            if key not in RUNTIME_REPORTING_CONFIG_KEYS | {"SECRET_KEY", "_SECRET_KEY_DB"}
             and not _is_cookie_file_config_key(key)
             and (not key.endswith("_BINARY") or value == self.base_config.get(key))
         }
@@ -1645,7 +1646,8 @@ async def _run_binary(binary_id: str) -> None:
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
     derived_config = normalize_runtime_config(
-        {key: value for key, value in (machine.config or {}).items() if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}},
+        machine.config,
+        exclude_keys=RUNTIME_REPORTING_CONFIG_KEYS | {"SECRET_KEY", "_SECRET_KEY_DB"},
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
@@ -2079,7 +2081,8 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
     derived_config = normalize_runtime_config(
-        {key: value for key, value in (machine.config or {}).items() if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}},
+        machine.config,
+        exclude_keys=RUNTIME_REPORTING_CONFIG_KEYS | {"SECRET_KEY", "_SECRET_KEY_DB"},
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)

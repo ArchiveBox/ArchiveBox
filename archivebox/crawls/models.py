@@ -339,7 +339,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             self.tags_str = ",".join(self.parse_tag_names(self.tags_str or ""))
         old_crawl = type(self).objects.filter(pk=self.pk).first() if self.pk else None
 
-        from archivebox.config.common import ArchiveBoxConfig, build_crawl_config_snapshot
+        from archivebox.config.common import host_config_keys, ArchiveBoxConfig, build_crawl_config_snapshot
 
         config = dict(self.config or {})
         is_new = self._state.adding or old_crawl is None
@@ -347,7 +347,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if is_new:
             config = build_crawl_config_snapshot(persona=persona, overrides=config)
         else:
-            config = {key: value for key, value in config.items() if ArchiveBoxConfig._scope_by_key().get(key) != "server"}
+            config = {
+                key: value
+                for key, value in config.items()
+                if key.upper() not in host_config_keys() and ArchiveBoxConfig._scope_by_key().get(key) != "server"
+            }
+            # Keep inert legacy settings in persisted rows without accepting edits.
+            config.update({key: value for key, value in (old_crawl.config or {}).items() if key.upper() in host_config_keys()})
         if str(config.get("PERMISSIONS") or "").strip().lower() not in PERMISSIONS_VALUES:
             from archivebox.config.common import get_config
 

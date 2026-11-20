@@ -52,7 +52,7 @@ from archivebox.config.common import (
     get_request_config,
     redact_sensitive_config,
 )
-from archivebox.config.configset import BaseConfigSet
+from archivebox.config.configset import RUNTIME_REPORTING_CONFIG_KEYS, BaseConfigSet
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag
 from archivebox.memento.views import add_memento_headers, timegate_response, timemap_response
@@ -2241,11 +2241,12 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
 
     # Determine all sources for this config value
     sources_info = []
+    runtime_only = key in RUNTIME_REPORTING_CONFIG_KEYS
 
     # Machine config
     machine = Machine.current()
     machine_admin_url = machine.admin_change_url
-    if machine.config and key in machine.config:
+    if not runtime_only and machine.config and key in machine.config:
         sources_info.append(("Machine", redact_sensitive_config(machine.config).get(key), "purple"))
 
     # Environment variable
@@ -2253,7 +2254,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         sources_info.append(("Environment", redact_sensitive_config(os.environ).get(key), "blue"))
 
     # Config file value
-    if CONSTANTS.CONFIG_FILE.exists():
+    if not runtime_only and CONSTANTS.CONFIG_FILE.exists():
         file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
         if key in file_config:
             sources_info.append(("File", redact_sensitive_config(file_config).get(key), "green"))
@@ -2284,7 +2285,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
             '[CONSTANTS]   &nbsp; <b><code style="color: lightgray">{}</code></b> &nbsp; <small>(read-only, hardcoded by ArchiveBox)</small>',
             key,
         )
-    elif key in merged_config:
+    elif key in merged_config and not runtime_only:
         section_header = format_html(
             'data / ArchiveBox.conf &nbsp; [{}]  &nbsp; <b><code style="color: lightgray">{}</code></b>',
             find_config_section(key),
@@ -2307,7 +2308,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
     default_command_value = val.strip("'") if (val := find_config_default(key)) else str(final_value).strip("'")
     machine_config_link = (
         format_html('<br/><a href="{}">→ Edit <code>{}</code> in Machine.config for this server</a>', machine_admin_url, key)
-        if machine_admin_url
+        if machine_admin_url and not runtime_only
         else ""
     )
     machine_config_tip = (
@@ -2317,7 +2318,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
             machine_admin_url,
             f'{{"{key}": "your_value_here"}}',
         )
-        if machine_admin_url and key not in CONSTANTS_CONFIG
+        if machine_admin_url and key not in CONSTANTS_CONFIG and not runtime_only
         else ""
     )
 
@@ -2368,7 +2369,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
             """,
                     redacted_message,
                     sources_html,
-                    "block" if key in merged_config and key not in CONSTANTS_CONFIG else "none",
+                    "block" if key in merged_config and key not in CONSTANTS_CONFIG and not runtime_only else "none",
                     key,
                     default_command_value,
                 ),

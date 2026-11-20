@@ -75,6 +75,7 @@ def _format_process_duration_seconds(started_at, ended_at) -> str:
 
 
 class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
+    config_includes_machine_settings = True
     form = MachineAdminForm
     change_form_template = "admin/machine/machine/change_form.html"
     list_display = (
