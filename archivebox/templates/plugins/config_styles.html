@@ -21,12 +21,16 @@
 #plugin-settings a { color: var(--settings-blue); text-decoration: none; }
 #plugin-settings a:hover { text-decoration: underline; }
 #plugin-settings :focus-visible { outline: 3px solid color-mix(in srgb, var(--settings-blue) 55%, transparent); outline-offset: 3px; }
-.plugin-settings-sidebar { flex: 0 0 260px; background: var(--darkened-bg, #f8f9fb); border-right: 1px solid var(--hairline-color, #e4e7ec); padding: 22px 12px 14px; display: flex; flex-direction: column; min-width: 0; position: sticky; top: 16px; align-self: flex-start; height: var(--settings-rail-height); }
+.plugin-settings-sidebar { flex: 0 0 260px; background: var(--darkened-bg, #f8f9fb); border-right: 1px solid var(--hairline-color, #e4e7ec); padding: 22px 12px 14px; display: flex; flex-direction: column; min-width: 0; position: sticky; top: 16px; align-self: flex-start; height: calc(100dvh - 32px); max-height: 100%; }
 .plugin-settings-sidebar-heading { padding: 0 10px 14px; font-size: 21px; font-weight: 650; letter-spacing: -.5px; }
 .plugin-settings-search { display: flex; align-items: center; margin: 0 2px 18px; border: 1px solid var(--border-color, #d0d5dd); border-radius: 7px; background: var(--body-bg, #fff); padding: 0 8px; }
 .plugin-settings-search svg { width: 16px; height: 16px; fill: none; stroke: #7e8087; stroke-width: 1.6; flex: none; }
 #plugin-settings .plugin-settings-search input { width: 100%; min-width: 0; border: 0; background: transparent; box-shadow: none; padding: 10px 7px; font-size: 13px; color: var(--settings-text); margin: 0; }
-.plugin-settings-tabs { flex: 1; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-gutter: stable; scroll-padding-block: 6px; }
+.plugin-settings-tabs { flex: 1; overflow-y: auto; min-height: 0; scrollbar-gutter: stable; scroll-padding-block: 6px; }
+/* An always-visible rail makes the independent scroller discoverable, including on macOS. */
+.plugin-settings-tabs::-webkit-scrollbar { width: 8px; }
+.plugin-settings-tabs::-webkit-scrollbar-thumb { background: var(--border-color, #d0d5dd); border-radius: 4px; }
+@supports not selector(::-webkit-scrollbar) { .plugin-settings-tabs { scrollbar-width: thin; } }
 .plugin-settings-category { padding: 15px 10px 6px; color: var(--settings-muted); font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }
 .plugin-settings-nav-group:first-child .plugin-settings-category { padding-top: 0; }
 #plugin-settings [role="tab"] { display: flex; align-items: center; justify-content: flex-start; gap: 9px; width: 100%; margin: 2px 0; padding: 8px 10px; background: transparent; border: 1px solid transparent; border-radius: 6px; text-align: left; color: var(--settings-text); font-size: 13px; cursor: pointer; }
