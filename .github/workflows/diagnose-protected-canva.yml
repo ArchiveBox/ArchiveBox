@@ -1,0 +1,208 @@
+name: Diagnose protected Canva gallery recipe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: provider-capture
+    # Serialize access with the same existing gallery provider persona.
+    concurrency:
+      group: gallery-provider-capture-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
+    services:
+      wayback:
+        image: nginx:alpine
+        ports:
+          - 80/tcp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Apply reviewed diagnostic selector to the collector
+        run: |
+          git apply --check bin/diagnose_protected_canva.patch
+          git apply bin/diagnose_protected_canva.patch
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+          enable-cache: false
+
+      - name: Install ArchiveBox and screenshot dependencies
+        run: uv sync --no-cache --frozen
+
+      - name: Install the matching Chrome sandbox helper
+        run: |
+          # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
+          if [[ "$RUNNER_OS" == "Linux" && "$RUNNER_ENVIRONMENT" == "github-hosted" ]]; then
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+              sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
+            fi
+          fi
+          chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          # CHROME_BINARY may be a provider launcher, not the native executable.
+          native_chrome = subprocess.check_output([
+              env["NODE_BINARY"], "-e", r"""
+              const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+              const {execFileSync} = require('node:child_process');
+              const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+              getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                  const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                  if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                  console.log(matches[0].executablePath);
+              }).catch(error => { console.error(error); process.exit(1); });
+              """,
+          ], env={**os.environ, **env}, text=True).strip()
+          helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+          # Match plugin CI: keep software 2D rendering; emulating the whole GPU
+          # can stall document exports on CPU-limited runners.
+          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+
+      - name: Prepare authorized provider persona and browser display
+        env:
+          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+          CANVA_AUTH_STORAGE_JSON: ${{ secrets.CANVA_AUTH_STORAGE_JSON }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$PROVIDER_AUTH_STORAGE_JSON"
+          umask 077
+          auth_file="$RUNNER_TEMP/provider-auth.json"
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
+          # Provider-specific refreshes must preserve unrelated sessions.
+          uv run --no-project python - "$auth_file" <<'PYAUTH'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          path = Path(sys.argv[1])
+          original = json.loads(path.read_text())
+          for secret, domain in (("CANVA_AUTH_STORAGE_JSON", "canva.com"),):
+              refresh = os.environ.get(secret)
+              if not refresh:
+                  continue
+              provider = json.loads(refresh)
+
+              # Both browser storage exports and extension exports are accepted
+              # by Chrome. Normalize extension cookies before combining formats.
+              for auth in (original, provider):
+                  assert isinstance(auth.get("cookies", []), list), "Expected a cookies array"
+                  if auth.get("SOURCE") != "archivebox-browser-extension":
+                      continue
+                  converted = []
+                  for cookie in auth.get("cookies", []):
+                      assert not cookie.get("partitionKey"), "Partitioned extension cookies are unsupported"
+                      item = {key: cookie[key] for key in ("name", "value", "domain", "path", "secure", "httpOnly") if key in cookie}
+                      if cookie.get("expirationDate") is not None:
+                          item["expires"] = cookie["expirationDate"]
+                      same_site = str(cookie.get("sameSite") or "").lower()
+                      if same_site and same_site != "unspecified":
+                          item["sameSite"] = {"no_restriction": "None", "none": "None", "lax": "Lax", "strict": "Strict"}[same_site]
+                      converted.append(item)
+                  if "cookies" in auth:
+                      auth["cookies"] = converted
+                  auth.pop("SOURCE")
+
+              def is_provider(item, key):
+                  value = item.get(key) or item.get("url") or ""
+                  host = urlsplit(value if "://" in value else "//" + value.lstrip(".")).hostname or ""
+                  return host == domain or host.endswith("." + domain)
+
+              for field, key in (("cookies", "domain"), ("origins", "origin"), ("tabs", "url")):
+                  if field not in provider:
+                      continue
+                  incoming = [item for item in provider.get(field, []) if is_provider(item, key)]
+                  original[field] = [item for item in original.get(field, []) if not is_provider(item, key)] + incoming
+              path.write_text(json.dumps(original))
+          PYAUTH
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+
+      - name: Configure local Wayback submission service
+        run: |
+          set -Eeuo pipefail
+          docker cp .github/fixtures/wayback.conf '${{ job.services.wayback.id }}:/etc/nginx/conf.d/default.conf'
+          docker exec '${{ job.services.wayback.id }}' nginx -t
+          docker restart '${{ job.services.wayback.id }}'
+          # Docker can reassign an ephemeral host port on restart. GitHub's
+          # service context retains the original port, so resolve the live mapping.
+          wayback_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' '${{ job.services.wayback.id }}')"
+          save_url="http://127.0.0.1:$wayback_port/save/"
+          echo "ARCHIVEDOTORG_SAVE_URL=$save_url" >> "$GITHUB_ENV"
+
+      - name: Build UI screenshot gallery
+        run: |
+          umask 077
+          mkdir "$RUNNER_TEMP/canva-private"
+          export UI_SCREENSHOT_CANVA_DIAGNOSTIC_DIR="$RUNNER_TEMP/canva-private"
+          export SCREENSHOT_FAILURE_DIR="$RUNNER_TEMP/canva-private/failure"
+          export UI_SCREENSHOT_PUBLIC_OUTPUT_DIR="$RUNNER_TEMP/canva-private/png"
+          export UI_SCREENSHOT_OUTPUT_DIR="$RUNNER_TEMP/canva-private/docs/screenshots"
+          date -u +%FT%TZ >"$RUNNER_TEMP/canva-private/start"
+          status=0
+          xvfb-run -a bin/collect_ui_screenshots.sh >"$RUNNER_TEMP/canva-private/collector.log" 2>&1 || status=$?
+          printf '%s\n' "$status" >"$RUNNER_TEMP/canva-private/exit-code"
+          date -u +%FT%TZ >"$RUNNER_TEMP/canva-private/end"
+          exit "$status"
+        env:
+          BASE_URL: http://archivebox.localhost:5797
+          AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
+          CHROME_HEADLESS: "false"
+          UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/provider-gallery-data
+          UI_SCREENSHOT_DIAGNOSE_CANVA: "1"
+
+      - name: Summarize protected Canva with allowlisted fields
+        if: '!cancelled()'
+        run: |
+          uv run --no-sync python bin/summarize_canva_gallery.py "$RUNNER_TEMP/canva-private"
+
+      - name: Upload sanitized Canva evidence only
+        if: '!cancelled()'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gallery-canva-sanitized-diagnostic
+          path: ${{ runner.temp }}/canva-private/summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove provider persona and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/provider-auth.json"
+          rm -rf "$RUNNER_TEMP/provider-gallery-data" "$RUNNER_TEMP/canva-private"
