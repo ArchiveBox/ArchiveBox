@@ -58,6 +58,19 @@ def normalize_created_year_filter(year: str = "") -> str:
     return year if len(year) == 4 and year.isdigit() else ""
 
 
+def _tag_snapshot_memberships():
+    # Older SQLite collections retain a text tag_id in the through table.
+    # Comparing it with the integer tag PK bypasses its index; a text RHS
+    # permits indexed probes with both the legacy and current column affinity.
+    tag_id = Cast(OuterRef("pk"), output_field=CharField()) if connection.vendor == "sqlite" else OuterRef("pk")
+    return SnapshotTag.objects.filter(tag_id=tag_id)
+
+
+def annotate_tag_snapshot_counts(queryset):
+    counts = _tag_snapshot_memberships().order_by().values("tag_id").annotate(count=Count("*")).values("count")
+    return queryset.annotate(num_snapshots=Coalesce(Subquery(counts, output_field=IntegerField()), Value(0)))
+
+
 def get_matching_tags(
     query: str = "",
     sort: str = "created_desc",
@@ -70,14 +83,9 @@ def get_matching_tags(
     needs_snapshot_counts = sort.startswith("snapshots_")
 
     queryset = Tag.objects.select_related("created_by")
-    # Older SQLite collections retain a text tag_id in the through table.
-    # Comparing it with the integer tag PK bypasses its index; a text RHS
-    # permits indexed probes with both the legacy and current column affinity.
-    tag_id = Cast(OuterRef("pk"), output_field=CharField()) if connection.vendor == "sqlite" else OuterRef("pk")
-    memberships = SnapshotTag.objects.filter(tag_id=tag_id)
+    memberships = _tag_snapshot_memberships()
     if needs_snapshot_counts:
-        counts = memberships.order_by().values("tag_id").annotate(count=Count("*")).values("count")
-        queryset = queryset.annotate(num_snapshots=Coalesce(Subquery(counts, output_field=IntegerField()), Value(0)))
+        queryset = annotate_tag_snapshot_counts(queryset)
 
     query = normalize_tag_name(query)
     if query:
@@ -284,7 +292,7 @@ def build_tag_card(tag: Tag, snapshot_previews: list[dict[str, Any]] | None = No
         "export_urls_url": f"/api/v1/core/tag/{tag.pk}/urls.txt",
         "export_jsonl_url": f"/api/v1/core/tag/{tag.pk}/snapshots.jsonl",
         "rename_url": f"/api/v1/core/tag/{tag.pk}/rename",
-        "delete_url": f"/api/v1/core/tag/{tag.pk}/",
+        "delete_url": reverse("api-1:delete_tag", args=[tag.pk]),
         "snapshots": snapshot_previews or [],
     }
 

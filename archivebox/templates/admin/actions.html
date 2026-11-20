@@ -6,70 +6,30 @@
       {% block actions-form %}
       {% for field in action_form %}
         {% if field.name == "tags" %}
-          <span class="actions-tags{% if enhanced_actions < 11 %} actions-tags-with-buttons{% endif %}"{% if enhanced_actions < 11 %} hidden{% endif %}>
-            {{ field }}
-            {% if enhanced_actions < 11 %}
-              {% for value, label in action_form.action.field.choices %}
-                {% if value == 'add_tags' or value == 'remove_tags' %}
-                  <button type="button" class="button" name="{{ value }}" data-admin-action="{{ value }}" aria-label="{% if value == 'add_tags' %}Add tags{% else %}Remove tags{% endif %}">{% include "admin/action_icon.html" with action=value %}</button>
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-          </span>
+          {% if cl.opts.model_name != "tag" %}
+            {% include "admin/action_tags.html" with tags_field=field action_choices=action_form.action.field.choices %}
+          {% endif %}
         {% elif field.name == "folder_destination" %}
-          {% if enhanced_actions >= 11 %}<span class="actions-folder" hidden><label>{{ field.label }} {{ field }}</label></span>{% endif %}
-        {% elif field.name == "action" and enhanced_actions < 11 %}
-          <span hidden>{{ field }}</span>
+          {% if enhanced_actions >= 11 and not snapshot_action_choices %}<span class="actions-folder" hidden><label>{{ field.label }} {{ field }}</label></span>{% endif %}
+        {% elif field.name == "action" %}
+          {% if enhanced_actions < 11 or snapshot_action_choices %}<span hidden>{{ field }}</span>{% elif field.label %}<label>{{ field.label }} {{ field }}</label>{% else %}{{ field }}{% endif %}
         {% else %}
           {% if field.label %}<label>{{ field.label }} {{ field }}</label>{% else %}{{ field }}{% endif %}
         {% endif %}
       {% endfor %}
       {% endblock %}
       {% block actions-submit %}
-      {% if enhanced_actions < 11 %}<span hidden>{% endif %}
+      {% if enhanced_actions < 11 or snapshot_action_choices %}<span hidden>{% endif %}
       <button type="submit" class="button" name="index" value="{{ action_index|default:0 }}">{% translate "Run" %}</button>
-      {% if enhanced_actions < 11 %}</span>{% endif %}
-      {% if enhanced_actions < 11 %}
+      {% if enhanced_actions < 11 or snapshot_action_choices %}</span>{% endif %}
+      {% if enhanced_actions < 11 or snapshot_action_choices %}
         <div class="action-buttons" hidden>
-          {% for value, label in action_form.action.field.choices %}
-            {% if value == 'resnapshot_snapshot' or value == 'update_snapshots' or value == 'overwrite_snapshots' %}
-              {% ifchanged 'rearchive' %}
-                <span class="action-rearchive-wrapper">
-                  <select class="action-rearchive-select" aria-label="Re-Archive">
-                    <option value="" hidden></option>
-                    {% for action_value, action_label in action_form.action.field.choices %}
-                      {% if action_value == 'resnapshot_snapshot' %}<option value="{{ action_value }}">➕ Create fresh snapshot(s)</option>{% endif %}
-                      {% if action_value == 'update_snapshots' %}<option value="{{ action_value }}">▶️ Retry only failed subtasks</option>{% endif %}
-                      {% if action_value == 'overwrite_snapshots' %}<option value="{{ action_value }}">♻️ Reset &amp; retry from scratch</option>{% endif %}
-                    {% endfor %}
-                  </select>
-                  <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action="rearchive" %}Re-Archive <span aria-hidden="true">▾</span></span>
-                </span>
-              {% endifchanged %}
-            {% elif value == 'set_crawl_permissions' or value == 'set_snapshot_permissions' %}
-              <span class="action-permissions-wrapper">
-                <select class="action-permissions-select" aria-label="Permissions" data-admin-action="{{ value }}">
-                  <option value="" hidden></option>
-                  <option value="public">Public</option>
-                  <option value="unlisted">Unlisted</option>
-                  <option value="private">Private</option>
-                </select>
-                <span aria-hidden="true" name="{{ value }}" class="button">{% include "admin/action_icon.html" with action=value %}{{ label }}</span>
-              </span>
-            {% elif value == 'move_to_folder' %}
-              <span class="action-folder-wrapper">
-                <select name="folder_destination" class="action-folder-select" aria-label="Move to folder">
-                  <option value="">{{ action_form.folder_destination.field.empty_label }}</option>
-                  {% for folder_value, folder_label in move_folder_choices %}
-                    <option value="{{ folder_value }}">{{ folder_label }}</option>
-                  {% endfor %}
-                </select>
-                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}Move to folder <span aria-hidden="true">▾</span></span>
-              </span>
-            {% elif value and value != 'add_tags' and value != 'remove_tags' %}
-              <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% include "admin/action_icon.html" with action=value %}{% if value == 'delete_selected' %}Delete{% else %}{{ label }}{% endif %}</button>
-            {% endif %}
-          {% endfor %}
+          {% if snapshot_action_choices %}
+            {% if tag_action_choices %}<span role="group" aria-label="Tag actions"><small>Tags</small> {% include "admin/snapshot_action_buttons.html" with action_choices=tag_action_choices %}</span>{% endif %}
+            <span role="group" aria-label="Snapshot actions" data-tagged-snapshot-actions><small>Snapshots</small>{% if snapshot_has_tag_actions %} {% include "admin/action_tags.html" with tags_field=action_form.tags action_choices=snapshot_action_choices %}{% endif %} {% include "admin/snapshot_action_buttons.html" with action_choices=snapshot_action_choices %}</span>
+          {% else %}
+            {% include "admin/snapshot_action_buttons.html" with action_choices=action_form.action.field.choices %}
+          {% endif %}
         </div>
       {% endif %}
       {% endblock %}

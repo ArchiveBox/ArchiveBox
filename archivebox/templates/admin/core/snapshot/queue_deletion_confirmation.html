@@ -4,12 +4,12 @@
 <p>Showing up to 20 selected URLs:</p>
 <ul>{% for id, url in preview %}<li>{{ url }}</li>{% endfor %}</ul>
 <form method="post" action="{{ confirmation_url }}">{% csrf_token %}
-<input type="hidden" name="action" value="delete_selected">
+<input type="hidden" name="action" value="{{ confirmation_action }}">
 <input type="hidden" name="post" value="yes">
-<input type="hidden" name="select_across" value="1">
-<input type="hidden" name="_selected_action" value="{{ first_id }}">
+<input type="hidden" name="select_across" value="{{ confirmation_across|yesno:'1,0' }}">
+{% for object_id in confirmation_selected %}<input type="hidden" name="_selected_action" value="{{ object_id }}">{% endfor %}
 <input type="hidden" name="selection" value="{{ selection }}">
 <input type="submit" value="Yes, queue deletion">
-<a href="{{ request.path }}">Cancel</a>
+<a href="{% if confirmation_action == 'delete_selected' %}{{ request.path }}{% else %}{{ confirmation_url }}{% endif %}">Cancel</a>
 </form>
 {% endblock %}

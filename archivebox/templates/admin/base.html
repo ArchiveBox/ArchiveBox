@@ -1930,7 +1930,9 @@
                     )
                     let message
                     if (action === 'overwrite_snapshots') {
-                        message = 'Are you sure you want to re-archive (overwrite) ' + num_selected + ' Snapshots?\n\n' +
+                        const scope = control.closest('[data-tagged-snapshot-actions]')
+                            ? 'snapshots matching the selected tags' : num_selected + ' Snapshots'
+                        message = 'Are you sure you want to re-archive (overwrite) ' + scope + '?\n\n' +
                             'This will delete all previously saved files from these Snapshots and re-archive them from scratch.\n\n'
                     } else if (action === 'delete_snapshots') {
                         message = 'Are you sure you want to permanently delete ' + num_selected + ' Snapshots?\n\n' +

@@ -1,0 +1,10 @@
+          <span class="actions-tags{% if enhanced_actions < 11 or snapshot_action_choices %} actions-tags-with-buttons{% endif %}"{% if enhanced_actions < 11 or snapshot_action_choices %} hidden{% endif %}>
+            {{ tags_field }}
+            {% if enhanced_actions < 11 or snapshot_action_choices %}
+              {% for value, label in action_choices %}
+                {% if value == 'add_tags' or value == 'remove_tags' %}
+                  <button type="button" class="button" name="{{ value }}" data-admin-action="{{ value }}" aria-label="{% if value == 'add_tags' %}Add tags{% else %}Remove tags{% endif %}">{% include "admin/action_icon.html" with action=value %}</button>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          </span>

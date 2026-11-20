@@ -1,0 +1,39 @@
+          {% for value, label in action_choices %}
+            {% if value == 'resnapshot_snapshot' or value == 'update_snapshots' or value == 'overwrite_snapshots' %}
+              {% ifchanged 'rearchive' %}
+                <span class="action-rearchive-wrapper">
+                  <select class="action-rearchive-select" aria-label="Re-Archive">
+                    <option value="" hidden></option>
+                    {% for action_value, action_label in action_choices %}
+                      {% if action_value == 'resnapshot_snapshot' %}<option value="{{ action_value }}">➕ Create fresh snapshot(s)</option>{% endif %}
+                      {% if action_value == 'update_snapshots' %}<option value="{{ action_value }}">▶️ Retry only failed subtasks</option>{% endif %}
+                      {% if action_value == 'overwrite_snapshots' %}<option value="{{ action_value }}">♻️ Reset &amp; retry from scratch</option>{% endif %}
+                    {% endfor %}
+                  </select>
+                  <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action="rearchive" %}Re-Archive <span aria-hidden="true">▾</span></span>
+                </span>
+              {% endifchanged %}
+            {% elif value == 'set_crawl_permissions' or value == 'set_snapshot_permissions' %}
+              <span class="action-permissions-wrapper">
+                <select class="action-permissions-select" aria-label="Permissions" data-admin-action="{{ value }}">
+                  <option value="" hidden></option>
+                  <option value="public">Public</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="private">Private</option>
+                </select>
+                <span aria-hidden="true" name="{{ value }}" class="button">{% include "admin/action_icon.html" with action=value %}{{ label }}</span>
+              </span>
+            {% elif value == 'move_to_folder' %}
+              <span class="action-folder-wrapper">
+                <select name="folder_destination" class="action-folder-select" aria-label="Move to folder">
+                  <option value="">{{ action_form.folder_destination.field.empty_label }}</option>
+                  {% for folder_value, folder_label in move_folder_choices %}
+                    <option value="{{ folder_value }}">{{ folder_label }}</option>
+                  {% endfor %}
+                </select>
+                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}Move to folder <span aria-hidden="true">▾</span></span>
+              </span>
+            {% elif value and value != 'add_tags' and value != 'remove_tags' %}
+              <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% if value == 'delete_selected' or value == 'delete_tagged_snapshots' %}{% include "admin/action_icon.html" with action="delete_selected" %}Delete{% else %}{% include "admin/action_icon.html" with action=value %}{{ label }}{% endif %}</button>
+            {% endif %}
+          {% endfor %}

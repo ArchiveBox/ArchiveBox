@@ -1,30 +1,28 @@
 __package__ = "archivebox.core"
 
+from copy import copy
+from dataclasses import replace
+from functools import partial
 from urllib.parse import quote
 
 from django import forms
 from django.contrib import admin, messages
-from django.contrib.admin.options import IS_POPUP_VAR
-from django.http import HttpRequest, HttpResponseRedirect
-from django.template.response import TemplateResponse
-from django.db.models import Prefetch
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+from django.contrib.admin.options import ActionLocation, IS_POPUP_VAR
+from django.core.exceptions import PermissionDenied
+from django.db import connection
+from django.http import HttpRequest, HttpResponseRedirect, QueryDict
+from django.db.models import CharField, Prefetch
+from django.db.models.functions import Cast
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from archivebox.base_models.admin import BaseModelAdmin
-from archivebox.core.models import ArchiveResult, SnapshotTag, Tag
-from archivebox.core.tag_util import (
-    TAG_HAS_SNAPSHOTS_CHOICES,
-    TAG_SORT_CHOICES,
-    build_tag_cards,
-    get_tag_creator_choices,
-    get_tag_year_choices,
-    normalize_created_by_filter,
-    normalize_created_year_filter,
-    normalize_has_snapshots_filter,
-    normalize_tag_sort,
-)
+from archivebox.core.admin_snapshots import SnapshotActionForm
+from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag, Tag
+from archivebox.core.smart_folders import CHILDREN_RULES
+from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards
 from archivebox.core.routes_util import build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.plugins.discovery import get_snapshot_role_names
 
@@ -59,15 +57,30 @@ class TagAdminForm(forms.ModelForm):
         return name
 
 
+TAGGED_SNAPSHOT_DELETE = "delete_tagged_snapshots"
+TAG_SNAPSHOT_ACTIONS = frozenset(
+    {
+        "move_to_folder",
+        "add_tags",
+        "remove_tags",
+        "resnapshot_snapshot",
+        "update_snapshots",
+        "overwrite_snapshots",
+        "set_snapshot_permissions",
+    }
+)
+
+
 class TagAdmin(BaseModelAdmin):
     form = TagAdminForm
-    change_list_template = "admin/core/tag/change_list.html"
+    change_list_template = "admin/change_list.html"
     change_form_template = "admin/core/tag/change_form.html"
     list_display = ("name", "num_snapshots", "created_at", "created_by")
     list_filter = ("created_at", "created_by")
     search_fields = ("id", "name")
     readonly_fields = ("id", "created_at", "modified_at", "snapshots")
     actions = ["delete_selected"]
+    action_form = SnapshotActionForm
     ordering = ["name", "id"]
 
     fieldsets = (
@@ -114,40 +127,76 @@ class TagAdmin(BaseModelAdmin):
     def get_fieldsets(self, request: HttpRequest, obj: Tag | None = None):
         return self.fieldsets if obj else self.add_fieldsets
 
-    def changelist_view(self, request: HttpRequest, extra_context=None):
-        query = (request.GET.get("q") or "").strip()
-        sort = normalize_tag_sort((request.GET.get("sort") or "created_desc").strip())
-        created_by = normalize_created_by_filter((request.GET.get("created_by") or "").strip())
-        year = normalize_created_year_filter((request.GET.get("year") or "").strip())
-        has_snapshots = normalize_has_snapshots_filter((request.GET.get("has_snapshots") or "all").strip())
-        context = {
-            **self.admin_site.each_context(request),
-            **(extra_context or {}),
-            "title": "Tags",
-            "opts": self.model._meta,
-            "initial_query": query,
-            "initial_sort": sort,
-            "initial_created_by": created_by,
-            "initial_year": year,
-            "initial_has_snapshots": has_snapshots,
-            "tag_sort_choices": TAG_SORT_CHOICES,
-            "tag_has_snapshots_choices": TAG_HAS_SNAPSHOTS_CHOICES,
-            "tag_created_by_choices": get_tag_creator_choices(),
-            "tag_year_choices": get_tag_year_choices(),
-            "initial_tag_cards": build_tag_cards(
-                query=query,
-                request=request,
-                limit=150,
-                preview_limit=0,
-                sort=sort,
-                created_by=created_by,
-                year=year,
-                has_snapshots=has_snapshots,
-            ),
-            "tag_search_api_url": reverse("api-1:search_tags"),
-            "tag_create_api_url": reverse("api-1:tags_create"),
+    def get_queryset(self, request):
+        return annotate_tag_snapshot_counts(super().get_queryset(request))
+
+    def _snapshot_admin(self):
+        return self.admin_site._registry.get(Snapshot)
+
+    def _snapshot_actions(self, request):
+        snapshot_admin = self._snapshot_admin()
+        if not snapshot_admin or not snapshot_admin.has_view_or_change_permission(request):
+            return {}
+        return {
+            (TAGGED_SNAPSHOT_DELETE if name == "delete_selected" else name): action
+            for name, action in snapshot_admin.get_actions(request).items()
+            if name == "delete_selected" or (name in TAG_SNAPSHOT_ACTIONS and snapshot_admin.has_change_permission(request))
         }
-        return TemplateResponse(request, self.change_list_template, context)
+
+    def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+        actions = super().get_actions(request, action_location=action_location)
+        if action_location != ActionLocation.CHANGE_LIST or IS_POPUP_VAR in request.GET:
+            return actions
+        for name, action in self._snapshot_actions(request).items():
+            actions[name] = replace(action, name=name, func=partial(TagAdmin._apply_snapshot_action, name=name))
+        return actions
+
+    def _apply_snapshot_action(self, request, tags, *, name):
+        action = self._snapshot_actions(request).get(name)
+        if action is None:
+            raise PermissionDenied
+        snapshot_admin = copy(self._snapshot_admin())
+        snapshot_request = copy(request)
+        # Tag search, pagination and ordering are not Snapshot filters.
+        snapshot_request.GET = QueryDict()
+        tag_ids = tags.order_by()
+        if connection.vendor == "sqlite":
+            # Keep legacy text tag IDs indexed, as in the tag count helpers.
+            tag_ids = tag_ids.annotate(membership_id=Cast("pk", output_field=CharField())).values("membership_id")
+        else:
+            tag_ids = tag_ids.values("pk")
+        membership = SnapshotTag.objects.filter(tag_id__in=tag_ids).order_by().values("snapshot_id")
+        snapshots = snapshot_admin.get_queryset(snapshot_request).defer(None).filter(pk__in=membership)
+        if name == TAGGED_SNAPSHOT_DELETE:
+            return snapshot_admin.delete_selected(
+                request,
+                snapshots,
+                confirmation_action=name,
+                confirmation_selected=request.POST.getlist(ACTION_CHECKBOX_NAME),
+                confirmation_across=request.POST.get("select_across") == "1",
+            )
+        if not snapshots.exists():
+            self.message_user(request, "No snapshots match the selected tags.", level=messages.INFO)
+            return None
+        return action.func(snapshot_admin, request, snapshots)
+
+    def changelist_view(self, request, extra_context=None):
+        choices = self.get_action_choices(request)
+        snapshot_choices = [(name, label) for name, label in choices if name in TAG_SNAPSHOT_ACTIONS or name == TAGGED_SNAPSHOT_DELETE]
+        if snapshot_choices:
+            context = {
+                "snapshot_action_choices": snapshot_choices,
+                "snapshot_has_tag_actions": any(name in {"add_tags", "remove_tags"} for name, _ in snapshot_choices),
+                "tag_action_choices": [
+                    (name, label) for name, label in choices if name and name not in TAG_SNAPSHOT_ACTIONS and name != TAGGED_SNAPSHOT_DELETE
+                ],
+            }
+            if any(name == "move_to_folder" for name, _ in snapshot_choices):
+                context["move_folder_choices"] = Folder.path_choices(
+                    folder for folder in Folder.tree() if folder.rules is None or folder.rules == CHILDREN_RULES
+                )
+            extra_context = {**(extra_context or {}), **context}
+        return super().changelist_view(request, extra_context=extra_context)
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         current_name = (request.POST.get("name") or "").strip()

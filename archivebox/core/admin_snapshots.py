@@ -1664,13 +1664,21 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     @admin.action(description="🗑️ Delete", permissions=["delete"])
-    def delete_selected(self, request, queryset):
+    def delete_selected(
+        self,
+        request,
+        queryset,
+        *,
+        confirmation_action="delete_selected",
+        confirmation_selected=None,
+        confirmation_across=True,
+    ):
         from django.core import signing
         from django.template.response import TemplateResponse
 
         if not self.has_delete_permission(request):
             raise PermissionDenied
-        if not request.user.is_superuser:
+        if not request.user.is_superuser and confirmation_action == "delete_selected":
             # Staff retain related-model permission and protected-object checks.
             # Never let Django's confirmed action physically delete the rows.
             from django.contrib.admin.actions import delete_selected
@@ -1684,6 +1692,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return delete_selected(self, request, queryset)
         salt = "archivebox.snapshot-delete-selection"
         limit = 25000
+        source_selection = (
+            {"ids": sorted(confirmation_selected), "across": confirmation_across} if confirmation_selected is not None else None
+        )
         if request.POST.get("post"):
             try:
                 selection = signing.loads(request.POST.get("selection", ""), salt=salt, max_age=3600)
@@ -1691,6 +1702,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 if (
                     selection["user"] != str(request.user.pk)
                     or selection["scope"] != request.get_full_path()
+                    or selection.get("action", "delete_selected") != confirmation_action
+                    or selection.get("source_selection") != source_selection
                     or not isinstance(ids, list)
                     or not 0 < len(ids) <= limit
                 ):
@@ -1701,6 +1714,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             # immutable confirmed set, including when select_across was used.
             from archivebox.api.webhook_membership import track_membership
 
+            if not request.user.is_superuser:
+                _, _, permissions, protected = self.get_deleted_objects(queryset.filter(pk__in=ids), request)
+                if permissions:
+                    raise PermissionDenied
+                if protected:
+                    return HttpResponseBadRequest("Protected snapshots cannot be deleted.")
             total = 0
             # One membership transition, even for limit-based smart folders;
             # each durable status update still uses a short bounded statement.
@@ -1716,19 +1735,35 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if len(ids) > limit:
             return HttpResponseBadRequest(f"Select at most {limit:,} snapshots per deletion confirmation.")
         if not ids:
+            if confirmation_action != "delete_selected":
+                self.message_user(request, "No snapshots match the selection.", level=messages.INFO)
             return None
+        if not request.user.is_superuser:
+            _, _, permissions, protected = self.get_deleted_objects(queryset, request)
+            if permissions:
+                raise PermissionDenied
+            if protected:
+                return HttpResponseBadRequest("Protected snapshots cannot be deleted.")
         context = {
             **self.admin_site.each_context(request),
             "title": "Confirm snapshot deletion",
             "opts": self.model._meta,
             "selection": signing.dumps(
-                {"user": str(request.user.pk), "scope": request.get_full_path(), "ids": ids},
+                {
+                    "user": str(request.user.pk),
+                    "scope": request.get_full_path(),
+                    "ids": ids,
+                    "action": confirmation_action,
+                    "source_selection": source_selection,
+                },
                 salt=salt,
                 compress=True,
             ),
             "count": len(ids),
             "preview": list(queryset.filter(pk__in=ids[:20]).order_by("pk").values_list("pk", "url")),
-            "first_id": ids[0],
+            "confirmation_action": confirmation_action,
+            "confirmation_selected": confirmation_selected if confirmation_selected is not None else [ids[0]],
+            "confirmation_across": confirmation_across,
             "confirmation_url": request.get_full_path(),
         }
         return TemplateResponse(request, "admin/core/snapshot/queue_deletion_confirmation.html", context)
