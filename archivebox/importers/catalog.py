@@ -21,6 +21,7 @@ class ImporterDefinition:
     timeout: int
     setup: tuple
     icon: str
+    settings_fields: tuple[str, ...] = ()
 
 
 def get_importers() -> dict[tuple[str, str], ImporterDefinition]:
@@ -41,6 +42,12 @@ def get_importers() -> dict[tuple[str, str], ImporterDefinition]:
             if not isinstance(fields, list) or any(not isinstance(key, str) or not isinstance(properties.get(key), dict) for key in fields):
                 logger.warning("Invalid import config_fields for %s/%s", plugin.name, feed)
                 continue
+            settings_fields = declaration.get("settings_fields", [])
+            if not isinstance(settings_fields, list) or any(
+                not isinstance(key, str) or key in fields or not isinstance(properties.get(key), dict) for key in settings_fields
+            ):
+                logger.warning("Invalid import settings_fields for %s/%s", plugin.name, feed)
+                settings_fields = []
             auth = declaration.get("auth", "none")
             if auth not in {"none", "optional", "persona"}:
                 continue
@@ -63,6 +70,7 @@ def get_importers() -> dict[tuple[str, str], ImporterDefinition]:
                 timeout=timeout,
                 setup=tuple(step for step in setup if isinstance(step, dict) and isinstance(step.get("title"), str)),
                 icon=str(declaration.get("icon") or plugin.manifest.get("icon") or ""),
+                settings_fields=tuple(dict.fromkeys(settings_fields)),
             )
     return definitions
 

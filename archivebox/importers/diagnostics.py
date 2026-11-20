@@ -29,8 +29,11 @@ def artifact_path(run, name, pattern):
 
 @lru_cache(maxsize=128)
 def _read(directory, files):
-    sessions, logs, latest, error = [], [], {}, ""
+    sessions, logs, latest = [], [], {}
     for name, size, mtime in files:
+        logs.append({"name": name, "size": size})
+        if not name.startswith("learning-"):
+            continue
         path = Path(directory) / name
         try:
             with path.open("rb") as stream:
@@ -41,11 +44,6 @@ def _read(directory, files):
                 else:
                     tail = b""
         except OSError:
-            continue
-        logs.append({"name": name, "size": size})
-        if name in {"failure.log", "command-error.log"}:
-            error = (tail or head).decode(errors="replace")[-4000:]
-        if not name.startswith("learning-"):
             continue
         for line in (head + b"\n" + tail).splitlines():
             try:
@@ -68,7 +66,7 @@ def _read(directory, files):
                 latest = {"timestamp": timestamp, "text": f"{part.get('tool', 'Tool')}: {state.get('status', 'started')}"}
             elif part.get("type") == "text" and isinstance(part.get("text"), str):
                 latest = {"timestamp": timestamp, "text": part["text"][:600]}
-    return {"sessions": sessions, "logs": logs, "latest": latest.get("text", ""), "error": error}
+    return {"sessions": sessions, "logs": logs, "latest": latest.get("text", "")}
 
 
 def diagnostics(run):

@@ -24,6 +24,7 @@ from .diagnostics import LOG_NAME, SCREENSHOT_NAME, artifact_path, diagnostics
 from .forms import ImporterSourceForm
 from .models import ImporterRun, ImporterSource
 from .service import ACTIVE_STATUSES
+from .settings_links import importer_settings_links
 
 
 def importer_admin(view):
@@ -94,7 +95,13 @@ def configure(request, plugin=None, feed=None, source_id=None):
     return page(
         request,
         "importers/configure.html",
-        {"form": form, "source": source, "definition": definition, "title": "Configure importer"},
+        {
+            "form": form,
+            "source": source,
+            "definition": definition,
+            "title": "Configure importer",
+            "settings_links": importer_settings_links(definition, source),
+        },
     )
 
 
@@ -115,6 +122,7 @@ def detail(request, source_id):
             "runs": runs,
             "active": active,
             "source_url": source.get_absolute_url(),
+            "settings_links": importer_settings_links(definition, source),
             "state_path": CONSTANTS.DATA_DIR / "importers" / str(source.pk) / "state",
         },
     )
@@ -149,6 +157,7 @@ def run_detail(request, run_id):
         request,
         "importers/run.html",
         {
+            **_run_settings_context(run),
             "title": run.get_action_display(),
             "run": run,
             "snapshots_changelist": archivebox_admin._registry[Snapshot].render_embedded_changelist(
@@ -192,6 +201,16 @@ def run_page(source_id, number):
     return runs
 
 
+def _run_settings_context(run):
+    if run.status not in {ImporterRun.Status.NEEDS_LOGIN, ImporterRun.Status.FAILED}:
+        return {}
+    definition = get_importers().get((run.source.plugin, run.source.feed))
+    return {
+        "settings_links": importer_settings_links(definition, run.source),
+        "needs_configuration": bool(definition and definition.settings_fields and run.status == ImporterRun.Status.NEEDS_LOGIN),
+    }
+
+
 @importer_admin
 @require_GET
 def run_activity(request, run_id):
@@ -201,7 +220,7 @@ def run_activity(request, run_id):
         {
             "html": render_to_string(
                 "importers/activity.html",
-                {"run": run},
+                {"run": run, **_run_settings_context(run)},
                 request=request,
             ),
             "active": run.status in ACTIVE_STATUSES,

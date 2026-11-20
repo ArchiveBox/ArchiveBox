@@ -170,6 +170,9 @@
         });
         settings.addEventListener('plugin-config-updated', updateStatus);
         filter();
+        const panelId = window.location.hash.slice(1);
+        const linkedTab = tabs.find(tab => tab.getAttribute('aria-controls') === panelId);
+        if (linkedTab) select(linkedTab);
         updateStatus();
         // Do not lose sidebar interactions while the settings form is still parsing.
         tabs.forEach(tab => { tab.disabled = false; });

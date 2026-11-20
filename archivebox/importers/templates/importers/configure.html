@@ -4,6 +4,7 @@
 <div class="setup-layout"><form method="post" class="card form-card">{% csrf_token %}{{ form.non_field_errors }}
 <h2>Connect your source</h2>
 {% for field in form.basic_fields %}{% include "importers/field.html" %}{% endfor %}
+{% if settings_links %}<p class="help">{% include "importers/settings_links.html" %}</p>{% endif %}
 <details class="advanced" {% if form.advanced_errors %}open{% endif %}><summary>Advanced options</summary><p class="help">Optional name, scheduling, and capture settings.</p>
 {% for field in form.advanced_fields %}{% include "importers/field.html" %}{% endfor %}</details>
 <div class="actions"><button class="primary" type="submit">Save importer</button><a class="button" href="{% url 'importers:index' %}">Cancel</a></div></form>

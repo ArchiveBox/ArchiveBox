@@ -38,6 +38,10 @@ class ImporterSourceForm(forms.ModelForm):
         self.fields["persona"].queryset = Persona.objects.order_by("name")
         self.fields["persona"].required = definition.auth == "persona"
         self.fields["persona"].help_text = "Authentication and capture settings from this server persona."
+        if definition.settings_fields:
+            self.fields[
+                "persona"
+            ].help_text = "Save a Persona to use its plugin settings. With no Persona selected, this importer uses server defaults."
         self.fields["limit"] = forms.IntegerField(
             min_value=1,
             max_value=500,
@@ -87,7 +91,7 @@ class ImporterSourceForm(forms.ModelForm):
             "limit",
             "tags",
             "schedule",
-            *({"persona"} if self.definition.auth != "persona" else set()),
+            *({"persona"} if self.definition.auth != "persona" and not self.definition.settings_fields else set()),
             *(f"setting_{key}" for key, schema in self.definition.fields.items() if schema.get("x-advanced")),
         }
 

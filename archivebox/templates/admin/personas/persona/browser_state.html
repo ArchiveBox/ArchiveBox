@@ -1,4 +1,4 @@
-<section class="persona-browser-state" data-state-url="{{ state_url }}" data-state-profile="{% if state.profile.exists %}true{% else %}false{% endif %}" data-state-editable="{% if can_change %}true{% else %}false{% endif %}">
+<section id="persona-browser-state" class="persona-browser-state" data-state-url="{{ state_url }}" data-state-profile="{% if state.profile.exists %}true{% else %}false{% endif %}" data-state-editable="{% if can_change %}true{% else %}false{% endif %}">
     <header class="persona-state-heading">
         <strong><span data-state-total>{{ state.site_count }}</span> <span data-state-sites>site{{ state.site_count|pluralize }}</span></strong>
         {% if can_change %}<button type="button" data-state-add aria-label="Add browser state" aria-expanded="false" title="Add cookies or browser storage">+</button>{% endif %}

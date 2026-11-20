@@ -1,7 +1,8 @@
 <section class="run-activity">
-<div class="run-summary"><span class="badge {{ run.status }}">{{ run.get_status_display }}</span><span class="run-message">{{ run.status_message }}</span>
+<div class="run-summary"><span class="badge {{ run.status }}">{% if needs_configuration %}Needs configuration{% else %}{{ run.get_status_display }}{% endif %}</span><span class="run-message">{{ run.status_message }}</span>
 {% if run.crawl_id %}<a class="run-actions" href="{% url 'admin:crawls_crawl_change' run.crawl_id %}">Crawl · {{ run.crawl.get_status_display }}</a>{% endif %}
 </div>
+{% if settings_links %}<p>{% include "importers/settings_links.html" %}</p>{% endif %}
 <div class="run-metadata">
 <dl><div><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd></div><div><dt>Persona</dt><dd>{% if run.source.persona_id %}<a href="{% url 'admin:personas_persona_change' run.source.persona_id %}">{{ run.source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd></div><div><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd></div><div><dt>Started</dt><dd>{% if run.started_at %}{{ run.started_at|date:"Y-m-d H:i:s T" }}{% elif run.status == "cancelled" %}Not started{% else %}—{% endif %}</dd></div><div><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd></div>{% if run.diagnostics.sessions %}<div><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd></div>{% endif %}</dl>
 </div>
@@ -14,11 +15,10 @@
 <ol>{% for item in run.discovered_items %}<li><strong>{% if item.href %}<a href="{{ item.href }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</strong><div class="muted discovered-url">{{ item.url }}</div></li>{% endfor %}</ol>
 {% elif run.status == "succeeded" %}<p>No items discovered in this Dry Run.</p>
 {% elif run.status == "queued" or run.status == "running" %}<p>Waiting for discovery results.</p>
-{% else %}<p>No discovered items were saved. Check the run status and logs above and below.</p>{% endif %}
+{% else %}<p>No discovered items were saved. See the run status above.</p>{% endif %}
 </section>
 {% endif %}
 {% include "importers/screenshots.html" %}
 {% if run.diagnostics.latest %}<p>{{ run.diagnostics.latest }}</p>{% endif %}
-{% if run.diagnostics.error %}<pre class="run-error">{{ run.diagnostics.error }}</pre>{% endif %}
 {% if run.diagnostics.logs %}<details class="run-logs"><summary>Logs</summary><ul>{% for log in run.diagnostics.logs %}<li><a href="{% url 'importers:run-log' run.pk log.name %}" target="_blank" rel="noopener">{{ log.name }}</a> <span class="muted">{{ log.size|filesizeformat }}</span></li>{% endfor %}</ul></details>{% endif %}
 </section>
