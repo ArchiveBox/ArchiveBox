@@ -28,6 +28,8 @@ class PluginSpecialConfig(TypedDict):
     binary: str
 
 
+OPENCODE_PROVIDER_SETTINGS_PLUGIN = "opencode_providers"
+
 BUILTIN_PLUGINS_DIR = Path(get_plugins_dir()).resolve()
 USER_PLUGINS_DIR = CONSTANTS.USER_PLUGINS_DIR
 
@@ -479,6 +481,11 @@ def discover_plugin_configs() -> dict[str, dict[str, Any]]:
     still come from env/db config at each callsite.
     """
     return get_plugin_config_resolver().schemas
+
+
+def get_opencode_provider_keys() -> frozenset[str]:
+    schema = discover_plugin_configs().get(OPENCODE_PROVIDER_SETTINGS_PLUGIN, {})
+    return frozenset((schema.get("properties") or {}).keys())
 
 
 def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: set[str] | None = None) -> PluginSpecialConfig:

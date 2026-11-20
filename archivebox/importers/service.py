@@ -21,7 +21,7 @@ from archivebox.crawls.models import Crawl
 from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.machine.models import Process
 from archivebox.misc.util import validate_url
-from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.plugins.discovery import get_opencode_provider_keys, get_plugin_catalog
 
 from .catalog import get_importer
 from .models import ImporterRun, ImporterSource
@@ -130,15 +130,26 @@ class Cancellation:
         return self.cancelled
 
 
-def _read_output(run, command, config, output_dir: Path, cancellation):
+def _importer_env(source, config):
     payload = config.model_dump(mode="json")
-    if run.source.persona is not None:
-        payload.update(run.source.persona.get_derived_config())
+    if source.persona is not None:
+        payload.update(source.persona.get_derived_config())
         payload.update(
-            AUTH_STORAGE_FILE=run.source.persona.AUTH_STORAGE_FILE,
-            COOKIES_FILE=run.source.persona.COOKIES_FILE,
+            AUTH_STORAGE_FILE=source.persona.AUTH_STORAGE_FILE,
+            COOKIES_FILE=source.persona.COOKIES_FILE,
         )
-    env = PluginEnv(**payload).to_env()
+    if source.plugin != "importers_browser":
+        # Only browser importers learn scripts with OpenCode. Preserve the
+        # existing config channel without passing its credentials to other tools.
+        # Scope OpenAI even before the dedicated capture schema is installed.
+        # Once available, it also enumerates the other keys in this key pane.
+        for key in get_opencode_provider_keys() | {"OPENAI_API_KEY"}:
+            payload.pop(key, None)
+    return PluginEnv(**payload).to_env()
+
+
+def _read_output(run, command, config, output_dir: Path, cancellation):
+    env = _importer_env(run.source, config)
     env["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
     env["IMPORTERS_STATE_DIR"] = str(output_dir.parent / "state")
     timeout = get_importer(run.source.plugin, run.source.feed).timeout
