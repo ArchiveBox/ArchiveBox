@@ -17,6 +17,24 @@ setup_django(check_db=True)
 
 
 class ArchiveBoxASGIHandler(ASGIHandler):
+    async def handle(self, scope, receive, send):
+        close = None
+
+        def own(closer):
+            nonlocal close
+            if close is not None:
+                raise RuntimeError("An upstream already owns this request's response stream")
+            close = closer
+
+        # Optional private capability for a host plugin streaming an upstream
+        # response. Django may drop a view response before (or during) send;
+        # the outer HTTP lifetime is the only reliable final cleanup owner.
+        try:
+            await super().handle({**scope, "archivebox.own_response_stream": own}, receive, send)
+        finally:
+            if close is not None:
+                await close()
+
     def create_request(self, scope, body_file):
         # ASGI already spools the complete body. Django's multipart parser
         # otherwise treats chunked uploads without Content-Length as empty.
