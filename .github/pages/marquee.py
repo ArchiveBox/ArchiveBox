@@ -55,21 +55,34 @@ class Gallery(HTMLParser):
 
 
 def render(output, baseurl="", featured=()):
-    homepage = output / "index.html"
-    text = homepage.read_text()
-    slots = re.findall(r"<!-- ARCHIVEBOX:(MARQUEE(?:-CLIENT|-SERVER)?) -->", text)
-    if not slots:
+    # Localized homepages carry saved strips; refresh them from the same
+    # restored gallery so renamed images cannot leave broken embeds.
+    homepages = {}
+    for homepage in (output / "index.html", *sorted(output.glob("*/index.html"))):
+        text = homepage.read_text()
+        slots = re.findall(r"<!-- ARCHIVEBOX:(MARQUEE(?:-CLIENT|-SERVER)?) -->", text)
+        if slots:
+            homepages[homepage] = (text, slots)
+    if not homepages:
         return False
     base = "/" + baseurl.strip("/") + "/" if baseurl.strip("/") else "/"
     gallery = Gallery(base + "screenshots/")
     gallery.feed((output / "screenshots/index.html").read_text())
+    for homepage, (text, slots) in homepages.items():
+        homepage.write_text(render_homepage(text, slots, gallery.captures, featured))
+    return True
+
+
+def render_homepage(text, slots, captures, featured):
+    priority = {title: index for index, title in enumerate(featured)}
     for slot in slots:
         product = slot.removeprefix("MARQUEE-").lower() if "-" in slot else None
-        captures = [capture for capture in gallery.captures if product is None or capture["product"] == product]
-        priority = {title: index for index, title in enumerate(featured)}
-        captures.sort(key=lambda capture: priority.get(capture["title"], len(priority)))
+        ordered = sorted(
+            (capture for capture in captures if product is None or capture["product"] == product),
+            key=lambda capture: priority.get(capture["title"], len(priority)),
+        )
         cards = []
-        for capture in captures:
+        for capture in ordered:
             dimensions = "".join(f' {key}="{escape(capture[key])}"' for key in ("width", "height") if capture[key])
             cards.append(
                 f'<a class="abx-marquee-card" href="{escape(capture["href"])}"><img src="{escape(capture["src"])}" alt="{escape(capture["title"])}"{dimensions} loading="lazy" decoding="async"></a>',
@@ -92,5 +105,4 @@ def render(output, baseurl="", featured=()):
             )
         else:
             text = text.replace(start, replacement, 1)
-    homepage.write_text(text)
-    return True
+    return text
