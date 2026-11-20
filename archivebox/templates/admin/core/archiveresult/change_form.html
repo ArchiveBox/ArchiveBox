@@ -1,0 +1,93 @@
+{% extends "admin/archivebox_change_form.html" %}
+{% load core_tags static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/core/archiveresult/change_form.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+{% endblock %}
+
+{% block field_sets %}
+{% if result_detail %}
+{% with detail=result_detail %}
+<section class="result-overview" aria-labelledby="result-overview-heading">
+  <header class="result-heading">
+    <div>
+      <p class="result-eyebrow">Archive result</p>
+      <h2 id="result-overview-heading"><span aria-hidden="true">{% plugin_icon original.plugin %}</span> {{ original.plugin }}</h2>
+      {% if original.hook_name %}<code class="result-hook">{{ original.hook_name }}</code>{% endif %}
+    </div>
+    {{ detail.status_badge }}
+  </header>
+
+  <ol class="result-timeline" aria-label="Capture timeline">
+    <li>
+      <span class="result-timeline-label">Crawl</span>
+      <a href="{% url 'admin:crawls_crawl_change' detail.crawl.pk %}">{{ detail.crawl.label|default:"Open crawl" }}</a>
+      <span class="status-badge {{ detail.crawl.status }}">{{ detail.crawl.get_status_display }}</span>
+      <time datetime="{{ detail.crawl.created_at|date:'c' }}">{{ detail.crawl.created_at|date:"Y-m-d H:i:s" }}</time>
+    </li>
+    <li>
+      <span class="result-timeline-label">Snapshot</span>
+      <a href="{{ detail.snapshot_url }}">{{ detail.snapshot.title|default:detail.snapshot.url }}</a>
+      <span class="status-badge {{ detail.snapshot.status }}">{{ detail.snapshot.get_status_display }}</span>
+      <time datetime="{{ detail.snapshot.created_at|date:'c' }}">{{ detail.snapshot.created_at|date:"Y-m-d H:i:s" }}</time>
+    </li>
+    <li>
+      <span class="result-timeline-label">Result</span>
+      <span><code>{{ original.pk }}</code>{% if original.end_ts %} <span class="result-muted">· Finished {{ original.end_ts|date:"H:i:s" }}</span>{% endif %}</span>
+      {{ detail.status_badge }}
+      {% with when=original.start_ts|default:original.created_at %}<time datetime="{{ when|date:'c' }}">{{ when|date:"Y-m-d H:i:s" }}</time>{% endwith %}
+    </li>
+    <li class="result-command">
+      <span class="result-timeline-label">Command</span>
+      <div class="result-command-lines">
+        <code>{% if detail.command %}{{ detail.command }}{% if detail.command_truncated %}…{% endif %}{% else %}No process command recorded{% endif %}</code>
+        <code class="result-shorthand" title="abx-dl shorthand">{{ detail.shorthand }}</code>
+      </div>
+      {% if detail.process %}
+        {% if detail.process.exit_code is not None %}<a class="status-badge {% if detail.process.exit_code == 0 %}succeeded{% else %}failed{% endif %}" href="{% url 'admin:machine_process_change' detail.process.pk %}">Exit {{ detail.process.exit_code }}</a>
+        {% else %}<a class="status-badge {{ detail.process.status }}" href="{% url 'admin:machine_process_change' detail.process.pk %}">{{ detail.process.get_status_display }}</a>{% endif %}
+        {% if detail.process.started_at %}<time datetime="{{ detail.process.started_at|date:'c' }}">{{ detail.process.started_at|date:"Y-m-d H:i:s" }}</time>{% endif %}
+      {% endif %}
+    </li>
+  </ol>
+
+  <div class="result-output-grid">
+    <section class="result-panel" aria-labelledby="result-output-heading">
+      <header><h3 id="result-output-heading">Output summary</h3></header>
+      {% if detail.primary %}
+        <p class="result-main-file"><b>Main file</b> <a href="{{ detail.output_url }}"><code>{{ detail.primary }}</code></a>{% if detail.primary_size %} <span>{{ detail.primary_size }}</span>{% endif %}</p>
+      {% endif %}
+      {% if detail.output_preview %}<pre>{{ detail.output_preview }}</pre>{% else %}<p class="result-muted result-empty">No text output recorded.</p>{% endif %}
+      {% if detail.output_truncated %}<p class="result-muted result-empty">Showing the first 20 KiB. The full output is in the fields below.</p>{% endif %}
+    </section>
+    <section class="result-panel" aria-labelledby="result-preview-heading">
+      <header><h3 id="result-preview-heading">Plugin preview</h3><a href="{{ detail.output_url }}" target="_blank" rel="noopener">Open output ↗</a></header>
+      {% if detail.isolated_frames %}
+        <div class="result-frame">{% plugin_card original %}</div>
+      {% else %}
+        <div class="result-frame">{% with opaque_plugin_card=True %}{% plugin_card original %}{% endwith %}</div>
+      {% endif %}
+    </section>
+    <section class="result-panel" aria-labelledby="result-files-heading">
+      <header><h3 id="result-files-heading">Output files</h3><a href="{{ detail.files_url }}" target="_blank" rel="noopener">Open files ↗</a></header>
+      {% if detail.file_count or detail.total_size or detail.mimes %}<div class="result-file-meta">
+        {% if detail.file_count %}<span>{{ detail.file_count }} recorded file{{ detail.file_count|pluralize }}</span>{% endif %}
+        {% if detail.total_size %}<b>{{ detail.total_size }}</b>{% endif %}
+        {% for mime in detail.mimes %}<code>{{ mime }}</code>{% endfor %}
+        {% if detail.more_mimes %}<span title="{{ detail.more_mimes }} more recorded types">+{{ detail.more_mimes }}</span>{% endif %}
+      </div>{% endif %}
+      {% if detail.file_count or detail.primary %}
+        <iframe class="result-frame result-files-frame" title="Browse result output directory" src="{{ detail.files_url }}" loading="lazy" fetchpriority="low" referrerpolicy="no-referrer" sandbox="allow-scripts allow-downloads{% if detail.isolated_frames %} allow-same-origin{% endif %}"></iframe>
+      {% else %}
+        <p class="result-muted result-empty">No file manifest recorded.</p>
+      {% endif %}
+    </section>
+  </div>
+</section>
+{% endwith %}
+<details class="result-fields"{% if errors %} open{% endif %}>
+  <summary>Result fields and raw data</summary>
+  <div class="result-edit-grid">{{ block.super }}</div>
+</details>
+{% else %}{{ block.super }}{% endif %}
+{% endblock %}

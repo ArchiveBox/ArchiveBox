@@ -4,6 +4,7 @@ import html
 import json
 import shlex
 from functools import reduce
+from itertools import islice
 from operator import and_
 from urllib.parse import quote
 
@@ -31,6 +32,7 @@ from archivebox.core.routes_util import (
     get_snapshot_output_anchor,
 )
 from archivebox.core.widgets import InlineTagEditorWidget
+from archivebox.crawls.models import Crawl
 from archivebox.machine.env_util import env_to_shell_exports
 from archivebox.machine.models import Process
 from archivebox.misc.logging_util import printable_filesize
@@ -471,6 +473,7 @@ class ArchiveResultChangeList(ChangeList):
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
+    change_form_template = "admin/core/archiveresult/change_form.html"
     list_select_related = ()
     list_display = (
         "details_link",
@@ -518,7 +521,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         (
             "Snapshot",
             {
-                "fields": ("snapshot", "snapshot_info", "tags_str", "admin_actions"),
+                "fields": ("snapshot", "snapshot_info", "tags_str"),
                 "classes": ("card", "wide"),
             },
         ),
@@ -546,7 +549,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         (
             "Output",
             {
-                "fields": ("output_str", "output_json", "output_files", "output_size", "output_mimetypes", "output_summary"),
+                "fields": ("output_str", "output_json", "output_files", "output_size", "output_mimetypes"),
                 "classes": ("card", "wide"),
             },
         ),
@@ -573,6 +576,65 @@ class ArchiveResultAdmin(BaseModelAdmin):
         self.request = request
         return super().change_view(request, object_id, form_url, extra_context)
 
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        if change and obj is not None:
+            # One request-local normalization for the detail, its toolbar and
+            # fieldsets. Do not refresh a manifest or inspect archived storage.
+            manifest = obj.output_file_map()
+            obj._render_output_file_map = manifest
+            context["result_detail"] = self.result_detail(request, obj, manifest)
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
+
+    def result_detail(self, request, result, manifest):
+        snapshot = result.snapshot
+        crawl = snapshot.crawl
+        process = result.process_record
+        primary = result.embed_path() or ""
+        primary_meta = manifest.get(primary) or manifest.get(primary.removeprefix(f"{result.plugin}/")) or {}
+        sample = tuple(islice(manifest.values(), 12))
+
+        def recorded_size(metadata):
+            size = metadata.get("size")
+            return size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None
+
+        total_size = result.output_size if result.output_size > 0 else None
+        if total_size is None and manifest and len(sample) == len(manifest):
+            sizes = [recorded_size(metadata) for metadata in sample]
+            if all(size is not None for size in sizes):
+                total_size = sum(size for size in sizes if size is not None)
+        primary_size = recorded_size(primary_meta)
+        mimes = dict.fromkeys(mime.strip() for mime in result.output_mimetypes.split(",") if mime.strip())
+        if not mimes:
+            mimes = dict.fromkeys(mime for metadata in sample if isinstance(mime := metadata.get("mimetype"), str) and mime)
+
+        # Limit the display copy by bytes, without encoding the whole DB value.
+        output = result.output_str or ""
+        limit = 20 * 1024
+        output_prefix = output[:limit].encode("utf-8")
+        output_preview = output_prefix[:limit].decode("utf-8", errors="ignore")
+        full_command = shlex.join([str(arg) for arg in result.cmd])
+        return {
+            "crawl": crawl,
+            "snapshot": snapshot,
+            "snapshot_url": self.get_snapshot_view_url(result, request=request),
+            "status_badge": self.status_badge(result),
+            "process": process,
+            "command": full_command[:2048],
+            "command_truncated": len(full_command) > 2048,
+            "shorthand": build_abx_dl_display_command(result),
+            "output_preview": output_preview,
+            "output_truncated": len(output) > limit or len(output_prefix) > limit,
+            "primary": primary,
+            "primary_size": printable_filesize(primary_size) if primary_size is not None else "",
+            "file_count": len(manifest),
+            "total_size": printable_filesize(total_size) if total_size is not None else "",
+            "mimes": tuple(islice(mimes, 2)),
+            "more_mimes": max(len(mimes) - 2, 0),
+            "files_url": self.get_output_files_url(result, request=request),
+            "output_url": self.get_output_view_url(result, request=request),
+            "isolated_frames": request.archivebox_config.USES_SUBDOMAIN_ROUTING,
+        }
+
     def get_admin_toolbar_actions(self, request, obj):
         if obj is None:
             return []
@@ -581,26 +643,31 @@ class ArchiveResultAdmin(BaseModelAdmin):
             {
                 "label": "View Output",
                 "icon": "📄",
-                "url": self.get_output_view_url(obj),
+                "url": self.get_output_view_url(obj, request=request),
                 "title": "Open the archived output for this result",
             },
             {
                 "label": "Output files",
                 "icon": "📁",
-                "url": self.get_output_files_url(obj),
+                "url": self.get_output_files_url(obj, request=request),
                 "title": "Browse the output files for this result",
             },
             {
                 "label": "Download Zip",
                 "icon": "⬇",
-                "url": self.get_output_zip_url(obj),
+                "url": self.get_output_zip_url(obj, request=request),
                 "kind": "accent",
                 "css_classes": "archivebox-zip-button",
                 "onclick": "return window.archiveboxHandleZipClick(this, event);",
                 "extra_attrs": [("data-loading-label", "Preparing...")],
                 "title": "Download all output files as a zip",
             },
-            {"label": "Snapshot", "icon": "🗂", "url": self.get_snapshot_view_url(obj), "title": "Open the parent snapshot view"},
+            {
+                "label": "Snapshot",
+                "icon": "🗂",
+                "url": self.get_snapshot_view_url(obj, request=request),
+                "title": "Open the parent snapshot view",
+            },
         ]
 
     def changelist_view(self, request, extra_context=None):
@@ -660,29 +727,30 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 if 0 <= idx < len(self.list_display):
                     ordering_fields.add(self.list_display[idx])
 
+        is_change = request.resolver_match.url_name == "core_archiveresult_change"
         process_prefetch = "process__machine"
-        if request.resolver_match.url_name == "core_archiveresult_changelist":
+        snapshot_queryset = Snapshot.objects.defer("config", "notes").prefetch_related("crawl__created_by", "tags")
+        if is_change:
+            process_prefetch = Prefetch(
+                "process",
+                queryset=Process.objects.select_related("binary").defer("stdout", "stderr"),
+            )
+            snapshot_queryset = Snapshot.objects.defer("config", "notes").prefetch_related(
+                Prefetch("crawl", queryset=Crawl.objects.select_related("created_by").defer("urls", "config", "notes")),
+                "tags",
+            )
+        elif request.resolver_match.url_name == "core_archiveresult_changelist":
             process_prefetch = Prefetch(
                 "process",
                 queryset=Process.objects.select_related("machine").defer("stdout", "stderr", "machine__stats", "machine__config"),
             )
-        qs = (
-            super()
-            .get_queryset(request)
-            .prefetch_related(
-                Prefetch(
-                    "snapshot",
-                    queryset=Snapshot.objects.defer("config", "notes").prefetch_related("crawl__created_by", "tags"),
-                ),
-                process_prefetch,
-            )
-        )
+        qs = super().get_queryset(request).prefetch_related(Prefetch("snapshot", queryset=snapshot_queryset), process_prefetch)
         if ordering_fields:
             # Django applies the selected columns and a deterministic PK tie
             # break. Appending the default start_ts after that unique PK makes
             # SQLite discard the created_at index and sort the whole table.
             qs = qs.order_by()
-        if request.resolver_match.url_name == "core_archiveresult_change":
+        if is_change:
             qs = qs.defer("notes")
         else:
             qs = qs.defer("notes", "output_json")
@@ -724,16 +792,16 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
         return queryset.filter(reduce(and_, filters)).distinct(), True
 
-    def get_snapshot_view_url(self, result: ArchiveResult) -> str:
-        request = self.request
+    def get_snapshot_view_url(self, result: ArchiveResult, request=None) -> str:
+        request = request if request is not None else self.request
         return build_snapshot_detail_url(
             result.snapshot.archive_path_from_db,
             request=request,
             config=request.archivebox_config,
         )
 
-    def get_output_view_url(self, result: ArchiveResult) -> str:
-        request = self.request
+    def get_output_view_url(self, result: ArchiveResult, request=None) -> str:
+        request = request if request is not None else self.request
         config = request.archivebox_config
         output_path = get_snapshot_output_anchor(result.plugin, result.embed_path() or "")
         return build_snapshot_detail_url(
@@ -743,8 +811,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
             config=config,
         )
 
-    def get_output_files_url(self, result: ArchiveResult) -> str:
-        request = self.request
+    def get_output_files_url(self, result: ArchiveResult, request=None) -> str:
+        request = request if request is not None else self.request
         return build_snapshot_files_url(
             str(result.snapshot_id),
             result.output_folder_path(),
@@ -752,8 +820,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
             config=request.archivebox_config,
         )
 
-    def get_output_zip_url(self, result: ArchiveResult) -> str:
-        request = self.request
+    def get_output_zip_url(self, result: ArchiveResult, request=None) -> str:
+        request = request if request is not None else self.request
         return build_snapshot_zip_url(
             str(result.snapshot_id),
             result.output_folder_path(),

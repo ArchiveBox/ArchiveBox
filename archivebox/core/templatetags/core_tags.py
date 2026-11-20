@@ -986,9 +986,10 @@ def plugin_card(context, result) -> str:
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
+        sandbox = "allow-scripts" if context.get("opaque_plugin_card") else "allow-scripts allow-same-origin"
         card_html = (
             f'<iframe src="{escape(_version_card_url(context, result, card_url))}" title="{escape(plugin)} card" '
-            'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
+            f'loading="lazy" fetchpriority="low" sandbox="{sandbox}" '
             'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>'
         )
         if context.get("defer_admin_card"):
