@@ -24,9 +24,9 @@
       {% if enhanced_actions < 11 or snapshot_action_choices %}</span>{% endif %}
       {% if enhanced_actions < 11 or snapshot_action_choices %}
         <div class="action-buttons" hidden>
-          {% if snapshot_action_choices %}
+          {% if tag_action_choices or snapshot_action_choices %}
             {% if tag_action_choices %}<span class="tag-list-action-group" role="group" aria-label="Tag actions">{% include "admin/snapshot_action_buttons.html" with action_choices=tag_action_choices tagged_list=True %}</span>{% endif %}
-            <span class="tag-list-action-group" role="group" aria-label="Snapshot actions" data-tagged-snapshot-actions>{% include "admin/snapshot_action_buttons.html" with action_choices=snapshot_action_choices tagged_list=True %}</span>
+            {% if snapshot_action_choices %}<span class="tag-list-action-group" role="group" aria-label="Snapshot actions" data-tagged-snapshot-actions>{% include "admin/snapshot_action_buttons.html" with action_choices=snapshot_action_choices tagged_list=True %}</span>{% endif %}
           {% else %}
             {% include "admin/snapshot_action_buttons.html" with action_choices=action_form.action.field.choices %}
           {% endif %}

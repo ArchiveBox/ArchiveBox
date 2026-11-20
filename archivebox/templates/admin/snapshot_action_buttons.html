@@ -33,6 +33,8 @@
                 </select>
                 <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}Move to folder <span aria-hidden="true">▾</span></span>
               </span>
+            {% elif value == 'merge_tags' %}
+              <button type="button" class="button" data-tag-merge-open aria-haspopup="dialog" disabled>Merge Tags</button>
             {% elif value and value != 'add_tags' and value != 'remove_tags' %}
               <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% if value == 'delete_selected' or value == 'delete_tagged_snapshots' %}{% include "admin/action_icon.html" with action="delete_selected" %}{% if tagged_list %}{% if value == "delete_selected" %}Delete Tags{% else %}Delete Snapshots{% endif %}{% else %}Delete{% endif %}{% else %}{% include "admin/action_icon.html" with action=value %}{{ label }}{% endif %}</button>
             {% endif %}

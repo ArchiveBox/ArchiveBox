@@ -1,2 +1,24 @@
 {% extends "admin/change_list.html" %}
 {% block object-tools %}{% endblock %}
+{% load static %}
+{% block extrahead %}
+  {{ block.super }}
+  {% if cl.merge_max_tags %}<script src="{% static 'admin-tag-merge.js' %}" defer></script>{% endif %}
+{% endblock %}
+{% block content %}
+  {{ block.super }}
+  {% if cl.merge_max_tags %}
+  <dialog id="tag-merge-dialog" aria-labelledby="tag-merge-title" data-max-tags="{{ cl.merge_max_tags }}">
+    <form method="dialog">
+      <h2 id="tag-merge-title">Merge Tags</h2>
+      <p>Merge <strong id="tag-merge-count"></strong> selected tags into the name below. An existing tag with that name is kept. The other selected tags are retired; all snapshots are kept.</p>
+      <p>Scripts and bookmarks that refer to an old tag name are not updated.</p>
+      <p><label for="tag-merge-name">Final tag name</label><br><input id="tag-merge-name" name="merge_name" maxlength="100" autocomplete="off" required autofocus></p>
+      <div class="submit-row">
+        <button type="button" data-tag-merge-cancel>Cancel</button>
+        <button type="submit" class="default">Merge Tags</button>
+      </div>
+    </form>
+  </dialog>
+  {% endif %}
+{% endblock %}

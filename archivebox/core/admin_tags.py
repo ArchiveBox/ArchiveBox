@@ -10,7 +10,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.options import ActionLocation, IS_POPUP_VAR
 from django.core.exceptions import PermissionDenied
-from django.db import connection
+from django.db import OperationalError, connection
 from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 from django.db.models import CharField, Prefetch
 from django.db.models.functions import Cast
@@ -22,6 +22,7 @@ from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.core.admin_snapshots import SnapshotActionForm
 from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag, Tag
 from archivebox.core.smart_folders import CHILDREN_RULES
+from archivebox.core.tag_merge import MERGE_MAX_TAGS, merge_selected_tags
 from archivebox.core.widgets import TagEditorWidget
 from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards
 from archivebox.core.routes_util import build_snapshot_export_urls, build_snapshot_role_output_url
@@ -78,7 +79,7 @@ class TagAdmin(BaseModelAdmin):
     list_filter = ("created_at", "created_by")
     search_fields = ("id", "name")
     readonly_fields = ("id", "created_at", "modified_at", "snapshots")
-    actions = ["delete_selected"]
+    actions = ["delete_selected", "merge_tags"]
     action_form = SnapshotActionForm
     ordering = ["name", "id"]
 
@@ -132,10 +133,65 @@ class TagAdmin(BaseModelAdmin):
             changelist.inline_tag_create = TagEditorWidget(
                 create_redirect=reverse("admin:core_tag_changelist"),
             ).render("tag_list_create", None)
+        if not changelist.is_popup and self.has_merge_permission(request):
+            changelist.merge_max_tags = MERGE_MAX_TAGS
         return changelist
 
     def get_queryset(self, request):
         return annotate_tag_snapshot_counts(super().get_queryset(request))
+
+    def has_merge_permission(self, request):
+        snapshot_admin = self._snapshot_admin()
+        return bool(
+            self.has_change_permission(request)
+            and self.has_delete_permission(request)
+            and snapshot_admin
+            and snapshot_admin.has_change_permission(request)
+        )
+
+    @admin.action(permissions=["merge"], description="Merge Tags")
+    def merge_tags(self, request, tags):
+        if not self.has_merge_permission(request):
+            raise PermissionDenied
+        if any(value not in {"", "0"} for value in request.POST.getlist("select_across")):
+            self.message_user(
+                request, "Select the individual tags to merge. Select all matching tags is not supported.", level=messages.ERROR
+            )
+            return None
+        if request.POST.get("confirm_tag_merge") != "1":
+            self.message_user(request, "Confirm which tags to merge before continuing.", level=messages.ERROR)
+            return None
+        # The merge is all-or-nothing across each selected tag. If any linked
+        # Snapshot is outside this staff member's admin scope, refuse the action.
+        snapshot_admin = copy(self._snapshot_admin())
+        snapshot_request = copy(request)
+        snapshot_request.GET = QueryDict()
+        snapshot_scope = snapshot_admin.get_queryset(snapshot_request)
+        try:
+            target, retired, snapshots = merge_selected_tags(
+                tags,
+                request.POST.get("merge_tag_name", ""),
+                user=request.user,
+                can_create=self.has_add_permission(request),
+                selected_count=request.POST.get("confirm_tag_merge_count"),
+                snapshot_scope=snapshot_scope,
+            )
+        except ValueError as err:
+            self.message_user(request, str(err), level=messages.ERROR)
+            return None
+        except OperationalError as err:
+            if connection.vendor != "sqlite" or "locked" not in str(err).lower():
+                raise
+            self.message_user(
+                request, "The database was busy. No tags were merged. Try again after active writes finish.", level=messages.ERROR
+            )
+            return None
+        self.message_user(
+            request,
+            f'Merged into "{target.name}": retired {retired} tag(s); retained {snapshots} Snapshot(s).',
+            level=messages.SUCCESS,
+        )
+        return self._redirect_to_changelist(target.name)
 
     def _snapshot_admin(self):
         return self.admin_site._registry.get(Snapshot)
@@ -190,7 +246,7 @@ class TagAdmin(BaseModelAdmin):
     def changelist_view(self, request, extra_context=None):
         choices = self.get_action_choices(request)
         snapshot_choices = [(name, label) for name, label in choices if name in TAG_SNAPSHOT_ACTIONS or name == TAGGED_SNAPSHOT_DELETE]
-        if snapshot_choices:
+        if snapshot_choices or self.has_merge_permission(request):
             context = {
                 "snapshot_action_choices": snapshot_choices,
                 "tag_action_choices": [
