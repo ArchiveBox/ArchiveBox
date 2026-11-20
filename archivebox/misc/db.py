@@ -236,7 +236,18 @@ def truncate_overlong_charfields(instance=None, **kwargs) -> None:
 # --- migration helpers ------------------------------------------------------
 
 
-def check_sqlite_database(db_path: Path) -> dict[str, int]:
+@contextmanager
+def _migration_phase(report: Callable[[str], None] | None, label: str):
+    if report is None:
+        yield
+        return
+    report(f"[*] {label} starting...")
+    started = time.perf_counter()
+    yield
+    report(f"[*] {label} verified in {time.perf_counter() - started:.2f}s.")
+
+
+def check_sqlite_database(db_path: Path, *, report: Callable[[str], None] | None = None, phase: str = "") -> dict[str, int]:
     """Read a consistent SQLite snapshot, including every table's actual rows.
 
     Counts and index probes alone can miss unreadable table pages. Never use
@@ -248,20 +259,23 @@ def check_sqlite_database(db_path: Path) -> dict[str, int]:
 
     with closing(sqlite3.connect(f"{db_path.absolute().as_uri()}?mode=ro", uri=True)) as db:
         db.execute("BEGIN")
-        for (result,) in db.execute("PRAGMA integrity_check"):
-            if result != "ok":
-                raise RuntimeError(f"SQLite integrity_check failed: {result}")
-        for table, rowid, parent, constraint in db.execute("PRAGMA foreign_key_check"):
-            raise RuntimeError(f"SQLite foreign_key_check failed: {table} row {rowid} references {parent} (constraint {constraint})")
-        counts = {}
-        tables = db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
-        for (table,) in tables:
-            quoted_table = '"' + table.replace('"', '""') + '"'
-            rows = db.execute(f"SELECT * FROM {quoted_table} NOT INDEXED")
-            count = 0
-            while batch := rows.fetchmany(256):
-                count += len(batch)
-            counts[table] = count
+        with _migration_phase(report, f"{phase} SQLite integrity_check"):
+            for (result,) in db.execute("PRAGMA integrity_check"):
+                if result != "ok":
+                    raise RuntimeError(f"SQLite integrity_check failed: {result}")
+        with _migration_phase(report, f"{phase} SQLite foreign_key_check"):
+            for table, rowid, parent, constraint in db.execute("PRAGMA foreign_key_check"):
+                raise RuntimeError(f"SQLite foreign_key_check failed: {table} row {rowid} references {parent} (constraint {constraint})")
+        with _migration_phase(report, f"{phase} SQLite table readability"):
+            counts = {}
+            tables = db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+            for (table,) in tables:
+                quoted_table = '"' + table.replace('"', '""') + '"'
+                rows = db.execute(f"SELECT * FROM {quoted_table} NOT INDEXED")
+                count = 0
+                while batch := rows.fetchmany(256):
+                    count += len(batch)
+                counts[table] = count
         return counts
 
 
@@ -278,10 +292,11 @@ def checked_database_migration(stdout: TextIO | None = None):
     console = Console(file=stdout or None, stderr=stdout is None)
     console.print("[*] Checking database integrity, foreign keys, and table readability before migration...")
     if db_path.exists():
-        check_sqlite_database(db_path)
+        check_sqlite_database(db_path, report=console.print, phase="Pre-migration")
     try:
-        yield
-        check_sqlite_database(db_path)
+        with _migration_phase(console.print, "Django migrate (including schema-editor checks)"):
+            yield
+        check_sqlite_database(db_path, report=console.print, phase="Post-migration")
     except BaseException:
         console.print(
             "[red]Migration did not complete successfully. Stop here; inspect the error and run archivebox check before retrying.[/red]",

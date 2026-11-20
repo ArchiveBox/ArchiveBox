@@ -182,6 +182,23 @@ def test_migration_preserves_snapshot_urls(archive_07):
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
+    reports = result.stdout + result.stderr
+    phases = [
+        "Pre-migration SQLite integrity_check",
+        "Pre-migration SQLite foreign_key_check",
+        "Pre-migration SQLite table readability",
+        "Django migrate (including schema-editor checks)",
+        "Post-migration SQLite integrity_check",
+        "Post-migration SQLite foreign_key_check",
+        "Post-migration SQLite table readability",
+    ]
+    phase_offsets = [reports.index(f"{phase} verified in ") for phase in phases]
+    assert phase_offsets == sorted(phase_offsets)
+
+    up_to_date = run_archivebox_migration_cmd(work_dir, ["init", "--quick"], timeout=45)
+    assert up_to_date.returncode == 0, up_to_date.stdout + up_to_date.stderr
+    assert not any(phase in up_to_date.stdout + up_to_date.stderr for phase in phases)
+
     ok, msg = verify_snapshot_urls(db_path, expected_urls)
     assert ok, msg
 
