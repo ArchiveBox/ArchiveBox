@@ -71,13 +71,24 @@ jobs:
           gallery_path = directory / "index.html"
           gallery = gallery_path.read_text()
           captures = json.loads(Path(".github/manual-screenshot-captures.json").read_text())
+          def capture_time(value):
+              try:
+                  timestamp = datetime.fromisoformat(value)
+              except (TypeError, ValueError):
+                  return None
+              return timestamp if timestamp.utcoffset() is not None else None
+
+          gallery_time = capture_time(manifest.get("generated_at"))
           applied = {}
           for filename in subprocess.check_output(["git", "ls-files", "publicsite/screenshots/*.png"], text=True).splitlines():
               image = Path(filename)
               view = image.stem.rsplit("-", 1)[0]
               capture = captures.get(view, {})
-              if image.name in manifest["files"] and capture.get("captured_at") and datetime.fromisoformat(capture["captured_at"]) <= datetime.fromisoformat(manifest["generated_at"]):
-                  continue
+              if image.name in manifest["files"]:
+                  # Only a newer dated capture may replace a qualified image.
+                  manual_time = capture_time(capture.get("captured_at"))
+                  if manual_time is None or gallery_time is None or manual_time <= gallery_time:
+                      continue
               shutil.copyfile(Path(os.environ["RUNNER_TEMP"]) / "manual-screenshots" / image.name, image)
               if capture:
                   applied[view] = capture
