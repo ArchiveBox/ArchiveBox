@@ -200,7 +200,63 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog.has-rules .folder-dialog-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline-color,#e4e7ec)}
 
 /* Bound compact tag rows with CSS, without per-row layout reads in JavaScript. */
-.model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-editor-inline:not(:focus-within) .tag-pills-inline:not(.library-tags-expanded) .tag-pill:nth-child(n+3){display:none}
+.model-snapshot.change-list .snapshot-library :is(#result_list:not(.library-tag-fit), .cards) .tag-editor-inline:not(:focus-within) .tag-pills-inline:not(.library-tags-expanded) .tag-pill:nth-child(n+3){display:none}
 .model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-pills-inline:not(.library-tags-expanded) .tag-pill{flex:0 1 auto;min-width:0;max-width:180px}
 .model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-pills-inline:not(.library-tags-expanded) .tag-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .model-snapshot.change-list .snapshot-library :is(#result_list, .cards) .tag-editor-inline:focus-within .tag-pills-inline{flex-wrap:wrap;max-height:none;overflow:visible}
+
+
+/* Only the native Snapshot table shares space between Title and Tags. */
+.snapshot-library #result_list.library-tag-fit th.column-tags_inline {
+  box-sizing: border-box;
+  width: var(--library-tags-width);
+  max-width: none;
+}
+.snapshot-library #result_list.library-tag-fit td.field-tags_inline {
+  max-width: none;
+}
+.snapshot-library #result_list.library-tag-fit td.field-tags_inline .tags-inline-editor {
+  display: block;
+  margin: 0;
+}
+.snapshot-library #result_list.library-tag-fit td.field-tags_inline .tag-editor-inline {
+  display: flex;
+  width: 100%;
+  max-width: none;
+}
+.snapshot-library #result_list.library-tag-fit .tag-editor-inline:not(:has(input:focus, .tag-remove-btn:focus, .library-tags-expanded)),
+.snapshot-library #result_list.library-tag-fit .tag-editor-inline:not(:has(input:focus, .tag-remove-btn:focus)) .tag-pills-inline:not(.library-tags-expanded) {
+  flex-wrap: nowrap;
+}
+.snapshot-library #result_list.library-tag-fit .tag-editor-inline:not(:has(input:focus, .tag-remove-btn:focus)) .tag-pills-inline:not(.library-tags-expanded) {
+  max-height: none;
+  overflow: hidden;
+}
+.snapshot-library #result_list.library-tag-fit .tag-pills-inline:not(.library-tags-expanded) .tag-pill {
+  flex: none;
+}
+.snapshot-library #result_list.library-tag-fit .tag-pills-inline .tag-pill[hidden] {
+  display: none;
+}
+.snapshot-library #result_list.library-tag-fit .library-tags-toggle {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-kerning: none;
+  white-space: nowrap;
+}
+/* Measure unwrapped pills and the counter without changing any table track. */
+.snapshot-library #result_list.library-tag-measuring td.field-tags_inline .tag-pills-inline,
+.snapshot-library #result_list.library-tag-measuring td.field-tags_inline .library-tags-toggle {
+  position: absolute;
+  visibility: hidden;
+  width: max-content;
+  max-width: none;
+}
+.snapshot-library #result_list.library-tag-measuring .tag-pills-inline .tag-pill[hidden] {
+  display: inline-flex;
+}
+.snapshot-library #result_list.library-tag-measuring .tag-pills-inline .tag-pill {
+  flex: none;
+  max-width: 180px;
+  white-space: nowrap;
+}

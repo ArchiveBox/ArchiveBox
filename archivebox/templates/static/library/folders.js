@@ -516,36 +516,166 @@ document.addEventListener('DOMContentLoaded', () => {
   // Public folders share navigation and exports, but have no move endpoint.
   if (!sidebar.dataset.moveUrl) return;
 
-  // CSS owns tag fitting. Only tag membership and explicit expansion change
-  // this control; never measure rows or observe dimensions to decide visibility.
+  // Compact cards retain their two-pill cap. The native table fits actual
+  // one-line pill widths to the shared Title + Tags space.
   const cleanupTagRows = [];
   function initializeTagRows() {
     cleanupTagRows.splice(0).forEach(cleanup => cleanup());
+    const table = form?.querySelector('#result_list');
+    const header = table?.tHead;
+    const title = header?.querySelector('.column-title_str');
+    const tags = header?.querySelector('.column-tags_inline');
+    const label = tags?.querySelector('.text span, .text a');
+    const labelRange = document.createRange();
+    if (label) labelRange.selectNodeContents(label);
+    const rows = [];
+    let counterWidths = [];
+    let frame = 0;
+
+    function setCounter(row, total, visible) {
+      const expanded = row.pills.classList.contains('library-tags-expanded');
+      row.toggle.hidden = expanded ? total === 0 : total <= visible;
+      const text = expanded ? 'Show fewer tags' : `+${total - visible}`;
+      if (row.toggle.textContent !== text) row.toggle.textContent = text;
+      row.toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${total} tags`);
+      row.toggle.setAttribute('aria-expanded', String(expanded));
+    }
+    function updateCompact(row) {
+      const pills = row.pills.querySelectorAll('.tag-pill');
+      if (pills.length <= 2) row.pills.classList.remove('library-tags-expanded');
+      pills.forEach(pill => {if (pill.hidden) pill.hidden = false;});
+      setCounter(row, pills.length, 2);
+    }
+    function spacing(element, properties) {
+      const css = getComputedStyle(element);
+      return properties.reduce((sum, name) => sum + (parseFloat(css[name]) || 0), 0);
+    }
+    function fitTableTags() {
+      frame = 0;
+      if (!header?.getBoundingClientRect().height || !title || !tags) {
+        table?.classList.remove('library-tag-fit');
+        table?.style.removeProperty('--library-tags-width');
+        rows.forEach(updateCompact);
+        return;
+      }
+      const cap = Math.floor((title.getBoundingClientRect().width + tags.getBoundingClientRect().width) * 0.4);
+      table.classList.add('library-tag-fit');
+      const dirty = rows.filter(row => !row.measure);
+      if (dirty.length) measureTags(dirty);
+      const demand = Math.max(label ? labelRange.getBoundingClientRect().width +
+        spacing(label, ['paddingLeft', 'paddingRight']) + spacing(tags, ['paddingLeft', 'paddingRight']) : 0, ...rows.map(row => row.measure.full));
+      const width = Math.min(Math.ceil(demand), cap);
+      const columnWidth = `${width}px`;
+      if (table.style.getPropertyValue('--library-tags-width') !== columnWidth) {
+        table.style.setProperty('--library-tags-width', columnWidth);
+      }
+      for (const row of rows) {
+        const {widths, pillGap, editorGap, fixed, full} = row.measure;
+        let visible = widths.length;
+        if (full > width) {
+          let used = fixed;
+          visible = 0;
+          for (let i = 0; i < widths.length - 1; i++) {
+            used += widths[i] + (i ? pillGap : 0);
+            const hidden = widths.length - i - 1;
+            const counter = counterWidths[String(hidden).length - 1] + editorGap;
+            if (used + counter <= width) visible = i + 1;
+          }
+        }
+        const showAll = row.pills.classList.contains('library-tags-expanded') ||
+          row.editor.contains(document.activeElement) &&
+          document.activeElement.matches('input, .tag-remove-btn');
+        row.tags.forEach((pill, i) => {
+          const hidden = !showAll && i >= visible;
+          if (pill.hidden !== hidden) pill.hidden = hidden;
+        });
+        setCounter(row, widths.length, showAll ? widths.length : visible);
+      }
+    }
+    function measureTags(dirty) {
+      table.classList.add('library-tag-measuring');
+      for (const row of dirty) row.tags = Array.from(row.pills.querySelectorAll('.tag-pill'));
+      // A shared probe per digit count measures the exact +N width. Reserving
+      // +10 can hide a chip that fits beside +9.
+      const maxDigits = Math.max(...dirty.map(row => String(row.tags.length).length));
+      const probes = [];
+      for (let digits = counterWidths.length + 1; digits <= maxDigits; digits++) {
+        const probe = dirty[0].toggle.cloneNode(false);
+        probe.hidden = false;
+        probe.textContent = `+${'1'.repeat(digits)}`;
+        probes.push(probe);
+      }
+      dirty[0].toggle.after(...probes);
+      for (const probe of probes) counterWidths.push(probe.getBoundingClientRect().width);
+      for (const row of dirty) {
+        const widths = row.tags.map(pill => pill.getBoundingClientRect().width);
+        const pillGap = spacing(row.pills, ['columnGap']);
+        const editorGap = spacing(row.editor, ['columnGap']);
+        const fixed = spacing(row.cell, ['paddingLeft', 'paddingRight']) +
+          spacing(row.editor, ['paddingLeft', 'paddingRight']) +
+          (row.input ? spacing(row.input, ['minWidth']) + editorGap : 0);
+        const full = widths.reduce((total, width, i) => total + width + (i ? pillGap : 0), fixed);
+        row.measure = {widths, pillGap, editorGap, fixed, full};
+      }
+      probes.forEach(probe => probe.remove());
+      table.classList.remove('library-tag-measuring');
+    }
+    function scheduleFit() {
+      if (!frame) frame = requestAnimationFrame(fitTableTags);
+    }
     form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
       const editor = pills.closest('.tag-editor-inline');
       const toggle = document.createElement('button');
       toggle.type = 'button'; toggle.className = 'library-tags-toggle';
       pills.after(toggle);
-      function updateTags() {
-        const count = pills.querySelectorAll('.tag-pill').length;
-        const expanded = pills.classList.contains('library-tags-expanded');
-        toggle.hidden = count <= 2;
-        toggle.textContent = expanded ? 'Show fewer tags' : `+${count - 2}`;
-        toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${count} tags`);
-        toggle.setAttribute('aria-expanded', String(expanded));
-      }
+      const cell = pills.closest('td.field-tags_inline');
+      const inTable = cell && cell.closest('table') === table;
+      const row = {pills, editor, toggle, cell, input: editor.querySelector('.tag-inline-input-sm')};
+      if (inTable) rows.push(row);
+      const update = () => inTable ? scheduleFit() : updateCompact(row);
       toggle.addEventListener('pointerdown', event => event.preventDefault());
       toggle.addEventListener('click', event => {
         event.stopPropagation();
         if (editor.contains(document.activeElement) && document.activeElement !== toggle) document.activeElement.blur();
         pills.classList.toggle('library-tags-expanded');
-        updateTags();
+        update();
       });
-      const observer = new MutationObserver(updateTags);
+      const observer = new MutationObserver(() => {
+        row.measure = null;
+        update();
+      });
       observer.observe(pills, {childList: true});
+      if (inTable) {
+        editor.addEventListener('focusin', update);
+        editor.addEventListener('focusout', update);
+      }
       cleanupTagRows.push(() => observer.disconnect());
-      updateTags();
+      updateCompact(row);
     });
+    if (rows.length) {
+      let lastWidth;
+      const observer = new ResizeObserver(([entry]) => {
+        const width = entry.contentRect.width;
+        if (width !== lastWidth) {
+          lastWidth = width;
+          scheduleFit();
+        }
+      });
+      observer.observe(table.parentElement);
+      window.addEventListener('resize', scheduleFit);
+      document.fonts.ready.then(() => {
+        if (!table.isConnected) return;
+        counterWidths = [];
+        rows.forEach(row => {row.measure = null;});
+        scheduleFit();
+      });
+      cleanupTagRows.push(() => {
+        observer.disconnect();
+        window.removeEventListener('resize', scheduleFit);
+        cancelAnimationFrame(frame);
+      });
+      scheduleFit();
+    }
   }
   function selectionChanged() {
     const checked = form?.querySelector('input.action-select:checked');
