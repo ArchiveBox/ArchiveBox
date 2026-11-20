@@ -33,12 +33,11 @@ permissions:
   actions: read
 
 concurrency:
-  # New automatic captures supersede obsolete source instead of blocking repairs.
-  # Explicit manual captures have their own group and cannot be preempted.
-  # Publication remains serialized by the separate Pages workflow.
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}-{1}', inputs.plugin_revision != '' && 'plugin-capture' || 'default', github.run_id) || 'default' }}
-  # A scheduled no-op must not cancel an in-flight repair.
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  # Finish the current automatic capture; only the latest waiting push remains.
+  # Scheduled checks cannot replace a waiting push, even when they do no work.
+  # Explicit manual captures retain their own per-run group.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}-{1}', inputs.plugin_revision != '' && 'plugin-capture' || 'default', github.run_id) || github.event_name == 'schedule' && 'scheduled' || 'default' }}
+  cancel-in-progress: false
 
 jobs:
   changes:

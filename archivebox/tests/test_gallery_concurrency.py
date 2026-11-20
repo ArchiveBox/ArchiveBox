@@ -1,4 +1,4 @@
-"""Automatic captures may supersede each other, never explicit manual captures."""
+"""Capture queues keep running work and isolate schedules and manual requests."""
 
 from pathlib import Path
 import runpy
@@ -15,11 +15,11 @@ def workflow(name):
     return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
 
 
-def test_gallery_automatic_preemption_preserves_manual_runs():
+def test_gallery_keeps_running_captures_and_only_replaces_waiting_pushes():
     capture = workflow("screenshots.yml")
     assert capture["concurrency"] == {
-        "group": "${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}-{1}', inputs.plugin_revision != '' && 'plugin-capture' || 'default', github.run_id) || 'default' }}",
-        "cancel-in-progress": "${{ github.event_name == 'push' }}",
+        "group": "${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}-{1}', inputs.plugin_revision != '' && 'plugin-capture' || 'default', github.run_id) || github.event_name == 'schedule' && 'scheduled' || 'default' }}",
+        "cancel-in-progress": "false",
     }
     assert set(capture["on"]) == {"push", "schedule", "workflow_dispatch"}
     assert capture["jobs"]["deploy"]["concurrency"] == {
