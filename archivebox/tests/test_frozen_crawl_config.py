@@ -101,32 +101,34 @@ def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serializa
     assert SENSITIVE_SECRET not in str(public_json)
 
 
-def test_snapshot_config_overlays_frozen_crawl_without_re_reading_persona(archivebox_db):
-    from archivebox.config.common import get_config
+def test_snapshot_config_overlays_frozen_crawl_but_uses_live_persona_credentials(archivebox_db):
+    from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED, get_config
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
 
     user = _user("frozen-config-snapshot-admin")
     persona = _persona(user, name="Frozen Snapshot Persona", user_agent="Crawl UA")
+    persona.config["ANTHROPIC_API_KEY"] = "synthetic-original-persona-key"
+    persona.save(update_fields=["config"])
     crawl = Crawl.objects.create(urls="https://example.com/root", persona=persona, created_by=user, config={"TIMEOUT": 11})
     snapshot = Snapshot.objects.create(
         url="https://example.com/root",
         crawl=crawl,
-        config={"TIMEOUT": 22, "ANTHROPIC_API_KEY": "snapshot-secret"},
+        config={"TIMEOUT": 22, "ANTHROPIC_API_KEY": "synthetic-ignored-snapshot-key"},
     )
 
-    persona.config["TIMEOUT"] = 99
+    assert "ANTHROPIC_API_KEY" not in crawl.config
+    persona.config.update(TIMEOUT=99, USER_AGENT="Changed Persona UA", ANTHROPIC_API_KEY="synthetic-rotated-persona-key")
     persona.save(update_fields=["config"])
 
     runtime_config = get_config(crawl=crawl, snapshot=snapshot)
     assert runtime_config.USER_AGENT == "Crawl UA"
     assert runtime_config.TIMEOUT == 22
-    assert runtime_config.ANTHROPIC_API_KEY == "snapshot-secret"
-    assert snapshot.config == {
-        "TIMEOUT": 22,
-        "ANTHROPIC_API_KEY": "snapshot-secret",
-        "PERMISSIONS": "private",
-    }
+    assert runtime_config.ANTHROPIC_API_KEY == "synthetic-rotated-persona-key"
+    assert get_config(crawl=crawl, snapshot=snapshot, redact_sensitive=True).ANTHROPIC_API_KEY == SENSITIVE_CONFIG_VALUE_REDACTED
+    snapshot.refresh_from_db()
+    assert snapshot.config["TIMEOUT"] == 22
+    assert snapshot.config["PERMISSIONS"] == "private"
 
 
 def test_server_config_stays_available_without_entering_crawl_or_snapshot_runtime(archivebox_db):
