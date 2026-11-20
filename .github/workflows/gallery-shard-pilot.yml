@@ -1,4 +1,4 @@
-name: Measure parallel gallery CI (public round 2)
+name: Measure parallel gallery CI (public compound views)
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/gallery-shard-pilot.yml
       - bin/measure_gallery_shards.py
+      - bin/qualify_anonymous_plan.py
 
 permissions:
   contents: read
@@ -22,19 +23,23 @@ jobs:
     name: pilot-${{ matrix.lane }}
     if: github.ref == 'refs/heads/codex/gallery-parallel-public-round2'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - lane: serial
-            plugins: papersdl,staticfile,ytdlp
-          - lane: papersdl
-            plugins: papersdl
-          - lane: staticfile
-            plugins: staticfile
-          - lane: ytdlp
-            plugins: ytdlp
+            plugins: caddl,drawio,excalidraw,tldraw,calendar,liteparse,opendataloader,podcast_archiver,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps,forumdl,gallerydl
+          - lane: cad
+            plugins: caddl
+          - lane: boards
+            plugins: drawio,excalidraw,tldraw
+          - lane: documents
+            plugins: calendar,liteparse,opendataloader,podcast_archiver
+          - lane: parsers
+            plugins: parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps
+          - lane: web
+            plugins: forumdl,gallerydl
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -98,15 +103,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb xauth poppler-utils
 
+      - name: Verify exact native plan before any source visit
+        run: uv run --no-sync python bin/measure_gallery_shards.py preflight "$RUNNER_TEMP/pilot-qualified.json"
+
       - name: Capture anonymous native provider fixture
         env:
           BASE_URL: http://archivebox.localhost:5797
           CHROME_HEADLESS: 'false'
           # All treatments use the same native flags. UI_SCREENSHOT_PLUGINS
           # chooses only the recipe views presented by the real collector.
-          PAPERSDL_ENABLED: 'True'
-          STATICFILE_ENABLED: 'True'
-          YTDLP_ENABLED: 'True'
+          OPENDATALOADER_ENABLED: 'True'
+          AUTH_STORAGE_FILE: ''
           ARCHIVEDOTORG_ENABLED: 'False'
           UI_SCREENSHOT_PLUGINS: ${{ matrix.plugins }}
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/pilot-data
@@ -117,7 +124,7 @@ jobs:
       - name: Validate exact pilot coverage and package evidence
         env:
           PILOT_LANE: ${{ matrix.lane }}
-        run: uv run --no-sync python bin/measure_gallery_shards.py collect "$PILOT_LANE" "$RUNNER_TEMP/pilot-public" "$RUNNER_TEMP/pilot-evidence"
+        run: uv run --no-sync python bin/measure_gallery_shards.py collect "$PILOT_LANE" "$RUNNER_TEMP/pilot-public" "$RUNNER_TEMP/pilot-evidence" "$RUNNER_TEMP/pilot-qualified.json"
 
       - name: Upload pilot evidence, never a site-screenshots artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
