@@ -187,59 +187,65 @@ def homepage_capture_budget(homepage_url):
         folder.delete()
 
 
+@contextmanager
+def library_capture_plugins(persona, *, model=""):
+    """Scope gallery fixture flags to the real library crawl."""
+    previous = dict(persona.config or {})
+    # The HN library only needs replay, screenshot, WACZ and AI artifacts.
+    # TLSNotary keeps its own genuine required provider example; notarizing
+    # these seven unrelated captures is redundant and dominates runner time.
+    persona.config = {**previous, "TLSNOTARY_ENABLED": False}
+    if model:
+        persona.config.update(
+            AUTOTAG_ENABLED=True,
+            AUTOSUMMARY_ENABLED=True,
+            AUTOTAG_MODEL=model,
+            AUTOSUMMARY_MODEL=model,
+        )
+    persona.save(update_fields=["config"])
+    try:
+        yield
+    finally:
+        persona.config = previous
+        persona.save(update_fields=["config"])
+
+
 def prepare(evidence_dir, *, model=""):
     from archivebox.config import CONSTANTS
     from archivebox.core.models import Snapshot
     from archivebox.core.tag_util import normalize_tag_name
     from archivebox.crawls.models import Crawl
+    from archivebox.personas.models import Persona
 
     evidence = Path(evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
     urls = news_urls()
     (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
     capture_env = os.environ.copy()
-    persona = None
-    previous_persona_config = None
     if model:
         if not model.startswith("openai/"):
             raise ValueError("Gallery AI captures require an explicitly configured OpenAI model.")
         configure_provider(model, CONSTANTS.DATA_DIR)
-        from archivebox.personas.models import Persona
-
-        # The crawl worker is launched by an already-running supervisor and
-        # does not inherit environment changes made by this subprocess.
-        persona = Persona.get_or_create_named("Default")
-        previous_persona_config = dict(persona.config or {})
-        persona.config = {
-            **previous_persona_config,
-            "AUTOTAG_ENABLED": True,
-            "AUTOSUMMARY_ENABLED": True,
-            "AUTOTAG_MODEL": model,
-            "AUTOSUMMARY_MODEL": model,
-        }
-        persona.save(update_fields=["config"])
+    # The existing supervisor does not adopt the shell's temporary env.
+    # Persist the fixture preset until the foreground crawl has completed.
+    persona = Persona.get_or_create_named("Default")
     started = timezone.now()
-    try:
-        with homepage_capture_budget(urls[0]):
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "archivebox",
-                    "add",
-                    "--no-only-new",
-                    "--tag=screenshot-library",
-                    "--max-urls=7",
-                    *urls,
-                ],
-                cwd=CONSTANTS.DATA_DIR,
-                env=capture_env,
-                check=True,
-            )
-    finally:
-        if persona is not None:
-            persona.config = previous_persona_config
-            persona.save(update_fields=["config"])
+    with library_capture_plugins(persona, model=model), homepage_capture_budget(urls[0]):
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "archivebox",
+                "add",
+                "--no-only-new",
+                "--tag=screenshot-library",
+                "--max-urls=7",
+                *urls,
+            ],
+            cwd=CONSTANTS.DATA_DIR,
+            env=capture_env,
+            check=True,
+        )
     crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
     snapshots = list(Snapshot.objects.filter(crawl=crawl))
     if {snapshot.url for snapshot in snapshots} != set(urls):
