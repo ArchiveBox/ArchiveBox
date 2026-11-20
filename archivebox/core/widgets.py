@@ -45,8 +45,9 @@ class TagEditorWidget(forms.Widget):
         css = {"all": []}
         js = []
 
-    def __init__(self, attrs=None, snapshot_id=None):
+    def __init__(self, attrs=None, snapshot_id=None, *, create_redirect=None):
         self.snapshot_id = snapshot_id
+        self.create_redirect = create_redirect
         super().__init__(attrs)
 
     def _escape(self, value):
@@ -137,6 +138,7 @@ class TagEditorWidget(forms.Widget):
             '''
 
         tags_json = self._json_for_inline_script(tags)
+        create_redirect = self._json_for_inline_script(self.create_redirect)
 
         # Build the widget HTML
         html = f'''
@@ -148,18 +150,20 @@ class TagEditorWidget(forms.Widget):
                    id="{widget_id}_input"
                    class="tag-inline-input"
                    list="{widget_id}_datalist"
-                   placeholder="Add tag..."
+                   placeholder="Add tag..." aria-label="Add tag"
                    autocomplete="off"
                    onkeydown="handleTagKeydown_{widget_id}(event)"
-                   onkeypress="if(event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar'){{event.preventDefault(); event.stopPropagation();}}"
+                   onkeypress="if({str(not self.create_redirect).lower()} && (event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar')){{event.preventDefault(); event.stopPropagation();}}"
                    oninput="fetchTagAutocomplete_{widget_id}(this.value)"
             >
             <datalist id="{widget_id}_datalist"></datalist>
             <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(",".join(tags))}">
         </div>
 
+        {'<p class="tag-list-create-status" role="status"></p>' if self.create_redirect else ""}
         <script>
         (function() {{
+            var createRedirect = {create_redirect};
             var currentTags_{widget_id} = {tags_json};
             var autocompleteTimeout_{widget_id} = null;
 
@@ -246,10 +250,37 @@ class TagEditorWidget(forms.Widget):
                     'Content-Type': 'application/json',
                 }};
                 var apiKey = getApiKey();
-                if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
+                if (apiKey && !createRedirect) headers['X-ArchiveBox-API-Key'] = apiKey;
                 var csrfToken = getCSRFToken();
                 if (csrfToken) headers['X-CSRFToken'] = csrfToken;
                 return headers;
+            }}
+
+            function createTag(tagName) {{
+                var path = '/api/v1/core/tags/create/';
+                return fetch(createRedirect ? path : buildApiUrl(path), {{
+                    method: 'POST',
+                    headers: buildApiHeaders(),
+                    body: JSON.stringify({{ name: tagName }})
+                }});
+            }}
+
+            function createStandaloneTag(input, name) {{
+                if (!name || input.readOnly) return;
+                var status = document.querySelector('.tag-list-create-status');
+                input.readOnly = true;
+                status.textContent = '';
+                createTag(name).then(async function(response) {{
+                    if (!response.ok) throw new Error('Tag creation failed');
+                    var data = await response.json();
+                    if (!data.success || !data.tag_name) throw new Error('Tag creation failed');
+                    var url = new URL(createRedirect, window.location.origin);
+                    url.searchParams.set('q', data.tag_name);
+                    window.location.assign(url.href);
+                }}).catch(function() {{
+                    input.readOnly = false;
+                    status.textContent = 'Could not add the tag. Try again.';
+                }});
             }}
 
             window.addTag_{widget_id} = function(tagName) {{
@@ -277,11 +308,7 @@ class TagEditorWidget(forms.Widget):
                 document.getElementById('{widget_id}_input').value = '';
 
                 // Create tag via API if it doesn't exist (fire and forget)
-                fetch(buildApiUrl('/api/v1/core/tags/create/'), {{
-                    method: 'POST',
-                    headers: buildApiHeaders(),
-                    body: JSON.stringify({{ name: tagName }})
-                }}).catch(function(err) {{
+                createTag(tagName).catch(function(err) {{
                     console.log('Tag creation note:', err);
                 }});
             }};
@@ -342,6 +369,14 @@ class TagEditorWidget(forms.Widget):
                 var isEnter = event.key === 'Enter' || event.keyCode === 13;
                 var isComma = event.key === ',';
 
+                if (createRedirect) {{
+                    if (isEnter && !event.isComposing) {{
+                        event.preventDefault();
+                        event.stopPropagation();
+                        createStandaloneTag(input, value);
+                    }}
+                    return;
+                }}
                 if (isEnter || isSpace || isComma) {{
                     event.preventDefault();
                     event.stopPropagation();
@@ -371,7 +406,8 @@ class TagEditorWidget(forms.Widget):
                         return;
                     }}
 
-                    fetch(buildApiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)))
+                    var path = '/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query);
+                    fetch(createRedirect ? path : buildApiUrl(path))
                         .then(function(response) {{ return response.json(); }})
                         .then(function(data) {{
                             var datalist = document.getElementById('{widget_id}_datalist');

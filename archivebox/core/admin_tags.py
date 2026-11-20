@@ -22,6 +22,7 @@ from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.core.admin_snapshots import SnapshotActionForm
 from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag, Tag
 from archivebox.core.smart_folders import CHILDREN_RULES
+from archivebox.core.widgets import TagEditorWidget
 from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards
 from archivebox.core.routes_util import build_snapshot_export_urls, build_snapshot_role_output_url
 from archivebox.plugins.discovery import get_snapshot_role_names
@@ -61,8 +62,6 @@ TAGGED_SNAPSHOT_DELETE = "delete_tagged_snapshots"
 TAG_SNAPSHOT_ACTIONS = frozenset(
     {
         "move_to_folder",
-        "add_tags",
-        "remove_tags",
         "resnapshot_snapshot",
         "update_snapshots",
         "overwrite_snapshots",
@@ -73,7 +72,7 @@ TAG_SNAPSHOT_ACTIONS = frozenset(
 
 class TagAdmin(BaseModelAdmin):
     form = TagAdminForm
-    change_list_template = "admin/change_list.html"
+    change_list_template = "admin/core/tag/native_change_list.html"
     change_form_template = "admin/core/tag/change_form.html"
     list_display = ("name", "num_snapshots", "created_at", "created_by")
     list_filter = ("created_at", "created_by")
@@ -126,6 +125,14 @@ class TagAdmin(BaseModelAdmin):
 
     def get_fieldsets(self, request: HttpRequest, obj: Tag | None = None):
         return self.fieldsets if obj else self.add_fieldsets
+
+    def get_changelist_instance(self, request):
+        changelist = super().get_changelist_instance(request)
+        if not changelist.is_popup and self.has_add_permission(request):
+            changelist.inline_tag_create = TagEditorWidget(
+                create_redirect=reverse("admin:core_tag_changelist"),
+            ).render("tag_list_create", None)
+        return changelist
 
     def get_queryset(self, request):
         return annotate_tag_snapshot_counts(super().get_queryset(request))
@@ -186,7 +193,6 @@ class TagAdmin(BaseModelAdmin):
         if snapshot_choices:
             context = {
                 "snapshot_action_choices": snapshot_choices,
-                "snapshot_has_tag_actions": any(name in {"add_tags", "remove_tags"} for name, _ in snapshot_choices),
                 "tag_action_choices": [
                     (name, label) for name, label in choices if name and name not in TAG_SNAPSHOT_ACTIONS and name != TAGGED_SNAPSHOT_DELETE
                 ],

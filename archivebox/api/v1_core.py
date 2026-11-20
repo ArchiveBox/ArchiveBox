@@ -28,11 +28,12 @@ from django.utils.http import content_disposition_header
 from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, UploadedFile
 from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
+from ninja.security import django_auth_is_staff
 from pydantic import field_serializer, model_validator
 
 from archivebox.core.models import Folder, Snapshot, ArchiveResult, Tag
 from archivebox.core.permissions import public_snapshots_queryset
-from archivebox.api.auth import authenticated_user_from_request
+from archivebox.api.auth import API_AUTH_METHODS, authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
 from archivebox.misc.util import equivalent_urls, filter_queryset_by_uuid_substring, validate_url_length
@@ -1466,9 +1467,11 @@ def tags_autocomplete(request: HttpRequest, q: str = ""):
     }
 
 
-@router.post("/tags/create/", response=TagCreateResponseSchema, url_name="tags_create")
+@router.post("/tags/create/", response=TagCreateResponseSchema, url_name="tags_create", auth=[*API_AUTH_METHODS, django_auth_is_staff])
 def tags_create(request: HttpRequest, data: TagCreateSchema):
     """Create a new tag or return existing one."""
+    if not request.user.has_perm("core.add_tag"):
+        raise HttpError(403, "Permission to add tags required")
     try:
         tag, created = get_or_create_tag(
             data.name,

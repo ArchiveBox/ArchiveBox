@@ -4439,3 +4439,34 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
     #content #changelist #changelist-form .actions .action-buttons > * { flex: 1 1 calc(50% - 6px); }
     #content #changelist #changelist-form .actions .action-buttons .button { width: 100%; }
 }
+
+/* The standalone tag creator is separate from the selected-row action form. */
+body.model-tag.change-list #content #changelist #toolbar .changelist-toolbar-row:has(.tag-list-create) {
+    grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) auto;
+    align-items: center;
+}
+.model-tag.change-list .tag-list-create { min-width: 0; position: relative; }
+.model-tag.change-list .tag-list-create .tag-editor-container,
+.model-tag.change-list #content .tag-list-create .tag-inline-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.model-tag.change-list .tag-list-create .tag-inline-input { min-height: 34px; }
+.model-tag.change-list .tag-list-create-status:empty { display: none; }
+.model-tag.change-list .tag-list-create-status { color: var(--error-fg, #b42318); margin: 4px 0 0; }
+#content #changelist #changelist-form .actions .tag-list-action-group {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+@media (max-width: 767px) {
+    body.model-tag.change-list #content #changelist #toolbar .changelist-toolbar-row:has(.tag-list-create) {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .model-tag.change-list .tag-list-create { grid-column: 1 / -1; }
+    .model-tag.change-list .tag-list-create .tag-inline-input { min-height: 44px; }
+    #content #changelist #changelist-form .actions .tag-list-action-group { flex-basis: 100%; }
+}

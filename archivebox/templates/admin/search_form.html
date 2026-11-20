@@ -25,6 +25,7 @@
       ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
     {% endif %}
 {% endif %}
+{% if cl.inline_tag_create %}<div class="tag-list-create">{{ cl.inline_tag_create }}</div>{% endif %}
 {% if cl.embedded_changelist %}
 <div id="changelist-search" data-embedded-search="1" role="search" aria-label="Search snapshots">
 {% else %}
