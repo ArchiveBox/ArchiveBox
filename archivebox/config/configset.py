@@ -78,7 +78,8 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
 
     def __call__(self) -> dict[str, Any]:
         return decode_config_inputs(
-            self.settings_cls, {key: value for key, value in self._load_config_file().items() if key not in RUNTIME_REPORTING_CONFIG_KEYS}
+            self.settings_cls,
+            {key: value for key, value in self._load_config_file().items() if key not in RUNTIME_REPORTING_CONFIG_KEYS},
         )
 
     def _load_config_file(self) -> dict[str, Any]:

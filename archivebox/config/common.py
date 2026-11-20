@@ -281,7 +281,9 @@ def build_crawl_config_snapshot(
     explicit_overrides = set(overrides or {})
     plugin_owned_keys = set(_plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)) - set(ArchiveBoxBaseConfig.model_fields)
     effective = get_config(
-        persona=persona, base_config=base_config, overrides=normalize_runtime_config(overrides, exclude_keys=host_config_keys())
+        persona=persona,
+        base_config=base_config,
+        overrides=normalize_runtime_config(overrides, exclude_keys=host_config_keys()),
     )
     frozen = effective.for_crawl_frozen()
     # Persona-owned plugin values stay live unless the crawl explicitly overrides them.
@@ -1350,7 +1352,10 @@ def get_config(
 
     crawl_config_base = crawl is not None and base_config is None
     frozen_config = normalize_runtime_config(
-        crawl.config if crawl is not None else None, exclude_crawl_execution=True, exclude_keys=host_config_keys(), json_safe=False
+        crawl.config if crawl is not None else None,
+        exclude_crawl_execution=True,
+        exclude_keys=host_config_keys(),
+        json_safe=False,
     )
 
     if include_machine and machine is None:
@@ -1451,7 +1456,7 @@ def get_config(
 
     if snapshot is not None and snapshot.config:
         scope_overrides.update(
-            normalize_runtime_config(snapshot.config, exclude_crawl_execution=True, exclude_keys=host_config_keys(), json_safe=False)
+            normalize_runtime_config(snapshot.config, exclude_crawl_execution=True, exclude_keys=host_config_keys(), json_safe=False),
         )
 
     if overrides:
@@ -1463,7 +1468,7 @@ def get_config(
                 if persona is not None or crawl is not None or snapshot is not None
                 else RUNTIME_REPORTING_CONFIG_KEYS,
                 json_safe=False,
-            )
+            ),
         )
 
     legacy_scope_permissions = permissions_from_legacy_public_flags(scope_overrides)

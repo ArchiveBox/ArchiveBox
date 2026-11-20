@@ -435,7 +435,10 @@ def test_host_config_does_not_follow_persona_crawl_or_snapshot(archivebox_db):
     persona.config.update(stale_values)
     persona.save(update_fields=["config"])
     crawl = Crawl.objects.create(
-        urls="https://example.com/settings-scope", persona=persona, created_by=admin, config={"TIMEOUT": 11, **stale_values}
+        urls="https://example.com/settings-scope",
+        persona=persona,
+        created_by=admin,
+        config={"TIMEOUT": 11, **stale_values},
     )
     assert not stale_values.keys() & crawl.config.keys()
 
@@ -538,7 +541,9 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
     persona.config.update(legacy)
     persona.save(update_fields=["config"])
     crawl = Crawl.objects.create(
-        urls="https://example.com/service-settings", persona=persona, config={**legacy, "PLUGINS": "title", "TIMEOUT": 61}
+        urls="https://example.com/service-settings",
+        persona=persona,
+        config={**legacy, "PLUGINS": "title", "TIMEOUT": 61},
     )
     assert not legacy.keys() & crawl.config.keys()
     Crawl.objects.filter(pk=crawl.pk).update(config={**crawl.config, **legacy})
