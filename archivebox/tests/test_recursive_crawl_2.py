@@ -21,7 +21,7 @@ from .test_recursive_crawl_1 import (
 
 
 def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
-    """Require recent measured pressure and a matching single-slot decision."""
+    """Require a distinct measured recovery for each serial start."""
     pressure_reason = r"(?:(?:cpu|memory|io) stalls|cpu quota throttling)"
     pressure_times = [
         datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
@@ -37,23 +37,28 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
         )
     ]
     decisions = [
-        (datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc), int(cost), int(available))
-        for stamp, cost, available in re.findall(
+        (datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc), int(adaptive), int(active), int(slots), int(cost), int(available))
+        for stamp, adaptive, active, slots, cost, available in re.findall(
             r"\[([^]\n]+)\] INFO archivebox.services.resource_admission Snapshot admission decision: "
-            r"configured=3 adaptive=1 active=0 slots=1 observed_cost=(\d+) available=(\d+)(?: active_memory=None)? pressure=none$",
+            r"configured=3 adaptive=(\d+) active=(\d+) slots=(\d+) observed_cost=(\d+) available=(\d+)(?: active_memory=(?:None|\d+))? pressure=none$",
             stderr,
             re.M,
         )
     ]
     assert starts and pressure_times and decisions, stderr
     used_decisions = set()
-    for started in starts:
-        matching = [(stamp, cost, available) for stamp, cost, available in decisions if stamp <= started]
+    for index, started in enumerate(sorted(starts)):
+        matching = [decision for decision in decisions if decision[0] <= started]
         assert matching, (started, stderr)
-        decision, cost, available = max(matching)
-        assert cost > 0 and available >= cost, (started, stderr)
+        decision, adaptive, active, slots, cost, available = matching[-1]
+        assert active == 0 and 1 <= slots <= adaptive <= 3 and cost > 0 and available >= slots * cost, (started, stderr)
         assert decision not in used_decisions, (started, stderr)
         used_decisions.add(decision)
+        # The direct runner batches at most the remaining snapshot IDs. More
+        # than one slot fails to explain serialization while two are pending,
+        # but cannot launch a parallel capture when only the final ID remains.
+        remaining = len(starts) - index
+        assert remaining == 1 or (adaptive, slots) == (1, 1), (started, stderr)
         assert any(pressure <= decision and 0 <= (started - pressure).total_seconds() < 10 for pressure in pressure_times), (
             started,
             stderr,
@@ -99,6 +104,30 @@ def test_serialized_recovery_requires_matching_observed_evidence(invalid, active
             assert_serialized_pressure_recovery(stderr, crawl_id, starts)
     else:
         assert_serialized_pressure_recovery(stderr, crawl_id, starts)
+
+
+@pytest.mark.parametrize("invalid", [None, "early-parallel", "late-decision", "no-fresh-pressure", "overpromised"])
+def test_serialized_recovery_allows_spare_slots_for_final_snapshot(invalid):
+    # The hosted rc368 run was genuinely serialized after recent I/O stalls.
+    # Use its real admission timeline. The first replayed start is the lower
+    # boundary of the second snapshot's decision; the final start is exact.
+    stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-final-snapshot.txt").read_text()
+    first = datetime.fromisoformat("2026-11-20T13:46:16+00:00")
+    final = datetime.fromisoformat("2026-11-20T13:46:35.335158+00:00")
+    if invalid == "early-parallel":
+        stderr = stderr.replace("adaptive=1 active=0 slots=1", "adaptive=2 active=0 slots=2")
+    elif invalid == "late-decision":
+        stderr = stderr.replace("13:46:35", "13:46:36")
+    elif invalid == "no-fresh-pressure":
+        stderr = "\n".join(line for line in stderr.splitlines() if "13:46:33" not in line)
+    elif invalid == "overpromised":
+        stderr = stderr.replace("17048039424", "205127884")
+    crawl_id = "00000000000000000000000000000001"
+    if invalid:
+        with pytest.raises(AssertionError):
+            assert_serialized_pressure_recovery(stderr, crawl_id, [first, final])
+    else:
+        assert_serialized_pressure_recovery(stderr, crawl_id, [first, final])
 
 
 @pytest.mark.timeout(600)
