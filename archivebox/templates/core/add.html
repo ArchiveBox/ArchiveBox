@@ -352,6 +352,33 @@
             </center> -->
             {% endif %}
             <script>
+                {
+                    const tip = document.querySelector('.crawl-explanation');
+                    const key = 'archivebox.add.crawl-tip-clicks';
+                    const dismissAfter = 3;
+                    let clicks = 0;
+                    function readClicks() {
+                        try {
+                            return Number(localStorage.getItem(key)) || 0;
+                        } catch (_) {
+                            return 0;
+                        }
+                    }
+                    clicks = readClicks();
+                    tip.hidden = clicks >= dismissAfter;
+                    tip.addEventListener('click', (event) => {
+                        // Keep links and the selectable example URL fully interactive.
+                        if (event.target.closest('a, .crawl-tip-url')) return;
+                        clicks = Math.max(clicks, readClicks()) + 1;
+                        try {
+                            localStorage.setItem(key, String(clicks));
+                        } catch (_) {
+                            // Storage may be disabled; still dismiss for this visit.
+                        }
+                        tip.hidden = clicks >= dismissAfter;
+                    });
+                }
+
                 // Triple-click the example URL in the tip to select just the URL (not the surrounding text)
                 document.querySelectorAll('.crawl-tip-url').forEach((el) => {
                     el.addEventListener('mousedown', (e) => {

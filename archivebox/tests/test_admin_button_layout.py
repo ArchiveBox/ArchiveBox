@@ -178,3 +178,54 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
             assert reader.submit(current_folder_id).result() == destination
             expect(menu).not_to_be_visible()
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_add_crawl_tip_dismisses_after_three_background_clicks(live_server, browser_runtime, admin_user):
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    base = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(base + "/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.goto(base + "/add/")
+        tip = page.locator(".crawl-explanation")
+        background = tip.get_by_text("Tip:", exact=True)
+        link = tip.get_by_role("link", name="Get the extension")
+        # Observe the original event at the window, then suppress external travel
+        # so this fixture can test normal link activation without using the network.
+        page.evaluate("""() => {
+            window.linkActivations = [];
+            window.addEventListener('click', event => {
+                const link = event.target.closest('.crawl-tip a[href]');
+                if (!link) return;
+                window.linkActivations.push([link.href, event.defaultPrevented]);
+                event.preventDefault();
+            });
+        }""")
+        link.locator("img").click()
+        link.press("Enter")
+        assert page.evaluate("window.linkActivations") == [
+            ["https://github.com/ArchiveBox/archivebox-browser-extension", False],
+            ["https://github.com/ArchiveBox/archivebox-browser-extension", False],
+        ]
+        tip.locator(".crawl-tip-url-target").click()
+        expect(tip).to_be_visible()
+        background.click()
+        expect(tip).to_be_visible()
+        page.locator('textarea[name="url"]').fill("https://example.com/not-persisted")
+        page.reload()
+        expect(page.locator('textarea[name="url"]')).to_have_value("")
+        background.click()
+        expect(tip).to_be_visible()
+        page.reload()
+        expect(tip).to_be_visible()
+        background.click()
+        expect(tip).to_be_hidden()
+        page.reload()
+        expect(tip).to_be_hidden()
