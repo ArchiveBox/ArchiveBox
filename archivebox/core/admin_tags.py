@@ -67,7 +67,7 @@ TAG_SNAPSHOT_ACTIONS = frozenset(
         "update_snapshots",
         "overwrite_snapshots",
         "set_snapshot_permissions",
-    }
+    },
 )
 
 
