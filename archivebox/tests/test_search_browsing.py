@@ -1,7 +1,10 @@
+import asyncio
+import threading
 from urllib.parse import urlencode
 import pytest
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
+from django.db.backends.signals import connection_created
 from archivebox.core.models import Snapshot, Folder
 from archivebox.search.views import get_admin_search_cache_key
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -19,6 +22,84 @@ def complete_search(client, params):
 
     async_to_sync(consume)()
     return path
+
+
+@pytest.mark.parametrize("aborted", [True, False], ids=["stale-final", "stale-progress"])
+def test_superseded_meta_search_cannot_overwrite_replacement(admin_client, crawl, aborted):
+    query = "example.org"
+    snapshots = [
+        Snapshot.objects.create(crawl=crawl, url=url, timestamp=str(1900000000 + i))
+        for i, url in enumerate((f"https://{query}/capture", f"https://www.{query}/capture", f"http://{query}/capture"))
+    ]
+    path = "/admin/core/snapshot/"
+    params = {"q": query, "search_mode": "meta"}
+    search_url = path + "?" + urlencode(params)
+    requests = {**params, "search_url": search_url}
+    old = admin_client.get(path + "search-stream/", requests, HTTP_HOST=ADMIN_TEST_HOST)
+    replacement = admin_client.get(path + "search-stream/", requests, HTTP_HOST=ADMIN_TEST_HOST)
+    assert old.status_code == replacement.status_code == 200
+    key = get_admin_search_cache_key(old.wsgi_request, search_url)
+    stalled_worker = None
+    stalled = threading.Event()
+    release = threading.Event()
+    stalled_after_progress = threading.Event()
+    release_after_progress = threading.Event()
+
+    def hold_next_real_prefix(execute, sql, params, many, context):
+        nonlocal stalled_worker
+        if params and params[0] == f"https://www.{query}/" and not stalled.is_set():
+            stalled_worker = threading.current_thread()
+            stalled.set()
+            assert release.wait(10), "Old search producer not released"
+        if not aborted and threading.current_thread() is stalled_worker and params and params[0] == f"http://{query}/":
+            stalled_after_progress.set()
+            assert release_after_progress.wait(10), "Old search producer not released after progress"
+        return execute(sql, params, many, context)
+
+    def observe_connection(sender, connection, **kwargs):
+        if threading.current_thread().name == "admin-snapshot-search-stream":
+            connection.execute_wrappers.append(hold_next_real_prefix)
+
+    async def overlap():
+        iterator = old._iterator
+        try:
+            assert int(await asyncio.wait_for(anext(iterator), 5)) == 0
+            assert int(await asyncio.wait_for(anext(iterator), 5)) == 1
+            assert await asyncio.to_thread(stalled.wait, 5)
+            assert cache.get(key) == {"ids": [snapshots[0].pk.hex], "done": False}
+
+            async def consume_replacement():
+                return [int(chunk) async for chunk in replacement.streaming_content]
+
+            assert (await asyncio.wait_for(consume_replacement(), 5))[-1] == len(snapshots)
+            expected = {"ids": [item.pk.hex for item in snapshots], "done": True}
+            assert cache.get(key) == expected
+            if aborted:
+                await iterator.aclose()
+            else:
+                await asyncio.sleep(0.06)  # Permit a real progress publish after the 50 ms batching window.
+            release.set()
+            if not aborted:
+                assert int(await asyncio.wait_for(anext(iterator), 5)) == 2
+                assert await asyncio.to_thread(stalled_after_progress.wait, 5)
+                assert cache.get(key) == expected
+                await iterator.aclose()
+                release_after_progress.set()
+            await asyncio.to_thread(stalled_worker.join, 5)
+            assert not stalled_worker.is_alive()
+            assert cache.get(key) == expected
+        finally:
+            release.set()
+            release_after_progress.set()
+            await iterator.aclose()
+            if stalled_worker is not None:
+                await asyncio.to_thread(stalled_worker.join, 5)
+
+    connection_created.connect(observe_connection)
+    try:
+        async_to_sync(overlap)()
+    finally:
+        connection_created.disconnect(observe_connection)
 
 
 @pytest.mark.parametrize("size", [60, 1200])

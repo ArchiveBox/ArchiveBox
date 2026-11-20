@@ -22,6 +22,10 @@ from archivebox.search.query import crawl_config_values_search_wave, iter_query_
 
 SEARCH_RESULT_CACHE_TTL = 60
 URL_PREFIX_SEARCH_LIMIT = 500
+# The stock LocMemCache is process-local. Serialize ownership changes and
+# writes so a retired producer cannot replace newer membership for its key.
+_search_cache_lock = threading.Lock()
+_search_cache_owners: dict[str, object] = {}
 
 
 def get_admin_search_cache_key(request, url: str | None = None) -> str:
@@ -312,9 +316,17 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         last_sent_at = time.monotonic()
         stream_max_delay = 0.05
         stream_padding = " " * 4096
-        cache.set(cache_key, {"ids": [], "done": False}, SEARCH_RESULT_CACHE_TTL)
         queue = Queue(maxsize=8)
         stop_event = threading.Event()
+        owner = object()
+        with _search_cache_lock:
+            cache.set(cache_key, {"ids": [], "done": False}, SEARCH_RESULT_CACHE_TTL)
+            _search_cache_owners[cache_key] = owner
+
+        def cache_results(done):
+            with _search_cache_lock:
+                if _search_cache_owners.get(cache_key) is owner:
+                    cache.set(cache_key, {"ids": list(ids), "done": done}, SEARCH_RESULT_CACHE_TTL)
 
         def emit(item):
             while not stop_event.is_set():
@@ -326,7 +338,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
 
         def publish_count(done=False):
             nonlocal last_sent, last_sent_at
-            cache.set(cache_key, {"ids": list(ids), "done": done}, SEARCH_RESULT_CACHE_TTL)
+            cache_results(done)
             last_sent = len(ids)
             last_sent_at = time.monotonic()
             emit(f"{last_sent}{stream_padding}\n")
@@ -359,12 +371,12 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                         iterator.close()
                     except AttributeError:
                         pass
-                cache.set(cache_key, {"ids": list(ids), "done": completed}, SEARCH_RESULT_CACHE_TTL)
+                cache_results(completed)
                 close_old_connections()
                 emit(None)
 
-        threading.Thread(target=run_search, name=thread_name, daemon=True).start()
         try:
+            threading.Thread(target=run_search, name=thread_name, daemon=True).start()
             yield f"0{stream_padding}\n"
             while True:
                 try:
@@ -378,6 +390,9 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                 yield item
         finally:
             stop_event.set()
+            with _search_cache_lock:
+                if _search_cache_owners.get(cache_key) is owner:
+                    del _search_cache_owners[cache_key]
 
     response = StreamingHttpResponse(snapshot_ids(), content_type="text/plain")
     response["X-Accel-Buffering"] = "no"
