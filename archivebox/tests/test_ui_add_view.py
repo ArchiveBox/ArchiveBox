@@ -436,7 +436,10 @@ def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabl
     public_add_enabled.config["BASE_URL"] = f"http://archivebox.localhost:{port}"
     public_add_enabled.save(update_fields=["config"])
     Persona.objects.create(name="Saved", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3, "TIMEOUT": 23})
-    Persona.objects.create(name="Linked", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 5, "TIMEOUT": 61})
+    Persona.objects.create(
+        name="Linked",
+        config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 5, "TIMEOUT": 61, "PLUGINS": "wget"},
+    )
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -457,7 +460,15 @@ def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabl
         expect(page.locator('select[name="persona"]')).to_have_value("Linked")
         expect(page.locator('input[name="timeout"]')).to_have_value("61")
         expect(page.locator('input[name="crawl_max_concurrent_snapshots"]')).to_have_value("7")
-        assert json.loads(page.locator('input[name="config"]').input_value())["TIMEOUT"] == 61
+        config = page.locator('input[name="config"]')
+        assert json.loads(config.input_value())["TIMEOUT"] == 61
+        assert "PLUGINS" not in json.loads(config.input_value())
+        wget = page.get_by_role("switch", name="Enable wget from sidebar", exact=True)
+        expect(wget).to_be_checked()
+        wget.uncheck()
+        expect(wget).not_to_be_checked()
+        assert "PLUGINS" not in json.loads(config.input_value())
+        expect(page.locator('input.kv-key[value="PLUGINS"]')).to_have_count(0)
         browser.close()
 
 
@@ -616,7 +627,7 @@ def test_add_view_applies_plugin_config_overrides(client, admin_user):
             "plugin_config__wget__WGET_TIMEOUT": "77",
             "plugin_config__wget__WGET_WARC_ENABLED": "false",
             "plugin_config__chrome__CHROME_BINARY": "/tmp/malicious-chrome",
-            "config": '{"NODE_BINARY": "/tmp/malicious-node", "WGET_ENABLED": false, "OPENCODE_ENABLED": true, "opencode_port": 4600}',
+            "config": '{"NODE_BINARY": "/tmp/malicious-node", "WGET_ENABLED": false, "OPENCODE_ENABLED": true, "opencode_port": 4600, "PLUGINS": "pdf"}',
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -960,11 +971,13 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
                 for key in plugin.manifest.get("properties", {})
             )
         }
+        expected -= SYSTEM_PLUGIN_NAMES
         expected.add("crawl_defaults")
         expected_keys = {
             key
             for key, metadata in config_field_metadata(include_execution=True).items()
             if metadata["plugin"] == "archivebox"
+            and key != "PLUGINS"
             and key.isupper()
             and key not in CONSTANTS_CONFIG
             and key not in derived

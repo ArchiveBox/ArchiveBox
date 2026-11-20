@@ -541,15 +541,17 @@ class DatabaseConfig(BaseConfigSet):
         return self
 
 
+# Configuration derived from native controls rather than edited as a raw value.
+UI_MANAGED_CONFIG_KEYS = frozenset({"PLUGINS"})
+
+
 class ArchivingConfig(BaseConfigSet):
     toml_section_header: str = "ARCHIVING_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_CRAWL_FROZEN)
 
     PLUGINS: str = Field(
         default="",
-        description=(
-            "Choose what each crawl saves with plugins such as Screenshot, PDF, or SingleFile. Leave blank to inherit enabled plugins, or use [] to run no capture plugins."
-        ),
+        description=("Internal capture plugin selector. Blank inherits the enabled plugins."),
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
     CRAWL_DISCOVERY_PLUGINS: str = Field(

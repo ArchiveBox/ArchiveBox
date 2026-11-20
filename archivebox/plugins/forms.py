@@ -10,7 +10,7 @@ from django import forms
 from django.utils.html import format_html
 
 from archivebox.config import CONSTANTS_CONFIG
-from archivebox.config.common import ArchiveBoxConfig, get_config
+from archivebox.config.common import ArchiveBoxConfig, get_config, UI_MANAGED_CONFIG_KEYS
 from archivebox.plugins.documentation import get_plugin_documentation
 from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_catalog, get_plugin_icon, get_plugins
 
@@ -183,7 +183,11 @@ class PluginConfigFormMixin:
         from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS, SYSTEM_PLUGIN_NAMES
 
         derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
-        excluded = derived | (RUNTIME_REPORTING_CONFIG_KEYS if getattr(self, "system_settings", False) else host_config_keys())
+        excluded = (
+            derived
+            | UI_MANAGED_CONFIG_KEYS
+            | (RUNTIME_REPORTING_CONFIG_KEYS if getattr(self, "system_settings", False) else host_config_keys())
+        )
         schemas = {
             name: {
                 **schema,
@@ -507,7 +511,7 @@ class PluginConfigFormMixin:
             quantity_kind, unit, quantity_format = "duration", "s", "retention"
 
         plugin_choices = []
-        if config_key in {"PLUGINS", "CRAWL_DISCOVERY_PLUGINS"}:
+        if config_key == "CRAWL_DISCOVERY_PLUGINS":
             plugin_choices = [
                 {"value": name, "label": str(plugin.manifest.get("title") or _config_label(name))}
                 for name, plugin in get_plugin_catalog().items()

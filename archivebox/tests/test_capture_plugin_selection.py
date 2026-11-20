@@ -29,7 +29,13 @@ def test_capture_plan_distinguishes_inherit_from_empty(admin_client, admin_user,
         assert response.status_code == 302
         return Crawl.objects.get(urls=f"https://example.test/{path}")
 
-    web_defaults = submit("web-inherited")
+    rendered = admin_client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
+    assert rendered.status_code == 200
+    assert b'class="plugin-section-toggle plugin-title-toggle"' in rendered.content
+    assert b'name="capture_plugins"' not in rendered.content
+    assert b'<option value="PLUGINS">' not in rendered.content
+    # A submission with all checkboxes cleared contains no plugin selector.
+    web_defaults = submit("web-inherited", config='{"PLUGINS": "[]"}')
     web_empty = submit("web-empty", capture_plugins="explicit", config='{"PLUGINS": ""}')
     assert cli_defaults.config["PLUGINS"] == web_defaults.config["PLUGINS"] == ""
     assert cli_empty.config["PLUGINS"] == web_empty.config["PLUGINS"] == "[]"

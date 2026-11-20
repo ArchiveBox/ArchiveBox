@@ -224,6 +224,9 @@ def test_persona_admin_saves_typed_plugin_config(admin_client, admin_user):
     add_form = add_response.context["adminform"].form
     exposed_config_keys = {field["key"] for group in add_form.plugin_groups for card in group["plugins"] for field in card["config_fields"]}
     assert {key for key in exposed_config_keys if key.endswith("_BINARY")}
+    assert "PLUGINS" not in exposed_config_keys
+    assert b"Crawl plugins" not in add_response.content
+    assert b'<option value="PLUGINS">' not in add_response.content
     assert (
         not {
             "ARCHIVE_DIR",
@@ -243,6 +246,7 @@ def test_persona_admin_saves_typed_plugin_config(admin_client, admin_user):
             "config": "{}",
             "import_mode": "none",
             "plugin_config__wget__WGET_TIMEOUT": "77",
+            "plugin_config__archivebox__PLUGINS": "pdf",
             "plugin_config__wget__WGET_WARC_ENABLED": "false",
             "_save": "Save",
         },
@@ -251,6 +255,31 @@ def test_persona_admin_saves_typed_plugin_config(admin_client, admin_user):
 
     assert response.status_code == 302
     persona = Persona.objects.get(name="PluginConfigPersona")
+    assert persona.config["WGET_TIMEOUT"] == 77
+    assert "PLUGINS" not in persona.config
+    reopened = admin_client.get(reverse("admin:personas_persona_change", args=[persona.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert reopened.status_code == 200
+    assert b"Crawl plugins" not in reopened.content
+    assert b'name="plugin_config__wget__WGET_WARC_ENABLED"' in reopened.content
+
+    # Existing selectors are still honored and must survive an unrelated admin save.
+    persona.config["PLUGINS"] = "wget"
+    persona.save(update_fields=["config"])
+    updated = admin_client.post(
+        reverse("admin:personas_persona_change", args=[persona.pk]),
+        {
+            "name": persona.name,
+            "created_by": str(admin_user.pk),
+            "permissions": "unlisted",
+            "config": '{"PLUGINS": "pdf", "WGET_TIMEOUT": 77, "WGET_WARC_ENABLED": false}',
+            "_save": "Save",
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert updated.status_code == 302
+    persona.refresh_from_db()
+    assert persona.config["PLUGINS"] == "wget"
+    assert persona.config["PERMISSIONS"] == "unlisted"
     assert persona.config["WGET_TIMEOUT"] == 77
     assert persona.config["WGET_WARC_ENABLED"] is False
 

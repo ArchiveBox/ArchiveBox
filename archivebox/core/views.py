@@ -42,6 +42,7 @@ from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, VERSION
 from archivebox.config.common import (
     PLUGIN_CONFIG_SCHEMAS,
     SENSITIVE_CONFIG_VALUE_REDACTED,
+    UI_MANAGED_CONFIG_KEYS,
     _plugin_config_properties,
     find_config_default,
     find_config_section,
@@ -1814,7 +1815,11 @@ class AddView(UserPassesTestMixin, FormView):
         if not self._can_override_crawl_config():
             return {}
 
-        return {str(key): value for key, value in custom_config.items() if not str(key).endswith("_BINARY")}
+        return {
+            str(key): value
+            for key, value in custom_config.items()
+            if not str(key).endswith("_BINARY") and str(key).upper() not in UI_MANAGED_CONFIG_KEYS
+        }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1844,7 +1849,7 @@ class AddView(UserPassesTestMixin, FormView):
             else {}
         )
         persona_config_map = {}
-        excluded_keys = host_config_keys()
+        excluded_keys = host_config_keys() | UI_MANAGED_CONFIG_KEYS
         for persona, effective_config in persona_configs:
             effective_config_json = redact_sensitive_config(
                 effective_config.model_dump(mode="json", include=None if can_override_crawl_config else public_persona_config_keys),
@@ -1928,8 +1933,6 @@ class AddView(UserPassesTestMixin, FormView):
         custom_config = self._get_custom_config_overrides(form)
         custom_config.pop("DEFAULT_PERSONA", None)
         custom_config.pop("PERMISSIONS", None)
-        if plugins and not str(custom_config.get("PLUGINS") or "").strip():
-            custom_config.pop("PLUGINS", None)
         if persona:
             persona.ensure_dirs()
 

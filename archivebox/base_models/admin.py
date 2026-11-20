@@ -75,7 +75,9 @@ class KeyValueWidget(forms.Widget):
 
     def __init__(self, attrs=None, *, excluded_keys: frozenset[str] = frozenset()):
         super().__init__(attrs)
-        self.excluded_keys = excluded_keys
+        from archivebox.config.common import UI_MANAGED_CONFIG_KEYS
+
+        self.excluded_keys = excluded_keys | UI_MANAGED_CONFIG_KEYS
 
     def _get_config_options(self) -> dict[str, ConfigOption]:
         """Get available config options from plugins."""
@@ -856,9 +858,9 @@ class ConfigEditorMixin(admin.ModelAdmin):
             connection.transaction_mode = previous_mode
 
     def config_excluded_keys(self) -> frozenset[str]:
-        from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS
+        from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS, UI_MANAGED_CONFIG_KEYS
 
-        return RUNTIME_REPORTING_CONFIG_KEYS if self.config_includes_machine_settings else host_config_keys()
+        return UI_MANAGED_CONFIG_KEYS | (RUNTIME_REPORTING_CONFIG_KEYS if self.config_includes_machine_settings else host_config_keys())
 
     def formfield_for_dbfield(
         self,
@@ -896,8 +898,8 @@ class ConfigEditorMixin(admin.ModelAdmin):
             excluded = self.config_excluded_keys()
             new_config = {key: value for key, value in obj.config.items() if key.upper() not in excluded}
             if isinstance(stored, dict):
-                # Hidden host settings remain inert on old rows; neither form
-                # submissions nor an unrelated save can update or remove them.
+                # Hidden settings cannot be overwritten or removed by unrelated
+                # raw widget submissions. Preserve existing stored values.
                 new_config.update({key: value for key, value in stored.items() if key.upper() in excluded})
                 for key, new_value in list(new_config.items()):
                     if not is_sensitive_config_key(key):
