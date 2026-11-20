@@ -60,7 +60,7 @@ Each action dict may set:
   .archivebox-toolbar .ab-toolbar-group,
   .archivebox-toolbar .ab-btn-form { display: contents; }
   .archivebox-toolbar .ab-toolbar-spacer { flex: 1 1 auto; }
-  .archivebox-toolbar .ab-btn {
+  :is(.archivebox-toolbar, .ab-settings-save-footer) .ab-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -78,10 +78,10 @@ Each action dict may set:
     white-space: nowrap;
     transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
-  .archivebox-toolbar .ab-btn:hover { background: #eef2f7; border-color: #94a3b8; text-decoration: none; }
-  .archivebox-toolbar .ab-btn:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
-  .archivebox-toolbar .ab-btn-primary { background: #1d4ed8; border-color: #1d4ed8; color: #f8fafc; }
-  .archivebox-toolbar .ab-btn-primary:hover { background: #1e40af; border-color: #1e40af; color: #ffffff; }
+  :is(.archivebox-toolbar, .ab-settings-save-footer) .ab-btn:hover { background: #eef2f7; border-color: #94a3b8; text-decoration: none; }
+  :is(.archivebox-toolbar, .ab-settings-save-footer) .ab-btn:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
+  :is(.archivebox-toolbar, .ab-settings-save-footer) .ab-btn-primary { background: #1d4ed8; border-color: #1d4ed8; color: #f8fafc; }
+  :is(.archivebox-toolbar, .ab-settings-save-footer) .ab-btn-primary:hover { background: #1e40af; border-color: #1e40af; color: #ffffff; }
   .archivebox-toolbar .ab-btn-accent { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
   .archivebox-toolbar .ab-btn-accent:hover { background: #dbeafe; border-color: #93c5fd; }
   .archivebox-toolbar .ab-btn-success { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
@@ -132,7 +132,16 @@ Each action dict may set:
   }
   .archivebox-toolbar .ab-dropdown-item:hover { background: #f1f5f9; }
   .archivebox-toolbar .ab-dropdown-item-icon { width: 18px; text-align: center; }
+  .ab-settings-save-footer {
+    display: flex;
+    flex: 1 0 100%;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
   @media (max-width: 640px) {
+    .archivebox-toolbar .ab-settings-save-top { grid-column: -2 / -1; }
+    .ab-settings-save-footer .ab-btn { min-height: 40px; }
     /* One uniform 2-column grid: every action button is the same size,
        regardless of which logical group it came from. */
     .archivebox-toolbar {
@@ -164,10 +173,12 @@ Each action dict may set:
 {% block content %}
 {% if not is_popup %}
 <div class="archivebox-toolbar" role="toolbar" aria-label="Actions">
+  {% if opts.model_name != 'machine' and opts.model_name != 'persona' %}
   {% if original and has_change_permission %}
     <button type="submit" form="{{ opts.model_name }}_form" name="_continue" class="ab-btn ab-btn-primary" title="{% translate 'Save changes' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
   {% elif not original and has_add_permission %}
     <button type="submit" form="{{ opts.model_name }}_form" name="_save" class="ab-btn ab-btn-primary" title="{% translate 'Save' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
+  {% endif %}
   {% endif %}
   {% if original %}
     {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}
@@ -252,10 +263,29 @@ Each action dict may set:
     {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
     <a class="ab-btn ab-btn-danger" role="button" href="{{ delete_url }}" title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</a>
   {% endif %}
+
+  {% if opts.model_name == 'machine' or opts.model_name == 'persona' %}
+  {% if original and has_change_permission %}
+    <button type="submit" form="{{ opts.model_name }}_form" name="_continue" class="ab-btn ab-btn-primary ab-settings-save-top" title="{% translate 'Save changes' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
+  {% elif not original and has_add_permission %}
+    <button type="submit" form="{{ opts.model_name }}_form" name="_save" class="ab-btn ab-btn-primary ab-settings-save-top" title="{% translate 'Save' %}"{% if adminform.form.plugin_groups %} data-settings-submit disabled{% endif %}>💾 {% translate 'Save' %}</button>
+  {% endif %}
+  {% endif %}
 </div>
 {% endif %}
 {{ block.super }}
 {% endblock %}
 
 {% block submit_buttons_top %}{% endblock %}
-{% block submit_buttons_bottom %}{% endblock %}
+{% block submit_buttons_bottom %}
+{% if not is_popup and adminform.form.plugin_groups %}
+  {% if opts.model_name == 'machine' or opts.model_name == 'persona' %}
+    {% if original and has_change_permission or not original and has_add_permission %}
+      <div class="ab-settings-save-footer">
+        <input type="submit" name="{% if original %}_continue{% else %}_save{% endif %}" class="ab-btn ab-btn-primary"
+               value="💾 {% translate 'Save' %}" data-settings-submit disabled>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endif %}
+{% endblock %}
