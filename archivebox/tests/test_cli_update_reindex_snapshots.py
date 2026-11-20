@@ -340,9 +340,16 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.tests.conftest import _set_archivebox_config
 
-    # Selecting a query backend alone leaves other default indexers enabled.
+    # Search backends are Machine settings, independent of crawl plugin selection.
     # Configure SQLite alone so this test cannot depend on an ambient Sonic daemon.
-    _set_archivebox_config(initialized_archive, "PLUGINS=search_backend_sqlite", "SEARCH_BACKEND_ENGINE=sqlite")
+    _set_archivebox_config(
+        initialized_archive,
+        "PLUGINS=search_backend_sqlite",
+        "SEARCH_BACKEND_ENGINE=sqlite",
+        "SEARCH_BACKEND_SQLITE_ENABLED=True",
+        "SEARCH_BACKEND_SONIC_ENABLED=False",
+        "SEARCH_BACKEND_RIPGREP_ENABLED=False",
+    )
 
     user_id = get_or_create_system_user_pk()
     template = Crawl.objects.create(
