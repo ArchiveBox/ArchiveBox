@@ -34,7 +34,7 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assert assemble.get("continue-on-error", "false") == "false"
 
     public = jobs["public_recipes"]
-    assert public["strategy"]["matrix"]["plugin"] == ["git", "packageregistry"]
+    assert public["strategy"]["matrix"]["plugin"] == ["git", "packageregistry", "papersdl", "staticfile", "ytdlp"]
     assert "inputs.plugin_revision == ''" in public["if"]
     public_upload = next(step for step in public["steps"] if step.get("name") == "Upload anonymous capture shard")
     assert public_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-${{ matrix.plugin }}"

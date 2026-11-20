@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin: [git, packageregistry]
+        plugin: [git, packageregistry, papersdl, staticfile, ytdlp]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -130,6 +130,9 @@ jobs:
           ARCHIVEDOTORG_ENABLED: 'False'
           GIT_ENABLED: 'True'
           PACKAGEREGISTRY_ENABLED: 'True'
+          PAPERSDL_ENABLED: 'True'
+          STATICFILE_ENABLED: 'True'
+          YTDLP_ENABLED: 'True'
           UI_SCREENSHOT_PLUGINS: ${{ matrix.plugin }}
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/public-recipe-data
           UI_SCREENSHOT_OUTPUT_DIR: ${{ runner.temp }}/public-recipe-docs/screenshots

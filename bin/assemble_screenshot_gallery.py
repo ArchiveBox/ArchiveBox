@@ -10,7 +10,7 @@ import struct
 from importlib.metadata import version
 from pathlib import Path
 
-PUBLIC_RECIPES = ("git", "packageregistry")
+PUBLIC_RECIPES = ("git", "packageregistry", "papersdl", "staticfile", "ytdlp")
 PROFILES = {"desktop": (1600, 1000), "tablet": (1024, 1366), "mobile": (390, 844)}
 PUBLIC_VIEWS = {plugin: f"Snapshot View ({plugin})" for plugin in PUBLIC_RECIPES}
 PNG_HEADER = b"\x89PNG\r\n\x1a\n"
