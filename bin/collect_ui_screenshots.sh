@@ -19,6 +19,12 @@ EXAMPLE_URL="https://arstechnica.com/science/2017/04/watch-militarized-microbes-
 MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
 # Select gallery coverage only; captures still run every configured plugin.
 PLUGIN_VIEWS="${UI_SCREENSHOT_PLUGINS:-}"
+MANIFEST_OUT="${UI_SCREENSHOT_MANIFEST_OUT:-}"
+SPLIT_PUBLIC="${UI_SCREENSHOT_SPLIT_PUBLIC:-0}"
+if [[ "$SPLIT_PUBLIC" == 1 && ( "$MANIFEST_OUT" != /* || -n "$PLUGIN_VIEWS" || "$MAX_VIEWS" != 0 ) ]]; then
+    echo '[!] Split base capture must export its native manifest and retain all base views' >&2
+    exit 1
+fi
 USERNAME="archivebox-screenshots-$$"
 PASSWORD="archivebox-screenshots-$$"
 SERVER_PID=""
@@ -909,12 +915,15 @@ PY
             [[ -z "$plugin_name" ]] && continue
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
+        # Report malformed partitioning as capture failure, never as an empty
+        # process substitution and a best-effort gallery.
+        supplementary_recipes="$CAPTURE_ROOT/supplementary-recipes.txt"
+        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/assemble_screenshot_gallery.py" recipes \
+            "$PLUGIN_SCREENSHOT_PLAN" "$SPLIT_PUBLIC" >"$supplementary_recipes"
         while IFS='|' read -r example_plugins example_url; do
             [[ -z "$example_plugins" ]] && continue
             add_supplementary_template_capture "$example_plugins" "$example_url"
-        done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
-            "$PLUGIN_SCREENSHOT_PLAN")
+        done <"$supplementary_recipes"
 
         VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")
     fi
@@ -923,9 +932,13 @@ PY
     fi
 done
 
-[[ "$MAX_VIEWS" == "0" && -z "$PLUGIN_VIEWS" ]] || export UI_SCREENSHOT_ALLOW_PARTIAL=1
+[[ "$MAX_VIEWS" == "0" && -z "$PLUGIN_VIEWS" && "$SPLIT_PUBLIC" != 1 ]] || export UI_SCREENSHOT_ALLOW_PARTIAL=1
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
     "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
+
+if [[ -n "$MANIFEST_OUT" ]]; then
+    cp "$MANIFEST_FILE" "$MANIFEST_OUT"
+fi
 
 echo "[+] Captured $capture_index views at desktop, tablet, and mobile sizes"
 echo "[+] Documentation gallery: $(dirname "$OUTPUT_DIR")/Screenshots.md"
