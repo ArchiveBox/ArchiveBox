@@ -10,26 +10,46 @@ import struct
 from importlib.metadata import version
 from pathlib import Path
 
-PUBLIC_RECIPES = ("git", "packageregistry", "papersdl", "staticfile", "ytdlp")
+PUBLIC_LANES = {
+    **{plugin: (plugin,) for plugin in ("git", "packageregistry", "papersdl", "staticfile", "ytdlp")},
+    "cad": ("caddl",),
+    "boards": ("drawio", "excalidraw", "tldraw"),
+    "documents": ("calendar", "liteparse", "opendataloader", "podcast_archiver"),
+    "parsers": ("parse_jsonl_urls", "parse_netscape_urls", "parse_rss_urls", "sourcemaps"),
+    "web": ("forumdl", "gallerydl"),
+}
+PUBLIC_OWNERS = {plugin: lane for lane, plugins in PUBLIC_LANES.items() for plugin in plugins}
+EXTRA_VIEWS = {"caddl": ("Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)")}
+PUBLIC_VIEWS = {
+    lane: {name for plugin in plugins for name in (f"Snapshot View ({plugin})", *EXTRA_VIEWS.get(plugin, ()))}
+    for lane, plugins in PUBLIC_LANES.items()
+}
 PROFILES = {"desktop": (1600, 1000), "tablet": (1024, 1366), "mobile": (390, 844)}
-PUBLIC_VIEWS = {plugin: f"Snapshot View ({plugin})" for plugin in PUBLIC_RECIPES}
 PNG_HEADER = b"\x89PNG\r\n\x1a\n"
 
 
 def recipes(plan, split):
-    expected_public = set(PUBLIC_RECIPES)
-    skipped = set()
+    moved = {lane: set() for lane in PUBLIC_LANES}
     for example in plan["examples"]:
         names = set(example["plugins"])
-        matched = names & expected_public
-        if split and matched:
-            if len(names) != 1 or matched & skipped:
-                raise ValueError("Public recipe no longer owns one independent source")
-            skipped.update(matched)
+        known = names & PUBLIC_OWNERS.keys()
+        if split and known:
+            owners = {PUBLIC_OWNERS[name] for name in known}
+            if len(owners) != 1 or names != known:
+                raise ValueError("An anonymous recipe would split a native source across lanes")
+            lane = owners.pop()
+            url = example["url"]
+            for name in known:
+                recipe = plan["overrides"][name]
+                views = [f"Snapshot View ({name})"] if url == recipe["url"] else []
+                views.extend(output["name"] for output in recipe.get("outputs", ()) if output.get("url", recipe["url"]) == url)
+                if moved[lane].intersection(views):
+                    raise ValueError(f"Anonymous lane captures a view more than once: {lane}")
+                moved[lane].update(views)
             continue
         yield ",".join(example["plugins"]) + "|" + example["url"]
-    if split and skipped != expected_public:
-        raise ValueError("Missing independent public recipes")
+    if split and moved != PUBLIC_VIEWS:
+        raise ValueError("Anonymous recipe partition no longer covers the exact public gallery views")
 
 
 def identity():
@@ -70,9 +90,9 @@ def validate(lane, rows, root, digests):
     if not views or filenames != digests.keys() or any(profiles != PROFILES.keys() for profiles in views.values()):
         raise ValueError(f"Incomplete viewport manifest: {lane}")
     if lane == "base":
-        if views.keys() & PUBLIC_VIEWS.values():
+        if views.keys() & set().union(*PUBLIC_VIEWS.values()):
             raise ValueError("Public recipe view was captured twice")
-    elif views.keys() != {PUBLIC_VIEWS[lane]}:
+    elif views.keys() != PUBLIC_VIEWS[lane]:
         raise ValueError(f"Public lane did not capture its exact view: {lane}")
 
 
@@ -94,7 +114,7 @@ def pack(lane, manifest, screenshot_root, bundle):
 def merge(artifact_root, output, manifest):
     current = identity()
     attempt = current["GITHUB_RUN_ATTEMPT"]
-    lanes = ("base", *PUBLIC_RECIPES)
+    lanes = ("base", *PUBLIC_LANES)
     expected_names = {f"gallery-capture-{attempt}-{lane}" for lane in lanes}
     if {path.name for path in artifact_root.iterdir()} != expected_names:
         raise ValueError("Unexpected or missing capture artifacts")
@@ -125,7 +145,7 @@ def main():
     recipe_parser.add_argument("plan", type=Path)
     recipe_parser.add_argument("split", choices=("0", "1"))
     pack_parser = commands.add_parser("pack")
-    pack_parser.add_argument("lane", choices=("base", *PUBLIC_RECIPES))
+    pack_parser.add_argument("lane", choices=("base", *PUBLIC_LANES))
     pack_parser.add_argument("manifest", type=Path)
     pack_parser.add_argument("screenshot_root", type=Path)
     pack_parser.add_argument("bundle", type=Path)

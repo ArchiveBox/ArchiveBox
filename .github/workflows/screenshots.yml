@@ -51,14 +51,34 @@ jobs:
         uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
 
   public_recipes:
-    name: Gallery public recipe /${{ matrix.plugin }}
+    name: Gallery public recipe /${{ matrix.lane }}
     needs: changes
     if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev' && inputs.plugin_revision == ''
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        plugin: [git, packageregistry, papersdl, staticfile, ytdlp]
+        include:
+          - lane: git
+            plugins: git
+          - lane: packageregistry
+            plugins: packageregistry
+          - lane: papersdl
+            plugins: papersdl
+          - lane: staticfile
+            plugins: staticfile
+          - lane: ytdlp
+            plugins: ytdlp
+          - lane: cad
+            plugins: caddl
+          - lane: boards
+            plugins: drawio,excalidraw,tldraw
+          - lane: documents
+            plugins: calendar,liteparse,opendataloader,podcast_archiver
+          - lane: parsers
+            plugins: parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps
+          - lane: web
+            plugins: forumdl,gallerydl
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -123,8 +143,15 @@ jobs:
           sudo apt-get install -y xvfb xauth poppler-utils
 
       - name: Capture native public recipe
-        run: xvfb-run -a bin/collect_ui_screenshots.sh
+        run: |
+          # Match the tested compound-view experiment without changing the
+          # existing five singleton jobs' default extractor configuration.
+          case "$PUBLIC_RECIPE" in
+            cad|boards|documents|parsers|web) export OPENDATALOADER_ENABLED=True ;;
+          esac
+          xvfb-run -a bin/collect_ui_screenshots.sh
         env:
+          PUBLIC_RECIPE: ${{ matrix.lane }}
           BASE_URL: http://archivebox.localhost:5797
           CHROME_HEADLESS: 'false'
           ARCHIVEDOTORG_ENABLED: 'False'
@@ -133,7 +160,7 @@ jobs:
           PAPERSDL_ENABLED: 'True'
           STATICFILE_ENABLED: 'True'
           YTDLP_ENABLED: 'True'
-          UI_SCREENSHOT_PLUGINS: ${{ matrix.plugin }}
+          UI_SCREENSHOT_PLUGINS: ${{ matrix.plugins }}
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/public-recipe-data
           UI_SCREENSHOT_OUTPUT_DIR: ${{ runner.temp }}/public-recipe-docs/screenshots
           UI_SCREENSHOT_PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/public-recipe-png
@@ -141,7 +168,7 @@ jobs:
 
       - name: Validate and package native public recipe
         env:
-          PUBLIC_RECIPE: ${{ matrix.plugin }}
+          PUBLIC_RECIPE: ${{ matrix.lane }}
         run: |
           uv run --no-sync python bin/assemble_screenshot_gallery.py pack "$PUBLIC_RECIPE" \
             "$RUNNER_TEMP/public-recipe-capture.jsonl" "$RUNNER_TEMP/public-recipe-png" "$RUNNER_TEMP/public-recipe-bundle"
@@ -149,7 +176,7 @@ jobs:
       - name: Upload anonymous capture shard
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: gallery-capture-${{ github.run_attempt }}-${{ matrix.plugin }}
+          name: gallery-capture-${{ github.run_attempt }}-${{ matrix.lane }}
           path: ${{ runner.temp }}/public-recipe-bundle
           if-no-files-found: error
           retention-days: 7

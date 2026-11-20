@@ -1,6 +1,9 @@
 """Automatic captures may supersede each other, never explicit manual captures."""
 
 from pathlib import Path
+import runpy
+
+import pytest
 
 import yaml
 
@@ -34,10 +37,15 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assert assemble.get("continue-on-error", "false") == "false"
 
     public = jobs["public_recipes"]
-    assert public["strategy"]["matrix"]["plugin"] == ["git", "packageregistry", "papersdl", "staticfile", "ytdlp"]
+    assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
+    matrix = public["strategy"]["matrix"]["include"]
+    assert {item["lane"]: tuple(item["plugins"].split(",")) for item in matrix} == assembler["PUBLIC_LANES"]
+    assert len(matrix) == 10
+    assert "environment" not in public
+    assert "secrets." not in str(public)
     assert "inputs.plugin_revision == ''" in public["if"]
     public_upload = next(step for step in public["steps"] if step.get("name") == "Upload anonymous capture shard")
-    assert public_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-${{ matrix.plugin }}"
+    assert public_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-${{ matrix.lane }}"
     base_upload = next(step for step in jobs["deploy"]["steps"] if step.get("name") == "Upload native base capture shard")
     assert base_upload["if"] == "inputs.plugin_revision == ''"
     assert base_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-base"
@@ -73,3 +81,26 @@ def test_pages_publication_stays_serialized_and_rejects_cancelled_captures():
         "cancel-in-progress": "false",
     }
     assert pages["jobs"]["build"]["if"] == ("github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'")
+
+
+def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
+    monkeypatch.delenv("UI_SCREENSHOT_PLUGINS", raising=False)
+    planner = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")["plugin_screenshot_plan"]
+    assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
+    plan = planner()
+    recipes = assembler["recipes"]
+    full = set(recipes(plan, False))
+    base = set(recipes(plan, True))
+    moved = full - base
+    assert len(moved) == 20  # Five proven singleton visits + 15 compound visits.
+    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 22
+    assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= assembler["PUBLIC_VIEWS"]["cad"]
+    assert "Snapshot View (opendataloader)" in assembler["PUBLIC_VIEWS"]["documents"]
+
+    # Whole source groups, including the same PDF visited for both extractors,
+    # must reproduce the locked full plan. A newly coupled protected provider fails.
+    recipe = next(item for item in plan["examples"] if "opendataloader" in item["plugins"])
+    assert set(recipe["plugins"]) == {"liteparse", "opendataloader"}
+    recipe["plugins"].append("canva")
+    with pytest.raises(ValueError, match="split a native source"):
+        list(recipes(plan, True))
