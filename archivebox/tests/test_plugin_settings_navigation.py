@@ -95,6 +95,13 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
             assert int(timeout_slider.get_attribute("max")) >= expected_large_timeout
             assert timeout.evaluate("input => input.validity.valid"), "The visual slider range must not restrict schema-valid values"
             screenshot_size = page.locator('[name="plugin_config__screenshot__SCREENSHOT_RESOLUTION"]')
+            screenshot_field = page.locator(".plugin-config-field").filter(has=screenshot_size)
+            four_k = screenshot_field.get_by_role("button", name="4K 3840 × 3240", exact=True)
+            four_k.focus()
+            four_k.press("Enter")
+            expect(screenshot_size).to_have_value("3840,3240")
+            expect(four_k).to_have_attribute("aria-pressed", "true")
+            assert screenshot_size.evaluate("input => input.validity.valid")
             screenshot_size.fill("390,844")
             pdf_tab.click()
             pdf_size = page.locator('[name="plugin_config__pdf__PDF_RESOLUTION"]')

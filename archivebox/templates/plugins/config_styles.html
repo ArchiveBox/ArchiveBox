@@ -82,8 +82,12 @@
 .plugin-config-grid:empty { display: none; }
 .plugin-config-uses { margin: 16px 2px; color: var(--settings-muted); font-size: 11px; }
 .plugin-config-uses code { background: none; font-size: inherit; }
-.config-presets { display: flex; gap: 6px; margin-bottom: 10px; }
-#plugin-settings .config-presets button { display: block; flex: 1; min-width: 0; background: var(--body-bg, #fff); border: 1px solid var(--border-color, #d0d5dd); border-radius: 6px; color: var(--settings-muted); padding: 12px 8px; cursor: pointer; font-size: 12px; text-align: center; }
+.plugin-config-control:has(> .config-presets) { container-type: inline-size; }
+.config-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+@container (max-width: 350px) {
+    .config-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+#plugin-settings .config-presets button { display: block; min-width: 0; background: var(--body-bg, #fff); border: 1px solid var(--border-color, #d0d5dd); border-radius: 6px; color: var(--settings-muted); padding: 12px 8px; cursor: pointer; font-size: 12px; text-align: center; }
 #plugin-settings .config-presets button:hover { background: var(--darkened-bg, #f8f9fb); }
 #plugin-settings .config-presets button[aria-pressed="true"] { border-color: var(--settings-blue); background: color-mix(in srgb, var(--settings-blue) 6%, var(--body-bg, #fff)); color: var(--settings-text); box-shadow: none; }
 .config-presets .config-device { display: block; width: 32px; height: 30px; margin: 0 auto 6px; fill: none; stroke: currentColor; stroke-width: 1.5; }

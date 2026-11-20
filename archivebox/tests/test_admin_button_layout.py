@@ -79,6 +79,11 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         page.get_by_role("searchbox", name="Search plugin settings").fill("SCREENSHOT_RESOLUTION")
         expect(page.locator('.plugin-card[data-plugin-name="screenshot"]')).to_be_visible()
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
+        machine_card = page.locator('.plugin-card[data-plugin-name="screenshot"]')
+        machine_four_k = machine_card.get_by_role("button", name="4K 3840 × 3240", exact=True)
+        machine_four_k.click()
+        expect(machine_card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("3840,3240")
+        expect(machine_four_k).to_have_attribute("aria-pressed", "true")
         page.goto(base + "/admin/crawls/crawl/")
         page.locator("input.action-select").first.check()
         for width in (1280, 390):
@@ -102,6 +107,14 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("390,844")
             card.get_by_role("button", name="Desktop").click()
             expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("1440,2000")
+            four_k = card.get_by_role("button", name="4K 3840 × 3240", exact=True)
+            four_k.click()
+            expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("3840,3240")
+            expect(four_k).to_have_attribute("aria-pressed", "true")
+            preset_boxes = [button.bounding_box() for button in card.locator(".config-presets button").all()]
+            assert len(preset_boxes) == 4
+            assert preset_boxes[-1]["x"] > preset_boxes[-2]["x"]
+            assert len({round(box["y"]) for box in preset_boxes}) == (1 if width == 1280 else 2)
             panel = page.locator("#plugin-settings").bounding_box()
             assert panel["x"] >= 0 and panel["x"] + panel["width"] <= width + 1
             for control in card.locator(".config-presets button").all():
