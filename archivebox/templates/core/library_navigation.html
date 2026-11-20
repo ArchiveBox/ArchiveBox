@@ -14,6 +14,7 @@
         <a href="/admin/" class="navbar-mobile-admin"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Admin</a>
         {% if user.is_superuser %}
         <hr>
+        <a href="{% url 'admin:personas_persona_changelist' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/></svg>Personas</a>
         <a href="{% if current_machine %}{% url 'admin:machine_machine_change' current_machine.pk %}{% else %}{% url 'admin:machine_machine_changelist' %}{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3-.5 2-2 1-2-.5-2 3 1.5 1.5v3L3.5 15l2 3 2-.5 2 1 .5 2h4l.5-2 2-1 2 .5 2-3-1.5-1.5v-3L21 9l-2-3-2 .5-2-1L14 3Z"/><circle cx="12" cy="12" r="3"/></svg>System Settings</a>
         {% endif %}
     </div>

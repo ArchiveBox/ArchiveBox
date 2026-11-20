@@ -1606,6 +1606,18 @@
                 width: auto;
                 max-width: none;
             }
+            /* Environment data views have a CSV form and table, not a filter
+             * sidebar. Keep both on the full-width track. */
+            body.app-Environment.change-list #changelist {
+                display: block;
+            }
+            body.app-Environment.change-list #changelist .results {
+                overflow-x: auto;
+            }
+            body.app-Environment.change-list #result_list td code {
+                overflow-wrap: anywhere;
+                white-space: normal;
+            }
             body.filters-collapsed.change-list #changelist {
                 grid-template-columns: minmax(0, 1fr);
             }

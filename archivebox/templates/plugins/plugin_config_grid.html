@@ -46,7 +46,6 @@
                         {% endwith %}{% endif %}
                     </div>
                     <p class="plugin-choice-description">{{ plugin.description }}</p>
-                    {% if plugin.system_default %}<p class="system-default-note">System-wide defaults · <a href="/admin/personas/persona/">Customize a Persona</a></p>{% endif %}
                     {% if plugin.docs_url %}<div class="plugin-settings-links"><a href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Docs ↗</a><a href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a></div>{% endif %}
                     {% include 'plugins/config_preview.html' %}
                 </header>
