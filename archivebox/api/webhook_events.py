@@ -14,6 +14,55 @@ from signal_webhooks.utils import model_from_reference, get_webhook_model, refer
 # A sequence may save models and its Process logs. Those writes must not start
 # the same subscription recursively (including callbacks scheduled on commit).
 executing_webhook = ContextVar("executing_webhook", default=False)
+active_relationship: ContextVar[str] = ContextVar("webhook_relationship", default="")
+RELATIONSHIP_EVENTS = {"M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"}
+
+
+def relationship_fields(model):
+    # A forward field identifies the actual relation of the object initiating
+    # the operation. Existing generic subscriptions also receive reverse events.
+    return model._meta.many_to_many
+
+
+@contextmanager
+def relationship_context(name):
+    token = active_relationship.set(name)
+    try:
+        yield
+    finally:
+        active_relationship.reset(token)
+
+
+def emit_relationship_event(instance, signal, relationship):
+    from signal_webhooks.handlers import webhook_handler
+
+    with relationship_context(relationship):
+        webhook_handler(instance=instance, method=signal)
+
+
+def dispatch_relationship_signal(sender, instance, reverse, model, **kwargs):
+    from signal_webhooks.handlers import webhook_m2m_handler
+
+    names = (
+        [
+            field.name
+            for field in relationship_fields(type(instance))
+            if field.remote_field.through is sender and field.related_model is model
+        ]
+        if not reverse
+        else []
+    )
+    with relationship_context(names[0] if len(names) == 1 else ""):
+        webhook_m2m_handler(sender, instance=instance, reverse=reverse, model=model, **kwargs)
+
+
+def register_relationship_signals():
+    from django.db.models.signals import m2m_changed
+
+    # The library otherwise discards the sender before its task handler runs.
+    # Delegate once to the same library receiver with context attached.
+    m2m_changed.disconnect(dispatch_uid=webhook_settings.DISPATCH_UID_M2M_CHANGED)
+    m2m_changed.connect(dispatch_relationship_signal, weak=False, dispatch_uid="archivebox.webhook_relationship")
 
 
 def action_in_progress():
@@ -57,9 +106,9 @@ EVENTS = {
     "STARTED": dict(label="Started", icon="play", color="#597bab"),
     "COMPLETED": dict(label="Completed", icon="complete", color="#377b5b"),
     "EXITED": dict(label="Exited", icon="complete", color="#377b5b"),
-    "M2M_ADD": dict(label="Relationship added", icon="plus", color="#377b5b"),
-    "M2M_REMOVE": dict(label="Relationship removed", icon="leave", color="#9d618f"),
-    "M2M_CLEAR": dict(label="Relationships cleared", icon="leave", color="#9d618f"),
+    "M2M_ADD": dict(label="Relationship added", icon="plus", color="#377b5b", relationship=True),
+    "M2M_REMOVE": dict(label="Relationship removed", icon="leave", color="#9d618f", relationship=True),
+    "M2M_CLEAR": dict(label="Relationships cleared", icon="leave", color="#9d618f", relationship=True),
     "UPDATE": dict(label="Updated", icon="update", color="#547caa", section=True),
     "DELETE": dict(label="Deleted", icon="delete", color="#b3495a"),
 }
@@ -83,7 +132,8 @@ def event_catalog():
             continue
         model = model_from_reference(ref, check_hooks=False)
         keys = ["CREATE", *getattr(model, "webhook_events", {})]
-        if model._meta.many_to_many:
+        relationships = relationship_fields(model)
+        if relationships:
             keys.extend(("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"))
         keys.extend(("UPDATE", "DELETE"))
         result.append(
@@ -91,6 +141,7 @@ def event_catalog():
                 ref=ref,
                 name=model.__name__,
                 emoji=getattr(model, "emoji", "📄"),
+                relationships=[{"id": field.name, "name": str(field.verbose_name).capitalize()} for field in relationships],
                 events=[dict(key=key, **event_options(model, key)) for key in dict.fromkeys(keys)],
             ),
         )

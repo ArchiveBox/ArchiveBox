@@ -1112,9 +1112,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 # Through-table writes bypass Django's related manager signals.
                 # Use the existing webhook serializer/task handler, which delivers
                 # after commit and observes the complete resulting tag set.
-                from signal_webhooks.handlers import webhook_handler
+                from archivebox.api.webhook_events import emit_relationship_event
 
-                webhook_handler(instance=self, method="M2M_ADD")
+                emit_relationship_event(self, "M2M_ADD", "tags")
 
     def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
         from archivebox.api.webhook_membership import track_membership
@@ -1129,9 +1129,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             links = SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)
             deleted = links._raw_delete(SnapshotTag.objects.db)
             if deleted:
-                from signal_webhooks.handlers import webhook_handler
+                from archivebox.api.webhook_events import emit_relationship_event
 
-                webhook_handler(instance=self, method="M2M_REMOVE")
+                emit_relationship_event(self, "M2M_REMOVE", "tags")
             return deleted
 
     class Meta(

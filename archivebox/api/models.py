@@ -57,6 +57,8 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
     signal = models.CharField(max_length=255, choices=signal_choices)
     actions = models.JSONField(default=list, blank=True)
     folder = models.ForeignKey("core.Folder", null=True, blank=True, on_delete=models.CASCADE)
+    any_folder = models.BooleanField(default=False)
+    relationship = models.CharField(max_length=255, blank=True, default="")
     position = models.PositiveIntegerField(default=0)
     stop_processing = models.BooleanField(default=False)
     stop_on_failure = models.BooleanField(default=True)
@@ -72,7 +74,7 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
         super().clean()
         from django.core.exceptions import ValidationError
         from signal_webhooks.typing import SignalChoices
-        from archivebox.api.webhook_events import event_catalog
+        from archivebox.api.webhook_events import RELATIONSHIP_EVENTS, event_catalog
         from archivebox.api.webhook_actions import validate_actions
 
         supported = next((model for model in event_catalog() if model["ref"] == self.ref), None)
@@ -81,8 +83,12 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
         if self.signal not in {event["key"] for event in supported["events"]} and self.signal not in SignalChoices.values:
             raise ValidationError({"signal": "Choose an event for this object type."})
         membership = self.signal in {"FOLDER_ENTERED", "FOLDER_LEFT"}
-        if membership != bool(self.folder_id):
-            raise ValidationError({"folder": "Choose a folder for a folder membership event only."})
+        if membership != bool(self.folder_id or self.any_folder) or (self.folder_id and self.any_folder):
+            raise ValidationError({"folder": "Choose one folder or Any folder for a folder membership event only."})
+        if self.relationship and (
+            self.signal not in RELATIONSHIP_EVENTS or self.relationship not in {item["id"] for item in supported["relationships"]}
+        ):
+            raise ValidationError({"relationship": "Choose a relationship for this object type and event."})
         if membership and self.ref != "archivebox.core.models.Snapshot":
             raise ValidationError({"signal": "Folder membership events apply to snapshots."})
         if self.actions:

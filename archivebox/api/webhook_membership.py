@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from django.apps import apps
+from django.db.models import Q
 from django.db.models.signals import m2m_changed, pre_save, post_save, pre_delete, post_delete
 
 _active = ContextVar("folder_membership_change", default=False)
@@ -20,23 +21,27 @@ class MembershipChange:
         from archivebox.core.models import Snapshot
         from archivebox.core.smart_folders import RuleQuery
 
-        self.folder_ids = list(
+        scopes = list(
             OutboundWebhook.objects.filter(
+                Q(folder_id__isnull=False) | Q(any_folder=True),
                 enabled=True,
                 ref="archivebox.core.models.Snapshot",
                 signal__in=["FOLDER_ENTERED", "FOLDER_LEFT"],
-                folder_id__isnull=False,
             )
             .order_by()
-            .values_list("folder_id", flat=True)
+            .values_list("folder_id", "any_folder")
             .distinct(),
         )
+        self.folder_ids = [str(folder_id) for folder_id, _ in scopes if folder_id]
+        self.any_folder = any(any_folder for _, any_folder in scopes)
         self.deleted = deleted or {}
         self.before = {}
-        if not self.folder_ids:
+        if not self.folder_ids and not self.any_folder:
             return
         self.ids = None if snapshot_ids is None else set(snapshot_ids() if callable(snapshot_ids) else snapshot_ids)
         self.compiler = RuleQuery(freeze_limits=True)
+        if self.any_folder:
+            self.folder_ids = list(self.compiler.folders)
         self.queries = {folder_id: self.compiler.folder(folder_id) for folder_id in self.folder_ids}
         candidates = self.ids
         for folder_id, query in self.queries.items():

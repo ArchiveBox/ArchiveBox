@@ -120,8 +120,12 @@
     };
   const folderOf = (h) =>
     eventOf(h).membership
-      ? (folders[modelName(h.ref)] || []).find((f) => f.id === h.folder_id)
+      ? [anyFolder, ...(folders[modelName(h.ref)] || [])].find((f) => f.id === h.folder_id)
       : undefined;
+  const relationshipsFor = (ref) =>
+    initial.models.find((m) => m.ref === ref)?.relationships || [];
+  const anyFolder = { id: "*", name: "Any folder (*)" };
+  const anyRelationship = { id: "*", name: "Any relationship (*)" };
   const modelName = (ref) => models.find((m) => m[2] === ref)?.[0] || ref;
   const modelIcon = (ref) => models.find((m) => m[2] === ref)?.[1] || "";
 
@@ -146,7 +150,8 @@
     $("hook-rows").innerHTML = visible
       .map((h) => {
         const e = eventOf(h),
-          f = folderOf(h);
+          f = folderOf(h),
+          relationship = e.relationship && [anyRelationship, ...relationshipsFor(h.ref)].find((item) => item.id === h.relationship);
         return `<tr data-id="${esc(h.id)}" class="${
           current?.id === h.id ? "selected" : ""
         }"><td><button class="switch row-switch" role="switch" aria-label="Enable ${esc(
@@ -158,7 +163,9 @@
         )}</button><span class="scope-label">${
           f
             ? icons("folder") + esc(f.name)
-            : esc(modelIcon(h.ref)) + " " + esc(modelName(h.ref))
+            : relationship
+              ? icons("plus") + esc(relationship.name)
+              : esc(modelIcon(h.ref)) + " " + esc(modelName(h.ref))
         }</span></td><td class="event-cell">${esc(e.label)}<span>${esc(
           modelName(h.ref),
         )}</span></td><td class="delivery-column delivery">${
@@ -195,16 +202,20 @@
   }
   function fillScope() {
     const e = eventOf(current),
-      items = e.membership ? folders[modelName(current.ref)] || [] : [];
-    $("scope-field").hidden = !e.membership;
-    $("scope-label").textContent = "Folder";
-    $("scope").innerHTML = items
-      .map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`)
-      .join("");
-    if (!items.some((f) => f.id === current.folder_id))
-      current.folder_id = items[0]?.id || "";
-    $("scope").value = current.folder_id;
-    $("open-scope").disabled = !current.folder_id;
+      key = e.membership ? "folder_id" : "relationship",
+      items = e.membership
+        ? [anyFolder, ...(folders[modelName(current.ref)] || [])]
+        : e.relationship ? [anyRelationship, ...relationshipsFor(current.ref)] : [];
+    $("scope-field").hidden = !e.membership && !e.relationship;
+    $("scope-label").textContent = e.membership ? "Folder" : "Relationship";
+    $("scope").innerHTML =
+      (e.membership && items.length === 1 ? '<option value="" disabled>Choose a folder scope</option>' : "") +
+      items.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
+    if (items.length && !items.some((f) => f.id === current[key]))
+      current[key] = (e.membership ? items[1]?.id : items[0].id) || "";
+    $("scope").value = current[key] || "";
+    $("open-scope").hidden = !e.membership;
+    $("open-scope").disabled = !current.folder_id || current.folder_id === "*";
   }
   function selectHTML(options, value, label, cls = "") {
     return (
@@ -472,6 +483,7 @@
     current.ref = $("object-type").value;
     current.signal = "CREATE";
     current.folder_id = "";
+    current.relationship = "";
     keepAvailableActions();
     renderTimeline();
     fillScope();
@@ -487,8 +499,12 @@
     setDirty();
   };
   $("scope").onchange = () => {
-    current.folder_id = $("scope").value;
-    $("open-scope").disabled = !current.folder_id;
+    if (eventOf(current).membership) {
+      current.folder_id = $("scope").value;
+      $("open-scope").disabled = !current.folder_id || current.folder_id === "*";
+    } else if (eventOf(current).relationship) {
+      current.relationship = $("scope").value;
+    }
     setDirty();
   };
   $("stop").onchange = () => {
@@ -638,7 +654,7 @@
     }
   };
   $("open-scope").onclick = () => {
-    if (current.folder_id)
+    if (eventOf(current).membership && current.folder_id && current.folder_id !== "*")
       window.open(
         "/admin/core/snapshot/?folder=" + encodeURIComponent(current.folder_id),
         "_blank",
@@ -728,7 +744,8 @@
       ref: webhook.ref,
       signal: webhook.signal,
       enabled: webhook.enabled,
-      folder_id: webhook.folder_id || null,
+      folder_id: eventOf(webhook).membership ? webhook.folder_id || null : null,
+      relationship: eventOf(webhook).relationship ? webhook.relationship || "*" : null,
       stop_processing: !!webhook.stop_processing,
       stop_on_failure: webhook.stop_on_failure !== false,
       actions: webhook.actions.map((action) => {

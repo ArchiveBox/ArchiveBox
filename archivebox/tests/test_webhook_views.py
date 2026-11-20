@@ -196,3 +196,34 @@ def test_malformed_editor_input_never_persists(admin_client, body):
         response = admin_client.post(BASE + path, data=body, content_type="application/json", HTTP_HOST=HOST)
         assert response.status_code == 400, response.content
     assert OutboundWebhook.objects.count() == before
+
+
+def test_editor_saves_folder_and_relationship_scopes(admin_client):
+    from archivebox.api.models import OutboundWebhook
+    from archivebox.core.models import Folder
+
+    assert post(admin_client, "save/", webhook_input(signal="FOLDER_LEFT")).status_code == 400
+    folder = post(admin_client, "save/", webhook_input(signal="FOLDER_LEFT", folder_id="*"))
+    assert folder.status_code == 200, folder.content
+    assert folder.json()["hook"]["folder_id"] == "*"
+    rule_id = folder.json()["hook"]["id"]
+    persisted = OutboundWebhook.objects.get(pk=rule_id)
+    assert persisted.folder_id is None and persisted.any_folder
+    target = Folder.objects.create(name="Scoped folder")
+    changed = post(admin_client, "save/", webhook_input(id=rule_id, signal="FOLDER_LEFT", folder_id=str(target.pk)))
+    assert changed.status_code == 200, changed.content
+    assert changed.json()["hook"]["folder_id"] == str(target.pk)
+    persisted.refresh_from_db()
+    assert persisted.folder_id == target.pk and not persisted.any_folder
+    assert post(admin_client, "save/", webhook_input(folder_id="*")).status_code == 400
+
+    catalog = admin_client.get(BASE + "data/", HTTP_HOST=HOST).json()["models"]
+    snapshot = next(model for model in catalog if model["name"] == "Snapshot")
+    assert {event["key"] for event in snapshot["events"] if event.get("relationship")} == {"M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"}
+    assert snapshot["relationships"] == [{"id": "tags", "name": "Tags"}]
+    for scope in ("tags", "*"):
+        response = post(admin_client, "save/", webhook_input(name=f"Relationship {scope}", signal="M2M_ADD", relationship=scope))
+        assert response.status_code == 200, response.content
+        assert response.json()["hook"]["relationship"] == scope
+    assert post(admin_client, "save/", webhook_input(signal="M2M_ADD", relationship="folder")).status_code == 400
+    assert post(admin_client, "save/", webhook_input(relationship="tags")).status_code == 400

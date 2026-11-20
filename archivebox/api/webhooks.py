@@ -5,13 +5,21 @@ from collections.abc import Callable
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.db.models.signals import pre_delete
 from asgiref.sync import async_to_sync
 from signal_webhooks.handlers import build_client_kwargs_by_hook_id, default_hook_handler, fire_webhooks
 from signal_webhooks.utils import get_webhook_model
 from signal_webhooks.typing import METHOD_SIGNALS
 from signal_webhooks.utils import reference_for_model
-from archivebox.api.webhook_events import event_options, executing_webhook, action_in_progress, event_payload
+from archivebox.api.webhook_events import (
+    RELATIONSHIP_EVENTS,
+    active_relationship,
+    event_options,
+    executing_webhook,
+    action_in_progress,
+    event_payload,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -55,6 +63,8 @@ def warning_error_handler(hook: Any, error: Exception | None) -> None:
 def transaction_on_commit_task_handler(hook: Callable[..., None], **kwargs: Any) -> None:
     if action_in_progress():
         return
+    if hook is default_hook_handler and kwargs["method"] in RELATIONSHIP_EVENTS and (relationship := active_relationship.get()):
+        kwargs["metadata"] = {**kwargs.get("metadata", {}), "relationship": relationship}
     # Freeze normal event inputs at the transition. CREATE must wait for the
     # model's initialization transaction (including Snapshot tag defaults).
     payload = (
@@ -100,7 +110,9 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
             enabled=True,
         )
         if method in {"FOLDER_ENTERED", "FOLDER_LEFT"}:
-            hooks = hooks.filter(folder_id=metadata["folder_id"])
+            hooks = hooks.filter(Q(folder_id=metadata["folder_id"]) | Q(any_folder=True))
+        if method in RELATIONSHIP_EVENTS:
+            hooks = hooks.filter(relationship__in=["", metadata.get("relationship", "")])
         hooks = list(hooks)
     else:
         hooks = subscriptions

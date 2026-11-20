@@ -268,3 +268,88 @@ def test_creation_action_tags_survive_crawl_defaults_and_enter_folder(admin_user
     snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
     assert set(snapshot.tags.values_list("name", flat=True)) == {"initial", "news"}
     assert delivered(path) == [("FOLDER_ENTERED", str(snapshot.pk), str(folder.pk))]
+
+
+def test_wildcard_folder_delivers_actual_folder_ids_to_existing_scopes(admin_user, tmp_path):
+    first = Folder.objects.create(name="First")
+    second = Folder.objects.create(name="Second")
+    specific_path = subscribe(first, admin_user, tmp_path)
+    all_dir = tmp_path / "any"
+    all_dir.mkdir()
+    all_path = subscribe(second, admin_user, all_dir)
+    OutboundWebhook.objects.filter(folder=second).update(folder=None, any_folder=True)
+    crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
+    Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), first.pk)
+    Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), second.pk)
+    assert delivered(specific_path) == [
+        ("FOLDER_ENTERED", str(snapshot.pk), str(first.pk)),
+        ("FOLDER_LEFT", str(snapshot.pk), str(first.pk)),
+    ]
+    assert sorted(delivered(all_path)) == sorted(
+        [
+            *delivered(specific_path),
+            ("FOLDER_ENTERED", str(snapshot.pk), str(second.pk)),
+        ],
+    )
+
+
+def test_relationship_scope_matches_native_fields_and_through_table_helpers(admin_user, tmp_path):
+    from django.contrib.auth.models import Group, Permission
+
+    destination = tmp_path / "relationships.jsonl"
+    code = f"import sys, pathlib\nwith pathlib.Path({str(destination)!r}).open('a') as out: out.write(sys.stdin.read() + '\\n')"
+    user_scopes = {}
+    for relationship in ("", "groups", "user_permissions"):
+        for event in ("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"):
+            hook = OutboundWebhook.objects.create(
+                name=f"User {event} {relationship}",
+                ref="django.contrib.auth.models.User",
+                signal=event,
+                relationship=relationship,
+                created_by=admin_user,
+                actions=[dict(type="python", code=code)],
+            )
+            user_scopes[event, relationship] = hook
+    for event in ("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"):
+        OutboundWebhook.objects.create(
+            name=f"Snapshot {event} tags",
+            ref="archivebox.core.models.Snapshot",
+            signal=event,
+            relationship="tags",
+            created_by=admin_user,
+            actions=[dict(type="python", code=code)],
+        )
+
+    group = Group.objects.create(name="Scope test")
+    admin_user.user_permissions.add(Permission.objects.first())
+    admin_user.groups.add(group)
+    admin_user.groups.remove(group)
+    admin_user.groups.add(group)
+    admin_user.groups.clear()
+    crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
+    tag = Tag.objects.create(name="scope-test")
+    snapshot.add_tag_ids([tag.pk])
+    snapshot.remove_tag_ids([tag.pk])
+    snapshot.add_tag_ids([tag.pk])
+    snapshot.tags.clear()
+
+    for (event, relationship), hook in user_scopes.items():
+        hook.refresh_from_db()
+        expected = (
+            {"M2M_ADD": 3, "M2M_REMOVE": 1, "M2M_CLEAR": 1}[event]
+            if not relationship
+            else {"M2M_ADD": 2, "M2M_REMOVE": 1, "M2M_CLEAR": 1}[event]
+            if relationship == "groups"
+            else int(event == "M2M_ADD")
+        )
+        assert hook.num_uses_succeeded == expected
+    rows = [json.loads(line) for line in destination.read_text().splitlines()]
+    assert [(row["event"], row["relationship"]) for row in rows if row["object_type"] == "core.Snapshot"] == [
+        ("M2M_ADD", "tags"),
+        ("M2M_REMOVE", "tags"),
+        ("M2M_ADD", "tags"),
+        ("M2M_CLEAR", "tags"),
+    ]
+    assert {row["relationship"] for row in rows if row["object_type"] == "auth.User"} == {"groups", "user_permissions"}

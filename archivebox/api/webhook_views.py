@@ -19,7 +19,7 @@ from archivebox.plugins.discovery import get_plugin_catalog
 
 from .models import OutboundWebhook
 from .webhook_actions import configurable_fields
-from .webhook_events import event_catalog, event_payload
+from .webhook_events import RELATIONSHIP_EVENTS, event_catalog, event_payload
 
 
 def webhook_admin(view):
@@ -46,7 +46,8 @@ def webhook_data(hook):
         "ref": hook.ref,
         "signal": hook.signal,
         "enabled": hook.enabled,
-        "folder_id": str(hook.folder_id) if hook.folder_id else None,
+        "folder_id": "*" if hook.any_folder else str(hook.folder_id) if hook.folder_id else None,
+        "relationship": (hook.relationship or "*") if hook.signal in RELATIONSHIP_EVENTS else None,
         "actions": actions,
         "stop_processing": hook.stop_processing,
         "stop_on_failure": hook.stop_on_failure,
@@ -99,6 +100,7 @@ def submitted_webhook(request):
         "signal",
         "enabled",
         "folder_id",
+        "relationship",
         "actions",
         "stop_processing",
         "stop_on_failure",
@@ -115,7 +117,17 @@ def submitted_webhook(request):
     hook = get_object_or_404(OutboundWebhook, pk=payload["id"]) if payload.get("id") else OutboundWebhook(created_by=request.user)
     for field in allowed - {"id", "auth_token", "clear_auth_token"}:
         if field in payload:
-            setattr(hook, field, payload[field])
+            value = payload[field]
+            if field == "folder_id":
+                hook.any_folder = value == "*"
+                value = None if hook.any_folder else value
+            elif field == "relationship":
+                if value is not None and not isinstance(value, str):
+                    raise ValidationError("Relationship must be a string.")
+                value = "" if value in (None, "*") else value
+            setattr(hook, field, value)
+    if payload.get("relationship") == "*" and hook.signal not in RELATIONSHIP_EVENTS:
+        raise ValidationError("Choose a relationship for a relationship event only.")
     if payload.get("clear_auth_token"):
         hook.auth_token = ""
     elif payload.get("auth_token"):
@@ -157,11 +169,16 @@ def preview(request):
             # Parent folders and predicate folders share precisely the sidebar's
             # selector. No second matcher or include-subfolders flag belongs here.
             candidates = Folder.select_snapshots(Snapshot.objects.all(), hook.folder_id)
+        metadata = {}
+        if hook.folder_id:
+            metadata["folder_id"] = str(hook.folder_id)
+        if hook.relationship:
+            metadata["relationship"] = hook.relationship
         objects = [
             {
                 "id": str(obj.pk),
                 "label": getattr(obj, "title", None) or getattr(obj, "name", None) or str(obj.pk),
-                "payload": event_payload(obj, hook.signal, **({"folder_id": str(hook.folder_id)} if hook.folder_id else {})),
+                "payload": event_payload(obj, hook.signal, **metadata),
             }
             for obj in candidates[:5]
         ]
