@@ -9,7 +9,7 @@ from typing import ClassVar, NotRequired, TypedDict, cast
 
 from django import forms
 from django.contrib import admin
-from django.db import DatabaseError, models
+from django.db import connections, DatabaseError, models, router
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest, QueryDict
 from django.urls import path, register_converter
@@ -837,6 +837,23 @@ class ConfigEditorMixin(admin.ModelAdmin):
     """
 
     config_includes_machine_settings = False
+    reserve_sqlite_config_writer = False
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        if request.method != "POST" or not self.reserve_sqlite_config_writer:
+            return super().change_view(request, object_id, form_url, extra_context)
+        connection = connections[router.db_for_write(self.model)]
+        if connection.vendor != "sqlite":
+            return super().change_view(request, object_id, form_url, extra_context)
+        # Reserve the SQLite writer before the admin reads the object and
+        # its masked config; another commit would invalidate a deferred read.
+        connection.ensure_connection()
+        previous_mode = connection.transaction_mode
+        connection.transaction_mode = "IMMEDIATE"
+        try:
+            return super().change_view(request, object_id, form_url, extra_context)
+        finally:
+            connection.transaction_mode = previous_mode
 
     def config_excluded_keys(self) -> frozenset[str]:
         from archivebox.config.common import host_config_keys, RUNTIME_REPORTING_CONFIG_KEYS

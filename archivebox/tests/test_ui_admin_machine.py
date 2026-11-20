@@ -337,3 +337,127 @@ def test_process_list_defers_crawl_payload_without_refetching_links(admin_client
     assert not action_crawl.get_deferred_fields()
     assert action_crawl.urls == urls
     assert action_crawl.config == config
+
+
+@pytest.mark.parametrize("prewarm_display", [False, True], ids=["cold", "warm"])
+def test_machine_edit_reserves_sqlite_writer_before_reading(admin_client, admin_user, prewarm_display):
+    import json
+    import sqlite3
+    from time import perf_counter
+
+    from django.db import connection, transaction
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.machine.models import Machine
+
+    credential = "synthetic-machine-test-value"
+    machine = Machine.from_json({"config": {"KAGI_SEARCH_API_KEY": credential}})
+    assert machine is not None
+    url = reverse("admin:machine_machine_change", args=[machine.pk])
+    previous_mode = getattr(connection, "transaction_mode", None)
+    if prewarm_display:
+        with CaptureQueriesContext(connection) as get_queries:
+            page = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert page.status_code == 200
+        assert credential.encode() not in page.content
+        assert not any(query["sql"] == "BEGIN IMMEDIATE" for query in get_queries)
+
+    # Machine admin's ordinary editable model inputs, without warming the grid.
+    fields = {
+        key: getattr(machine, key)
+        for key in (
+            "hostname",
+            "hw_manufacturer",
+            "hw_product",
+            "hw_uuid",
+            "os_platform",
+            "os_family",
+            "os_arch",
+            "os_kernel",
+            "os_release",
+            "num_uses_succeeded",
+            "num_uses_failed",
+        )
+    }
+    for flag in ("hw_in_docker", "hw_in_vm"):
+        if getattr(machine, flag):
+            fields[flag] = "on"
+
+    def post(**overrides):
+        return admin_client.post(
+            url,
+            {
+                **fields,
+                "config": json.dumps({"KAGI_SEARCH_API_KEY": "", "USER_AGENT": "Machine writer test"}),
+                "_save": "Save",
+                **overrides,
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            assert cursor.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        other = sqlite3.connect(connection.settings_dict["NAME"], timeout=0, isolation_level=None)
+        competing_writer_results = []
+        lock_times = []
+        begin = None
+
+        def compete_after_machine_read(execute, sql, params, many, context):
+            nonlocal begin
+            result = execute(sql, params, many, context)
+            if sql == "BEGIN IMMEDIATE":
+                begin = perf_counter()
+            if (
+                not competing_writer_results
+                and sql.lstrip().upper().startswith("SELECT")
+                and "machine_machine" in sql
+                and connection.in_atomic_block
+            ):
+                if begin is not None:
+                    transaction.on_commit(lambda: lock_times.append(perf_counter() - begin))
+                # A separate WAL writer must not commit between this request's
+                # first read and first write, or SQLite cannot upgrade its snapshot.
+                try:
+                    other.execute("UPDATE auth_user SET last_name='competing writer' WHERE id=?", (admin_user.pk,))
+                except sqlite3.OperationalError as error:
+                    assert error.sqlite_errorcode == sqlite3.SQLITE_BUSY
+                    competing_writer_results.append("reserved")
+                else:
+                    competing_writer_results.append("committed")
+            return result
+
+        try:
+            with connection.execute_wrapper(compete_after_machine_read), CaptureQueriesContext(connection) as queries:
+                response = post()
+            assert competing_writer_results == ["reserved"]
+            assert any(query["sql"] == "BEGIN IMMEDIATE" for query in queries)
+            assert not any('FROM "machine_binary"' in query["sql"] for query in queries)
+            assert len(lock_times) == 1
+            print(f"Machine change SQLite writer held {lock_times[0] * 1000:.1f} ms (display prewarmed: {prewarm_display})")
+            assert connection.transaction_mode == previous_mode
+            other.execute("UPDATE auth_user SET last_name='competing writer' WHERE id=?", (admin_user.pk,))
+        finally:
+            other.close()
+    else:
+        response = post()
+
+    assert response.status_code == 302
+    machine.refresh_from_db()
+    assert machine.config["KAGI_SEARCH_API_KEY"] == credential
+    assert machine.config["USER_AGENT"] == "Machine writer test"
+
+    binary_link_reads = []
+
+    def observe_render_sql(execute, sql, params, many, context):
+        if 'FROM "machine_binary"' in sql:
+            binary_link_reads.append(connection.in_atomic_block)
+        return execute(sql, params, many, context)
+
+    with connection.execute_wrapper(observe_render_sql):
+        invalid = post(hostname="")
+    assert binary_link_reads and not any(binary_link_reads)
+    assert invalid.status_code == 200
+    assert "hostname" in invalid.context["adminform"].form.errors
+    assert credential.encode() not in invalid.content
+    assert getattr(connection, "transaction_mode", None) == previous_mode
