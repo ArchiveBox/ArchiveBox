@@ -926,7 +926,7 @@ def test_tags_autocomplete_allows_authenticated_user_when_public_index_disabled(
 @pytest.mark.parametrize("page", ["add", "persona_change"])
 def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_client, admin_user, page):
     from archivebox.plugins.discovery import get_plugin_catalog
-    from archivebox.config.common import ArchiveBoxConfig, config_field_metadata
+    from archivebox.config.common import ArchiveBoxConfig, SYSTEM_PLUGIN_NAMES, config_field_metadata
     from archivebox.config import CONSTANTS_CONFIG
 
     if page == "add":
@@ -946,11 +946,13 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
         assert b'data-plugin-name="importer_rss"' not in response.content
     else:
         assert importer_names <= set(names)
+        assert set(names).isdisjoint(SYSTEM_PLUGIN_NAMES)
         derived = ArchiveBoxConfig.runtime_derived_config_keys() | set(ArchiveBoxConfig.computed_config_keys)
         expected |= {
             plugin.name
             for plugin in get_plugin_catalog().values()
             if plugin.config.hidden
+            and plugin.name not in SYSTEM_PLUGIN_NAMES
             and any(
                 key not in CONSTANTS_CONFIG
                 and key not in derived
