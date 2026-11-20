@@ -7,9 +7,9 @@ import pytest
 from django.urls import reverse
 from playwright.sync_api import expect, sync_playwright
 
+from archivebox.config.common import SYSTEM_PLUGIN_NAMES
 from archivebox.config.configset import read_ini_config
 from archivebox.machine.models import Machine
-from archivebox.plugins.discovery import discover_plugin_configs
 from archivebox.tests.conftest import (
     ADMIN_TEST_HOST,
     cli_env,
@@ -136,9 +136,9 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                         page.evaluate("window.scrollTo(0, 0)")
                         page.screenshot(path=str(output / f"system-{tab.lower()}.png"), full_page=True)
                 page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
-                for plugin in discover_plugin_configs():
-                    if plugin == "base" or plugin.startswith("search_backend_"):
-                        expect(page.locator(f'[role="tab"][data-plugin="{plugin}"]')).to_have_count(1)
+                expect(page.locator('[role="tab"][data-plugin="base"]')).to_have_count(1)
+                for plugin in SYSTEM_PLUGIN_NAMES:
+                    expect(page.locator(f'[role="tab"][data-plugin="{plugin}"]')).to_have_count(1 if surface == "system" else 0)
                 assert f"{surface}-secret" not in page.content()
                 search = page.get_by_role("searchbox", name="Search plugin settings")
                 for key, preset, zero_label, unit, amount in (
