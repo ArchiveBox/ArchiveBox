@@ -6,7 +6,7 @@ from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from django import forms
 
 from archivebox.base_models.admin import KeyValueWidget
-from archivebox.config.common import get_config, parse_delete_after
+from archivebox.config.common import get_config, host_config_keys, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
 from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
@@ -319,7 +319,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
     )
     config = forms.JSONField(
         label="Custom config overrides",
-        widget=KeyValueWidget(),
+        widget=KeyValueWidget(excluded_keys=host_config_keys()),
         initial=dict,
         required=False,
     )
@@ -440,6 +440,8 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         custom_config = cleaned_data.get("config") or {}
         if not isinstance(custom_config, dict):
             custom_config = {}
+        excluded_keys = host_config_keys()
+        custom_config = {key: value for key, value in custom_config.items() if key.upper() not in excluded_keys}
         cleaned_data["plugin_config"] = plugin_config_overrides
         cleaned_data["config"] = {**plugin_config_overrides, **custom_config}
 

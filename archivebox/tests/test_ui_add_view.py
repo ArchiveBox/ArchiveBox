@@ -191,6 +191,8 @@ def test_add_view_admin_renders_plugin_settings(client, admin_user):
     )
     assert b"plugin_config__chrome__CHROME_BINARY" not in response.content
     assert b"plugin_config__wget__WGET_ENABLED" not in response.content
+    assert b'<option value="WGET_TIMEOUT">' in response.content
+    assert b'<option value="OPENCODE_ENABLED">' not in response.content
 
 
 def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):
@@ -245,6 +247,7 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
     default_persona.config = {
         "COOKIES_FILE": "/tmp/archivebox-default-cookies.txt",
         "USER_AGENT": "ArchiveBox Default Persona UA",
+        "OPENCODE_ENABLED": True,  # Obsolete saved setting must not hydrate the raw editor.
     }
     default_persona.save(update_fields=["config"])
     Persona.objects.create(
@@ -256,6 +259,8 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
     response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert response.status_code == 200
     persona_config_map = json.loads(response.context["persona_config_map_json"])
+    assert "OPENCODE_ENABLED" not in persona_config_map["Default"]["config"]
+    assert persona_config_map["Default"]["config"]["USER_AGENT"] == "ArchiveBox Default Persona UA"
     assert persona_config_map["Default"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-default-cookies.txt"
     assert persona_config_map["Private"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-private-cookies.txt"
 
@@ -611,7 +616,7 @@ def test_add_view_applies_plugin_config_overrides(client, admin_user):
             "plugin_config__wget__WGET_TIMEOUT": "77",
             "plugin_config__wget__WGET_WARC_ENABLED": "false",
             "plugin_config__chrome__CHROME_BINARY": "/tmp/malicious-chrome",
-            "config": '{"NODE_BINARY": "/tmp/malicious-node", "WGET_ENABLED": false}',
+            "config": '{"NODE_BINARY": "/tmp/malicious-node", "WGET_ENABLED": false, "OPENCODE_ENABLED": true, "opencode_port": 4600}',
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -626,6 +631,7 @@ def test_add_view_applies_plugin_config_overrides(client, admin_user):
     assert "WGET_ENABLED" not in crawl.config
     assert "CHROME_BINARY" not in crawl.config
     assert "NODE_BINARY" not in crawl.config
+    assert not {"OPENCODE_ENABLED", "OPENCODE_PORT"}.intersection(key.upper() for key in crawl.config)
 
 
 @pytest.mark.parametrize("empty_filters", [False, True])

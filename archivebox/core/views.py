@@ -50,6 +50,7 @@ from archivebox.config.common import (
     get_all_configs,
     get_config,
     get_request_config,
+    host_config_keys,
     redact_sensitive_config,
 )
 from archivebox.config.configset import RUNTIME_REPORTING_CONFIG_KEYS, BaseConfigSet
@@ -1843,12 +1844,15 @@ class AddView(UserPassesTestMixin, FormView):
             else {}
         )
         persona_config_map = {}
+        excluded_keys = host_config_keys()
         for persona, effective_config in persona_configs:
             effective_config_json = redact_sensitive_config(
                 effective_config.model_dump(mode="json", include=None if can_override_crawl_config else public_persona_config_keys),
             )
             if can_override_crawl_config:
-                raw_config = redact_sensitive_config(persona.config or {})
+                raw_config = redact_sensitive_config(
+                    {key: value for key, value in (persona.config or {}).items() if key.upper() not in excluded_keys},
+                )
                 binary_urls = get_plugin_config_binary_urls(effective_config, binary_url_lookup)
             else:
                 raw_config = {}
