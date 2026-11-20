@@ -22,7 +22,8 @@ def assert_metrics(response):
     header = response["Server-Timing"]
     assert re.fullmatch(
         r"admin_prepare;dur=\d+\.\d, admin_prepare_cpu;dur=\d+\.\d, "
-        r"admin_render;dur=\d+\.\d, admin_render_cpu;dur=\d+\.\d",
+        r"admin_render;dur=\d+\.\d, admin_render_cpu;dur=\d+\.\d"
+        r"(?:, admin_prepare_runnable;dur=\d+\.\d)?(?:, admin_render_runnable;dur=\d+\.\d)?",
         header,
     )
     return header
@@ -126,3 +127,26 @@ def test_nonstaff_timing_query_never_emits_metrics(client, django_user_model, is
     response = client.get(PATH, query_params={"_admin_timing": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 302
     assert "Server-Timing" not in response
+
+
+def test_runnable_counter_omits_unknown_and_nonmatching_samples(tmp_path):
+    from archivebox.core.admin_timing import _read_schedstat, _runnable_metric
+
+    source = tmp_path / "schedstat"
+    assert _read_schedstat(source) is None
+    for unavailable in (b"not a counter", b"1 2", b"1 -1 2", b"1 2 3 4", b"1 \xff 2", b"1 18446744073709551616 2"):
+        source.write_bytes(unavailable)
+        assert _read_schedstat(source) is None
+
+    source.write_text("12345678 0 1\n")
+    before = _read_schedstat(source)
+    assert before is not None
+    assert _runnable_metric("prepare", before, before) is None
+    source.write_text("42745678 368130000 67\n")
+    after = _read_schedstat(source)
+    assert after is not None
+    assert _runnable_metric("prepare", before, after) == "admin_prepare_runnable;dur=368.1"
+    assert _runnable_metric("render", before, after) == "admin_render_runnable;dur=368.1"
+    assert _runnable_metric("render", before, (after[0] + 1, after[1])) is None
+    assert _runnable_metric("render", after, before) is None
+    assert _runnable_metric("render", None, after) is None
