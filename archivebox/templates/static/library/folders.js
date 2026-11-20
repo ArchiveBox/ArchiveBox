@@ -480,8 +480,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const mobileViewport = matchMedia('(max-width: 767px)');
   let desktopHidden = false;
   let mobileCollapsed = true;
+  let sidebarDwellTimer = null;
+  function clearSidebarDwell() {
+    clearTimeout(sidebarDwellTimer);
+    sidebarDwellTimer = null;
+  }
   try {desktopHidden = localStorage.getItem('archivebox.sidebar-hidden') === 'true';} catch (_) {}
   function viewportChanged() {
+    if (mobileViewport.matches) clearSidebarDwell();
     const hidden = mobileViewport.matches ? mobileCollapsed : desktopHidden;
     // The mobile CSS owns the breakpoint. Preserve its state on desktop so a
     // resize cannot briefly expand the folder tree before matchMedia fires.
@@ -506,10 +512,13 @@ document.addEventListener('DOMContentLoaded', () => {
     viewportChanged();
     if (!mobileViewport.matches) reopenToggle.focus();
   });
-  reopenToggle.addEventListener('click', () => {
+  function showDesktopSidebar() {
     desktopHidden = false;
     try {localStorage.setItem('archivebox.sidebar-hidden', 'false');} catch (_) {}
     viewportChanged();
+  }
+  reopenToggle.addEventListener('click', () => {
+    showDesktopSidebar();
     mobileToggle.focus();
   });
   renderTree();
@@ -689,11 +698,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearDrag() {
     dragging = false;
     movingFolder = null;
+    clearSidebarDwell();
     clearDropTarget();
     document.body.classList.remove('dragging-snapshots');
     document.querySelectorAll('.snapshot-dragging,.drop-active,.drop-before,.drop-after').forEach(node => node.classList.remove('snapshot-dragging','drop-active','drop-before','drop-after'));
     badge?.remove();
   }
+  // Reveal the desktop sidebar without focusing a control or changing the drop.
+  function updateSidebarDwell(event) {
+    if (!dragging || !event.dataTransfer?.types.includes('application/x-archivebox-snapshots') ||
+        !desktopHidden || mobileViewport.matches || event.clientX < 0 || event.clientX > 18) {
+      clearSidebarDwell();
+      return;
+    }
+    if (sidebarDwellTimer !== null) return;
+    sidebarDwellTimer = setTimeout(() => {
+      sidebarDwellTimer = null;
+      if (!dragging || !desktopHidden || mobileViewport.matches) return;
+      showDesktopSidebar();
+    }, 1000);
+  }
+  document.addEventListener('dragenter', updateSidebarDwell);
+  document.addEventListener('dragover', updateSidebarDwell);
+  document.addEventListener('dragleave', event => {
+    if (!event.relatedTarget) clearSidebarDwell();
+  });
+  document.addEventListener('drop', clearSidebarDwell, true);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') clearSidebarDwell();
+  });
   function initializeSnapshotDragging() {
     form?.querySelectorAll('input.action-select').forEach(checkbox => {
       const row = checkbox.closest('tr,.card');
@@ -835,6 +868,10 @@ document.addEventListener('DOMContentLoaded', () => {
     form = document.querySelector('#changelist-form');
     if (form !== initializedForm) {
       initializedForm = form;
+      if (dragging) {
+        clearDrag();
+        status.textContent = '';
+      }
       initializeTagRows();
       initializeSnapshotDragging();
     }
