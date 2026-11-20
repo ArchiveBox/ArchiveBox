@@ -259,11 +259,20 @@ def test_version_shows_binaries_after_init(tmp_path, initialized_archive):
     assert "Binary" in output or "Dependencies" in output
 
 
+# Machine-owned search services do not follow the crawl plugin selection.
+NO_MACHINE_SEARCH = {
+    "SEARCH_BACKEND_ENGINE": "",
+    "SEARCH_BACKEND_RIPGREP_ENABLED": "False",
+    "SEARCH_BACKEND_SONIC_ENABLED": "False",
+    "SEARCH_BACKEND_SQLITE_ENABLED": "False",
+}
+
+
 def test_version_includes_disabled_plugin_dependencies(tmp_path):
     """Every plugin declaration stays visible even when all plugins are disabled."""
     data_dir = tmp_path / "no-plugins"
     data_dir.mkdir()
-    env = cli_env(PLUGINS="__archivebox_test_no_plugins__", SEARCH_BACKEND_ENGINE="", COLUMNS="500")
+    env = cli_env(PLUGINS="__archivebox_test_no_plugins__", COLUMNS="500", **NO_MACHINE_SEARCH)
 
     init_result = run_archivebox_cmd(["init"], cwd=data_dir, env=env)
     assert init_result.returncode == 0, init_result.stderr
@@ -296,7 +305,7 @@ def test_version_honors_legacy_save_aliases_when_disabling_extractors(tmp_path):
     """Legacy SAVE_* aliases should disable their canonical plugin flags."""
     data_dir = tmp_path / "legacy-save-disabled"
     data_dir.mkdir()
-    env = {"PLUGINS": "wget,title", "SEARCH_BACKEND_ENGINE": ""}
+    env = {"PLUGINS": "wget,title", **NO_MACHINE_SEARCH}
 
     init_result = run_archivebox_cmd(["init"], cwd=data_dir, env=env, default_cli_env=True, disable_extractors=True, timeout=120)
     assert init_result.returncode == 0, init_result.stderr or init_result.stdout
