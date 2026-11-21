@@ -707,6 +707,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             ),
             path("export-jobs/<str:process_id>/cancel/", self.export_job_view, {"action": "cancel"}, name="core_snapshot_export_cancel"),
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
+            path(
+                "<path:object_id>/files-saved/",
+                self.admin_site.admin_view(self.files_saved_view),
+                name="core_snapshot_files_saved",
+            ),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
                 "<path:object_id>/preview/<str:plugin>/<path:filename>",
@@ -760,6 +765,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         response.headers["Vary"] = "Cookie"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
+
+    def files_saved_view(self, request, object_id):
+        """Load one grid card's existing file piles only on interaction."""
+        if request.method != "GET":
+            return HttpResponseNotAllowed(["GET"])
+        self = copy(self)
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        snapshot = self.get_object(request, object_id)
+        if snapshot is None or not self.has_view_or_change_permission(request, snapshot):
+            raise Http404
+        snapshot.__dict__["_admin_output_results"] = load_snapshot_list_results([snapshot])[snapshot.pk].results
+        return JsonResponse({"html": str(self.files(snapshot))}, headers={"Cache-Control": "private, no-store"})
 
     def search_stream_view(self, request):
         return admin_snapshot_search_stream_view(self, request)

@@ -253,17 +253,47 @@ def test_admin_grid_keeps_running_and_sealed_cards_without_hidden_file_icons(cli
     # The compact grid shows both captures without the desktop table's file piles.
     Snapshot.objects.filter(pk=started.pk).update(bookmarked_at=sealed.bookmarked_at + timedelta(minutes=1))
     client.force_login(admin_user)
-    response = client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
+    with CaptureQueriesContext(connection) as captured:
+        response = client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
+    assert sum('FROM "core_archiveresult"' in query["sql"] for query in captured.captured_queries) == 1
     html = response.content.decode()
     cards = fromstring(html).find_class("cards")[0].xpath("./div")
     assert len(cards) == 2
     assert [card.find_class("title-text")[0].text_content() for card in cards] == ["Started list row", "Sealed list row"]
     assert [card.xpath('.//input[@name="_selected_action"]/@value')[0] for card in cards] == [str(started.pk), str(sealed.pk)]
-    for card in cards:
+    for snapshot, card in zip((started, sealed), cards, strict=True):
         thumbnails = card.find_class("card-thumbnail")
         assert len(thumbnails) == 1 and thumbnails[0].tag == "a" and thumbnails[0].get("href")
         assert not card.find_class("files-icons")
+        assert card.xpath(".//details/@data-grid-files-url") == [reverse("admin:core_snapshot_files_saved", args=[snapshot.pk])]
+
+
+def test_grid_files_fragment_reuses_table_order_and_permissions(admin_client, list_collection):
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    sealed, _started = list_collection
+    url = reverse("admin:core_snapshot_files_saved", args=[sealed.pk])
+    table = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert table.status_code == 200
+    row = _row(table.content.decode(), f'value="{sealed.pk}"')
+    with CaptureQueriesContext(connection) as captured:
+        response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert "private" in response["Cache-Control"] and "no-store" in response["Cache-Control"]
+    assert sum('FROM "core_archiveresult"' in query["sql"] for query in captured.captured_queries) == 1
+    fragment = response.json()["html"]
+    pattern = r'class="[^"\n]*files-icon-plugin--([\w-]+)'
+    assert re.findall(pattern, fragment) == re.findall(pattern, row)
+    assert _rendered_fragments(fragment) == _rendered_fragments(row)
+    assert admin_client.post(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
+
+    visitor = Client()
+    assert visitor.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    staff = get_user_model().objects.create_user(username="grid-reader", is_staff=True)
+    visitor.force_login(staff)
+    assert visitor.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 403
 
 
 def test_admin_icon_order_counts_all_hook_files_once(client, admin_user, list_collection):

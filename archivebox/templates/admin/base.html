@@ -2420,7 +2420,7 @@
             }
         </script>
         <script src="{% static 'admin-inline-tags.js' %}"></script>
-        <script src="{% static 'files-icon-piles.js' %}"></script>
+        <script src="{% static 'files-icon-piles.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
         {% include "includes/output_delete_controls.html" %}
     </body>
 </html>

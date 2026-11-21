@@ -2427,6 +2427,26 @@ tbody .output-link:hover {opacity: 1;}
 
 }
 
+/* Grid cards load the normal file piles only when this disclosure is used. */
+.model-snapshot.change-list .cards .card-files {
+    position: absolute;
+    top: 5px;
+    left: 6px;
+    z-index: 3;
+    max-width: calc(100% - 12px);
+    padding: 3px 6px;
+    border: 1px solid var(--hairline-color, #e4e7ec);
+    border-radius: 4px;
+    background: var(--body-bg, #fff);
+    color: var(--body-fg, #1d2939);
+    font: 11px/16px var(--font-family-primary);
+}
+.model-snapshot.change-list .cards .card-files > summary { cursor: pointer; }
+.model-snapshot.change-list .cards .card-files-results { padding-block: 3px 1px; }
+@media (hover: hover) {
+    .model-snapshot.change-list .cards .card:not(:hover):not(:focus-within) .card-files:not([open]) { opacity: 0; }
+}
+
 .model-snapshot.change-list .cards .card-thumbnail {
     display: block;
     width: 100%;

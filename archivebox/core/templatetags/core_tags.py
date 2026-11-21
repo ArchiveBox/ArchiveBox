@@ -505,6 +505,9 @@ def result_list(context, cl):
                 "tags": cl.model_admin.tags_inline(obj),
                 "status": cl.model_admin.status_with_progress(obj) if obj.status != "sealed" else "",
                 "favicon": cl.model_admin._get_favicon_data(obj),
+                "has_saved_files": any(
+                    result.status == "succeeded" and result.output_size for result in obj.__dict__.get("_admin_output_results", ())
+                ),
             }
             for obj in results
         ],
