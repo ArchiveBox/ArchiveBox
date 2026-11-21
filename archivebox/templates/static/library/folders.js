@@ -21,6 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
       folderForm.elements.name.value = button.dataset.name || '';
       folderForm.elements.parent.value = button.dataset.parent || picker?.value || '';
       document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
+      const subtitle = dialog.querySelector('#folder-dialog-subtitle');
+      subtitle.hidden = moving || Boolean(button.dataset.id) || button.dataset.smart !== 'true';
+      if (subtitle.hidden) dialog.removeAttribute('aria-describedby');
+      else dialog.setAttribute('aria-describedby', subtitle.id);
       dialog.querySelector('.folder-form-error').textContent = '';
       dialog.showModal();
       (moving ? folderForm.elements.parent : folderForm.elements.name).focus();

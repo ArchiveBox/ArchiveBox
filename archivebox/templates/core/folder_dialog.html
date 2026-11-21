@@ -1,5 +1,5 @@
 <dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form data-delete-url="{% url 'admin:core_folder_remove' %}" data-rules-url="{% url 'admin:core_folder_rules' %}" method="post" action="{% url 'admin:core_folder_save' %}">{% csrf_token %}
-  <div class="folder-dialog-heading"><h2 id="folder-dialog-title">New folder</h2><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
+  <div class="folder-dialog-heading"><div class="folder-dialog-heading-copy"><h2 id="folder-dialog-title">New folder</h2><p id="folder-dialog-subtitle" class="folder-dialog-subtitle" hidden>Automatically updates based on the rules you define below.</p></div><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
   <input type="hidden" name="folder_id" value="">
   <div class="folder-main-fields">
     <div class="folder-name-field"><label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required autocomplete="off"></div>

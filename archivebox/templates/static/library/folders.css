@@ -168,6 +168,8 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog.has-rules{width:min(1040px,calc(100vw - 24px))}
 #folder-dialog .folder-dialog-heading{min-height:28px;gap:12px}
 #folder-dialog .folder-dialog-heading h2{font-size:18px;line-height:24px;padding:0}
+.folder-dialog-heading-copy{display:flex;flex:1 1 0;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0}
+#folder-dialog .folder-dialog-subtitle{margin:0}
 #folder-dialog input:not([type=hidden]),#folder-dialog select{height:36px;line-height:20px;padding:7px 8px}
 .folder-location{display:grid;grid-template-columns:minmax(0,2fr) minmax(120px,1fr);gap:12px}
 #folder-dialog .rule-condition input,#folder-dialog .rule-condition select{line-height:20px;padding:6px 8px}
