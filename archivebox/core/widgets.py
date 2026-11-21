@@ -2,13 +2,14 @@ __package__ = "archivebox.core"
 
 import json
 import re
-import hashlib
 from django import forms
 from django.db.models.manager import BaseManager
 from django.db.models.query import QuerySet
 from django.template.loader import render_to_string
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
+
+from archivebox.core.tag_colors import tag_color_style
 
 
 class ScheduleWidget(forms.TextInput):
@@ -71,16 +72,6 @@ class TagEditorWidget(forms.Widget):
             },
         )
 
-    def _tag_style(self, value):
-        """Compute a stable pastel color style for a tag value."""
-        tag = (value or "").strip().lower()
-        digest = hashlib.md5(tag.encode("utf-8")).hexdigest()
-        hue = int(digest[:4], 16) % 360
-        bg = f"hsl({hue}, 70%, 92%)"
-        border = f"hsl({hue}, 60%, 82%)"
-        fg = f"hsl({hue}, 35%, 28%)"
-        return f"--tag-bg: {bg}; --tag-border: {border}; --tag-fg: {fg};"
-
     def render(self, name, value, attrs=None, renderer=None):
         """
         Render the tag editor widget.
@@ -131,7 +122,7 @@ class TagEditorWidget(forms.Widget):
         pills_html = ""
         for tag in tags:
             pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(tag)}" style="{self._tag_style(tag)}">
+                <span class="tag-pill" data-tag="{self._escape(tag)}" style="{tag_color_style(tag)}">
                     {self._escape(tag)}
                     <button type="button" class="tag-remove-btn" data-tag-name="{self._escape(tag)}">&times;</button>
                 </span>
@@ -214,25 +205,6 @@ class TagEditorWidget(forms.Widget):
                 }}
                 setTags_{widget_id}(hiddenInput.value, {{ skipHiddenUpdate: true }});
             }};
-
-            function computeTagStyle_{widget_id}(tagName) {{
-                var hash = 0;
-                var name = String(tagName || '').toLowerCase();
-                for (var i = 0; i < name.length; i++) {{
-                    hash = (hash * 31 + name.charCodeAt(i)) % 360;
-                }}
-                var bg = 'hsl(' + hash + ', 70%, 92%)';
-                var border = 'hsl(' + hash + ', 60%, 82%)';
-                var fg = 'hsl(' + hash + ', 35%, 28%)';
-                return {{ bg: bg, border: border, fg: fg }};
-            }}
-
-            function applyTagStyle_{widget_id}(el, tagName) {{
-                var colors = computeTagStyle_{widget_id}(tagName);
-                el.style.setProperty('--tag-bg', colors.bg);
-                el.style.setProperty('--tag-border', colors.border);
-                el.style.setProperty('--tag-fg', colors.fg);
-            }}
 
             function getApiKey() {{
                 return (window.ARCHIVEBOX_API_KEY || '').trim();
@@ -328,7 +300,7 @@ class TagEditorWidget(forms.Widget):
                     var pill = document.createElement('span');
                     pill.className = 'tag-pill';
                     pill.setAttribute('data-tag', tag);
-                    applyTagStyle_{widget_id}(pill, tag);
+                    window.applyArchiveBoxTagColor(pill, tag);
 
                     var tagText = document.createTextNode(tag);
                     pill.appendChild(tagText);
@@ -785,7 +757,7 @@ class InlineTagEditorWidget(TagEditorWidget):
                     f'data-tag-id="{td["id"]}" data-tag-name="{self._escape(td["name"])}">&times;</button>'
                 )
             pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(td["name"])}" data-tag-id="{td["id"]}" style="{self._tag_style(td["name"])}">
+                <span class="tag-pill" data-tag="{self._escape(td["name"])}" data-tag-id="{td["id"]}" style="{tag_color_style(td["name"])}">
                     <a href="/admin/core/snapshot/?tags__id__exact={td["id"]}" class="tag-link" title="{self._escape(td["name"])}">{self._escape(td["name"])}</a>
                     {remove_button}
                 </span>

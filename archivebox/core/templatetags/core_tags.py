@@ -17,6 +17,7 @@ from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
 from archivebox.core.permissions import render_permission_icon
+from archivebox.core.tag_colors import tag_color_style
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
@@ -818,7 +819,9 @@ def snapshot_index_row(context, link) -> str:
     title_text = title or url
     tags_str = link.tags_str() if callable(getattr(link, "tags_str", None)) else getattr(link, "tags_str", "")
     tag_html = "".join(
-        f'<span class="snapshot-tag" title="{escape(tag)}">{escape(tag)}</span>' for tag in (tags_str or "").split(",") if tag
+        f'<span class="snapshot-tag" style="{tag_color_style(tag)}" title="{escape(tag)}">{escape(tag)}</span>'
+        for tag in (tags_str or "").split(",")
+        if tag
     )
     if tag_html:
         tag_cell = f'<span class="snapshot-tags">{tag_html}</span>'

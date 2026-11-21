@@ -2315,9 +2315,6 @@ tbody .output-link:hover {opacity: 1;}
         gap: 4px;
     }
     .model-snapshot.change-list #result_list tbody td.field-tags_inline .tag-pill {
-        background: #f0f3f5 !important;
-        border: 0 !important;
-        color: #4a5966 !important;
         border-radius: 3px;
         padding: 1px 5px;
         font: 11px/1.4 var(--font-family-primary);
@@ -2598,9 +2595,6 @@ tbody .output-link:hover {opacity: 1;}
 .model-snapshot.change-list .cards .tag-pill {
     flex: 0 0 auto;
     max-width: 180px;
-    background: #f0f3f5 !important;
-    border: 0 !important;
-    color: #4a5966 !important;
     border-radius: 3px;
     padding: 1px 5px;
     font: 11px/1.4 var(--font-family-primary);
@@ -2661,11 +2655,11 @@ tbody .output-link:hover {opacity: 1;}
     overflow-wrap: anywhere;
 }
 
-#content .cards :is(.card-title a, .card-url, .card-date, .tag-link) {
+#content .cards :is(.card-title a, .card-url, .card-date) {
     text-decoration: none;
 }
 
-#content .cards :is(.card-title a, .card-url, .card-date, .tag-link):hover {
+#content .cards :is(.card-title a, .card-url, .card-date):hover {
     text-decoration: underline;
 }
 

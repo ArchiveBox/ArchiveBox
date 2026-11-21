@@ -692,7 +692,6 @@ select {
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.08);
   color: inherit;
-  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
