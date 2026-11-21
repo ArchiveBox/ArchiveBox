@@ -2317,6 +2317,8 @@ tbody .output-link:hover {opacity: 1;}
     .model-snapshot.change-list #result_list tbody td.field-tags_inline .tag-pill {
         border-radius: 3px;
         padding: 1px 5px;
+        /* Preserve the label inset now that the pill has a 1px border. */
+        padding-inline-start: 4px;
         font: 11px/1.4 var(--font-family-primary);
     }
     .model-snapshot.change-list #result_list tbody td.field-tags_inline .tag-link {

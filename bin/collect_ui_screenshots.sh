@@ -364,6 +364,7 @@ add_supplementary_template_capture() {
     # These are real all-plugin captures. The recipe only selects which output
     # to photograph, never which extractors run or which dependencies get saved.
     echo "[*] Capturing real $plugin_names source for template coverage"
+    local capture_started=$SECONDS
     if ! (
         cd "$DATA_DIR"
         uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$plugin_names" "$REPO_DIR" "$source_url" <<'PYCAPTURE'
@@ -386,7 +387,13 @@ PYCAPTURE
         cat "$capture_log" >&2
         exit 1
     fi
+    local timing_label=""
+    if [[ "$plugin_names" =~ ^[a-z0-9_]+(,[a-z0-9_]+)*$ ]]; then
+        timing_label="$plugin_names"
+        printf '[gallery-timing] recipe=%s stage=archivebox_add elapsed_s=%d\n' "$timing_label" "$((SECONDS - capture_started))" >&2 || :
+    fi
     stop_background_runner
+    local discovery_started=$SECONDS
 
     local snapshot_record
     snapshot_record="$( (
@@ -460,6 +467,11 @@ for output in recipe.get("outputs", []):
 PYVIEWS
         )
     done
+    local discovery_status=$?
+    if [[ -n "$timing_label" ]]; then
+        printf '[gallery-timing] recipe=%s stage=discovery_gate elapsed_s=%d\n' "$timing_label" "$((SECONDS - discovery_started))" >&2 || :
+    fi
+    return "$discovery_status"
 }
 
 if [[ -n "$PLUGIN_VIEWS" ]]; then

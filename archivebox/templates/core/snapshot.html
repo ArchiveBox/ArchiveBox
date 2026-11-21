@@ -542,7 +542,7 @@
             }
             /* A short header leaves spare viewport space; fill it rather than
                showing the viewer background below the selected output. */
-            #main-frame-wrapper > #main-frame { min-height: max(40dvh, 100%); }
+            #main-frame-wrapper > #main-frame:not([data-size-mode="content"]) { min-height: max(40dvh, 100%); }
             .full-page-wrapper {
                 width: 100%;
                 min-height: 0;
@@ -1872,6 +1872,7 @@
                 if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0 || !Number.isSafeInteger(Math.ceil(height))) return
                 // Only the selected isolated viewer can size its own browsing
                 // context; thumbnail and previously selected frames cannot.
+                frame.dataset.sizeMode = 'content'
                 frame.style.height = `${Math.ceil(height)}px`
                 frame.style.flex = '0 0 auto'
             })
