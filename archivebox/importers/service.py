@@ -329,8 +329,11 @@ def recover_interrupted() -> None:
     for run in ImporterRun.objects.filter(status=ImporterRun.Status.RUNNING).select_related("owner"):
         if run.owner is None or not run.owner.is_running:
             ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.RUNNING).update(
-                status=ImporterRun.Status.FAILED,
-                message=WORKER_INTERRUPTED_MESSAGE,
+                status=Case(When(cancel_requested=True, then=Value(ImporterRun.Status.CANCELLED)), default=Value(ImporterRun.Status.FAILED)),
+                message=Case(
+                    When(cancel_requested=True, then=Value("Importer cancelled. Progress was not advanced.")),
+                    default=Value(WORKER_INTERRUPTED_MESSAGE),
+                ),
                 finished_at=timezone.now(),
             )
 

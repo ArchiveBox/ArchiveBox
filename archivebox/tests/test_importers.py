@@ -1133,3 +1133,55 @@ def test_worker_stop_preserves_pending_page_and_restarts_from_last_committed_pag
     assert Crawl.objects.count() == 3
     source.refresh_from_db()
     assert source.enabled and source.next_run_at == next_run_at
+
+
+@pytest.mark.parametrize("paused", [True, False])
+def test_worker_recovery_preserves_explicit_pause(admin_client, import_site, paused):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterRun, ImporterSource
+    from archivebox.importers.service import recover_interrupted, run_next_importer
+
+    root, url = import_site
+    (root / "feed.xml").write_text(
+        "<rss version='2.0'><channel><title>Feed</title>"
+        + "".join(f"<item><guid>{i}</guid><title>Page {i}</title><link>{url}/{i}</link></item>" for i in range(2))
+        + "</channel></rss>",
+    )
+    assert admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Interrupted feed", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": 1, "schedule": "daily"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    ).status_code == 302
+    source = ImporterSource.objects.get(name="Interrupted feed")
+    assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    source.refresh_from_db()
+    checkpoint, next_run_at = source.checkpoint, source.next_run_at
+    assert checkpoint and source.enabled and next_run_at is not None
+
+    first, continuation = source.runs.order_by("created_at")
+    assert first.status == ImporterRun.Status.SUCCEEDED
+    assert continuation.status == ImporterRun.Status.QUEUED
+    assert continuation.request["checkpoint"] == checkpoint
+    # Recovery does not discard a continuation that was not claimed yet.
+    recover_interrupted()
+    continuation.refresh_from_db()
+    assert continuation.status == ImporterRun.Status.QUEUED
+    # Durable recovery input: the owner of an already-claimed run is gone.
+    ImporterRun.objects.filter(pk=continuation.pk).update(status=ImporterRun.Status.RUNNING, owner=None)
+    if paused:
+        assert admin_client.post(f"/admin/importers/{source.pk}/pause/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    recover_interrupted()
+
+    continuation.refresh_from_db()
+    source.refresh_from_db()
+    assert continuation.status == (ImporterRun.Status.CANCELLED if paused else ImporterRun.Status.FAILED)
+    assert ("cancelled" if paused else "worker stopped") in continuation.message.lower()
+    assert continuation.cancel_requested == paused
+    assert continuation.finished_at is not None
+    assert not continuation.items and continuation.crawl_id is None
+    assert source.checkpoint == checkpoint
+    assert source.enabled == (not paused)
+    assert source.next_run_at == (None if paused else next_run_at)
+    assert source.runs.count() == 2 and Crawl.objects.count() == 1
+    assert not run_next_importer()
