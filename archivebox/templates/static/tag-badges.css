@@ -1,0 +1,22 @@
+/* Keep the native button's text label, but center the visual cross without font metrics. */
+.tag-remove-btn {
+    position: relative;
+    font-size: 0;
+}
+
+.tag-remove-btn::before,
+.tag-remove-btn::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: currentColor;
+    content: "";
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.tag-remove-btn::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}

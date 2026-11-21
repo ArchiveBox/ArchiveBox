@@ -15,6 +15,7 @@
     {% if not can_override_crawl_config %}{% include 'plugins/config_quantity.html' %}{% endif %}
     <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}" />
     <link rel="stylesheet" href="{% static 'add.css' %}?v=subgrid-2" />
+    <link rel="stylesheet" href="{% static 'tag-badges.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" />
     <script src="{% static 'tag-colors.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
     {% if can_override_crawl_config %}
     <link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" />

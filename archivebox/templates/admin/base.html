@@ -12,6 +12,7 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+        <link rel="stylesheet" href="{% static 'tag-badges.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" />
         <script src="{% static 'tag-colors.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
         {% api_token as api_token %}
         <script>
@@ -1462,8 +1463,6 @@
                 border: 1px solid rgba(15, 23, 42, 0.12);
                 border-radius: 50%;
                 color: inherit;
-                font-size: 14px;
-                font-weight: 600;
                 line-height: 1;
                 cursor: pointer;
                 opacity: 0.7;
@@ -1536,7 +1535,6 @@
                 flex-shrink: 0;
                 width: 14px;
                 height: 14px;
-                font-size: 12px;
             }
 
             #content .tag-editor-inline input.tag-inline-input-sm {
