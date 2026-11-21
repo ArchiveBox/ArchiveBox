@@ -17,6 +17,7 @@ PUBLIC_LANES = {
     "documents": ("calendar", "liteparse", "opendataloader", "podcast_archiver"),
     "parsers": ("parse_jsonl_urls", "parse_netscape_urls", "parse_rss_urls", "sourcemaps"),
     "web": ("forumdl", "gallerydl"),
+    "browser-automation": ("playwright", "puppeteer"),
 }
 PUBLIC_OWNERS = {plugin: lane for lane, plugins in PUBLIC_LANES.items() for plugin in plugins}
 EXTRA_VIEWS = {"caddl": ("Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)")}

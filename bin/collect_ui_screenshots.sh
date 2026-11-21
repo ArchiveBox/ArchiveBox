@@ -402,6 +402,20 @@ PYCAPTURE
 
     local snapshot_id snapshot_view_url snapshot_view_path
     IFS=$'\t' read -r snapshot_id snapshot_view_url snapshot_view_path <<<"$snapshot_record"
+    # The two automation recipes reuse the generic screenshot preview. A
+    # screenshot alone cannot show that the native interaction script ran.
+    if [[ "$plugin_names" == playwright || "$plugin_names" == puppeteer ]]; then
+        if ! (
+            cd "$DATA_DIR"
+            UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_AUTOMATION_PLUGIN="$plugin_names" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                    'import os; from archivebox.core.models import ArchiveResult; raise SystemExit(not ArchiveResult.objects.filter(snapshot_id=os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], plugin=os.environ["UI_SCREENSHOT_AUTOMATION_PLUGIN"], status=ArchiveResult.StatusChoices.SUCCEEDED).exists())'
+        ); then
+            echo "[!] The $plugin_names script did not succeed for the snapshot with the screenshot preview" >&2
+            cat "$capture_log" >&2
+            exit 1
+        fi
+    fi
     local discovery_report="$CAPTURE_ROOT/${plugin_names}-output-discovery.json"
     NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
         CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
