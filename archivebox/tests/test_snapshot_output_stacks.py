@@ -1434,6 +1434,13 @@ def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, li
                 assert actions["x"] + actions["width"] <= captures["x"]
                 assert captures["x"] + captures["width"] <= width
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                header = page.locator(".header-top").bounding_box()
+                toggle = page.get_by_role("button", name="Toggle saved outputs").bounding_box()
+                assert abs(toggle["x"] + toggle["width"] - header["x"] - header["width"]) <= 1
+                assert toggle["width"] == 32
+                if width <= 600:
+                    assert toggle["y"] == header["y"]
+                    assert toggle["height"] == header["height"]
 
         browser.close()
 

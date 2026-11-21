@@ -4434,6 +4434,22 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
     #content #changelist #changelist-form .actions .action-buttons { width: 100% !important; }
     #content #changelist #changelist-form .actions .action-buttons > * { flex: 1 1 calc(50% - 6px); }
     #content #changelist #changelist-form .actions .action-buttons .button { width: 100%; }
+
+    /* The real select covers the flex item; keep its visible label inside it. */
+    #content #changelist #changelist-form .actions .action-buttons > .action-folder-wrapper,
+    #content #changelist #changelist-form .actions .action-folder-wrapper > .button {
+        min-width: 0;
+    }
+    #content #changelist #changelist-form .actions .action-folder-wrapper > .button > .action-folder-label {
+        flex: 0 1 auto;
+        width: auto;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #content #changelist #changelist-form .actions .action-folder-wrapper > .button > [aria-hidden] {
+        flex: none;
+    }
 }
 
 /* The standalone tag creator is separate from the selected-row action form. */

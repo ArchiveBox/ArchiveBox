@@ -28,6 +28,78 @@ from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_h
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_live_progress_keeps_surviving_snapshot_cards_after_adjacent_rows_finish(live_server, browser_runtime, admin_user, crawl):
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import urlsplit
+
+    from django.db import connections
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    origin = f"http://admin.archivebox.localhost:{port}"
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    now = timezone.now()
+    Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED, modified_at=now)
+    snapshots = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                crawl=crawl,
+                url=f"https://example.com/queued/{index}",
+                status=Snapshot.StatusChoices.QUEUED,
+                timestamp=str(now.timestamp() + index),
+            )
+            for index in range(5)
+        ],
+    )
+    snapshots.sort(key=lambda snapshot: snapshot.id)
+    deleted = [snapshot.id for snapshot in snapshots[1:3]]
+    surviving = [str(snapshot.id) for snapshot in snapshots[:1] + snapshots[3:]]
+
+    def seal_finished_snapshots():
+        try:
+            return Snapshot.objects.filter(pk__in=deleted).update(status=Snapshot.StatusChoices.SEALED, retry_at=None)
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=1) as writer, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page(viewport={"width": 440, "height": 670})
+        page.goto(f"{origin}/admin/login/?next=/admin/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        toggle = page.locator("#progress-collapse")
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+        rows = page.locator("#crawl-tree .snapshot-item[data-snapshot-id]")
+        expect(rows).to_have_count(5)
+        row_list = rows.first.locator("..")
+        assert row_list.evaluate("el => [...el.childNodes].some(node => node.nodeType === Node.TEXT_NODE && !node.textContent.trim())")
+        original_rows = [
+            page.locator(f'#crawl-tree .snapshot-item[data-snapshot-id="{snapshot_id}"]').element_handle() for snapshot_id in surviving
+        ]
+
+        assert writer.submit(seal_finished_snapshots).result(timeout=10) == 2
+
+        expect(rows).to_have_count(3)
+        assert rows.evaluate_all("cards => cards.map(card => card.dataset.snapshotId)") == surviving
+        assert row_list.evaluate("el => [...el.childNodes].every(node => node.nodeType !== Node.TEXT_NODE || !node.textContent.trim())")
+        assert all(row.evaluate("el => el.isConnected") for row in original_rows)
+        expect(rows.locator(".snapshot-queued-icon")).to_have_count(3)
+        expect(rows.locator(".status-badge.queued")).to_have_count(3)
+        expect(rows.locator(".cancel-item-btn")).to_have_count(3)
+        browser.close()
+
+
 @pytest.fixture
 def live_screenshot_command(snapshot, live_server, cached_abxpkg_lib_dir, tmp_path):
     from urllib.parse import urlsplit

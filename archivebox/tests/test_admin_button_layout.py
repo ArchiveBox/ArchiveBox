@@ -31,7 +31,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         page.get_by_role("button", name="Log in", exact=True).click()
         page.goto(base + "/admin/core/snapshot/")
         page.locator("input.action-select").first.check()
-        for width in (1280, 390):
+        for width in (1280, 390, 320):
             page.set_viewport_size({"width": width, "height": 900})
             buttons = page.locator(".actions-top .action-buttons .button")
             expect(buttons.first).to_be_visible()
@@ -43,9 +43,19 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             expect(folder_select).to_be_visible()
             assert folder_select.evaluate("node => getComputedStyle(node).opacity") == "0"
             folder_box = folder_select.bounding_box()
-            move_box = page.locator(".action-folder-wrapper > .button").bounding_box()
-            assert abs(folder_box["x"] - move_box["x"]) < 1
-            assert abs(folder_box["width"] - move_box["width"]) < 1
+            move_button = page.locator(".action-folder-wrapper > .button")
+            move_box = move_button.bounding_box()
+            for dimension in ("x", "y", "width", "height"):
+                assert abs(folder_box[dimension] - move_box[dimension]) < 1
+            assert move_button.evaluate("""node => {
+                const box = node.getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const parts = [...range.getClientRects()].filter(part => part.width && part.height);
+                return parts.length >= 3 && parts.every(part =>
+                    part.left >= box.left - 1 && part.right <= box.right + 1 &&
+                    part.top >= box.top - 1 && part.bottom <= box.bottom + 1);
+            }""")
             folder_select.focus()
             page.keyboard.press("Escape")
             page.get_by_role("combobox", name="Permissions", exact=True).focus()
@@ -59,7 +69,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             for control in buttons.all():
                 box = control.bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1
-                if width == 390:
+                if width <= 390:
                     assert box["height"] >= 44, control.evaluate(
                         "node => ({html:node.outerHTML,min:getComputedStyle(node).minHeight,height:getComputedStyle(node).height,box:getComputedStyle(node).boxSizing})",
                     )
@@ -143,7 +153,8 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
     machine.save(update_fields=["config"])
     snapshot = Snapshot.objects.create(url="https://example.com/folder-menu", crawl=crawl)
-    folder = Folder.objects.create(name="Reading")
+    parent = Folder.objects.create(name="2026")
+    folder = Folder.objects.create(name="OneTab", parent=parent)
     base = live_server.url.replace("localhost", "admin.archivebox.localhost")
 
     def current_folder_id():
@@ -157,7 +168,7 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
 
     with ThreadPoolExecutor(max_workers=1) as reader, sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
-        page = browser.new_page(viewport={"width": 940, "height": 700})
+        page = browser.new_page(viewport={"width": 390, "height": 700})
         page.goto(base + "/admin/login/")
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
@@ -168,6 +179,7 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
             checkbox.check()
             menu = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(menu).to_be_visible()
+            expect(menu.locator(f'option[value="{folder.pk}"]')).to_have_text("2026 / OneTab")
             assert menu.evaluate("node => node.selectedIndex") == -1
             menu.focus()
             page.keyboard.press("Escape")

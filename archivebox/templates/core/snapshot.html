@@ -386,7 +386,7 @@
             /* WKWebView can report a desktop-sized layout viewport while the
                actual iPhone screen is narrow. Use the native phone marker for
                the same row arrangement when container queries miss it. */
-            html.archivebox-ios-phone .header-top { display: grid; grid-template-columns: minmax(0, 1fr) 32px; column-gap: 6px; }
+            html.archivebox-ios-phone .header-top { display: grid; grid-template-columns: minmax(0, 1fr) 32px; column-gap: 6px; padding-right: 0 !important; }
             html.archivebox-ios-phone .header-top > .header-toggle { position: static; width: auto; min-height: 44px; margin-block: -5px; }
             html.archivebox-ios-phone .header-top .header-title-text { flex: 0 1 auto; max-width: 50%; }
             html.archivebox-ios-phone .header-top .header-tags { --snapshot-header-mobile-tags: 1; flex: 1 1 0; max-width: none; }

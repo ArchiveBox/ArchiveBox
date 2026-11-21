@@ -31,7 +31,7 @@
                     <option value="{{ folder_value }}">{{ folder_label }}</option>
                   {% endfor %}
                 </select>
-                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}Move to folder <span aria-hidden="true">▾</span></span>
+                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}<span class="action-folder-label">Move to folder</span><span aria-hidden="true">▾</span></span>
               </span>
             {% elif value == 'merge_tags' %}
               <button type="button" class="button" data-tag-merge-open aria-haspopup="dialog" disabled>Merge Tags</button>

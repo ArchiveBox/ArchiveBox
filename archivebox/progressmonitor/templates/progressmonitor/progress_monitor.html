@@ -1,7 +1,8 @@
 <style>
     /* Progress Monitor Container */
     #progress-monitor {
-        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        --progress-surface: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        background: var(--progress-surface);
         color: #c9d1d9;
         font-family: var(--font-family-primary);
         font-size: 12px;
@@ -30,7 +31,8 @@
         align-items: center;
         gap: 8px;
         padding: 8px 16px;
-        background: rgba(0,0,0,0.2);
+        /* Keep the sticky controls readable over bright live previews. */
+        background: var(--progress-surface);
         border-bottom: 1px solid #30363d;
         position: sticky;
         top: 0;
@@ -1211,22 +1213,28 @@
     function reconcileProgressChildren(current, next) {
         let position = 0;
         const nextNodes = Array.from(next.childNodes);
-        for (const nextChild of nextNodes) {
-            let child = current.childNodes[position];
+        while (position < nextNodes.length) {
+            const nextChild = nextNodes[position];
+            const child = current.childNodes[position];
             if (!child) {
                 current.appendChild(nextChild);
             } else if (sameProgressNode(child, nextChild)) {
                 reconcileProgressNode(child, nextChild);
             } else {
                 const laterNext = nextNodes.slice(position + 1);
-                if (laterNext.some(node => sameProgressNode(child, node))) {
+                const neededLater = laterNext.some(node => sameProgressNode(child, node));
+                const separator = child.nodeType === Node.TEXT_NODE && !child.textContent.trim();
+                const hasLaterMatch = (!neededLater || separator)
+                    && Array.from(current.childNodes).slice(position + 1).some(node => sameProgressNode(node, nextChild));
+                if (neededLater && !hasLaterMatch) {
                     // A new optional node (such as a favicon) precedes the old
                     // one. Insert it without detaching the old loaded image.
                     current.insertBefore(nextChild, child);
-                } else if (Array.from(current.childNodes).slice(position + 1).some(node => sameProgressNode(node, nextChild))) {
-                    // The old optional node disappeared; remove only that node.
+                } else if (hasLaterMatch) {
+                    // Remove the obsolete node and retry this position. Whitespace
+                    // or another keyed row may still precede the matching node.
                     child.remove();
-                    reconcileProgressNode(current.childNodes[position], nextChild);
+                    continue;
                 } else {
                     child.replaceWith(nextChild);
                 }
