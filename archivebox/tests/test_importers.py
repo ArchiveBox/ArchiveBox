@@ -1147,11 +1147,14 @@ def test_worker_recovery_preserves_explicit_pause(admin_client, import_site, pau
         + "".join(f"<item><guid>{i}</guid><title>Page {i}</title><link>{url}/{i}</link></item>" for i in range(2))
         + "</channel></rss>",
     )
-    assert admin_client.post(
-        "/admin/importers/new/importer_rss/feed/",
-        {"name": "Interrupted feed", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": 1, "schedule": "daily"},
-        HTTP_HOST=ADMIN_TEST_HOST,
-    ).status_code == 302
+    assert (
+        admin_client.post(
+            "/admin/importers/new/importer_rss/feed/",
+            {"name": "Interrupted feed", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": 1, "schedule": "daily"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        ).status_code
+        == 302
+    )
     source = ImporterSource.objects.get(name="Interrupted feed")
     assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
     assert run_next_importer()
