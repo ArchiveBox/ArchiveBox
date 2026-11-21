@@ -1440,6 +1440,12 @@
                 text-decoration: none;
             }
 
+            #result_list .tag-pill:has(> .tag-remove-btn) > a.tag-link {
+                /* The text ink sits below its centered line box beside the geometric ×. */
+                position: relative;
+                top: -1px;
+            }
+
             #result_list .tag-pill a.tag-link:hover,
             .tag-pill a.tag-link:hover {
                 filter: brightness(0.75);
