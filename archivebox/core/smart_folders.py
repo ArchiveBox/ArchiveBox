@@ -94,6 +94,7 @@ def field_spec(name, field):
         "type": kind,
         "operators": lookups,
         "choices": list(field.flatchoices) if field.choices else [],
+        "related_model": descriptor.related_model._meta.label_lower if descriptor.is_relation else None,
         "units": list(UNITS) if kind == "number" and ("bytes" in str(field.help_text).lower() or name.endswith("_size")) else [],
     }
 

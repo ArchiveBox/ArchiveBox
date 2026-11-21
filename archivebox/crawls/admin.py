@@ -1238,7 +1238,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
             },
         ),
         (
-            "Crawls",
+            "Crawl Jobs",
             {
                 "fields": ("crawls",),
                 "classes": ("card", "wide"),
@@ -1306,7 +1306,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
-            return tuple(fieldset for fieldset in self.fieldsets if fieldset[0] not in {"Crawls", "Snapshots"})
+            return tuple(fieldset for fieldset in self.fieldsets if fieldset[0] not in {"Crawl Jobs", "Snapshots"})
         return self.fieldsets
 
     def save_model(self, request, obj, form, change):
@@ -1318,7 +1318,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     def template_str(self, obj):
         return format_html('<a href="{}">{}</a>', obj.template.admin_change_url, obj.template)
 
-    @admin.display(description="# Crawls", ordering="crawl_count")
+    @admin.display(description="# Crawl Jobs", ordering="crawl_count")
     def num_crawls(self, obj):
         count = obj.__dict__.get("crawl_count")
         if count is None:
@@ -1332,12 +1332,13 @@ class CrawlScheduleAdmin(BaseModelAdmin):
             count = Snapshot.objects.filter(crawl__schedule=obj).count()
         return count
 
+    @admin.display(description="Crawl Jobs")
     def crawls(self, obj):
         return format_html_join(
             "<br/>",
             ' - <a href="{}">{}</a>',
             ((crawl.admin_change_url, crawl) for crawl in obj.crawl_set.all().order_by("-created_at")[:20]),
-        ) or mark_safe("<i>No Crawls yet...</i>")
+        ) or mark_safe("<i>No Crawl Jobs yet...</i>")
 
     def snapshots(self, obj):
         crawl_ids = obj.crawl_set.values_list("pk", flat=True)

@@ -2058,7 +2058,7 @@
         }
         document.getElementById('orchestrator-text').textContent = `${count(data.snapshots_active)} - ${count(data.snapshots_queued)} queued${queueEta}`;
         const status = document.getElementById('metric-status');
-        status.title = `${hasWorkers ? 'Running' : data.orchestrator_running ? 'Idle' : 'Runner stopped'}. Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
+        status.title = `${hasWorkers ? 'Running' : data.orchestrator_running ? 'Idle' : 'Runner stopped'}. Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawl Jobs: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
         metricBadge('indexing', `Indexing ${count(data.indexing_active)}${data.indexing_queued ? ` · ${count(data.indexing_queued)} queued` : ''}`,
             `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);

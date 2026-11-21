@@ -224,8 +224,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         ModelWithQueue.Meta,
     ):
         app_label = "crawls"
-        verbose_name = "Crawl"
-        verbose_name_plural = "Crawls"
+        verbose_name = "Crawl Job"
+        verbose_name_plural = "Crawl Jobs"
         indexes = [
             models.Index(fields=["-created_at", "-retry_at", "-id"], name="crawl_admin_order_idx"),
             models.Index(fields=["status", "-modified_at"], name="crawl_progress_status_idx"),

@@ -32,8 +32,9 @@ class TestCrawlScheduleAdmin:
 
         assert get_response.status_code == 200
         assert b"Schedule Info" in get_response.content
+        assert re.search(rb"<h2[^>]*>\s*Crawl Jobs\s*</h2>", get_response.content)
         assert get_response.content.count(b'class="admin-autocomplete"') == 2
-        assert b"No Crawls yet..." not in get_response.content
+        assert b"No Crawl Jobs yet..." not in get_response.content
         assert b"No Snapshots yet..." not in get_response.content
 
         from django.db import connection
@@ -87,6 +88,7 @@ class TestCrawlScheduleAdmin:
 
         assert response.status_code == 200
         assert b"Daily crawl" in response.content
+        assert b"# Crawl Jobs" in response.content
 
     def test_crawlschedule_counts_use_indexed_subqueries(self, admin_client, admin_user):
         from django.db import connection
@@ -793,3 +795,35 @@ def test_crawl_admin_prioritizes_running_before_pagination(admin_client, admin_u
     assert [row.pk for row in second.context["cl"].result_list] == expected[50:]
     filtered = admin_client.get(url, {"q": "priority-test", "status__exact": Crawl.StatusChoices.QUEUED}, HTTP_HOST=ADMIN_TEST_HOST)
     assert [row.pk for row in filtered.context["cl"].result_list] == [seeded[2].pk]
+
+
+def test_crawl_job_display_names_preserve_admin_routes(admin_client):
+    from django.apps import apps
+
+    from archivebox.crawls.models import CrawlSchedule
+
+    assert Crawl._meta.verbose_name == "Crawl Job"
+    assert Crawl._meta.verbose_name_plural == "Crawl Jobs"
+    assert Crawl._meta.label == "crawls.Crawl"
+    assert Crawl._meta.db_table == "crawls_crawl"
+    assert CrawlSchedule._meta.verbose_name_plural == "Scheduled Crawls"
+    assert apps.get_app_config("crawls").verbose_name == "Crawl Jobs"
+
+    admin_url = reverse("admin:index")
+    list_url = reverse("admin:crawls_crawl_changelist")
+    schedule_url = reverse("admin:crawls_crawlschedule_changelist")
+    assert list_url == "/admin/crawls/crawl/"
+    assert schedule_url == "/admin/crawls/crawlschedule/"
+
+    dashboard = admin_client.get(admin_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert dashboard.status_code == 200
+    assert re.search(rb'class="abx-admin-card__title">\s*Crawl Jobs\s*</strong>', dashboard.content)
+    assert re.search(rb'class="abx-admin-card__title">\s*Scheduled Crawls\s*</strong>', dashboard.content)
+
+    crawl_list = admin_client.get(list_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert crawl_list.status_code == 200
+    assert crawl_list.context_data["title"] == "Select Crawl Job to change"
+
+    schedule_list = admin_client.get(schedule_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert schedule_list.status_code == 200
+    assert schedule_list.context_data["title"] == "Select Scheduled Crawl to change"

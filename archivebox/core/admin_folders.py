@@ -1,12 +1,14 @@
 import json
 from contextlib import contextmanager
+from html import unescape
 from time import monotonic
 
 from django import forms
+from django.apps import apps
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connections, OperationalError, router, transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -34,6 +36,20 @@ def _preview_query_budget(using):
             with connection.cursor() as cursor:
                 cursor.execute("SET LOCAL statement_timeout = '200ms'")
             yield
+
+
+# Only human-facing models with deliberately safe labels/search fields can be
+# browsed here. Keep historical predicates on other relations readable/editable
+# structurally without publishing join rows, processes, import jobs or Rules.
+RELATED_CHOICES = {
+    "auth.user": ("username",),
+    "core.folder": ("name",),
+    "core.tag": ("name",),
+    "crawls.crawl": ("label", "created_at"),
+    "crawls.crawlschedule": ("label", "schedule"),
+    "personas.persona": ("name",),
+}
+RELATED_LOOKUPS = {"exact", "not_exact", "in", "not_in"}
 
 
 class FolderForm(forms.ModelForm):
@@ -167,6 +183,51 @@ class FolderAdmin(admin.ModelAdmin):
             for folder in folders:
                 folder.delete()
 
+    def _rule_related_admin(self, request, model_label):
+        if model_label not in RELATED_CHOICES:
+            return None
+        model = apps.get_model(model_label)
+        if not self.admin_site.is_registered(model):
+            return None
+        related_admin = self.admin_site.get_model_admin(model)
+        return related_admin if related_admin.has_view_or_change_permission(request) else None
+
+    def _rule_related_values(self, request, model_label, related_admin, *, query=None, selected=()):
+        fields = RELATED_CHOICES[model_label]
+        queryset = related_admin.get_queryset(request).order_by()
+        if query is None:
+            pk = queryset.model._meta.pk
+            cleaned = []
+            for value in selected[:100]:
+                try:
+                    cleaned.append(pk.to_python(value))
+                except (ValidationError, ValueError, TypeError):
+                    continue
+            queryset = queryset.filter(pk__in=cleaned)
+        elif model_label == "core.tag":
+            from archivebox.core.tag_util import get_matching_tags
+
+            matches = get_matching_tags(query).order_by().values("pk")
+            queryset = queryset.filter(pk__in=matches).order_by("name", "pk")
+        else:
+            search = Q(**{f"{fields[0]}__icontains": query})
+            if model_label == "crawls.crawlschedule":
+                search |= Q(schedule__icontains=query)
+            queryset = queryset.filter(search).order_by(fields[0], "pk")
+
+        choices = []
+        for obj in queryset[: 100 if query is None else 20]:
+            if not related_admin.has_view_or_change_permission(request, obj):
+                continue
+            label = str(getattr(obj, fields[0]) or "")
+            if model_label == "crawls.crawl":
+                date = obj.created_at.strftime("%Y-%m-%d %H:%M") if obj.created_at else ""
+                label = " · ".join(part for part in (label or "Crawl", date) if part)
+            elif model_label == "crawls.crawlschedule":
+                label = " · ".join(part for part in (label, obj.schedule) if part)
+            choices.append({"id": obj.pk, "name": unescape(label)})
+        return choices
+
     def rule_schema(self, request):
         from archivebox.core.smart_folders import RuleQuery, OPERATORS
 
@@ -176,11 +237,51 @@ class FolderAdmin(admin.ModelAdmin):
             return HttpResponseNotAllowed(["GET", "POST"])
         if not self.has_view_or_change_permission(request):
             raise PermissionDenied
+        fields = RuleQuery.schema()
+        # Derive targets from existing RuleQuery paths, never from a model name
+        # supplied by the browser. Related ModelAdmin scoping still applies.
+        model_admins = {}
+        for label in {field.get("related_model") for field in fields}:
+            if related_admin := self._rule_related_admin(request, label):
+                model_admins[label] = related_admin
+        if path := request.GET.get("related_field"):
+            field = next((field for field in fields if field["name"] == path), None)
+            label = field.get("related_model") if field else None
+            if label not in model_admins:
+                raise PermissionDenied
+            query = request.GET.get("q", "").strip()[:100]
+            return JsonResponse({"choices": self._rule_related_values(request, label, model_admins[label], query=query)})
+
         folders = Folder.tree()
         current = next((folder for folder in folders if str(folder.pk) == request.GET.get("folder_id")), None)
+        if current and not self.has_view_or_change_permission(request, current):
+            raise PermissionDenied
+        # One query per relation type for saved selections, not one per chip.
+        relations = {field["name"]: field["related_model"] for field in fields if field.get("related_model") in model_admins}
+        saved = {}
+        pending = [current.rules] if current and current.rules else []
+        for _ in range(100):
+            if not pending:
+                break
+            node = pending.pop()
+            if not isinstance(node, dict):
+                continue
+            if isinstance(node.get("rules"), list):
+                pending.extend(node["rules"][:2])
+            elif node.get("lookup") in RELATED_LOOKUPS and (label := relations.get(node.get("field"))):
+                value = node.get("value")
+                saved.setdefault(label, []).extend(value[:100] if isinstance(value, list) else [value])
+        selected = {
+            label: self._rule_related_values(
+                request, label, model_admins[label], selected=list(dict.fromkeys(str(value) for value in values))
+            )
+            for label, values in saved.items()
+        }
         return JsonResponse(
             {
-                "fields": RuleQuery.schema(),
+                "fields": fields,
+                "related_selected": selected,
+                "related_fields": relations,
                 "sort_fields": RuleQuery.sort_fields(),
                 "operators": OPERATORS,
                 "folders": [{"id": str(pk), "name": label} for pk, label in Folder.path_choices(folders)],

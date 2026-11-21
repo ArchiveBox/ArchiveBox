@@ -5,6 +5,7 @@ class CrawlsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "archivebox.crawls"
     label = "crawls"
+    verbose_name = "Crawl Jobs"
 
     def ready(self):
         from abx_plugins.plugins.base.django import register_webhooks

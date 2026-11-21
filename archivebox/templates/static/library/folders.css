@@ -197,6 +197,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 
 .rule-actions{display:flex;justify-content:flex-end;gap:2px;align-items:center}
 .rule-value{min-width:0}.rule-value:empty{display:none}
+.rule-relation-value{display:grid;gap:4px}.rule-relation-value .tag-pills:empty{display:none}.rule-relation-value .tag-pill{max-width:100%;overflow-wrap:anywhere}.rule-legacy-value{font-size:12px;color:var(--body-quiet-color)}
 .rule-group-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0}
 #folder-dialog .rule-group-heading select{width:96px;height:28px;padding:3px 6px;font-size:11px;line-height:20px}
 .rule-group-heading .rule-actions{margin-left:auto}

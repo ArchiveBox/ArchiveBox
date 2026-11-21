@@ -115,6 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let limit = savedLimit ?? '', sort = savedSort || '-created_at';
       let rules = normalize(schema.rules ? predicate : {op:'AND', rules:[defaultRule()]});
       const specs = new Map(schema.fields.map(field => [field.name, field]));
+      const relationLookups = new Set(['exact', 'in', 'isnull', 'present']);
+      const labels = new Map(Object.entries(schema.related_selected || {}).map(([model, choices]) =>
+        [model, new Map(choices.map(choice => [String(choice.id), choice.name]))]));
       const unavailable = new Set(schema.unavailable_parents);
       [...folderForm.elements.parent.options].forEach(option => option.disabled=unavailable.has(option.value));
       smart ||= schema.rules !== null;
@@ -158,6 +161,97 @@ document.addEventListener('DOMContentLoaded', () => {
         control.addEventListener('input', () => {change(control.value); serialize();});
         return control;
       }
+      function renderRelatedValues(row, node, model) {
+        const multiple = node.lookup === 'in';
+        const selected = multiple ? (Array.isArray(node.value) ? node.value.slice() : []) : (node.value == null ? [] : [node.value]);
+        if (!labels.has(model)) labels.set(model, new Map());
+        const known = labels.get(model);
+        const chips = element('div', 'tag-pills');
+        const search = element('input');
+        search.type = 'search';
+        search.placeholder = 'Find an existing value…';
+        search.setAttribute('aria-label', 'Find an existing value');
+        search.autocomplete = 'off';
+        const choices = element('select');
+        choices.setAttribute('aria-label', 'Choose an existing value');
+        choices.hidden = true;
+        let available = new Map();
+        let timer, controller;
+        function sync() {
+          chips.replaceChildren();
+          for (const id of selected) {
+            const name = known.get(String(id)) || 'Unavailable selection';
+            const chip = element('span', 'tag-pill', name);
+            if (known.has(String(id)) && typeof window.applyArchiveBoxTagColor === 'function' && model === 'core.tag') {
+              window.applyArchiveBoxTagColor(chip, name);
+            }
+            const remove = button('×', () => {
+              selected.splice(selected.indexOf(id), 1);
+              sync();
+            }, 'tag-remove-btn');
+            remove.setAttribute('aria-label', 'Remove ' + name);
+            chip.append(remove);
+            chips.append(chip);
+          }
+          search.setCustomValidity(selected.length ? '' : 'Choose an existing value.');
+          node.value = multiple ? selected.slice() : (selected[0] ?? null);
+          serialize();
+        }
+        function show(results, emptyLabel = 'No matches') {
+          available = new Map(results.filter(item => !selected.some(id => String(id) === String(item.id)))
+            .map(item => [String(item.id), item]));
+          choices.replaceChildren(new Option(available.size ? 'Select a result…' : emptyLabel, ''));
+          for (const [key, item] of available) choices.add(new Option(item.name, key));
+          choices.hidden = false;
+        }
+        function find() {
+          window.clearTimeout(timer);
+          controller?.abort();
+          const query = search.value.trim();
+          show([], 'Searching…');
+          timer = window.setTimeout(async () => {
+            const request = new AbortController();
+            controller = request;
+            try {
+              const url = new URL(folderForm.dataset.rulesUrl, location.href);
+              url.searchParams.set('related_field', node.field);
+              url.searchParams.set('q', query);
+              const response = await fetch(url, {credentials:'same-origin', signal:request.signal});
+              if (!response.ok) throw new Error('Lookup failed');
+              const payload = await response.json();
+              if (!request.signal.aborted && search.isConnected) show(payload.choices);
+            } catch (error) {
+              if (!request.signal.aborted && search.isConnected) show([], 'Could not load choices');
+            }
+          }, 140);
+        }
+        search.addEventListener('focus', find);
+        search.addEventListener('input', find);
+        search.addEventListener('keydown', event => {
+          if (event.key === 'ArrowDown' && !choices.hidden) {
+            event.preventDefault();
+            choices.focus();
+          } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (!choices.hidden) choices.focus();
+          }
+        });
+        choices.addEventListener('change', () => {
+          const item = available.get(choices.value);
+          if (!item) return;
+          known.set(String(item.id), item.name);
+          if (multiple) selected.push(item.id);
+          else selected.splice(0, selected.length, item.id);
+          search.value = '';
+          choices.hidden = true;
+          sync();
+          search.focus();
+        });
+        row.classList.add('rule-relation-value');
+        row.append(chips, search, choices);
+        sync();
+      }
+
       function renderValue(row, node, spec) {
         if (['isnull','present'].includes(node.lookup)) return;
         if (spec.type === 'folder') {
@@ -165,6 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
           options.push(...schema.folders.map(folder => [folder.id, folder.name]));
           node.value ??= options[0][0];
           row.append(select(options, node.value, 'Folder', value => node.value=value));
+        } else if (spec.related_model) {
+          const model = schema.related_fields?.[spec.name];
+          if (model && ['exact', 'in'].includes(node.lookup)) renderRelatedValues(row, node, model);
+          else row.append(element('span', 'rule-legacy-value', 'Existing selection is not editable here.'));
         } else if (['in','not_in'].includes(node.lookup)) {
           row.append(input('text', Array.isArray(node.value) ? node.value.join(', ') : node.value, 'Values, separated by commas', value => node.value=value.split(',').map(part => part.trim())));
         } else if (node.lookup === 'past_days') {
@@ -228,11 +326,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           const spec=specs.get(item.field) || specs.get('url');
           row.append(select(schema.fields.map(field => [field.name,field.label]),item.field,'Field',value => {
-            item.field=value;item.lookup=specs.get(value).operators[0];item.value=null;render();
+            const next = specs.get(value);
+            item.field=value;
+            item.lookup=next.related_model && !schema.related_fields?.[value] ? 'present' : next.operators[0];
+            item.value=null;render();
           }));
           const polarity=select([['is','IS'],['not','IS NOT']],negated ? 'not' : 'is','Condition polarity',changePolarity);
           polarity.className='rule-polarity';row.append(polarity);
-          row.append(select(spec.operators.filter(op => !negatives[op]).map(op => [op,({exact:'equal to',icontains:'containing',istartswith:'starting with',iendswith:'ending with',in:'one of',isnull:'empty',present:'present',in_folder:'in folder',in_children:'in children of'})[op] || schema.operators[op].replace(/^is /,'')]),item.lookup,'Comparison',value => {
+          const operators = spec.operators.filter(op => !negatives[op] && (
+            !spec.related_model || op === item.lookup || (relationLookups.has(op) && (schema.related_fields?.[spec.name] || ['isnull', 'present'].includes(op)))
+          ));
+          row.append(select(operators.map(op => [op,({exact:'equal to',icontains:'containing',istartswith:'starting with',iendswith:'ending with',in:'one of',isnull:'empty',present:'present',in_folder:'in folder',in_children:'in children of'})[op] || schema.operators[op].replace(/^is /,'')]),item.lookup,'Comparison',value => {
             item.lookup=value;item.value=null;render();
           }));
           const value=element('div','rule-value');renderValue(value,item,spec);row.append(value);
