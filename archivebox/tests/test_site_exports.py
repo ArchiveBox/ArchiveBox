@@ -381,16 +381,17 @@ def test_domain_metadata_export_uses_shared_native_selection(admin_client, saved
 
     payload = {"action": "export", "domain": "news.ycombinator.com/newest", "export_format": format}
     response = admin_client.post("/admin/domains/actions/", payload, HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 200, response.content
+    assert response.status_code == 200, response.getvalue()
+    body = response.getvalue()
     if format == "rss":
         urls = [
             item.findtext("description").splitlines()[0].removeprefix("Original URL: ")
-            for item in ElementTree.fromstring(response.content).findall("channel/item")
+            for item in ElementTree.fromstring(body).findall("channel/item")
         ]
     elif format == "csv":
-        urls = [row["url"] for row in csv.DictReader(io.StringIO(response.content.decode()))]
+        urls = [row["url"] for row in csv.DictReader(io.StringIO(body.decode()))]
     else:
-        urls = [json.loads(line)["url"] for line in response.content.decode().splitlines()]
+        urls = [json.loads(line)["url"] for line in body.decode().splitlines()]
     assert urls == ["https://news.ycombinator.com/newest"]
     assert not Process.objects.filter(worker_type="site-export").exists()
 
