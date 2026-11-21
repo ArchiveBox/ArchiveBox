@@ -4361,7 +4361,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Build the one context used by both served and on-disk snapshot pages."""
         from archivebox.config.common import get_request_config
         from archivebox.core.permissions import discoverable_snapshots_queryset, get_snapshot_permissions, render_permission_icon
-        from archivebox.core.widgets import TagEditorWidget
+        from archivebox.core.tag_colors import tag_color_style
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
         from archivebox.plugins.discovery import get_snapshot_role_names
@@ -4553,7 +4553,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 or request.COOKIES.get("archivebox_admin_logged_in") == "1"
             ),
         )
-        tag_widget = TagEditorWidget()
         return {
             "id": str(self.id),
             "snapshot_id": str(self.id),
@@ -4598,7 +4597,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "loose_items": loose_items,
             "failed_items": failed_items,
             "can_delete_outputs": can_delete_outputs,
-            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
+            "title_tags": [{"name": tag.name, "style": tag_color_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
             "STATIC_EXPORT": static_export_dir is not None,
             "STATIC_EXPORT_DIR": static_export_dir,
         }

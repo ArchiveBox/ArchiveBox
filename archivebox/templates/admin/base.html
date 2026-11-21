@@ -12,6 +12,7 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+        <script src="{% static 'tag-colors.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
@@ -1432,13 +1433,20 @@
                 filter: brightness(0.98);
             }
 
+            #result_list .tag-pill a.tag-link,
             .tag-pill a.tag-link {
                 color: inherit;
                 text-decoration: none;
             }
 
+            #result_list .tag-pill a.tag-link:hover,
             .tag-pill a.tag-link:hover {
-                text-decoration: underline;
+                filter: brightness(0.75);
+            }
+
+            .tag-pill a.tag-link:focus-visible {
+                outline: 1px solid currentColor;
+                outline-offset: -1px;
             }
 
             /* Remove button on pills */

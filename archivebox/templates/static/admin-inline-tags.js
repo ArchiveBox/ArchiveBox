@@ -1,24 +1,4 @@
 (function() {
-    function computeTagStyle(tagName) {
-        var hash = 0;
-        var name = String(tagName || '').toLowerCase();
-        for (var i = 0; i < name.length; i++) {
-            hash = (hash * 31 + name.charCodeAt(i)) % 360;
-        }
-        return {
-            bg: 'hsl(' + hash + ', 70%, 92%)',
-            border: 'hsl(' + hash + ', 60%, 82%)',
-            fg: 'hsl(' + hash + ', 35%, 28%)'
-        };
-    }
-
-    function applyTagStyle(el, tagName) {
-        var colors = computeTagStyle(tagName);
-        el.style.setProperty('--tag-bg', colors.bg);
-        el.style.setProperty('--tag-border', colors.border);
-        el.style.setProperty('--tag-fg', colors.fg);
-    }
-
     function getApiKey() {
         return (window.ARCHIVEBOX_API_KEY || '').trim();
     }
@@ -79,7 +59,7 @@
             pill.className = 'tag-pill';
             pill.setAttribute('data-tag', td.name);
             pill.setAttribute('data-tag-id', td.id);
-            applyTagStyle(pill, td.name);
+            window.applyArchiveBoxTagColor(pill, td.name);
 
             var link = document.createElement('a');
             link.href = '/admin/core/snapshot/?tags__id__exact=' + td.id;
