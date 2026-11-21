@@ -51,12 +51,9 @@ def test_export_relationship_columns(client, api_headers, api_admin_user, format
     crawl = Crawl.objects.create(urls="https://example.com/", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/", folder=folder)
     response = client.get(f"/api/v1/core/snapshots/export/{format}", {"folder_id": str(folder.pk)}, **api_headers)
-    assert response.status_code == 200, response.content
-    rows = (
-        list(csv.DictReader(io.StringIO(response.content.decode())))
-        if format == "csv"
-        else [json.loads(line) for line in response.content.splitlines()]
-    )
+    assert response.status_code == 200
+    body = response.getvalue()
+    rows = list(csv.DictReader(io.StringIO(body.decode()))) if format == "csv" else [json.loads(line) for line in body.splitlines()]
     assert len(rows) == 1
     assert rows[0]["id"] == str(snapshot.pk)
     assert rows[0]["folder_id"] == str(folder.pk)

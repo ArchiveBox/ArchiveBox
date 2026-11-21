@@ -3680,11 +3680,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     }
 
     @classmethod
-    def serialize_record(cls, source, tags, *, jsonl=False):
+    def serialize_record(cls, source, tags, *, jsonl=False, include_private_fields=True):
         """Serialize shared metadata from a model or a projected database row.
 
         Legacy view exports retain tag arrays and omit private fields. JSONL
-        records retain comma-separated tags, redacted config, and notes.
+        records retain comma-separated tags, with redacted config and notes
+        unless only metadata was selected.
         """
         if isinstance(source, Mapping):
             value_at = source.__getitem__
@@ -3707,13 +3708,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         record["tags"] = tags if isinstance(tags, str) else sorted(tags)
         if jsonl:
             from archivebox.config import VERSION
-            from archivebox.config.common import redact_sensitive_config
 
             record = {"type": "Snapshot", "schema_version": VERSION, **record}
             if not isinstance(record["tags"], str):
                 record["tags"] = ",".join(record["tags"])
-            record["config"] = redact_sensitive_config(value_at("config"))
-            record["notes"] = value_at("notes")
+            if include_private_fields:
+                from archivebox.config.common import redact_sensitive_config
+
+                record["config"] = redact_sensitive_config(value_at("config"))
+                record["notes"] = value_at("notes")
         return record
 
     def to_json(self) -> dict:

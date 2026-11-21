@@ -266,3 +266,42 @@ def test_init_ignores_unrecognized_archive_directories(initialized_archive):
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_display_name_migration_records_without_sqlite_collection_scans(initialized_archive):
+    import sqlite3
+
+    db_path = initialized_archive / "index.sqlite3"
+    name = "0021_crawl_display_names"
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("DELETE FROM django_migrations WHERE app='crawls' AND name=?", (name,)).rowcount == 1
+        schema_before = db.execute("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").fetchall()
+    result = run_archivebox_cmd(["init", "--quick"], cwd=initialized_archive)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Pre-migration SQLite integrity_check" not in output
+    assert "Post-migration SQLite foreign_key_check" not in output
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM django_migrations WHERE app='crawls' AND name=?", (name,)).fetchone() == (1,)
+        assert db.execute("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").fetchall() == schema_before
+
+
+def test_mixed_display_and_schema_migration_keeps_sqlite_collection_scans(initialized_archive):
+    import sqlite3
+
+    db_path = initialized_archive / "index.sqlite3"
+    rollback = run_archivebox_cmd(["manage", "migrate", "crawls", "0019", "--noinput"], cwd=initialized_archive)
+    assert rollback.returncode == 0, rollback.stdout + rollback.stderr
+    with sqlite3.connect(db_path) as db:
+        assert "folder_id" not in {row[1] for row in db.execute("PRAGMA table_info(crawls_crawl)")}
+
+    result = run_archivebox_cmd(["init", "--quick"], cwd=initialized_archive)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Pre-migration SQLite integrity_check verified" in output
+    assert "Post-migration SQLite foreign_key_check verified" in output
+    with sqlite3.connect(db_path) as db:
+        assert "folder_id" in {row[1] for row in db.execute("PRAGMA table_info(crawls_crawl)")}
+        assert db.execute("SELECT COUNT(*) FROM django_migrations WHERE app='crawls' AND name='0021_crawl_display_names'").fetchone() == (
+            1,
+        )

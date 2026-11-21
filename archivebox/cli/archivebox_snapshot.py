@@ -44,10 +44,12 @@ SNAPSHOT_FILTER_TYPE_CHOICES = ("exact", "substring", "regex", "domain", "tag", 
 SNAPSHOT_LIST_CHUNK_SIZE = 5000
 
 
-def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
+def iter_snapshot_json(queryset: QuerySet, *, include_private_fields=True) -> Iterator[dict[str, object]]:
     from archivebox.core.models import Snapshot, SnapshotTag
 
-    fields = (*dict.fromkeys(Snapshot.SERIALIZED_FIELDS.values()), "config", "notes")
+    fields = tuple(dict.fromkeys(Snapshot.SERIALIZED_FIELDS.values()))
+    if include_private_fields:
+        fields += ("config", "notes")
     rows = queryset.values(*fields).iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE)
     while batch := list(islice(rows, SNAPSHOT_LIST_CHUNK_SIZE)):
         tags_by_snapshot = {row["id"]: [] for row in batch}
@@ -58,7 +60,7 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
             tags_by_snapshot[snapshot_id].append(tag_name)
 
         for row in batch:
-            yield Snapshot.serialize_record(row, tags_by_snapshot[row["id"]], jsonl=True)
+            yield Snapshot.serialize_record(row, tags_by_snapshot[row["id"]], jsonl=True, include_private_fields=include_private_fields)
 
 
 # =============================================================================

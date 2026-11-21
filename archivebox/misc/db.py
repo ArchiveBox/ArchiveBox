@@ -696,6 +696,56 @@ def pending_migrations(out_dir: Path = CONSTANTS.DATA_DIR) -> list[str]:
     return pending
 
 
+def _record_label_only_migrations() -> list[str]:
+    """Only skip SQLite collection scans for proven display-name-only plans."""
+    from django.db import connection
+    from django.db.migrations import AlterModelOptions, Migration
+    from django.db.migrations.executor import MigrationExecutor
+
+    if connection.vendor != "sqlite":
+        return []
+    executor = MigrationExecutor(connection)
+    if executor.loader.detect_conflicts():
+        return []
+    targets = executor.loader.graph.leaf_nodes()
+    plan = executor.migration_plan(targets)
+    if not plan or any(
+        backwards
+        or migration.replaces
+        or type(migration).apply is not Migration.apply
+        or type(migration).mutate_state is not Migration.mutate_state
+        or not migration.operations
+        or any(type(operation) is not AlterModelOptions for operation in migration.operations)
+        for migration, backwards in plan
+    ):
+        return []
+
+    executor.loader.check_consistent_history(connection)
+    # Use the same applied-state builder as Django's migrate(), not state
+    # reconstructed from the current models or from unapplied dependencies.
+    applied_state = executor._create_project_state(with_applied_migrations=True)
+    trial_state = applied_state.clone()
+    labels = {"verbose_name", "verbose_name_plural"}
+
+    def non_label_options(options):
+        return {key: value for key, value in options.items() if key not in labels}
+
+    for migration, _ in plan:
+        for operation in migration.operations:
+            key = migration.app_label, operation.name_lower
+            before = non_label_options(trial_state.models[key].options)
+            operation.state_forwards(migration.app_label, trial_state)
+            # AlterModelOptions can remove old options not present in options;
+            # inspect the real change rather than trusting the input keys.
+            if before != non_label_options(trial_state.models[key].options):
+                return []
+
+    # Even a no-op schema editor runs a full SQLite foreign_key_check on
+    # exit. Record the exact checked Django plan without entering it.
+    executor.migrate(targets, plan=plan, state=applied_state, fake=True)
+    return [f"Recorded {migration.app_label}.{migration.name} (display labels only)." for migration, _ in plan]
+
+
 @enforce_types
 def apply_migrations(
     out_dir: Path = CONSTANTS.DATA_DIR,
@@ -709,6 +759,8 @@ def apply_migrations(
     with migration_lock(stdout=stderr or stdout):
         if not pending_migrations():
             return []
+        if recorded := _record_label_only_migrations():
+            return recorded
 
         with checked_database_migration(stdout=stderr or stdout):
             output = stdout if stdout is not None else StringIO()

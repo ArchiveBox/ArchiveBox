@@ -152,7 +152,8 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
-    assert b"A paper" in response.content and b"Unfiled" not in response.content
+    body = response.getvalue()
+    assert b"A paper" in body and b"Unfiled" not in body
 
 
 def test_folder_cycles_rejected_and_deletion_preserves_snapshots(admin_client, admin_user):
@@ -210,10 +211,10 @@ def test_public_only_folder_feed_stays_public_even_with_admin_session(admin_clie
         )
     response = Client().get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.getvalue()).findall("./channel/item")] == ["public"]
     response = admin_client.get("/admin/core/snapshot/feed/", {"public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert [item.findtext("title") for item in ElementTree.fromstring(response.content).findall("./channel/item")] == ["public"]
+    assert [item.findtext("title") for item in ElementTree.fromstring(response.getvalue()).findall("./channel/item")] == ["public"]
 
 
 def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_user):
@@ -239,7 +240,7 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 200
-    items = ElementTree.fromstring(response.content).findall("./channel/item")
+    items = ElementTree.fromstring(response.getvalue()).findall("./channel/item")
     assert [item.findtext("title") for item in items] == [matching.title]
 
 
@@ -292,12 +293,12 @@ def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token
     endpoint = "/admin/core/snapshot/feed/"
     public_response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST)
     assert public_response.status_code == 200
-    assert ElementTree.fromstring(public_response.content).findall("./channel/item") == []
+    assert ElementTree.fromstring(public_response.getvalue()).findall("./channel/item") == []
     response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST, HTTP_AUTHORIZATION=f"Bearer {api_token.token}")
     assert response.status_code == 200
     assert response["Cache-Control"].find("no-store") >= 0
     assert response["Referrer-Policy"] == "no-referrer"
-    items = ElementTree.fromstring(response.content).findall("./channel/item")
+    items = ElementTree.fromstring(response.getvalue()).findall("./channel/item")
     assert [item.findtext("guid") for item in items] == [str(first.pk)]
     second = Snapshot.objects.create(
         url="https://news.ycombinator.com/newest",
@@ -309,8 +310,9 @@ def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token
     second.tags.add(tag)
     response = client.get(endpoint, {**query, "api_key": api_token.token, "p": "999"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert api_token.token.encode() not in response.content
-    assert {item.findtext("guid") for item in ElementTree.fromstring(response.content).findall("./channel/item")} == {
+    body = response.getvalue()
+    assert api_token.token.encode() not in body
+    assert {item.findtext("guid") for item in ElementTree.fromstring(body).findall("./channel/item")} == {
         str(first.pk),
         str(second.pk),
     }
@@ -375,7 +377,7 @@ def test_native_list_downloads_are_complete_and_public_only_when_requested(admin
         assert response.status_code == 200
         assert "no-store" in response["Cache-Control"]
         assert response["Content-Disposition"] == f'attachment; filename="snapshots.{format}"'
-        content = response.content.decode()
+        content = response.getvalue().decode()
         assert "not-for-export" not in content and "private notes" not in content and api_token.token not in content
         return list(csv.DictReader(io.StringIO(content))) if format == "csv" else [json.loads(line) for line in content.splitlines()]
 

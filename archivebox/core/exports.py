@@ -4,12 +4,15 @@ import csv
 import hashlib
 import json
 import logging
+from asyncio import to_thread
 from copy import copy
 from pathlib import Path
+from tempfile import TemporaryFile
 
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import SuspiciousOperation, ValidationError
+from django.db.models import Prefetch
 from django.apps import apps
 from django.utils.dateparse import parse_datetime
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
@@ -275,8 +278,9 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
     from archivebox.cli.archivebox_snapshot import iter_snapshot_json
 
     if format == "rss":
-        from archivebox.api.v1_core import _snapshots_rss_response
+        from archivebox.api.v1_core import _snapshots_rss_response, _write_spooled_snapshots_rss
 
+        web_export = request is not None
         if request is None:
             from archivebox.config.common import get_config
             from urllib.parse import urlsplit
@@ -304,10 +308,11 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
         if public_only:
             request.GET["public_only"] = "1"
         # A crawl can hold megabytes of intake. Select only the fields needed
-        # by RSS (including archive_path_from_db), and prefetch tags in batches.
+        # by RSS (including archive_path_from_db). Web exports prefetch tags
+        # into lists so cached related QuerySets cannot retain completed batches.
         rss_snapshots = (
             snapshots.select_related("crawl__created_by")
-            .prefetch_related("tags")
+            .prefetch_related(Prefetch("tags", to_attr="_rss_export_tags") if web_export else "tags")
             .only(
                 "id",
                 "url",
@@ -324,20 +329,64 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
                 "crawl__created_by__username",
             )
         )
-        response = _snapshots_rss_response(request, snapshots=rss_snapshots.iterator(chunk_size=100))
-        output.write(response.content.decode())
+        rss_rows = rss_snapshots.iterator(chunk_size=100)
+        if web_export:
+            _write_spooled_snapshots_rss(request, snapshots=rss_rows, output=output)
+        else:
+            response = _snapshots_rss_response(request, snapshots=rss_rows)
+            output.write(response.content.decode())
         return
     if format not in {"csv", "jsonl"}:
         raise ValueError("Select RSS, CSV, or JSONL.")
     writer = csv.DictWriter(output, fieldnames=EXPORT_FIELDS) if format == "csv" else None
     if writer:
         writer.writeheader()
-    for record in iter_snapshot_json(snapshots):
+    # Web exports drop these fields below; do not fetch or serialize them.
+    for record in iter_snapshot_json(snapshots, include_private_fields=request is None):
         row = {field: record[field] for field in EXPORT_FIELDS}
         if writer:
             writer.writerow(row)
         else:
             output.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _snapshot_metadata_file(request, snapshots, format):
+    content_type = {
+        "csv": "text/csv; charset=utf-8",
+        "jsonl": "application/x-ndjson",
+        "rss": "application/rss+xml; charset=utf-8",
+    }[format]
+    filename = "" if format == "rss" else f"snapshots.{format}"
+    # Keep the generated body off the Python heap and finish the database read
+    # before sending headers. The anonymous tempfile is never a download path.
+    spool = TemporaryFile()
+    try:
+        if own_stream := getattr(request, "scope", {}).get("archivebox.own_response_stream"):
+
+            async def close_spool():
+                await to_thread(spool.close)
+
+            own_stream(close_spool)
+
+        with open(spool.fileno(), "w", encoding="utf-8", newline="", closefd=False) as output:
+            write_snapshot_metadata(snapshots, format, output, request=request)
+        if request.method == "HEAD":
+            response = HttpResponse(content_type=content_type, headers={"Content-Length": str(spool.tell())})
+            if filename:
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            spool.close()
+            return response
+
+        spool.seek(0)
+        response = FileResponse(spool, content_type=content_type, as_attachment=bool(filename), filename=filename)
+        if _is_asgi_request(request):
+            # FileResponse retains the closer, but Django ASGI must not buffer
+            # its default synchronous iterator into a list before sending it.
+            response.streaming_content = _stream_ranged_file_async(RangedFileReader(spool))
+        return response
+    except BaseException:
+        spool.close()
+        raise
 
 
 def _principal(request, *, session_authorized=False):
@@ -415,14 +464,7 @@ def snapshot_export_view(request, format="rss", *, api=False, session_authorized
     except (IncorrectLookupParameters, SuspiciousOperation, ValidationError, ValueError):
         return HttpResponseBadRequest("Invalid snapshot filters.")
     if format not in ARCHIVE_FORMATS:
-        response = HttpResponse(
-            content_type={"rss": "application/rss+xml; charset=utf-8", "csv": "text/csv; charset=utf-8", "jsonl": "application/x-ndjson"}[
-                format
-            ],
-        )
-        if format != "rss":
-            response["Content-Disposition"] = f'attachment; filename="snapshots.{format}"'
-        write_snapshot_metadata(snapshots, format, response, request=request)
+        response = _snapshot_metadata_file(request, snapshots, format)
         response["Referrer-Policy"] = "no-referrer"
         return response
     from archivebox.domains.export_service import export_jobs, launch_export

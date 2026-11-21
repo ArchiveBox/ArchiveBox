@@ -14,6 +14,7 @@ from archivebox.core.exports import EXPORT_FIELDS, write_snapshot_metadata
 from archivebox.core.models import Folder, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
+from archivebox.tests.conftest import ADMIN_TEST_HOST, API_TEST_HOST
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -154,10 +155,47 @@ def test_snapshot_rest_and_exports_share_relationship_metadata(serialized_snapsh
             {"crawl_id": str(snapshot.crawl_id)},
             **api_headers,
         )
-        assert response.status_code == 200, response.content
-        record = next(csv.DictReader(io.StringIO(response.content.decode()))) if format == "csv" else json.loads(response.content)
+        assert response.status_code == 200
+        body = response.getvalue()
+        record = next(csv.DictReader(io.StringIO(body.decode()))) if format == "csv" else json.loads(body)
         for field in ("folder_id", "folder_name", "persona_id", "persona_name", "created_by_id", "created_by_username"):
             value = expected[field]
             if format == "csv":
                 value = str(value) if value is not None else ""
             assert record[field] == value, field
+
+
+@pytest.mark.parametrize("format", ["csv", "jsonl"])
+def test_snapshot_metadata_http_exports_project_only_exported_fields(serialized_snapshot, client, admin_client, format):
+    snapshot = serialized_snapshot
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+
+    # Derive the exact legacy HTTP body without changing the backup record shape.
+    queryset = Snapshot.objects.filter(pk=snapshot.pk)
+    with CaptureQueriesContext(connection) as backup_queries:
+        backup_record = next(iter_snapshot_json(queryset))
+    assert backup_record["config"]["API_KEY"] == "********"
+    assert backup_record["notes"] == "Private notes"
+    assert any('"core_snapshot"."config"' in query["sql"] and '"core_snapshot"."notes"' in query["sql"] for query in backup_queries)
+    exported = {field: backup_record[field] for field in EXPORT_FIELDS}
+    expected = io.StringIO()
+    if format == "csv":
+        writer = csv.DictWriter(expected, fieldnames=EXPORT_FIELDS)
+        writer.writeheader()
+        writer.writerow(exported)
+    else:
+        expected.write(json.dumps(exported, ensure_ascii=False) + "\n")
+
+    for http_client, path, host in (
+        (client, f"/api/v1/core/snapshots/export/{format}", API_TEST_HOST),
+        (admin_client, f"/admin/core/snapshot/export.{format}", ADMIN_TEST_HOST),
+    ):
+        with CaptureQueriesContext(connection) as queries:
+            response = http_client.get(path, {"crawl_id": str(snapshot.crawl_id)}, HTTP_HOST=host)
+        assert response.status_code == 200
+        assert response.getvalue() == expected.getvalue().encode()
+        assert response["Content-Disposition"] == f'attachment; filename="snapshots.{format}"'
+        projections = [query["sql"].split(' FROM "core_snapshot"', 1)[0] for query in queries if ' FROM "core_snapshot"' in query["sql"]]
+        assert projections
+        assert all('"core_snapshot"."config"' not in sql and '"core_snapshot"."notes"' not in sql for sql in projections)

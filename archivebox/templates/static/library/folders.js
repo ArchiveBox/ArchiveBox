@@ -729,7 +729,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function fitTableTags() {
       frame = 0;
+      const dirty = rows.filter(row => !row.measure);
+      // Install all temporary measurement styles and probes before the first
+      // geometry read, so the header and natural pills share one layout.
+      const probes = dirty.length && title && tags ? prepareTagMeasurement(dirty) : [];
       if (!header?.getBoundingClientRect().height || !title || !tags) {
+        clearTagMeasurement(probes);
         table?.classList.remove('library-tag-fit');
         table?.style.removeProperty('--library-tags-width');
         rows.forEach(updateCompact);
@@ -738,9 +743,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const cap = Math.floor((title.getBoundingClientRect().width + tags.getBoundingClientRect().width) * 0.4);
       const headerDemand = label ? labelRange.getBoundingClientRect().width +
         spacing(label, ['paddingLeft', 'paddingRight']) + spacing(tags, ['paddingLeft', 'paddingRight']) : 0;
+      if (dirty.length) {
+        measureTags(dirty, probes);
+        clearTagMeasurement(probes);
+      }
       table.classList.add('library-tag-fit');
-      const dirty = rows.filter(row => !row.measure);
-      if (dirty.length) measureTags(dirty);
       const demand = Math.max(headerDemand, ...rows.map(row => row.measure.full));
       const width = Math.min(Math.ceil(demand), cap);
       const columnWidth = `${width}px`;
@@ -770,8 +777,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setCounter(row, widths.length, showAll ? widths.length : visible);
       }
     }
-    function measureTags(dirty) {
-      table.classList.add('library-tag-measuring');
+    function prepareTagMeasurement(dirty) {
+      table.classList.add('library-tag-fit', 'library-tag-measuring');
       for (const row of dirty) row.tags = Array.from(row.pills.querySelectorAll('.tag-pill'));
       // A shared probe per digit count measures the exact +N width. Reserving
       // +10 can hide a chip that fits beside +9.
@@ -783,7 +790,10 @@ document.addEventListener('DOMContentLoaded', () => {
         probe.textContent = `+${'1'.repeat(digits)}`;
         probes.push(probe);
       }
-      dirty[0].toggle.after(...probes);
+      if (probes.length) dirty[0].toggle.after(...probes);
+      return probes;
+    }
+    function measureTags(dirty, probes) {
       for (const probe of probes) counterWidths.push(probe.getBoundingClientRect().width);
       for (const row of dirty) {
         const widths = row.tags.map(pill => pill.getBoundingClientRect().width);
@@ -795,8 +805,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const full = widths.reduce((total, width, i) => total + width + (i ? pillGap : 0), fixed);
         row.measure = {widths, pillGap, editorGap, fixed, full};
       }
+    }
+    function clearTagMeasurement(probes) {
       probes.forEach(probe => probe.remove());
-      table.classList.remove('library-tag-measuring');
+      table?.classList.remove('library-tag-measuring');
     }
     function scheduleFit() {
       if (!frame) frame = requestAnimationFrame(fitTableTags);

@@ -21,11 +21,15 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def exported_ids(response, format):
+    return exported_body_ids(response.getvalue(), format)
+
+
+def exported_body_ids(body, format):
     if format == "rss":
-        return {item.findtext("guid") for item in ElementTree.fromstring(response.content).findall("./channel/item")}
+        return {item.findtext("guid") for item in ElementTree.fromstring(body).findall("./channel/item")}
     if format == "csv":
-        return {row["id"] for row in csv.DictReader(io.StringIO(response.content.decode()))}
-    return {json.loads(line)["id"] for line in response.content.splitlines()}
+        return {row["id"] for row in csv.DictReader(io.StringIO(body.decode()))}
+    return {json.loads(line)["id"] for line in body.splitlines()}
 
 
 @pytest.mark.parametrize("format", ["rss", "csv", "jsonl"])
@@ -75,11 +79,11 @@ def test_api_and_list_exports_share_selection_and_permissions(client, admin_clie
         (admin_client, web_url, {"HTTP_HOST": ADMIN_TEST_HOST}, {str(visible.pk), str(private.pk), str(unlisted.pk)}),
     ):
         response = http_client.get(url, query, **headers)
-        assert response.status_code == 200, response.content
+        assert response.status_code == 200
         assert exported_ids(response, format) == expected
         assert "no-store" in response["Cache-Control"]
     keyed = client.get(api_url, query, **api_headers)
-    assert keyed.status_code == 200, keyed.content
+    assert keyed.status_code == 200
     assert exported_ids(keyed, format) == {str(visible.pk), str(private.pk), str(unlisted.pk)}
     for http_client, url, headers in ((admin_client, web_url, {"HTTP_HOST": ADMIN_TEST_HOST}), (client, api_url, api_headers)):
         response = http_client.get(url, {**query, "public_only": "1"}, **headers)
@@ -229,7 +233,7 @@ def test_smart_folder_exports_keep_visibility_and_extra_filters(client, api_head
     assert folder.pk in visible and inbox.pk in visible and hidden.pk not in visible
     url = f"/api/v1/core/snapshots/export/{format}"
     response = client.get(url, {"folder": str(folder.pk)}, HTTP_HOST=API_TEST_HOST)
-    assert response.status_code == 200, response.content
+    assert response.status_code == 200
     assert exported_ids(response, format) == {str(public.pk)}
     response = client.get(url, {"folder": str(folder.pk)}, **api_headers)
     assert response.status_code == 200
@@ -312,14 +316,16 @@ def test_private_feed_url_uses_revocable_existing_key_and_public_feed_stays_publ
     external_reader = Client()
     feed = external_reader.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST)
     assert feed.status_code == 200
-    assert exported_ids(feed, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
-    assert key.encode() not in feed.content
+    body = feed.getvalue()
+    assert exported_body_ids(body, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
+    assert key.encode() not in body
     assert feed["Referrer-Policy"] == "no-referrer"
     for http_client in (admin_client, external_reader):
         public = http_client.get(urls["rss_public"], HTTP_HOST=ADMIN_TEST_HOST)
         assert public.status_code == 200
-        assert exported_ids(public, "rss") == {str(snapshots["public"].pk)}
-        assert b"public_only=1" in public.content
+        body = public.getvalue()
+        assert exported_body_ids(body, "rss") == {str(snapshots["public"].pk)}
+        assert b"public_only=1" in body
     token.delete()
     assert external_reader.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
 
@@ -529,8 +535,8 @@ def test_exports_preserve_admin_ordering_and_repeated_filters(admin_client, admi
     assert listing.status_code == 200
     expected = [str(snapshot.pk) for snapshot in listing.context["cl"].result_list]
     exported = admin_client.get(f"/admin/core/snapshot/export.jsonl?{query}", HTTP_HOST=ADMIN_TEST_HOST)
-    assert exported.status_code == 200, exported.content
-    assert [json.loads(line)["id"] for line in exported.content.splitlines()] == expected
+    assert exported.status_code == 200
+    assert [json.loads(line)["id"] for line in exported.getvalue().splitlines()] == expected
     assert set(expected) == {str(snapshot.pk) for snapshot in snapshots[1:]}
 
 
@@ -570,4 +576,4 @@ def test_exports_preserve_named_filter_last_value_and_invalid_status(admin_clien
     expected = [str(snapshot.pk) for snapshot in listing.context["cl"].result_list]
     exported = admin_client.get(f"/admin/core/snapshot/export.jsonl?{query}", HTTP_HOST=ADMIN_TEST_HOST)
     assert exported.status_code == 200
-    assert [json.loads(line)["id"] for line in exported.content.splitlines()] == expected == [str(snapshots[1].pk)]
+    assert [json.loads(line)["id"] for line in exported.getvalue().splitlines()] == expected == [str(snapshots[1].pk)]

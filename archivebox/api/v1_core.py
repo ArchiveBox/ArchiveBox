@@ -5,6 +5,9 @@ import json
 import mimetypes
 import re
 from html import unescape
+from functools import partial
+from shutil import copyfileobj
+from tempfile import TemporaryFile
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
 from uuid import UUID
@@ -24,6 +27,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.feedgenerator import Rss201rev2Feed
 from django.utils.http import content_disposition_header
+from django.utils.xmlutils import SimplerXMLGenerator
 
 from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, UploadedFile
 from ninja.pagination import paginate, PaginationBase
@@ -875,12 +879,36 @@ def _filter_snapshots_for_rss(
     return queryset.order_by("-bookmarked_at", "-created_at", "-id")[:limit]
 
 
-def _snapshots_rss_response(
-    request: HttpRequest,
-    *,
-    snapshots,
-    title: str = "ArchiveBox Snapshots",
-) -> HttpResponse:
+class _SpooledSnapshotRssFeed(Rss201rev2Feed):
+    """Keep one Django-generated item in memory while tracking the channel date."""
+
+    def __init__(self, output, items, **kwargs):
+        super().__init__(**kwargs)
+        self.output = output
+        self.item_file = items
+        self.item_xml = SimplerXMLGenerator(items, "utf-8", short_empty_elements=True)
+        self.latest_date = None
+
+    def add_item(self, *args, **kwargs):
+        super().add_item(*args, **kwargs)
+        for key in ("updateddate", "pubdate"):
+            date = self.items[0].get(key)
+            if date and (self.latest_date is None or date > self.latest_date):
+                self.latest_date = date
+        super().write_items(self.item_xml)
+        self.items.clear()
+
+    def latest_post_date(self):
+        return self.latest_date or super().latest_post_date()
+
+    def write_items(self, handler):
+        # The root elements have been written to the same UTF-8 text output;
+        # these are already escaped Django item fragments, not raw input.
+        self.item_file.seek(0)
+        copyfileobj(self.item_file, self.output, length=64 * 1024)
+
+
+def _snapshots_rss_feed(request, *, snapshots, title, feed_factory=Rss201rev2Feed):
     web_base_url = build_web_url("/", request=request).rstrip("/")
     from archivebox.core.exports import CREDENTIAL_PARAMETERS
 
@@ -891,7 +919,7 @@ def _snapshots_rss_response(
     feed_path = request.path
     feed_url = request.build_absolute_uri(f"{feed_path}?{feed_query.urlencode()}" if feed_query else feed_path)
 
-    feed = Rss201rev2Feed(
+    feed = feed_factory(
         title=title,
         link=build_web_url("/public/", request=request),
         description="Recently added ArchiveBox snapshots.",
@@ -901,7 +929,8 @@ def _snapshots_rss_response(
 
     for snapshot in snapshots:
         archived_url = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
-        tags = [tag.name for tag in snapshot.tags.all()]
+        rss_tags = getattr(snapshot, "_rss_export_tags", None)
+        tags = [tag.name for tag in (snapshot.tags.all() if rss_tags is None else rss_tags)]
         crawl_user = snapshot.crawl.created_by if snapshot.crawl_id else None
         description = f"Original URL: {snapshot.url}\nArchived snapshot: {archived_url}"
         feed.add_item(
@@ -916,7 +945,23 @@ def _snapshots_rss_response(
             categories=tags,
         )
 
+    return feed
+
+
+def _snapshots_rss_response(request: HttpRequest, *, snapshots, title: str = "ArchiveBox Snapshots") -> HttpResponse:
+    feed = _snapshots_rss_feed(request, snapshots=snapshots, title=title)
     return HttpResponse(feed.writeString("utf-8"), content_type="application/rss+xml; charset=utf-8")
+
+
+def _write_spooled_snapshots_rss(request, *, snapshots, output):
+    with TemporaryFile(mode="w+", encoding="utf-8", newline="") as items:
+        feed = _snapshots_rss_feed(
+            request,
+            snapshots=snapshots,
+            title="ArchiveBox Snapshots",
+            feed_factory=partial(_SpooledSnapshotRssFeed, output, items),
+        )
+        feed.write(output, "utf-8")
 
 
 class SnapshotFilterSchema(FilterSchema):
