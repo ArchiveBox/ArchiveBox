@@ -1872,7 +1872,8 @@
                 if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0 || !Number.isSafeInteger(Math.ceil(height))) return
                 // Only the selected isolated viewer can size its own browsing
                 // context; thumbnail and previously selected frames cannot.
-                frame.dataset.sizeMode = 'content'
+                // Generated file viewers opt in; saved HTML keeps the same viewport as replay preload.
+                frame.dataset.sizeMode = event.data.fitContent === true ? 'content' : 'viewport'
                 frame.style.height = `${Math.ceil(height)}px`
                 frame.style.flex = '0 0 auto'
             })

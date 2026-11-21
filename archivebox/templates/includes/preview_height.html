@@ -8,7 +8,7 @@
         const height = Math.ceil(document.body.getBoundingClientRect().height);
         if (height <= 0 || height === previousHeight) return;
         previousHeight = height;
-        parent.postMessage({type: 'archivebox-preview-height', height}, '*');
+        parent.postMessage({type: 'archivebox-preview-height', height, fitContent: true}, '*');
     };
     window.addEventListener('resize', reportHeight);
     const observer = new ResizeObserver(reportHeight);

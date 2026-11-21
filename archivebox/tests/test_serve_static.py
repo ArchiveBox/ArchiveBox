@@ -533,6 +533,37 @@ def test_path_routed_directory_index_keeps_file_browsing_context(tmp_path: Path)
     assert 'href="archivewebpage.wacz"' in nested_html
 
 
+def test_directory_preview_requests_content_fit_without_changing_saved_html(tmp_path: Path):
+    from archivebox.config.common import get_config
+
+    factory = RequestFactory()
+    source = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
+    (tmp_path / "singlefile.html").write_bytes(source.read_bytes())
+
+    directory = serve_static_with_byterange_support(
+        factory.get("/snapshot/snapshot-id/?files=1"),
+        "",
+        document_root=tmp_path,
+        show_indexes=True,
+    )
+    assert directory.status_code == 200
+    assert b"archivebox-preview-height" in directory.content
+    assert b"fitContent: true" in directory.content
+
+    request = factory.get("/singlefile.html?preview=1")
+    request.archivebox_snapshot_url = "https://example.com/"
+    request.archivebox_config = get_config(
+        overrides={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"},
+        include_machine=False,
+        resolve_plugins=False,
+    )
+    saved_html = serve_static_with_byterange_support(request, "singlefile.html", document_root=tmp_path)
+    assert saved_html.status_code == 200
+    assert b'title="Saved page"' in saved_html.content
+    assert b"archivebox-preview-height" in saved_html.content
+    assert b"fitContent" not in saved_html.content
+
+
 def test_raw_html_preview_shows_escaped_source_in_text_viewer(tmp_path: Path):
     source = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
     (tmp_path / source.name).write_bytes(source.read_bytes())
