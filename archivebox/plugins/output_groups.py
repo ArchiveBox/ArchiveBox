@@ -135,6 +135,8 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
         if group_id == "metadata":
             fallback = 14 if plugin.startswith("parse_") else 9
             return (group_order[group_id], _METADATA_OUTPUT_ORDER.get(plugin, fallback), *priority)
+        if group_id == "embedded_media":
+            return (group_order[group_id], plugin in {"responses", "liteparse"}, *priority)
         return (group_order[group_id], *priority)
 
     return sorted(outputs, key=sort_key)

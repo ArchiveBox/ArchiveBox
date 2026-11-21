@@ -1749,3 +1749,46 @@ def test_metadata_priority_matches_rendered_snapshot_and_file_piles(snapshot, ad
             if token.startswith("files-icon-plugin--")
         ]
         assert plugins == [preferred[0], *preferred]
+
+
+def test_specific_media_precedes_large_generic_responses(snapshot, admin_client):
+    from lxml.html import fromstring
+
+    for plugin, extra in (
+        ("responses", ("two.html", "three.html", "four.html", "five.html")),
+        ("forumdl", ()),
+        ("git", ("two.html",)),
+        ("ytdlp", ("two.html", "three.html")),
+        ("papersdl", ()),
+        ("liteparse", ()),
+    ):
+        save_output(snapshot, plugin, extra_files=extra)
+
+    outputs = snapshot.get_html_details_context()["archiveresults"]
+    expected = ["papersdl", "ytdlp", "git", "forumdl", "responses"]
+    assert [output["name"] for output in outputs if output["output_group"] == "embedded_media"] == expected
+    assert [output["name"] for output in outputs if output["output_group"] == "images"] == ["liteparse"]
+
+    response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    piles = fromstring(response.content).find_class("files-icon-pile--embedded_media")
+    assert len(piles) == 1
+    assert [
+        token.removeprefix("files-icon-plugin--")
+        for node in piles[0].iterdescendants()
+        for token in node.classes
+        if token.startswith("files-icon-plugin--")
+    ] == [expected[0], *expected]
+
+
+def test_generic_media_remains_last_even_with_explicit_presentation_rank():
+    from archivebox.plugins.output_groups import order_snapshot_outputs
+
+    outputs = order_snapshot_outputs(
+        [
+            {"name": "liteparse", "output_group": "embedded_media", "output_order": 0},
+            {"name": "responses", "output_group": "embedded_media", "output_order": 1},
+            {"name": "git", "output_group": "embedded_media", "output_order": 20},
+        ],
+    )
+    assert [output["name"] for output in outputs] == ["git", "liteparse", "responses"]
