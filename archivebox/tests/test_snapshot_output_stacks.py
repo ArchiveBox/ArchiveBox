@@ -1688,3 +1688,64 @@ def test_initial_preview_prefers_portable_outputs(snapshot, plugins, expected):
     context = snapshot.get_html_details_context()
     assert context["best_result"]["name"] == expected
     assert {output["name"] for output in context["archiveresults"]} == set(plugins)
+
+
+def test_metadata_priority_matches_rendered_snapshot_and_file_piles(snapshot, admin_client, settings):
+    from django.test import Client
+    from lxml.html import fromstring
+
+    from archivebox.tests.conftest import WEB_TEST_HOST
+
+    preferred = [
+        "chrome",
+        "dns",
+        "tlsnotary",
+        "sslcerts",
+        "headers",
+        "redirects",
+        "title",
+        "seo",
+        "accessibility",
+        "ssl",
+        "favicon",
+        "consolelog",
+        "parse_dom_outlinks",
+        "parse_html_urls",
+        "parse_txt_urls",
+        "parse_rss_urls",
+        "parse_jsonl_urls",
+        "hashes",
+        "opentimestamps",
+    ]
+    for plugin in reversed(preferred):
+        extra = ("second.html", "third.html") if plugin in {"opentimestamps", "ssl", "parse_rss_urls"} else ()
+        save_output(snapshot, plugin, extra_files=extra)
+    save_output(snapshot, "singlefile")
+    save_output(snapshot, "screenshot")
+    snapshot.permissions = "public"
+    snapshot.status = snapshot.StatusChoices.SEALED
+    snapshot.save()
+    settings.PUBLIC_INDEX = True
+
+    visitor = Client()
+    response = visitor.get(snapshot.get_absolute_url(), HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    detail = fromstring(response.content)
+    assert detail.xpath('//*[@data-output-group="metadata"]/@data-plugin-name') == [plugin for plugin in preferred if plugin != "favicon"]
+    assert detail.xpath('//*[@data-output-group="html"]/@data-plugin-name') == ["singlefile"]
+    assert detail.xpath('//*[@data-output-group="images"]/@data-plugin-name') == ["screenshot"]
+
+    for response in (
+        admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST),
+        visitor.get("/public/", HTTP_HOST=WEB_TEST_HOST),
+    ):
+        assert response.status_code == 200
+        piles = fromstring(response.content).find_class("files-icon-pile--metadata")
+        assert len(piles) == 1
+        plugins = [
+            token.removeprefix("files-icon-plugin--")
+            for node in piles[0].iterdescendants()
+            for token in node.classes
+            if token.startswith("files-icon-plugin--")
+        ]
+        assert plugins == [preferred[0], *preferred]

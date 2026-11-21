@@ -20,6 +20,27 @@ OUTPUT_GROUPS = (
 )
 
 
+# The Metadata stack tells the story of a capture, not the size of its files.
+# The gaps are the fallback buckets for other metadata and other parsers.
+_METADATA_OUTPUT_ORDER = {
+    "chrome": 0,
+    "dns": 1,
+    "tlsnotary": 2,
+    "sslcerts": 3,
+    "headers": 4,
+    "redirects": 5,
+    "title": 6,
+    "seo": 7,
+    "accessibility": 8,
+    "consolelog": 10,
+    "parse_dom_outlinks": 11,
+    "parse_html_urls": 12,
+    "parse_txt_urls": 13,
+    "hashes": 15,
+    "opentimestamps": 16,
+}
+
+
 def output_group_for_plugin(plugin: str) -> str:
     """Return the snapshot-detail stack that contains a plugin output."""
     item = get_plugin_catalog().get(get_plugin_name(plugin))
@@ -110,6 +131,10 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
             if group_id not in group_order:
                 group_id, rank = "other", None
         output["output_group"] = group_id
-        return (group_order[group_id], rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
+        priority = (rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
+        if group_id == "metadata":
+            fallback = 14 if plugin.startswith("parse_") else 9
+            return (group_order[group_id], _METADATA_OUTPUT_ORDER.get(plugin, fallback), *priority)
+        return (group_order[group_id], *priority)
 
     return sorted(outputs, key=sort_key)
