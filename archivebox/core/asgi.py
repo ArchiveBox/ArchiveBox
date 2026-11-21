@@ -11,7 +11,7 @@ from django.core.handlers.asgi import ASGIHandler
 
 from archivebox.config.django import setup_django
 from archivebox.core.replay_timing import ReplayPhaseObserver
-from archivebox.workers.request_activity import RequestActivityObserver
+from archivebox.workers.request_activity import RequestActivityObserver, bind_request_activity
 
 setup_django(check_db=True)
 
@@ -43,7 +43,10 @@ class ArchiveBoxASGIHandler(ASGIHandler):
             length = body_file.tell()
             body_file.seek(0)
             scope = {**scope, "headers": [*scope.get("headers", []), (b"content-length", str(length).encode("ascii"))]}
-        return super().create_request(scope, body_file)
+        request, error = super().create_request(scope, body_file)
+        if request is not None:
+            bind_request_activity(request)
+        return request, error
 
 
 django_application = ReplayPhaseObserver(ArchiveBoxASGIHandler())

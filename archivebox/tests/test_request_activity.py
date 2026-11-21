@@ -155,3 +155,92 @@ def test_real_progress_exact_route_activity(admin_client):
         assert sum(request_activity().values()) == 0
 
     asyncio.run(run())
+
+
+def test_real_admin_activity_samples_resolved_route_and_account_without_request_values(snapshot, admin_user, client, initialized_archive):
+    from django.conf import settings
+    from django.urls import reverse
+
+    from archivebox.core.asgi import application
+    from archivebox.tests.conftest import ADMIN_TEST_HOST
+    from archivebox.workers.request_activity import sampled_requests
+
+    client.force_login(admin_user)
+    cookie = client.cookies[settings.SESSION_COOKIE_NAME].output(header="").strip()
+    private_path = reverse("admin:core_snapshot_change", args=[snapshot.pk])
+    scope = {
+        **replay_scope(snapshot),
+        "path": private_path,
+        "raw_path": private_path.encode(),
+        "query_string": b"api_key=sensitive-test-query",
+        "headers": [(b"host", ADMIN_TEST_HOST.encode()), (b"cookie", cookie.encode()), (b"authorization", b"Bearer sensitive-test-header")],
+    }
+
+    async def run():
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"", "more_body": False})
+
+        async def send(message):
+            if message["type"] == "http.response.start":
+                assert message["status"] == 200
+                rows = sampled_requests()
+                assert rows == [
+                    {"route": "admin:core_snapshot_change", "method": "GET", "stage": "response_started", "actor": admin_user.pk},
+                ]
+                serialized = json.dumps(rows)
+                assert str(snapshot.pk) not in serialized
+                assert "sensitive-test" not in serialized
+                assert cookie not in serialized
+
+        await application(scope, incoming.get, send)
+        assert sampled_requests() == []
+
+    asyncio.run(run())
+
+
+def test_bounded_request_sample_keeps_oldest_pending_and_releases_on_close(snapshot):
+    from io import BytesIO
+    from weakref import ref
+
+    from archivebox.workers.request_activity import _Activity, _KEY, bind_request_activity, sampled_requests
+
+    scope = replay_scope(snapshot)
+    handler = ASGIHandler()
+    active = []
+    requests = []
+
+    def enter(family, method="GET"):
+        activity = _Activity(family)
+        active.append(activity)
+        request, error = handler.create_request({**scope, _KEY: activity, "method": method}, BytesIO())
+        assert error is None
+        requests.append(request)
+        bind_request_activity(request)
+        return activity
+
+    try:
+        enter("export", "POST")
+        for _ in range(62):
+            enter("admin")
+        finishing = enter("snapshot_replay")
+        finishing.change(stage="response_started")
+        enter("search")
+        for _ in range(4):
+            enter("opencode")
+
+        rows = sampled_requests()
+        assert len(rows) == 64
+        assert rows[0] == {"route": "export", "method": "POST", "stage": "pending", "actor": None}
+        assert rows[-1] == {"route": "search", "method": "GET", "stage": "pending", "actor": None}
+        assert {row["route"] for row in rows} == {"export", "admin", "search"}
+        assert sum(request_activity().values()) == 69
+
+        # This is a weak sample, even while an activity is still pending.
+        oldest_request = ref(requests.pop(0))
+        assert oldest_request() is None
+        assert all(row["route"] != "export" for row in sampled_requests())
+    finally:
+        for activity in active:
+            activity.close()
+    assert not sampled_requests()
+    assert sum(request_activity().values()) == 0

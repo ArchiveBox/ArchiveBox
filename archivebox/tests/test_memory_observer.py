@@ -35,6 +35,7 @@ def test_observer_real_process_growth_and_failure(mode):
             r" outer_families=original_replay:\d+,snapshot_replay:\d+,static:\d+,admin:\d+,search:\d+,opencode:\d+,other:\d+,unobserved:\d+,depth_limited:\d+"
         )
         pattern += r" pending_asgi=" + ",".join(re.escape(key) + r":\d+" for key in request_activity())
+        pattern += r" sampled_requests=\[\]"
         assert all(re.fullmatch(pattern, row) for row in rows[1:])
 
 
