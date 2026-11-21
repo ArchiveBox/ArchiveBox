@@ -469,3 +469,120 @@ def test_browser_append_to_full_root_preserves_existing_expression(live_server, 
         browser.close()
     folder.refresh_from_db()
     assert folder.rules == expected
+
+
+def test_smart_folder_preview_permissions_order_limits_and_no_writes(admin_client, admin_user, client, django_user_model):
+    import json
+    from django.contrib.auth.models import Permission
+    from django.urls import reverse
+    from archivebox.tests.conftest import ADMIN_TEST_HOST
+
+    route = reverse("admin:core_folder_rules")
+    host = {"HTTP_HOST": ADMIN_TEST_HOST}
+    crawl = Crawl.objects.create(urls="https://example.org/", created_by=admin_user)
+    for title in ("Zulu", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Eta"):
+        Snapshot.objects.create(url=f"https://example.org/{title}", title=title, crawl=crawl)
+    original = leaf("title", "exact", "Alpha")
+    folder = Folder.objects.create(name="Saved", rules=original)
+    proposed = {
+        **group("AND", leaf("url", "icontains", "example.org"), group("NOT", leaf("title", "exact", "Beta"))),
+        "sort": "-title",
+        "limit": 2,
+    }
+    data = {"folder_id": str(folder.pk), "rules": json.dumps(proposed)}
+    response = admin_client.post(route, data, **host)
+    assert response.status_code == 200, response.content
+    assert [row["title"] for row in response.json()["snapshots"]] == ["Zulu", "Gamma"]
+    folder.refresh_from_db()
+    assert folder.rules == original
+
+    folders_before = set(Folder.objects.values_list("pk", flat=True))
+    data = {"rules": json.dumps({**leaf("url", "icontains", "example.org"), "limit": 2000})}
+    assert len(admin_client.post(route, data, **host).json()["snapshots"]) == 6
+    assert set(Folder.objects.values_list("pk", flat=True)) == folders_before
+    assert admin_client.post(route, {"rules": "[]"}, **host).status_code == 400
+
+    staff = django_user_model.objects.create_user(username="folder-editor", is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(codename="add_folder"))
+    client.force_login(staff)
+    assert client.post(route, data, **host).status_code == 403
+    staff.user_permissions.add(Permission.objects.get(codename="view_snapshot"))
+    assert client.post(route, data, **host).status_code == 200
+    assert client.post(route, {**data, "folder_id": str(folder.pk)}, **host).status_code == 403
+
+
+@pytest.mark.django_db(transaction=True)
+def test_browser_smart_folder_preview_updates_without_saving(live_server, admin_user, request):
+    import os
+    from pathlib import Path
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    crawl = Crawl.objects.create(urls="https://example.org/", created_by=admin_user)
+    tag = Tag.objects.create(name="reading")
+    for domain, title, is_tagged in (
+        ("docs.example.org", "Designing resilient background jobs", True),
+        ("journal.example.org", "A practical guide to database indexes", True),
+        ("notes.example.org", "SQLite write-ahead logging in practice", True),
+        ("lab.example.org", "Browser performance measurements", False),
+    ):
+        snapshot = Snapshot.objects.create(url=f"https://{domain}/", title=title, crawl=crawl)
+        if is_tagged:
+            snapshot.tags.add(tag)
+    original = {**group("AND", leaf("url", "icontains", "example.org"), leaf("tags__name", "exact", "reading")), "limit": 5}
+    folder = Folder.objects.create(name="Reading list", rules=original)
+    with sync_playwright() as playwright:
+        exe = os.environ.get("ARCHIVEBOX_REVIEW_BROWSER")
+        runtime = request.getfixturevalue("browser_runtime") if not exe else None
+        browser = playwright.chromium.launch(
+            executable_path=exe or str(runtime["chrome_binary"]),
+            args=runtime["chrome_args"] if runtime else ["--disable-background-networking"],
+        )
+        page = browser.new_page(viewport={"width": 1440, "height": 960})
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        row = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
+        row.hover()
+        row.get_by_role("button", name="Actions for Reading list", exact=True).click()
+        row.get_by_role("menuitem", name="Rename", exact=True).click()
+        dialog = page.locator("#folder-dialog")
+        matches = dialog.locator(".folder-match")
+        expect(matches).to_have_count(3)
+        expect(dialog.get_by_role("heading", name="Rules", exact=True)).to_be_visible()
+        desktop = dialog.locator(".folder-rule-panel").bounding_box()
+        desktop_preview = dialog.locator(".folder-match-panel").bounding_box()
+        assert desktop["x"] + desktop["width"] < desktop_preview["x"]
+        option = dialog.get_by_label("Sort by", exact=True).bounding_box()
+        assert abs(dialog.get_by_label("Name", exact=True).bounding_box()["y"] - option["y"]) <= 1
+
+        if output := os.environ.get("ARCHIVEBOX_REVIEW_SCREENSHOTS"):
+            dialog.screenshot(path=Path(output) / "smart-folder-desktop.png")
+        page.set_viewport_size({"width": 390, "height": 844})
+        expect(matches).to_have_count(3)
+        mobile = dialog.locator(".folder-rule-panel").bounding_box()
+        mobile_preview = dialog.locator(".folder-match-panel").bounding_box()
+        assert mobile["y"] + mobile["height"] < mobile_preview["y"]
+        assert dialog.evaluate("(el) => el.scrollWidth <= el.clientWidth")
+        assert dialog.locator(".folder-rule-layout").evaluate("(el) => el.scrollWidth <= el.clientWidth")
+        if output:
+            page.set_viewport_size({"width": 390, "height": 1040})
+            dialog.screenshot(path=Path(output) / "smart-folder-mobile.png")
+            page.set_viewport_size({"width": 390, "height": 844})
+        dialog.get_by_label("Limit", exact=True).fill("1")
+        expect(matches).to_have_count(1)
+        dialog.get_by_label("Value", exact=True).last.fill("missing")
+        expect(dialog.get_by_text("No matching snapshots.")).to_be_visible()
+        dialog.get_by_label("Value", exact=True).last.fill("reading")
+        expect(matches).to_have_count(1)
+        dialog.get_by_role("button", name="Cancel").click()
+        expect(dialog).not_to_be_visible()
+        browser.close()
+    folder.refresh_from_db()
+    assert folder.rules == original

@@ -1,7 +1,11 @@
+import json
+from contextlib import contextmanager
+from time import monotonic
+
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import connections, OperationalError, router, transaction
 from django.db.models import Max
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
@@ -10,6 +14,26 @@ from django.urls import path
 
 from archivebox.core.models import Folder, Snapshot
 from archivebox.uuid_compat import compact_uuid
+
+
+@contextmanager
+def _preview_query_budget(using):
+    """Do not let a typed predicate or an unindexed sort monopolize the DB."""
+    connection = connections[using]
+    if connection.vendor == "sqlite":
+        connection.ensure_connection()
+        raw = connection.connection
+        deadline = monotonic() + 0.2
+        raw.set_progress_handler(lambda: int(monotonic() >= deadline), 1_000)
+        try:
+            yield
+        finally:
+            raw.set_progress_handler(None, 0)
+    else:
+        with transaction.atomic(using=using):
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL statement_timeout = '200ms'")
+            yield
 
 
 class FolderForm(forms.ModelForm):
@@ -146,6 +170,10 @@ class FolderAdmin(admin.ModelAdmin):
     def rule_schema(self, request):
         from archivebox.core.smart_folders import RuleQuery, OPERATORS
 
+        if request.method == "POST":
+            return self.preview_rules(request)
+        if request.method != "GET":
+            return HttpResponseNotAllowed(["GET", "POST"])
         if not self.has_view_or_change_permission(request):
             raise PermissionDenied
         folders = Folder.tree()
@@ -160,6 +188,71 @@ class FolderAdmin(admin.ModelAdmin):
                 "rules": current.rules if current else None,
                 "container": current.is_container if current else False,
                 "can_delete": bool(current and self.has_delete_permission(request, current)),
+            },
+        )
+
+    def preview_rules(self, request):
+        from archivebox.core.smart_folders import RuleQuery
+        from archivebox.misc.paginators import snapshot_page
+
+        snapshot_admin = self.admin_site.get_model_admin(Snapshot)
+        if not snapshot_admin.has_view_or_change_permission(request):
+            raise PermissionDenied
+        try:
+            raw_id = request.POST.get("folder_id")
+            folder_id = compact_uuid(raw_id) if raw_id else None
+            raw_parent = request.POST.get("parent")
+            parent_id = compact_uuid(raw_parent) if raw_parent else None
+            serialized = request.POST.get("rules", "")
+            if not 0 < len(serialized) <= 16_384:
+                raise ValueError
+            rules = json.loads(serialized)
+            if not isinstance(rules, dict) or not rules:
+                raise ValueError
+        except (ValueError, RecursionError):
+            return JsonResponse({"error": "Invalid rules."}, status=400)
+
+        folder = get_object_or_404(self.get_queryset(request), pk=folder_id) if folder_id else Folder(parent_id=parent_id)
+        allowed = self.has_change_permission(request, folder) if folder_id else self.has_add_permission(request)
+        if not allowed:
+            raise PermissionDenied
+        folder.rules = rules
+        using = router.db_for_read(Snapshot)
+        try:
+            with _preview_query_budget(using):
+                folders = {str(item.pk): item for item in self.get_queryset(request)}
+                folders[str(folder.pk)] = folder
+                validator = RuleQuery(folders.values(), validate=True)
+                validator.folder(folder.pk)
+                ordering = RuleQuery.ordering(folder)
+                # A top-six preview never needs to evaluate the proposed larger
+                # limit. Keep referenced folders' limits and ordering intact.
+                size = min(rules.get("limit", 6), 6)
+                folder.rules = {key: value for key, value in rules.items() if key != "limit"}
+                compiler = RuleQuery(folders.values())
+                base = Snapshot.objects.using(using)
+                matches = base.filter(compiler.folder(folder.pk)).order_by(*ordering)
+                ids = snapshot_page(
+                    matches.values_list("pk", flat=True),
+                    base_queryset=base.values_list("pk", flat=True),
+                    start=0,
+                    size=size,
+                )
+                rows = base.only("id", "title", "url", "created_at").in_bulk(ids)
+        except (TypeError, ValidationError) as error:
+            return JsonResponse({"error": " ".join(error.messages) if isinstance(error, ValidationError) else "Invalid rules."}, status=400)
+        except OperationalError as error:
+            cause = error.__cause__
+            if getattr(cause, "sqlite_errorcode", None) != 9 and getattr(cause, "sqlstate", None) != "57014":
+                raise
+            return JsonResponse({"error": "Preview timed out."}, status=503)
+        return JsonResponse(
+            {
+                "snapshots": [
+                    {"title": rows[pk].title_stripped, "domain": rows[pk].domain, "date": rows[pk].created_at.date().isoformat()}
+                    for pk in ids
+                    if pk in rows
+                ]
             },
         )
 

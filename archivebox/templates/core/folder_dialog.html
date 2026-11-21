@@ -1,11 +1,22 @@
 <dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form data-delete-url="{% url 'admin:core_folder_remove' %}" data-rules-url="{% url 'admin:core_folder_rules' %}" method="post" action="{% url 'admin:core_folder_save' %}">{% csrf_token %}
   <div class="folder-dialog-heading"><h2 id="folder-dialog-title">New folder</h2><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
   <input type="hidden" name="folder_id" value="">
-  <div class="folder-name-field"><label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required autocomplete="off"></div>
+  <div class="folder-main-fields">
+    <div class="folder-name-field"><label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required autocomplete="off"></div>
+    <div class="folder-options" hidden></div>
+  </div>
   <div class="folder-move-field" hidden><label for="folder-parent">Move to</label><select id="folder-parent" name="parent"><option value="">Top level</option>{% for folder_id, folder_label in folder_choices %}<option value="{{ folder_id }}">{{ folder_label }}</option>{% endfor %}</select></div>
   <input type="hidden" id="folder-kind" value="normal">
   <input type="hidden" name="rules" value="">
-  <div class="folder-rules" hidden></div>
-  <div class="folder-options" hidden></div>
+  <div class="folder-rule-layout" hidden>
+    <section class="folder-rule-panel" aria-labelledby="folder-rules-title">
+      <h3 id="folder-rules-title">Rules</h3>
+      <div class="folder-rules"></div>
+    </section>
+    <section class="folder-match-panel" aria-labelledby="folder-matches-title">
+      <h3 id="folder-matches-title">Matching snapshots</h3>
+      <div class="folder-matches" aria-live="polite"></div>
+    </section>
+  </div>
   <p class="folder-form-error" role="alert"></p><div class="folder-dialog-footer"><button type="button" class="folder-dialog-close">Cancel</button><button type="submit" class="folder-save">Save folder</button></div>
 </form></dialog>

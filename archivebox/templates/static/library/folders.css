@@ -127,16 +127,22 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog.has-rules{width:min(800px,calc(100vw - 24px))}
 #folder-dialog label{margin:12px 0 4px}
 #folder-dialog input:not([type=hidden]),#folder-dialog select{border-radius:4px;padding:7px 8px;min-width:0}
-.folder-rules{margin-top:16px}
-.folder-rules[hidden]{display:none}
-.folder-options{display:flex;align-items:end;gap:10px;flex-shrink:0;border-top:1px solid var(--hairline-color,#e4e7ec);margin-top:14px;padding-top:2px}
-.folder-options[hidden]{display:none}
-#folder-dialog .folder-options label{flex:1;min-width:0}
-#folder-dialog .folder-options label:first-child{flex:2}
-#folder-dialog .folder-options label:has([aria-label="Sort direction"]){flex:0 0 108px}
-#folder-dialog .folder-options label:last-child{flex:0 0 86px}
+.folder-options[hidden],.folder-rule-layout[hidden]{display:none}
+#folder-dialog.has-rules .folder-main-fields{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,2fr);gap:12px}
+.folder-options{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(104px,1fr) 84px;gap:10px;align-items:end}
+.folder-options:not(:has([aria-label="Sort direction"])){grid-template-columns:minmax(0,1fr) 84px}
+#folder-dialog .folder-options label{min-width:0;margin-bottom:0}
 #folder-dialog .folder-options input,#folder-dialog .folder-options select{display:block;margin-top:4px}
-@media(max-width:360px){.folder-options:has([aria-label="Sort direction"]){flex-wrap:wrap}#folder-dialog .folder-options:has([aria-label="Sort direction"]) label:first-child{flex-basis:100%}}
+.folder-rule-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:start;gap:16px;margin-top:16px}
+.folder-rule-layout h3{margin:0 0 8px}
+.folder-rule-panel{min-width:0;container-type:inline-size}
+.folder-match-panel{min-width:0;padding:12px;border:1px solid var(--hairline-color,#e4e7ec);border-radius:6px}
+.folder-match{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--hairline-color,#e4e7ec)}
+.folder-match-icon{display:grid;place-items:center;flex:0 0 24px;height:24px;border-radius:4px;background:var(--darkened-bg,#f7f8fa);font-size:11px}
+.folder-match-body{min-width:0}
+.folder-match-body strong,.folder-match-body small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folder-match-body strong{font-size:12px}
+.folder-match-body small{font-size:11px;color:var(--body-quiet-color,#667085)}
 .rule-group{border-left:2px dotted var(--border-color,#d0d5dd);padding:0 0 0 10px;margin:8px 0}
 .rule-group .rule-group{margin-left:8px}
 .rule-group-toolbar{display:flex;align-items:center;gap:6px;margin-top:8px}
@@ -148,7 +154,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .rule-quantity{display:flex;min-width:0;gap:4px}
 #folder-dialog .rule-quantity select{width:68px;flex-shrink:0}
 #folder-dialog .rule-condition input,#folder-dialog .rule-condition select{font-size:12px;height:34px}
-@media(max-width:600px){
+@container(max-width:475px){
  .rule-condition{grid-template-columns:74px minmax(0,1fr) 52px;gap:6px;padding:6px 0}
  .rule-condition>:first-child{grid-column:1/3;grid-row:1}.rule-condition>.rule-actions{grid-column:3;grid-row:1}
  .rule-condition>.rule-polarity{grid-column:1;grid-row:2}.rule-condition>select[aria-label="Comparison"]{grid-column:2/4;grid-row:2}
@@ -159,7 +165,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .folder-title-emoji{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;width:16px;height:16px;font-size:16px;line-height:1}
 .folder-toggle.has-title-emoji[aria-expanded=false]>svg,.folder-toggle.has-title-emoji[aria-expanded=true]>.folder-title-emoji{display:none}
 
-#folder-dialog.has-rules{width:min(860px,calc(100vw - 24px))}
+#folder-dialog.has-rules{width:min(1040px,calc(100vw - 24px))}
 #folder-dialog .folder-dialog-heading{min-height:28px;gap:12px}
 #folder-dialog .folder-dialog-heading h2{font-size:18px;line-height:24px;padding:0}
 #folder-dialog input:not([type=hidden]),#folder-dialog select{height:36px;line-height:20px;padding:7px 8px}
@@ -195,7 +201,13 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 #folder-dialog .is-negated>.rule-polarity,#folder-dialog .is-negated>.rule-group-heading>select{color:var(--archivebox-accent,#a51c50);font-weight:600}
 
 #folder-dialog.has-rules form{display:flex;flex-direction:column;max-height:calc(100dvh - 66px)}
-#folder-dialog.has-rules .folder-rules{overflow:auto;min-height:0;padding-right:2px}
+#folder-dialog.has-rules .folder-rule-layout{overflow:auto;min-height:0;padding-right:2px}
+#folder-dialog.has-rules .folder-main-fields{flex-shrink:0}
+@media(max-width:680px){
+ #folder-dialog.has-rules .folder-main-fields,.folder-rule-layout{grid-template-columns:minmax(0,1fr)}
+ #folder-dialog.has-rules .folder-main-fields{gap:0}
+ .folder-options{grid-template-columns:minmax(0,1fr) minmax(92px,1fr) 70px;gap:6px}
+}
 #folder-dialog.has-rules .folder-dialog-heading,#folder-dialog.has-rules .folder-name-field,#folder-dialog.has-rules .folder-dialog-footer{flex-shrink:0}
 #folder-dialog.has-rules .folder-dialog-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline-color,#e4e7ec)}
 

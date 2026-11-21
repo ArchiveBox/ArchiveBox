@@ -4,7 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const folderForm = dialog?.querySelector('form');
   if (dialog) {
     const picker = sidebar ? null : document.querySelector('#id_folder');
+    let editorVersion = 0;
     async function openFolder(button) {
+      const version = ++editorVersion;
+      dialog.querySelector('.folder-rule-layout').hidden = true;
+      dialog.querySelector('.folder-options').hidden = true;
+      dialog.classList.remove('has-rules');
       button.closest('.folder-menu:popover-open')?.hidePopover();
       folderForm.reset();
       dialog.dataset.mode=button.dataset.mode || 'edit';
@@ -28,14 +33,68 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch(url, {credentials:'same-origin'});
         if (!response.ok) throw new Error('Could not load folder rules.');
         const schema = await response.json();
-        setupRules(schema, button.dataset.smart === 'true');
+        if (!dialog.open || version !== editorVersion) return;
+        setupRules(schema, button.dataset.smart === 'true', version);
         folderForm.querySelector('[type=submit]').disabled = false;
-      } catch (error) {dialog.querySelector('.folder-form-error').textContent = error.message;}
+      } catch (error) {
+        if (dialog.open && version === editorVersion) dialog.querySelector('.folder-form-error').textContent = error.message;
+      }
 
     }
-    function setupRules(schema, smart) {
+    function setupRules(schema, smart, version) {
       const kind = dialog.querySelector('#folder-kind');
-      const root = dialog.querySelector('.folder-rules');
+      const layout = dialog.querySelector('.folder-rule-layout');
+      const root = layout.querySelector('.folder-rules');
+      const matches = layout.querySelector('.folder-matches');
+      let previewTimer, previewRequest, lastPreview;
+      function cancelPreview() {
+        clearTimeout(previewTimer);
+        previewRequest?.abort();
+      }
+      dialog.addEventListener('close', cancelPreview, {once:true});
+      function schedulePreview() {
+        const serialized = folderForm.elements.rules.value;
+        if (serialized === lastPreview) return;
+        lastPreview = serialized;
+        cancelPreview();
+        matches.replaceChildren();
+        if (!serialized || layout.hidden || layout.querySelector(':invalid') || dialog.querySelector('.folder-options :invalid')) return;
+        previewTimer = setTimeout(async () => {
+          if (!dialog.open || version !== editorVersion) return;
+          const controller = new AbortController();
+          previewRequest = controller;
+          const body = new FormData();
+          for (const name of ['csrfmiddlewaretoken', 'folder_id', 'parent']) body.set(name, folderForm.elements[name].value);
+          body.set('rules', serialized);
+          matches.replaceChildren(element('p', '', 'Loading…'));
+          try {
+            const response = await fetch(folderForm.dataset.rulesUrl, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
+            const result = await response.json();
+            if (controller.signal.aborted || !dialog.open || version !== editorVersion) return;
+            if (!response.ok) {
+              matches.replaceChildren(element('p', '', result.error || 'Preview unavailable.'));
+              return;
+            }
+            if (!result.snapshots.length) {
+              matches.replaceChildren(element('p', '', 'No matching snapshots.'));
+              return;
+            }
+            matches.replaceChildren(...result.snapshots.map(snapshot => {
+              const row = element('div', 'folder-match');
+              const monogram = element('span', 'folder-match-icon', (snapshot.domain || '?').slice(0, 1).toUpperCase());
+              monogram.setAttribute('aria-hidden', 'true');
+              const text = element('div', 'folder-match-body');
+              text.append(element('strong', '', snapshot.title || snapshot.domain),
+                element('small', '', [snapshot.domain, snapshot.date].filter(Boolean).join(' · ')));
+              row.append(monogram, text);
+              return row;
+            }));
+          } catch (_) {
+            if (!controller.signal.aborted && dialog.open && version === editorVersion)
+              matches.replaceChildren(element('p', '', 'Preview unavailable.'));
+          }
+        }, 300);
+      }
       const defaultRule = () => ({field:'url', lookup:'icontains', value:''});
       const negatives={not_exact:'exact',not_contains:'icontains',not_in:'in',not_in_folder:'in_folder'};
       function normalize(node) {
@@ -86,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const options = {...(limit !== '' ? {limit:Number(limit)} : {}), ...(sort !== '-created_at' ? {sort} : {})};
         folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify({...compact(rules), ...options}) : '';
+        schedulePreview();
       }
       function input(type, value, label, change) {
         const control = element('input'); control.type = type; control.value = value ?? '';
@@ -180,11 +240,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
       }
       function render() {
-        root.replaceChildren(); root.hidden=kind.value !== 'smart' || dialog.dataset.mode==='move';
+        root.replaceChildren(); layout.hidden=kind.value !== 'smart' || dialog.dataset.mode==='move';
         const options = dialog.querySelector('.folder-options');
-        options.replaceChildren(); options.hidden=root.hidden;
-        dialog.classList.toggle('has-rules', !root.hidden);
-        if (!root.hidden) {
+        options.replaceChildren(); options.hidden=layout.hidden;
+        dialog.classList.toggle('has-rules', !layout.hidden);
+        if (!layout.hidden) {
           const group=rules.op==='NOT' ? rules.rules[0] : rules;
           if (!group.op && !schema.container) rules={op:'AND',rules:[rules]};
           root.append(renderNode(rules,value => {rules=value;}));
@@ -195,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
           option('Sort by', select([...Object.entries(schema.sort_fields), ['?','Random']], sort.replace(/^-/, ''), 'Sort by', value => {
             sort=value==='?' ? '?' : (sort.startsWith('-') ? '-' : '')+value; render();
           }));
-          if (sort!=='?') option('Order', select([['desc','Descending'],['asc','Ascending']],sort.startsWith('-') ? 'desc' : 'asc','Sort direction', value => {
+          if (sort!=='?') option('Direction', select([['desc','Descending'],['asc','Ascending']],sort.startsWith('-') ? 'desc' : 'asc','Sort direction', value => {
             sort=(value==='desc' ? '-' : '')+sort.replace(/^-/, '');
           }));
           const maximum=input('number',limit,'Limit',value => limit=value);
