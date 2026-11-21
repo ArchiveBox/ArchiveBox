@@ -575,6 +575,78 @@ def test_snapshot_header_tags_overflow_without_hiding_url(snapshot, live_server,
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("native_app", [False, True])
+def test_mobile_snapshot_header_fits_short_title_tags_and_keeps_output_toggle_separate(snapshot, live_server, browser_runtime, native_app):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.core.models import Tag
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.title = "PyPy"
+    snapshot.save(update_fields=["permissions", "title"])
+    tags = ("code", "interpreter", "python", "runtime", "reference", "tools", "compiler", "stdlib", "programming")
+    snapshot.tags.set([Tag.objects.create(name=name) for name in tags])
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page(viewport={"width": 1280, "height": 844})
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+        summary = page.locator(".header-tags > summary")
+        pills = summary.locator(".tag-pill:visible")
+        expect(pills).to_have_count(2)
+        page.set_viewport_size({"width": 440, "height": 844})
+        if native_app:
+            page.evaluate(
+                "document.documentElement.classList.add('archivebox-native-app', 'archivebox-ios-app', 'archivebox-ios-phone')",
+            )
+        expect(pills.nth(2)).to_be_visible()
+        assert all(pill.evaluate("el => el.scrollWidth <= el.clientWidth + 1") for pill in pills.all())
+        counter = summary.locator(".header-tags-more")
+        expect(counter).to_have_text(f"+{len(tags) - pills.count()}")
+        assert counter.is_visible()
+
+        toggle = page.get_by_role("button", name="Toggle saved outputs")
+        assert toggle.evaluate("el => getComputedStyle(el).position") == "static"
+        box = toggle.bounding_box()
+        assert box["width"] >= 32 and box["height"] >= 44 and box["x"] + box["width"] <= 440
+        count_box = counter.bounding_box()
+        assert count_box["x"] + count_box["width"] <= box["x"]
+        for selector in (".header-url-text", ".header-capture-row"):
+            bounds = page.locator(selector).bounding_box()
+            if bounds:
+                assert bounds["x"] + bounds["width"] <= box["x"]
+
+        tray = page.locator("#snapshot-output-browser")
+        expect(tray).to_be_visible()
+        summary.click()
+        menu = page.locator(".header-tags .snapshot-variants-list")
+        expect(menu).to_be_visible()
+        assert sorted(menu.locator(".tag-pill").all_text_contents()) == sorted(tags)
+        expect(tray).to_be_visible()
+        summary.click()
+        toggle.click()
+        expect(toggle).to_have_attribute("aria-expanded", "false")
+        expect(tray).to_be_hidden()
+        toggle.click()
+        expect(toggle).to_have_attribute("aria-expanded", "true")
+        expect(tray).to_be_visible()
+        page.set_viewport_size({"width": 320, "height": 844})
+        summary.click()
+        expect(menu).to_be_visible()
+        menu_box = menu.bounding_box()
+        assert menu_box["x"] >= 0 and menu_box["x"] + menu_box["width"] <= 320
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("javascript", [False, True])
 def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(snapshot, live_server, browser_runtime, javascript):
     import hashlib

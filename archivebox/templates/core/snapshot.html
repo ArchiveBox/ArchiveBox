@@ -254,6 +254,7 @@
             .header-tags > summary { display: flex; align-items: center; gap: 4px; height: 20px; overflow: hidden; }
             .header-tags .header-tags-more { flex: 0 0 auto; padding: 0 3px; font-size: 10px; }
             .header-tags [hidden] { display: none !important; }
+            .header-tags > .header-tags-measuring > .tag-pill[hidden] { display: block !important; }
             .header-tags .snapshot-variants-list { display: flex; flex-wrap: wrap; gap: 6px; width: 280px; }
             .header-top .header-tags .snapshot-variants-list .tag-pill { max-width: 100%; height: auto; white-space: normal; overflow-wrap: anywhere; }
             .header-top .header-tags .tag-pill { flex: 0 1 auto; min-width: 0; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
@@ -309,14 +310,19 @@
                 .snapshot-variants-list { right: 0; }
             }
             @container snapshot-header (max-width: 600px) {
-                .header-top { padding: 5px 30px 5px 8px; }
+                .header-top { display: grid; grid-template-columns: minmax(0, 1fr) 32px; column-gap: 6px; padding: 5px 0 5px 8px; }
+                .header-top > .header-toggle { position: static; width: auto; min-height: 44px; margin-block: -5px; }
                 .header-nav { grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 5px; }
                 .header-left { grid-column: 1 / 3; width: 32px; }
                 .header-url-location, .header-url-content, .header-page-link { display: contents; }
                 .header-top .header-url-text { grid-column: 1 / -1; grid-row: 1; margin-left: 38px; min-width: 0; max-width: none; padding: 0 7px; height: 28px; border: 1px solid #ffffff30; border-radius: 5px; background: #00000012; }
                 .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
                 .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
-                .header-title-text { flex: 1 1 auto; max-width: none; font-size: 12px; }
+                .header-title-text { flex: 0 1 auto; max-width: 50%; font-size: 12px; }
+                .header-tags { --snapshot-header-mobile-tags: 1; flex: 1 1 0; max-width: none; }
+                .header-tags > summary { justify-content: flex-end; }
+                .header-tags .snapshot-variants-list { max-width: calc(100cqi - 54px); }
+                .header-top .header-tags > summary > .tag-pill { flex: none; }
                 .header-text-dot { display: none; }
                 .header-url-actions { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; }
                 .header-capture-row { grid-column: 3; grid-row: 3; justify-content: flex-end; max-width: 45vw; }
@@ -380,6 +386,13 @@
             /* WKWebView can report a desktop-sized layout viewport while the
                actual iPhone screen is narrow. Use the native phone marker for
                the same row arrangement when container queries miss it. */
+            html.archivebox-ios-phone .header-top { display: grid; grid-template-columns: minmax(0, 1fr) 32px; column-gap: 6px; }
+            html.archivebox-ios-phone .header-top > .header-toggle { position: static; width: auto; min-height: 44px; margin-block: -5px; }
+            html.archivebox-ios-phone .header-top .header-title-text { flex: 0 1 auto; max-width: 50%; }
+            html.archivebox-ios-phone .header-top .header-tags { --snapshot-header-mobile-tags: 1; flex: 1 1 0; max-width: none; }
+            html.archivebox-ios-phone .header-top .header-tags > summary { justify-content: flex-end; }
+            html.archivebox-ios-phone .header-top .header-tags .snapshot-variants-list { max-width: calc(100cqi - 54px); }
+            html.archivebox-ios-phone .header-top .header-tags > summary > .tag-pill { flex: none; }
             html.archivebox-ios-phone .header-top .header-nav { grid-template-columns: minmax(0, 1fr) auto !important; }
             html.archivebox-ios-phone .header-top .header-url,
             html.archivebox-ios-phone .header-top .header-url-location,
@@ -1257,8 +1270,8 @@
                                     <span class="header-text-dot header-tags-dot" aria-hidden="true">·</span>
                                     <details class="header-tags snapshot-variants">
                                         <summary aria-label="Show all tags">
-                                            {% for tag in title_tags|slice:":2" %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}
-                                            {% if title_tags|length > 2 %}<span class="header-tags-more">+{{ title_tags|length|add:"-2" }}</span>{% endif %}
+                                            {% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}"{% if forloop.counter > 2 %} hidden{% endif %}>{{tag.name}}</span>{% endfor %}
+                                            <span class="header-tags-more"{% if title_tags|length <= 2 %} hidden{% endif %}>+{{ title_tags|length|add:"-2" }}</span>
                                         </summary>
                                         <div class="snapshot-variants-list">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}">{{tag.name}}</span>{% endfor %}</div>
                                     </details>
@@ -1856,6 +1869,57 @@
                 handleSnapshotHeaderToggle(event)
             })
 
+            function initializeHeaderTags() {
+                const summary = document.querySelector('.header-tags > summary')
+                if (!summary) return
+                const details = summary.parentElement
+                const pills = [...summary.querySelectorAll('.tag-pill')]
+                const counter = summary.querySelector('.header-tags-more')
+                let lastWidth
+
+                function showPills(count) {
+                    for (const [index, pill] of pills.entries()) pill.hidden = index >= count
+                    counter.hidden = count >= pills.length
+                    counter.textContent = `+${pills.length - count}`
+                }
+
+                function fitPills(fontsReady = false) {
+                    const style = getComputedStyle(summary)
+                    if (style.getPropertyValue('--snapshot-header-mobile-tags').trim() !== '1') {
+                        if (lastWidth !== undefined) showPills(Math.min(2, pills.length))
+                        lastWidth = undefined
+                        return
+                    }
+                    const available = summary.clientWidth
+                    if (available === lastWidth && !fontsReady) return
+                    lastWidth = available
+                    const gap = parseFloat(style.columnGap) || 0
+                    summary.classList.add('header-tags-measuring')
+                    counter.hidden = false
+                    counter.textContent = `+${pills.length}`
+                    const counterWidth = counter.getBoundingClientRect().width
+                    const widths = pills.map(pill => pill.getBoundingClientRect().width)
+                    const total = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1)
+                    let visible = widths.length
+                    if (total > available) {
+                        visible = 0
+                        let used = counterWidth
+                        for (const width of widths) {
+                            used += width + gap
+                            if (used > available) break
+                            visible++
+                        }
+                    }
+                    showPills(visible)
+                    summary.classList.remove('header-tags-measuring')
+                }
+
+                // Observe only the fixed metadata row, not the content we fit.
+                new ResizeObserver(() => fitPills()).observe(details.parentElement)
+                document.fonts.ready.then(() => fitPills(true))
+            }
+
+            initializeHeaderTags()
             {% include "core/snapshot_stacks.js.html" %}
             initializeOutputStacks()
             window.addEventListener('message', (event) => {

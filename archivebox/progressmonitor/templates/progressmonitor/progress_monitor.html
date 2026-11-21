@@ -1830,7 +1830,7 @@
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
             snapshotsHtml = crawl.active_snapshots.map(s => renderSnapshot(s, crawl.id)).join('');
         }
-        const queuedSnapshotsNote = renderOverflowNotes(crawl.hidden_snapshots, 'snapshot');
+        const queuedSnapshotsNote = renderOverflowNotes(crawl.hidden_snapshots, 'snapshot', crawlId);
         let setupHtml = '';
         if (crawl.setup_plugins && crawl.setup_plugins.length > 0) {
             setupHtml = `
@@ -1951,10 +1951,15 @@
     }
 
     // Each truncated section links to the admin list holding the rest.
-    function renderOverflowNotes(hidden, noun) {
+    function renderOverflowNotes(hidden, noun, crawlId = '') {
         return (hidden || []).map(item => {
             const count = Number(item.count || 0);
-            return `<div class="progress-overflow-note"><a href="${escapeAttr(item.url)}">Show ${count.toLocaleString()} more ${escapeHtml(item.status)} ${noun}${count === 1 ? '' : 's'}</a></div>`;
+            const bucket = crawlId ? `${crawlId.replaceAll('-', '')}:${item.status}` : '';
+            const expand = bucket && bucket !== expandedSnapshotBucket
+                ? ` data-expand-progress-snapshots="${escapeAttr(bucket)}"` : '';
+            const verb = expand || noun !== 'snapshot' ? 'Show' : 'View';
+            const suffix = !expand && noun === 'snapshot' ? ' in Snapshots' : '';
+            return `<div class="progress-overflow-note"><a href="${escapeAttr(item.url)}"${expand}>${verb} ${count.toLocaleString()} more ${escapeHtml(item.status)} ${noun}${count === 1 ? '' : 's'}${suffix}</a></div>`;
         }).join('');
     }
 
@@ -2097,6 +2102,8 @@
     const progressEndpoint = new URL(monitor.dataset.progressEndpoint || '/progress.json', window.location.href);
     progressEndpoint.searchParams.set('metrics', '1');
     let progressRequestInFlight = false;
+    let expandedSnapshotBucket = '';
+    let expansionFocus = null;
 
     function fetchProgress() {
         // Opening a replay replaces the queued snapshot's progress panel.
@@ -2114,8 +2121,10 @@
         // Bypass the browser cache before transmission: identical live polls in
         // other tabs can otherwise wait on its entry lock despite no-store responses.
         const omittedTree = isCollapsed;
+        const requestedBucket = expandedSnapshotBucket;
         const requestUrl = new URL(progressEndpoint);
         if (omittedTree) requestUrl.searchParams.set('tree', '0');
+        else if (requestedBucket) requestUrl.searchParams.set('more_snapshots', requestedBucket);
         fetch(requestUrl, { credentials: 'same-origin', cache: 'no-store' })
             .then(response => {
                 httpStatus = response.status;
@@ -2147,7 +2156,18 @@
                     window.location.reload();
                     return;
                 }
+                if (!omittedTree && requestedBucket !== expandedSnapshotBucket) return;
+                const restoreExpansionFocus = expansionFocus && document.activeElement === expansionFocus.link;
                 updateProgress(data);
+                if (expansionFocus?.bucket === requestedBucket && !omittedTree) {
+                    if (restoreExpansionFocus && !expansionFocus.link.isConnected) {
+                        const crawl = [...crawlTree.querySelectorAll('.crawl-item')].find(item => item.dataset.crawlId.replaceAll('-', '') === requestedBucket.split(':')[0]);
+                        const row = [...crawl?.querySelectorAll('.snapshot-item[data-snapshot-id]') || []]
+                            .find(item => !expansionFocus.visible.has(item.dataset.snapshotId));
+                        row?.querySelector('a')?.focus({ preventScroll: true });
+                    }
+                    expansionFocus = null;
+                }
             })
             .catch(error => {
                 if (!monitor.isConnected) {
@@ -2163,7 +2183,7 @@
             .finally(() => {
                 progressRequestInFlight = false;
                 // Expanded while a tree-less poll was in flight: load the tree now.
-                if (omittedTree && !isCollapsed && pollInterval) fetchProgress();
+                if (!isCollapsed && pollInterval && (omittedTree || requestedBucket !== expandedSnapshotBucket)) fetchProgress();
             });
     }
 
@@ -2265,6 +2285,17 @@
     });
 
     crawlTree.addEventListener('click', function(event) {
+        const expansion = event.target.closest('a[data-expand-progress-snapshots]');
+        if (expansion && event.button === 0 && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+            event.preventDefault();
+            expandedSnapshotBucket = expansion.dataset.expandProgressSnapshots;
+            expansionFocus = {
+                link: expansion, bucket: expandedSnapshotBucket,
+                visible: new Set(Array.from(expansion.closest('.crawl-item').querySelectorAll('.snapshot-item[data-snapshot-id]'), item => item.dataset.snapshotId)),
+            };
+            fetchProgress();
+            return;
+        }
         const actionBtn = event.target.closest('.crawl-action-btn');
         if (actionBtn) {
             event.preventDefault();

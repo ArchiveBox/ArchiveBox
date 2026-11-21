@@ -2066,6 +2066,17 @@ class TestLiveProgressDisplayWindow:
                     Snapshot.objects.filter(crawl=crawl, status=hidden["status"]).values_list("id", flat=True),
                 )
 
+        # Expand one visible crawl/status without stealing the default window.
+        bucket = f"{str(older.pk).replace('-', '')}:queued"
+        response = client.get(reverse("live_progress"), {"more_snapshots": bucket}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        crawls = {crawl["id"]: crawl for crawl in response.json()["active_crawls"]}
+        assert len(displayed(older, Snapshot.StatusChoices.QUEUED)) == 4
+        assert displayed(newer, Snapshot.StatusChoices.QUEUED) == []
+        assert len(displayed(newer, Snapshot.StatusChoices.STARTED)) == 15
+        assert sorted(displayed(older, Snapshot.StatusChoices.STARTED)) == sorted(newest_older_started)
+        assert [item["status"] for item in crawls[str(older.pk)]["hidden_snapshots"]] == ["started"]
+
         # Once started rows fit, the remaining budget flows to queued rows.
         Snapshot.objects.filter(crawl=newer, status=Snapshot.StatusChoices.STARTED).update(status=Snapshot.StatusChoices.SEALED)
         payload = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()

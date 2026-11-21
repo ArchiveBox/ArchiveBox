@@ -736,11 +736,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const cap = Math.floor((title.getBoundingClientRect().width + tags.getBoundingClientRect().width) * 0.4);
+      const headerDemand = label ? labelRange.getBoundingClientRect().width +
+        spacing(label, ['paddingLeft', 'paddingRight']) + spacing(tags, ['paddingLeft', 'paddingRight']) : 0;
       table.classList.add('library-tag-fit');
       const dirty = rows.filter(row => !row.measure);
       if (dirty.length) measureTags(dirty);
-      const demand = Math.max(label ? labelRange.getBoundingClientRect().width +
-        spacing(label, ['paddingLeft', 'paddingRight']) + spacing(tags, ['paddingLeft', 'paddingRight']) : 0, ...rows.map(row => row.measure.full));
+      const demand = Math.max(headerDemand, ...rows.map(row => row.measure.full));
       const width = Math.min(Math.ceil(demand), cap);
       const columnWidth = `${width}px`;
       if (table.style.getPropertyValue('--library-tags-width') !== columnWidth) {

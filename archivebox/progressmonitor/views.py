@@ -324,6 +324,9 @@ def live_progress_view(request, *, authorized_snapshot=None):
         # to the matching admin list. Rows cost per-second CPU in every viewer.
         max_displayed_crawls = 3
         max_displayed_snapshots = 20
+        # One explicitly opened bucket may show one additional window. Other
+        # crawls and ordinary one-second polls keep the same shared budget.
+        expanded_snapshot_bucket = request.GET.get("more_snapshots", "")
         # A collapsed monitor shows only the header counts. Skip the tree.
         include_tree = request.GET.get("tree") != "0"
         owner_filter = f"&created_by__id__exact={request.user.pk}" if is_admin and not request.user.is_superuser else ""
@@ -463,21 +466,24 @@ def live_progress_view(request, *, authorized_snapshot=None):
         ):
             for crawl_id in active_crawl_ids:
                 status_total = snapshot_counts_by_crawl[str(crawl_id)].get(status, 0)
+                bucket = f"{str(crawl_id).replace('-', '')}:{status}"
+                expanded = expanded_snapshot_bucket == bucket
+                row_limit = remaining_snapshots + (max_displayed_snapshots if expanded else 0)
                 rows = (
                     list(
                         active_snapshot_scope.filter(crawl_id=crawl_id, status=status)
                         .annotate(id_str=Cast("id", CharField()), crawl_id_str=Cast("crawl_id", CharField()))
                         .values(*fields)
-                        .order_by(order)[:remaining_snapshots],
+                        .order_by(order)[:row_limit],
                     )
-                    if remaining_snapshots and status_total
+                    if row_limit and status_total
                     else []
                 )
                 # modified_at only picks the window: the runner heartbeats it on
                 # every live capture, so displaying in that order swapped them
                 # (and all their hook badges) between polls. Ids are time-ordered.
                 rows.sort(key=lambda row: row["id_str"])
-                remaining_snapshots -= len(rows)
+                remaining_snapshots = max(0, remaining_snapshots - len(rows))
                 snapshots.extend(rows)
                 if status_total > len(rows):
                     hidden_snapshots_by_crawl[str(crawl_id)].append(
