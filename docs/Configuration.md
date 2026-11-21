@@ -636,6 +636,8 @@ Path for installed binary dependencies (`chromium`, `single-file`, `yt-dlp`, `ri
 > [!NOTE]
 > `ABXPKG_LIB_DIR` can grow to several GB. Put it on a fast local disk — running extractors off a network-mounted `ABXPKG_LIB_DIR` will be painfully slow.
 
+`ABXPKG_LIB_DIR` may also be on a read-only mount, such as the Docker image's preinstalled `/opt/archivebox/lib` under a [read-only root filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#read-only-root-filesystem). ArchiveBox then uses the dependencies already installed there and cannot install new ones.
+
 *Related options:*
 [`TMP_DIR`](#tmp_dir)
 
