@@ -1245,7 +1245,8 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
                 assert abs(captures_box["y"] - action_box["y"]) <= 1
                 assert action_box["x"] + action_box["width"] <= captures_box["x"]
             assert action_box["x"] >= 0
-            assert action_box["x"] + action_box["width"] <= width - 20
+            expected_toggle_width = 32 if width <= 600 else 20
+            assert action_box["x"] + action_box["width"] <= width - expected_toggle_width
             assert page.locator('.header-url-actions [aria-label="Search Archive.org"]').is_visible()
             controls = page.locator(
                 ".header-badges > .badge, .year-variants > summary, .selected-capture > summary",
@@ -1256,7 +1257,7 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             toggle = page.get_by_role("button", name="Toggle saved outputs", exact=True)
             toggle_box = toggle.bounding_box()
             header_box = page.locator(".header-top").bounding_box()
-            assert toggle_box["width"] == 20
+            assert toggle_box["width"] == expected_toggle_width
             assert toggle_box["height"] == header_box["height"]
             assert toggle_box["x"] + toggle_box["width"] == width
             toggle.click()
