@@ -6,7 +6,8 @@
 set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
+# Fuzz jobs add captures and kill workers. Never inherit a real collection.
+DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/archivebox-fuzz.XXXXXX")" || exit 1
 LOG_DIR="${FUZZ_LOG_DIR:-$ROOT_DIR/tmp/fuzz-$(date +%Y%m%d-%H%M%S)}"
 FUZZ_ROUNDS="${FUZZ_ROUNDS:-8}"
 FUZZ_PARALLEL="${FUZZ_PARALLEL:-5}"
@@ -41,9 +42,7 @@ else
 fi
 
 DEFAULT_URLS=(
-    "https://example.com/"
     "https://blog.sweeting.me/"
-    "https://www.iana.org/domains/reserved"
     "https://httpbin.org/html"
     "https://www.recurse.com/"
 )

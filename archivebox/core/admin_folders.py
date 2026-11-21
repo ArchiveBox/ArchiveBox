@@ -273,7 +273,10 @@ class FolderAdmin(admin.ModelAdmin):
                 saved.setdefault(label, []).extend(value[:100] if isinstance(value, list) else [value])
         selected = {
             label: self._rule_related_values(
-                request, label, model_admins[label], selected=list(dict.fromkeys(str(value) for value in values))
+                request,
+                label,
+                model_admins[label],
+                selected=list(dict.fromkeys(str(value) for value in values)),
             )
             for label, values in saved.items()
         }
@@ -353,7 +356,7 @@ class FolderAdmin(admin.ModelAdmin):
                     {"title": rows[pk].title_stripped, "domain": rows[pk].domain, "date": rows[pk].created_at.date().isoformat()}
                     for pk in ids
                     if pk in rows
-                ]
+                ],
             },
         )
 
