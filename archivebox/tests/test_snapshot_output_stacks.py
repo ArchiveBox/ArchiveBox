@@ -1792,3 +1792,38 @@ def test_generic_media_remains_last_even_with_explicit_presentation_rank():
         ],
     )
     assert [output["name"] for output in outputs] == ["git", "liteparse", "responses"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_replay_preview_fills_viewport_below_snapshot_header(snapshot, live_server, browser_runtime):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    snapshot.permissions = "public"
+    snapshot.status = snapshot.StatusChoices.SEALED
+    snapshot.save()
+    save_output(snapshot, "archivewebpage", "index.html")
+    port = urlsplit(live_server.url).port
+    target = f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(target, wait_until="domcontentloaded")
+        frame = page.locator("#main-frame")
+        frame.wait_for()
+        for width, height in ((1280, 900), (399, 1827), (390, 844)):
+            page.set_viewport_size({"width": width, "height": height})
+            for expanded in (True, False):
+                toggle = page.get_by_role("button", name="Toggle saved outputs", exact=True)
+                if (toggle.get_attribute("aria-expanded") == "true") != expanded:
+                    toggle.click()
+                bounds = frame.evaluate(
+                    """e => ({ bottom: e.getBoundingClientRect().bottom + scrollY,
+                        top: e.getBoundingClientRect().top + scrollY,
+                        viewport: innerHeight, documentHeight: document.scrollingElement.scrollHeight })""",
+                )
+                assert bounds["bottom"] >= bounds["viewport"] - 1, (width, height, expanded, bounds)
+                assert bounds["bottom"] <= bounds["documentHeight"] + 1, bounds
+                assert bounds["bottom"] - bounds["top"] >= height * 0.8 - 1, bounds
+        browser.close()

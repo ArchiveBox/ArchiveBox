@@ -501,7 +501,7 @@
                 flex: 1 0 auto;
                 min-height: 40dvh;
                 display: grid;
-                grid-template-rows: auto auto;
+                grid-template-rows: auto 1fr;
                 grid-template-columns: minmax(0, 1fr);
                 align-content: start;
             }
@@ -540,6 +540,9 @@
                 grid-area: 2 / 1;
                 min-height: 40dvh;
             }
+            /* A short header leaves spare viewport space; fill it rather than
+               showing the viewer background below the selected output. */
+            #main-frame-wrapper > #main-frame { min-height: max(40dvh, 100%); }
             .full-page-wrapper {
                 width: 100%;
                 min-height: 0;
