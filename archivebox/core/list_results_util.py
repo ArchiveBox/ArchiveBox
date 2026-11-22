@@ -59,13 +59,17 @@ class ListResult:
     output_files_json: str | None = None
     _embed_path: Any = _UNRESOLVED
     _output_files: dict[str, dict[str, Any]] | None = None
+    _retain_output_files: bool = True
 
     def output_file_map(self) -> dict[str, dict[str, Any]]:
-        if self._output_files is None:
-            if self.output_files_json is None:
-                raise LookupError(f"output files of {self.plugin} result {self.id} were not loaded for this list page")
-            self._output_files = json.loads(self.output_files_json) or {}
-        return self._output_files
+        if self._output_files is not None:
+            return self._output_files
+        if self.output_files_json is None:
+            raise LookupError(f"output files of {self.plugin} result {self.id} were not loaded for this list page")
+        output_files = json.loads(self.output_files_json) or {}
+        if self._retain_output_files:
+            self._output_files = output_files
+        return output_files
 
     def embed_path(self) -> str | None:
         if self._embed_path is _UNRESOLVED:
@@ -178,6 +182,11 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
 
     for snapshot_hex, summary in summaries.items():
         summary.results.sort(key=lambda result: (result.plugin, result.id))
+        plugin_counts = Counter(result.plugin for result in summary.results)
+        for result in summary.results:
+            # A single hook uses the stored size and caches its resolved link.
+            # Only siblings reuse the parsed map to deduplicate shared files.
+            result._retain_output_files = plugin_counts[result.plugin] > 1
         card_row = snapshot_thumbnail_result(summary.results)
         if card_row is not None:
             summary.thumbnail_result = _archive_result_from_row(card_row)

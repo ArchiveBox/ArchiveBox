@@ -316,6 +316,13 @@ def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(lis
     shipped = _manifests_shipped(captured.captured_queries)
     assert shipped[("dns", ArchiveResult.StatusChoices.FAILED)] is not None
     assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
+    single = next(row for row in summary.results if row.plugin == "singlefile")
+    assert single.embed_path() is not None
+    assert single._output_files is None
+    assert single.embed_path() is not None
+    siblings = [row for row in summary.results if row.plugin == "dns"]
+    assert len(siblings) == 2
+    assert all(row._output_files is not None for row in siblings)
 
 
 def test_list_results_order_references_without_sorting_manifest_payloads(list_collection):
