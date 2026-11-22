@@ -1,0 +1,21 @@
+archivebox/tests/test_domains.py
+  s_302d4b0601e736::t_f3eb19221c9d91 23-49
+archivebox/domains/forms.py
+  s_302d4b0601e736::t_4c04ce0874e05b 64-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aeb97e1858fc20db74f53ddf4c369d6e4dc007c2",
+  "prompts": {},
+  "sessions": {
+    "s_302d4b0601e736": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de8f-9c43-7260-ae87-c39ab9e64f12",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
