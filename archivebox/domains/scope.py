@@ -76,7 +76,7 @@ def filter_domain_search(queryset, term):
     """Resolve a domain-name search against the current snapshot URLs."""
     from django.db import connections
     from django.db.models import CharField, Func
-    from archivebox.core.domain_index import group_host
+    from archivebox.core.domain_grouping import group_host
 
     term = term.strip().casefold()
     if connections[queryset.db].vendor == "sqlite":

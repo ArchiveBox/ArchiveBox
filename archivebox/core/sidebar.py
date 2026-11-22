@@ -12,8 +12,7 @@ from django.views.decorators.http import require_GET
 from django.views.decorators.cache import never_cache
 
 from archivebox.config.common import get_request_config
-from archivebox.core.domain_catalog import domain_catalog_page
-from archivebox.core.domain_index import domain_group
+from archivebox.core.domain_grouping import domain_group
 from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.permissions import public_snapshots_queryset
@@ -55,7 +54,6 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             raise ValueError("Cursor does not match this sidebar query")
         cursor = cursor[3:]
     entries, folders, next_key = [], [], None
-    building = False
     snapshots = public_snapshots_queryset(Snapshot.objects.all()) if public else Snapshot.objects.all()
     if mode == "tags":
         membership = _tag_snapshot_memberships()
@@ -90,22 +88,19 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             last = rows[SIDEBAR_PAGE_SIZE - 1]
             next_key = [last.name, last.pk]
     elif mode == "domains":
-        choices, building = domain_catalog_page(
-            query=term,
-            after=(cursor[0], cursor[0]) if cursor else None,
-            public=public,
-            limit=SIDEBAR_PAGE_SIZE + 1,
-        )
-        witness = "public_id" if public else "root_id"
-        ids = [choice[witness] for choice in choices[:SIDEBAR_PAGE_SIZE]]
-        roots = {str(snapshot.pk): snapshot for snapshot in snapshots.filter(pk__in=ids).only("id", "url")}
+        after = cursor[0] if cursor else ""
+        needle = term.casefold()
+        choices = sorted(
+            (row for row in snapshots.domain_summary() if row["domain"] > after and needle in row["domain"].casefold()),
+            key=lambda row: row["domain"],
+        )[: SIDEBAR_PAGE_SIZE + 1]
+        ids = [choice["root_id"] for choice in choices[:SIDEBAR_PAGE_SIZE]]
+        roots = {snapshot.pk: snapshot for snapshot in snapshots.filter(pk__in=ids).only("id", "url")}
         results = load_snapshot_list_results(roots.values())
         icon_plugins = set(get_snapshot_role_names("list_icon"))
         for choice in choices[:SIDEBAR_PAGE_SIZE]:
             name, scope = choice["domain"], choice["scope"]
-            root = roots.get(str(choice[witness]))
-            # The catalog can lag permission or URL changes. Verify the
-            # witness against the current database before exposing its group.
+            root = roots.get(choice["root_id"])
             if root is None or domain_group(root.url) != name:
                 continue
             root_id = root.pk
@@ -219,7 +214,6 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             folders = list({folder.pk: folder for folder in [*folders, *reveal]}.values())
     return {
         "sidebar_entries": entries,
-        "sidebar_index_building": building,
         "sidebar_folder_tree": folders,
         "sidebar_next": signing.dumps([mode, term, parent, *next_key], salt="library-sidebar", compress=True) if next_key else "",
     }
@@ -257,7 +251,6 @@ def sidebar_view(request, *, public=False):
         {
             "html": html,
             "next": context["sidebar_next"],
-            "building": context["sidebar_index_building"],
             "choices": [{"id": str(row["id"]), "name": row["name"]} for row in context["sidebar_entries"]],
         },
     )

@@ -12,7 +12,6 @@ def domain_suffixes():
     return TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
 
 
-@lru_cache(maxsize=8192)
 def group_host(host):
     try:
         normalized = host.rstrip(".").encode("idna").decode("ascii").lower()

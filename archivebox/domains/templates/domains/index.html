@@ -115,10 +115,10 @@
             </select>
             {% if perms.core.delete_snapshot %}<a href="{{ row.snapshot_url }}#delete-snapshots" class="site-domain-delete" aria-label="Delete snapshots for {{ row.domain }}">Delete</a>{% endif %}
           </td>
-        </tr>{% empty %}<tr><td colspan="8">{% if domain_index_building %}Indexing domains… <a href="{{ request.get_full_path }}">Refresh</a>{% else %}No saved domains.{% endif %}</td></tr>{% endfor %}</tbody>
+        </tr>{% empty %}<tr><td colspan="8">No saved domains.</td></tr>{% endfor %}</tbody>
       </table>
     </div>
-    <div class="changelist-footer"><p class="paginator">{{ domains|length }} domains shown {% if domain_previous_url %}<a href="{{ domain_previous_url }}">Previous</a>{% endif %} <span class="this-page">{{ domains.number }}</span> {% if domain_next_url %}<a href="{{ domain_next_url }}">Next</a>{% endif %}</p></div>
+    <div class="changelist-footer"><p class="paginator">{{ domains.paginator.count|intcomma }} domain{{ domains.paginator.count|pluralize }} {% if domains.has_previous %}<a href="?{{ page_query }}&amp;page={{ domains.previous_page_number }}">Previous</a>{% endif %} {% if domains.paginator.num_pages > 1 %}<span class="this-page">{{ domains.number }}</span>{% endif %} {% if domains.has_next %}<a href="?{{ page_query }}&amp;page={{ domains.next_page_number }}">Next</a>{% endif %}</p></div>
   </form>
 </div></div></div>
 <script type="module">

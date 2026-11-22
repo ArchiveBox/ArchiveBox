@@ -199,21 +199,8 @@ def test_domain_summary_batches_metadata_and_preserves_ties(admin_user):
     assert all('"config"' not in query["sql"] and '"output_files"' not in query["sql"] for query in queries)
 
 
-@pytest.fixture
-def persisted_domain_catalog():
-    from archivebox.core.domain_catalog import _catalog_path, rebuild_domain_catalog
-
-    path = _catalog_path()
-    assert not path.exists()
-    assert rebuild_domain_catalog()
-    try:
-        yield path
-    finally:
-        path.unlink(missing_ok=True)
-
-
 @pytest.mark.parametrize("legacy_output", [False, True])
-def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, admin_user, legacy_output, request):
+def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, admin_user, legacy_output):
     from archivebox.core.models import ArchiveResult
 
     pages = create_pages(admin_user, ["https://large.example/", "https://small.example/"])
@@ -235,7 +222,6 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
         notes="Not needed for the favicon",
         output_size=12,
     )
-    request.getfixturevalue("persisted_domain_catalog")
     response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["small.example", "large.example"]
@@ -258,11 +244,10 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
     assert [row["domain"] for row in response.context["domains"]] == ["small.example"]
 
 
-def test_domain_metadata_is_reused_across_administrators(admin_client, admin_user, request):
+def test_domain_metadata_is_reused_across_administrators(admin_client, admin_user):
     from django.contrib.auth import get_user_model
 
     create_pages(admin_user, ["https://shared.example/", "https://shared.example/article"])
-    request.getfixturevalue("persisted_domain_catalog")
     first = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
     assert first.status_code == 200
     assert [(row["domain"], row["snapshot_count"]) for row in first.context["domains"]] == [("shared.example", 2)]
@@ -281,21 +266,29 @@ def test_domain_metadata_is_reused_across_administrators(admin_client, admin_use
     assert response.status_code == 403
 
 
-def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_user, request):
-    import os
+def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_user):
     from threading import enumerate as threads
+    from django.core.cache import cache
+    from archivebox.config import CONSTANTS
 
     create_pages(admin_user, ["https://shared.example/"])
-    path = request.getfixturevalue("persisted_domain_catalog")
+    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
+    assert cache.touch(key, timeout=3600)
     create_pages(admin_user, ["https://shared.example/article"])
-    os.utime(path, (0, 0))
+    cache.delete(f"{key}:refresh")
+    for thread in threads():
+        if thread.name in {"collection-summary", "snapshot-list-count"}:
+            thread.join(timeout=10)
+            assert not thread.is_alive()
     with CaptureQueriesContext(connection) as queries:
         response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response.context["domains"][0]["snapshot_count"] == 1
     assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
     for thread in threads():
-        if thread.name == "domain-catalog":
+        if thread.name == "domain-summary":
             thread.join(timeout=10)
             assert not thread.is_alive()
     response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)

@@ -69,28 +69,21 @@ def test_sidebar_cursors_search_and_parent_order(admin_client, admin_user):
 
 
 @pytest.mark.django_db
-def test_domains_page_seeks_shared_index(admin_client, admin_user):
-    from urllib.parse import urlsplit, parse_qs
-
+def test_domains_page_paginates_grouped_snapshots(admin_client, admin_user):
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
-    Snapshot.objects.bulk_create([Snapshot(crawl=crawl, url=f"https://site{i:03}.com/", timestamp=str(1910000000 + i)) for i in range(105)])
+    Snapshot.objects.bulk_create(
+        [Snapshot(crawl=crawl, url=f"https://site{i:03}.com/", timestamp=str(1910000000 + i)) for i in range(105)],
+    )
 
-    def fetch(params):
+    def fetch(**params):
         response = admin_client.get("/admin/domains/", params, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        return response
+        return response.context["domains"]
 
-    with CaptureQueriesContext(connection) as queries:
-        first = fetch({})
-    captured = list(queries)
-    assert len(first.context["domains"]) == 50
-    assert [row["domain"] for row in first.context["domains"]] == [f"site{i:03}.com" for i in range(50)]
-    second = fetch(parse_qs(urlsplit(first.context["domain_next_url"]).query))
-    assert [row["domain"] for row in second.context["domains"]] == [f"site{i:03}.com" for i in range(50, 100)]
-    previous = fetch(parse_qs(urlsplit(second.context["domain_previous_url"]).query))
-    assert list(previous.context["domains"]) == list(first.context["domains"])
-    assert "cursor" not in second.context["cl"]["params"]
-    assert [row["domain"] for row in fetch({"q": "104"}).context["domains"]] == ["site104.com"]
-    assert not any("OFFSET" in query["sql"].upper() for query in captured)
-    grouped = next(query["sql"] for query in captured if '"crawl__persona_id"' in query["sql"] and "LIMIT 1001" in query["sql"])
-    assert '"core_snapshot"."url"' in grouped
+    first = fetch()
+    assert [row["domain"] for row in first] == [f"site{i:03}.com" for i in range(50)]
+    assert first.has_next()
+    second = fetch(page=first.next_page_number())
+    assert [row["domain"] for row in second] == [f"site{i:03}.com" for i in range(50, 100)]
+    assert list(fetch(page=second.previous_page_number())) == list(first)
+    assert [row["domain"] for row in fetch(q="104")] == ["site104.com"]

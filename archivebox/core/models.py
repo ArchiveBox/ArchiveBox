@@ -694,13 +694,13 @@ class SnapshotQuerySet(PagedQuerySet):
         output manifests, and each batch releases its read cursor before parsing.
         """
         from urllib.parse import urlsplit
-        from archivebox.core.domain_index import group_host
+        from archivebox.core.domain_grouping import group_host
 
         # Keep filters on this query so pk > last seeks directly into its index.
         # A self-IN subquery made SQLite enumerate the whole ID index again for
         # every page. DISTINCT still deduplicates matching tag/folder joins.
         metadata = self.order_by("pk").values_list("pk", "url", "created_at", "output_size", "crawl__persona_id").distinct()
-        rows, personas, root_ranks = {}, {}, {}
+        rows, hosts, personas, root_ranks = {}, {}, {}, {}
         last = None
         while True:
             batch = list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000])
@@ -714,7 +714,9 @@ class SnapshotQuerySet(PagedQuerySet):
                     continue
                 if parsed.scheme not in {"http", "https"} or not host:
                     continue
-                domain, scope = group_host(host)
+                if host not in hosts:
+                    hosts[host] = group_host(host)
+                domain, scope = hosts[host]
                 if domain not in rows:
                     rows[domain] = {
                         "domain": domain,

@@ -6,4 +6,4 @@
   <div class="folder-row-actions"><button type="button" class="folder-menu-toggle icon-button" aria-label="Actions for {{ entry.name }}" title="Actions for {{ entry.name }}" aria-haspopup="menu" aria-expanded="false" popovertarget="library-entry-menu"><svg><use href="#library-more"/></svg></button></div>
 
 </div>
-{% empty %}{% if not sidebar_index_building %}<div class="folder-empty"><p>No {{ sidebar_mode }} yet.</p></div>{% endif %}{% endfor %}
+{% empty %}<div class="folder-empty"><p>No {{ sidebar_mode }} yet.</p></div>{% endfor %}

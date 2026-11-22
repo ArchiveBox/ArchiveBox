@@ -1,13 +1,16 @@
 from copy import copy
 from functools import wraps
+import logging
+from threading import Thread
 from urllib.parse import urlencode, urlsplit
 
 from django.contrib import messages
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
-from django.core import signing
-from django.core.paginator import Paginator, Page
+from django.core.cache import cache
+from django.core.paginator import Paginator
+from django.db import close_old_connections, connection, connections
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -21,7 +24,7 @@ from archivebox.machine.models import Machine
 from .scope import crawl_site_scope, normalize_site_scope
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.models import ArchiveResult, Snapshot
-from archivebox.core.domain_catalog import domain_catalog_page
+from archivebox.progressmonitor.collection import _refresh_lock
 from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
 from archivebox.core.routes_util import build_admin_url, build_original_url, build_snapshot_detail_url, is_snapshot_subdomain
@@ -43,62 +46,48 @@ def clone_admin(view):
     return wrapped
 
 
-def _domain_page(request):
-    query = request.GET.get("q", "").strip()[:253]
-    ordering = request.GET.get("o", "domain")
-    if ordering not in {
-        "domain",
-        "-domain",
-        "count",
-        "-count",
-        "size",
-        "-size",
-        "personas",
-        "-personas",
-        "oldest",
-        "-oldest",
-        "newest",
-        "-newest",
-    }:
-        ordering = "domain"
-    token = request.GET.get("cursor")
-    backwards = bool(token) and request.GET.get("direction") == "prev"
-    after = None
-    number = 1
-    if token:
+def _domain_rows():
+    # Never publish uncommitted metadata to other requests or refresh it using
+    # a second connection that cannot see this transaction's writes.
+    if connection.in_atomic_block:
+        return Snapshot.objects.domain_summary()
+    key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
+    rows = cache.get(key)
+    if rows is None:
+        rows = Snapshot.objects.domain_summary()
+        cache.set(key, rows, timeout=3600)
+        cache.set(f"{key}:refresh", True, timeout=60)
+        return rows
+
+    # Keep the last complete domain list while refreshing its display totals.
+    # Use the shared nonblocking gate so statistics scans cannot pile up.
+    if _refresh_lock.acquire(blocking=False):
         try:
-            scope, sort, value, domain, number = signing.loads(token, salt="domains-page")
-            if (scope, sort) != (query, ordering) or not isinstance(number, int) or not 1 <= number <= 100_000_000:
-                raise ValueError("Cursor does not match this domain query")
-            after = value, domain
-        except (ValueError, signing.BadSignature) as error:
-            raise Http404("Invalid domain page") from error
-    page_size = 50
-    chosen, building = domain_catalog_page(query=query, ordering=ordering, after=after, backwards=backwards, limit=page_size + 1)
-    more = len(chosen) > page_size
-    chosen = chosen[:page_size]
-    if backwards:
-        chosen.reverse()
+            refresh_due = cache.add(f"{key}:refresh", True, timeout=60)
+        except Exception:
+            _refresh_lock.release()
+            logging.getLogger(__name__).exception("Could not schedule domain metadata refresh")
+            return rows
+        if not refresh_due:
+            _refresh_lock.release()
+            return rows
 
-    def page_url(row, direction, number):
-        return "?" + urlencode(
-            {
-                "q": query,
-                "o": ordering,
-                "direction": direction,
-                "cursor": signing.dumps(
-                    [query, ordering, row["sort_value"], row["domain"], number],
-                    salt="domains-page",
-                    compress=True,
-                ),
-            },
-        )
+        def refresh():
+            try:
+                close_old_connections()
+                cache.set(key, Snapshot.objects.domain_summary(), timeout=3600)
+            except Exception:
+                logging.getLogger(__name__).exception("Could not refresh domain metadata")
+            finally:
+                connections.close_all()
+                _refresh_lock.release()
 
-    previous = page_url(chosen[0], "prev", max(1, number - 1)) if chosen and (more if backwards else bool(token)) else ""
-    following = page_url(chosen[-1], "next", number + 1) if chosen and (bool(token) if backwards else more) else ""
-    # This Page only represents the retrieved page and a lower bound on totals.
-    page = Page(chosen, number, Paginator(range((number - 1) * page_size + len(chosen) + bool(following)), page_size))
-    return page, query, ordering, previous, following, building
+        try:
+            Thread(target=refresh, name="domain-summary", daemon=True).start()
+        except RuntimeError:
+            _refresh_lock.release()
+            logging.getLogger(__name__).exception("Could not start domain metadata refresh")
+    return rows
 
 
 @clone_admin
@@ -111,7 +100,28 @@ def index(request):
         crawl = form.save(request.user)
         messages.success(request, "Crawl queued.")
         return redirect(crawl.admin_change_url)
-    domains, query, ordering, previous_url, next_url, building = _domain_page(request)
+    # This page is superuser-only. Cache raw metadata, never rendered URLs or
+    # permission decisions; sorting/paging must not rescan the whole collection.
+    rows = _domain_rows()
+    query = str(request.GET.get("q", "")).strip()
+    if query:
+        rows = [row for row in rows if query.casefold() in row["domain"].casefold()]
+    ordering = request.GET.get("o", "domain")
+    fields = {
+        "domain": "domain",
+        "count": "snapshot_count",
+        "size": "total_size",
+        "personas": "persona_count",
+        "oldest": "oldest_at",
+        "newest": "newest_at",
+    }
+    if ordering.lstrip("-") not in fields:
+        ordering = "domain"
+    rows.sort(
+        key=lambda row: (row[fields[ordering.lstrip("-")]] is not None, row[fields[ordering.lstrip("-")]], row["domain"]),
+        reverse=ordering.startswith("-"),
+    )
+    domains = Paginator(rows, 50).get_page(request.GET.get("page"))
     ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
     captures = {
         str(snapshot.pk): snapshot
@@ -189,8 +199,6 @@ def index(request):
     ):
         params = request.GET.copy()
         params.pop("page", None)
-        params.pop("cursor", None)
-        params.pop("direction", None)
         params["o"] = "-" + key if ordering == key else key
         headers.append(
             {
@@ -217,9 +225,7 @@ def index(request):
             "title": "Domains",
             "form": form,
             "domains": domains,
-            "domain_index_building": building,
-            "domain_previous_url": previous_url,
-            "domain_next_url": next_url,
+            "page_query": urlencode({"q": query, "o": ordering}),
             "export_formats": ALL_EXPORT_FORMATS.items(),
             "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
             "domain_headers": headers,
@@ -228,10 +234,10 @@ def index(request):
             "actions_selection_counter": True,
             "cl": {
                 "result_list": domains.object_list,
-                "result_count": len(domains) + bool(next_url),
-                "display_result_count": (domains.number - 1) * 50 + len(domains) + bool(next_url),
-                "result_count_exact": not next_url and domains.number == 1,
-                "full_result_count": len(domains) + bool(next_url),
+                "result_count": domains.paginator.count,
+                "display_result_count": domains.paginator.count,
+                "result_count_exact": True,
+                "full_result_count": domains.paginator.count,
                 "search_fields": ["domain"],
                 "query": query,
                 "params": {"q": query, "o": ordering},

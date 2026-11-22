@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const more = sidebar.querySelector('.library-load-more');
   const loading = sidebar.querySelector('.library-load-status');
   more.dataset.cursor = sidebar.dataset.next || '';
-  let searchTimer, searchRequest, indexTimer, searchVersion = 0, loadVersion = 0;
+  let searchTimer, searchRequest, searchVersion = 0, loadVersion = 0;
   function refreshRows() {
     rows = [...tree.querySelectorAll('.folder-row')];
     rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
@@ -712,11 +712,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error('Could not load sidebar.');
       const result = await response.json();
       if (signal?.aborted || version !== searchVersion) return;
-      if (result.building) {
-        loading.textContent = 'Indexing domains…';
-        waitForDomainIndex(version);
-        return;
-      }
       const fragment = document.createElement('template');
       fragment.innerHTML = result.html;
       if (replace) tree.replaceChildren(more);
@@ -750,15 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }, {root:tree, rootMargin:'100px'});
   observer.observe(more);
   more.addEventListener('click', () => loadPage(more));
-  function waitForDomainIndex(version) {
-    clearTimeout(indexTimer);
-    indexTimer = setTimeout(() => {
-      if (sidebar.isConnected && version === searchVersion) loadPage(more, true);
-    }, 1500);
-  }
-  if (sidebar.dataset.indexBuilding) waitForDomainIndex(searchVersion);
   function searchSidebar() {
-    clearTimeout(searchTimer); clearTimeout(indexTimer); searchRequest?.abort(); searchVersion++;
+    clearTimeout(searchTimer); searchRequest?.abort(); searchVersion++;
     renderTree();
     searchTimer = setTimeout(() => {
       searchRequest = new AbortController();
