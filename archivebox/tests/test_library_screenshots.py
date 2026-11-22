@@ -188,8 +188,8 @@ def test_native_library_failed_wacz_and_screenshot_still_yield_owned_app_replay(
     assert snapshots.filter(url=source["homepage"], archiveresult__output_size__gt=1024).exists()
     domains = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
     assert domains.status_code == 200
-    assert b"original_domain=field-notes.example" in domains.content
-    assert b"original_domain=design-notes.example" in domains.content
+    assert b'aria-label="Actions for field-notes.example"' in domains.content
+    assert b'aria-label="Actions for design-notes.example"' in domains.content
     assert write_wacz_site(tmp_path, snapshots, title=folder.name, progress=lambda _: None) == 4
     with zipfile.ZipFile(tmp_path / "site.wacz") as bundle:
         index = json.loads(bundle.read("datapackage.json"))

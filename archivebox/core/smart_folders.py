@@ -43,7 +43,7 @@ def model_fields():
 
     def visit(model, prefix="", multi=False, ancestors=()):
         for field in model._meta.get_fields():
-            if field.hidden or field.name.startswith("_"):
+            if field.hidden or field.name.startswith("_") or field.name == "reversed_domain":
                 continue
             path = prefix + field.name
             if field.is_relation:
@@ -333,14 +333,7 @@ class RuleQuery:
                             raise ValidationError("Enter a valid value for this field.") from error
                     value = cleaned if lookup == "in" else cleaned[0]
                 if name == "domain":
-                    result = Q(
-                        Exists(
-                            Snapshot.objects.with_hostname(allow_empty=True).filter(
-                                pk=OuterRef("pk"),
-                                **{f"_domain_host__{lookup}": value},
-                            ),
-                        ),
-                    )
+                    result = Snapshot.objects.domain_rule_q(lookup, value)
                 elif multi:
                     result = Q(Exists(Snapshot.objects.filter(pk=OuterRef("pk")).filter(**{f"{name}__{lookup}": value})))
                 else:

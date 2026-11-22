@@ -21,39 +21,70 @@ def create_pages(user, urls, *, persona=None):
 
 
 def test_domain_filter_matches_boundaries_and_arbitrary_subdomains(admin_user):
-    urls = [
+    default_port = [
         "https://example.com/",
-        "http://a.b.c.example.com:8080/path",
         "https://EXAMPLE.COM?query=1",
+        "https://example.com:80/path",
+        "http://example.com:443/path",
+        "http://a.b.c.example.com:80/path",
+        "https://a.example.com:443/path",
+    ]
+    port_8080 = ["http://a.b.c.example.com:8080/path", "https://example.com:8080/path"]
+    other_domains = [
         "https://other.com/",
         "https://example.com.evil.test/",
         "https://notexample.com/",
         "https://evil.test/?url=https://example.com/",
+        "https://example.com:8180/path",
+        "https://notexample.com:8080/path",
     ]
-    create_pages(admin_user, urls)
-    assert set(Snapshot.objects.filter_by_domain("*.example.com").values_list("url", flat=True)) == set(urls[:3])
-    assert set(Snapshot.objects.filter(domain="example.com").values_list("url", flat=True)) == {urls[0], urls[2]}
-    assert Snapshot.objects.all().filter(domain="*.example.com,other.com").count() == 4
-    assert Snapshot.objects.filter_by_patterns(["*.example.com"], "domain").count() == 3
-    assert Snapshot.objects.filter_by_domain("*.example.com:8080").count() == 1
+    create_pages(admin_user, default_port + port_8080 + other_domains)
+    for scope in ["example.com", "https://example.com:443/", "http://example.com:80/"]:
+        assert set(Snapshot.objects.filter(domain=scope).values_list("url", flat=True)) == set(default_port[:4])
+    for scope in ["*.example.com", "*.example.com:80", "*.example.com:443"]:
+        assert set(Snapshot.objects.filter_by_domain(scope).values_list("url", flat=True)) == set(default_port)
+    assert set(Snapshot.objects.all().filter(domain="*.example.com,other.com").values_list("url", flat=True)) == {
+        *default_port,
+        other_domains[0],
+    }
+    assert set(Snapshot.objects.filter_by_patterns(["*.example.com"], "domain").values_list("url", flat=True)) == set(default_port)
+    assert set(Snapshot.objects.filter_by_domain("*.example.com:8080").values_list("url", flat=True)) == set(port_8080)
+    assert list(Snapshot.objects.filter_by_domain("example.com:8080").values_list("url", flat=True)) == [port_8080[1]]
 
 
-def test_domain_summary_extracts_hosts_without_ports_userinfo_or_query(admin_user):
+def test_domain_summary_extracts_hosts_and_preserves_nondefault_ports(admin_user):
     urls = [
         "https://reader@example.com/path",
+        "https://example.com:80/path",
+        "http://a.example.com:443/path",
         "http://www.example.com.:4444/?target=other.com",
+        "https://example.com:4444/",
+        "https://[2001:db8::1]/path",
         "https://[2001:db8::1]:8443/path",
         "https://198.51.100.5:81/?path=example.com",
         "https://github.io/",
         "https://tenant.github.io/",
         "https://bücher.de/",
         "https://xn--bcher-kva.de/",
+        "https://BÜCHER.DE:443/",
     ]
     create_pages(admin_user, urls)
     rows = {row["domain"]: row for row in Snapshot.objects.domain_summary()}
-    assert set(rows) == {"example.com", "2001:db8::1", "198.51.100.5", "github.io", "tenant.github.io", "xn--bcher-kva.de"}
-    assert rows["example.com"]["snapshot_count"] == 2
+    assert set(rows) == {
+        "example.com",
+        "example.com:4444",
+        "2001:db8::1",
+        "[2001:db8::1]:8443",
+        "198.51.100.5:81",
+        "github.io",
+        "tenant.github.io",
+        "xn--bcher-kva.de",
+    }
+    assert rows["example.com"]["snapshot_count"] == 3
+    assert rows["example.com:4444"]["scope"] == "*.example.com:4444"
+    assert rows["example.com:4444"]["snapshot_count"] == 2
     assert rows["2001:db8::1"]["scope"] == "[2001:db8::1]"
+    assert rows["[2001:db8::1]:8443"]["scope"] == "[2001:db8::1]:8443"
     for row in rows.values():
         assert Snapshot.objects.filter_by_domain(row["scope"]).count() == row["snapshot_count"]
 
@@ -64,11 +95,37 @@ def test_invalid_domain_filter_is_not_a_broader_query(domain):
         Snapshot.objects.filter_by_domain(domain)
 
 
+def test_snapshot_domain_key_follows_url_writes(admin_user):
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://maps.google.co.uk/")
+    page = Snapshot.objects.bulk_create([Snapshot(crawl=crawl, url="https://maps.google.co.uk:8080/search")])[0]
+    rows = Snapshot.objects.filter(pk=page.pk)
+
+    assert rows.values_list("reversed_domain", flat=True).get() == "8080:uk.co.google.maps"
+    assert rows.filter(domain="*.google.co.uk:8080").exists()
+
+    assert rows.update(url="https://www.google.co.uk:80/") == 1
+    assert rows.values_list("reversed_domain", flat=True).get() == "uk.co.google.www"
+    assert rows.filter(domain="*.google.co.uk").exists()
+    assert not rows.filter(domain="*.google.co.uk:8080").exists()
+
+    page.url = "http://example.org:443/search"
+    assert Snapshot.objects.bulk_update([page], ["url"]) == 1
+    assert rows.values_list("reversed_domain", flat=True).get() == "org.example"
+    assert rows.filter(domain="example.org").exists()
+    assert not rows.filter(domain="*.google.co.uk").exists()
+
+    page.url = "https://other.example.org:8443/"
+    page.save(update_fields=["url"])
+    assert rows.values_list("reversed_domain", flat=True).get() == "8443:org.example.other"
+    assert rows.filter(domain="*.example.org:8443").exists()
+    assert not rows.filter(domain="example.org").exists()
+
+
 def test_domain_summary_groups_psl_parents_without_loading_snapshot_rows(admin_user):
     one = Persona.objects.create(name="Domain first", created_by=admin_user)
     two = Persona.objects.create(name="Domain second", created_by=admin_user)
     pages = create_pages(admin_user, ["https://example.co.uk/", "https://a.b.example.co.uk/"], persona=one)
-    pages += create_pages(admin_user, ["http://other.example.co.uk:8080/", "https://other.com/"], persona=two)
+    pages += create_pages(admin_user, ["http://other.example.co.uk:80/", "https://other.com/"], persona=two)
     pages += create_pages(admin_user, ["https://one.github.io/", "https://two.github.io/"])
     origin = timezone.now() - timedelta(days=10)
     for index, page in enumerate(pages):
@@ -140,11 +197,20 @@ def test_domain_name_opens_root_capture_and_count_opens_filtered_list(admin_clie
 
 
 def test_snapshot_api_domain_filter(client, api_admin_user, api_headers):
-    pages = create_pages(api_admin_user, ["https://example.com/", "https://deep.sub.example.com/", "https://example.com.evil.test/"])
-    response = client.get("/api/v1/core/snapshots", {"domain": "*.example.com"}, **api_headers)
-    assert response.status_code == 200, response.content
-    assert response.json()["count"] == 2
-    assert {item["id"].replace("-", "") for item in response.json()["items"]} == {str(page.pk).replace("-", "") for page in pages[:2]}
+    pages = create_pages(
+        api_admin_user,
+        [
+            "https://example.com/",
+            "https://deep.sub.example.com:80/",
+            "https://deep.sub.example.com:8080/",
+            "https://example.com.evil.test/",
+        ],
+    )
+    for scope, expected in [("*.example.com", pages[:2]), ("*.example.com:8080", pages[2:3])]:
+        response = client.get("/api/v1/core/snapshots", {"domain": scope}, **api_headers)
+        assert response.status_code == 200, response.content
+        assert response.json()["count"] == len(expected)
+        assert {item["id"].replace("-", "") for item in response.json()["items"]} == {str(page.pk).replace("-", "") for page in expected}
 
 
 @pytest.mark.parametrize(

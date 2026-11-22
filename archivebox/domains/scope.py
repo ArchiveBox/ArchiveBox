@@ -35,7 +35,7 @@ def normalize_site_scope(value: str) -> str:
     ):
         raise ValueError("Enter a domain or URL prefix without credentials, query or fragment.")
     authority = f"[{host}]" if ":" in host else host
-    if port is not None:
+    if port not in (None, 80, 443):
         authority += f":{port}"
     return ("*." if wildcard else "") + authority + parts.path.rstrip("/")
 
@@ -70,24 +70,6 @@ def site_snapshot_q(scopes):
     if hosts:
         query |= Snapshot.objects.domain_q(",".join(hosts))
     return query
-
-
-def filter_domain_search(queryset, term):
-    """Resolve a domain-name search against the current snapshot URLs."""
-    from django.db import connections
-    from django.db.models import CharField, Func
-    from archivebox.core.domain_grouping import group_host
-
-    term = term.strip().casefold()
-    if connections[queryset.db].vendor == "sqlite":
-        matches = queryset.alias(live_domain=Func("url", function="archivebox_domain_group", output_field=CharField()))
-        return matches.filter(live_domain__contains=term) if term else matches.exclude(live_domain="")
-    candidates = queryset.with_hostname()
-    if not term:
-        return candidates
-    hosts = candidates.order_by("_domain_host").values_list("_domain_host", flat=True).distinct().iterator(chunk_size=1000)
-    scopes = {scope for domain, scope in (group_host(host) for host in hosts) if term in domain}
-    return candidates.filter(site_snapshot_q(sorted(scopes)))
 
 
 def site_snapshots(scope: str):

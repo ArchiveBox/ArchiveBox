@@ -3,9 +3,10 @@
 import pytest
 from django.test import Client
 
-from archivebox.core.models import Folder, Snapshot, Tag
+from archivebox.core.models import ArchiveResult, Folder, Snapshot, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Machine
+from archivebox.personas.models import Persona
 from archivebox.tests.conftest import ADMIN_TEST_HOST, API_TEST_HOST, WEB_TEST_HOST
 
 
@@ -104,6 +105,14 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
     }
     Tag.objects.bulk_create([Tag(name=f"z-scroll-{index:03}") for index in range(120)])
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://archivebox.io/")
+    persona_crawls = [
+        Crawl.objects.create(
+            created_by=admin_user,
+            urls="https://archivebox.io/",
+            persona=Persona.objects.create(name=name, created_by=admin_user),
+        )
+        for name in ("ArchiveBox Documentation Profile", "Browser Research", "Reference Library")
+    ]
     records = [
         ("https://archivebox.io/", "ArchiveBox — Open source web archiving", "Web archiving", ["archiving", "self-hosted"]),
         ("https://docs.archivebox.io/", "ArchiveBox documentation", "Web archiving", ["archiving", "documentation"]),
@@ -117,9 +126,24 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         ("https://www.truenas.com/docs/", "TrueNAS documentation", "Self-hosting", ["home-lab", "documentation"]),
         ("https://en.wikipedia.org/wiki/Web_archiving", "Web archiving — Wikipedia", "Read later", ["archiving", "read-later"]),
     ]
-    for url, title, folder, names in records:
-        snapshot = Snapshot.objects.create(crawl=crawl, url=url, title=title, folder=folders[folder], config={"PERMISSIONS": "public"})
+    for index, (url, title, folder, names) in enumerate(records):
+        snapshot = Snapshot.objects.create(
+            crawl=persona_crawls[index] if index < 2 else crawl,
+            url=url,
+            title=title,
+            folder=folders[folder],
+            config={"PERMISSIONS": "public"},
+        )
         snapshot.tags.set([Tag.objects.get_or_create(name=name)[0] for name in names])
+        if url == "https://www.djangoproject.com/":
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="favicon",
+                status=ArchiveResult.StatusChoices.SUCCEEDED,
+                output_str="missing.ico",
+                output_files={"favicon/missing.ico": {"size": 1}},
+            )
+    Snapshot.objects.create(crawl=persona_crawls[2], url="https://www.archivebox.io/", config={"PERMISSIONS": "public"})
     empty = Tag.objects.create(name="unused-tag")
     secret = Snapshot.objects.create(crawl=crawl, url="https://private.invalid/", config={"PERMISSIONS": "private"})
     secret.tags.add(Tag.objects.create(name="private-only"))
@@ -144,7 +168,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         def choose(label):
             sidebar.get_by_role("button", name="Choose sidebar view").click()
             page.locator("#library-mode-menu").get_by_role("menuitem", name=label, exact=True).click()
-            expect(page.locator("#result_list tbody tr")).to_have_count(12)
+            expect(page.locator("#result_list tbody tr")).to_have_count(13)
 
         page.screenshot(path=str(evidence / "all-snapshots.png"))
         sidebar.get_by_role("button", name="Choose sidebar view").click()
@@ -157,7 +181,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         sidebar.get_by_role("button", name="Find a tag", exact=True).click()
         sidebar.get_by_role("searchbox", name="Find a tag").fill("python")
         expect(sidebar.locator(".library-entry:visible")).to_have_count(1)
-        expect(page.locator("#result_list tbody tr")).to_have_count(12)
+        expect(page.locator("#result_list tbody tr")).to_have_count(13)
         page.keyboard.press("Escape")
         page.screenshot(path=str(evidence / "tags.png"))
         sidebar.get_by_role("link", name="python", exact=True).click()
@@ -187,6 +211,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_have_count(0)
         expect(menu.get_by_role("menuitem", name="Merge...", exact=True)).to_have_count(0)
         expect(menu.get_by_role("menuitem", name="Delete tag", exact=True)).to_have_count(0)
+        sidebar_exports = menu.locator("[data-export-format]").evaluate_all("links => links.map(link => link.href)")
         page.screenshot(path=str(evidence / "domain-actions.png"))
         menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
         expect(page.get_by_role("main", name="Confirm snapshot deletion")).to_be_visible()
@@ -225,7 +250,40 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains")
         sidebar.get_by_role("link", name="Add domain", exact=True).click()
         expect(page).to_have_url(f"{origin}/admin/domains/")
-        page.get_by_role("link", name="Delete snapshots for djangoproject.com").click()
+        domains_response = page.request.get(page.url)
+        assert domains_response.ok and "/favicon/missing.ico" in domains_response.text()
+        expect(page.get_by_role("columnheader", name="Actions", exact=True)).to_have_count(0)
+        for label in ("Total Size", "Newest Snapshot", "Oldest Snapshot"):
+            expect(page.get_by_role("columnheader", name=label, exact=True)).to_be_visible()
+        django_row = page.get_by_role("row").filter(has=page.get_by_role("link", name="djangoproject.com", exact=True))
+        expect(django_row.locator(".library-domain-icon svg")).to_be_visible()
+        expect(django_row.locator(".library-domain-icon img")).to_have_count(0)
+        archivebox_row = page.get_by_role("row").filter(has=page.get_by_role("link", name="archivebox.io", exact=True))
+        expect(archivebox_row.locator(".library-domain-icon svg")).to_be_visible()
+        expect(archivebox_row.locator(".library-domain-icon img")).to_have_count(0)
+        persona_badge = archivebox_row.get_by_role("link", name="ArchiveBox Documentation Profile")
+        expect(persona_badge).to_be_visible()
+        expect(persona_badge).to_have_css("white-space", "nowrap")
+        expect(persona_badge).to_have_css("text-overflow", "ellipsis")
+        assert persona_badge.evaluate("badge => badge.scrollWidth > badge.clientWidth")
+        expect(archivebox_row.get_by_role("link", name="Reference Library")).to_be_hidden()
+        more_personas = archivebox_row.get_by_role("button", name="Show all 3 personas")
+        expect(more_personas).to_have_text("+1")
+        page.screenshot(path=str(evidence / "admin-domains.png"))
+        more_personas.click()
+        expect(archivebox_row.get_by_role("link", name="Reference Library")).to_be_visible()
+        archivebox_row.get_by_role("button", name="Show fewer personas").click()
+        expect(archivebox_row.get_by_role("link", name="Reference Library")).to_be_hidden()
+        django_row.get_by_role("checkbox", name="Select djangoproject.com").check()
+        with page.expect_download() as bulk_export:
+            page.get_by_role("combobox", name="Export selected domains").select_option("csv")
+        assert bulk_export.value.suggested_filename.endswith(".csv")
+        django_row.get_by_role("button", name="Actions for djangoproject.com", exact=True).press("ArrowDown")
+        menu = page.get_by_role("menu", name="djangoproject.com")
+        expect(menu).to_be_visible()
+        assert menu.locator("[data-export-format]").evaluate_all("links => links.map(link => link.href)") == sidebar_exports
+        page.screenshot(path=str(evidence / "admin-domain-actions.png"))
+        menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
         expect(page.get_by_role("main", name="Confirm snapshot deletion")).to_be_visible()
         expect(page.get_by_text("Queue exactly 2 selected snapshots for deletion?", exact=False)).to_be_visible()
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=tags")
@@ -276,5 +334,5 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
     assert not Tag.objects.filter(name="python").exists()
     assert Tag.objects.get(pk=empty.pk).name == "python-notes"
     assert Tag.objects.get(pk=empty.pk).snapshot_set.count() == 4
-    assert Snapshot.objects.count() == 12  # Opening confirmation does not delete.
+    assert Snapshot.objects.count() == 13  # Opening confirmation does not delete.
     assert set(Snapshot.objects.values_list("status", flat=True)) == {Snapshot.StatusChoices.QUEUED}

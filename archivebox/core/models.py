@@ -9,7 +9,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit
 
 from django.conf import settings
 from django.contrib import admin
@@ -20,12 +20,6 @@ from django.db.models.fields.json import KT
 from django.db.models.functions import (
     Coalesce,
     Greatest,
-    Lower,
-    Replace,
-    Reverse,
-    Right,
-    StrIndex,
-    Substr,
 )
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -45,6 +39,7 @@ from archivebox.base_models.models import (
 )
 from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config, rprint
+from archivebox.core.domain_grouping import ReversedDomain, ReversedDomainField, domain_key
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Binary
 from archivebox.misc.system import atomic_write
@@ -584,8 +579,8 @@ class SnapshotQuerySet(PagedQuerySet):
 
     @staticmethod
     def domain_q(pattern: str) -> Q:
-        """Match complete HTTP(S) hosts; *.example.com includes the apex."""
-        authorities = []
+        """Match complete HTTP(S) hosts and ports; *.example.com includes the apex."""
+        matching = Q(pk__in=[])
         for value in str(pattern or "").split(","):
             value = value.strip()
             if not value:
@@ -594,7 +589,8 @@ class SnapshotQuerySet(PagedQuerySet):
             value = value[2:] if wildcard else value
             try:
                 parsed = urlparse(value if "://" in value else "//" + value)
-                host = (parsed.hostname or "").rstrip(".").encode("idna").decode("ascii").lower()
+                raw_host = (parsed.hostname or "").rstrip(".")
+                host = raw_host.encode("idna").decode("ascii").lower()
                 port = parsed.port
             except (UnicodeError, ValueError) as error:
                 raise ValueError("Enter a domain, optionally prefixed by *. or separated by commas.") from error
@@ -610,22 +606,19 @@ class SnapshotQuerySet(PagedQuerySet):
                 raise ValueError("Domain filters accept hostnames, not URL paths or credentials.")
             if parsed.scheme not in {"", "http", "https"} or not re.fullmatch(r"[\w.:-]+", host):
                 raise ValueError("Enter an HTTP(S) domain.")
-            host_pattern = re.escape(host)
+            spellings = [host, raw_host]
             try:
-                unicode_host = host.encode("ascii").decode("idna")
-                if unicode_host != host:
-                    host_pattern = rf"(?:{host_pattern}|{re.escape(unicode_host)})"
+                spellings.append(host.encode("ascii").decode("idna"))
             except UnicodeError:
                 pass
-            if ":" in host:
-                host_pattern = rf"\[{host_pattern}\]"
-            elif wildcard:
-                host_pattern = rf"(?:[^./:@?#]+\.)*{host_pattern}"
-            port_pattern = f":{port}" if port is not None else r"(?::\d+)?"
-            authorities.append(rf"{host_pattern}\.?{port_pattern}")
-        if not authorities:
-            return Q(pk__in=[])
-        return Q(url__iregex=rf"^https?://(?:[^/?#]*@)?(?:{'|'.join(authorities)})(?:[/?#]|$)")
+            for spelling in dict.fromkeys(spellings):
+                key = domain_key(spelling, port)
+                matching |= Q(reversed_domain=key)
+                if wildcard and ":" not in host:
+                    # A bytewise range over the dot separator selects only
+                    # descendants and uses the same index as equality.
+                    matching |= Q(reversed_domain__gte=f"{key}.", reversed_domain__lt=f"{key}/")
+        return matching
 
     def filter_by_domain(self, pattern: str) -> "SnapshotQuerySet":
         return self.filter(self.domain_q(pattern))
@@ -635,55 +628,125 @@ class SnapshotQuerySet(PagedQuerySet):
         queryset = super().filter(*args, **kwargs)
         return queryset.filter_by_domain(domain) if domain is not None else queryset
 
-    def with_hostname(self, *, allow_empty=False) -> "SnapshotQuerySet":
-        """Extract hostnames in SQL, without fetching URLs or archive files."""
+    def _domain_key_candidates(self, needle="", after=""):
+        from django.db import connections
 
-        def append_separator(expression, separator):
-            # URL and separator are non-null. Concat's nested COALESCE guards
-            # overflow older SQLite parsers when folders compose this query.
-            return models.Func(
-                expression,
-                Value(separator),
-                template="(%(expressions)s)",
-                arg_joiner=" || ",
-                output_field=models.CharField(),
-            )
+        candidates = self.filter(reversed_domain__gt=after)
+        if needle.isascii() and needle and connections[self.db].vendor == "sqlite":
+            # SQLite stores IDNA labels in ASCII. A displayed substring must
+            # share a label fragment with the indexed key.
+            fragment = max(re.split(r"[.:]", needle), key=len)
+            if fragment:
+                candidates = candidates.filter(reversed_domain__contains=fragment)
+        return candidates
 
-        authority = Substr("url", StrIndex("url", Value("://")) + 3)
-        # Find the first URL separator with one scan. Expanding three MIN/
-        # COALESCE expressions repeatedly through the hostname CASE tree made
-        # Django copy tens of thousands of expression nodes per smart rule.
-        separators = Replace(Replace(authority, Value("?"), Value("/")), Value("#"), Value("/"))
-        end = StrIndex(append_separator(separators, "/"), Value("/"))
-        queryset = (
-            self.filter(url__iregex=r"^https?://")
-            .alias(_domain_authority=Substr(authority, 1, end - 1))
-            .alias(
-                # The sentinel handles missing userinfo without another CASE
-                # around the expanded authority expression. Nested folder
-                # queries otherwise exceed SQLite's parser stack limit.
-                _domain_address=Right(
-                    "_domain_authority",
-                    StrIndex(append_separator(Reverse("_domain_authority"), "@"), Value("@")) - 1,
-                ),
+    def _distinct_domain_keys(self):
+        return self.order_by("reversed_domain").values_list("reversed_domain", flat=True).distinct()
+
+    def domain_choices_page(self, search, limit, cursor=None):
+        """Page over distinct host keys, carrying open subdomain ranges forward."""
+        from archivebox.core.domain_grouping import domain_key, domain_search_term, group_domain_key
+
+        needle = domain_search_term(search)
+        after, saved = cursor or ("", [])
+        open_groups = dict(saved)
+        choices = {}
+        latest = after
+        keys = self._domain_key_candidates(needle, after)._distinct_domain_keys()
+        for key in keys.iterator(chunk_size=512):
+            domain, scope = group_domain_key(key)
+            if domain in choices or domain in open_groups or needle not in domain.casefold():
+                continue
+            # PostgreSQL keeps raw IDN spellings in its derived column.
+            # Check the indexed range for an equivalent group already paged.
+            if (
+                after
+                and "xn--" in domain
+                and any(
+                    group_domain_key(prior)[0] == domain
+                    for prior in self.filter_by_domain(scope).filter(reversed_domain__lte=after)._distinct_domain_keys()
+                )
+            ):
+                continue
+            if len(choices) == limit:
+                return choices, [latest, [[name, end] for name, end in open_groups.items() if end > latest]]
+            choices[domain] = (scope, key)
+            latest = key
+            if scope.startswith("*."):
+                parts = urlparse("//" + scope[2:])
+                open_groups[domain] = domain_key(parts.hostname, parts.port) + "/"
+        return choices, None
+
+    def domain_representative_ids(self, keys):
+        """Fetch one capture per displayed group with bounded index lookups."""
+        from django.db import connections
+        from django.db.models.expressions import RawSQL
+        from archivebox.core.domain_grouping import domain_authority_from_key
+
+        keys = tuple(dict.fromkeys(keys))
+        if not keys:
+            return {}
+        snapshots = self.order_by().values("pk")
+        representative = snapshots.filter(reversed_domain=RawSQL("domain_page.reversed_domain", ()))[:1]
+        homepage = snapshots.filter(url__in=[RawSQL("domain_page.https_url", ()), RawSQL("domain_page.http_url", ())])[:1]
+        homepage_sql, homepage_params = homepage.query.get_compiler(using=self.db).as_sql()
+        representative_sql, representative_params = representative.query.get_compiler(using=self.db).as_sql()
+        values = ", ".join("(%s, %s, %s)" for _ in keys)
+        page_params = []
+        for key in keys:
+            authority = domain_authority_from_key(key)
+            page_params.extend((key, f"https://{authority}/", f"http://{authority}/"))
+        with connections[self.db].cursor() as cursor:
+            cursor.execute(
+                f"WITH domain_page(reversed_domain, https_url, http_url) AS (VALUES {values}) "
+                f"SELECT reversed_domain, COALESCE(({homepage_sql}), ({representative_sql})) FROM domain_page",
+                (*page_params, *homepage_params, *representative_params),
             )
-            .annotate(
-                _domain_host=Lower(
-                    Case(
-                        When(
-                            _domain_address__startswith="[",
-                            then=Substr("_domain_address", 2, StrIndex("_domain_address", Value("]")) - 2),
-                        ),
-                        default=Substr(
-                            "_domain_address",
-                            1,
-                            StrIndex(append_separator("_domain_address", ":"), Value(":")) - 1,
-                        ),
-                    ),
-                ),
+            return {key: compact_uuid(snapshot_id) for key, snapshot_id in cursor.fetchall() if snapshot_id is not None}
+
+    def filter_by_domain_search(self, term: str):
+        """Find snapshots whose displayed domain group contains the search term."""
+        from django.db import connections
+        from django.db.models.expressions import RawSQL
+        from archivebox.core.domain_grouping import domain_search_term, group_domain_key
+
+        needle = domain_search_term(term)
+        candidates = self._domain_key_candidates(needle)
+        if not needle:
+            return candidates
+        keys = candidates._distinct_domain_keys()
+        if connections[self.db].vendor == "sqlite":
+            # Evaluate the public-suffix grouping once per indexed hostname,
+            # even when one host contains millions of snapshots.
+            sql, params = keys.query.get_compiler(using=self.db).as_sql()
+            matching = RawSQL(
+                f"SELECT reversed_domain FROM ({sql}) AS domain_keys WHERE instr(archivebox_domain_label(reversed_domain), %s) > 0",
+                (*params, needle),
+                output_field=models.TextField(),
             )
-        )
-        return queryset if allow_empty else queryset.exclude(_domain_host="")
+        else:
+            matching = [key for key in keys.iterator(chunk_size=1000) if needle in group_domain_key(key)[0].casefold()]
+        return self.filter(reversed_domain__in=matching)
+
+    def domain_rule_q(self, lookup, value):
+        if lookup in {"exact", "in"}:
+            query = Q(pk__in=[])
+            for host in value if lookup == "in" else [value]:
+                # Smart folder equality is a literal host, not a wildcard or a list.
+                if host.startswith("*.") or "," in host:
+                    continue
+                try:
+                    query |= self.domain_q(host)
+                except ValueError:
+                    continue
+            return query
+        authority = models.Func("reversed_domain", function="archivebox_domain_authority", output_field=models.TextField())
+        comparison = {
+            "icontains": models.lookups.IContains,
+            "istartswith": models.lookups.IStartsWith,
+            "iendswith": models.lookups.IEndsWith,
+        }[lookup]
+        return Q(comparison(authority, value))
 
     def domain_summary(self) -> list[dict]:
         """Aggregate narrow metadata in bounded primary-key batches.
@@ -693,30 +756,27 @@ class SnapshotQuerySet(PagedQuerySet):
         Only domain-sized state is retained here, never Snapshot models or their
         output manifests, and each batch releases its read cursor before parsing.
         """
-        from urllib.parse import urlsplit
-        from archivebox.core.domain_grouping import group_host
+        from archivebox.core.domain_grouping import group_domain_key
 
         # Keep filters on this query so pk > last seeks directly into its index.
         # A self-IN subquery made SQLite enumerate the whole ID index again for
         # every page. DISTINCT still deduplicates matching tag/folder joins.
-        metadata = self.order_by("pk").values_list("pk", "url", "created_at", "output_size", "crawl__persona_id").distinct()
+        snapshots = self.filter(reversed_domain__gt="")
+        metadata = (
+            snapshots.order_by("pk")
+            .values_list("pk", "url", "reversed_domain", "created_at", "output_size", "crawl__persona_id")
+            .distinct()
+        )
         rows, hosts, personas, root_ranks = {}, {}, {}, {}
         last = None
         while True:
             batch = list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000])
             if not batch:
                 break
-            for snapshot_id, url, created, size, persona in batch:
-                try:
-                    parsed = urlsplit(url)
-                    host = parsed.hostname
-                except ValueError:
-                    continue
-                if parsed.scheme not in {"http", "https"} or not host:
-                    continue
-                if host not in hosts:
-                    hosts[host] = group_host(host)
-                domain, scope = hosts[host]
+            for snapshot_id, url, key, created, size, persona in batch:
+                if key not in hosts:
+                    hosts[key] = group_domain_key(key)
+                domain, scope = hosts[key]
                 if domain not in rows:
                     rows[domain] = {
                         "domain": domain,
@@ -729,17 +789,17 @@ class SnapshotQuerySet(PagedQuerySet):
                         "newest_id": snapshot_id,
                         "root_id": snapshot_id,
                     }
-                    personas[domain] = set()
                 row = rows[domain]
                 row["snapshot_count"] += 1
                 row["total_size"] += size or 0
                 if persona is not None:
-                    personas[domain].add(persona)
+                    personas.setdefault(domain, set()).add(persona)
                 if (created, snapshot_id) < (row["oldest_at"], row["oldest_id"]):
                     row["oldest_at"], row["oldest_id"] = created, snapshot_id
                 if (created, snapshot_id) > (row["newest_at"], row["newest_id"]):
                     row["newest_at"], row["newest_id"] = created, snapshot_id
-                depth = parsed.path.count("/") - int(parsed.path.endswith("/"))
+                path = urlsplit(url).path
+                depth = path.count("/") - int(path.endswith("/"))
                 rank = (-depth, created, snapshot_id)
                 if domain not in root_ranks or rank > root_ranks[domain]:
                     root_ranks[domain] = rank
@@ -748,8 +808,9 @@ class SnapshotQuerySet(PagedQuerySet):
                 break
             last = batch[-1][0]
         for domain, row in rows.items():
-            row["persona_count"] = len(personas[domain])
-        return list(rows.values())
+            row["persona_ids"] = tuple(sorted(personas.get(domain, ())))
+            row["persona_count"] = len(row["persona_ids"])
+        return sorted(rows.values(), key=lambda row: row["domain"])
 
     FILTER_TYPES: ClassVar[dict[str, Any]] = {
         "exact": lambda pattern: models.Q(url=pattern),
@@ -1018,6 +1079,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     # URLs (up to MAX_URL_LENGTH chars, enforced in save()) are supported, while keeping a
     # normal index so exact, prefix, and substring lookups all stay fast.
     url = models.TextField(db_index=True)  # URLs can appear in multiple crawls
+    reversed_domain = models.GeneratedField(
+        expression=ReversedDomain("url"),
+        output_field=ReversedDomainField(),
+        db_persist=True,
+    )
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
     bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
     crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, null=False, related_name="snapshot_set", db_index=True)  # type: ignore[assignment]
@@ -1148,6 +1214,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # display totals are not always needed (see public-page lookahead).
         indexes: ClassVar[list[models.Index]] = [
             models.Index(UUIDSuffix("id"), name="snapshot_uuid_suffix_idx"),
+            models.Index(fields=["reversed_domain"], name="snapshot_reversed_domain_idx"),
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["folder", "permissions", "-bookmarked_at", "-created_at"], name="snapshot_folder_public_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),

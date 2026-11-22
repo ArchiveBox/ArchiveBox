@@ -35,13 +35,12 @@ def apply_snapshot_filters(
 
     if domain:
         queryset = queryset.filter_by_domain(domain)
-    if site_scopes or domain_search is not None:
-        from archivebox.domains.scope import filter_domain_search, site_snapshot_q
+    if site_scopes:
+        from archivebox.domains.scope import site_snapshot_q
 
-        if site_scopes:
-            queryset = queryset.filter(site_snapshot_q(site_scopes))
-        if domain_search is not None:
-            queryset = filter_domain_search(queryset, domain_search)
+        queryset = queryset.filter(site_snapshot_q(site_scopes))
+    if domain_search is not None:
+        queryset = queryset.filter_by_domain_search(domain_search)
     if folder_id == "unfiled":
         queryset = queryset.filter(folder__isnull=True)
     elif folder_id:

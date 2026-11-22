@@ -2,7 +2,7 @@
 // worker after this submission, then photographs the native snapshot list.
 async function prepare(page, adminBaseUrl, homeUrl) {
   const nextUrl = new URL('chapter.html', homeUrl).href;
-  const domain = new URL(homeUrl).hostname;
+  const domain = new URL(homeUrl).host;
   await page.goto(`${adminBaseUrl}/admin/domains/`, {waitUntil: 'domcontentloaded'});
   await page.waitForSelector('#siteclone-form');
   if (await page.$eval('#site-add-options', el => el.hidden)) await page.click('#site-add-button');
@@ -48,12 +48,48 @@ async function prepare(page, adminBaseUrl, homeUrl) {
   return {name: 'Domain snapshots', homeUrl, nextUrl, domain, url, moreOptionsUrl, path: new URL(url).pathname, crawlId, source: 'archivebox/templates/admin/core/snapshot/change_list.html'};
 }
 
+async function findDomainRow(page, adminUrl, originalUrl) {
+  const domainsUrl = new URL('/admin/domains/', adminUrl).href;
+  await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
+  if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
+  const selected = await page.evaluateHandle(url => {
+    const original = new URL(url);
+    const port = value => ['80', '443'].includes(value) ? '' : value;
+    return [...document.querySelectorAll('#result_list tbody tr')].find(row => {
+      const scope = row.querySelector('.domain-identity')?.dataset.filterValue;
+      if (!scope) return false;
+      const authority = new URL('http://' + scope.replace(/^\*\./, ''));
+      return port(original.port) === port(authority.port) && (original.hostname === authority.hostname ||
+        (scope.startsWith('*.') && original.hostname.endsWith('.' + authority.hostname)));
+    });
+  }, originalUrl);
+  const row = selected.asElement();
+  if (!row) throw new Error('The captured site is missing from Domains.');
+  return row;
+}
+
+async function replayAuthUrl(page, snapshotsUrl, originalUrl) {
+  await page.goto(snapshotsUrl, {waitUntil: 'domcontentloaded'});
+  const snapshot = await page.$$eval('#result_list tbody tr', (rows, url) => {
+    const original = new URL(url);
+    const matched = rows.find(row => row.querySelector('.snapshot-original-url')?.href === original.href) ||
+      rows.find(row => {
+        const href = row.querySelector('.snapshot-original-url')?.href;
+        return href && new URL(href).host === original.host;
+      });
+    return matched?.querySelector('input.action-select')?.value;
+  }, originalUrl);
+  if (!snapshot) throw new Error('The selected domain has no matching capture to replay.');
+  const original = new URL(originalUrl);
+  const auth = new URL('/admin/core/snapshot/replay-auth/', snapshotsUrl);
+  auth.search = new URLSearchParams({snapshot, original_domain: original.hostname, next: original.pathname + original.search});
+  return auth;
+}
+
 async function replayViews(page, clone) {
-  await page.goto(new URL('/admin/domains/', clone.url).href, {waitUntil: 'domcontentloaded'});
-  const authUrl = await page.$$eval('a[href*="original_domain="]', (links, domain) => links.find(link => new URL(link.href).searchParams.get('original_domain') === domain)?.href, new URL(clone.homeUrl).hostname);
-  if (!authUrl) throw new Error('The completed site crawl has no saved page to replay.');
-  const homeAuth = new URL(authUrl);
-  homeAuth.searchParams.set('next', new URL(clone.homeUrl).pathname);
+  const row = await findDomainRow(page, clone.url, clone.homeUrl);
+  const snapshotsUrl = await row.$eval('.field-count a', link => link.href);
+  const homeAuth = await replayAuthUrl(page, snapshotsUrl, clone.homeUrl);
   const response = await page.goto(homeAuth.href, {waitUntil: 'domcontentloaded'});
   if (!response || response.status() !== 200 || !new URL(page.url()).hostname.startsWith(new URL(clone.homeUrl).hostname + '.')) {
     throw new Error('Saved site did not load on its original-domain replay host.');
@@ -76,7 +112,7 @@ async function replayViews(page, clone) {
   await assertCapturedPage(page, 'Field Notes');
   await page.goForward({waitUntil: 'domcontentloaded'});
   await assertCapturedPage(page, 'A Walk by the River');
-  const nextAuth = new URL(authUrl);
+  const nextAuth = new URL(homeAuth);
   nextAuth.searchParams.set('next', new URL(next).pathname + new URL(next).search);
   return [
     {name: 'Saved site replay', url: homeAuth.href, path: new URL(clone.homeUrl).pathname, source: 'archivebox/core/views.py'},
@@ -97,22 +133,23 @@ async function assertCapturedPage(frame, title) {
   }, {}, title);
 }
 
-module.exports = {prepare, replayViews, assertCapturedPage};
+module.exports = {prepare, replayViews, assertCapturedPage, findDomainRow, replayAuthUrl};
 
-// Exports stay on the server filesystem. Exercise the native inline control,
+// Exports stay on the server filesystem. Exercise the selected-domains export,
 // then open its actual output directly: the static export needs no replay server.
 async function exportViews(page, clone, directory, baseUrl) {
   const fs = require('fs');
   const path = require('path');
   if (!baseUrl) throw new Error('The static gallery requires its localhost export server.');
   fs.mkdirSync(directory, {recursive: true});
-  await page.goto(new URL('/admin/domains/', clone.url).href, {waitUntil: 'domcontentloaded'});
+  const row = await findDomainRow(page, clone.url, clone.homeUrl);
+  await (await row.$('input.action-select')).click();
   const destinationPrompt = new Promise(resolve => page.once('dialog', async dialog => {
     await dialog.accept(directory);
     resolve();
   }));
   await Promise.all([
-    page.select(`.site-domain-row-export[data-domain="${clone.domain}"]`, 'html'),
+    page.select('.site-domain-export', 'html'),
     destinationPrompt,
   ]);
   await page.waitForFunction(() => ['exited', 'failed'].includes(document.querySelector('.snapshot-export-status')?.dataset.status), {timeout: 120000});

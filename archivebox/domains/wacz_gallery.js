@@ -46,20 +46,20 @@ async function downloadWacz(page, directory, trigger) {
   return {file, downloadUrl};
 }
 
-async function replayHarness(page, exportedWacz, directory, baseUrl, adminUrl, originalUrl, authUrl) {
+async function replayHarness(page, exportedWacz, directory, baseUrl, adminUrl, originalUrl, snapshotsUrl) {
   const fs = require('fs');
   const path = require('path');
   if (!baseUrl) throw new Error('The WACZ gallery requires its localhost static server.');
   const playerDirectory = fs.mkdtempSync(path.join(directory, 'wacz-player-'));
   fs.mkdirSync(path.join(playerDirectory, 'replay'));
-  if (!authUrl) {
-    await page.goto(new URL('/admin/domains/', adminUrl).href, {waitUntil: 'domcontentloaded'});
-    authUrl = await page.$$eval('a[href*="original_domain="]', (links, original) => links.find(link => new URL(link.href).searchParams.get('original_domain') === new URL(original).hostname)?.href, originalUrl);
+  const {findDomainRow, replayAuthUrl} = require('./gallery.js');
+  if (!snapshotsUrl) {
+    const row = await findDomainRow(page, adminUrl, originalUrl);
+    snapshotsUrl = await row.$eval('.field-count a', link => link.href);
   }
-  if (!authUrl) throw new Error('The captured site has no native replay authorization link.');
   // Reuse the installed plugin's real assets through its existing isolated
   // snapshot route. This harness is gallery infrastructure, not an export mode.
-  const auth = new URL(authUrl);
+  const auth = await replayAuthUrl(page, snapshotsUrl, originalUrl);
   auth.searchParams.delete('original_domain');
   auth.searchParams.set('next', '/replay/ui.js');
   const first = await page.goto(auth.href, {waitUntil: 'domcontentloaded'});
@@ -81,28 +81,14 @@ async function replayHarness(page, exportedWacz, directory, baseUrl, adminUrl, o
   return {directory: playerDirectory, url: new URL(`${relative.split(path.sep).map(encodeURIComponent).join('/')}/index.html`, baseUrl).href};
 }
 
-function findDomainExportRow(selects, hostname) {
-  const selected = selects.find(select => {
-    const domain = select.dataset.domain.replace(/^\*\./, '');
-    return hostname === domain || hostname.endsWith('.' + domain);
-  });
-  if (!selected) return null;
-  // Domains groups sibling hosts under one export scope. Its native replay
-  // link belongs to that row's representative snapshot, not necessarily the
-  // saved story's hostname. Use it for player assets, not as the replay URL.
-  const authLink = selected.closest('tr')?.querySelector('.field-domain-actions a[href*="original_domain="]');
-  return {domain: selected.dataset.domain, authUrl: authLink?.href};
-}
-
 async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl) {
-  const domainsUrl = new URL('/admin/domains/', siteUrl).href;
-  await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
-  if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
-  const selection = await page.$$eval('.site-domain-row-export', findDomainExportRow, new URL(originalUrl).hostname);
-  if (!selection) throw new Error('The captured site is missing from Domains.');
-  if (!selection.authUrl) throw new Error('The captured site has no native replay authorization link.');
-  const {file} = await downloadWacz(page, directory, () => page.select(`.site-domain-row-export[data-domain="${selection.domain}"]`, 'wacz'));
-  return replayHarness(page, file, directory, baseUrl, siteUrl, originalUrl, selection.authUrl);
+  const {findDomainRow} = require('./gallery.js');
+  const row = await findDomainRow(page, siteUrl, originalUrl);
+  const snapshotsUrl = await row.$eval('.field-count a', link => link.href);
+  await row.hover();
+  await (await row.$('.folder-menu-toggle')).click();
+  const {file} = await downloadWacz(page, directory, () => page.click('#library-entry-menu:popover-open [data-export-format="wacz"]'));
+  return replayHarness(page, file, directory, baseUrl, siteUrl, originalUrl, snapshotsUrl);
 }
 
 async function exportViews(page, clone, directory, baseUrl) {
@@ -228,4 +214,4 @@ async function folderViews(page, libraryUrl, source, directory, baseUrl) {
   ];
 }
 
-module.exports = {exportViews, storyView, folderViews, findDomainExportRow};
+module.exports = {exportViews, storyView, folderViews};

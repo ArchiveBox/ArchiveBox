@@ -11,15 +11,24 @@ from archivebox.tests.test_domain_filters import post_site
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-@pytest.mark.parametrize("scope", ["example.com:0", "my_service:8000", "example.com:443", "example.com:80"])
-def test_scope_preserves_explicit_host_and_port(scope, crawl):
+@pytest.mark.parametrize(
+    ("scope", "normalized"),
+    [
+        ("example.com:0", "example.com:0"),
+        ("my_service:8000", "my_service:8000"),
+        ("example.com:443", "example.com"),
+        ("example.com:80", "example.com"),
+    ],
+)
+def test_scope_normalizes_default_ports_and_preserves_other_ports(scope, normalized, crawl):
     from archivebox.core.models import Snapshot
     from archivebox.domains.scope import normalize_site_scope, site_snapshots
 
-    assert normalize_site_scope(scope) == scope
+    assert normalize_site_scope(scope) == normalized
     selected = Snapshot.objects.create(crawl=crawl, url=f"https://{scope}/")
-    Snapshot.objects.create(crawl=crawl, url=f"https://{scope.split(':')[0]}/")
-    assert list(site_snapshots(scope).values_list("pk", flat=True)) == [selected.pk]
+    bare_host = Snapshot.objects.create(crawl=crawl, url=f"https://{scope.split(':')[0]}/")
+    expected = {selected.pk, bare_host.pk} if scope != normalized else {selected.pk}
+    assert set(site_snapshots(scope).values_list("pk", flat=True)) == expected
 
 
 def test_domain_cli_rejects_bad_pattern_without_traceback(initialized_archive):

@@ -94,8 +94,7 @@ def test_domain_table_uses_native_snapshot_actions_and_links(admin_client, saved
         snapshot.refresh_from_db(fields=["output_size"])
     assert row["total_size"] == sum(snapshot.output_size for snapshot, _, _ in saved_site)
     assert "domain=%2A.ycombinator.com" in row["snapshot_url"]
-    assert "snapshot__domain=%2A.ycombinator.com" in row["persona_url"]
-    assert "replay-auth/" in row["replay_url"]
+    assert row["delete_snapshots_url"] == row["snapshot_url"] + "#delete-snapshots"
     body = response.content.decode()
     assert 'id="changelist-form"' in body
     assert 'name="_selected_action" value="*.ycombinator.com"' in body

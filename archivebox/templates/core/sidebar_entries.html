@@ -1,9 +1,9 @@
 {% for entry in sidebar_entries %}
 <div class="library-entry" data-name="{{ entry.name }}" data-filter-value="{{ entry.filter_value }}"{% if not folder_readonly %}{% if entry.rename_url and perms.core.change_tag %} data-rename-url="{{ entry.rename_url }}"{% endif %}{% if entry.delete_tag_url and perms.core.delete_tag %} data-delete-tag-url="{{ entry.delete_tag_url }}"{% endif %}{% if entry.delete_snapshots_url and perms.core.delete_snapshot %} data-delete-snapshots-url="{{ entry.delete_snapshots_url }}"{% endif %}{% endif %}>
   <a class="library-link" href="{{ entry.url }}" {% if entry.selected %}aria-current="page"{% endif %}>
-    {% if sidebar_mode == 'tags' %}<svg class="library-tag-icon" style="{{ entry.style }}" aria-hidden="true"><use href="#library-tag"/></svg><span class="library-tag-label" style="{{ entry.style }}">{{ entry.name }}</span>{% else %}<span class="library-domain-icon"><svg aria-hidden="true"><use href="#library-globe"/></svg>{% if entry.favicon %}<img src="{{ entry.favicon }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}</span><span>{{ entry.name }}</span>{% endif %}
+    {% if sidebar_mode == 'tags' %}<svg class="library-tag-icon" style="{{ entry.style }}" aria-hidden="true"><use href="#library-tag"/></svg><span class="library-tag-label" style="{{ entry.style }}">{{ entry.name }}</span>{% else %}{% include "core/domain_favicon.html" with favicon=entry.favicon favicon_fallbacks=entry.favicon_fallbacks %}<span>{{ entry.name }}</span>{% endif %}
   </a>
-  <div class="folder-row-actions"><button type="button" class="folder-menu-toggle icon-button" aria-label="Actions for {{ entry.name }}" title="Actions for {{ entry.name }}" aria-haspopup="menu" aria-expanded="false" popovertarget="library-entry-menu"><svg><use href="#library-more"/></svg></button></div>
+  {% include "core/sidebar_entry_menu_button.html" with entry_name=entry.name %}
 
 </div>
 {% empty %}{% if not sidebar_query %}<div class="folder-empty"><p>No {{ sidebar_mode }} yet.</p></div>{% endif %}{% endfor %}

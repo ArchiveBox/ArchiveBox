@@ -12,7 +12,6 @@ from django.views.decorators.http import require_GET
 from django.views.decorators.cache import never_cache
 
 from archivebox.config.common import get_request_config
-from archivebox.core.domain_grouping import domain_group
 from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.permissions import public_snapshots_queryset
@@ -88,24 +87,18 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             last = rows[SIDEBAR_PAGE_SIZE - 1]
             next_key = [last.name, last.pk]
     elif mode == "domains":
-        after = cursor[0] if cursor else ""
-        needle = term.casefold()
-        choices = sorted(
-            (row for row in snapshots.domain_summary() if row["domain"] > after and needle in row["domain"].casefold()),
-            key=lambda row: row["domain"],
-        )[: SIDEBAR_PAGE_SIZE + 1]
-        ids = [choice["root_id"] for choice in choices[:SIDEBAR_PAGE_SIZE]]
-        roots = {snapshot.pk: snapshot for snapshot in snapshots.filter(pk__in=ids).only("id", "url")}
+        choices, next_key = snapshots.domain_choices_page(term, SIDEBAR_PAGE_SIZE, cursor)
+        ids = snapshots.domain_representative_ids(key for scope, key in choices.values())
+        roots = {snapshot.pk: snapshot for snapshot in snapshots.filter(pk__in=ids.values()).only("id", "url", "reversed_domain")}
         results = load_snapshot_list_results(roots.values())
         icon_plugins = set(get_snapshot_role_names("list_icon"))
-        for choice in choices[:SIDEBAR_PAGE_SIZE]:
-            name, scope = choice["domain"], choice["scope"]
-            root = roots.get(choice["root_id"])
-            if root is None or domain_group(root.url) != name:
+        for name, (scope, key) in choices.items():
+            root = roots.get(ids.get(key))
+            if root is None or root.reversed_domain != key:
                 continue
             root_id = root.pk
             url = "?" + urlencode({"sidebar": mode, "domain": scope})
-            paths = results[root_id].succeeded_paths(icon_plugins)
+            favicons = [build_snapshot_url(str(root_id), path, request=request) for path in results[root_id].succeeded_paths(icon_plugins)]
             entries.append(
                 {
                     "id": root_id,
@@ -114,11 +107,10 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "url": url,
                     "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots",
                     "selected": request.GET.get("domain") == scope,
-                    "favicon": build_snapshot_url(str(root_id), paths[0], request=request) if paths else "",
+                    "favicon": favicons[0] if favicons else "",
+                    "favicon_fallbacks": ",".join(favicons[1:]),
                 },
             )
-        if len(choices) > SIDEBAR_PAGE_SIZE:
-            next_key = [choices[SIDEBAR_PAGE_SIZE - 1]["domain"]]
     else:
         # Reuse a page's already-loaded picker/breadcrumb tree. Standalone
         # admin sidebar requests still fetch only the indexed sibling page.

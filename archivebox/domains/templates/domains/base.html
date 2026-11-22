@@ -15,7 +15,7 @@
   .siteclone-grid {display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:12px}
   body:not(.change-list) #content #siteclone-form > .field {display:block}
   body:not(.change-list) #content #siteclone-form > .siteclone-grid {display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:12px}
-  .domains .button,.domains button:not(.tag-remove-btn):not(.site-domain-delete) {display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--archivebox-accent,#a51c50);border-radius:4px;padding:5px 9px;font:inherit;font-size:12px;line-height:1.4;background:var(--archivebox-accent,#a51c50);color:#fff;cursor:pointer;text-decoration:none;min-height:28px}
+  .domains .button,.domains button:not(.tag-remove-btn,.folder-menu-toggle,.library-tags-toggle) {display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--archivebox-accent,#a51c50);border-radius:4px;padding:5px 9px;font:inherit;font-size:12px;line-height:1.4;background:var(--archivebox-accent,#a51c50);color:#fff;cursor:pointer;text-decoration:none;min-height:28px}
   .domains .secondary {background:var(--body-bg);border-color:var(--border-color);color:var(--body-fg)}
   .siteclone-actions,.domain-toolbar,.domain-metrics {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .domain-toolbar {justify-content:space-between;margin:0 0 8px}
@@ -74,14 +74,16 @@
   .site-domain-list #toolbar form > div {display:flex;gap:8px;align-items:center}
   .site-domain-list #result_list {min-width:900px}
   #content .site-domain-list #result_list td,#content .site-domain-list #result_list th {padding:6px 8px;white-space:nowrap;vertical-align:middle}
-  .site-domain-list .domain-identity {display:flex;align-items:center;gap:6px;min-height:32px}
+  .site-domain-list .domain-identity {gap:6px;min-height:32px;padding-right:28px}
   .site-domain-list .domain-identity>a {flex-shrink:0}
+  .site-domain-list .library-domain-icon {color:var(--body-quiet-color)}
+  .site-domain-list .domain-personas {display:flex;align-items:flex-start;gap:4px;max-width:250px}
+  .site-domain-list .domain-personas .tag-pill {max-width:110px}
+  #content .domain-personas .tag-link {white-space:nowrap;overflow-wrap:normal}
+  .site-domain-list .domain-personas .tag-pills-inline:not(.library-tags-expanded) .tag-pill:nth-child(n+3) {display:none}
   .site-domain-list #result_list input[type=checkbox] {margin:0;vertical-align:middle}
   #changelist #result_list thead .domain-sort-arrow {display:inline;margin-left:4px}
   .site-domain-export-control {order:-1}
-  .site-domain-list .field-domain-actions {white-space:nowrap}
-  .domains .site-domain-row-export {width:auto;max-width:110px;font-size:12px;padding:3px;min-height:26px}
-  .domains .site-domain-delete {border:0;background:none;color:var(--delete-button-bg,#ba2121);padding:0 0 0 8px;min-height:0;font-weight:400}
   @media(max-width:700px) {body:not(.change-list) #content #siteclone-form > .siteclone-grid,#siteclone-form .site-add-settings,#siteclone-form .site-add-advanced{grid-template-columns:1fr 1fr}.siteclone-export-fields,#siteclone-form .site-add-primary{grid-template-columns:1fr}.domain-metrics{gap:8px 16px}.siteclone-pages{min-width:600px}.siteclone-domains{min-width:700px}}
   @media(max-width:700px) {
     body.site-domain-index.change-list.filters-collapsed #changelist .changelist-form-container > div {grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"toolbar" "counts" "results" "footer"!important}

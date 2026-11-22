@@ -120,7 +120,7 @@ def test_sidebar_search_replaces_lazy_pages(live_server, admin_user, browser_run
         for mode, noun, term, match, common, last in [
             ("folders", "folder", "coastal", "Coastal survey", "Field notes", "Field notes 104"),
             ("tags", "tag", "104", "Field notes 104", "Field notes", "Field notes 104"),
-            ("domains", "domain", "104", "fieldnotes104.org", "fieldnotes", "fieldnotes104.org"),
+            ("domains", "domain", "*.fieldnotes104.org", "fieldnotes104.org", "fieldnotes", "fieldnotes104.org"),
         ]:
             page.goto(f"{origin}/admin/core/snapshot/?sidebar={mode}")
             expect(sidebar.get_by_role("link", name=match, exact=True)).to_have_count(0)
@@ -165,4 +165,30 @@ def test_domains_page_paginates_grouped_snapshots(admin_client, admin_user):
     second = fetch(page=first.next_page_number())
     assert [row["domain"] for row in second] == [f"site{i:03}.com" for i in range(50, 100)]
     assert list(fetch(page=second.previous_page_number())) == list(first)
-    assert [row["domain"] for row in fetch(q="104")] == ["site104.com"]
+    for term in ("104", "site104.com", "*.site104.com"):
+        assert [row["domain"] for row in fetch(q=term)] == ["site104.com"]
+
+
+@pytest.mark.django_db
+def test_sidebar_domain_cursor_keeps_one_group_when_its_hosts_cross_pages(admin_client, admin_user):
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    urls = ["https://example.com/", "http://deep.sub.example.com/path", "https://example.com:8080/"]
+    urls += [f"https://example-{i:03}.com/" for i in range(105)]
+    Snapshot.objects.bulk_create(
+        [Snapshot(crawl=crawl, url=url, timestamp=str(1916700000 + i)) for i, url in enumerate(urls)],
+    )
+
+    def fetch(**params):
+        response = admin_client.get("/admin/core/snapshot/sidebar/", {"sidebar": "domains", **params}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        return response.json()
+
+    first = fetch()
+    assert len(first["choices"]) == 100 and first["next"]
+    second = fetch(cursor=first["next"])
+    names = [row["name"] for page in (first, second) for row in page["choices"]]
+    assert names.count("example.com") == 1
+    assert len(set(names)) == len(names) == 107
+    assert not second["next"]
+    for term in ("example.com", "*.example.com"):
+        assert {row["name"] for row in fetch(sidebar_q=term)["choices"]} == {"example.com", "example.com:8080"}

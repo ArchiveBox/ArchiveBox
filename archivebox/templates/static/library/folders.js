@@ -438,10 +438,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = trigger.closest('.library-entry');
         if (!entry) return;
         menu.setAttribute('aria-label', entry.dataset.name);
-        const filter = sidebar.dataset.mode === 'tags' ? 'tag' : 'domain';
         for (const [link, base] of exports) {
           const url = new URL(base);
-          url.searchParams.set(filter, entry.dataset.filterValue);
+          url.searchParams.set(menu.dataset.entryFilter, entry.dataset.filterValue);
           link.href = url.href;
         }
         const rename = menu.querySelector('[data-entry-rename]');
@@ -458,11 +457,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);
       }
       if (id === 'library-entry-menu') {
-        sidebar.addEventListener('click', event => {
+        document.addEventListener('click', event => {
           const trigger = event.target.closest('[popovertarget="library-entry-menu"]');
           if (trigger) activate(trigger);
         });
-        sidebar.addEventListener('keydown', event => {
+        document.addEventListener('keydown', event => {
           const trigger = event.target.closest('[popovertarget="library-entry-menu"]');
           if (trigger && ['ArrowDown','ArrowUp'].includes(event.key)) {
             event.preventDefault(); activate(trigger); menu.showPopover();
@@ -565,6 +564,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   initializeMenus(document);
+
+  function setBadgeCounter(row, total, visible) {
+    const expanded = row.pills.classList.contains('library-tags-expanded');
+    const label = row.pills.dataset.badgeLabel || 'tags';
+    row.toggle.hidden = expanded ? total === 0 : total <= visible;
+    const text = expanded ? `Show fewer ${label}` : `+${total - visible}`;
+    if (row.toggle.textContent !== text) row.toggle.textContent = text;
+    row.toggle.setAttribute('aria-label', expanded ? `Show fewer ${label}` : `Show all ${total} ${label}`);
+    row.toggle.setAttribute('aria-expanded', String(expanded));
+  }
+  function updateCompactBadges(row) {
+    const pills = row.pills.querySelectorAll('.tag-pill');
+    if (pills.length <= 2) row.pills.classList.remove('library-tags-expanded');
+    pills.forEach(pill => {if (pill.hidden) pill.hidden = false;});
+    setBadgeCounter(row, pills.length, 2);
+  }
+  function bindBadgeToggle(row, update) {
+    const toggle = document.createElement('button');
+    toggle.type = 'button'; toggle.className = 'library-tags-toggle';
+    row.pills.after(toggle);
+    row.toggle = toggle;
+    toggle.addEventListener('pointerdown', event => event.preventDefault());
+    toggle.addEventListener('click', event => {
+      event.stopPropagation();
+      if (row.editor.contains(document.activeElement) && document.activeElement !== toggle) document.activeElement.blur();
+      row.pills.classList.toggle('library-tags-expanded');
+      update();
+    });
+  }
+  document.querySelectorAll('.domain-personas .tag-pills-inline').forEach(pills => {
+    const row = {pills, editor: pills.parentElement};
+    bindBadgeToggle(row, () => updateCompactBadges(row));
+    updateCompactBadges(row);
+  });
   if (!sidebar) return;
   let form = document.querySelector('#changelist-form');
   if (location.hash === '#delete-snapshots' && form && ['folder','tag','domain'].some(key => new URLSearchParams(location.search).has(key))) {
@@ -971,20 +1004,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let counterWidths = [];
     let frame = 0;
 
-    function setCounter(row, total, visible) {
-      const expanded = row.pills.classList.contains('library-tags-expanded');
-      row.toggle.hidden = expanded ? total === 0 : total <= visible;
-      const text = expanded ? 'Show fewer tags' : `+${total - visible}`;
-      if (row.toggle.textContent !== text) row.toggle.textContent = text;
-      row.toggle.setAttribute('aria-label', expanded ? 'Show fewer tags' : `Show all ${total} tags`);
-      row.toggle.setAttribute('aria-expanded', String(expanded));
-    }
-    function updateCompact(row) {
-      const pills = row.pills.querySelectorAll('.tag-pill');
-      if (pills.length <= 2) row.pills.classList.remove('library-tags-expanded');
-      pills.forEach(pill => {if (pill.hidden) pill.hidden = false;});
-      setCounter(row, pills.length, 2);
-    }
     function spacing(element, properties) {
       const css = getComputedStyle(element);
       return properties.reduce((sum, name) => sum + (parseFloat(css[name]) || 0), 0);
@@ -999,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTagMeasurement(probes);
         table?.classList.remove('library-tag-fit');
         table?.style.removeProperty('--library-tags-width');
-        rows.forEach(updateCompact);
+        rows.forEach(updateCompactBadges);
         return;
       }
       const cap = Math.floor((title.getBoundingClientRect().width + tags.getBoundingClientRect().width) * 0.4);
@@ -1036,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const hidden = !showAll && i >= visible;
           if (pill.hidden !== hidden) pill.hidden = hidden;
         });
-        setCounter(row, widths.length, showAll ? widths.length : visible);
+        setBadgeCounter(row, widths.length, showAll ? widths.length : visible);
       }
     }
     function prepareTagMeasurement(dirty) {
@@ -1077,21 +1096,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
       const editor = pills.closest('.tag-editor-inline');
-      const toggle = document.createElement('button');
-      toggle.type = 'button'; toggle.className = 'library-tags-toggle';
-      pills.after(toggle);
       const cell = pills.closest('td.field-tags_inline');
       const inTable = cell && cell.closest('table') === table;
-      const row = {pills, editor, toggle, cell, input: editor.querySelector('.tag-inline-input-sm')};
+      const row = {pills, editor, cell, input: editor.querySelector('.tag-inline-input-sm')};
       if (inTable) rows.push(row);
-      const update = () => inTable ? scheduleFit() : updateCompact(row);
-      toggle.addEventListener('pointerdown', event => event.preventDefault());
-      toggle.addEventListener('click', event => {
-        event.stopPropagation();
-        if (editor.contains(document.activeElement) && document.activeElement !== toggle) document.activeElement.blur();
-        pills.classList.toggle('library-tags-expanded');
-        update();
-      });
+      const update = () => inTable ? scheduleFit() : updateCompactBadges(row);
+      bindBadgeToggle(row, update);
       const observer = new MutationObserver(() => {
         row.measure = null;
         update();
@@ -1102,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.addEventListener('focusout', update);
       }
       cleanupTagRows.push(() => observer.disconnect());
-      updateCompact(row);
+      updateCompactBadges(row);
     });
     if (rows.length) {
       let lastWidth;

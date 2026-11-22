@@ -1,9 +1,9 @@
-  <div id="library-entry-menu" class="folder-menu" popover role="menu" aria-label="Actions">
+  <div id="library-entry-menu" class="folder-menu" popover role="menu" aria-label="Actions" data-entry-filter="{% if sidebar_mode == 'tags' %}tag{% else %}domain{% endif %}">
     {% if not folder_readonly and sidebar_mode == 'tags' %}
     {% if perms.core.change_tag %}<a role="menuitem" data-entry-rename href="#"><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></svg><span class="folder-menu-label">Rename</span></a>{% endif %}
     {% if perms.core.change_tag and perms.core.delete_tag and perms.core.change_snapshot %}<button type="button" role="menuitem" data-sidebar-tag-merge=""><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v4c0 4 7 4 7 8v6M19 3v4c0 4-7 4-7 8m-4 2 4 4 4-4"/></svg><span class="folder-menu-label">Merge...</span></button>{% endif %}
     <hr>{% endif %}
-    {% include "core/snapshot_export_links.html" with export_urls=sidebar_export_urls export_menu=True %}
+    {% include "core/snapshot_export_links.html" with export_menu=True %}
     {% if not folder_readonly %}{% if perms.core.delete_snapshot or sidebar_mode == 'tags' and perms.core.delete_tag %}
       <hr data-entry-delete-separator hidden>
       {% if sidebar_mode == 'tags' and perms.core.delete_tag %}<a class="library-delete" role="menuitem" data-entry-delete-tag hidden><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">Delete tag</span></a>{% endif %}

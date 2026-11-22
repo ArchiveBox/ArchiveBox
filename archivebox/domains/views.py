@@ -1,6 +1,8 @@
 from copy import copy
 from functools import wraps
+from heapq import nlargest, nsmallest
 import logging
+from operator import itemgetter
 from threading import Thread
 from urllib.parse import urlencode, urlsplit
 
@@ -27,10 +29,16 @@ from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.progressmonitor.collection import _refresh_lock
 from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
-from archivebox.core.routes_util import build_admin_url, build_original_url, build_snapshot_detail_url, is_snapshot_subdomain
+from archivebox.core.routes_util import build_original_url, build_snapshot_detail_url, build_snapshot_export_urls, is_snapshot_subdomain
+from archivebox.personas.models import Persona
 
 from .forms import DomainCrawlForm
 from archivebox.crawls.models import Crawl
+
+
+# Django's local cache handles expiry and refresh throttling. Keep the rows
+# directly so paginating does not deserialize the entire collection each time.
+_domain_metadata = ("", ())
 
 
 def clone_admin(view):
@@ -46,16 +54,22 @@ def clone_admin(view):
     return wrapped
 
 
+def _store_domain_rows(key, rows):
+    global _domain_metadata
+    _domain_metadata = (key, rows)
+    cache.set(key, True, timeout=3600)
+
+
 def _domain_rows():
     # Never publish uncommitted metadata to other requests or refresh it using
     # a second connection that cannot see this transaction's writes.
     if connection.in_atomic_block:
         return Snapshot.objects.domain_summary()
     key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
-    rows = cache.get(key)
-    if rows is None:
+    cached_key, rows = _domain_metadata
+    if cached_key != key or not cache.get(key):
         rows = Snapshot.objects.domain_summary()
-        cache.set(key, rows, timeout=3600)
+        _store_domain_rows(key, rows)
         cache.set(f"{key}:refresh", True, timeout=60)
         return rows
 
@@ -75,7 +89,7 @@ def _domain_rows():
         def refresh():
             try:
                 close_old_connections()
-                cache.set(key, Snapshot.objects.domain_summary(), timeout=3600)
+                _store_domain_rows(key, Snapshot.objects.domain_summary())
             except Exception:
                 logging.getLogger(__name__).exception("Could not refresh domain metadata")
             finally:
@@ -100,12 +114,10 @@ def index(request):
         crawl = form.save(request.user)
         messages.success(request, "Crawl queued.")
         return redirect(crawl.admin_change_url)
-    # This page is superuser-only. Cache raw metadata, never rendered URLs or
-    # permission decisions; sorting/paging must not rescan the whole collection.
-    rows = _domain_rows()
     query = str(request.GET.get("q", "")).strip()
-    if query:
-        rows = [row for row in rows if query.casefold() in row["domain"].casefold()]
+    # Search the indexed host keys and aggregate only the matched captures.
+    # Unfiltered counts and sizes reuse the existing summary between requests.
+    rows = Snapshot.objects.filter_by_domain_search(query).domain_summary() if query else _domain_rows()
     ordering = request.GET.get("o", "domain")
     fields = {
         "domain": "domain",
@@ -117,11 +129,20 @@ def index(request):
     }
     if ordering.lstrip("-") not in fields:
         ordering = "domain"
-    rows.sort(
-        key=lambda row: (row[fields[ordering.lstrip("-")]] is not None, row[fields[ordering.lstrip("-")]], row["domain"]),
-        reverse=ordering.startswith("-"),
-    )
     domains = Paginator(rows, 50).get_page(request.GET.get("page"))
+    field = fields[ordering.lstrip("-")]
+    descending = ordering.startswith("-")
+    start, end = max(domains.start_index() - 1, 0), domains.end_index()
+    if field == "domain":
+        if descending:
+            domains.object_list = rows[len(rows) - end : len(rows) - start][::-1]
+    else:
+        sort_key = itemgetter(field, "domain")
+        if end * 4 < len(rows):
+            earliest = nlargest if descending else nsmallest
+            domains.object_list = earliest(end, rows, key=sort_key)[start:]
+        else:
+            domains.object_list = sorted(rows, key=sort_key, reverse=descending)[start:end]
     ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
     captures = {
         str(snapshot.pk): snapshot
@@ -141,7 +162,12 @@ def index(request):
     }
     # Captures may have been deleted since the metadata refresh. Their stale
     # display totals are harmless, but must not turn the next page into a 500.
-    domains.object_list = [row for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
+    domains.object_list = [row.copy() for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
+    persona_ids = {pk for row in domains for pk in row.get("persona_ids", ())}
+    personas = {
+        pk: {"name": name, "url": reverse("admin:personas_persona_change", args=[pk])}
+        for pk, name in Persona.objects.filter(pk__in=persona_ids).values_list("pk", "name")
+    }
     snapshot_admin = copy(archivebox_admin._registry[Snapshot])
     snapshot_admin.request = request
     config = get_request_config(request)
@@ -149,6 +175,7 @@ def index(request):
         latest = captures[str(row["newest_id"])]
         earliest = captures[str(row["oldest_id"])]
         root = captures[str(row["root_id"])]
+        snapshot_url = reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]})
         original = urlsplit(root.url)
         domain_url = build_snapshot_detail_url(root.archive_path_from_db, request=request) + "?header=collapsed"
         # Original-domain replay already rewrites saved links without changing
@@ -170,32 +197,25 @@ def index(request):
         row.update(
             {
                 "domain_url": domain_url,
-                "snapshot_url": reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]}),
-                "persona_url": reverse("admin:personas_persona_changelist") + "?" + urlencode({"snapshot__domain": row["scope"]}),
+                "snapshot_url": snapshot_url,
+                "delete_snapshots_url": snapshot_url + "#delete-snapshots",
+                "personas": sorted(
+                    (personas[pk] for pk in row.get("persona_ids", ()) if pk in personas),
+                    key=lambda item: item["name"].casefold(),
+                ),
                 "oldest_url": build_snapshot_detail_url(earliest.archive_path_from_db, request=request),
                 "newest_url": build_snapshot_detail_url(latest.archive_path_from_db, request=request),
-                "favicon_html": snapshot_admin.url_favicon(root),
-                "replay_url": build_admin_url(
-                    "/admin/core/snapshot/replay-auth/?"
-                    + urlencode(
-                        {
-                            "snapshot": str(root.pk),
-                            "original_domain": original.hostname,
-                            "next": original.path + ("?" + original.query if original.query else ""),
-                        },
-                    ),
-                    request=request,
-                ),
+                "favicon": snapshot_admin._get_favicon_data(root),
             },
         )
     headers = []
     for key, label in (
         ("domain", "Domain"),
         ("count", "Snapshots"),
-        ("size", "Size"),
+        ("size", "Total Size"),
         ("personas", "Personas"),
-        ("newest", "Latest"),
-        ("oldest", "Oldest"),
+        ("newest", "Newest Snapshot"),
+        ("oldest", "Oldest Snapshot"),
     ):
         params = request.GET.copy()
         params.pop("page", None)
@@ -227,6 +247,7 @@ def index(request):
             "domains": domains,
             "page_query": urlencode({"q": query, "o": ordering}),
             "export_formats": ALL_EXPORT_FORMATS.items(),
+            "domain_export_urls": build_snapshot_export_urls({}, request=request),
             "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
             "domain_headers": headers,
             "domain_query": query,
