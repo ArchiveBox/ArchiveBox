@@ -1512,6 +1512,11 @@ class PublicIndexView(ListView):
     The unfiltered list therefore renders rows first and accepts missing/stale
     display totals. A later ordinary reload can show the background-cached
     count; do not restore a synchronous COUNT or add polling just to fill it in.
+
+    NEVER add new composite indexes when existing indexes can be combined or
+    queried smartly to get reasonable performance. Exact totals are not always
+    needed for correct browsing: lookahead determines whether another page
+    exists, while visibility and row ordering must remain exact.
     """
 
     template_name = "public_index.html"

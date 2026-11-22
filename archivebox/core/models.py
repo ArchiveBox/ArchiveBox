@@ -1142,6 +1142,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         app_label = "core"
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
+        # NEVER add new composite indexes when existing indexes can be combined
+        # or queried smartly to get reasonable performance. Each additional
+        # index costs storage and writes; measure query changes first. Exact
+        # display totals are not always needed (see public-page lookahead).
         indexes: ClassVar[list[models.Index]] = [
             models.Index(UUIDSuffix("id"), name="snapshot_uuid_suffix_idx"),
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
