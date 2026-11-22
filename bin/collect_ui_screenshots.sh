@@ -37,12 +37,16 @@ CREATE_WEBHOOK=0
 SCREENSHOT_CHROME_BINARY=""
 CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
+: >"$MANIFEST_FILE"
 PERSONAS_DIR="$CAPTURE_ROOT/personas"
 ACTIVE_PERSONA="Screenshots"
-OPTIONAL_PROVIDER_FAILURE="${UI_SCREENSHOT_OPTIONAL_PROVIDER_FAILURE_FILE:-}"
-if [[ -n "$OPTIONAL_PROVIDER_FAILURE" && ( "$OPTIONAL_PROVIDER_FAILURE" != /* || ! "$PLUGIN_VIEWS" =~ ^(canva|figma|miro)$ || "$SPLIT_PUBLIC" != 0 || "$MAX_VIEWS" != 0 ) ]]; then
-    echo '[!] Optional provider outcome requires one allowlisted native provider recipe' >&2
+UNAVAILABLE_OUT="${UI_SCREENSHOT_UNAVAILABLE_OUT:-}"
+if [[ -n "$UNAVAILABLE_OUT" && ( "$UNAVAILABLE_OUT" != /* || "$MAX_VIEWS" != 0 || "$MANIFEST_OUT" != /* ) ]]; then
+    echo '[!] Plugin outcomes require an absolute native manifest and a complete lane' >&2
     exit 1
+fi
+if [[ -n "$UNAVAILABLE_OUT" ]]; then
+    : >"$UNAVAILABLE_OUT"
 fi
 CAPTURE_PROFILES=$'desktop|1600|1000\ntablet|1024|1366\nmobile|390|844'
 
@@ -99,7 +103,7 @@ PYSTOP
             [[ -z "$owned_pid" ]] || wait "$owned_pid" 2>/dev/null || true
         done
     else
-        if [[ "$cleanup_status" == 0 || -n "$OPTIONAL_PROVIDER_FAILURE" && "$cleanup_status" == 42 ]]; then
+        if [[ "$cleanup_status" == 0 ]]; then
             cleanup_status=1
         fi
     fi
@@ -362,6 +366,47 @@ VIEWS=(
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
 )
 
+classify_missing_plugin_output() {
+    local snapshot_id="$1" plugin="$2" default_view="${3:-0}"
+    [[ -n "$UNAVAILABLE_OUT" ]] || return 1
+    (
+        cd "$DATA_DIR"
+        UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_EXPECT_PLUGIN="$plugin" UI_SCREENSHOT_DEFAULT_VIEW="$default_view" \
+            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c '
+import os
+from archivebox.core.library_screenshots import native_plugin_output_unavailable
+raise SystemExit(not native_plugin_output_unavailable(
+    os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"],
+    default_view=os.environ["UI_SCREENSHOT_DEFAULT_VIEW"] == "1",
+))
+'
+    )
+}
+
+record_unavailable_view() {
+    printf '%s\n' "$1" >>"$UNAVAILABLE_OUT"
+    printf '::warning title=Native plugin screenshot unavailable::%s\n' "$1"
+}
+
+record_supplementary_failure() {
+    local plugin="$1" url="$2" views_file="$CAPTURE_ROOT/unavailable-views.txt"
+    uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$plugin" "$url" <<'PYUNAVAILABLE' >"$views_file"
+import json, sys
+plan = json.load(open(sys.argv[1]))
+plugin, url = sys.argv[2:]
+recipe = plan["overrides"][plugin]
+if recipe["url"] == url:
+    print(f"Snapshot View ({plugin})")
+for output in recipe.get("outputs", []):
+    if output.get("url", recipe["url"]) == url:
+        print(output["name"])
+PYUNAVAILABLE
+    test -s "$views_file"
+    while IFS= read -r missing_view; do
+        record_unavailable_view "$missing_view"
+    done <"$views_file"
+}
+
 add_supplementary_template_capture() {
     local plugin_names="$1"
     local source_url="$2"
@@ -416,20 +461,6 @@ PYCAPTURE
 
     local snapshot_id snapshot_view_url snapshot_view_path
     IFS=$'\t' read -r snapshot_id snapshot_view_url snapshot_view_path <<<"$snapshot_record"
-    # The two automation recipes reuse the generic screenshot preview. A
-    # screenshot alone cannot show that the native interaction script ran.
-    if [[ "$plugin_names" == playwright || "$plugin_names" == puppeteer ]]; then
-        if ! (
-            cd "$DATA_DIR"
-            UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_AUTOMATION_PLUGIN="$plugin_names" \
-                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                    'import os; from archivebox.core.models import ArchiveResult; raise SystemExit(not ArchiveResult.objects.filter(snapshot_id=os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], plugin=os.environ["UI_SCREENSHOT_AUTOMATION_PLUGIN"], status=ArchiveResult.StatusChoices.SUCCEEDED).exists())'
-        ); then
-            echo "[!] The $plugin_names script did not succeed for the snapshot with the screenshot preview" >&2
-            cat "$capture_log" >&2
-            exit 1
-        fi
-    fi
     local discovery_report="$CAPTURE_ROOT/${plugin_names}-output-discovery.json"
     NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
         CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
@@ -439,6 +470,8 @@ PYCAPTURE
         SCREENSHOT_HEIGHT=1000 \
         node "$REPO_DIR/bin/take_screenshot.js" "$snapshot_view_url" "$CAPTURE_ROOT/${plugin_names}-output-discovery.png" >"$discovery_report"
 
+    uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate "$discovery_report" "$snapshot_view_path"
+
     local supplementary_plugin output_plugin discovered_preview_url capture_mode
     for supplementary_plugin in "${supplementary_plugins[@]}"; do
         output_plugin="$(uv run --no-project python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]].get("output_plugin", sys.argv[2]))' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
@@ -447,40 +480,24 @@ PYCAPTURE
                 uv run --no-cache --project "$REPO_DIR" python -c \
                 'import json, os; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); match=next((output for output in report["checks"]["snapshotOutputs"] if output["plugin"] == os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"]), None); print(match["previewUrl"] if match else "")'
         )"
+        # A delegated output (e.g. a normal screenshot) is not proof that the
+        # recipe owner actually performed its native work.
+        if [[ "$output_plugin" != "$supplementary_plugin" ]] && ! (
+            cd "$DATA_DIR"
+            UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_OWNER="$supplementary_plugin" \
+                uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                    'import os; from archivebox.core.models import ArchiveResult; raise SystemExit(not ArchiveResult.objects.filter(snapshot_id=os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], plugin=os.environ["UI_SCREENSHOT_OWNER"], status=ArchiveResult.StatusChoices.SUCCEEDED).exists())'
+        ); then
+            discovered_preview_url=""
+        fi
         if [[ -z "$discovered_preview_url" ]]; then
-            echo "[!] The $supplementary_plugin snapshot did not expose its output in the real snapshot UI" >&2
+            echo "[!] The $supplementary_plugin snapshot did not expose its own verified output in the real snapshot UI" >&2
+            if classify_missing_plugin_output "$snapshot_id" "$supplementary_plugin"; then
+                record_supplementary_failure "$supplementary_plugin" "$source_url"
+                continue
+            fi
             cat "$capture_log" >&2
             cat "$discovery_report" >&2
-            # A terminal native provider failure or loss of its already-opened
-            # target can leave this optional output unavailable. Setup failure
-            # and a successful provider hook with missing UI remain hard errors.
-            if [[ -n "$OPTIONAL_PROVIDER_FAILURE" && "$supplementary_plugin" == "$PLUGIN_VIEWS" ]] && (
-                cd "$DATA_DIR"
-                UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_EXPECT_PLUGIN="$output_plugin" \
-                    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c '
-import os
-from django.db.models import Q
-from archivebox.core.models import ArchiveResult, Snapshot
-snapshot_id = os.environ["UI_SCREENSHOT_SNAPSHOT_ID"]
-plugin = os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"]
-results = ArchiveResult.objects.filter(snapshot_id=snapshot_id)
-states = set(results.filter(plugin=plugin).values_list("status", flat=True))
-sealed = Snapshot.objects.filter(id=snapshot_id, status=Snapshot.StatusChoices.SEALED).exists()
-navigated = results.filter(plugin="chrome", hook_name="on_Snapshot__30_chrome_navigate", status="succeeded").exists()
-owned_target_lost = results.filter(
-    plugin="chrome", hook_name="on_Snapshot__01_chrome_tab.daemon.bg", status="failed",
-).filter(
-    Q(process__stderr__contains="[chrome] target_crash status=crashed ")
-    | Q(process__stderr__contains="[chrome] target_crash status=oom ")
-    | Q(process__stderr__contains="tab closed unexpectedly!"),
-).exists()
-provider_failed = bool(states) and navigated
-raise SystemExit(not (sealed and states <= {"noresults", "failed"} and (provider_failed or owned_target_lost)))
-'
-            ); then
-                printf '%s\n' "$supplementary_plugin" >"$OPTIONAL_PROVIDER_FAILURE"
-                exit 42
-            fi
             exit 1
         fi
 
@@ -523,10 +540,18 @@ fi
 if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
     (
         cd "$DATA_DIR"
-        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" <<'PYIMPORTERS'
+        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" <<'PYIMPORTERS'
 import json, sys
+from pathlib import Path
 from archivebox.importers.gallery import prepare
-print("\n".join(prepare(sys.argv[1], json.load(open(sys.argv[2]))["importer_views"])))
+
+def mark_unavailable(name):
+    print(f"::warning title=Native importer screenshot unavailable::{name}", file=sys.stderr)
+    with Path(sys.argv[3]).open("a") as outcomes:
+        print(name, file=outcomes)
+
+print("\n".join(prepare(sys.argv[1], json.load(open(sys.argv[2]))["importer_views"],
+                        on_unavailable=mark_unavailable if sys.argv[3] else None)))
 PYIMPORTERS
     ) >"$CAPTURE_ROOT/importer-views.txt"
     while IFS= read -r importer_view; do
@@ -577,10 +602,10 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             LIVE_SNAPSHOT_RECORD="$( (
                 cd "$DATA_DIR"
                 UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" UI_SCREENSHOT_CAPTURE_STARTED_AT="$EXAMPLE_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
+                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}\t{snapshot.id}" if snapshot else "")'
             ) | tail -1)"
             if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
-                IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH <<<"$LIVE_SNAPSHOT_RECORD"
+                IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH LIVE_SNAPSHOT_ID <<<"$LIVE_SNAPSHOT_RECORD"
                 break
             fi
             if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
@@ -755,6 +780,7 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
+                capture_status=0
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$screenshot_user_data_dir" \
@@ -770,7 +796,16 @@ PY
                     SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
-                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json" || capture_status=$?
+                if [[ "$capture_status" != 0 ]]; then
+                    if [[ "$capture_status" == 42 && -n "$UNAVAILABLE_OUT" ]] && \
+                        uv run --no-project python -c 'import json,sys; raise SystemExit(sys.argv[2] not in json.load(open(sys.argv[1]))["owned_views"])' \
+                            "$PLUGIN_SCREENSHOT_PLAN" "$name"; then
+                        record_unavailable_view "$name"
+                        continue 2
+                    fi
+                    exit "$capture_status"
+                fi
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
                 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
@@ -978,6 +1013,26 @@ PY
             [[ -z "$plugin_name" ]] && continue
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
+        if [[ -n "$UNAVAILABLE_OUT" ]]; then
+            uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+                "$SNAPSHOT_DISCOVERY_REPORT" "$LIVE_SNAPSHOT_VIEW_PATH"
+            absent_default_outputs="$CAPTURE_ROOT/absent-default-outputs.txt"
+            uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$SNAPSHOT_DISCOVERY_REPORT" <<'PYABSENT' >"$absent_default_outputs"
+import json, sys
+plan, report = (json.load(open(path)) for path in sys.argv[1:])
+found = {row["plugin"] for row in report["checks"]["snapshotOutputs"]}
+for name, plugin in plan["owned_views"].items():
+    if plugin not in plan["overrides"] and name == f"Snapshot View ({plugin})" and plugin not in found:
+        print(plugin)
+PYABSENT
+            while IFS= read -r missing_plugin; do
+                if ! classify_missing_plugin_output "$LIVE_SNAPSHOT_ID" "$missing_plugin" 1; then
+                    echo "[!] Snapshot view missing without a native plugin outcome: $missing_plugin" >&2
+                    exit 1
+                fi
+                record_unavailable_view "Snapshot View ($missing_plugin)"
+            done <"$absent_default_outputs"
+        fi
         # Report malformed partitioning as capture failure, never as an empty
         # process substitution and a best-effort gallery.
         supplementary_recipes="$CAPTURE_ROOT/supplementary-recipes.txt"
@@ -995,9 +1050,19 @@ PY
     fi
 done
 
-[[ "$MAX_VIEWS" == "0" && -z "$PLUGIN_VIEWS" && "$SPLIT_PUBLIC" != 1 ]] || export UI_SCREENSHOT_ALLOW_PARTIAL=1
+render_outcomes=()
+if [[ "$MAX_VIEWS" == 0 && -z "$PLUGIN_VIEWS" && "$SPLIT_PUBLIC" != 1 ]]; then
+    if [[ -n "$UNAVAILABLE_OUT" ]]; then
+        outcome_report="$CAPTURE_ROOT/recipe-outcomes.json"
+        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/assemble_screenshot_gallery.py" whole-outcomes \
+            "$MANIFEST_FILE" "$UNAVAILABLE_OUT" "$outcome_report"
+        render_outcomes=("$outcome_report")
+    fi
+else
+    export UI_SCREENSHOT_ALLOW_PARTIAL=1
+fi
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
-    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
+    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html" ${render_outcomes[@]+"${render_outcomes[@]}"}
 
 if [[ -n "$MANIFEST_OUT" ]]; then
     cp "$MANIFEST_FILE" "$MANIFEST_OUT"

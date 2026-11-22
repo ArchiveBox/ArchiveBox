@@ -94,7 +94,7 @@ function findDomainExportRow(selects, hostname) {
   return {domain: selected.dataset.domain, authUrl: authLink?.href};
 }
 
-async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl = 'https://news.ycombinator.com/') {
+async function exportPlayer(page, siteUrl, directory, baseUrl, originalUrl) {
   const domainsUrl = new URL('/admin/domains/', siteUrl).href;
   await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
   if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
@@ -134,12 +134,14 @@ async function storyView(page, adminBaseUrl, storyUrl, directory, baseUrl, repla
     throw new Error(`WACZ story export did not open the recorded frame for ${new URL(storyUrl).hostname}.`, {cause});
   });
   await frame.waitForFunction(() => document.readyState === 'complete' && (document.body?.innerText.length || 0) > 80, {timeout: 45000});
-  if (await frame.evaluate(() => document.body.innerText.includes('Archived Page Not Found'))) throw new Error('The captured news story is missing from the WACZ export.');
+  if (await frame.evaluate(() => document.body.innerText.includes('Archived Page Not Found'))) throw new Error('The archived story is missing from the WACZ export.');
   await page.waitForFunction(story => new URLSearchParams(location.hash.slice(1)).get('url') === story, {}, replayUrl);
-  return {name: 'WACZ archived news story', url: story, path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: `wait-replay-url:${replayUrl}`};
+  return {name: 'WACZ archived story', url: story, path: new URL(url).pathname, source: 'archivebox/domains/exports.py', mode: `wait-replay-url:${replayUrl}`};
 }
 
-async function folderViews(page, libraryUrl, stories, directory, baseUrl, replayUrls = {}) {
+async function folderViews(page, libraryUrl, source, directory, baseUrl) {
+  const {homepage: originHomepage, stories, replay_urls: replayUrls, homepage_selector: homepageSelector} = source;
+  const replayHomepage = replayUrls[originHomepage] || originHomepage;
   const fs = require('fs');
   const path = require('path');
   const {createHash} = require('crypto');
@@ -158,23 +160,23 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl, replay
   }
   const {file: exportedWacz, downloadUrl} = await downloadWacz(page, directory, () => page.click(link));
   const sourceDigest = await digest(exportedWacz);
-  const {url, directory: playerDirectory} = await replayHarness(page, exportedWacz, directory, baseUrl, libraryUrl, 'https://news.ycombinator.com/');
+  const {url, directory: playerDirectory} = await replayHarness(page, exportedWacz, directory, baseUrl, libraryUrl, originHomepage);
   const playerWacz = path.join(playerDirectory, 'site.wacz');
   if (await digest(playerWacz) !== sourceDigest) throw new Error('The player must use the exact standalone folder WACZ bytes.');
 
-  const homepage = `${url}#${new URLSearchParams({url: 'https://news.ycombinator.com/'})}`;
+  const homepage = `${url}#${new URLSearchParams({url: originHomepage})}`;
   await page.goto(homepage, {waitUntil: 'domcontentloaded'});
-  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, 'https://news.ycombinator.com/'), {timeout: 45000}).catch(cause => {
+  const frame = await page.waitForFrame(frame => matchesReplayUrl(frame.url(), url, replayHomepage), {timeout: 45000}).catch(cause => {
     throw new Error('Folder WACZ export did not open its recorded homepage frame.', {cause});
   });
-  await frame.waitForSelector('#hnmain', {timeout: 45000});
+  await frame.waitForSelector(homepageSelector, {timeout: 45000});
   let storyLink, storyUrl;
   for (const anchor of await frame.$$('a[href]')) {
     const href = await anchor.evaluate(element => element.href);
-    const story = stories.find(candidate => new URL(candidate).href === href && new URL(candidate).hostname !== 'news.ycombinator.com');
+    const story = stories.find(candidate => new URL(candidate).href === href && new URL(candidate).hostname !== new URL(originHomepage).hostname);
     if (story) { storyLink = anchor; storyUrl = story; break; }
   }
-  if (!storyLink) throw new Error('The folder WACZ has no Hacker News link to an actually captured story.');
+  if (!storyLink) throw new Error('The folder WACZ has no homepage link to a story in the selected recording.');
   const replayUrl = replayUrls[storyUrl] || storyUrl;
   const {safeReplayUrl, replayFailureDetails} = require('./replay_diagnostics.js');
   const failures = [];
@@ -217,11 +219,11 @@ async function folderViews(page, libraryUrl, stories, directory, baseUrl, replay
   fs.writeFileSync(path.join(playerDirectory, 'folder-wacz-proof.json'), JSON.stringify({
     selection: libraryUrl, exportUrl, downloadUrl, source: exportedWacz, player: playerWacz,
     sha256: sourceDigest, bytes: fs.statSync(exportedWacz).size,
-    from: 'https://news.ycombinator.com/', to: storyUrl, replayUrl, frame: next.url(),
+    from: originHomepage, to: storyUrl, replayUrl, frame: next.url(),
   }, null, 2) + '\n');
   return [
     {name: 'Export notification', url: libraryUrl, path: new URL(libraryUrl).pathname, source: 'archivebox/templates/static/exports.js', mode: 'export-notification'},
-    {name: 'Folder WACZ Hacker News', url: homepage, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: 'wait-replay-url:https://news.ycombinator.com/'},
+    {name: 'Folder WACZ homepage', url: homepage, path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${replayHomepage}`},
     {name: 'Folder WACZ story navigation', url: page.url(), path: new URL(url).pathname, source: 'archivebox/domains/wacz.py', mode: `wait-replay-url:${replayUrl}`},
   ];
 }

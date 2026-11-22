@@ -20,17 +20,38 @@ PUBLIC_LANES = {
     "browser-automation": ("playwright", "puppeteer"),
 }
 PUBLIC_OWNERS = {plugin: lane for lane, plugins in PUBLIC_LANES.items() for plugin in plugins}
-OPTIONAL_PROVIDER_VIEWS = {plugin: f"Snapshot View ({plugin})" for plugin in ("canva", "figma", "miro")}
 
 
-def validate_provider_status(status):
-    if (
-        not isinstance(status, dict)
-        or status.keys() != OPTIONAL_PROVIDER_VIEWS.keys()
-        or any(value not in ("captured", "unavailable") for value in status.values())
-    ):
-        raise ValueError("Expected one explicit capture outcome per optional provider")
-    return status
+def view_slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def recipe_id(name, owner):
+    return "recipe-" + hashlib.sha256(f"{owner}:{name}".encode()).hexdigest()[:16]
+
+
+def recipe_status(outcomes, owners):
+    return {recipe_id(name, owner): {"status": outcomes[name], "views": [view_slug(name)]} for name, owner in owners.items()}
+
+
+def validate_recipe_status(status, owners):
+    groups = {recipe_id(name, owner): name for name, owner in owners.items()}
+    if len(groups) != len(owners) or len({view_slug(name) for name in owners}) != len(owners):
+        raise ValueError("Plugin gallery plan has colliding ownership")
+    if not isinstance(status, dict) or status.keys() != groups.keys():
+        raise ValueError("Expected one explicit capture outcome per owned plugin view")
+    outcomes = {}
+    for key, name in groups.items():
+        record = status[key]
+        if (
+            not isinstance(record, dict)
+            or record.keys() != {"status", "views"}
+            or record["status"] not in ("captured", "unavailable")
+            or record["views"] != [view_slug(name)]
+        ):
+            raise ValueError(f"Invalid owned plugin outcome: {name}")
+        outcomes[name] = record["status"]
+    return outcomes
 
 
 EXTRA_VIEWS = {"caddl": ("Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)")}
@@ -44,19 +65,8 @@ PNG_HEADER = b"\x89PNG\r\n\x1a\n"
 
 def recipes(plan, split):
     moved = {lane: set() for lane in PUBLIC_LANES}
-    protected = set()
     for example in plan["examples"]:
         names = set(example["plugins"])
-        optional = names & OPTIONAL_PROVIDER_VIEWS.keys()
-        if split and optional:
-            if len(example["plugins"]) != 1:
-                raise ValueError("An optional provider would split a native source across lanes")
-            plugin = next(iter(optional))
-            recipe = plan["overrides"][plugin]
-            if plugin in protected or recipe["url"] != example["url"] or recipe.get("outputs"):
-                raise ValueError(f"Optional provider is not an exact native singleton recipe: {plugin}")
-            protected.add(plugin)
-            continue
         known = names & PUBLIC_OWNERS.keys()
         if split and known:
             owners = {PUBLIC_OWNERS[name] for name in known}
@@ -75,8 +85,6 @@ def recipes(plan, split):
         yield ",".join(example["plugins"]) + "|" + example["url"]
     if split and moved != PUBLIC_VIEWS:
         raise ValueError("Anonymous recipe partition no longer covers the exact public gallery views")
-    if split and protected != OPTIONAL_PROVIDER_VIEWS.keys():
-        raise ValueError("Protected recipe partition no longer covers the exact optional gallery views")
 
 
 def identity():
@@ -90,12 +98,19 @@ def read_rows(manifest):
     return [json.loads(line) for line in manifest.read_text().splitlines()]
 
 
-def validate(lane, rows, root, digests):
+def plan_owners(lane):
+    from generate_ui_screenshot_gallery import plugin_screenshot_plan
+
+    owners = plugin_screenshot_plan()["owned_views"]
+    return {name: plugin for name, plugin in owners.items() if lane == "whole" or PUBLIC_OWNERS.get(plugin, "base") == lane}
+
+
+def validate(lane, rows, root, digests, outcomes=None):
     filenames = set()
     views = {}
     for row in rows:
         name, profile, filename = (row[key] for key in ("name", "profile", "filename"))
-        if profile not in PROFILES or not re.fullmatch(r"[a-z0-9-]+\.png", filename) or not filename.endswith(f"-{profile}.png"):
+        if profile not in PROFILES or not re.fullmatch(r"[a-z0-9-]+\.png", filename) or filename != f"{view_slug(name)}-{profile}.png":
             raise ValueError(f"Invalid capture filename or profile: {filename}")
         if filename in filenames or profile in views.setdefault(name, set()):
             raise ValueError(f"Duplicate capture: {filename}")
@@ -114,53 +129,66 @@ def validate(lane, rows, root, digests):
             or hashlib.sha256(data).hexdigest() != digests[filename]
         ):
             raise ValueError(f"Invalid capture dimensions or checksum: {filename}")
-    if not views or filenames != digests.keys() or any(profiles != PROFILES.keys() for profiles in views.values()):
+    if (
+        (not views and (lane == "base" or outcomes is None))
+        or filenames != digests.keys()
+        or any(profiles != PROFILES.keys() for profiles in views.values())
+    ):
         raise ValueError(f"Incomplete viewport manifest: {lane}")
+    if outcomes is not None:
+        owners = plan_owners(lane)
+        actual = validate_recipe_status(outcomes, owners)
+        if any((status == "captured") != (name in views) for name, status in actual.items()):
+            raise ValueError(f"Capture disagrees with plugin view outcomes: {lane}")
     if lane == "base":
         if views.keys() & set().union(*PUBLIC_VIEWS.values()):
             raise ValueError("Public recipe view was captured twice")
-    elif lane in OPTIONAL_PROVIDER_VIEWS:
-        if views.keys() != {OPTIONAL_PROVIDER_VIEWS[lane]}:
-            raise ValueError(f"Optional provider did not capture its exact view: {lane}")
-    elif views.keys() != PUBLIC_VIEWS[lane]:
-        raise ValueError(f"Public lane did not capture its exact view: {lane}")
+    else:
+        expected = PUBLIC_VIEWS[lane]
+        if outcomes is not None:
+            expected = expected - {name for name, status in actual.items() if status == "unavailable"}
+        if views.keys() != expected:
+            raise ValueError(f"Public lane did not capture its exact view: {lane}")
 
 
-def pack(lane, manifest, screenshot_root, bundle):
+def collect_outcomes(lane, rows, unavailable):
+    missing = unavailable.read_text().splitlines()
+    names = {row["name"] for row in rows}
+    owners = plan_owners(lane)
+    if set(missing) - owners.keys() or len(missing) != len(set(missing)):
+        raise ValueError(f"Unowned or duplicate failure in lane: {lane}")
+    if set(missing) & names:
+        raise ValueError(f"Unavailable plugin produced gallery images: {lane}")
+    return recipe_status({name: "unavailable" if name in missing else "captured" for name in owners}, owners)
+
+
+def pack(lane, manifest, screenshot_root, bundle, unavailable=None):
     build = json.loads((screenshot_root / "build.json").read_text())
     current = identity()
     if build["revision"] != current["GITHUB_SHA"] or build["capture_count"] != len(build["files"]):
         raise ValueError("Native build differs from checked-out source or is incomplete")
     rows = read_rows(manifest)
-    validate(lane, rows, screenshot_root, build["files"])
+    outcomes = collect_outcomes(lane, rows, unavailable) if unavailable is not None else None
+    validate(lane, rows, screenshot_root, build["files"], outcomes)
     bundle.mkdir()
     for name in build["files"]:
         shutil.copyfile(screenshot_root / name, bundle / name)
     shutil.copyfile(manifest, bundle / "capture.jsonl")
     receipt = {"identity": current, "lane": lane, "files": build["files"]}
+    if outcomes is not None:
+        receipt["outcomes"] = outcomes
     (bundle / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
-def merge(artifact_root, output, manifest, provider_status_out=None):
+def merge(artifact_root, output, manifest, recipe_outcomes_out=None):
     current = identity()
     attempt = current["GITHUB_RUN_ATTEMPT"]
     lanes = ("base", *PUBLIC_LANES)
     bundles = {lane: artifact_root / f"gallery-capture-{attempt}-{lane}" for lane in lanes}
     expected_names = {bundle.name for bundle in bundles.values()}
-    protected = artifact_root / f"gallery-capture-{attempt}-protected-providers"
-    if provider_status_out is not None:
-        expected_names.add(protected.name)
     if {path.name for path in artifact_root.iterdir()} != expected_names:
         raise ValueError("Unexpected or missing capture artifacts")
-    if provider_status_out is not None:
-        report = json.loads((protected / "status.json").read_text())
-        if report["identity"] != current:
-            raise ValueError("Mixed optional provider provenance")
-        status = validate_provider_status(report["status"])
-        captured = {provider for provider, state in status.items() if state == "captured"}
-        if {path.name for path in protected.iterdir()} != captured | {"status.json"}:
-            raise ValueError("Optional provider artifacts disagree with recorded outcomes")
-        bundles.update((provider, protected / provider) for provider in sorted(captured))
+    status = {}
     all_files = {}
     all_rows = []
     for lane, bundle in bundles.items():
@@ -169,19 +197,28 @@ def merge(artifact_root, output, manifest, provider_status_out=None):
             raise ValueError(f"Mixed capture provenance: {lane}")
         files = receipt["files"]
         rows = read_rows(bundle / "capture.jsonl")
-        validate(lane, rows, bundle, files)
-        if lane == "base" and provider_status_out is not None and any(row["name"] in OPTIONAL_PROVIDER_VIEWS.values() for row in rows):
-            raise ValueError("Optional provider view was captured in the required base")
+        outcomes = receipt["outcomes"] if recipe_outcomes_out is not None else None
+        validate(lane, rows, bundle, files, outcomes)
+        if {path.name for path in bundle.iterdir()} != files.keys() | {"capture.jsonl", "receipt.json"}:
+            raise ValueError(f"Unexpected native capture files: {lane}")
+        if outcomes is not None:
+            if status.keys() & outcomes.keys():
+                raise ValueError("Duplicate plugin outcomes")
+            status.update(outcomes)
         if all_files.keys() & files.keys():
             raise ValueError(f"Duplicate gallery file: {lane}")
         all_files.update({name: bundle / name for name in files})
         all_rows.extend(rows)
+    if recipe_outcomes_out is not None:
+        from generate_ui_screenshot_gallery import plugin_screenshot_plan
+
+        validate_recipe_status(status, plugin_screenshot_plan()["owned_views"])
     output.mkdir()
     for name, source in all_files.items():
         shutil.copyfile(source, output / name)
     manifest.write_text("".join(json.dumps(row) + "\n" for row in all_rows))
-    if provider_status_out is not None:
-        provider_status_out.write_text(json.dumps(status, sort_keys=True) + "\n")
+    if recipe_outcomes_out is not None:
+        recipe_outcomes_out.write_text(json.dumps(status, sort_keys=True) + "\n")
 
 
 def main():
@@ -191,22 +228,30 @@ def main():
     recipe_parser.add_argument("plan", type=Path)
     recipe_parser.add_argument("split", choices=("0", "1"))
     pack_parser = commands.add_parser("pack")
-    pack_parser.add_argument("lane", choices=("base", *PUBLIC_LANES, *OPTIONAL_PROVIDER_VIEWS))
+    pack_parser.add_argument("lane", choices=("base", *PUBLIC_LANES))
     pack_parser.add_argument("manifest", type=Path)
     pack_parser.add_argument("screenshot_root", type=Path)
     pack_parser.add_argument("bundle", type=Path)
+    pack_parser.add_argument("--unavailable", type=Path)
     merge_parser = commands.add_parser("merge")
     merge_parser.add_argument("artifacts", type=Path)
     merge_parser.add_argument("output", type=Path)
     merge_parser.add_argument("manifest", type=Path)
-    merge_parser.add_argument("--provider-status-out", type=Path)
+    merge_parser.add_argument("--recipe-outcomes-out", type=Path)
+    whole_parser = commands.add_parser("whole-outcomes")
+    whole_parser.add_argument("manifest", type=Path)
+    whole_parser.add_argument("unavailable", type=Path)
+    whole_parser.add_argument("output", type=Path)
     args = parser.parse_args()
     if args.command == "recipes":
         print(*recipes(json.loads(args.plan.read_text()), args.split == "1"), sep="\n")
     elif args.command == "pack":
-        pack(args.lane, args.manifest, args.screenshot_root, args.bundle)
+        pack(args.lane, args.manifest, args.screenshot_root, args.bundle, args.unavailable)
+    elif args.command == "merge":
+        merge(args.artifacts, args.output, args.manifest, args.recipe_outcomes_out)
     else:
-        merge(args.artifacts, args.output, args.manifest, args.provider_status_out)
+        outcomes = collect_outcomes("whole", read_rows(args.manifest), args.unavailable)
+        args.output.write_text(json.dumps(outcomes, sort_keys=True) + "\n")
 
 
 if __name__ == "__main__":

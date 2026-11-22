@@ -46,6 +46,10 @@ def configure_provider(model, data_dir):
         raise RuntimeError("Enable an agent plugin in the screenshot collection before preparing AI screenshots.")
 
 
+class LibrarySourceUnavailable(RuntimeError):
+    pass
+
+
 def news_urls():
     # Use HN's machine-readable discovery API; the CLI still captures real pages.
     api = "https://hacker-news.firebaseio.com/v0"
@@ -63,7 +67,7 @@ def news_urls():
                     urls.append(url)
             if len(urls) == 7:
                 return urls
-    raise RuntimeError("The live Hacker News API did not provide six story candidates.")
+    raise LibrarySourceUnavailable("The live Hacker News API did not provide six story candidates.")
 
 
 def select_gallery_snapshots(snapshots, urls, evidence):
@@ -127,10 +131,45 @@ def select_gallery_snapshots(snapshots, urls, evidence):
         Path(diagnostics).mkdir(parents=True, exist_ok=True)
         (Path(diagnostics) / "hacker-news-captures.json").write_text(json.dumps(records, indent=2))
     if len(eligible) < 4 or eligible[0].url != urls[0]:
-        raise RuntimeError("Gallery needs a successful homepage and three captured stories; inspect hacker-news-captures.json.")
+        raise LibrarySourceUnavailable("Gallery needs a successful homepage and three captured stories; inspect hacker-news-captures.json.")
     featured = eligible[:4]
     (evidence / "hacker-news-urls.json").write_text(json.dumps([snapshot.url for snapshot in featured], indent=2))
     return featured
+
+
+def native_plugin_output_unavailable(snapshot_id, plugin, *, default_view=False):
+    """Only a sealed, successfully opened native snapshot proves scoped absence."""
+    from django.db.models import Q
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    if not Snapshot.objects.filter(id=snapshot_id, status=Snapshot.StatusChoices.SEALED).exists():
+        return False
+    results = ArchiveResult.objects.filter(snapshot_id=snapshot_id)
+    states = set(results.filter(plugin=plugin).values_list("status", flat=True))
+    if not states <= {"noresults", "failed", "skipped"}:
+        return False
+    navigated = results.filter(plugin="chrome", hook_name="on_Snapshot__30_chrome_navigate", status="succeeded").exists()
+    if navigated and (states or default_view):
+        return True
+    return (
+        results.filter(
+            plugin="chrome",
+            hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
+            status="failed",
+        )
+        .filter(
+            Q(process__stderr__contains="[chrome] target_crash status=crashed ")
+            | Q(process__stderr__contains="[chrome] target_crash status=oom ")
+            | Q(process__stderr__contains="tab closed unexpectedly!"),
+        )
+        .exists()
+    )
+
+
+AI_GALLERY_OUTPUTS = (
+    ("autotag", "automatic tags", "tags.jsonl"),
+    ("autosummary", "automatic summary", "summary.md"),
+)
 
 
 def validate_ai_result(snapshot, plugin):
@@ -139,20 +178,11 @@ def validate_ai_result(snapshot, plugin):
     results = list(snapshot.archiveresult_set.filter(plugin=plugin))
     if any(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in results):
         return True
-    credit_errors = (
-        "you have no credits remaining. add credits to continue using the api at https://platform.openai.com/",
-        "your credit balance is too low to access the anthropic api",
-    )
-    if not results or not all(
-        result.status == ArchiveResult.StatusChoices.FAILED and any(error in result.output_str.lower() for error in credit_errors)
-        for result in results
-    ):
-        raise RuntimeError(f"Gallery capture has no successful {plugin} result: {snapshot.url}")
-    warning = f"API credits exhausted: {plugin} for snapshot {snapshot.pk} remains failed; its output screenshot is omitted."
+    unsuccessful = {ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.NORESULTS, ArchiveResult.StatusChoices.SKIPPED}
+    if not results or any(result.status not in unsuccessful for result in results):
+        raise RuntimeError(f"Gallery capture has no terminal {plugin} result: {snapshot.url}")
+    warning = f"Native plugin {plugin} did not succeed; no output screenshot from this snapshot."
     print(f"::warning::{warning}")
-    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
-        with Path(summary).open("a") as stream:
-            stream.write(f"\n- {warning}\n")
     return False
 
 
@@ -210,6 +240,20 @@ def library_capture_plugins(persona, *, model=""):
         persona.save(update_fields=["config"])
 
 
+def native_library_source(crawl, snapshots, urls, evidence):
+    featured = select_gallery_snapshots(snapshots, urls, evidence)
+    records = json.loads((evidence / "hacker-news-captures.json").read_text())
+    replay_urls = {record["url"]: record["replay_url"] for record in records if record["eligible"]}
+    return featured, {
+        "crawl_id": str(crawl.pk),
+        "homepage": featured[0].url,
+        "stories": [snapshot.url for snapshot in featured[1:]],
+        "replay_urls": replay_urls,
+        "homepage_selector": "#hnmain",
+        "title": "Hacker News",
+    }
+
+
 def prepare(evidence_dir, *, model=""):
     from archivebox.config import CONSTANTS
     from archivebox.core.models import Snapshot
@@ -219,48 +263,67 @@ def prepare(evidence_dir, *, model=""):
 
     evidence = Path(evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
-    urls = news_urls()
-    (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
+    outcomes = os.environ.get("UI_SCREENSHOT_UNAVAILABLE_OUT")
     capture_env = os.environ.copy()
     if model:
         if not model.startswith("openai/"):
             raise ValueError("Gallery AI captures require an explicitly configured OpenAI model.")
         configure_provider(model, CONSTANTS.DATA_DIR)
-    # The existing supervisor does not adopt the shell's temporary env.
-    # Persist the fixture preset until the foreground crawl has completed.
-    persona = Persona.get_or_create_named("Default")
-    started = timezone.now()
-    with library_capture_plugins(persona, model=model), homepage_capture_budget(urls[0]):
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "archivebox",
-                "add",
-                "--no-only-new",
-                "--tag=screenshot-library",
-                "--max-urls=7",
-                *urls,
-            ],
-            cwd=CONSTANTS.DATA_DIR,
-            env=capture_env,
-            check=True,
-        )
-    crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
-    snapshots = list(Snapshot.objects.filter(crawl=crawl))
-    if {snapshot.url for snapshot in snapshots} != set(urls):
-        raise RuntimeError("Gallery crawl did not create every requested real capture.")
-    snapshots = select_gallery_snapshots(snapshots, urls, evidence)
+    snapshots = []
+    try:
+        urls = news_urls()
+        (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
+        # The existing supervisor does not adopt the shell's temporary env.
+        # Persist the fixture preset until the foreground crawl has completed.
+        persona = Persona.get_or_create_named("Default")
+        started = timezone.now()
+        with library_capture_plugins(persona, model=model), homepage_capture_budget(urls[0]):
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "archivebox",
+                    "add",
+                    "--no-only-new",
+                    "--tag=screenshot-library",
+                    "--max-urls=7",
+                    *urls,
+                ],
+                cwd=CONSTANTS.DATA_DIR,
+                env=capture_env,
+                check=True,
+            )
+        crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
+        snapshots = list(Snapshot.objects.filter(crawl=crawl))
+        if {snapshot.url for snapshot in snapshots} != set(urls):
+            raise RuntimeError("Gallery crawl did not create every requested real capture.")
+        snapshots, source = native_library_source(crawl, snapshots, urls, evidence)
+    except (LibrarySourceUnavailable, requests.RequestException) as error:
+        # Native capture stays an observed outcome, never relabeled as passing.
+        # Only unavailable source evidence can choose this owned, playable input;
+        # scaffold, database, CLI, and archive-format errors remain fatal.
+        if not outcomes:
+            raise
+        from archivebox.core.gallery_replay_fixture import prepare as prepare_fixture
+
+        print(f"::warning title=Native library source unavailable::{type(error).__name__}; using the owned app replay fixture")
+        source = prepare_fixture()
+        snapshots = [snapshot for snapshot in snapshots if snapshot.status == Snapshot.StatusChoices.SEALED]
+    (evidence / "gallery-library-source.json").write_text(json.dumps(source))
     ai_snapshots = {}
     for snapshot in snapshots:
         if model:
-            available = {plugin: validate_ai_result(snapshot, plugin) for plugin in ("autotag", "autosummary")}
+            available = {
+                plugin: validate_ai_result(snapshot, plugin)
+                for plugin, _, _ in AI_GALLERY_OUTPUTS
+                if source["title"] == "Hacker News" or snapshot.archiveresult_set.filter(plugin=plugin).exists()
+            }
             for plugin, succeeded in available.items():
                 if succeeded:
                     ai_snapshots.setdefault(plugin, snapshot)
-            if available["autosummary"] and not (snapshot.output_dir / "autosummary/summary.md").read_text().strip():
+            if available.get("autosummary") and not (snapshot.output_dir / "autosummary/summary.md").read_text().strip():
                 raise RuntimeError(f"Gallery capture has no real summary artifact: {snapshot.url}")
-            if not available["autotag"]:
+            if not available.get("autotag"):
                 continue
             tag_records = [
                 json.loads(line) for line in (snapshot.output_dir / "autotag/tags.jsonl").read_text().splitlines() if line.strip()
@@ -295,12 +358,16 @@ def prepare(evidence_dir, *, model=""):
             f"Automatic tags configuration|{base}/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:autotag",
             f"Automatic summary configuration|{base}/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:autosummary",
         ]
-        for plugin, title, artifact in (("autotag", "automatic tags", "tags.jsonl"), ("autosummary", "automatic summary", "summary.md")):
+        for plugin, title, artifact in AI_GALLERY_OUTPUTS:
+            name = f"Snapshot View ({title})"
             if snapshot := ai_snapshots.get(plugin):
                 snapshot_path = build_snapshot_detail_path(snapshot.archive_path_from_db)
                 views.append(
-                    f"Snapshot View ({title})|{base}{snapshot_path}#{plugin}/{artifact}|{snapshot_path}|archivebox/templates/core/snapshot.html",
+                    f"{name}|{base}{snapshot_path}#{plugin}/{artifact}|{snapshot_path}|archivebox/templates/core/snapshot.html",
                 )
+            elif outcomes:
+                with Path(outcomes).open("a") as stream:
+                    print(name, file=stream)
         (evidence / "ai-views.txt").write_text("\n".join(views) + "\n")
-    (evidence / "library-crawl-id.txt").write_text(str(crawl.pk))
-    return str(crawl.pk)
+    (evidence / "library-crawl-id.txt").write_text(source["crawl_id"])
+    return source["crawl_id"]

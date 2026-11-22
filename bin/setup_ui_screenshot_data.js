@@ -129,20 +129,24 @@ async function main() {
     if (!dataDir || !viewsFile || !process.env.UI_LIBRARY_CRAWL_ID) {
       throw new Error('Gallery features require a real captured library crawl and an isolated data directory.');
     }
-    const runWorker = (args) => {
+    const source = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'gallery-library-source.json'), 'utf8'));
+    if (source.crawl_id !== process.env.UI_LIBRARY_CRAWL_ID || !source.homepage || !source.homepage_selector || !source.title || !Array.isArray(source.stories) || source.stories.length !== 3) {
+      throw new Error('Gallery library replay metadata does not match the prepared crawl.');
+    }
+    const runWorker = (args, fixtureEnv = {}) => {
       const result = spawnSync('uv', ['run', '--no-sync', '--project', repoDir, 'archivebox', ...args], {
-        cwd: dataDir, encoding: 'utf8', env: process.env, stdio: ['ignore', 'inherit', 'inherit'],
+        cwd: dataDir, encoding: 'utf8', env: {...process.env, ...fixtureEnv}, stdio: ['ignore', 'inherit', 'inherit'],
       });
       if (result.status !== 0) throw new Error(`Gallery worker failed: ${result.error?.message || `exit ${result.status}, signal ${result.signal || 'none'}`}`);
     };
     const checkpoint = `${viewsFile}.prepared.json`;
     if (phase === 'prepare') {
       const featureViews = [];
-      const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
+      const library = await require('../archivebox/core/library_gallery.js').prepare(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID, source);
       featureViews.push(library);
       featureViews.push({...library, name: 'Navigation tools menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-tools'});
       featureViews.push({...library, name: 'Navigation account menu', source: 'archivebox/templates/core/navigation.html', mode: 'navbar-account'});
-      const smart = await require('../archivebox/core/library_gallery.js').prepareSmartFolder(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID);
+      const smart = await require('../archivebox/core/library_gallery.js').prepareSmartFolder(page, adminBaseUrl, process.env.UI_LIBRARY_CRAWL_ID, source);
       featureViews.push(smart, {...smart, name: 'Smart folder rule editor', mode: 'smart-folder'});
       featureViews.push({...library, name: 'Current view export menu', mode: 'view-export-menu'});
       featureViews.push({...library, name: 'Folder search', mode: 'folder-search'});
@@ -151,14 +155,19 @@ async function main() {
       featureViews.push(await require('../archivebox/core/public_library_gallery.js').prepare(page, process.env.UI_LIBRARY_PUBLIC_URL, library.url));
       featureViews.push({name: 'Add snapshots to a folder', url: library.addUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
       featureViews.push({name: 'Nested folders in grid view', url: library.url.replace('/snapshot/?', '/snapshot/grid/?'), path: '/admin/core/snapshot/grid/', source: 'archivebox/templates/admin/core/snapshot/change_list.html'});
-      featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url));
-      // Mandatory replay navigation uses an owned two-page site. Live HN/story
-      // capture and eligibility remain independently checked below.
+      featureViews.push(...await require('../archivebox/core/library_gallery.js').prepareExports(page, adminBaseUrl, library.url, source.homepage));
+      // Mandatory same-origin replay navigation uses an owned two-page site.
+      // The selected folder has its own independently verified recordings.
       const siteDirectory = path.join(path.dirname(viewsFile), 'site-exports', 'site-navigation');
       fs.cpSync(path.join(repoDir, 'archivebox/tests/fixtures/site-navigation'), siteDirectory, {recursive: true});
       const siteUrl = new URL('site-navigation/index.html', process.env.UI_SITE_EXPORT_BASE_URL).href;
       const clone = await require('../archivebox/domains/gallery.js').prepare(page, adminBaseUrl, siteUrl);
       runWorker(['run', '--crawl-id', clone.crawlId]);
+      if (process.env.UI_SCREENSHOT_UNAVAILABLE_OUT) {
+        runWorker(['manage', 'shell', '--no-imports', '-c',
+          'import os; from archivebox.core.gallery_replay_fixture import prepare_site_navigation; prepare_site_navigation(os.environ["UI_GALLERY_CLONE_ID"], os.environ["UI_GALLERY_CLONE_FIXTURE"])',
+        ], {UI_GALLERY_CLONE_ID: clone.crawlId, UI_GALLERY_CLONE_FIXTURE: siteDirectory});
+      }
       featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
       featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
       fs.writeFileSync(checkpoint, JSON.stringify({adminBaseUrl, crawlId: process.env.UI_LIBRARY_CRAWL_ID, profile: path.resolve(process.env.SCREENSHOT_USER_DATA_DIR), featureViews, library, clone}));
@@ -174,11 +183,11 @@ async function main() {
     featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
     featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
-    const stories = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-urls.json'), 'utf8'));
-    const recordings = JSON.parse(fs.readFileSync(path.join(path.dirname(viewsFile), 'hacker-news-captures.json'), 'utf8'));
-    const replayUrls = Object.fromEntries(recordings.filter(record => record.eligible).map(record => [record.url, record.replay_url]));
-    featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').folderViews(page, library.url, stories, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL, replayUrls));
-    featureViews.push(await require('../archivebox/domains/wacz_gallery.js').storyView(page, adminBaseUrl, stories[1], path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL, replayUrls[stories[1]]));
+    const waczGallery = require('../archivebox/domains/wacz_gallery.js');
+    const exportDirectory = path.join(path.dirname(viewsFile), 'site-exports');
+    featureViews.push(...await waczGallery.folderViews(page, library.url, source, exportDirectory, process.env.UI_SITE_EXPORT_BASE_URL));
+    const story = source.stories[0];
+    featureViews.push(await waczGallery.storyView(page, adminBaseUrl, story, exportDirectory, process.env.UI_SITE_EXPORT_BASE_URL, source.replay_urls[story]));
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');
     await collapseAdminFilters(page, adminBaseUrl);
   } finally {

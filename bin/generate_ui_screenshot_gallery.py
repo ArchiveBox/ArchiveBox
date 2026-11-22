@@ -34,6 +34,9 @@ REQUIRED_VIEW_NAMES = {
     "Snapshot admin detail",
     "Snapshot View (capture in progress)",
     "Snapshot View (header collapsed)",
+    "Folder WACZ homepage",
+    "Folder WACZ story navigation",
+    "WACZ archived story",
     "Snapshot files",
     "Archive results",
     "Archive result detail",
@@ -171,6 +174,7 @@ def write_navigation_diagnostics(data_dir: Path, output_path: Path) -> None:
 def plugin_screenshot_plan() -> dict:
     """Discover default coverage and plugin-owned examples from the installed package."""
     from abx_plugins import get_plugins_dir
+    from archivebox.importers.gallery import importer_view_names
 
     required = []
     examples = {}
@@ -178,6 +182,7 @@ def plugin_screenshot_plan() -> dict:
     config_views = []
     importer_views = []
     enabled_plugins = []
+    owned_views = {}
     selected = set(filter(None, os.environ.get("UI_SCREENSHOT_PLUGINS", "").split(",")))
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
         if selected and plugin_dir.name not in selected:
@@ -188,6 +193,7 @@ def plugin_screenshot_plan() -> dict:
         config = json.loads(config_path.read_text())
         recipe = json.loads((plugin_dir / config["screenshot"]).read_text()) if config.get("screenshot") else {}
         plugin = plugin_dir.name
+        first_view = len(required)
         enabled = config.get("properties", {}).get(f"{plugin.upper()}_ENABLED", {}).get("default", False)
         if recipe.get("enabled") or recipe.get("url"):
             enabled_plugins.append(plugin)
@@ -195,7 +201,7 @@ def plugin_screenshot_plan() -> dict:
         if recipe.get("view"):
             required.append(recipe["view"])
             if recipe.get("importer"):
-                required.extend([recipe["view"] + " history", recipe["view"] + " snapshots", recipe["view"] + " export"])
+                required.extend(importer_view_names(recipe["view"])[1:])
                 importer_views.append(
                     {"name": recipe["view"], "plugin": plugin, "feed": recipe["importer"], "settings": recipe.get("config_overrides", {})},
                 )
@@ -232,8 +238,21 @@ def plugin_screenshot_plan() -> dict:
                 example = examples.setdefault(key, {"url": key, "plugins": []})
                 if plugin not in example["plugins"]:
                     example["plugins"].append(plugin)
+        for name in required[first_view:]:
+            if name in REQUIRED_VIEW_NAMES:
+                continue  # Ownership remains with the required application UI.
+            if name in owned_views:
+                raise ValueError(f"Duplicate plugin screenshot view: {name}")
+            owned_views[name] = plugin
+    if not selected:
+        from archivebox.core.library_screenshots import AI_GALLERY_OUTPUTS
+
+        for plugin, title, _ in AI_GALLERY_OUTPUTS:
+            name = f"Snapshot View ({title})"
+            owned_views[name] = plugin
     return {
         "required": required,
+        "owned_views": owned_views,
         "examples": list(examples.values()),
         "overrides": overrides,
         "enabled": enabled_plugins,
@@ -357,7 +376,7 @@ selectProfile('desktop');
     )
 
 
-def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, provider_status: dict[str, str] | None = None) -> None:
+def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, recipe_outcomes: dict | None = None) -> None:
     provenance = build_provenance()
     source_base_url = f"https://github.com/ArchiveBox/ArchiveBox/blob/{provenance['revision']}/"
     captures = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines() if line]
@@ -397,21 +416,19 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, p
 
     unavailable = set()
     unavailable_note = ""
-    if provider_status is not None:
-        from assemble_screenshot_gallery import OPTIONAL_PROVIDER_VIEWS, validate_provider_status
+    if recipe_outcomes is not None:
+        from assemble_screenshot_gallery import validate_recipe_status
 
         if allow_partial:
-            raise SystemExit("Optional provider outcomes require the strict gallery build")
-        unavailable = {
-            OPTIONAL_PROVIDER_VIEWS[provider]
-            for provider, state in validate_provider_status(provider_status).items()
-            if state == "unavailable"
-        }
-        if unavailable & captures_by_name.keys():
-            raise SystemExit("Unavailable provider unexpectedly has gallery captures")
-        names = ", ".join(provider.title() for provider, state in sorted(provider_status.items()) if state == "unavailable")
-        if names:
-            unavailable_note = f"Optional provider screenshots unavailable in this capture: {names}."
+            raise SystemExit("Plugin capture outcomes require the strict gallery build")
+        plan = plugin_screenshot_plan()
+        owned = plan["owned_views"]
+        outcomes = validate_recipe_status(recipe_outcomes, owned)
+        unavailable = {name for name, status in outcomes.items() if status == "unavailable"}
+        if unavailable & captures_by_name.keys() or set(outcomes) - unavailable - captures_by_name.keys():
+            raise SystemExit("Plugin capture outcomes disagree with gallery captures")
+        if unavailable:
+            unavailable_note = f"Plugin screenshots unavailable in this capture: {', '.join(sorted(unavailable))}."
     if not allow_partial:
         captured_names = set(captures_by_name)
         missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names - unavailable)
@@ -502,7 +519,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, p
         f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
         f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
         "Desktop, tablet, and mobile viewports are captured from the same build.</p>"
-        + (f'<p id="optional-provider-captures">{html.escape(unavailable_note)}</p>' if unavailable_note else "")
+        + (f'<p id="optional-recipe-captures">{html.escape(unavailable_note)}</p>' if unavailable_note else "")
         + "</header>"
     )
     html_path.write_text(render_gallery(gallery_header, "".join(html_sections)), encoding="utf-8")
@@ -516,7 +533,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, p
                 **provenance,
                 "capture_count": len(captures),
                 "files": file_hashes,
-                **({"optional_provider_captures": provider_status} if provider_status is not None else {}),
+                **({"optional_recipe_captures": recipe_outcomes} if recipe_outcomes is not None else {}),
             },
             indent=2,
             sort_keys=True,
@@ -608,10 +625,10 @@ def main() -> None:
         append_manifest(Path(sys.argv[2]), Path(sys.argv[3]))
         return
     if len(sys.argv) in (5, 6) and sys.argv[1] == "build":
-        provider_status = json.loads(Path(sys.argv[5]).read_text()) if len(sys.argv) == 6 else None
-        if len(sys.argv) == 6 and not isinstance(provider_status, dict):
+        recipe_outcomes = json.loads(Path(sys.argv[5]).read_text()) if len(sys.argv) == 6 else None
+        if len(sys.argv) == 6 and not isinstance(recipe_outcomes, dict):
             raise SystemExit("Invalid optional provider status")
-        build_galleries(Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]), provider_status)
+        build_galleries(Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]), recipe_outcomes)
         return
     raise SystemExit(
         "usage: generate_ui_screenshot_gallery.py append MANIFEST SCREENSHOT | "

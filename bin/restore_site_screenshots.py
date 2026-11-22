@@ -21,7 +21,7 @@ REPO = "ArchiveBox/ArchiveBox"
 BRANCH = "dev"
 BASE = "https://archivebox.io/screenshots/"
 MANIFEST = "build.json"
-OPTIONAL_PROVIDER_CAPTURES = ("canva", "figma", "miro")
+GALLERY_VIEW_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 PROFILES = ("desktop", "tablet", "mobile")
 
 
@@ -42,7 +42,8 @@ def validate_optional_provider_captures(destination, manifest):
     outcomes = manifest["optional_provider_captures"]
     if (
         not isinstance(outcomes, dict)
-        or set(outcomes) != set(OPTIONAL_PROVIDER_CAPTURES)
+        or not outcomes
+        or any(not GALLERY_VIEW_SLUG.fullmatch(provider) for provider in outcomes)
         or any(status not in ("captured", "unavailable") for status in outcomes.values())
     ):
         raise ValueError("Invalid optional provider capture outcomes")
@@ -57,6 +58,38 @@ def validate_optional_provider_captures(destination, manifest):
             raise ValueError(f"Unavailable provider includes screenshot files: {provider}")
 
 
+def validate_optional_recipe_captures(destination, manifest):
+    if "optional_recipe_captures" not in manifest:
+        return
+    outcomes = manifest["optional_recipe_captures"]
+    if not isinstance(outcomes, dict) or "optional_provider_captures" in manifest:
+        raise ValueError("Invalid optional gallery recipe outcomes")
+    seen_views = set()
+    for recipe, outcome in outcomes.items():
+        if (
+            not re.fullmatch(r"recipe-[a-f0-9]{16}", recipe)
+            or not isinstance(outcome, dict)
+            or set(outcome) != {"status", "views"}
+            or outcome["status"] not in ("captured", "unavailable")
+            or not isinstance(outcome["views"], list)
+            or not outcome["views"]
+            or any(not isinstance(view, str) or not GALLERY_VIEW_SLUG.fullmatch(view) for view in outcome["views"])
+            or outcome["views"] != sorted(set(outcome["views"]))
+            or seen_views.intersection(outcome["views"])
+        ):
+            raise ValueError("Invalid optional gallery recipe outcome")
+        seen_views.update(outcome["views"])
+        for view in outcome["views"]:
+            names = {f"{view}-{profile}.png" for profile in PROFILES}
+            present = names.intersection(manifest["files"])
+            if outcome["status"] == "captured" and present != names:
+                raise ValueError(f"Incomplete optional gallery recipe capture: {recipe}")
+            if outcome["status"] == "unavailable" and (
+                present or any((destination / name).exists() or (destination / name).is_symlink() for name in names)
+            ):
+                raise ValueError(f"Unavailable gallery recipe includes screenshot files: {recipe}")
+
+
 def validate(destination, run=None):
     manifest = json.loads((destination / MANIFEST).read_text())
     if run and manifest["revision"] != run["head_sha"]:
@@ -64,6 +97,7 @@ def validate(destination, run=None):
     if not manifest.get("files") or len(manifest["files"]) != manifest["capture_count"]:
         raise ValueError("Incomplete screenshot manifest")
     validate_optional_provider_captures(destination, manifest)
+    validate_optional_recipe_captures(destination, manifest)
     for name, expected in manifest["files"].items():
         image = destination / artifacts.relative_path(name)
         if hashlib.sha256(image.read_bytes()).hexdigest() != expected:

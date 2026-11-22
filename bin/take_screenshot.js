@@ -264,6 +264,8 @@ async function waitForLiveProgress(page, deadline, screencastResponses) {
   }
 }
 
+class NativePreviewAssertionError extends Error {}
+
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     usage();
@@ -439,11 +441,19 @@ async function main() {
       const previewHandle = await page.waitForSelector('#main-frame', {timeout: 45000});
       const preview = await previewHandle.contentFrame();
       if (!preview) throw new Error('Snapshot preview iframe has no document');
-      await preview.waitForFunction(
-        (text) => document.body?.innerText.includes(text),
-        {timeout: 45000},
-        process.env.SCREENSHOT_PREVIEW_WAIT_FOR_TEXT,
-      );
+      try {
+        await preview.waitForFunction(
+          (text) => document.body?.innerText.includes(text),
+          {timeout: 45000},
+          process.env.SCREENSHOT_PREVIEW_WAIT_FOR_TEXT,
+        );
+      } catch (error) {
+        if (error.name !== 'TimeoutError' || navigationResponse?.status() !== 200
+          || page.url() !== new URL(url).href
+          || !await page.$('.thumb-card.selected-card[data-plugin-name]')
+          || !await preview.evaluate(() => document.readyState === 'complete' && Boolean(document.body))) throw error;
+        throw new NativePreviewAssertionError('Selected plugin preview did not render its native proof text.');
+      }
     }
     if (process.env.SCREENSHOT_CLICK_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_CLICK_SELECTOR, { timeout: 45000 });
@@ -650,7 +660,7 @@ async function main() {
 if (require.main === module) {
   main().catch((err) => {
     console.error(err);
-    process.exit(1);
+    process.exit(err instanceof NativePreviewAssertionError ? 42 : 1);
   });
 }
 

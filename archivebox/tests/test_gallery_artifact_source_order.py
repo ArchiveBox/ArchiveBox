@@ -79,7 +79,7 @@ def test_capture_order_rejects_incomplete_history(tmp_path):
         RESTORE["capture_revision_order"](clone)
 
 
-OPTIONAL_OUTCOMES = {"canva": "captured", "figma": "unavailable", "miro": "captured"}
+OPTIONAL_OUTCOMES = {"subtitle": "captured", "photobooth": "unavailable", "new-source": "captured"}
 OPTIONAL_PROFILES = ("desktop", "tablet", "mobile")
 
 
@@ -87,7 +87,7 @@ def write_provider_artifact(directory, outcomes, *, omit=None, stale=None):
     (directory / "index.html").write_text("<main>Gallery fixture</main>")
     files = {}
     names = ["navigation-tools-menu-desktop.png"]
-    for provider in ("canva", "miro"):
+    for provider in ("subtitle", "new-source"):
         names.extend(f"snapshot-view-{provider}-{profile}.png" for profile in OPTIONAL_PROFILES)
     for name in names:
         if name == omit:
@@ -105,17 +105,18 @@ def write_provider_artifact(directory, outcomes, *, omit=None, stale=None):
 def test_restore_accepts_one_omitted_provider_and_keeps_complete_current_providers(tmp_path):
     manifest = write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES)
     assert RESTORE["validate"](tmp_path, {"head_sha": "a" * 40}) == manifest
-    assert all("figma" not in image for image in manifest["files"])
+    assert all("photobooth" not in image for image in manifest["files"])
+    assert all(f"snapshot-view-new-source-{profile}.png" in manifest["files"] for profile in OPTIONAL_PROFILES)
 
 
 @pytest.mark.parametrize(
     "outcomes",
     [
         None,
-        ["canva", "figma", "miro"],
-        {"canva": "captured", "figma": "unavailable"},
-        {**OPTIONAL_OUTCOMES, "icloud": "unavailable"},
-        {**OPTIONAL_OUTCOMES, "figma": "failed selector: provider detail"},
+        ["subtitle", "photobooth"],
+        {},
+        {**OPTIONAL_OUTCOMES, "../unsafe": "unavailable"},
+        {**OPTIONAL_OUTCOMES, "photobooth": "failed selector: provider detail"},
     ],
 )
 def test_restore_rejects_malformed_optional_provider_metadata(tmp_path, outcomes):
@@ -125,15 +126,88 @@ def test_restore_rejects_malformed_optional_provider_metadata(tmp_path, outcomes
 
 
 def test_restore_rejects_partial_capture_or_unlisted_stale_provider_bytes(tmp_path):
-    write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, omit="snapshot-view-miro-mobile.png")
-    with pytest.raises(ValueError, match="Incomplete optional provider capture: miro"):
+    write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, omit="snapshot-view-new-source-mobile.png")
+    with pytest.raises(ValueError, match="Incomplete optional provider capture: new-source"):
         RESTORE["validate"](tmp_path)
-    write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, stale="snapshot-view-figma-desktop.png")
-    with pytest.raises(ValueError, match="Unavailable provider includes screenshot files: figma"):
+    write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, stale="snapshot-view-photobooth-desktop.png")
+    with pytest.raises(ValueError, match="Unavailable provider includes screenshot files: photobooth"):
         RESTORE["validate"](tmp_path)
 
 
-def test_pages_overlay_cannot_restore_omitted_provider_from_tracked_old_png(tmp_path):
+MISSING_RECIPE = "recipe-" + "a" * 16
+HEALTHY_RECIPE = "recipe-" + "b" * 16
+GENERIC_OUTCOMES = {
+    MISSING_RECIPE: {"status": "unavailable", "views": ["archive-output-photobooth"]},
+    HEALTHY_RECIPE: {"status": "captured", "views": ["archive-output-subtitle"]},
+}
+
+
+def write_recipe_artifact(directory, outcomes, *, missing_profile=None, stale=None):
+    names = ["navigation-tools-menu-desktop.png"]
+    names.extend(f"archive-output-subtitle-{profile}.png" for profile in OPTIONAL_PROFILES if profile != missing_profile)
+    files = {}
+    for name in names:
+        content = name.encode()
+        (directory / name).write_bytes(content)
+        files[name] = hashlib.sha256(content).hexdigest()
+    if stale:
+        (directory / stale).write_bytes(b"old unlisted plugin screenshot")
+    manifest = {
+        "revision": "a" * 40,
+        "capture_count": len(files),
+        "files": files,
+        "optional_recipe_captures": outcomes,
+    }
+    (directory / "index.html").write_text("<main>Gallery fixture</main>")
+    (directory / "build.json").write_text(json.dumps(manifest))
+    return manifest
+
+
+def test_restore_accepts_generic_plugin_outcomes_without_named_provider_rule(tmp_path):
+    manifest = write_recipe_artifact(tmp_path, GENERIC_OUTCOMES)
+    assert RESTORE["validate"](tmp_path, {"head_sha": "a" * 40}) == manifest
+    assert "navigation-tools-menu-desktop.png" in manifest["files"]
+
+
+@pytest.mark.parametrize(
+    "outcomes",
+    [
+        None,
+        {"provider-untyped": {"status": "unavailable", "views": ["valid"]}},
+        {MISSING_RECIPE: {"status": "failure details", "views": ["valid"]}},
+        {MISSING_RECIPE: {"status": "unavailable", "views": ["core/route"]}},
+        {MISSING_RECIPE: {"status": "unavailable", "views": ["safe", "safe"]}},
+        {MISSING_RECIPE: {"status": "unavailable", "views": ["zebra", "alpha"]}},
+        {MISSING_RECIPE: {"status": "unavailable", "views": ["same"]}, HEALTHY_RECIPE: {"status": "unavailable", "views": ["same"]}},
+    ],
+)
+def test_restore_rejects_malformed_generic_recipe_outcomes(tmp_path, outcomes):
+    write_recipe_artifact(tmp_path, outcomes)
+    with pytest.raises(ValueError, match="Invalid optional gallery recipe outcome"):
+        RESTORE["validate"](tmp_path)
+
+
+def test_restore_rejects_mixed_old_and_new_optional_provenance(tmp_path):
+    manifest = write_recipe_artifact(tmp_path, GENERIC_OUTCOMES)
+    manifest["optional_provider_captures"] = {"older-source": "unavailable"}
+    (tmp_path / "build.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="Invalid optional gallery recipe outcomes"):
+        RESTORE["validate"](tmp_path)
+
+
+def test_restore_rejects_incomplete_generic_capture_or_stale_omitted_bytes(tmp_path):
+    write_recipe_artifact(tmp_path, GENERIC_OUTCOMES, missing_profile="mobile")
+    with pytest.raises(ValueError, match="Incomplete optional gallery recipe capture"):
+        RESTORE["validate"](tmp_path)
+    write_recipe_artifact(tmp_path, GENERIC_OUTCOMES, stale="archive-output-photobooth-desktop.png")
+    with pytest.raises(ValueError, match="Unavailable gallery recipe includes screenshot files"):
+        RESTORE["validate"](tmp_path)
+
+
+@pytest.mark.parametrize("legacy", [True, False])
+def test_pages_overlay_cannot_restore_omitted_view_from_tracked_old_png(tmp_path, legacy):
+    omitted_view = "snapshot-view-photobooth" if legacy else "archive-output-photobooth"
+    omitted_filename = f"{omitted_view}-desktop.png"
     workflow = yaml.safe_load((ROOT / ".github/workflows/deploy-publicsite.yml").read_text())
     step = next(step for step in workflow["jobs"]["build"]["steps"] if step.get("name") == "Keep manually captured screenshots")
     opening, *body, closing = step["run"].strip().splitlines()
@@ -145,20 +219,26 @@ def test_pages_overlay_cannot_restore_omitted_provider_from_tracked_old_png(tmp_
     runner = tmp_path / "runner"
     manual = runner / "manual-screenshots"
     manual.mkdir(parents=True)
-    for name in ("snapshot-view-figma-desktop.png", "snapshot-view-ytdlp-desktop.png"):
+    for name in (omitted_filename, "snapshot-view-ytdlp-desktop.png"):
         source = screenshots / name
         source.write_bytes(name.encode())
         git(tmp_path, "add", str(source.relative_to(tmp_path)))
         source.rename(manual / name)
-    write_provider_artifact(screenshots, OPTIONAL_OUTCOMES)
+    if legacy:
+        write_provider_artifact(screenshots, OPTIONAL_OUTCOMES)
+    else:
+        write_recipe_artifact(screenshots, {MISSING_RECIPE: {"status": "unavailable", "views": [omitted_view]}})
     (tmp_path / ".github").mkdir()
     (tmp_path / ".github/manual-screenshot-captures.json").write_text("{}")
     subprocess.run([sys.executable, "-c", python], cwd=tmp_path, env={**os.environ, "RUNNER_TEMP": str(runner)}, check=True)
 
     manifest = json.loads((screenshots / "build.json").read_text())
-    assert manifest["optional_provider_captures"] == OPTIONAL_OUTCOMES
-    assert "snapshot-view-figma-desktop.png" not in manifest["files"]
-    assert not (screenshots / "snapshot-view-figma-desktop.png").exists()
+    if legacy:
+        assert manifest["optional_provider_captures"] == OPTIONAL_OUTCOMES
+    else:
+        assert manifest["optional_recipe_captures"] == {MISSING_RECIPE: {"status": "unavailable", "views": [omitted_view]}}
+    assert omitted_filename not in manifest["files"]
+    assert not (screenshots / omitted_filename).exists()
     assert "snapshot-view-ytdlp-desktop.png" in manifest["manual_captures"]
     assert (screenshots / "snapshot-view-ytdlp-desktop.png").is_file()
     assert RESTORE["validate"](screenshots) == manifest

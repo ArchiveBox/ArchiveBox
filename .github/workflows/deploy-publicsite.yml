@@ -79,11 +79,19 @@ jobs:
               return timestamp if timestamp.utcoffset() is not None else None
 
           gallery_time = capture_time(manifest.get("generated_at"))
+          omitted_views = {
+              view
+              for outcome in manifest.get("optional_recipe_captures", {}).values()
+              if outcome["status"] == "unavailable"
+              for view in outcome["views"]
+          }
           applied = {}
           for filename in subprocess.check_output(["git", "ls-files", "publicsite/screenshots/*.png"], text=True).splitlines():
               image = Path(filename)
               view = image.stem.rsplit("-", 1)[0]
-              if view.startswith("snapshot-view-") and manifest.get("optional_provider_captures", {}).get(view.removeprefix("snapshot-view-")) == "unavailable":
+              if view in omitted_views or (
+                  view.startswith("snapshot-view-") and manifest.get("optional_provider_captures", {}).get(view.removeprefix("snapshot-view-")) == "unavailable"
+              ):
                   # Provider absence is explicit: a tracked older PNG is not a fresh capture.
                   continue
               capture = captures.get(view, {})

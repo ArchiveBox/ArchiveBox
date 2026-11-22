@@ -5,7 +5,8 @@ async function submit(page, selector) {
   if (errors) throw new Error(errors);
 }
 
-async function prepare(page, adminBaseUrl, crawlId) {
+async function prepare(page, adminBaseUrl, crawlId, librarySource) {
+  const {homepage, title} = librarySource;
   if (!crawlId) throw new Error('A real captured crawl is required for the folder gallery.');
   async function folder(name, parent = '') {
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
@@ -18,7 +19,7 @@ async function prepare(page, adminBaseUrl, crawlId) {
       await page.click(`${row} .folder-menu-toggle`);
       await page.click(`${row} .folder-menu .folder-new:not([data-smart])`);
     } else {
-      await page.goto(`${adminBaseUrl}/add/?url=https%3A%2F%2Fnews.ycombinator.com%2F`, {waitUntil: 'domcontentloaded'});
+      await page.goto(`${adminBaseUrl}/add/?${new URLSearchParams({url: homepage})}`, {waitUntil: 'domcontentloaded'});
       await page.click('.folder-field .folder-new');
     }
     await page.waitForSelector('#folder-dialog[open] .folder-save:not([disabled])');
@@ -32,15 +33,15 @@ async function prepare(page, adminBaseUrl, crawlId) {
     await page.waitForSelector('#folder-dialog:not([open])');
     if (parent) await page.waitForSelector(`.folder-row[data-folder-id="${created.id}"][data-parent-id="${parent}"]`);
     if (!parent) {
-      if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== 'https://news.ycombinator.com/') throw new Error('Creating a folder lost the Add form state.');
+      if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== homepage) throw new Error('Creating a folder lost the Add form state.');
     }
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
     const id = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
     if (!id) throw new Error(`Folder was not saved: ${name}`);
     return id;
   }
-  const parent = await folder('Hacker News');
-  const child = await folder('Recent top stories', parent);
+  const parent = await folder(title);
+  const child = await folder('Recent stories', parent);
   await page.goto(`${adminBaseUrl}/admin/core/snapshot/?crawl_id=${encodeURIComponent(crawlId)}`, {waitUntil: 'domcontentloaded'});
   const rows = await page.$$('#result_list tbody tr');
   if (!rows.length) throw new Error('No real captures in the gallery crawl.');
@@ -58,7 +59,7 @@ async function prepare(page, adminBaseUrl, crawlId) {
   await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.mouse.up()]);
   const message = await page.$eval('.messagelist', node => node.textContent);
   if (!message.includes(`Moved ${rows.length} snapshot(s)`)) throw new Error('Dragging the checked captures did not save their folder.');
-  const result = {name: 'Nested snapshot folders', url: `${adminBaseUrl}/admin/core/snapshot/?folder=${parent}`, path: `/admin/core/snapshot/?folder=${parent}`, source: 'archivebox/core/admin_snapshots.py', addUrl: `${adminBaseUrl}/add/?${new URLSearchParams({folder: child, url: 'https://news.ycombinator.com/'})}`};
+  const result = {name: 'Nested snapshot folders', url: `${adminBaseUrl}/admin/core/snapshot/?folder=${parent}`, path: `/admin/core/snapshot/?folder=${parent}`, source: 'archivebox/core/admin_snapshots.py', addUrl: `${adminBaseUrl}/add/?${new URLSearchParams({folder: child, url: homepage})}`};
   await page.goto(result.url, {waitUntil: 'domcontentloaded'});
   if (!await page.$('.folder-sidebar a.library-link[href="/admin/domains/"]')) throw new Error('Folder sidebar has no Domains link.');
   if (!await page.$('.folder-sidebar a[aria-current="page"]')) throw new Error('Saved folder filter is not selected.');
@@ -82,7 +83,7 @@ async function prepare(page, adminBaseUrl, crawlId) {
     await page.setViewport({width, height});
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
     if (width < 768) {
-      if (await page.$eval('.folder-current', node => node.textContent.trim()) !== 'Hacker News') throw new Error('The mobile folder bar lost the selected folder.');
+      if (await page.$eval('.folder-current', node => node.textContent.trim()) !== title) throw new Error('The mobile folder bar lost the selected folder.');
       await page.click('.folder-mobile-toggle');
     }
     const layout = await page.evaluate(() => {
@@ -103,7 +104,7 @@ async function prepare(page, adminBaseUrl, crawlId) {
 }
 
 // Derive exports from saved native filters; never create export records or keys.
-async function prepareExports(page, adminBaseUrl, libraryUrl) {
+async function prepareExports(page, adminBaseUrl, libraryUrl, homepage) {
   await page.goto(libraryUrl, {waitUntil: 'domcontentloaded'});
   const snapshotIds = await page.$$eval('#result_list input.action-select', nodes => nodes.map(node => node.value.replaceAll('-', '')));
   if (!snapshotIds.length) throw new Error('The export gallery folder has no real captures.');
@@ -125,13 +126,13 @@ async function prepareExports(page, adminBaseUrl, libraryUrl) {
         return {valid: !xml.querySelector('parsererror') && xml.documentElement.tagName === 'rss', ids: [...xml.querySelectorAll('channel > item > guid')].map(item => item.textContent.replaceAll('-', '')), descriptions: [...xml.querySelectorAll('channel > item > description')].map(item => item.textContent.split('\n'))};
       }, response.text);
       if (!feed.valid || !snapshotIds.every(id => feed.ids.includes(id))) throw new Error('RSS omitted actual displayed captures.');
-      if (!feed.descriptions.some(lines => lines.some(line => line === 'Original URL: https://news.ycombinator.com/'))) throw new Error('RSS omitted the real Hacker News capture.');
+      if (!feed.descriptions.some(lines => lines.some(line => line === `Original URL: ${homepage}`))) throw new Error('RSS omitted the selected library homepage.');
     } else {
       const records = format === 'jsonl'
         ? response.text.trim().split('\n').map(line => JSON.parse(line))
         : JSON.parse(require('node:child_process').execFileSync('uv', ['run', '--no-sync', '--project', require('node:path').resolve(__dirname, '../..'), 'python', '-c', 'import csv, json, sys; print(json.dumps(list(csv.DictReader(sys.stdin))))'], {input: response.text, encoding: 'utf8'}));
       if (!snapshotIds.every(id => records.some(record => String(record.id).replaceAll('-', '') === id))) throw new Error(`${format} omitted actual displayed captures.`);
-      if (!records.some(record => record.url === 'https://news.ycombinator.com/')) throw new Error(`${format} omitted the real Hacker News capture.`);
+      if (!records.some(record => record.url === homepage)) throw new Error(`${format} omitted the selected library homepage.`);
     }
     url.searchParams.set('api_key', 'invalid-gallery-key');
     const invalidStatus = await page.evaluate(async url => (await fetch(url, {credentials: 'include'})).status, url.href);
@@ -251,10 +252,10 @@ async function openViewExportMenu(page) {
 module.exports.openViewExportMenu = openViewExportMenu;
 
 // Create and reopen a smart folder using the ordinary rule editor and real captures.
-async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
+async function prepareSmartFolder(page, adminBaseUrl, crawlId, source) {
   await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil:'domcontentloaded'});
   if (await page.$('.folder-sidebar-reopen:not([hidden])')) await page.click('.folder-sidebar-reopen');
-  const name = '📰 Saved news';
+  const name = `📰 Saved ${source.title}`;
   let id = await page.$$eval('.folder-row', (rows,name) => rows.find(row => row.dataset.folderName === name)?.dataset.folderId, name);
   if (!id) {
     await page.click('.library-create-toggle');
@@ -263,7 +264,7 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
     await page.type('#folder-name',name);
     await page.select('.rule-condition select[aria-label="Field"]','domain');
     await page.select('.rule-condition select[aria-label="Comparison"]','iendswith');
-    await page.type('.rule-condition input[aria-label="Value"]','news.ycombinator.com');
+    await page.type('.rule-condition input[aria-label="Value"]',new URL(source.homepage).hostname);
     const buttons = await page.$$('.rule-group-toolbar button');
     await buttons[0].click();
     await page.select('.rule-condition:nth-child(4) select[aria-label="Field"]','archiveresult__output_size');
@@ -282,7 +283,7 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId = '') {
   }
   const url=`${adminBaseUrl}/admin/core/snapshot/?${new URLSearchParams({folder:id,...(crawlId ? {crawl__id__exact:crawlId} : {})})}`;
   await page.goto(url,{waitUntil:'domcontentloaded'});
-  if (!await page.$('#result_list input.action-select')) throw new Error('Smart folder omitted the real news captures.');
+  if (!await page.$('#result_list input.action-select')) throw new Error('Smart folder omitted the selected native library rows.');
   const icon=await page.$eval(`.folder-row[data-folder-id="${id}"] .folder-title-emoji`,node => node.textContent);
   if (icon !== '📰') throw new Error('The title emoji did not replace the folder icon.');
   await openSmartFolder(page);

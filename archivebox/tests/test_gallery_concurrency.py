@@ -58,23 +58,13 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assert base_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-base"
     protected = jobs["deploy"]
     assert protected["environment"] == "provider-capture"
-    provider_step = next(step for step in protected["steps"] if step.get("name") == "Capture optional protected providers independently")
-    assert provider_step["if"] == "inputs.plugin_revision == ''"
-    assert provider_step["env"]["AUTH_STORAGE_FILE"] == "${{ runner.temp }}/provider-auth.json"
-    assert "secrets." not in str(provider_step)
-    assert "for provider in canva figma miro" in provider_step["run"]
-    assert 'UI_SCREENSHOT_PLUGINS="$provider"' in provider_step["run"]
-    assert provider_step.get("continue-on-error", "false") == "false"
-    assert "UI_SCREENSHOT_ALLOW_PARTIAL" not in provider_step["run"]
-    assert 'test -s "$AUTH_STORAGE_FILE"' in provider_step["run"]
-    assert '[[ "$rc" != 42 || ! -f "$work/unavailable" || "$(cat "$work/unavailable")" != "$provider" ]]' in provider_step["run"]
+    for job, capture_name in ((public, "Capture native public recipe"), (protected, "Build UI screenshot gallery")):
+        capture = next(step for step in job["steps"] if step.get("name") == capture_name)
+        assert "UI_SCREENSHOT_UNAVAILABLE_OUT" in capture["env"]
+        assert capture.get("continue-on-error", "false") == "false"
     collector = (ROOT / "bin/collect_ui_screenshots.sh").read_text()
-    assert 'sealed and states <= {"noresults", "failed"} and (provider_failed or owned_target_lost)' in collector
-    assert 'plugin="chrome", hook_name="on_Snapshot__01_chrome_tab.daemon.bg", status="failed"' in collector
-    assert 'Q(process__stderr__contains="tab closed unexpectedly!")' in collector
-    assert "exit 42" in collector
-    provider_upload = next(step for step in protected["steps"] if step.get("name") == "Upload protected provider outcomes")
-    assert provider_upload["with"]["name"] == "gallery-capture-${{ github.run_attempt }}-protected-providers"
+    assert "native_plugin_output_unavailable" in collector
+    assert "record_supplementary_failure" in collector
     download = next(step for step in assemble["steps"] if step.get("uses", "").startswith("actions/download-artifact@"))
     assert download["with"]["pattern"] == "gallery-capture-${{ github.run_attempt }}-*"
     assert "run-id" not in download["with"]
@@ -117,12 +107,7 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     recipes = assembler["recipes"]
     full = set(recipes(plan, False))
     base = set(recipes(plan, True))
-    optional = assembler["OPTIONAL_PROVIDER_VIEWS"]
-    assert set(optional) == {"canva", "figma", "miro"}
-    assert {recipe for recipe in full - base if recipe.split("|")[0] in optional} == {
-        f"{provider}|{plan['overrides'][provider]['url']}" for provider in optional
-    }
-    moved = {recipe for recipe in full - base if recipe.split("|")[0] not in optional}
+    moved = full - base
     assert len(moved) == 22  # Five singleton, 15 compound and two browser automation visits.
     assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 24
     assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= assembler["PUBLIC_VIEWS"]["cad"]
@@ -160,15 +145,18 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     pins = {name: assembler["version"](name) for name in ("abx-plugins", "abx-dl", "abxpkg", "abxbus")}
     identity = {key: env[key] for key in ("GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")} | {"pins": pins}
     views = {name for lane_views in assembler["PUBLIC_VIEWS"].values() for name in lane_views}
-    optional = assembler["OPTIONAL_PROVIDER_VIEWS"]
     plan = generator["plugin_screenshot_plan"]()
-    required = generator["REQUIRED_VIEW_NAMES"] | set(plan["required"])
-    base = required - views - set(optional.values())
+    owners = plan["owned_views"]
+    required = generator["REQUIRED_VIEW_NAMES"] | set(plan["required"]) | owners.keys()
+    base = required - views
+    absent = {"Snapshot View (figma)", "Snapshot View (liteparse)", "Snapshot View (chrome)"}
+    assert absent <= owners.keys()
+    status = assembler["recipe_status"]({name: "unavailable" if name in absent else "captured" for name in owners}, owners)
 
-    def bundle(directory, lane, names):
+    def bundle(directory, lane, names, unavailable=absent):
         directory.mkdir()
         rows, files = [], {}
-        for name in sorted(names):
+        for name in sorted(names - unavailable):
             slug = generator["re"].sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
             for profile, (width, height) in assembler["PROFILES"].items():
                 filename = f"{slug}-{profile}.png"
@@ -189,16 +177,15 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
                     ),
                 )
         (directory / "capture.jsonl").write_text("".join(json.dumps(row) + "\n" for row in rows))
-        (directory / "receipt.json").write_text(json.dumps(dict(identity=identity, lane=lane, files=files)))
+        lane_status = {
+            assembler["recipe_id"](name, owner): status[assembler["recipe_id"](name, owner)]
+            for name, owner in owners.items()
+            if name in names
+        }
+        (directory / "receipt.json").write_text(json.dumps(dict(identity=identity, lane=lane, files=files, outcomes=lane_status)))
 
     for lane, names in {"base": base, **assembler["PUBLIC_VIEWS"]}.items():
         bundle(root / f"gallery-capture-1-{lane}", lane, names)
-    protected = root / "gallery-capture-1-protected-providers"
-    protected.mkdir()
-    status = {"canva": "captured", "figma": "unavailable", "miro": "captured"}
-    (protected / "status.json").write_text(json.dumps(dict(identity=identity, status=status)))
-    for provider in ("canva", "miro"):
-        bundle(protected / provider, provider, {optional[provider]})
     manifest, outcomes = tmp_path / "gallery.jsonl", tmp_path / "outcomes.json"
 
     def merge(output):
@@ -210,7 +197,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
                 str(root),
                 str(output),
                 str(manifest),
-                "--provider-status-out",
+                "--recipe-outcomes-out",
                 str(outcomes),
             ],
             env=env,
@@ -223,6 +210,25 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     valid = merge(output)
     assert valid.returncode == 0, valid.stderr
     assert json.loads(outcomes.read_text()) == status
+    unavailable = tmp_path / "whole-unavailable.txt"
+    unavailable.write_text("".join(name + "\n" for name in sorted(absent)))
+    whole_out = tmp_path / "whole-outcomes.json"
+    whole = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "bin/assemble_screenshot_gallery.py"),
+            "whole-outcomes",
+            str(manifest),
+            str(unavailable),
+            str(whole_out),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert whole.returncode == 0, whole.stderr
+    assert json.loads(whole_out.read_text()) == status
     render = subprocess.run(
         [
             sys.executable,
@@ -241,10 +247,16 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     assert render.returncode == 0, render.stderr
     build = json.loads((output / "build.json").read_text())
     assert build["revision"] == env["GITHUB_SHA"]
-    assert build["optional_provider_captures"] == status
+    assert build["optional_recipe_captures"] == status
     assert "snapshot-view-canva-desktop.png" in build["files"]
     assert not any(name.startswith("snapshot-view-figma-") for name in build["files"])
-    assert "Optional provider screenshots unavailable in this capture: Figma." in (output / "index.html").read_text()
+    assert "snapshot-view-opendataloader-desktop.png" in build["files"]  # Healthy same-source sibling.
+    assert "snapshot-view-liteparse-desktop.png" not in build["files"]
+    assert "snapshot-view-chrome-desktop.png" not in build["files"]  # Default view, no URL recipe.
+    assert "Plugin screenshots unavailable in this capture:" in (output / "index.html").read_text()
+    assert {"login-desktop.png", "machine-settings-tablet.png"} <= build["files"].keys()
+    restore = runpy.run_path(ROOT / "bin/restore_site_screenshots.py")["validate"]
+    assert restore(output, {"head_sha": env["GITHUB_SHA"]}) == build
 
     required_png = root / "gallery-capture-1-git/snapshot-view-git-desktop.png"
     original_png = required_png.read_bytes()
@@ -256,10 +268,139 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     shutil.rmtree(root / "gallery-capture-1-git")
     assert "Unexpected or missing capture artifacts" in merge(tmp_path / "missing-required").stderr
     bundle(root / "gallery-capture-1-git", "git", assembler["PUBLIC_VIEWS"]["git"])
-    bundle(protected / "figma", "figma", {optional["figma"]})
-    assert "artifacts disagree with recorded outcomes" in merge(tmp_path / "unavailable-with-files").stderr
-    shutil.rmtree(protected / "figma")
-    (protected / "canva" / "snapshot-view-canva-desktop.png").unlink()
-    assert "Missing or invalid PNG" in merge(tmp_path / "incomplete-provider").stderr
-    (protected / "status.json").write_text(json.dumps(dict(identity=identity | {"GITHUB_SHA": "b" * 40}, status=status)))
-    assert "Mixed optional provider provenance" in merge(tmp_path / "mixed-revision").stderr
+    bad_base = root / "gallery-capture-1-base"
+    shutil.rmtree(bad_base)
+    bundle(bad_base, "base", base, unavailable=absent - {"Snapshot View (figma)"})
+    assert "Capture disagrees with plugin view outcomes" in merge(tmp_path / "unavailable-with-files").stderr
+    shutil.rmtree(bad_base)
+    bundle(bad_base, "base", base)
+    receipt_path = bad_base / "receipt.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt_path.write_text(json.dumps(receipt | {"identity": identity | {"GITHUB_SHA": "b" * 40}}))
+    assert "Mixed capture provenance: base" in merge(tmp_path / "mixed-revision").stderr
+    forged = dict(receipt["outcomes"])
+    forged["recipe-" + "0" * 16] = {"status": "unavailable", "views": ["login"]}
+    receipt_path.write_text(json.dumps(receipt | {"outcomes": forged}))
+    assert "Expected one explicit capture outcome" in merge(tmp_path / "forged-app-outcome").stderr
+
+
+def test_new_plugin_ownership_is_derived_for_all_registered_views(tmp_path, monkeypatch):
+    import abx_plugins
+
+    monkeypatch.setattr(abx_plugins, "get_plugins_dir", lambda: tmp_path)
+    plugin = tmp_path / "future_fixture"
+    (plugin / "templates").mkdir(parents=True)
+    (plugin / "templates/card.html").touch()
+    config = {"properties": {"FUTURE_FIXTURE_ENABLED": {"default": True}}}
+    (plugin / "config.json").write_text(json.dumps(config))
+    planner = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")["plugin_screenshot_plan"]
+    monkeypatch.setenv("UI_SCREENSHOT_PLUGINS", "future_fixture")
+    assert planner()["owned_views"] == {"Snapshot View (future_fixture)": "future_fixture"}
+
+    (plugin / "config.json").write_text(json.dumps(config | {"screenshot": "screenshot.json"}))
+    (plugin / "screenshot.json").write_text(json.dumps({"url": "http://127.0.0.1:8123/demo", "outputs": [{"name": "Future detail"}]}))
+    assert planner()["owned_views"] == {
+        "Snapshot View (future_fixture)": "future_fixture",
+        "Future detail": "future_fixture",
+    }
+    (plugin / "screenshot.json").write_text(json.dumps({"view": "Future importer", "config": True, "importer": "test"}))
+    assert planner()["owned_views"] == dict.fromkeys(
+        (
+            "Future importer",
+            "Future importer history",
+            "Future importer snapshots",
+            "Future importer export",
+            "Future importer configuration",
+        ),
+        "future_fixture",
+    )
+    (plugin / "screenshot.json").write_text(json.dumps({"view": "Login", "config": True}))
+    assert not planner()["owned_views"]  # Plugin cannot waive mandatory app coverage.
+
+
+def test_anonymous_failed_plugin_still_packs_only_explicitly_attested_empty_shard(tmp_path):
+    images = tmp_path / "images"
+    images.mkdir()
+    manifest = tmp_path / "capture.jsonl"
+    manifest.touch()
+    unavailable = tmp_path / "unavailable.txt"
+    build = {"revision": "a" * 40, "capture_count": 0, "files": {}}
+    (images / "build.json").write_text(json.dumps(build))
+    env = {**os.environ, "GITHUB_SHA": build["revision"], "GITHUB_RUN_ID": "12", "GITHUB_RUN_ATTEMPT": "1"}
+    env.pop("UI_SCREENSHOT_PLUGINS", None)
+    bundle = tmp_path / "bundle"
+    command = [
+        sys.executable,
+        str(ROOT / "bin/assemble_screenshot_gallery.py"),
+        "pack",
+        "git",
+        str(manifest),
+        str(images),
+        str(bundle),
+        "--unavailable",
+        str(unavailable),
+    ]
+
+    for invalid in ("", "Login\n", "Snapshot View (git)\nSnapshot View (git)\n"):
+        unavailable.write_text(invalid)
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+        assert result.returncode != 0
+        assert not bundle.exists()
+
+    unavailable.write_text("Snapshot View (git)\n")
+    result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert {path.name for path in bundle.iterdir()} == {"capture.jsonl", "receipt.json"}
+    receipt = json.loads((bundle / "receipt.json").read_text())
+    assert list(receipt["outcomes"].values()) == [{"status": "unavailable", "views": ["snapshot-view-git"]}]
+
+
+def test_importer_terminal_failure_does_not_mask_infrastructure_or_a_healthy_sibling(monkeypatch):
+    from types import SimpleNamespace
+    from archivebox.importers import gallery
+
+    recipes = [{"plugin": name, "name": name, "feed": "fixture", "settings": {}} for name in ("failed_fixture", "healthy_fixture")]
+    runs = {name["plugin"]: [] for name in recipes}
+    calls = []
+
+    def launch(command, **kwargs):
+        args = tuple(command[3:])
+        calls.append(args)
+        if args[:2] == ("importer", "list"):
+            result = [recipe | {"id": recipe["plugin"]} for recipe in recipes]
+        elif args[:2] == ("importer", "runs"):
+            result = runs[args[3]]
+        elif args[:2] == ("manage", "importers"):
+            source, action = args[3], args[5]
+            failed = source == "failed_fixture"
+            runs[source].append(
+                {
+                    "id": action + "-" + source,
+                    "status": "failed" if failed else "succeeded",
+                    "action": action,
+                    "items": 1,
+                    "crawl_id": "fixture-crawl",
+                },
+            )
+            return SimpleNamespace(returncode=int(failed), stdout="", stderr="")
+        elif args[0] == "run":
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        else:
+            pytest.fail(f"Unexpected gallery command {args!r}")
+        return SimpleNamespace(returncode=0, stdout=json.dumps(result), stderr="")
+
+    monkeypatch.setattr(gallery.subprocess, "run", launch)
+    omitted = []
+    views = gallery.prepare("http://localhost:8123", recipes, on_unavailable=omitted.append)
+    assert omitted == list(gallery.importer_view_names("failed_fixture"))
+    assert {row.split("|")[0] for row in views} == set(gallery.importer_view_names("healthy_fixture"))
+    assert ("run", "--crawl-id", "fixture-crawl") in calls
+
+    def fail_before_native_result(command, **kwargs):
+        if tuple(command[3:5]) == ("manage", "importers"):
+            return SimpleNamespace(returncode=1, stdout="", stderr="Runner unavailable before enqueue")
+        return launch(command, **kwargs)
+
+    monkeypatch.setattr(gallery.subprocess, "run", fail_before_native_result)
+    with pytest.raises(RuntimeError, match="Runner unavailable before enqueue"):
+        gallery.prepare("http://localhost:8123", recipes, on_unavailable=omitted.append)
