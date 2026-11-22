@@ -410,6 +410,60 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Capture optional protected providers independently
+        if: inputs.plugin_revision == ''
+        env:
+          BASE_URL: http://archivebox.localhost:5797
+          AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
+          CHROME_HEADLESS: "false"
+        run: |
+          bundles="$RUNNER_TEMP/protected-provider-bundle"
+          mkdir "$bundles"
+          status="$RUNNER_TEMP/protected-provider-status.tsv"
+          : >"$status"
+          test -s "$AUTH_STORAGE_FILE"
+          printf '### Optional protected provider screenshots\n\n' >>"$GITHUB_STEP_SUMMARY"
+          for provider in canva figma miro; do
+            work="$RUNNER_TEMP/protected-provider-data/$provider"
+            if UI_SCREENSHOT_PLUGINS="$provider" UI_SCREENSHOT_DATA_DIR="$work/data" \
+              UI_SCREENSHOT_OUTPUT_DIR="$work/docs/screenshots" UI_SCREENSHOT_PUBLIC_OUTPUT_DIR="$work/png" \
+              UI_SCREENSHOT_MANIFEST_OUT="$work/capture.jsonl" \
+              UI_SCREENSHOT_OPTIONAL_PROVIDER_FAILURE_FILE="$work/unavailable" \
+              xvfb-run -a bin/collect_ui_screenshots.sh; then
+              # A malformed successful capture or transport failure still fails closed.
+              uv run --no-sync python bin/assemble_screenshot_gallery.py pack "$provider" \
+                "$work/capture.jsonl" "$work/png" "$bundles/$provider"
+              outcome=captured
+            else
+              rc=$?
+              if [[ "$rc" != 42 || ! -f "$work/unavailable" || "$(cat "$work/unavailable")" != "$provider" ]]; then
+                exit "$rc"
+              fi
+              outcome=unavailable
+              echo "::warning title=Optional gallery capture unavailable::$provider did not pass its native screenshot gate"
+            fi
+            printf '%s\t%s\n' "$provider" "$outcome" >>"$status"
+            printf -- '- %s: %s\n' "$provider" "$outcome" >>"$GITHUB_STEP_SUMMARY"
+          done
+          uv run --no-sync python - "$RUNNER_TEMP/base-bundle/receipt.json" "$status" "$bundles/status.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          base, status, destination = map(Path, sys.argv[1:])
+          outcomes = dict(row.split("\t") for row in status.read_text().splitlines())
+          Path(destination).write_text(json.dumps({"identity": json.loads(base.read_text())["identity"], "status": outcomes}) + "\n")
+          PY
+
+      - name: Upload protected provider outcomes
+        if: inputs.plugin_revision == ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gallery-capture-${{ github.run_attempt }}-protected-providers
+          path: ${{ runner.temp }}/protected-provider-bundle
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Record plugin capture revisions
         if: inputs.plugin_revision != ''
         env:
@@ -513,7 +567,7 @@ jobs:
         if: always()
         run: |
           rm -f "$RUNNER_TEMP/provider-auth.json"
-          rm -rf "$RUNNER_TEMP/provider-gallery-data"
+          rm -rf "$RUNNER_TEMP/provider-gallery-data" "$RUNNER_TEMP/protected-provider-data"
 
   assemble:
     needs: [deploy, public_recipes]
@@ -540,13 +594,15 @@ jobs:
       - name: Assemble and render the complete gallery
         run: |
           uv run --no-sync python bin/assemble_screenshot_gallery.py merge \
-            "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl"
-          # The unchanged renderer enforces every required base/plugin view;
-          # do not allow incomplete standalone bundles to reach Pages.
+            "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl" \
+            --provider-status-out "$RUNNER_TEMP/provider-outcomes.json"
+          # All required views still pass strict rendering. Only the exact
+          # optional providers explicitly reported as unavailable may be absent.
           mkdir -p publicsite/screenshots
           cp "$RUNNER_TEMP/screenshots/"*.png publicsite/screenshots/
           env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/generate_ui_screenshot_gallery.py build \
-            "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html
+            "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html \
+            "$RUNNER_TEMP/provider-outcomes.json"
 
       - name: Verify gallery was generated from this exact revision
         run: |

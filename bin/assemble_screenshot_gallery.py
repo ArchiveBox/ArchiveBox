@@ -20,6 +20,19 @@ PUBLIC_LANES = {
     "browser-automation": ("playwright", "puppeteer"),
 }
 PUBLIC_OWNERS = {plugin: lane for lane, plugins in PUBLIC_LANES.items() for plugin in plugins}
+OPTIONAL_PROVIDER_VIEWS = {plugin: f"Snapshot View ({plugin})" for plugin in ("canva", "figma", "miro")}
+
+
+def validate_provider_status(status):
+    if (
+        not isinstance(status, dict)
+        or status.keys() != OPTIONAL_PROVIDER_VIEWS.keys()
+        or any(value not in ("captured", "unavailable") for value in status.values())
+    ):
+        raise ValueError("Expected one explicit capture outcome per optional provider")
+    return status
+
+
 EXTRA_VIEWS = {"caddl": ("Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)")}
 PUBLIC_VIEWS = {
     lane: {name for plugin in plugins for name in (f"Snapshot View ({plugin})", *EXTRA_VIEWS.get(plugin, ()))}
@@ -31,8 +44,19 @@ PNG_HEADER = b"\x89PNG\r\n\x1a\n"
 
 def recipes(plan, split):
     moved = {lane: set() for lane in PUBLIC_LANES}
+    protected = set()
     for example in plan["examples"]:
         names = set(example["plugins"])
+        optional = names & OPTIONAL_PROVIDER_VIEWS.keys()
+        if split and optional:
+            if len(example["plugins"]) != 1:
+                raise ValueError("An optional provider would split a native source across lanes")
+            plugin = next(iter(optional))
+            recipe = plan["overrides"][plugin]
+            if plugin in protected or recipe["url"] != example["url"] or recipe.get("outputs"):
+                raise ValueError(f"Optional provider is not an exact native singleton recipe: {plugin}")
+            protected.add(plugin)
+            continue
         known = names & PUBLIC_OWNERS.keys()
         if split and known:
             owners = {PUBLIC_OWNERS[name] for name in known}
@@ -51,6 +75,8 @@ def recipes(plan, split):
         yield ",".join(example["plugins"]) + "|" + example["url"]
     if split and moved != PUBLIC_VIEWS:
         raise ValueError("Anonymous recipe partition no longer covers the exact public gallery views")
+    if split and protected != OPTIONAL_PROVIDER_VIEWS.keys():
+        raise ValueError("Protected recipe partition no longer covers the exact optional gallery views")
 
 
 def identity():
@@ -93,6 +119,9 @@ def validate(lane, rows, root, digests):
     if lane == "base":
         if views.keys() & set().union(*PUBLIC_VIEWS.values()):
             raise ValueError("Public recipe view was captured twice")
+    elif lane in OPTIONAL_PROVIDER_VIEWS:
+        if views.keys() != {OPTIONAL_PROVIDER_VIEWS[lane]}:
+            raise ValueError(f"Optional provider did not capture its exact view: {lane}")
     elif views.keys() != PUBLIC_VIEWS[lane]:
         raise ValueError(f"Public lane did not capture its exact view: {lane}")
 
@@ -112,23 +141,37 @@ def pack(lane, manifest, screenshot_root, bundle):
     (bundle / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
-def merge(artifact_root, output, manifest):
+def merge(artifact_root, output, manifest, provider_status_out=None):
     current = identity()
     attempt = current["GITHUB_RUN_ATTEMPT"]
     lanes = ("base", *PUBLIC_LANES)
-    expected_names = {f"gallery-capture-{attempt}-{lane}" for lane in lanes}
+    bundles = {lane: artifact_root / f"gallery-capture-{attempt}-{lane}" for lane in lanes}
+    expected_names = {bundle.name for bundle in bundles.values()}
+    protected = artifact_root / f"gallery-capture-{attempt}-protected-providers"
+    if provider_status_out is not None:
+        expected_names.add(protected.name)
     if {path.name for path in artifact_root.iterdir()} != expected_names:
         raise ValueError("Unexpected or missing capture artifacts")
+    if provider_status_out is not None:
+        report = json.loads((protected / "status.json").read_text())
+        if report["identity"] != current:
+            raise ValueError("Mixed optional provider provenance")
+        status = validate_provider_status(report["status"])
+        captured = {provider for provider, state in status.items() if state == "captured"}
+        if {path.name for path in protected.iterdir()} != captured | {"status.json"}:
+            raise ValueError("Optional provider artifacts disagree with recorded outcomes")
+        bundles.update((provider, protected / provider) for provider in sorted(captured))
     all_files = {}
     all_rows = []
-    for lane in lanes:
-        bundle = artifact_root / f"gallery-capture-{attempt}-{lane}"
+    for lane, bundle in bundles.items():
         receipt = json.loads((bundle / "receipt.json").read_text())
         if receipt["identity"] != current or receipt["lane"] != lane:
             raise ValueError(f"Mixed capture provenance: {lane}")
         files = receipt["files"]
         rows = read_rows(bundle / "capture.jsonl")
         validate(lane, rows, bundle, files)
+        if lane == "base" and provider_status_out is not None and any(row["name"] in OPTIONAL_PROVIDER_VIEWS.values() for row in rows):
+            raise ValueError("Optional provider view was captured in the required base")
         if all_files.keys() & files.keys():
             raise ValueError(f"Duplicate gallery file: {lane}")
         all_files.update({name: bundle / name for name in files})
@@ -137,6 +180,8 @@ def merge(artifact_root, output, manifest):
     for name, source in all_files.items():
         shutil.copyfile(source, output / name)
     manifest.write_text("".join(json.dumps(row) + "\n" for row in all_rows))
+    if provider_status_out is not None:
+        provider_status_out.write_text(json.dumps(status, sort_keys=True) + "\n")
 
 
 def main():
@@ -146,7 +191,7 @@ def main():
     recipe_parser.add_argument("plan", type=Path)
     recipe_parser.add_argument("split", choices=("0", "1"))
     pack_parser = commands.add_parser("pack")
-    pack_parser.add_argument("lane", choices=("base", *PUBLIC_LANES))
+    pack_parser.add_argument("lane", choices=("base", *PUBLIC_LANES, *OPTIONAL_PROVIDER_VIEWS))
     pack_parser.add_argument("manifest", type=Path)
     pack_parser.add_argument("screenshot_root", type=Path)
     pack_parser.add_argument("bundle", type=Path)
@@ -154,13 +199,14 @@ def main():
     merge_parser.add_argument("artifacts", type=Path)
     merge_parser.add_argument("output", type=Path)
     merge_parser.add_argument("manifest", type=Path)
+    merge_parser.add_argument("--provider-status-out", type=Path)
     args = parser.parse_args()
     if args.command == "recipes":
         print(*recipes(json.loads(args.plan.read_text()), args.split == "1"), sep="\n")
     elif args.command == "pack":
         pack(args.lane, args.manifest, args.screenshot_root, args.bundle)
     else:
-        merge(args.artifacts, args.output, args.manifest)
+        merge(args.artifacts, args.output, args.manifest, args.provider_status_out)
 
 
 if __name__ == "__main__":

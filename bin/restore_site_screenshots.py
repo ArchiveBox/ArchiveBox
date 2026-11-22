@@ -21,6 +21,8 @@ REPO = "ArchiveBox/ArchiveBox"
 BRANCH = "dev"
 BASE = "https://archivebox.io/screenshots/"
 MANIFEST = "build.json"
+OPTIONAL_PROVIDER_CAPTURES = ("canva", "figma", "miro")
+PROFILES = ("desktop", "tablet", "mobile")
 
 
 def capture_revision_order(repo_dir):
@@ -33,12 +35,35 @@ def capture_revision_order(repo_dir):
     return {revision: rank for rank, revision in enumerate(revisions)}
 
 
+def validate_optional_provider_captures(destination, manifest):
+    # Older published artifacts did not record provider availability.
+    if "optional_provider_captures" not in manifest:
+        return
+    outcomes = manifest["optional_provider_captures"]
+    if (
+        not isinstance(outcomes, dict)
+        or set(outcomes) != set(OPTIONAL_PROVIDER_CAPTURES)
+        or any(status not in ("captured", "unavailable") for status in outcomes.values())
+    ):
+        raise ValueError("Invalid optional provider capture outcomes")
+    for provider, status in outcomes.items():
+        names = {f"snapshot-view-{provider}-{profile}.png" for profile in PROFILES}
+        present = names.intersection(manifest["files"])
+        if status == "captured" and present != names:
+            raise ValueError(f"Incomplete optional provider capture: {provider}")
+        if status == "unavailable" and (
+            present or any((destination / name).exists() or (destination / name).is_symlink() for name in names)
+        ):
+            raise ValueError(f"Unavailable provider includes screenshot files: {provider}")
+
+
 def validate(destination, run=None):
     manifest = json.loads((destination / MANIFEST).read_text())
     if run and manifest["revision"] != run["head_sha"]:
         raise ValueError("Screenshot revision differs from the original capture run")
     if not manifest.get("files") or len(manifest["files"]) != manifest["capture_count"]:
         raise ValueError("Incomplete screenshot manifest")
+    validate_optional_provider_captures(destination, manifest)
     for name, expected in manifest["files"].items():
         image = destination / artifacts.relative_path(name)
         if hashlib.sha256(image.read_bytes()).hexdigest() != expected:

@@ -357,7 +357,7 @@ selectProfile('desktop');
     )
 
 
-def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -> None:
+def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, provider_status: dict[str, str] | None = None) -> None:
     provenance = build_provenance()
     source_base_url = f"https://github.com/ArchiveBox/ArchiveBox/blob/{provenance['revision']}/"
     captures = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines() if line]
@@ -395,9 +395,26 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         complete_groups.append(group)
     grouped_captures = complete_groups
 
+    unavailable = set()
+    unavailable_note = ""
+    if provider_status is not None:
+        from assemble_screenshot_gallery import OPTIONAL_PROVIDER_VIEWS, validate_provider_status
+
+        if allow_partial:
+            raise SystemExit("Optional provider outcomes require the strict gallery build")
+        unavailable = {
+            OPTIONAL_PROVIDER_VIEWS[provider]
+            for provider, state in validate_provider_status(provider_status).items()
+            if state == "unavailable"
+        }
+        if unavailable & captures_by_name.keys():
+            raise SystemExit("Unavailable provider unexpectedly has gallery captures")
+        names = ", ".join(provider.title() for provider, state in sorted(provider_status.items()) if state == "unavailable")
+        if names:
+            unavailable_note = f"Optional provider screenshots unavailable in this capture: {names}."
     if not allow_partial:
         captured_names = set(captures_by_name)
-        missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names)
+        missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names - unavailable)
         if missing:
             raise SystemExit(f"required UI screenshot coverage is missing: {', '.join(missing)}")
     markdown_sections = []
@@ -469,6 +486,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
                     "Raw API endpoints, API documentation, health-check, and error routes are intentionally excluded."
                 ),
                 f"Generated from ArchiveBox `{provenance['version']}` at revision `{provenance['revision']}`.",
+                *(("", unavailable_note) if unavailable_note else ()),
                 "",
                 "\n\n".join(markdown_sections),
                 "",
@@ -483,7 +501,9 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         f'<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{html.escape(provenance["revision"])}">'
         f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
         f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
-        "Desktop, tablet, and mobile viewports are captured from the same build.</p></header>"
+        "Desktop, tablet, and mobile viewports are captured from the same build.</p>"
+        + (f'<p id="optional-provider-captures">{html.escape(unavailable_note)}</p>' if unavailable_note else "")
+        + "</header>"
     )
     html_path.write_text(render_gallery(gallery_header, "".join(html_sections)), encoding="utf-8")
 
@@ -496,6 +516,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
                 **provenance,
                 "capture_count": len(captures),
                 "files": file_hashes,
+                **({"optional_provider_captures": provider_status} if provider_status is not None else {}),
             },
             indent=2,
             sort_keys=True,
@@ -586,12 +607,15 @@ def main() -> None:
     if len(sys.argv) == 4 and sys.argv[1] == "append":
         append_manifest(Path(sys.argv[2]), Path(sys.argv[3]))
         return
-    if len(sys.argv) == 5 and sys.argv[1] == "build":
-        build_galleries(Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]))
+    if len(sys.argv) in (5, 6) and sys.argv[1] == "build":
+        provider_status = json.loads(Path(sys.argv[5]).read_text()) if len(sys.argv) == 6 else None
+        if len(sys.argv) == 6 and not isinstance(provider_status, dict):
+            raise SystemExit("Invalid optional provider status")
+        build_galleries(Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]), provider_status)
         return
     raise SystemExit(
         "usage: generate_ui_screenshot_gallery.py append MANIFEST SCREENSHOT | "
-        "validate SCREENSHOT_JSON EXPECTED_PATH | build MANIFEST MARKDOWN HTML",
+        "validate SCREENSHOT_JSON EXPECTED_PATH | build MANIFEST MARKDOWN HTML [PROVIDER_STATUS]",
     )
 
 

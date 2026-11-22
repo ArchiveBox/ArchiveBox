@@ -39,6 +39,11 @@ CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
 PERSONAS_DIR="$CAPTURE_ROOT/personas"
 ACTIVE_PERSONA="Screenshots"
+OPTIONAL_PROVIDER_FAILURE="${UI_SCREENSHOT_OPTIONAL_PROVIDER_FAILURE_FILE:-}"
+if [[ -n "$OPTIONAL_PROVIDER_FAILURE" && ( "$OPTIONAL_PROVIDER_FAILURE" != /* || ! "$PLUGIN_VIEWS" =~ ^(canva|figma|miro)$ || "$SPLIT_PUBLIC" != 0 || "$MAX_VIEWS" != 0 ) ]]; then
+    echo '[!] Optional provider outcome requires one allowlisted native provider recipe' >&2
+    exit 1
+fi
 CAPTURE_PROFILES=$'desktop|1600|1000\ntablet|1024|1366\nmobile|390|844'
 
 stop_background_runner() {
@@ -94,7 +99,9 @@ PYSTOP
             [[ -z "$owned_pid" ]] || wait "$owned_pid" 2>/dev/null || true
         done
     else
-        [[ "$cleanup_status" != "0" ]] || cleanup_status=1
+        if [[ "$cleanup_status" == 0 || -n "$OPTIONAL_PROVIDER_FAILURE" && "$cleanup_status" == 42 ]]; then
+            cleanup_status=1
+        fi
     fi
 
     # Keep bounded logs and whitelisted navigation metadata when a gallery fails.
@@ -444,6 +451,36 @@ PYCAPTURE
             echo "[!] The $supplementary_plugin snapshot did not expose its output in the real snapshot UI" >&2
             cat "$capture_log" >&2
             cat "$discovery_report" >&2
+            # A terminal native provider failure or loss of its already-opened
+            # target can leave this optional output unavailable. Setup failure
+            # and a successful provider hook with missing UI remain hard errors.
+            if [[ -n "$OPTIONAL_PROVIDER_FAILURE" && "$supplementary_plugin" == "$PLUGIN_VIEWS" ]] && (
+                cd "$DATA_DIR"
+                UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_EXPECT_PLUGIN="$output_plugin" \
+                    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c '
+import os
+from django.db.models import Q
+from archivebox.core.models import ArchiveResult, Snapshot
+snapshot_id = os.environ["UI_SCREENSHOT_SNAPSHOT_ID"]
+plugin = os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"]
+results = ArchiveResult.objects.filter(snapshot_id=snapshot_id)
+states = set(results.filter(plugin=plugin).values_list("status", flat=True))
+sealed = Snapshot.objects.filter(id=snapshot_id, status=Snapshot.StatusChoices.SEALED).exists()
+navigated = results.filter(plugin="chrome", hook_name="on_Snapshot__30_chrome_navigate", status="succeeded").exists()
+owned_target_lost = results.filter(
+    plugin="chrome", hook_name="on_Snapshot__01_chrome_tab.daemon.bg", status="failed",
+).filter(
+    Q(process__stderr__contains="[chrome] target_crash status=crashed ")
+    | Q(process__stderr__contains="[chrome] target_crash status=oom ")
+    | Q(process__stderr__contains="tab closed unexpectedly!"),
+).exists()
+provider_failed = bool(states) and navigated
+raise SystemExit(not (sealed and states <= {"noresults", "failed"} and (provider_failed or owned_target_lost)))
+'
+            ); then
+                printf '%s\n' "$supplementary_plugin" >"$OPTIONAL_PROVIDER_FAILURE"
+                exit 42
+            fi
             exit 1
         fi
 
