@@ -1540,7 +1540,7 @@ class PublicIndexView(ListView):
             # Folder/smart-folder predicates can prefer their own indexes or
             # custom ordering. Keep the bounded probe and fallback for them.
             page_ids = snapshot_page(
-                Snapshot.objects.filter(self.folder_query, config__PERMISSIONS=PERMISSIONS_PUBLIC)
+                Snapshot.objects.filter(self.folder_query, permissions=PERMISSIONS_PUBLIC)
                 .order_by(*self.ordering, "id")
                 .values_list("id", flat=True),
                 base_queryset=Snapshot.objects.values_list("id", flat=True),

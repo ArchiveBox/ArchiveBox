@@ -370,6 +370,55 @@ def _assert_only_hint_cookie_set(response: requests.Response) -> None:
 class TestPublicIndex:
     """Tests for public index visibility and redirects."""
 
+    @override_settings(PUBLIC_INDEX=True)
+    @pytest.mark.parametrize("smart", [False, True])
+    def test_public_folder_pages_reuse_indexed_visibility(self, client, admin_user, settings, smart):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from archivebox.core.models import Folder, Snapshot
+        from archivebox.crawls.models import Crawl
+
+        settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
+        folder = Folder.objects.create(
+            name="Public page regression",
+            rules={"field": "title", "lookup": "exact", "value": "folder-match", "sort": "timestamp"} if smart else None,
+        )
+        public_ids = set()
+        for offset, permissions in enumerate(("public", "private", "unlisted")):
+            crawl = Crawl.objects.create(created_by=admin_user, config={"PERMISSIONS": permissions})
+            rows = Snapshot.objects.bulk_create(
+                [
+                    Snapshot(
+                        url=f"https://folder-page.example/{permissions}/{index}",
+                        title="folder-match",
+                        timestamp=str(1900900000 + index * 3 + offset),
+                        crawl=crawl,
+                        folder=folder if not smart else None,
+                        # Exercise both inherited and explicit visibility.
+                        config={} if index % 2 else {"PERMISSIONS": permissions},
+                    )
+                    for index in range(12)
+                ],
+            )
+            if permissions == "public":
+                public_ids = {row.pk for row in rows}
+        seen = []
+        for page, size in ((1, 10), (2, 2)):
+            with CaptureQueriesContext(connection) as queries:
+                response = client.get("/public/", {"folder": str(folder.pk), "page": page}, HTTP_HOST=WEB_TEST_HOST)
+            assert response.status_code == 200
+            rows = response.context["object_list"]
+            assert len(rows) == size
+            assert all(row.permissions == "public" for row in rows)
+            assert response.context["page_obj"].has_next() == (page == 1)
+            seen.extend(row.pk for row in rows)
+            snapshot_queries = [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"]]
+            assert snapshot_queries
+            assert not any("PERMISSIONS" in sql for sql in snapshot_queries), snapshot_queries
+        assert len(seen) == len(set(seen)) == 12
+        assert set(seen) == public_ids
+
     @override_settings(BASE_URL="", PUBLIC_INDEX=True)
     def test_unconfigured_homepage_starts_admin_setup(self, client):
         response = client.get("/", HTTP_HOST="archivebox.example.test", follow=False)
