@@ -1,0 +1,55 @@
+archivebox/templates/core/folder_tree.html
+  s_ea615ec0b76fae::t_ffee08ed479460 17
+archivebox/templates/static/library/folders.js
+  s_ea615ec0b76fae::t_31cf96673d3414 807-808
+  s_ea615ec0b76fae::t_0e744925e1da2d 586-597,601,610,613-619,627-629,634,637,640,653-667,690-727,729-730,736-738,744,747-761,763-769,771-781,784,802-806,809-811,813-814,819-821
+  s_ea615ec0b76fae::t_ffee08ed479460 844,861-864
+  s_9b856a86fae6c1::t_c5ff4bf1481d0f 430-434,451-456,458,540,559-562
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_5cf053c74b1b59 111-114
+  s_ea615ec0b76fae::t_f14ca892d3014f 71-84,86-110,115-136,138-139,143-149
+  s_ea615ec0b76fae::t_31cf96673d3414 85,137,140-142
+archivebox/templates/core/sidebar_entries.html
+  s_9b856a86fae6c1::t_c5ff4bf1481d0f 2
+  s_ea615ec0b76fae::t_ffee08ed479460 9
+archivebox/templates/static/library/folders.css
+  s_ea615ec0b76fae::t_d74955c68492cb 36,100-103,112
+  s_ea615ec0b76fae::t_e95d31dbd9b098 113
+archivebox/core/sidebar.py
+  s_ea615ec0b76fae::t_d74955c68492cb 39,78-79,81,115
+  s_ea615ec0b76fae::t_ffee08ed479460 215
+archivebox/tests/test_library.py
+  s_ea615ec0b76fae::t_d74955c68492cb 607,762,770,774
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_072881f6dbfef1 105,128,156,173
+  s_ea615ec0b76fae::t_47fb6f371e67c1 140,171-172,189,196,236,249-263,269-270
+  s_ea615ec0b76fae::t_3d3c08d86ec675 264-268,271
+archivebox/templates/core/folder_sidebar.html
+  s_ea615ec0b76fae::t_d74955c68492cb 16,19-20
+archivebox/templates/core/sidebar_entry_menu.html
+  s_9b856a86fae6c1::t_c5ff4bf1481d0f 7-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ff64c806eb7434543992de5ac7e62f245430b9b",
+  "prompts": {},
+  "sessions": {
+    "s_9b856a86fae6c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20586-1333-7521-b74a-d78e9c0df2f1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
