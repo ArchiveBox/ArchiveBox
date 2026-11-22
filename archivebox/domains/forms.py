@@ -61,7 +61,8 @@ class DomainCrawlForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["persona"].queryset = Persona.objects.order_by("name")
+        personas = Persona.objects.order_by("name")
+        self.fields["persona"].queryset = personas if self.is_bound else personas.only("id", "name")
 
     def clean_url(self):
         value = self.cleaned_data["url"]

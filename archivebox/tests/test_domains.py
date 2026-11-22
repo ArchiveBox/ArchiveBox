@@ -20,6 +20,33 @@ def clone_data(**overrides):
     }
 
 
+def test_domain_persona_choices_load_only_names(admin_client, admin_user):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.personas.models import Persona
+
+    personas = [
+        Persona.objects.create(name=name, created_by=admin_user, config={"URL_DENYLIST": "x" * 10000})
+        for name in ("Zulu browser", "Alpha browser")
+    ]
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/", {"o": "-size"}, HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    for persona in personas:
+        assert f'<option value="{persona.pk}">{persona.name}</option>' in html
+    assert html.index("Alpha browser") < html.index("Zulu browser")
+    choice_queries = [
+        query["sql"]
+        for query in queries
+        if 'FROM "personas_persona"' in query["sql"] and 'ORDER BY "personas_persona"."name"' in query["sql"]
+    ]
+    assert len(choice_queries) == 1
+    assert '"personas_persona"."config"' not in choice_queries[0]
+
+
 def test_siteclone_form_creates_bounded_crawl(admin_client):
     from archivebox.crawls.models import Crawl
 
