@@ -145,7 +145,18 @@ def test_large_crawl_cached_progress_workload(client, admin_user, crawl):
     await_metrics(admin_user)
     elapsed = {False: [], True: []}
     cpu = {False: [], True: []}
-    with CaptureQueriesContext(connection) as queries:
+    query_count = 0
+    wrote = False
+
+    def count_query(execute, sql, params, many, context):
+        nonlocal query_count, wrote
+        query_count += 1
+        wrote |= sql.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+        return execute(sql, params, many, context)
+
+    # Count SQL without the debug cursor's cumulative formatted query log:
+    # retaining thousands of test-only records skews timed cyclic GC.
+    with connection.execute_wrapper(count_query):
         for index in range(100):
             # Alternate order each pair to balance CPU scheduling/cache noise.
             for enabled in (True, False) if index % 2 else (False, True):
@@ -162,14 +173,14 @@ def test_large_crawl_cached_progress_workload(client, admin_user, crawl):
                 # STARTED row has none (e.g. interrupted), so it is not active.
                 assert payload["snapshots_active"] == 0
                 assert payload["active_crawls"][0]["completed_snapshots"] == 23
-    assert not any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in queries)
-    assert len(queries) <= 22 * 200
+    assert not wrote
+    assert query_count <= 22 * 200
     print(
         "large crawl poll benchmark "
         + json.dumps(
             {
                 "requests": 200,
-                "queries_per_request": len(queries) / 200,
+                "queries_per_request": query_count / 200,
                 "without_metrics": {"wall_median_ms": statistics.median(elapsed[False]), "cpu_mean_ms": statistics.mean(cpu[False])},
                 "with_metrics": {"wall_median_ms": statistics.median(elapsed[True]), "cpu_mean_ms": statistics.mean(cpu[True])},
                 "added_cpu_percent": 100 * (statistics.mean(cpu[True]) / statistics.mean(cpu[False]) - 1),

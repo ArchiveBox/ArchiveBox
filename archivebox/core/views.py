@@ -1056,7 +1056,7 @@ def _has_original_domain_replay_cookie(request: HttpRequest, domain: str) -> boo
     return False
 
 
-def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> list[Snapshot]:
+def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str, *, snapshot_id: UUID | None = None) -> list[Snapshot]:
     if not domain:
         return []
 
@@ -1075,12 +1075,14 @@ def _visible_replay_snapshots_for_domain(request: HttpRequest, domain: str) -> l
             else:
                 domain_query |= Q(url__gte=prefix, url__lt=f"{prefix}\U0010ffff")
 
-    # Resolve domain IDs before joining crawl/owner data. Otherwise SQLite can
-    # choose a crawl-driven scan of the whole collection for every replay asset.
-    domain_ids = Snapshot.objects.filter(domain_query).values("pk")
+    if snapshot_id is not None:
+        candidates = Snapshot.objects.filter(domain_query, pk=snapshot_id)
+    else:
+        # Resolve domain IDs before joining crawl/owner data. Otherwise SQLite can
+        # choose a crawl-driven scan of the whole collection for every replay asset.
+        candidates = Snapshot.objects.filter(pk__in=Snapshot.objects.filter(domain_query).values("pk"))
     candidates = (
-        Snapshot.objects.filter(pk__in=domain_ids)
-        .select_related("crawl", "crawl__created_by")
+        candidates.select_related("crawl", "crawl__created_by")
         .defer("crawl__urls", "crawl__config", "crawl__notes")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )
@@ -1343,6 +1345,22 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     rel_path = _safe_archive_relpath(rel_path)
     if rel_path is None:
         raise Http404
+
+    if path.startswith("_archivebox/files/") and request.GET.get("raw") and not request.GET.get("preview"):
+        parts = path.split("/", 3)
+        if len(parts) != 4:
+            raise Http404
+        try:
+            snapshot_id = UUID(parts[2])
+        except ValueError as error:
+            raise Http404 from error
+        # An exact raw file never rewrites document links. Authorize only the
+        # named snapshot instead of hydrating all captures of its original host.
+        snapshots = _visible_replay_snapshots_for_domain(request, domain, snapshot_id=snapshot_id)
+        if not snapshots or str(snapshots[0].id) != parts[2]:
+            raise Http404
+        request.archivebox_original_domain = domain
+        return _serve_snapshot_replay(request, snapshots[0], parts[3])
 
     snapshots = _visible_replay_snapshots_for_domain(request, domain)
     request.archivebox_original_links = {

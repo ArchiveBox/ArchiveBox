@@ -152,9 +152,13 @@ def test_private_domain_replay_grant_is_host_scoped_and_revoked_by_logout(admin_
     assert granted.status_code == 302 and granted["Location"] == "/newest"
     assert all(not cookie["domain"] and cookie["httponly"] for cookie in granted.cookies.values())
     assert replay.get("/newest", HTTP_HOST=DOMAIN_HOST).status_code == 200
+    raw_url = f"/_archivebox/files/{first.id}/dom/output.html?raw=1"
+    assert replay.get(raw_url, HTTP_HOST=DOMAIN_HOST).status_code == 200
+    assert replay.get(raw_url, HTTP_HOST="other.example.archivebox.localhost:5797").status_code == 404
     assert replay.get("/", HTTP_HOST="other.example.archivebox.localhost:5797").status_code == 404
     admin_client.logout()
     assert replay.get("/newest", HTTP_HOST=DOMAIN_HOST).status_code == 404
+    assert replay.get(raw_url, HTTP_HOST=DOMAIN_HOST).status_code == 404
 
 
 @pytest.mark.parametrize("rewrite_all", [False, True])
@@ -379,3 +383,39 @@ def test_original_domain_defers_wide_crawl_fields_but_keeps_owner_joined(saved_s
             assert {"urls", "config", "notes"} <= row.crawl.get_deferred_fields()
             assert row.crawl.created_by_id == saved_site[0][0].crawl.created_by_id
             assert row.output_dir == next(snapshot.output_dir for snapshot, _, _ in saved_site if snapshot.pk == row.pk)
+
+
+@pytest.mark.parametrize("permissions", ["public", "unlisted", "private"])
+def test_original_domain_raw_replay_keeps_exact_host_visibility_and_ranges(admin_client, saved_site, permissions):
+    snapshot, _output, original = saved_site[0]
+    snapshot.config = {**snapshot.config, "PERMISSIONS": permissions}
+    snapshot.save(update_fields=["config"])
+    path = f"/_archivebox/files/{snapshot.id}/dom/output.html?raw=1"
+    anonymous = Client()
+    response = anonymous.get(path, HTTP_HOST=DOMAIN_HOST, HTTP_RANGE="bytes=11-52")
+    if permissions == "private":
+        assert response.status_code == 404
+        response = admin_client.get(path, HTTP_HOST=DOMAIN_HOST, HTTP_RANGE="bytes=11-52")
+    assert response.status_code == 206
+    assert response["Content-Range"] == f"bytes 11-52/{len(original)}"
+    assert b"".join(response.streaming_content) == original[11:53]
+    requesting_client = admin_client if permissions == "private" else anonymous
+    head = requesting_client.head(path, HTTP_HOST=DOMAIN_HOST.upper())
+    assert head.status_code == 200
+    assert head["Content-Length"] == str(len(original))
+    assert head["Accept-Ranges"] == "bytes"
+    assert admin_client.get(path, HTTP_HOST="other.example.archivebox.localhost:5797").status_code == 404
+    assert anonymous.get(path.replace(str(snapshot.id), "bad-id"), HTTP_HOST=DOMAIN_HOST).status_code == 404
+
+
+def test_original_domain_raw_replay_keeps_existing_url_prefix_boundary(saved_site):
+    from archivebox.core.models import Snapshot
+
+    snapshot, _output, _original = saved_site[0]
+    client = Client()
+    path = f"/_archivebox/files/{snapshot.pk}/dom/output.html?raw=1"
+    assert client.get(path, HTTP_HOST=DOMAIN_HOST).status_code == 200
+    # Parsed hostname still matches, but the browser archive is only indexed
+    # under the same stored HTTP(S) URL prefixes as ordinary domain replay.
+    Snapshot.objects.filter(pk=snapshot.pk).update(url=snapshot.url.replace("https://", "ftp://", 1))
+    assert client.get(path, HTTP_HOST=DOMAIN_HOST).status_code == 404
