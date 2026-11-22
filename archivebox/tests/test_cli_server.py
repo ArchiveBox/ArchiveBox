@@ -985,8 +985,18 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
         if expected_notice:
             log_text = server_log.read_text(encoding="utf-8", errors="replace")
             assert server.returncode == 0, log_text
-            assert expected_notice in log_text, log_text
-            assert "ArchiveBox server shut down gracefully" in log_text, log_text
+            markers = [
+                expected_notice,
+                "[shutdown] owned supervisor cleanup begin",
+                "[shutdown] owned supervisor cleanup complete",
+                "[shutdown] record server exit begin",
+                "[shutdown] record server exit complete",
+                "[shutdown] close DB connections begin",
+                "[shutdown] close DB connections complete",
+                "ArchiveBox server shut down gracefully",
+            ]
+            offsets = [log_text.index(marker) for marker in markers]
+            assert offsets == sorted(offsets), log_text
             # Read the completed command before another CLI can reap local
             # stale rows; a new Compose container cannot validate this PID.
             connection = sqlite3.connect(f"file:{initialized_archive / 'index.sqlite3'}?mode=ro", uri=True)

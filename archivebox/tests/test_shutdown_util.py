@@ -226,3 +226,17 @@ def test_crawl_runner_daemon_signal_exits_before_async_cleanup():
     stdout, stderr = _signal_and_collect(process, signal.SIGTERM)
 
     assert process.returncode == 143, (stdout, stderr)
+
+
+def test_shutdown_phase_reports_failure_without_replacing_exception(capsys):
+    import pytest
+
+    from archivebox.core.shutdown_util import foreground_shutdown_phase
+
+    failure = RuntimeError("keep exception")
+    with pytest.raises(RuntimeError) as raised, foreground_shutdown_phase("cleanup"):
+        raise failure
+    assert raised.value is failure
+    lines = capsys.readouterr().err.splitlines()
+    assert lines[0] == "[shutdown] cleanup begin"
+    assert lines[1].startswith("[shutdown] cleanup failed (")

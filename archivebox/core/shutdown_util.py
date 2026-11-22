@@ -33,8 +33,32 @@ import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from time import monotonic
 
 import psutil
+
+
+@contextmanager
+def foreground_shutdown_phase(phase: str, *, enabled: bool = True) -> Iterator[None]:
+    """Show which synchronous cleanup boundary the foreground server reached."""
+    if not enabled:
+        yield
+        return
+
+    def report(message: str) -> None:
+        try:
+            print(f"[shutdown] {phase} {message}", file=sys.stderr, flush=True)
+        except OSError:
+            pass  # A closed output stream must not skip cleanup.
+
+    started = monotonic()
+    report("begin")
+    outcome = "failed"
+    try:
+        yield
+        outcome = "complete"
+    finally:
+        report(f"{outcome} ({monotonic() - started:.2f}s)")
 
 
 @dataclass

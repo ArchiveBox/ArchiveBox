@@ -377,7 +377,7 @@ def server(
         runtime_stack_owner,
         standby_until_runtime_stack_needed,
     )
-    from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
+    from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_phase, foreground_shutdown_signals
 
     if run_in_debug:
         print("[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]")
@@ -460,9 +460,11 @@ def server(
             # this PID namespace and must not mistake this row for a live owner.
             # Abrupt death still requires independent startup liveness checks;
             # this only records cleanup that actually finished in this process.
-            command.mark_exited()
+            with foreground_shutdown_phase("record server exit"):
+                command.mark_exited()
         finally:
-            connections.close_all()
+            with foreground_shutdown_phase("close DB connections"):
+                connections.close_all()
     print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 

@@ -29,6 +29,7 @@ from archivebox.config.paths import SUPERVISORD_SOCKET_FILENAME, get_or_create_w
 from archivebox.config.permissions import ARCHIVEBOX_USER
 from archivebox.core.shutdown_util import (
     configured_stopwaitsecs,
+    foreground_shutdown_phase,
     foreground_shutdown_signals,
     kill_remaining_processes,
     raise_if_shutdown_requested,
@@ -1702,7 +1703,8 @@ def start_server_workers(
                     # A standby parent must never tear down the replacement
                     # leader's services. Signals stop only our own Popen child,
                     # even if leadership changed; they avoid DB exit writes.
-                    stop_own_supervisord_process(record_exit=not signal_shutdown_requested)
+                    with foreground_shutdown_phase("owned supervisor cleanup", enabled=signal_shutdown_requested):
+                        stop_own_supervisord_process(record_exit=not signal_shutdown_requested)
     # A signal can arrive during the final ownership/process-exit check. Do not
     # send the outer server loop back into standby or restart after shutdown.
     return "interrupted" if shutdown_state and shutdown_state.signal_name else tail_result
