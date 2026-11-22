@@ -728,18 +728,20 @@ class ArchiveResultAdmin(BaseModelAdmin):
                     ordering_fields.add(self.list_display[idx])
 
         is_change = request.resolver_match.url_name == "core_archiveresult_change"
+        is_changelist = request.resolver_match.url_name == "core_archiveresult_changelist"
         process_prefetch = "process__machine"
         snapshot_queryset = Snapshot.objects.defer("config", "notes").prefetch_related("crawl__created_by", "tags")
+        if is_change or is_changelist:
+            snapshot_queryset = Snapshot.objects.defer("config", "notes").prefetch_related(
+                Prefetch("crawl", queryset=Crawl.objects.select_related("created_by").defer("urls", "config", "notes")),
+                "tags",
+            )
         if is_change:
             process_prefetch = Prefetch(
                 "process",
                 queryset=Process.objects.select_related("binary").defer("stdout", "stderr"),
             )
-            snapshot_queryset = Snapshot.objects.defer("config", "notes").prefetch_related(
-                Prefetch("crawl", queryset=Crawl.objects.select_related("created_by").defer("urls", "config", "notes")),
-                "tags",
-            )
-        elif request.resolver_match.url_name == "core_archiveresult_changelist":
+        elif is_changelist:
             process_prefetch = Prefetch(
                 "process",
                 queryset=Process.objects.select_related("machine").defer("stdout", "stderr", "machine__stats", "machine__config"),

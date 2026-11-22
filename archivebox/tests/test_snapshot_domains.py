@@ -199,7 +199,8 @@ def test_domain_summary_batches_metadata_and_preserves_ties(admin_user):
     assert all('"config"' not in query["sql"] and '"output_files"' not in query["sql"] for query in queries)
 
 
-def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, admin_user):
+@pytest.mark.parametrize("legacy_output", [False, True])
+def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, admin_user, legacy_output):
     from archivebox.core.models import ArchiveResult
 
     pages = create_pages(admin_user, ["https://large.example/", "https://small.example/"])
@@ -215,7 +216,10 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
         snapshot=pages[0],
         plugin="favicon",
         status="succeeded",
-        output_files={"favicon/favicon.ico": {"size": 12}},
+        output_str="favicon.ico",
+        output_files={} if legacy_output else {"favicon/favicon.ico": {"size": 12}},
+        output_json={"unused": "x" * 10000},
+        notes="Not needed for the favicon",
         output_size=12,
     )
     response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -226,11 +230,13 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
         response = admin_client.get("/admin/domains/", {"o": "-size"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["large.example", "small.example"]
+    assert b"favicon/favicon.ico" in response.content
     assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
     output_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"]]
     assert len(output_queries) == 1
     assert '"core_archiveresult"."plugin" IN' in output_queries[0]
     assert "'favicon'" in output_queries[0] and "'dom'" not in output_queries[0]
+    assert all(f'"core_archiveresult"."{field}"' not in output_queries[0] for field in ("output_json", "notes", "process_id"))
     # Cached totals do not turn a concurrently removed capture into a 500.
     Snapshot.objects.filter(pk=pages[0].pk).delete()
     response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)

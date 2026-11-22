@@ -219,12 +219,16 @@ class TestArchiveResultAdminListView:
         assert not cl.result_count_exact
         assert len(cl.result_list) == 10
 
-    def test_list_does_not_load_process_logs_or_machine_telemetry(self, admin_client, snapshot):
+    def test_list_does_not_load_process_logs_machine_telemetry_or_crawl_payload(self, admin_client, snapshot):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import ArchiveResult
         from archivebox.machine.models import Machine, Process
 
+        crawl = snapshot.crawl
+        crawl.urls = "https://example.com/unused-seed\n" * 30000
+        crawl.notes = "Unused crawl notes\n" * 3000
+        crawl.save(update_fields=["urls", "notes"])
         machine = Machine.current()
         process = Process.objects.create(
             machine=machine,
@@ -243,9 +247,17 @@ class TestArchiveResultAdminListView:
         loaded = next(row for row in response.context["cl"].result_list if row.pk == result.pk)
         assert {"stdout", "stderr"} <= loaded.process.get_deferred_fields()
         assert {"stats", "config"} <= loaded.process.machine.get_deferred_fields()
+        assert {"urls", "config", "notes"} <= loaded.snapshot.crawl.get_deferred_fields()
+        with CaptureQueriesContext(connection) as related_queries:
+            assert loaded.snapshot.crawl.created_by_id == crawl.created_by_id
+            assert loaded.snapshot.crawl.created_by.username == crawl.created_by.username
+        assert not related_queries
         process_queries = [query["sql"] for query in queries if 'FROM "machine_process"' in query["sql"]]
         assert process_queries
         assert all('"stdout"' not in query and '"stderr"' not in query for query in process_queries)
+        crawl_queries = [query["sql"] for query in queries if 'FROM "crawls_crawl"' in query["sql"]]
+        assert len(crawl_queries) == 1
+        assert all(f'"crawls_crawl"."{field}"' not in crawl_queries[0] for field in ("urls", "config", "notes"))
 
     def test_created_sort_uses_date_index_without_redundant_default_order(self, admin_client, snapshot):
         from django.db import connection

@@ -135,7 +135,7 @@ def index(request):
                     snapshot_id__in={row["root_id"] for row in domains},
                     plugin__in=get_snapshot_role_names("list_icon"),
                     status=ArchiveResult.StatusChoices.SUCCEEDED,
-                ),
+                ).only("id", "snapshot_id", "plugin", "status", "output_str", "output_files"),
             ),
         )
     }
