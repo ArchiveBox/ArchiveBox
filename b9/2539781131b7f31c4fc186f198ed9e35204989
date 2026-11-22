@@ -1,0 +1,14 @@
+Integrating-with-Slack.md
+  h_923c208e183a7b 1-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b92539781131b7f31c4fc186f198ed9e35204989",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

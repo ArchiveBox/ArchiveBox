@@ -1,0 +1,28 @@
+Chromium-Install.md
+  h_923c208e183a7b 150
+Configuration.md
+  h_923c208e183a7b 71,87,94,104,118,133,776,784,786,788,790,1085,1087,1093,1095-1099
+Docker.md
+  h_923c208e183a7b 152,277
+Install.md
+  h_923c208e183a7b 36,97,103
+Security-Overview.md
+  h_923c208e183a7b 31,57-60
+Setting-up-Search.md
+  h_923c208e183a7b 211-213
+Usage.md
+  h_923c208e183a7b 61,275
+apidocs/archivebox/archivebox.plugins.views.md
+  h_923c208e183a7b 113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fa3c344ebff1aee120a224b5dbf2f362da7c89f7",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
