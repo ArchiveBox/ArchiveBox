@@ -1,0 +1,36 @@
+Configuration.md
+  h_923c208e183a7b 356,360-363,366,375
+Docker.md
+  h_923c208e183a7b 72,138,174,178,201,204,260-261
+Install.md
+  h_923c208e183a7b 254-255
+Merging-Collections.md
+  h_923c208e183a7b 103
+Publishing-Your-Archive.md
+  h_923c208e183a7b 11,14,42-43
+Quickstart.md
+  h_923c208e183a7b 66,75
+Scheduled-Archiving.md
+  h_923c208e183a7b 46
+Screenshots.md
+  h_923c208e183a7b 9,19,29,39,49,59,69,79,89,99,109,119,129,139,149,159,169,179,189,199,209,219,229,239,249,259,269,279,289,299,309,319,329,339,349,359,369,379,389,399,409,419,429,439,449,459,469,479,489,499,509,519,529,539,549,559,569,579,589,599,609,619,629,639,649,659,669,679,689,699,709,719
+Setting-up-Authentication.md
+  h_923c208e183a7b 28,38-39,127,134,136,139,156,169,185
+Upgrading.md
+  h_923c208e183a7b 101
+Usage.md
+  h_923c208e183a7b 153,156,200,207
+apidocs/archivebox/archivebox.workers.supervisord_util.md
+  h_923c208e183a7b 699
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "948ffe5649b57b513b63417291009cb34836d191",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

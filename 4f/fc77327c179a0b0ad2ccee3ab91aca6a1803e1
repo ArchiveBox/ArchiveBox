@@ -1,0 +1,14 @@
+Docker.md
+  h_923c208e183a7b 140-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ffc77327c179a0b0ad2ccee3ab91aca6a1803e1",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

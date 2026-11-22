@@ -1,0 +1,21 @@
+Merging-Collections.md
+  s_a827ff5c21370d::t_41a74444f218fa 28-101
+codeblocks.toml
+  s_a827ff5c21370d::t_2a8b57e9146593 148-153,310,390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f93af3ee698d6adc3b90eab2606fd76bc2c26771",
+  "prompts": {},
+  "sessions": {
+    "s_a827ff5c21370d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12d75-d26e-7ed0-91f7-e4a7f913b29c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
