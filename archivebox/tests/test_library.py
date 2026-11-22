@@ -163,17 +163,21 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     from urllib.parse import parse_qs, urlsplit
     import re
 
-    response = admin_client.get("/admin/core/snapshot/", {"folder": child.pk, "q": "A paper"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get(
+        "/admin/core/snapshot/",
+        {"folder": child.pk, "q": "A paper", "search_mode": "meta"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
     menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
     links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
     assert {format for _, format in links} == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}
     for url, _format in links:
         parameters = parse_qs(urlsplit(unescape(url)).query)
         if _format == "rss":
-            assert parameters.pop("api_key")
+            assert "api_key" not in parameters
         elif _format == "rss_public":
             assert parameters.pop("public_only") == ["1"]
-        assert parameters == {"folder": [str(parent.pk)], "q": ["A paper"]}
+        assert parameters == {"folder": [str(parent.pk)], "q": ["A paper"], "search_mode": ["meta"]}
     response = admin_client.get("/admin/core/snapshot/export.rss", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
