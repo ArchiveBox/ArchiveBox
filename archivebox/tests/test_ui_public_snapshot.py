@@ -619,7 +619,7 @@ class TestPublicIndex:
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
-    def test_deep_public_page_seeks_permission_order_index_and_hydrates_only_page(self, client, admin_user):
+    def test_deep_public_page_reuses_order_index_and_hydrates_only_page(self, client, admin_user):
         from datetime import timedelta
 
         from django.db import connection
@@ -687,7 +687,8 @@ class TestPublicIndex:
             with connection.cursor() as cursor:
                 cursor.execute("EXPLAIN QUERY PLAN " + snapshot_reads[0])
                 plan = " ".join(str(row[-1]) for row in cursor.fetchall())
-            assert "snapshot_public_page_idx" in plan and "permissions=?" in plan, plan
+            assert "snapshot_public_order_idx" in plan, plan
+            assert "snapshot_public_page_idx" not in plan, plan
             assert "TEMP B-TREE FOR ORDER BY" not in plan, plan
 
     @override_settings(PUBLIC_INDEX=True)
