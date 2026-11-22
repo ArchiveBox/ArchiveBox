@@ -1,0 +1,69 @@
+archivebox/tests/test_snapshot_reversed_domain_migration.py
+  s_ea615ec0b76fae::t_039d4dbdeec8dd 1-46
+archivebox/core/domain_grouping.py
+  s_ea615ec0b76fae::t_505aac4f5eebc9 7-58,82-106
+archivebox/core/models.py
+  s_ea615ec0b76fae::t_8ca14200cd7e05 12,42,582-583,592-593,609,611,614-621,631-703,705-725,727-749,759,764-769,776-779,796,801-802,811-813,1082-1086,1217
+archivebox/core/sidebar.py
+  s_ea615ec0b76fae::t_4a958eeca733ba 90-92,95-97,101,110-111
+archivebox/core/smart_folders.py
+  s_ea615ec0b76fae::t_2d65e42fcea503 46,336
+archivebox/core/sqlite_backend/base.py
+  s_ea615ec0b76fae::t_67621dab8abe75 192,195-197
+archivebox/domains/gallery.js
+  s_ea615ec0b76fae::t_92b029a4352563 5,51-88,90-92,115,136,138,145-146,152
+archivebox/domains/scope.py
+  s_ea615ec0b76fae::t_c0446df6049afa 38
+archivebox/domains/templates/domains/base.html
+  s_ea615ec0b76fae::t_097dcd812f6a68 18,77,79-83
+archivebox/domains/templates/domains/index.html
+  s_ea615ec0b76fae::t_d22371a3d5ba62 3-4,103,106,109,114,117,124,127,137,142
+archivebox/domains/views.py
+  s_ea615ec0b76fae::t_b8ffdbf7b25a78 3,5,32-33,39-43,57-62,69-70,72,92,118-120,133-145,165-170,178,200-205,208,215,217-218,250
+archivebox/domains/wacz_gallery.js
+  s_ea615ec0b76fae::t_238c5175c8100e 49,55-58,62,85-91,217
+archivebox/search/query.py
+  s_ea615ec0b76fae::t_0910b303a74249 38-39,41-43
+archivebox/templates/core/domain_favicon.html
+  s_ea615ec0b76fae::t_6b9f654fe0a2aa 1
+archivebox/templates/core/folder_sidebar.html
+  s_ea615ec0b76fae::t_b0f63cad4b0ded 19
+archivebox/templates/core/sidebar_entries.html
+  s_ea615ec0b76fae::t_5bd16be21bcada 4,6
+archivebox/templates/core/sidebar_entry_menu.html
+  s_ea615ec0b76fae::t_41c6d9007ad211 1,6
+archivebox/templates/core/sidebar_entry_menu_button.html
+  s_ea615ec0b76fae::t_9cd7680cacf653 1
+archivebox/templates/static/library/folders.css
+  s_ea615ec0b76fae::t_e23fd29c16e53a 5,22-24
+archivebox/templates/static/library/folders.js
+  s_ea615ec0b76fae::t_443de557b50d28 443,460,464,567-600,1021,1058,1101,1103-1104,1115
+archivebox/tests/test_domain_review.py
+  s_ea615ec0b76fae::t_23d766347eb717 14-23,27,29-31
+archivebox/tests/test_library_screenshots.py
+  s_ea615ec0b76fae::t_48ac50cf1dd84a 191-192
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_6be3ed8630e15c 6,9,108-115,129-136,138-146,171,184,214,253-286,337
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_f8c206e5612bc3 123,168-194
+archivebox/tests/test_site_scope.py
+  s_ea615ec0b76fae::t_d1773d8eee6f22 97
+archivebox/tests/test_snapshot_domains.py
+  s_ea615ec0b76fae::t_76ca3d91373b47 24,27-33,38-39,41-55,58-59,61-62,69,73-85,87,98-123,128,200-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "135cec5296df5db2ea10114f7c3f8493ef4069a0",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
