@@ -138,8 +138,9 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
                 ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin")).exclude(id=OuterRef("id")),
             ),
         )
-        # A stable order picks the same "first" result per plugin every time.
-        .order_by("snapshot_id", "plugin", "id")
+        # Avoid copying full manifests into a database sort. Sort the small
+        # per-snapshot row references below to preserve first-result selection.
+        .order_by()
         .values_list(
             # Ids and manifests as text: the per-row UUID and JSON field
             # converters cost more than the rest of the page's row handling,
@@ -176,6 +177,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
         )
 
     for snapshot_hex, summary in summaries.items():
+        summary.results.sort(key=lambda result: (result.plugin, result.id))
         card_row = snapshot_thumbnail_result(summary.results)
         if card_row is not None:
             summary.thumbnail_result = _archive_result_from_row(card_row)

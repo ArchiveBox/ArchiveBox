@@ -318,6 +318,29 @@ def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(lis
     assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
 
 
+def test_list_results_order_references_without_sorting_manifest_payloads(list_collection):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    snapshot = list_collection[0]
+    first = _result(snapshot, "dns", hook="99", output_str="dns/first.json", output_files={"first.json": {"size": 5}})
+    _result(snapshot, "dns", hook="00", output_str="dns/second.json", output_files={"second.json": {"size": 7}})
+    with CaptureQueriesContext(connection) as captured:
+        summaries = load_snapshot_list_results(list_collection)
+    assert len(captured) == 1
+    for snapshot in list_collection:
+        expected = list(snapshot.archiveresult_set.exclude(plugin="").order_by("plugin", "id").values_list("pk", flat=True))
+        assert [row.id for row in summaries[snapshot.pk].results] == [str(pk) for pk in expected]
+    selected = summaries[first.snapshot_id].first_succeeded_by_plugin()["dns"]
+    assert selected.id == str(first.pk)
+    assert selected.embed_path() == "dns/first.json"
+    assert "ORDER BY" not in captured[0]["sql"]
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("EXPLAIN QUERY PLAN " + captured[0]["sql"])
+            plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+        assert "USE TEMP B-TREE" not in plan, plan
+
+
 @pytest.mark.parametrize(
     ("files", "expected"),
     [
