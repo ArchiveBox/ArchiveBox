@@ -182,6 +182,7 @@ def plugin_screenshot_plan() -> dict:
     config_views = []
     importer_views = []
     enabled_plugins = []
+    capture_opt_ins = {}
     owned_views = {}
     selected = set(filter(None, os.environ.get("UI_SCREENSHOT_PLUGINS", "").split(",")))
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
@@ -194,7 +195,9 @@ def plugin_screenshot_plan() -> dict:
         recipe = json.loads((plugin_dir / config["screenshot"]).read_text()) if config.get("screenshot") else {}
         plugin = plugin_dir.name
         first_view = len(required)
-        enabled = config.get("properties", {}).get(f"{plugin.upper()}_ENABLED", {}).get("default", False)
+        enabled_key = f"{plugin.upper()}_ENABLED"
+        enable_schema = config.get("properties", {}).get(enabled_key, {})
+        enabled = enable_schema.get("default", False)
         if recipe.get("enabled") or recipe.get("url"):
             enabled_plugins.append(plugin)
             enabled = True
@@ -238,6 +241,16 @@ def plugin_screenshot_plan() -> dict:
                 example = examples.setdefault(key, {"url": key, "plugins": []})
                 if plugin not in example["plugins"]:
                     example["plugins"].append(plugin)
+        # Options shown in the configuration UI do not require actually
+        # enabling their extractors. An app-only recipe (e.g. a server
+        # route), however, must retain its collection-level enable.
+        if (
+            enable_schema.get("default") is False
+            and plugin in enabled_plugins
+            and (recipe.get("url") or recipe.get("importer") or f"Snapshot View ({plugin})" in required[first_view:])
+        ):
+            enabled_plugins.remove(plugin)
+            capture_opt_ins[plugin] = enabled_key
         for name in required[first_view:]:
             if name in REQUIRED_VIEW_NAMES:
                 continue  # Ownership remains with the required application UI.
@@ -256,9 +269,48 @@ def plugin_screenshot_plan() -> dict:
         "examples": list(examples.values()),
         "overrides": overrides,
         "enabled": enabled_plugins,
+        "capture_opt_ins": capture_opt_ins,
         "config_views": config_views,
         "importer_views": importer_views,
     }
+
+
+def capture_settings(plan, plugin_names):
+    owners = plugin_names or [
+        plugin for name, plugin in plan["owned_views"].items() if plugin not in plan["overrides"] and name == f"Snapshot View ({plugin})"
+    ]
+    config = {}
+    for plugin in plugin_names:
+        for key, value in plan["overrides"][plugin].get("config_overrides", {}).items():
+            if key in config and config[key] != value:
+                raise ValueError(f"Conflicting screenshot config for {key}")
+            config[key] = value
+    overrides = {key: config.get(key, True) for plugin in owners if (key := plan["capture_opt_ins"].get(plugin))}
+    return config, overrides
+
+
+def capture_add(plan, plugin_names, source_url, *, scoped):
+    config, overrides = capture_settings(plan, plugin_names)
+    os.environ.update({key: json.dumps(value) if isinstance(value, (dict, list)) else str(value) for key, value in config.items()})
+
+    sys.argv = ["archivebox", "add", "--depth=0", "--overwrite", "--tag=screenshot-gallery", source_url]
+    if not scoped or not overrides:
+        os.execvp(sys.argv[0], sys.argv)
+
+    from archivebox.cli import main
+
+    from archivebox.config.django import setup_django
+    from archivebox.core.shutdown_util import foreground_shutdown_signals
+
+    # A shared supervisor does not inherit a later CLI's execution flags.
+    # Temporarily scope them to the same Persona and preserve its browser state.
+    with foreground_shutdown_signals(first_signal_message=None):
+        setup_django()
+        from archivebox.core.library_screenshots import gallery_persona_config
+        from archivebox.personas.models import Persona
+
+        with gallery_persona_config(Persona.get_or_create_named("Default"), overrides):
+            main(args=sys.argv[1:])
 
 
 def build_provenance() -> dict[str, str]:
@@ -614,6 +666,10 @@ def refresh_gallery(html_path: Path) -> None:
 def main() -> None:
     if sys.argv[1:] == ["plugin-plan"]:
         print(json.dumps(plugin_screenshot_plan()))
+        return
+    if len(sys.argv) == 6 and sys.argv[1] == "capture-add":
+        plan = json.loads(Path(sys.argv[2]).read_text())
+        capture_add(plan, list(filter(None, sys.argv[4].split(","))), sys.argv[5], scoped=sys.argv[3] == "1")
         return
     if len(sys.argv) == 3 and sys.argv[1] == "refresh":
         refresh_gallery(Path(sys.argv[2]))

@@ -1,6 +1,7 @@
 """Populate importer gallery views through the native CLI and full capture runner."""
 
 import json
+import os
 import subprocess
 import sys
 from urllib.parse import urlsplit
@@ -10,9 +11,10 @@ def importer_view_names(name):
     return (name, name + " history", name + " snapshots", name + " export")
 
 
-def prepare(admin_base_url, recipes, *, on_unavailable=None):
-    def command(*args):
-        result = subprocess.run([sys.executable, "-m", "archivebox", *args], capture_output=True, text=True)
+def prepare(admin_base_url, recipes, *, on_unavailable=None, capture_opt_ins=None):
+    def command(*args, settings=None):
+        extra = {"env": {**os.environ, **settings}} if settings else {}
+        result = subprocess.run([sys.executable, "-m", "archivebox", *args], capture_output=True, text=True, **extra)
         if result.returncode:
             raise RuntimeError(result.stdout + result.stderr)
         return result.stdout
@@ -20,10 +22,12 @@ def prepare(admin_base_url, recipes, *, on_unavailable=None):
     def runs_for(source_id):
         return json.loads(command("importer", "runs", "--source-id", source_id, "--format", "json"))
 
-    def run_action(source_id, action):
+    def run_action(source_id, action, recipe):
         previous = {run["id"] for run in runs_for(source_id)}
         try:
-            command("manage", "importers", "--source", source_id, "--action", action)
+            key = (capture_opt_ins or {}).get(recipe["plugin"])
+            settings = {key: "True"} if key else None
+            command("manage", "importers", "--source", source_id, "--action", action, settings=settings)
         except RuntimeError:
             new = [run for run in runs_for(source_id) if run["id"] not in previous]
             if on_unavailable is None or len(new) != 1 or new[0]["action"] != action or new[0]["status"] not in {"failed", "needs_login"}:
@@ -67,13 +71,13 @@ def prepare(admin_base_url, recipes, *, on_unavailable=None):
                 ),
             )
         source_id = source["id"]
-        if not run_action(source_id, "preview"):
+        if not run_action(source_id, "preview", recipe):
             unavailable(recipe)
             continue
         runs = runs_for(source_id)
         imports = [run for run in runs if run["action"] == "import"]
         if not imports:
-            if not run_action(source_id, "import"):
+            if not run_action(source_id, "import", recipe):
                 unavailable(recipe)
                 continue
             runs = runs_for(source_id)

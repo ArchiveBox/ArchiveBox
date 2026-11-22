@@ -218,6 +218,40 @@ def homepage_capture_budget(homepage_url):
 
 
 @contextmanager
+def gallery_persona_config(persona, overrides):
+    """Keep live flags on the fixture's existing Persona, not the collection."""
+    if not overrides:
+        yield
+        return
+
+    from archivebox.personas.models import Persona
+
+    persona.refresh_from_db(fields=["config"])
+    previous = persona.config
+    applied = {**(previous or {}), **overrides}
+
+    def update(expected, value):
+        key = "config" if expected is not None else "config__isnull"
+        return Persona.objects.filter(pk=persona.pk, **{key: expected if expected is not None else True}).update(config=value)
+
+    if not update(previous, applied):
+        raise RuntimeError("Gallery Persona settings changed before capture.")
+    try:
+        yield
+    finally:
+        persona.refresh_from_db(fields=["config"])
+        current = dict(persona.config or {})
+        for key, value in overrides.items():
+            if key in current and current[key] == value:
+                if key in (previous or {}):
+                    current[key] = previous[key]
+                else:
+                    del current[key]
+        if not update(persona.config, current or (None if previous is None else {})):
+            raise RuntimeError("Gallery Persona settings changed during restoration.")
+
+
+@contextmanager
 def library_capture_plugins(persona, *, model=""):
     """Scope gallery fixture flags to the real library crawl."""
     previous = dict(persona.config or {})

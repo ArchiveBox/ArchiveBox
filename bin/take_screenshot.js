@@ -589,11 +589,20 @@ async function main() {
         throw new Error(`Library controls are misaligned: ${JSON.stringify(libraryAlignment)}`);
       }
       if (process.env.SCREENSHOT_WAIT_FOR_MODEL === '1') {
-        await page.waitForFunction(() => {
+        const state = await page.waitForFunction(() => {
           const canvas = document.querySelector('#model');
-          if (canvas?.dataset.state === 'error') throw new Error(document.getElementById('status').textContent);
+          if (canvas?.dataset.state === 'error') return 'error';
           return canvas?.dataset.state === 'ready' && Number(canvas.dataset.renderedTriangles) > 0 && canvas.clientWidth > 0 && canvas.clientHeight > 0;
         }, {timeout: 45000});
+        const failed = await state.jsonValue() === 'error';
+        await state.dispose();
+        if (failed) {
+          const message = 'Selected model preview reported a rendering error.';
+          if (navigationResponse?.status() === 200 && page.url() === new URL(url).href) {
+            throw new NativePreviewAssertionError(message);
+          }
+          throw new Error(message);
+        }
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         checks.model = await page.$eval('#model', canvas => ({format: document.body.dataset.modelFormat, meshes: Number(canvas.dataset.meshes), triangles: Number(canvas.dataset.triangles), renderedTriangles: Number(canvas.dataset.renderedTriangles)}));
       }

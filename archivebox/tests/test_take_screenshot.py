@@ -483,3 +483,45 @@ const gallery = require(process.env.LIBRARY_GALLERY);
     wrong_path = validate("/admin/core/tag/")
     assert wrong_path.returncode == 1
     assert "expected final path" in wrong_path.stderr
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [("model-error", 42), ("healthy", 0), ("http-error", 1), ("wrong-route", 1), ("undeclared", 0)],
+)
+def test_gallery_only_reports_unavailable_for_a_declared_model_error(browser_runtime, httpserver, tmp_path, case, expected):
+    path = "/model"
+    httpserver.expect_request("/favicon.ico").respond_with_data("", status=204)
+    error = '<canvas id="model" data-state="error"></canvas>'
+    healthy = '<canvas id="model" data-state="ready" data-rendered-triangles="12"></canvas>'
+    if case == "wrong-route":
+        httpserver.expect_request(path).respond_with_data("", status=302, headers={"Location": "/different-model"})
+        httpserver.expect_request("/different-model").respond_with_data(error, content_type="text/html")
+    else:
+        httpserver.expect_request(path).respond_with_data(
+            healthy if case == "healthy" else error,
+            status=503 if case == "http-error" else 200,
+            content_type="text/html",
+        )
+    output = tmp_path / "model.png"
+    variants = [
+        {"path": str(tmp_path / name), "width": width, "height": height}
+        for name, width, height in (("model.png", 1600, 1000), ("tablet.png", 1024, 1366), ("mobile.png", 390, 844))
+    ]
+    result = subprocess.run(
+        [str(browser_runtime["node_binary"]), str(REPO_ROOT / "bin/take_screenshot.js"), httpserver.url_for(path), str(output)],
+        env={
+            **os.environ,
+            "NODE_PATH": str(browser_runtime["node_path"]),
+            "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
+            "SCREENSHOT_WAIT_FOR_MODEL": "0" if case == "undeclared" else "1",
+            "SCREENSHOT_VARIANTS_JSON": json.dumps(variants),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == expected, result.stdout + result.stderr
+    if case == "healthy":
+        assert json.loads(result.stdout)["checks"]["model"]["renderedTriangles"] == 12
+    assert all(Path(variant["path"]).is_file() == (expected == 0) for variant in variants)

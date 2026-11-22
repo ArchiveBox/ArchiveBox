@@ -185,7 +185,15 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-mkdir -p "$DATA_DIR" "$OUTPUT_DIR" "$PUBLIC_OUTPUT_DIR"
+mkdir -p "$(dirname "$DATA_DIR")" "$OUTPUT_DIR" "$PUBLIC_OUTPUT_DIR"
+# Only a collection this invocation creates may use temporary Persona flags.
+# Explicitly reused local collections keep the existing collection config path.
+SCOPED_GALLERY_OPT_INS=0
+if mkdir "$DATA_DIR" 2>/dev/null; then
+    SCOPED_GALLERY_OPT_INS=1
+else
+    test -d "$DATA_DIR"
+fi
 
 PLUGIN_SCREENSHOT_PLAN="$CAPTURE_ROOT/plugin-screenshots.json"
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan >"$PLUGIN_SCREENSHOT_PLAN"
@@ -193,8 +201,8 @@ PLUGIN_ENABLED_CONFIG=()
 while IFS= read -r enabled_config; do
     [[ -z "$enabled_config" ]] || PLUGIN_ENABLED_CONFIG+=("$enabled_config")
 done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-    'import json,sys; print("\n".join(f"{plugin.upper()}_ENABLED=True" for plugin in json.load(open(sys.argv[1]))["enabled"]))' \
-    "$PLUGIN_SCREENSHOT_PLAN")
+    'import json,sys; plan=json.load(open(sys.argv[1])); enabled=plan["enabled"] if sys.argv[2] == "1" else sorted([*plan["enabled"], *plan["capture_opt_ins"]]); print("\n".join(f"{plugin.upper()}_ENABLED=True" for plugin in enabled))' \
+    "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS")
 
 echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
 (
@@ -407,32 +415,24 @@ PYUNAVAILABLE
     done <"$views_file"
 }
 
+run_gallery_add() {
+    local plugin_names="$1" source_url="$2"
+    cd "$DATA_DIR"
+    exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" \
+        capture-add "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" "$plugin_names" "$source_url"
+}
+
 add_supplementary_template_capture() {
     local plugin_names="$1"
     local source_url="$2"
     local capture_log="$CAPTURE_ROOT/${plugin_names}-supplementary-capture.log"
     local supplementary_plugins=()
     IFS=',' read -r -a supplementary_plugins <<<"$plugin_names"
-    # These are real all-plugin captures. The recipe only selects which output
-    # to photograph, never which extractors run or which dependencies get saved.
+    # Use normal capture defaults and dependencies, plus this recipe's owned
+    # opt-ins. Never freeze a plugin list from screenshot selection.
     echo "[*] Capturing real $plugin_names source for template coverage"
     local capture_started=$SECONDS
-    if ! (
-        cd "$DATA_DIR"
-        uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$plugin_names" "$REPO_DIR" "$source_url" <<'PYCAPTURE'
-import json, os, sys
-plan = json.load(open(sys.argv[1]))
-config = {}
-for plugin in sys.argv[2].split(","):
-    for key, value in plan["overrides"][plugin].get("config_overrides", {}).items():
-        if key in config and config[key] != value:
-            raise ValueError(f"Conflicting screenshot config for {key}")
-        config[key] = value
-env = {**os.environ, **{key: json.dumps(value) if isinstance(value, (dict, list)) else str(value) for key, value in config.items()}}
-command = ["uv", "run", "--no-cache", "--project", sys.argv[3], "archivebox", "add", "--depth=0", "--overwrite", "--tag=screenshot-gallery", sys.argv[4]]
-os.execvpe(command[0], command, env)
-PYCAPTURE
-    ) >"$capture_log" 2>&1; then
+    if ! (run_gallery_add "$plugin_names" "$source_url") >"$capture_log" 2>&1; then
         echo "[!] Supplementary $plugin_names capture failed" >&2
         # Preserve launch/navigation failures before the many downstream hooks;
         # truncating to the tail can leave only their missing-target errors.
@@ -540,7 +540,7 @@ fi
 if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
     (
         cd "$DATA_DIR"
-        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" <<'PYIMPORTERS'
+        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" "$SCOPED_GALLERY_OPT_INS" <<'PYIMPORTERS'
 import json, sys
 from pathlib import Path
 from archivebox.importers.gallery import prepare
@@ -550,7 +550,8 @@ def mark_unavailable(name):
     with Path(sys.argv[3]).open("a") as outcomes:
         print(name, file=outcomes)
 
-print("\n".join(prepare(sys.argv[1], json.load(open(sys.argv[2]))["importer_views"],
+plan = json.load(open(sys.argv[2]))
+print("\n".join(prepare(sys.argv[1], plan["importer_views"], capture_opt_ins=plan["capture_opt_ins"] if sys.argv[4] == "1" else None,
                         on_unavailable=mark_unavailable if sys.argv[3] else None)))
 PYIMPORTERS
     ) >"$CAPTURE_ROOT/importer-views.txt"
@@ -585,14 +586,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                 'from django.utils import timezone; print(timezone.now().isoformat())'
         ) | tail -1)"
         echo "[*] Starting a real Ars Technica capture for the live progress view"
-        (
-            cd "$DATA_DIR"
-            exec uv run --no-cache --project "$REPO_DIR" archivebox add \
-                --depth=0 \
-                --overwrite \
-                --tag=screenshot-gallery \
-                "$EXAMPLE_URL"
-        ) >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
+        (run_gallery_add "" "$EXAMPLE_URL") >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
         ARCHIVE_PID=$!
 
         # Open the detail page once archiving starts, so its initial state and
