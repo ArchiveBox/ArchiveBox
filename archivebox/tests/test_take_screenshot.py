@@ -382,7 +382,8 @@ const gallery = require(process.env.LIBRARY_GALLERY);
     await page.type('#id_username', process.env.LOGIN_USERNAME);
     await page.type('#id_password', 'testpassword');
     await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), page.click('button[type="submit"], input[type="submit"]')]);
-    const result = await gallery[process.env.PREPARE_HELPER](page, process.env.ADMIN_URL, process.env.CRAWL_ID);
+    const librarySource = JSON.parse(process.env.LIBRARY_SOURCE);
+    const result = await gallery[process.env.PREPARE_HELPER](page, process.env.ADMIN_URL, process.env.CRAWL_ID, librarySource);
     console.log(JSON.stringify(result));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
@@ -398,6 +399,7 @@ const gallery = require(process.env.LIBRARY_GALLERY);
                 "ADMIN_URL": admin_url,
                 "LOGIN_USERNAME": admin_user.username,
                 "CRAWL_ID": str(snapshot.crawl_id),
+                "LIBRARY_SOURCE": json.dumps({"homepage": snapshot.url, "title": "Hacker News"}),
             },
             capture_output=True,
             text=True,
