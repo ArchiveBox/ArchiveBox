@@ -36,7 +36,7 @@ def sidebar_context(request, *, public=False, folder_tree=None):
         export_filters.pop(key, None)
     return {
         "sidebar_mode": mode,
-        "sidebar_label": {"folders": "All Snapshots", "tags": "Tags", "domains": "Domains"}[mode],
+        "sidebar_label": {"folders": "All folders", "tags": "Tags", "domains": "Domains"}[mode],
         "sidebar_search_label": {"folders": "Find a folder", "tags": "Find a tag", "domains": "Find a domain"}[mode],
         "sidebar_url": reverse("public-sidebar" if public else "admin-sidebar"),
         "sidebar_export_urls": build_snapshot_export_urls(export_filters, api=public, request=request),
@@ -75,10 +75,10 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "name": tag.name,
                     "filter_value": str(tag.pk),
                     "rename_url": reverse("admin:core_tag_change", args=[tag.pk]),
-                    "delete_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots"
+                    "delete_tag_url": reverse("admin:core_tag_delete", args=[tag.pk]),
+                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots"
                     if tag.has_snapshots
-                    else reverse("admin:core_tag_delete", args=[tag.pk]),
-                    "delete_label": "Delete snapshots" if tag.has_snapshots else "Delete tag",
+                    else "",
                     "style": tag_color_style(tag.name),
                     "url": url,
                     "selected": request.GET.get("tag") == str(tag.pk),
@@ -112,8 +112,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "name": name,
                     "filter_value": scope,
                     "url": url,
-                    "delete_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots",
-                    "delete_label": "Delete snapshots",
+                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots",
                     "selected": request.GET.get("domain") == scope,
                     "favicon": build_snapshot_url(str(root_id), paths[0], request=request) if paths else "",
                 },
@@ -213,6 +212,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
         elif reveal:
             folders = list({folder.pk: folder for folder in [*folders, *reveal]}.values())
     return {
+        "sidebar_query": term,
         "sidebar_entries": entries,
         "sidebar_folder_tree": folders,
         "sidebar_next": signing.dumps([mode, term, parent, *next_key], salt="library-sidebar", compress=True) if next_key else "",

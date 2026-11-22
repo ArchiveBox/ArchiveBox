@@ -427,6 +427,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (menu.dataset.initialized) return;
       menu.dataset.initialized = 'true';
       const exports = [...menu.querySelectorAll('[data-export-format]')].map(link => [link, link.href]);
+      const deleteActions = [
+        [menu.querySelector('[data-entry-delete-tag]'), 'deleteTagUrl'],
+        [menu.querySelector('[data-entry-delete-snapshots]'), 'deleteSnapshotsUrl'],
+      ];
+      const deleteSeparator = menu.querySelector('[data-entry-delete-separator]');
       function activate(trigger) {
         button.setAttribute('aria-expanded', 'false');
         button = trigger;
@@ -443,13 +448,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rename) rename.href = entry.dataset.renameUrl;
         const merge = menu.querySelector('[data-sidebar-tag-merge]');
         if (merge) merge.dataset.sidebarTagMerge = entry.dataset.filterValue;
-        const removal = menu.querySelector('.library-delete');
-        if (removal) {
-          const tag = entry.dataset.deleteLabel === 'Delete tag';
-          removal.hidden = (tag ? removal.dataset.canDeleteTag : removal.dataset.canDeleteSnapshots) !== 'true';
-          removal.href = entry.dataset.deleteUrl;
-          removal.querySelector('.folder-menu-label').textContent = entry.dataset.deleteLabel;
+        for (const [action, key] of deleteActions) {
+          if (!action) continue;
+          const url = entry.dataset[key];
+          action.hidden = !url;
+          if (url) action.href = url;
+          else action.removeAttribute('href');
         }
+        if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);
       }
       if (id === 'library-entry-menu') {
         sidebar.addEventListener('click', event => {
@@ -531,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (open) {
           refreshRemoval();
           positionMenu();
-          items[0]?.focus({preventScroll:true});
+          items.find(item => !item.hidden)?.focus({preventScroll:true});
           window.addEventListener('resize', positionMenu);
           window.addEventListener('scroll', positionMenu, true);
         } else {
@@ -548,11 +554,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }));
       menu.addEventListener('keydown', event => {
-        const index = items.indexOf(document.activeElement);
         if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
           event.preventDefault();
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-          items[next]?.focus();
+          const visibleItems = items.filter(item => !item.hidden);
+          const index = visibleItems.indexOf(document.activeElement);
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleItems.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + visibleItems.length) % visibleItems.length;
+          visibleItems[next]?.focus();
         } else if (event.key === 'Tab') menu.hidePopover();
       });
     });
@@ -576,9 +583,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   const status = sidebar.querySelector('.folder-drop-status');
+  const tree = sidebar.querySelector('.folder-tree');
+  const search = sidebar.querySelector('.folder-search');
+  const empty = sidebar.querySelector('.folder-search-empty');
+  const more = sidebar.querySelector('.library-load-more');
+  const loading = sidebar.querySelector('.library-load-status');
+  const folderPath = (sidebar.dataset.folderPath || '').split(',').filter(Boolean);
+  more.dataset.cursor = sidebar.dataset.next || '';
+  let sidebarQuery = search.value;
+  let pageRequests = new AbortController();
+  let searchTimer;
+  const pendingPages = new Set();
+  let loadError = '';
   let rows = [...sidebar.querySelectorAll('.folder-row')];
   let rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
   const collapsed = new Set();
+  const searchCollapsed = new Set();
   try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
 
   function initializeTreeRows() {
@@ -587,56 +607,37 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.treeInitialized = 'true';
       const toggle = row.querySelector('.folder-toggle');
       if (!toggle) return;
-      collapsed.add(row.dataset.folderId);
+      if (!sidebarQuery) collapsed.add(row.dataset.folderId);
       toggle.addEventListener('click', () => {
         const id = row.dataset.folderId;
-        if (collapsed.has(id)) {
-          collapsed.delete(id);
-          if (!row.dataset.childrenLoaded) loadChildren(row);
-        } else collapsed.add(id);
-        try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+        const closed = sidebarQuery ? searchCollapsed : collapsed;
+        if (closed.delete(id)) {
+          if (!sidebarQuery && !row.dataset.childrenLoaded) loadChildren(row);
+        } else closed.add(id);
+        if (!sidebarQuery) {
+          try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+        }
         renderTree();
       });
     });
   }
   initializeTreeRows();
-  let entries = [...sidebar.querySelectorAll('.library-entry')].map(row => ({row, name:row.dataset.name.toLocaleLowerCase()}));
   const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
-  const search = sidebar.querySelector('.folder-search');
-  // Always reveal the selected folder's path when opening a saved list URL.
-  let selected = sidebar.querySelector('[aria-current="page"]')?.closest('.folder-row');
-  while (selected?.dataset.parentId) {
-    collapsed.delete(selected.dataset.parentId);
-    selected = rowsById.get(selected.dataset.parentId);
-  }
   function renderTree() {
-    const term = search.value.trim().toLocaleLowerCase();
-    if (sidebar.dataset.mode !== 'folders') {
-      let visible = 0;
-      for (const entry of entries) {
-        const hidden = !entry.name.includes(term);
-        if (entry.row.hidden !== hidden) entry.row.hidden = hidden;
-        if (!hidden) visible++;
-      }
-      sidebar.querySelector('.folder-search-empty').hidden = !term || visible > 0;
-      return;
-    }
-    const matching = new Set(rows.filter(row => row.dataset.folderName.toLocaleLowerCase().includes(term)).map(row => row.dataset.folderId));
-    if (term) rows.filter(row => matching.has(row.dataset.folderId)).forEach(row => {
-      let parent = row.dataset.parentId;
-      while (parent) {matching.add(parent); parent = rowsById.get(parent)?.dataset.parentId;}
-    });
+    if (sidebar.dataset.mode !== 'folders') return;
+    const closed = sidebarQuery ? searchCollapsed : collapsed;
+    const loadedParents = sidebarQuery ? new Set(rows.map(row => row.dataset.parentId)) : null;
     rows.forEach(row => {
       let parent = row.dataset.parentId;
       let hidden = false;
       while (parent) {
-        if (collapsed.has(parent)) hidden = true;
+        if (closed.has(parent)) hidden = true;
         parent = rowsById.get(parent)?.dataset.parentId;
       }
-      row.hidden = term ? !matching.has(row.dataset.folderId) : hidden;
+      row.hidden = hidden;
       const toggle = row.querySelector('.folder-toggle');
       if (toggle) {
-        const expanded = term ? rows.some(child => child.dataset.parentId === row.dataset.folderId && matching.has(child.dataset.folderId)) : !collapsed.has(row.dataset.folderId);
+        const expanded = !closed.has(row.dataset.folderId) && (!loadedParents || loadedParents.has(row.dataset.folderId));
         toggle.setAttribute('aria-expanded', String(expanded));
         toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`);
       }
@@ -647,27 +648,24 @@ document.addEventListener('DOMContentLoaded', () => {
       while (parent) {if (collapsed.has(parent)) hidden = true; parent = rowsById.get(parent)?.dataset.parentId;}
       button.hidden = hidden || !button.dataset.cursor;
     });
-    sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
   }
   function refreshFolderTree(html, createdId, parentChoices, moveChoices, next) {
-    const tree = sidebar.querySelector('.folder-tree');
-    tree.innerHTML = html;
-    tree.append(more);
-    more.dataset.cursor = next || "";
-    more.hidden = !next;
-    rows = [...tree.querySelectorAll('.folder-row')];
-    rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
-    initializeTreeRows();
-    initializeMenus(tree);
-    initializeFolderDragging(rows);
-    initializeDropTargets(rows);
-    rows.forEach(row => row.dataset.dragInitialized = 'true');
-    let parent = rows.find(row => row.dataset.folderId === createdId)?.dataset.parentId;
-    while (parent) {
-      collapsed.delete(parent);
-      parent = rows.find(row => row.dataset.folderId === parent)?.dataset.parentId;
+    if (sidebarQuery || searchTimer !== undefined) {
+      searchSidebar();
+    } else {
+      const fragment = document.createElement('template');
+      fragment.innerHTML = html;
+      resetPageRequests();
+      replaceTree(fragment.content, next);
+      refreshRows();
+      let parent = rowsById.get(createdId)?.dataset.parentId;
+      while (parent) {
+        collapsed.delete(parent);
+        parent = rowsById.get(parent)?.dataset.parentId;
+      }
+      renderTree();
+      loading.hidden = true;
     }
-    renderTree();
     [folderForm.elements.parent, form?.querySelector('[name=folder_destination]')].filter(Boolean).forEach(select => {
       const selectedValue = select.value;
       const root = select.options[0].cloneNode(true);
@@ -677,15 +675,9 @@ document.addEventListener('DOMContentLoaded', () => {
       select.value = selectedValue;
     });
   }
-  const tree = sidebar.querySelector('.folder-tree');
-  const more = sidebar.querySelector('.library-load-more');
-  const loading = sidebar.querySelector('.library-load-status');
-  more.dataset.cursor = sidebar.dataset.next || '';
-  let searchTimer, searchRequest, searchVersion = 0, loadVersion = 0;
   function refreshRows() {
     rows = [...tree.querySelectorAll('.folder-row')];
     rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
-    entries = [...tree.querySelectorAll('.library-entry')].map(row => ({row, name:row.dataset.name.toLocaleLowerCase()}));
     initializeTreeRows();
     initializeMenus(sidebar);
     if (sidebar.dataset.moveUrl) {
@@ -695,40 +687,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderTree();
   }
-  async function loadPage(button, replace=false, signal) {
-    if (button.disabled) return;
+  function resetPageRequests() {
+    pageRequests.abort();
+    pageRequests = new AbortController();
+    pendingPages.clear();
+    more.disabled = false;
+    loadError = '';
+  }
+  function replaceTree(fragment, next = '') {
+    tree.querySelectorAll('.library-child-more').forEach(button => observer.unobserve(button));
+    tree.replaceChildren(fragment, more);
+    more.dataset.cursor = next;
+    more.hidden = !next;
+  }
+  function appendSearchFolders(fragment) {
+    // A later page can have more children of a folder from an earlier page.
+    const branchEnds = new Map();
+    function recordBranchEnd(row) {
+      for (let ancestor = row; ancestor; ancestor = rowsById.get(ancestor.dataset.parentId)) {
+        const id = ancestor.dataset.folderId;
+        const end = branchEnds.get(id);
+        if (end && (row.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING)) break;
+        branchEnds.set(id, row);
+      }
+    }
+    rows.forEach(recordBranchEnd);
+    for (const row of fragment.querySelectorAll('.folder-row')) {
+      const id = row.dataset.folderId;
+      if (rowsById.has(id)) continue;
+      const parentEnd = branchEnds.get(row.dataset.parentId);
+      if (parentEnd) parentEnd.after(row);
+      else more.before(row);
+      rowsById.set(id, row);
+      recordBranchEnd(row);
+    }
+  }
+  async function loadPage(button, replace=false) {
+    if (button.disabled || (!replace && button.hidden) || !tree.contains(button)) return;
+    const signal = pageRequests.signal;
     button.disabled = true;
-    const version = searchVersion, requestVersion = ++loadVersion;
-    button.dataset.loadVersion = String(requestVersion);
+    if (!pendingPages.size) loadError = '';
+    pendingPages.add(button);
     loading.hidden = false; loading.textContent = 'Loading…';
     try {
       const url = new URL(sidebar.dataset.sidebarUrl, location.href);
       url.search = location.search;
       url.searchParams.set('sidebar', sidebar.dataset.mode);
-      url.searchParams.set('sidebar_q', search.value.trim());
+      url.searchParams.set('sidebar_q', sidebarQuery);
+      url.searchParams.delete('cursor');
+      url.searchParams.delete('parent');
       if (!replace && button.dataset.cursor) url.searchParams.set('cursor', button.dataset.cursor);
       if (button.dataset.parent) url.searchParams.set('parent', button.dataset.parent);
       const response = await fetch(url, {credentials:'same-origin', signal});
       if (!response.ok) throw new Error('Could not load sidebar.');
       const result = await response.json();
-      if (signal?.aborted || version !== searchVersion) return;
+      if (signal.aborted) return;
       const fragment = document.createElement('template');
       fragment.innerHTML = result.html;
-      if (replace) tree.replaceChildren(more);
-      else fragment.content.querySelectorAll('.folder-row').forEach(row => {
-        if (rowsById.has(row.dataset.folderId)) row.remove();
-      });
-      button.before(fragment.content);
-      button.dataset.cursor = result.next;
-      button.hidden = !result.next;
-      if (button.dataset.parent) rowsById.get(button.dataset.parent).dataset.childrenLoaded = 'true';
+      if (replace) {
+        replaceTree(fragment.content, result.next);
+      } else {
+        if (sidebarQuery && sidebar.dataset.mode === 'folders') {
+          appendSearchFolders(fragment.content);
+        } else {
+          fragment.content.querySelectorAll('.folder-row').forEach(row => {
+            if (rowsById.has(row.dataset.folderId)) row.remove();
+          });
+          button.before(fragment.content);
+        }
+        button.dataset.cursor = result.next;
+        button.hidden = !result.next;
+        if (button.dataset.parent) rowsById.get(button.dataset.parent).dataset.childrenLoaded = 'true';
+      }
       refreshRows();
-      loading.hidden = true;
+      if (replace && !sidebarQuery) {
+        folderPath.slice(0, -1).forEach(id => collapsed.delete(id));
+        renderTree();
+      }
+      empty.hidden = !sidebarQuery || Boolean(result.next || tree.querySelector('.folder-row, .library-entry'));
+      observer.unobserve(button);
+      if (!button.hidden) observer.observe(button);
     } catch (error) {
-      if (error.name !== 'AbortError') {loading.textContent = error.message; loading.hidden = false;}
-    } finally {if (button.dataset.loadVersion === String(requestVersion)) button.disabled = false;}
+      if (!signal.aborted) loadError = error.message;
+    } finally {
+      if (!signal.aborted) {
+        button.disabled = false;
+        pendingPages.delete(button);
+        if (!pendingPages.size) {
+          loading.hidden = !loadError;
+          if (loadError) loading.textContent = loadError;
+        }
+      }
+    }
   }
   function loadChildren(row) {
+    if (sidebarQuery || !tree.contains(row)) return;
     let button = [...tree.querySelectorAll('.library-child-more')].find(item => item.dataset.parent === row.dataset.folderId);
     if (!button) {
       button = document.createElement('button'); button.type = 'button';
@@ -746,18 +799,26 @@ document.addEventListener('DOMContentLoaded', () => {
   observer.observe(more);
   more.addEventListener('click', () => loadPage(more));
   function searchSidebar() {
-    clearTimeout(searchTimer); searchRequest?.abort(); searchVersion++;
-    renderTree();
+    clearTimeout(searchTimer);
+    resetPageRequests();
+    sidebarQuery = search.value.trim();
+    searchCollapsed.clear();
+    replaceTree(document.createDocumentFragment());
+    rows = [];
+    rowsById.clear();
+    empty.hidden = true;
+    loading.hidden = false;
+    loading.textContent = 'Loading…';
     searchTimer = setTimeout(() => {
-      searchRequest = new AbortController();
-      // A canceled previous request must not suppress this new query.
-      more.disabled = false;
-      loadPage(more, true, searchRequest.signal);
+      searchTimer = undefined;
+      loadPage(more, true);
     }, 25);
   }
   search.addEventListener('input', searchSidebar);
   (async () => {
-    for (const id of (sidebar.dataset.folderPath || '').split(',').filter(Boolean)) {
+    const signal = pageRequests.signal;
+    for (const id of folderPath) {
+      if (signal.aborted) return;
       const row = rowsById.get(id);
       if (row?.querySelector('.folder-toggle')) {
         collapsed.delete(id);
@@ -780,6 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
       searchToggle.focus();
     }
   }
+  if (sidebarQuery) toggleFolderSearch(true);
   searchToggle.addEventListener('click', () => toggleFolderSearch(search.hidden));
   const tagName = sidebar.querySelector('.library-tag-name');
   const addTag = tagName ? sidebar.querySelector('.library-add') : null;
@@ -787,7 +849,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let previousSearchOpen = false;
     function toggleTagInput(open) {
       if (tagName.disabled) return;
-      clearTimeout(searchTimer); searchRequest?.abort();
       if (open) previousSearchOpen = !search.hidden;
       tagName.hidden = !open;
       search.hidden = open || !previousSearchOpen;
@@ -797,7 +858,10 @@ document.addEventListener('DOMContentLoaded', () => {
       addTag.setAttribute('aria-label', open ? 'Cancel new tag' : 'Add tag');
       addTag.title = open ? 'Cancel new tag' : 'Add tag';
       if (open) {tagName.value = ''; tagName.focus();}
-      else {loading.hidden = true; addTag.focus();}
+      else {
+        if (searchTimer === undefined && !pendingPages.size) loading.hidden = true;
+        addTag.focus();
+      }
     }
     addTag.addEventListener('click', () => toggleTagInput(tagName.hidden));
     tagName.addEventListener('keydown', async event => {

@@ -102,6 +102,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         "Self-hosting": Folder.objects.create(name="Self-hosting"),
         "Read later": Folder.objects.create(name="Read later"),
     }
+    Tag.objects.bulk_create([Tag(name=f"z-scroll-{index:03}") for index in range(120)])
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://archivebox.io/")
     records = [
         ("https://archivebox.io/", "ArchiveBox — Open source web archiving", "Web archiving", ["archiving", "self-hosted"]),
@@ -124,6 +125,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
     secret.tags.add(Tag.objects.create(name="private-only"))
     origin = live_server.url.replace("localhost", "admin.archivebox.localhost")
     evidence = tmp_path
+    python_tag_id = Tag.objects.get(name="python").pk
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(viewport={"width": 1440, "height": 1000}, device_scale_factor=1)
@@ -135,6 +137,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.get_by_role("button", name="Log in", exact=True).click()
         sidebar = page.locator(".folder-sidebar")
         expect(sidebar).to_be_visible()
+        expect(sidebar.get_by_role("link", name="All folders", exact=True)).to_be_visible()
         sidebar.get_by_role("button", name="Expand Research", exact=True).click()
         expect(sidebar.get_by_role("link", name="Web archiving", exact=True)).to_be_visible()
 
@@ -150,7 +153,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         sidebar.get_by_role("link", name="Web archiving", exact=True).click()
         expect(page.locator("#result_list tbody tr")).to_have_count(3)
         choose("Tags")
-        expect(sidebar.locator(".library-entry")).to_have_count(10)
+        expect(sidebar.locator(".library-entry")).to_have_count(100)
         sidebar.get_by_role("button", name="Find a tag", exact=True).click()
         sidebar.get_by_role("searchbox", name="Find a tag").fill("python")
         expect(sidebar.locator(".library-entry:visible")).to_have_count(1)
@@ -165,6 +168,9 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         menu = page.locator(".folder-menu:popover-open")
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_be_visible()
         expect(menu.get_by_role("menuitem", name="Delete snapshots", exact=True)).to_be_visible()
+        assert menu.locator(".library-delete:visible").all_text_contents() == ["Delete tag", "Delete snapshots"]
+        tag_delete = menu.get_by_role("menuitem", name="Delete tag", exact=True)
+        assert tag_delete.get_attribute("href") == f"/admin/core/tag/{python_tag_id}/delete/"
         assert "tag=" in menu.get_by_role("menuitem", name="CSV", exact=True).get_attribute("href")
         page.screenshot(path=str(evidence / "tag-actions.png"))
         page.keyboard.press("Escape")
@@ -180,13 +186,14 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         menu = page.locator(".folder-menu:popover-open")
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_have_count(0)
         expect(menu.get_by_role("menuitem", name="Merge...", exact=True)).to_have_count(0)
+        expect(menu.get_by_role("menuitem", name="Delete tag", exact=True)).to_have_count(0)
         page.screenshot(path=str(evidence / "domain-actions.png"))
         menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
         expect(page.get_by_role("main", name="Confirm snapshot deletion")).to_be_visible()
         expect(page.get_by_text("Queue exactly 2 selected snapshots for deletion?", exact=False)).to_be_visible()
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains&domain=*.djangoproject.com")
         expect(page.locator("#result_list tbody tr")).to_have_count(2)
-        choose("All Snapshots")
+        choose("All folders")
         expect(sidebar.locator(".folder-row")).to_have_count(4)  # Root folders only; children load on expansion.
         public = browser.new_page(viewport={"width": 1440, "height": 1000})
         public_origin = live_server.url.replace("localhost", "web.archivebox.localhost")
@@ -226,6 +233,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         sidebar.get_by_role("button", name="Actions for unused-tag", exact=True).click()
         menu = page.locator(".folder-menu:popover-open")
         expect(menu.get_by_role("menuitem", name="Delete tag", exact=True)).to_be_visible()
+        expect(menu.get_by_role("menuitem", name="Delete snapshots", exact=True)).to_have_count(0)
         menu.get_by_role("menuitem", name="Rename", exact=True).click()
         page.locator("#id_name").fill("python-notes")
         page.locator('button[name="_continue"]').click()
@@ -238,6 +246,29 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.locator("#tag-merge-target").select_option(str(empty.pk))
         page.get_by_role("button", name="Merge Tags", exact=True).click()
         expect(page.locator("#tag-merge-dialog")).not_to_be_visible()
+        page.goto(f"{origin}/admin/core/snapshot/?sidebar=tags")
+        expect(sidebar.get_by_role("link", name="Domains", exact=True)).to_have_count(0)
+        tree = sidebar.locator(".folder-tree")
+        footer = sidebar.locator(".folder-actions")
+        expect(footer.get_by_role("button", name="Export")).to_be_in_viewport()
+        expect(footer.get_by_role("button", name="Import")).to_be_in_viewport()
+        before = footer.bounding_box()
+        pane = sidebar.bounding_box()
+        assert before is not None and pane is not None
+        assert abs((before["y"] + before["height"]) - (pane["y"] + pane["height"])) <= 1
+        tree.evaluate("tree => tree.scrollTop = tree.scrollHeight")
+        expect(sidebar.get_by_role("link", name="z-scroll-119", exact=True)).to_have_count(1)
+        after = footer.bounding_box()
+        assert after is not None and abs(after["y"] - before["y"]) <= 1
+        assert tree.evaluate("tree => tree.scrollTop") > 0
+        page.set_viewport_size({"width": 400, "height": 800})
+        list_exports = page.locator(".snapshot-list-exports").get_by_role("button", name="Export")
+        expect(footer).to_be_hidden()
+        expect(list_exports).to_be_visible()
+        sidebar.get_by_role("button", name="Show tags", exact=True).click()
+        expect(footer.get_by_role("button", name="Export")).to_be_in_viewport()
+        expect(footer.get_by_role("button", name="Import")).to_be_in_viewport()
+        expect(list_exports).to_be_hidden()
         assert errors == []
         browser.close()
     assert Tag.objects.filter(name="new-sidebar-tag").exists()
