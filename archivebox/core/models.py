@@ -4462,8 +4462,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
+            result = output.get("result")
+            output_path = str(output["path"])
+            # Discovery already resolved this card's path from its manifest.
+            # Folder links need only its plugin root or legacy parent folder.
             output["folder_path"] = (
-                output["result"].output_folder_path() if output.get("result") is not None else str(Path(str(output["path"])).parent)
+                result.plugin if result is not None and output_path.startswith(f"{result.plugin}/") else str(Path(output_path).parent)
             )
             if output["folder_path"] == ".":
                 output["folder_path"] = ""

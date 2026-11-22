@@ -218,6 +218,12 @@ def test_detail_render_normalizes_each_result_once_without_stale_reruns(snapshot
     # WHY: grouping, sizes, folder links and cards share the same read-only
     # result rows. Revalidating every saved file for each consumer stalls replay.
     assert normalizations == len(results), normalizations
+    path_resolutions = sum(
+        values[1]
+        for (filename, _line, function), values in pstats.Stats(profile).stats.items()
+        if filename.endswith("core/models.py") and function == "embed_path_db"
+    )
+    assert path_resolutions == len(results), "Folder links must reuse the output path already selected for each card"
 
     # Rendering must not cache runner-owned rows or carry a manifest into the
     # next render: an ordinary rerun can replace metadata and status meanwhile.
@@ -385,6 +391,35 @@ def test_equal_outputs_sort_by_whole_output_size_without_double_counting_hooks(s
     assert set(first_dns.output_file_map()) & set(second_dns.output_file_map())
     assert metadata[0]["size"] == 3 * FIXTURE.stat().st_size
     assert len(metadata[0]["result_ids"].split(",")) == 2
+
+
+@pytest.mark.parametrize("static_export", [False, True])
+@pytest.mark.parametrize(
+    ("filename", "root_relative", "expected_folder"),
+    [
+        ("capture.html", False, "singlefile"),
+        ("nested/capture.html", False, "singlefile"),
+        ("capture.html", True, ""),
+        ("legacy/capture.html", True, "legacy"),
+    ],
+)
+def test_detail_folder_links_reuse_selected_output_path(snapshot, filename, root_relative, expected_folder, static_export):
+    relative_path = filename if root_relative else f"singlefile/{filename}"
+    path = snapshot.output_dir / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("<h1>Saved capture</h1>")
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="singlefile",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str=filename,
+        output_files={filename: {"size": path.stat().st_size, "root_relative": root_relative}},
+        output_size=path.stat().st_size,
+    )
+    context = snapshot.get_html_details_context(static_export_dir=snapshot.output_dir if static_export else None)
+    output = next(output for output in context["archiveresults"] if output["result"] == result)
+    assert output["path"] == relative_path
+    assert output["folder_path"] == expected_folder
 
 
 def test_stacks_render_live_and_static_without_losing_output_actions(snapshot, admin_user):
