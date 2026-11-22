@@ -37,6 +37,8 @@ def site_actions(request):
     if not scopes:
         messages.error(request, "Select at least one domain.")
         return redirect("domains:index")
+    if len(scopes) > 1 and any("/" in scope for scope in scopes):
+        return HttpResponseBadRequest("Select domains without path prefixes for a multi-domain export.")
     action = "delete_selected" if request.POST.get("delete_domain") else request.POST.get("action")
     if action in {"resnapshot_snapshot", "update_snapshots", "overwrite_snapshots", "delete_selected"}:
         # Submit through the native admin action, including its permission checks
@@ -56,8 +58,6 @@ def site_actions(request):
     if action != "export" or request.POST.get("export_format") not in ALL_EXPORT_FORMATS:
         messages.error(request, "Choose an action or export format.")
         return redirect("domains:index")
-    if len(scopes) > 1 and any("/" in scope for scope in scopes):
-        return HttpResponseBadRequest("Select domains without path prefixes for a multi-domain export.")
     selected = copy(request)
     selected.GET = site_snapshot_filters(",".join(scopes))
     selected.path = reverse("admin:core_snapshot_export", args=[request.POST["export_format"]])

@@ -5,7 +5,7 @@
     window.archiveboxSnapshotSearchStreamReady = true;
     var activeSearch = null;
 
-    function setSearchLoading(controller, text) {
+    function setSearchLoading(controller) {
       if (activeSearch !== controller) return;
       var form = document.querySelector('form#changelist-search');
       if (!form) return;
@@ -19,7 +19,7 @@
         status.setAttribute('aria-live', 'polite');
         toolbar.after(status);
       }
-      status.textContent = text || 'Searching...';
+      if (status.textContent !== 'Searching…') status.textContent = 'Searching…';
       status.hidden = false;
       form.setAttribute('aria-busy', 'true');
     }
@@ -41,6 +41,11 @@
         var controller = activeSearch;
         activeSearch.abort();
         clearSearchLoading(controller);
+        var message = document.querySelector(".search-empty-state [data-search-pending]");
+        if (message) {
+          message.removeAttribute("data-search-pending");
+          message.textContent = "Search canceled. Press Enter to search again.";
+        }
       }
     }
 
@@ -62,6 +67,7 @@
       results.className = "results search-empty-state";
       while (results.firstChild) results.removeChild(results.firstChild);
       var message = document.createElement("p");
+      message.setAttribute("data-search-pending", "");
       message.textContent = "Searching matching snapshots...";
       results.appendChild(message);
 
@@ -69,6 +75,7 @@
       if (paginator) paginator.hidden = true;
       var actions = changelist.querySelector(".actions");
       if (actions) actions.hidden = true;
+      return message;
     }
 
     function streamSnapshotSearch(eventOrForm) {
@@ -87,14 +94,25 @@
 
       var controller = new AbortController();
       activeSearch = controller;
-      setSearchLoading(controller, "Searching...");
-      setChangelistSearchingState(controller);
+      setSearchLoading(controller);
+      var searchMessage = setChangelistSearchingState(controller);
       var resultVersion = 0;
       var pendingRender = null;
       var renderInFlight = false;
       var renderPromise = Promise.resolve();
       var renderedVersion = -1;
       var lastRender = 0;
+
+      function failSearch(error) {
+        if (activeSearch !== controller || controller.signal.aborted || error.name === "AbortError") return;
+        controller.abort();
+        clearTimeout(pendingRender);
+        clearSearchLoading(controller);
+        if (searchMessage?.isConnected) {
+          searchMessage.removeAttribute("data-search-pending");
+          searchMessage.textContent = "Search couldn't finish. Press Enter to try again.";
+        }
+      }
 
       function buildListUrl() {
         var url = new URL(window.location.href);
@@ -113,13 +131,16 @@
         renderedVersion = resultVersion;
         lastRender = Date.now();
         renderPromise = fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
-          .then(function(response) { return response.text(); })
+          .then(function(response) {
+            if (!response.ok) throw new Error("Could not load snapshot results");
+            return response.text();
+          })
           .then(function(html) {
             if (controller.signal.aborted) return;
             var doc = new DOMParser().parseFromString(html, "text/html");
             var nextMain = doc.getElementById("content-main");
             var currentMain = document.getElementById("content-main");
-            if (nextMain && currentMain) {
+            if (nextMain?.querySelector("#changelist") && currentMain) {
               // Capture at replacement time: a user can select rows while this
               // refresh is in flight. New matches inherit an all-results selection.
               var selectedIds = new Set(Array.from(currentMain.querySelectorAll('input.action-select:checked'), function(input) { return input.value; }));
@@ -149,16 +170,16 @@
               nextMain.querySelectorAll('input.select-across').forEach(function(input) { input.value = selectAcross ? '1' : '0'; });
               if (selectAcross) nextMain.querySelector('.actions .question a')?.click();
               nextMain.querySelector('#changelist-form')?.dispatchEvent(new Event('change', {bubbles: true}));
-              setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
+              setSearchLoading(controller);
               history.replaceState(null, "", url);
+            } else {
+              throw new Error("Missing snapshot results");
             }
           })
-          .catch(function(error) {
-            if (error.name !== "AbortError") throw error;
-          })
+          .catch(failSearch)
           .finally(function() {
             renderInFlight = false;
-            if (renderedVersion !== resultVersion) renderSoon();
+            if (!controller.signal.aborted && renderedVersion !== resultVersion) renderSoon();
           });
         return renderPromise;
       }
@@ -179,6 +200,9 @@
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
       fetch(streamUrl, {signal: controller.signal})
         .then(function(response) {
+          if (!response.ok || !response.body || !(response.headers.get("Content-Type") || "").startsWith("text/plain")) {
+            throw new Error("Unexpected snapshot search stream response");
+          }
           var reader = response.body.getReader();
           var decoder = new TextDecoder();
           var buffer = "";
@@ -191,7 +215,6 @@
                 count = parseInt(count.trim(), 10);
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
               });
-              setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
               if (lines.length) renderSoon();
               if (!result.done) return read();
               // A resumed later page needs settled pagination, even if the last
@@ -206,13 +229,11 @@
           }
           return read();
         })
-        .catch(function(error) {
-          if (error.name !== "AbortError") throw error;
-	        })
-	        .finally(function() {
-	          clearSearchLoading(controller);
-	          if (activeSearch === controller) activeSearch = null;
-	        });
+        .catch(failSearch)
+        .finally(function() {
+          clearSearchLoading(controller);
+          if (activeSearch === controller) activeSearch = null;
+        });
     }
 
     document.addEventListener("input", cancelActiveSearch);

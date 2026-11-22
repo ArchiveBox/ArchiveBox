@@ -37,16 +37,22 @@ def test_invalid_domain_identifiers_return_not_found(admin_client, identifier):
     assert response.status_code == 404
 
 
-def test_domain_export_rejects_mixed_prefix_selection(admin_client):
+@pytest.mark.parametrize("action", ["export", "delete_selected"])
+def test_domain_actions_reject_mixed_prefix_selection(admin_client, crawl, action):
+    from archivebox.core.models import Snapshot
     from archivebox.machine.models import Process
+
+    snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/docs/keep")
 
     response = admin_client.post(
         "/admin/domains/actions/",
-        {"action": "export", "export_format": "html", "_selected_action": ["example.com/docs", "other.com"]},
+        {"action": action, "export_format": "html", "_selected_action": ["example.com/docs", "other.com"]},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 400
     assert not Process.objects.filter(worker_type="site-export").exists()
+    snapshot.refresh_from_db()
+    assert snapshot.status != "deleting"
 
 
 @pytest.mark.parametrize("row_action", [False, True])
