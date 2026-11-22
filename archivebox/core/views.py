@@ -1573,19 +1573,24 @@ class PublicIndexView(ListView):
         )
 
     def paginate_queryset(self, queryset, page_size):
-        if self.request.GET.get("q", default="").strip():
+        query = self.request.GET.get("q", default="").strip()
+        if query:
             state = self.__dict__.get("public_search_state")
             mode = get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config)
+            requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
             if mode != "url" and (state is None or not state.get("done")):
                 # An expired/in-flight search has not established its page count.
                 # Render a provisional first page without changing the requested
                 # URL; the stream settles that original page when complete.
-                requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
                 if str(requested).isdigit() and int(requested) > 1:
                     paginator = self.get_paginator(queryset, page_size, allow_empty_first_page=True)
                     page = paginator.page(1)
                     return paginator, page, page.object_list, page.has_other_pages()
-            return super().paginate_queryset(queryset, page_size)
+            if mode != "url" or requested == "last":
+                pagination = super().paginate_queryset(queryset, page_size)
+                if mode == "url":
+                    self.public_snapshot_count = pagination[0].count
+                return pagination
 
         page_kwarg = self.kwargs.get(self.page_kwarg)
         page_query = self.request.GET.get(self.page_kwarg)
@@ -1598,7 +1603,13 @@ class PublicIndexView(ListView):
         except (ValueError, TypeError) as err:
             raise Http404(f"Invalid page ({page_number}): {err}") from err
 
-        snapshots = self._ordered_public_page_from_order_index(page_number=page_number, page_size=page_size)
+        if query:
+            # URL searches need only the requested rows and one lookahead;
+            # counting all LIKE matches first scans the collection twice.
+            start = (page_number - 1) * page_size
+            snapshots = list(queryset[start : start + page_size + 1])
+        else:
+            snapshots = self._ordered_public_page_from_order_index(page_number=page_number, page_size=page_size)
         if not snapshots and page_number > 1:
             raise Http404(f"Invalid page ({page_number}): No snapshots")
         # Exhausting the rows gives an exact total for this read at no extra
@@ -1608,7 +1619,7 @@ class PublicIndexView(ListView):
         observed_count = (page_number - 1) * page_size + len(snapshots)
         self.public_snapshot_count = observed_count
         if len(snapshots) > page_size:
-            summary = collection_summary(self.request.user, public=True) if self.folder_query is None else None
+            summary = collection_summary(self.request.user, public=True) if not query and self.folder_query is None else None
             cached_count = summary["snapshots"] if summary is not None else None
             self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
 
@@ -1659,7 +1670,7 @@ class PublicIndexView(ListView):
             and search_mode_backend
             and context["paginator"].count == 0,
         )
-        context["public_snapshot_count"] = context["paginator"].count if query else self.public_snapshot_count
+        context["public_snapshot_count"] = context["paginator"].count if query and search_mode != "url" else self.public_snapshot_count
         count = context["public_snapshot_count"]
         context["public_page_count"] = (
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
