@@ -23,6 +23,7 @@ from django.contrib.sessions.models import Session
 from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
@@ -1544,15 +1545,21 @@ class PublicIndexView(ListView):
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
-        # Walk the permission-prefixed order index for ordinary pages. Reading
-        # only IDs here keeps OFFSET from fetching each skipped row (including
-        # its JSON config) and preserves stable ordering at timestamp ties.
+        # Read IDs before hydrating rows, preserving stable timestamp ties and
+        # avoiding related-object/large-field loads for skipped snapshots.
         start = (page_number - 1) * page_size
         if self.folder_query is None:
+            snapshots = Snapshot.objects.all()
+            if connection.vendor == "sqlite":
+                # A direct permissions equality can make SQLite scan that
+                # low-cardinality index and sort every public snapshot before
+                # LIMIT. CASE keeps the exact visibility predicate while letting
+                # it walk the existing chronological index and sort only ties.
+                snapshots = snapshots.filter(Case(When(permissions=PERMISSIONS_PUBLIC, then=True), default=False))
+            else:
+                snapshots = snapshots.filter(permissions=PERMISSIONS_PUBLIC)
             page_ids = list(
-                Snapshot.objects.filter(permissions=PERMISSIONS_PUBLIC)
-                .order_by(*self.ordering, "id")
-                .values_list("id", flat=True)[start : start + page_size + 1],
+                snapshots.order_by(*self.ordering, "id").values_list("id", flat=True)[start : start + page_size + 1],
             )
         else:
             # Folder/smart-folder predicates can prefer their own indexes or

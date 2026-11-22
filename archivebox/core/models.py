@@ -1145,7 +1145,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         indexes: ClassVar[list[models.Index]] = [
             models.Index(UUIDSuffix("id"), name="snapshot_uuid_suffix_idx"),
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
-            models.Index(fields=["permissions", "-bookmarked_at", "-created_at", "id"], name="snapshot_public_page_idx"),
             models.Index(fields=["folder", "permissions", "-bookmarked_at", "-created_at"], name="snapshot_folder_public_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
             # Cross-crawl incremental API polls must seek into their time window,
