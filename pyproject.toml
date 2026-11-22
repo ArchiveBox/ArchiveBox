@@ -80,6 +80,7 @@ dependencies = [
     ### Parsers
     "markdown>=3.7",        # for: rendering archived Markdown with tables and fenced code
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
+    "regex>=2024.11.6",     # for: Unicode grapheme segmentation in folder labels
     "croniter>=6.0.0",       # for: validating and computing crawl schedules
     "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags

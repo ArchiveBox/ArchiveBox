@@ -529,27 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const status = sidebar.querySelector('.folder-drop-status');
   let rows = [...sidebar.querySelectorAll('.folder-row')];
-  const segments = new Intl.Segmenter(undefined, {granularity:'grapheme'});
-  function leadingEmoji(name) {
-    const first = segments.segment(name).containing(0)?.segment;
-    return first && /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u.test(first) ? first : '';
-  }
   function initializeTreeRows() {
-    rows.forEach(row => {
-      const first = leadingEmoji(row.dataset.folderName);
-      if (!first) return;
-      const label = row.querySelector('.folder-link>span');
-      const emoji = document.createElement('span');
-      emoji.className='folder-title-emoji'; emoji.textContent=first; emoji.setAttribute('aria-hidden','true');
-      const icon=row.querySelector('.folder-link>svg');
-      if (icon) icon.replaceWith(emoji);
-      else {
-        const toggle=row.querySelector('.folder-toggle');
-        toggle.classList.add('has-title-emoji'); toggle.append(emoji);
-      }
-      label.textContent=row.dataset.folderName.slice(first.length).trimStart();
-      row.querySelector('.folder-link').setAttribute('aria-label', row.dataset.folderName);
-    });
     rows.forEach(row => row.querySelector('.folder-toggle')?.addEventListener('click', () => {
       const id = row.dataset.folderId;
       if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);

@@ -8,6 +8,8 @@ body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizin
 body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container>div{gap:0!important}
 .snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:6px;width:100%}
 .snapshot-library #changelist #toolbar #changelist-search{flex:1;min-width:0}
+.snapshot-library #changelist .archivebox-search-stream-status{box-sizing:border-box;margin:0;padding:4px 12px;color:var(--body-fg,#1d2939);background:var(--darkened-bg,#f7f8fa);border-bottom:1px solid var(--hairline-color,#e4e7ec);font-size:12px;font-weight:600;line-height:16px}
+
 .snapshot-library #changelist #toolbar :is(.snapshot-view-icon-toggle,.filter-pane-toggle,.search-input-wrap,.folder-sidebar-reopen){box-sizing:border-box;height:var(--library-control-size);min-height:var(--library-control-size);border:1px solid var(--border-color,#d0d5dd);border-radius:4px;background:var(--body-bg,#fff);box-shadow:none}
 .snapshot-library #changelist #toolbar .snapshot-view-icon-toggle{width:var(--library-control-size);min-width:var(--library-control-size);flex:0 0 var(--library-control-size)}
 .snapshot-library #changelist #toolbar .filter-pane-toggle{width:auto;min-width:70px;padding:0 10px;font-size:12px;align-self:center}

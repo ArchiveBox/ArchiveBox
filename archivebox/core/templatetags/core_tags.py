@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
+import regex
 from django import template
 from django.utils import timezone
 from django.utils.html import escape, format_html
@@ -43,6 +44,19 @@ from archivebox.plugins.discovery import (
 register = template.Library()
 register.filter("permission_icon", render_permission_icon)
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
+
+
+_INITIAL_GRAPHEME = regex.compile(r"\X")
+_FOLDER_EMOJI = regex.compile(r"\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3")
+
+
+@register.simple_tag
+def folder_display_name(name: str) -> tuple[str, str]:
+    """Split a leading emoji grapheme for the folder tree's initial HTML."""
+    first = _INITIAL_GRAPHEME.match(name)
+    if first and _FOLDER_EMOJI.search(first[0]):
+        return first[0], name[first.end() :].lstrip()
+    return "", name
 
 
 @register.filter

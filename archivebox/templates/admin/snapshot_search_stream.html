@@ -9,13 +9,15 @@
       if (activeSearch !== controller) return;
       var form = document.querySelector('form#changelist-search');
       if (!form) return;
-      var status = form.querySelector('.archivebox-search-stream-status');
+      var toolbar = form.closest('#toolbar');
+      if (!toolbar) return;
+      var status = toolbar.parentElement.querySelector('.archivebox-search-stream-status');
       if (!status) {
         status = document.createElement('span');
         status.className = 'archivebox-search-stream-status';
         status.setAttribute('role', 'status');
         status.setAttribute('aria-live', 'polite');
-        form.appendChild(status);
+        toolbar.after(status);
       }
       status.textContent = text || 'Searching...';
       status.hidden = false;
@@ -26,7 +28,9 @@
       if (activeSearch && activeSearch !== controller) return;
       var form = document.querySelector('form#changelist-search');
       if (!form) return;
-      var status = form.querySelector('.archivebox-search-stream-status');
+      var toolbar = form.closest('#toolbar');
+      if (!toolbar) return;
+      var status = toolbar.parentElement.querySelector('.archivebox-search-stream-status');
       if (status) status.hidden = true;
       form.removeAttribute('aria-busy');
     }
