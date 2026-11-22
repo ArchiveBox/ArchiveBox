@@ -90,6 +90,41 @@ def render_metadata(text):
     return replace_block(text, "METADATA", "\n".join(tags))
 
 
+# A feature figure is a single image linking to that same gallery capture.
+# Never remove surrounding copy/captions, marquee markup, or arbitrary images.
+FEATURE_SHOT = re.compile(r'<figure class="card-shot">\s*<a href="(?P<href>[^"]+)">\s*<img\b(?P<image>[^>]+)>\s*</a>\s*</figure>')
+
+
+def unavailable_gallery_paths(output, baseurl):
+    manifest_path = output / "screenshots" / "build.json"
+    if not manifest_path.is_file():
+        return set()
+    manifest = json.loads(manifest_path.read_text())
+    base = "/" + baseurl.strip("/") if baseurl.strip("/") else ""
+    return {
+        f"{prefix}/screenshots/{filename}"
+        for outcome in manifest.get("optional_recipe_captures", {}).values()
+        if outcome["status"] == "unavailable"
+        for view in outcome["views"]
+        for profile in ("desktop", "tablet", "mobile")
+        if (filename := f"{view}-{profile}.png") not in manifest["files"]
+        for prefix in ("", base)
+    }
+
+
+def omit_unavailable_feature_shots(text, unavailable):
+    def feature_shot(match):
+        source = re.search(r'\ssrc="([^"]+)"', match["image"])
+        if source is None:
+            return match[0]
+        link, image = (urlsplit(unescape(value)) for value in (match["href"], source[1]))
+        if not (link.netloc or link.scheme or image.netloc or image.scheme) and link.path == image.path and image.path in unavailable:
+            return ""
+        return match[0]
+
+    return FEATURE_SHOT.sub(feature_shot, text)
+
+
 def render(output, source=None, baseurl=""):
     config = json.loads((HERE / "site.json").read_text())
     output = output.resolve()
@@ -109,6 +144,13 @@ def render(output, source=None, baseurl=""):
     common_assets = ["chrome.css", "chrome.js"] + (["marquee.css", "marquee.js"] if has_marquee else [])
     for name in common_assets:
         shutil.copyfile(HERE / "base" / name, assets / name)
+    unavailable = unavailable_gallery_paths(output, baseurl)
+    if unavailable:
+        for homepage in (output / "index.html", *sorted(output.glob("*/index.html"))):
+            text = homepage.read_text()
+            filtered = omit_unavailable_feature_shots(text, unavailable)
+            if filtered != text:
+                homepage.write_text(filtered)
     for name in config["pages"]:
         page = output / name
         text = render_metadata(page.read_text())

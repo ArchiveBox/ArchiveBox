@@ -242,3 +242,62 @@ def test_pages_overlay_cannot_restore_omitted_view_from_tracked_old_png(tmp_path
     assert "snapshot-view-ytdlp-desktop.png" in manifest["manual_captures"]
     assert (screenshots / "snapshot-view-ytdlp-desktop.png").is_file()
     assert RESTORE["validate"](screenshots) == manifest
+
+
+def test_qualified_gallery_omission_only_removes_its_feature_figure_in_every_locale(tmp_path):
+    import re
+    import shutil
+
+    output = tmp_path / "site"
+    shutil.copytree(ROOT / "publicsite", output)
+    gallery = output / "screenshots"
+    available = "future-confirmed-view-desktop.png"
+    missing = "future-unavailable-view-desktop.png"
+    # Exercise actual localized homepage markup, but use provider-neutral names.
+    replaced = "snapshot-view-tlsnotary-desktop.png"
+    locales = [output / "index.html", *(output / name / "index.html" for name in ("ar", "es", "fr", "ru", "zh"))]
+    for homepage in locales:
+        text = homepage.read_text()
+        original = next(line for line in text.splitlines() if 'class="card-shot"' in line and replaced in line)
+        feature = original.replace(replaced, missing)
+        healthy = feature.replace(missing, available)
+        homepage.write_text(text.replace(original, feature + "\n" + healthy))
+    owned = {available}
+    for homepage in locales:
+        text = re.sub(r"<!-- ARCHIVEBOX:MARQUEE -->.*?<!-- /ARCHIVEBOX:MARQUEE -->", "", homepage.read_text(), flags=re.DOTALL)
+        owned.update(name for name in re.findall(r'src="/screenshots/([a-z0-9-]+\.png)"', text) if name != missing)
+    for name in owned:
+        (gallery / name).write_bytes(b"fixture screenshot")
+    (gallery / "index.html").write_text(
+        '<!doctype html><head><title>Gallery</title><meta name="description" content="Screenshots">'
+        '<meta property="og:image" content="https://example.invalid/gallery.png">'
+        '<link rel="canonical" href="https://archivebox.io/screenshots/"></head><body>'
+        "<!-- ARCHIVEBOX:HEADER --><main>Qualified gallery</main><!-- ARCHIVEBOX:FOOTER-START -->"
+        "<!-- ARCHIVEBOX:FOOTER-END --></body></html>",
+    )
+    manifest = {
+        "revision": "a" * 40,
+        "capture_count": len(owned),
+        "files": {name: hashlib.sha256(b"fixture screenshot").hexdigest() for name in owned},
+        "optional_recipe_captures": {
+            "recipe-0123456789abcdef": {"status": "unavailable", "views": ["future-unavailable-view"]},
+        },
+    }
+    (gallery / "build.json").write_text(json.dumps(manifest))
+    assert RESTORE["validate"](gallery, {"head_sha": "a" * 40}) == manifest
+    render = [sys.executable, str(ROOT / ".github/pages/site.py"), "render", str(output)]
+    subprocess.run(render, check=True, capture_output=True, text=True)
+    for homepage in locales:
+        html = homepage.read_text()
+        assert missing not in html
+        assert html.count(available) == 2
+        assert "ARCHIVEBOX:MARQUEE" in html
+    assert json.loads((gallery / "build.json").read_text()) == manifest
+
+    # The same omitted image outside its complete feature figure is a broken
+    # dependency, not something the site renderer may silently strip.
+    english = locales[0]
+    english.write_text(english.read_text() + f'<img src="/screenshots/{missing}" alt="Unexpected reference">')
+    failure = subprocess.run(render, capture_output=True, text=True)
+    assert failure.returncode != 0
+    assert f"missing local resource /screenshots/{missing}" in failure.stderr
