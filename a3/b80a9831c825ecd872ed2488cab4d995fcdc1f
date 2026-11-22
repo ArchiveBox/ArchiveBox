@@ -1,0 +1,117 @@
+archivebox/core/domain_index.py
+  s_ea615ec0b76fae::t_72ecd72c461f17 1-38
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_ea615ec0b76fae::t_f7fb8d1280d470 590,592,599,601,603
+archivebox/core/domain_catalog.py
+  s_ea615ec0b76fae::t_1fa8d2f0f0de70 1-354
+archivebox/core/exports.py
+  s_ea615ec0b76fae::t_f7fb8d1280d470 27,78,98-154,157,172-173,183,187-188,197,205-206,215-216,236-237,239-240,285-291,301-310,340,384-387,407,480,486,495,612-617
+archivebox/api/v1_crawls.py
+  s_ea615ec0b76fae::t_f7fb8d1280d470 169-173,175-177
+archivebox/api/v1_core.py
+  s_ea615ec0b76fae::t_42988900d385c7 15,41
+archivebox/core/admin_folders.py
+  s_ea615ec0b76fae::t_ac8a784faa596d 3,423,425-429,432,435
+archivebox/core/admin_snapshots.py
+  s_ea615ec0b76fae::t_15621a8a12ee81 234-240,647-648,650-651,667,877-884
+archivebox/core/library_gallery.js
+  s_ea615ec0b76fae::t_967a8724a3dcd1 11-18,22-23,47-55,60
+archivebox/core/models.py
+  s_ea615ec0b76fae::t_5def11263ec571 251,254-261,588,625-628,697,703,717,910-917,935-937
+archivebox/core/routes_util.py
+  s_ea615ec0b76fae::t_f8cd45076ed635 22-23,26-27,30-46,48-59
+archivebox/core/sidebar.py
+  s_ea615ec0b76fae::t_c6a5a3ab013b56 1-263
+archivebox/core/sqlite_backend/base.py
+  s_ea615ec0b76fae::t_7bef6c98fbd04c 192-193,195
+archivebox/core/urls.py
+  s_ea615ec0b76fae::t_341f51d127cdb7 15,42-43
+archivebox/core/views.py
+  s_ea615ec0b76fae::t_8ec6fc015b0c94 1662,1664,1667-1669,1742-1754
+archivebox/domains/exports.py
+  s_ea615ec0b76fae::t_e0510c30a8c6d1 175
+archivebox/domains/management/commands/site_export.py
+  s_ea615ec0b76fae::t_34c9afbce9b99e 69
+archivebox/domains/scope.py
+  s_ea615ec0b76fae::t_5102e785574456 6-7,53-92,94
+archivebox/domains/templates/domains/index.html
+  s_ea615ec0b76fae::t_6d53fad15c1130 92-93,113,116,118,121,128-142,144-166,168-175,178-179
+archivebox/domains/urls.py
+  s_ea615ec0b76fae::t_79d6ce8e91eab5 5
+archivebox/domains/views.py
+  s_ea615ec0b76fae::t_e36d8d49e08f28 9-10,20-21,24,46-68,70-81,83-95,97-101,114,192-193,220-222,231-234,237,243
+archivebox/search/query.py
+  s_ea615ec0b76fae::t_edad7f7a6450e0 19-30,38-44
+archivebox/templates/admin/core/tag/change_form.html
+  s_ea615ec0b76fae::t_58d048fd86e424 237
+archivebox/templates/admin/core/tag/native_change_list.html
+  s_ea615ec0b76fae::t_16bb6db18b739c 11
+archivebox/templates/core/folder_sidebar.html
+  s_ea615ec0b76fae::t_e3c35dc3e4ed05 1,12,15-16,18-19,32-36
+archivebox/templates/core/public_index.html
+  s_ea615ec0b76fae::t_8ff55f125b959d 674-675,678,680-682
+archivebox/templates/core/sidebar_entries.html
+  s_ea615ec0b76fae::t_4d6106163853ef 1-9
+archivebox/templates/core/sidebar_entry_menu.html
+  s_ea615ec0b76fae::t_2e5886e6e932c9 1-8
+archivebox/templates/core/snapshot_export_links.html
+  s_ea615ec0b76fae::t_7b80a001e8085e 1,6
+archivebox/templates/core/tag_merge_dialog.html
+  s_ea615ec0b76fae::t_8a8da1ab10e962 1-13
+archivebox/templates/static/admin-tag-merge.js
+  s_ea615ec0b76fae::t_f158dac608eb13 3-43
+archivebox/templates/static/library/folders.css
+  s_ea615ec0b76fae::t_0de9c10c37b284 280-301
+archivebox/templates/static/library/folders.js
+  s_ea615ec0b76fae::t_24695aa925688c 407,418-465,530,543,546,549,563,580-583,585-600,603,610,614-623,627,634,644-649,652,655-657,659,664,680-779,786-787,791,796-842,852,854-856,876-877,1172,1220-1225
+archivebox/tests/test_api_v1_core_snapshots_rss.py
+  s_ea615ec0b76fae::t_045af6304a7f70 66-67,73,76,85,106-113,118
+archivebox/tests/test_api_v1_core_snapshots_tag_exports.py
+  s_ea615ec0b76fae::t_5963a2b85e1eb9 1,3,5-26,28-60
+archivebox/tests/test_archive_storage_isolation.py
+  s_ea615ec0b76fae::t_96244b3d14c0c8 338-340
+archivebox/tests/test_bulk_delete_confirmation.py
+  s_ea615ec0b76fae::t_e3621d01e8e071 93,95-100
+archivebox/tests/test_domain_catalog.py
+  s_ea615ec0b76fae::t_b976a7679b9737 1-135
+archivebox/tests/test_domain_review.py
+  s_ea615ec0b76fae::t_60ea7eb8d43810 41,44-66,69,74-81
+archivebox/tests/test_library.py
+  s_ea615ec0b76fae::t_41bcbd9e931956 69-71,78-100,177,237,240,263,283-284,318,350,360,370,553,600-606,708-720,722-723,728,735-736,760,768,771,775
+archivebox/tests/test_public_folders.py
+  s_ea615ec0b76fae::t_7e5deb570c4cac 97-120
+archivebox/tests/test_sidebar_drag_dwell.py
+  s_ea615ec0b76fae::t_e5693b1af87165 34-35
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_0a424ed30a59eb 1-249
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_8af085fe9aed54 1-3,6-7,9,14-39,41-44,46-49,51-68,71-73,75-76,78-81,83-96
+archivebox/tests/test_site_exports.py
+  s_ea615ec0b76fae::t_4d4af119804aa2 24-26,63-68,74-75,389-393,553-581
+archivebox/tests/test_site_scope.py
+  s_ea615ec0b76fae::t_172293aa34c264 75
+archivebox/tests/test_snapshot_domains.py
+  s_ea615ec0b76fae::t_5e93cc36b570f2 202-214,216,238,261,265,284-285,289,291,298
+archivebox/tests/test_snapshot_exports.py
+  s_ea615ec0b76fae::t_2c5581bbfe0005 296,301,313-314,316,318,320-325,327-334,336,358,405-415,428,433,447-454,492
+archivebox/tests/test_ui_admin_user.py
+  s_ea615ec0b76fae::t_a7dbd276d24a72 22-26,31,34,43-47,52,55
+archivebox/tests/test_ui_public_snapshot.py
+  s_ea615ec0b76fae::t_f4ccac3de9b5a8 501,517,667,670-671
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3b80a9831c825ecd872ed2488cab4d995fcdc1f",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
