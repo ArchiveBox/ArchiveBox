@@ -1681,10 +1681,12 @@ class PublicIndexView(ListView):
         # plus the few manifest entries their links need (list_results_util).
         list_results = load_snapshot_list_results(snapshots)
         list_icon_plugins = set(get_snapshot_role_names("list_icon"))
+        icon_metadata = {}
         for snapshot in snapshots:
             summary = list_results[snapshot.id]
             status_counts = summary.status_counts
             snapshot._icons_compact = True
+            snapshot._icons_plugin_metadata = icon_metadata
             snapshot._icons_output_sizes = summary.output_sizes
             snapshot._icons_archive_results = summary.first_succeeded_by_plugin()
             snapshot._icons_progress_stats = {

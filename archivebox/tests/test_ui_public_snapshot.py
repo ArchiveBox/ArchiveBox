@@ -371,6 +371,32 @@ class TestPublicIndex:
     """Tests for public index visibility and redirects."""
 
     @override_settings(PUBLIC_INDEX=True)
+    def test_public_rows_share_plugin_icon_metadata(self, client, crawl):
+        import cProfile
+        import pstats
+
+        from archivebox.core.models import Snapshot
+        from archivebox.tests.test_snapshot_output_stacks import save_output
+
+        snapshots = [Snapshot.objects.create(url=f"https://icon-metadata.example/{index}", crawl=crawl) for index in range(2)]
+        for snapshot in snapshots:
+            for plugin in ("readability", "screenshot", "dns"):
+                save_output(snapshot, plugin)
+        profile = cProfile.Profile()
+        with profile:
+            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+        assert response.status_code == 200
+        for snapshot in snapshots:
+            for plugin in ("readability", "screenshot", "dns"):
+                assert f"/{snapshot.archive_path_from_db}#{plugin}/content.html".encode() in response.content
+        lookups = sum(
+            values[1]
+            for (source, _line, function), values in pstats.Stats(profile).stats.items()
+            if source.endswith("plugins/output_groups.py") and function == "plugin_icon_is_hidden"
+        )
+        assert lookups == 3, "A page should resolve each plugin's icon metadata only once"
+
+    @override_settings(PUBLIC_INDEX=True)
     @pytest.mark.parametrize("smart", [False, True])
     def test_public_folder_pages_reuse_indexed_visibility(self, client, admin_user, settings, smart):
         from django.db import connection

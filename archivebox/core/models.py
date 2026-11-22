@@ -3091,7 +3091,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 percent = int((completed / total * 100) if total > 0 else 0)
                 successful_icons = format_html(
                     '<div class="snapshot-successful-plugin-icons files-icons">{}</div>',
-                    mark_safe(self._compact_icon_piles(ordered_plugins, archive_results, linked=False)),
+                    mark_safe(
+                        self._compact_icon_piles(
+                            ordered_plugins,
+                            archive_results,
+                            linked=False,
+                            plugin_metadata=self.__dict__.get("_icons_plugin_metadata"),
+                        ),
+                    ),
                 )
                 return format_html(
                     '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
@@ -3129,6 +3136,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                             archive_path=path or self.archive_path_from_db,
                             prefix=prefix,
                             quote_paths=quote_paths,
+                            plugin_metadata=self.__dict__.get("_icons_plugin_metadata"),
                         ),
                     ),
                 )
@@ -3257,6 +3265,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         archive_path: str = "",
         prefix: str = "/",
         quote_paths: bool = False,
+        plugin_metadata: dict[str, tuple[str, str, str] | None] | None = None,
     ) -> str:
         """Render list-row file icon piles (public index) as plain strings.
 
@@ -3274,24 +3283,30 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.plugins.output_groups import OUTPUT_GROUPS, display_plugin_name, output_group_for_plugin, plugin_icon_is_hidden
 
         build_path = build_snapshot_index_path if quote_paths else build_snapshot_detail_path
-        icons_by_group: dict[str, list[tuple[str, str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
+        # Public rows share these catalog-derived values only within this render.
+        plugin_metadata = plugin_metadata if plugin_metadata is not None else {}
+        icons_by_group: dict[str, list[tuple[str, str, str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         for plugin in ordered_plugins:
-            if plugin_icon_is_hidden(plugin):
+            if plugin not in plugin_metadata:
+                plugin_metadata[plugin] = (
+                    None
+                    if plugin_icon_is_hidden(plugin) or not str(get_plugin_icon(plugin)).strip()
+                    else (str(get_plugin_list_icon(plugin)), output_group_for_plugin(plugin), escape(display_plugin_name(plugin)))
+                )
+            metadata = plugin_metadata[plugin]
+            if metadata is None:
                 continue
+            icon, group, display_name = metadata
             result = archive_results.get(plugin)
             href = ""
             if linked and not (result is True or (result and result.status == "succeeded")):
                 continue
-            if not str(get_plugin_icon(plugin)).strip():
-                continue
-            # The page draws each icon's SVG once (see get_plugin_list_icon).
-            icon = str(get_plugin_list_icon(plugin))
             if linked:
                 embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
                 if not embed_path or str(embed_path).strip() in (".", "/", "./"):
                     continue
                 href = build_path(archive_path, output_path=get_snapshot_output_anchor(plugin, embed_path), prefix=prefix)
-            icons_by_group[output_group_for_plugin(plugin)].append((plugin, icon, escape(href)))
+            icons_by_group[group].append((plugin, icon, escape(href), display_name))
 
         tag = "a" if linked else "span"
         piles = []
@@ -3312,14 +3327,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if rows > 1:
                 pile_vars.append(f"--files-icon-rows:{rows}")
             pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
-            top_plugin, top_icon, top_href = icons[0]
+            top_plugin, top_icon, top_href, _top_name = icons[0]
             href_attr = f' href="{top_href}"' if linked else ""
             parts = [
                 f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>',
                 '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>',
                 f'<{tag}{href_attr} class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" aria-label="{label}" data-tooltip="{label}">{top_icon}</{tag}>',
             ]
-            for index, (plugin, icon, href) in enumerate(icons):
+            for index, (plugin, icon, href, display_name) in enumerate(icons):
                 row = index // 5
                 row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
                 member_vars = [f"--files-icon-index:{index}"] if index else []
@@ -3328,7 +3343,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 member_vars.append(f"--files-icon-member-left:{3 + row_offset + (index % 5) * 22 - column * 22}px")
                 href_attr = f' href="{href}"' if linked else ""
                 parts.append(
-                    f'<{tag}{href_attr} class="files-icon-plugin--{escape(plugin)}" aria-label="{escape(display_plugin_name(plugin))}" '
+                    f'<{tag}{href_attr} class="files-icon-plugin--{escape(plugin)}" aria-label="{display_name}" '
                     f'data-tooltip="{escape(plugin)}" style="{";".join(member_vars)}">{icon}</{tag}>',
                 )
             parts.append("</span>")
