@@ -16,7 +16,18 @@ from archivebox.search.config import get_search_mode, get_search_mode_backend, g
 MAX_SEARCH_RANK_IDS = 500
 
 
-def apply_snapshot_filters(queryset, *, domain=None, folder_id=None, status=None, archive_state=None, size=None, archiveresult_status=None):
+def apply_snapshot_filters(
+    queryset,
+    *,
+    domain=None,
+    domain_search=None,
+    site_scopes=(),
+    folder_id=None,
+    status=None,
+    archive_state=None,
+    size=None,
+    archiveresult_status=None,
+):
     """Apply collection predicates shared by admin filters, exports, API and CLI."""
     from django.db.models import Count, Exists, F, OuterRef
     from archivebox.core.models import ArchiveResult, Folder
@@ -24,6 +35,13 @@ def apply_snapshot_filters(queryset, *, domain=None, folder_id=None, status=None
 
     if domain:
         queryset = queryset.filter_by_domain(domain)
+    if site_scopes or domain_search is not None:
+        from archivebox.domains.scope import filter_domain_search, site_snapshot_q
+
+        if site_scopes:
+            queryset = queryset.filter(site_snapshot_q(site_scopes))
+        if domain_search is not None:
+            queryset = filter_domain_search(queryset, domain_search)
     if folder_id == "unfiled":
         queryset = queryset.filter(folder__isnull=True)
     elif folder_id:

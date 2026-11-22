@@ -335,9 +335,9 @@ def test_collection_wide_routes_never_read_archive_storage(client, admin_user, a
         ("/api/v1/core/snapshots?search=Isolation&search_mode=meta", [public_snapshot.url]),
         ("/api/v1/core/archiveresults", ["parse_txt_urls", "hashes"]),
         ("/api/v1/core/tags", ["isolation"]),
-        ("/api/v1/core/snapshots.rss", [public_snapshot.url]),
-        (f"/api/v1/core/tag/{tag.pk}/snapshots.jsonl", [public_snapshot.url]),
-        (f"/api/v1/core/tag/{tag.pk}/urls.txt", [public_snapshot.url]),
+        ("/api/v1/core/snapshots/export/rss", [public_snapshot.url]),
+        (f"/api/v1/core/snapshots/export/jsonl?tag={tag.pk}", [public_snapshot.url]),
+        (f"/api/v1/core/snapshots/export/txt?tag={tag.pk}", [public_snapshot.url]),
         ("/api/v1/crawls/crawls", [str(public_crawl.pk).replace("-", "")]),
         ("/api/v1/personas/personas", ["isolation"]),
     ]

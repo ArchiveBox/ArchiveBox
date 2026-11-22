@@ -21,8 +21,9 @@ def test_main_domain_export_options_validate_server_directory(admin_client, save
     # Each format is offered in both the bulk and per-domain export dropdowns.
     assert page.content.count(f'<option value="{format}">'.encode()) == 2
     response = admin_client.post(
-        "/admin/domains/actions/",
-        {"action": "export", "domain": "*.ycombinator.com", "export_format": format, "directory": "relative/path"},
+        f"/admin/core/snapshot/export.{format}",
+        {"directory": "relative/path"},
+        query_params={"domain": "*.ycombinator.com"},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 400
@@ -59,13 +60,19 @@ def test_site_export_ui_requires_absolute_server_path(admin_client, saved_site):
     crawl.tags_str = "site-clone"
     crawl.save(update_fields=["tags_str"])
     detail = f"/admin/domains/{crawl.pk}/"
-    response = admin_client.post(detail + "export/", {"format": "html", "directory": "relative/path"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.post(
+        "/admin/core/snapshot/export.html",
+        {"directory": "relative/path"},
+        query_params={"crawl_id": str(crawl.pk)},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
     assert response.status_code == 400
     assert b"absolute server directory" in response.content
     from archivebox.machine.models import Process
 
     assert not Process.objects.filter(worker_type="site-export").exists()
-    page = admin_client.get(detail + "export/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert admin_client.get(detail + "export/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+    page = admin_client.get("/admin/core/snapshot/export.html_zip", {"domain": "example.com"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert page.status_code == 200
     assert page["Content-Type"] == "application/json"
     assert page.json() == {"format": "html_zip", "query": "domain=example.com", "count": 0, "jobs": []}
@@ -379,8 +386,11 @@ def test_domain_metadata_export_uses_shared_native_selection(admin_client, saved
     from xml.etree import ElementTree
     from archivebox.machine.models import Process
 
-    payload = {"action": "export", "domain": "news.ycombinator.com/newest", "export_format": format}
-    response = admin_client.post("/admin/domains/actions/", payload, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get(
+        f"/admin/core/snapshot/export.{format}",
+        {"site_scope": "news.ycombinator.com/newest"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
     assert response.status_code == 200, response.getvalue()
     body = response.getvalue()
     if format == "rss":
@@ -540,3 +550,32 @@ def test_removed_replay_export_is_rejected_across_entry_points(admin_client, sav
         call_command("site_export", scope="news.ycombinator.com", format="replay", destination=str(tmp_path / "removed"))
     assert not (tmp_path / "removed").exists()
     assert not Process.objects.filter(worker_type="site-export").exists()
+
+
+def test_snapshot_export_formats_share_query_and_sort(admin_client, saved_site, tmp_path):
+    import csv
+    import io
+    from urllib.parse import parse_qs, urlsplit
+    from xml.etree import ElementTree
+    from zipfile import ZipFile
+
+    from archivebox.core.routes_util import build_snapshot_export_urls
+
+    filters = {"q": "news.ycombinator.com", "search_mode": "url", "domain": "news.ycombinator.com", "sort": "-url,-id"}
+    links = build_snapshot_export_urls(filters)
+    urls = [links[format] for format in ("csv", "rss", "html_zip")]
+    assert all(parse_qs(urlsplit(url).query) == {key: [value] for key, value in filters.items()} for url in urls)
+    expected = sorted((snapshot.url for snapshot, _, _ in saved_site), reverse=True)
+    csv_response = admin_client.get(links["csv"], HTTP_HOST=ADMIN_TEST_HOST)
+    assert csv_response.status_code == 200
+    assert [row["url"] for row in csv.DictReader(io.StringIO(csv_response.getvalue().decode()))] == expected
+    rss_response = admin_client.get(links["rss"], HTTP_HOST=ADMIN_TEST_HOST)
+    assert rss_response.status_code == 200
+    rss_items = ElementTree.fromstring(rss_response.getvalue()).findall("./channel/item")
+    assert [item.findtext("description").splitlines()[0].removeprefix("Original URL: ") for item in rss_items] == expected
+    assert admin_client.get(links["html_zip"], HTTP_HOST=ADMIN_TEST_HOST).json()["count"] == len(expected)
+    destination = tmp_path / "snapshot-export"
+    call_command("site_export", query=urlsplit(links["html_zip"]).query, format="html_zip", destination=str(destination))
+    with ZipFile(destination / "site.zip") as archive:
+        assert [row["url"] for row in json.loads(archive.read("pages.json"))] == expected
+        assert [json.loads(line)["url"] for line in archive.read("index.jsonl").splitlines()] == expected

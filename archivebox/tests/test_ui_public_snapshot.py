@@ -498,7 +498,7 @@ class TestPublicIndex:
                 for index in range(101)
             ],
         )
-        url = "/public/?page=3&page=2&q=&search_mode=metadata&tag=first&tag=second"
+        url = "/public/?page=3&page=2&q=&search_mode=metadata&probe=first&probe=second"
         # Follow rendered links repeatedly, including an already duplicated URL.
         # Only page is replaced; repeated unrelated values and blanks survive.
         for expected_page, direction in [(2, "next"), (3, "previous"), (2, "previous"), (1, "next")]:
@@ -514,7 +514,7 @@ class TestPublicIndex:
                 assert len(params["page"]) == 1, href
                 assert params["q"] == [""]
                 assert params["search_mode"] == ["metadata"]
-                assert params["tag"] == ["first", "second"]
+                assert params["probe"] == ["first", "second"]
             url = "/public/" + links[direction]
         assert parse_qs(urlsplit(url).query)["page"] == ["2"]
 
@@ -664,11 +664,11 @@ class TestPublicIndex:
         assert response.status_code == 200
         assert [snapshot.title for snapshot in response.context["object_list"]] == [f"public {index}" for index in range(1150, 1200)]
         assert response.context["page_obj"].has_next()
-        # Count page reads separately from the sidebar's correlated visibility probe.
+        # Count page reads separately from the sidebar's visibility probes.
         snapshot_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_snapshot"\.', query["sql"])]
         folder_reads = [query["sql"] for query in queries if re.match(r'SELECT "core_folder"\.', query["sql"])]
-        # Physical folders use a correlated visibility probe. Smart folders
-        # share one bounded witness query and one batch visibility query.
+        # Physical folders use an indexed existence probe. Smart folders
+        # share one batch of bounded visibility probes.
         assert len(folder_reads) == 2 and all("EXISTS" in query for query in folder_reads)
         witnesses = [
             query

@@ -120,8 +120,6 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     if not sources:
         raise ValueError("No snapshots match these filters.")
     archive_paths = {snapshot_id: relative_root for snapshot_id, _, relative_root in sources}
-    # Prefer the site root as the entry point; snapshots arrive newest-first.
-    pages.sort(key=lambda page: (urlsplit(page[1]).path not in {"", "/"}, len(urlsplit(page[1]).path)))
     links = {key: f"pages/{snapshot_id}/{path}" for snapshot_id, _, _, path, key in pages}
     (destination / "archivebox-links.js").write_text(
         "globalThis.__archiveboxExport={links:"
@@ -174,7 +172,7 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     # The collection index and details are the same renderers used by the CLI
     # and live snapshot UI; only their destination and relative URLs differ.
     queryset = Snapshot.objects.filter(pk__in=archive_paths).prefetch_related("tags", "archiveresult_set")
-    (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews))
+    (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews, snapshot_order=archive_paths))
     (destination / "pages.json").write_text(json.dumps([{"url": page_url, "path": links[key]} for _, page_url, _, _, key in pages]))
     assets = None
     for _, _, relative_root in sources:

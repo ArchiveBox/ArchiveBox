@@ -8,10 +8,19 @@ async function submit(page, selector) {
 async function prepare(page, adminBaseUrl, crawlId, librarySource) {
   const {homepage, title} = librarySource;
   if (!crawlId) throw new Error('A real captured crawl is required for the folder gallery.');
+  async function loadFolderChildren(id) {
+    const row = `.folder-row[data-folder-id="${id}"]`;
+    await page.waitForSelector(row, {visible: true});
+    const toggle = await page.$(`${row} .folder-toggle`);
+    if (!toggle) return;
+    if (await toggle.evaluate(button => button.getAttribute('aria-expanded') === 'false')) await toggle.click();
+    await page.waitForFunction(selector => document.querySelector(selector)?.dataset.childrenLoaded === 'true', {}, row);
+  }
   async function folder(name, parent = '') {
     await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
     if (await page.$('.folder-sidebar-reopen:not([hidden])')) await page.click('.folder-sidebar-reopen');
-    const existing = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
+    if (parent) await loadFolderChildren(parent);
+    const existing = await page.$$eval('.folder-row', (rows, name, parent) => rows.find(row => row.dataset.folderName === name && row.dataset.parentId === parent)?.dataset.folderId, name, parent);
     if (existing) return existing;
     if (parent) {
       const row = `.folder-row[data-folder-id="${parent}"]`;
@@ -35,14 +44,20 @@ async function prepare(page, adminBaseUrl, crawlId, librarySource) {
     if (!parent) {
       if (await page.$eval('#id_folder', select => select.value) !== String(created.id) || await page.$eval('#id_url', input => input.value) !== homepage) throw new Error('Creating a folder lost the Add form state.');
     }
-    await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, {waitUntil: 'domcontentloaded'});
-    const id = await page.$$eval('.folder-row', (rows, name) => rows.find(row => row.querySelector('.folder-link span').textContent === name)?.dataset.folderId, name);
-    if (!id) throw new Error(`Folder was not saved: ${name}`);
-    return id;
+    await page.goto(`${adminBaseUrl}/admin/core/snapshot/?folder=${encodeURIComponent(created.id)}`, {waitUntil: 'domcontentloaded'});
+    const persisted = await page.$eval(
+      `.folder-row[data-folder-id="${created.id}"]`,
+      (row, folderName, parentId) => row.dataset.folderName === folderName && row.dataset.parentId === parentId
+        && row.querySelector('.folder-link[aria-current="page"]') !== null,
+      name, parent,
+    );
+    if (!persisted) throw new Error(`Folder was not saved: ${name}`);
+    return created.id;
   }
   const parent = await folder(title);
   const child = await folder('Recent stories', parent);
   await page.goto(`${adminBaseUrl}/admin/core/snapshot/?crawl_id=${encodeURIComponent(crawlId)}`, {waitUntil: 'domcontentloaded'});
+  await loadFolderChildren(parent);
   const rows = await page.$$('#result_list tbody tr');
   if (!rows.length) throw new Error('No real captures in the gallery crawl.');
   await page.click('#action-toggle');

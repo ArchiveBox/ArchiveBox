@@ -66,7 +66,7 @@ class Command(BaseCommand):
 
         code = 1
         try:
-            queryset = get_export_queryset(query, user=user, public_only=options["public_only"]).filter(created_at__lte=before)
+            queryset = get_export_queryset(query, user=user, public_only=options["public_only"], selection_before=before)
             export_snapshots_to_directory(
                 queryset,
                 destination=destination,

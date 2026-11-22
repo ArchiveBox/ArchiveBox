@@ -231,6 +231,13 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
 
 
 class SnapshotChangeList(SearchResultsChangeList):
+    def get_filters_params(self, params=None):
+        lookup_params = super().get_filters_params(params)
+        lookup_params.pop("sidebar", None)
+        lookup_params.pop("site_scope", None)
+        lookup_params.pop("domain_search", None)
+        return lookup_params
+
     def __init__(self, request, *args, **kwargs):
         super().__init__(request, *args, **kwargs)
         resolver_name = request.resolver_match.url_name
@@ -637,7 +644,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context = extra_context or {}
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
+        from archivebox.core.sidebar import sidebar_context
+
         extra_context["folder_tree"] = Folder.tree()
+        if not embedded_changelist:
+            extra_context.update(sidebar_context(request, folder_tree=extra_context["folder_tree"]))
         request._archivebox_folder_tree = extra_context["folder_tree"]
         # Reuse the loaded tree's paths/order without evaluating another folder
         # queryset. Match SnapshotActionForm's destination eligibility exactly.
@@ -645,10 +656,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             folder for folder in extra_context["folder_tree"] if folder.rules is None or folder.rules == CHILDREN_RULES
         )
         extra_context["folder_choices"] = Folder.path_choices(extra_context["folder_tree"])
-        for folder in extra_context["folder_tree"]:
-            filters = request.GET.copy()
-            filters["folder"] = str(folder.pk)
-            folder.export_urls = build_snapshot_export_urls(filters)
         extra_context["selected_folder"] = request.GET.get("folder", "")
         selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
         folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
@@ -657,7 +664,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             breadcrumbs.append(selected)
             selected = folders_by_id.get(selected.parent_id)
         extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
-        extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET)
+        extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET, request=request)
         try:
             try:
                 return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
@@ -696,7 +703,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("feed/", self.export_view, name="core_snapshot_feed"),
             path("export.<str:format>", self.export_view, name="core_snapshot_export"),
             path("export-jobs/<str:process_id>/", self.export_job_view, name="core_snapshot_export_job"),
             path(
@@ -868,6 +874,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             )
 
         qs = super().get_queryset(request)
+        try:
+            qs = apply_snapshot_filters(
+                qs,
+                site_scopes=request.GET.getlist("site_scope"),
+                domain_search=request.GET.get("domain_search"),
+            )
+        except ValueError:
+            qs = qs.none()
         if is_change_view:
             qs = qs.select_related("crawl__created_by").defer("notes")
         else:

@@ -166,10 +166,15 @@ def get_crawl(request: HttpRequest, crawl_id: str, as_rss: bool = False, with_sn
     crawl = get_crawl_by_ref(crawl_id)
 
     if crawl and as_rss:
-        query = request.GET.copy()
-        query.pop("as_rss", None)
+        from archivebox.core.exports import normalize_export_query
+
+        query = normalize_export_query(request.GET)
+        for key in ("as_rss", "with_snapshots", "with_archiveresults"):
+            query.pop(key, None)
         query["crawl_id"] = str(crawl.id)
-        return redirect(f"/api/v1/core/snapshots.rss?{query.urlencode()}")
+        query["sort"] = "-bookmarked_at,-created_at,-id"
+        query["max_results"] = request.GET.get("limit") or query.get("max_results") or "50"
+        return redirect(f"/api/v1/core/snapshots/export/rss?{query.urlencode()}")
 
     return crawl
 

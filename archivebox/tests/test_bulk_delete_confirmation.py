@@ -90,9 +90,14 @@ def test_large_delete_confirmation_is_bounded_and_immutable(admin_client, crawl)
     print(f"Preview 14273 rows: {elapsed:.3f}s, {len(response.content)} bytes, {len(captured_queries)} SQL queries")
 
 
-def test_domains_fallback_posts_frozen_selection_to_native_action(admin_client, crawl):
+def test_domains_query_freezes_selection_in_native_action(admin_client, crawl):
     selected = Snapshot.objects.create(crawl=crawl, url="https://fallback-fixture.test/selected")
-    response = admin_client.post("/admin/domains/actions/", {"delete_domain": "fallback-fixture.test"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.post(
+        "/admin/core/snapshot/",
+        {"action": "delete_selected", "index": "0", "select_across": "1", "_selected_action": str(selected.pk)},
+        query_params={"domain_search": "fallback-fixture"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
     assert response.status_code == 200
     action = response.context["confirmation_url"]
     assert action.startswith("/admin/core/snapshot/?")

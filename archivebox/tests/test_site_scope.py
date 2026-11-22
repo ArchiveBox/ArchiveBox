@@ -72,7 +72,7 @@ def test_derived_site_reads_other_crawls_without_creating_state(admin_client, sa
     derived = admin_client.get("/admin/domains/site/", {"scope": "news.ycombinator.com"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert derived.status_code == 302
     assert derived["Location"] == response["Location"]
-    exports = admin_client.get("/admin/domains/site/export/", {"scope": "news.ycombinator.com"}, HTTP_HOST=ADMIN_TEST_HOST)
+    exports = admin_client.get("/admin/core/snapshot/export.html_zip", {"domain": "news.ycombinator.com"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert exports.status_code == 200
     assert exports["Content-Type"] == "application/json"
     assert exports.json()["count"] == len(saved_site)

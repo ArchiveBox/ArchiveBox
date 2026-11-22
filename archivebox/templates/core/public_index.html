@@ -671,12 +671,15 @@
 {% endblock %}
 
 {% block body %}
-    <div class="snapshot-library public-library{% if not folder_tree %} sidebar-hidden{% endif %}">
-        {% if folder_tree %}{% include "core/folder_sidebar.html" %}{% endif %}
+    <div class="snapshot-library public-library">
+        {% include "core/folder_sidebar.html" %}
     <div id="content-main" class="public-snapshot-list">
         <div class="public-snapshot-toolbar">
-            {% if folder_tree %}{% include "core/folder_context.html" %}{% endif %}
+            {% include "core/folder_context.html" %}
             <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
+                <input type="hidden" name="sidebar" value="{{ sidebar_mode }}">
+                {% if request.GET.tag %}<input type="hidden" name="tag" value="{{ request.GET.tag }}">{% endif %}
+                {% if request.GET.domain %}<input type="hidden" name="domain" value="{{ request.GET.domain }}">{% endif %}
                 {% if selected_folder %}<input type="hidden" name="folder" value="{{ selected_folder }}">{% endif %}
                 <span class="public-search-input">
                     <span class="public-search-addon">

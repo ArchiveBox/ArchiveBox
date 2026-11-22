@@ -3,6 +3,8 @@
 import re
 from urllib.parse import urlsplit
 
+from django.db.models import Q
+
 from archivebox.core.models import Snapshot
 
 
@@ -48,19 +50,48 @@ def crawl_site_scope(crawl) -> str:
     return normalize_site_scope(scope)
 
 
+def site_snapshot_q(scopes):
+    query = Q(pk__in=[])
+    hosts = []
+    for value in scopes:
+        scope = normalize_site_scope(value)
+        if "," in scope:
+            hosts.extend(scope.split(","))
+            continue
+        wildcard = scope.startswith("*.")
+        parts = urlsplit("//" + (scope[2:] if wildcard else scope))
+        host = ("*." if wildcard else "") + parts.netloc
+        prefix = re.escape(parts.path.rstrip("/"))
+        if prefix:
+            # The host match is case-insensitive and the path match is case-sensitive.
+            query |= Snapshot.objects.domain_q(host) & Q(url__regex=rf"^[a-zA-Z]+://[^/?#]+{prefix}(?:/|[?#]|$)")
+        else:
+            hosts.append(host)
+    if hosts:
+        query |= Snapshot.objects.domain_q(",".join(hosts))
+    return query
+
+
+def filter_domain_search(queryset, term):
+    """Resolve a domain-name search against the current snapshot URLs."""
+    from django.db import connections
+    from django.db.models import CharField, Func
+    from archivebox.core.domain_index import group_host
+
+    term = term.strip().casefold()
+    if connections[queryset.db].vendor == "sqlite":
+        matches = queryset.alias(live_domain=Func("url", function="archivebox_domain_group", output_field=CharField()))
+        return matches.filter(live_domain__contains=term) if term else matches.exclude(live_domain="")
+    candidates = queryset.with_hostname()
+    if not term:
+        return candidates
+    hosts = candidates.order_by("_domain_host").values_list("_domain_host", flat=True).distinct().iterator(chunk_size=1000)
+    scopes = {scope for domain, scope in (group_host(host) for host in hosts) if term in domain}
+    return candidates.filter(site_snapshot_q(sorted(scopes)))
+
+
 def site_snapshots(scope: str):
-    scope = normalize_site_scope(scope)
-    if "," in scope and "/" not in scope:
-        return Snapshot.objects.filter_by_domain(scope)
-    wildcard = scope.startswith("*.")
-    parts = urlsplit("//" + (scope[2:] if wildcard else scope))
-    prefix = re.escape(parts.path.rstrip("/"))
-    snapshots = Snapshot.objects.filter_by_domain(("*." if wildcard else "") + parts.netloc)
-    # Keep path matching case-sensitive without scoped inline regex flags,
-    # which PostgreSQL's ARE syntax does not support.
-    if prefix:
-        snapshots = snapshots.filter(url__regex=rf"^[a-zA-Z]+://[^/?#]+{prefix}(?:/|\?|#|$)")
-    return snapshots
+    return Snapshot.objects.filter(site_snapshot_q([scope]))
 
 
 def site_snapshot_filters(scope: str):

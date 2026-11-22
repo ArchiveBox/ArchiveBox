@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from html import unescape
 from typing import Any
@@ -201,16 +200,6 @@ def delete_tag(tag: Tag) -> tuple[int, dict[str, int]]:
     return tag.delete()
 
 
-def export_tag_urls(tag: Tag) -> str:
-    urls = tag.snapshot_set.order_by("-downloaded_at", "-created_at", "-pk").values_list("url", flat=True)
-    return "\n".join(urls)
-
-
-def export_tag_snapshots_jsonl(tag: Tag) -> str:
-    snapshots = tag.snapshot_set.order_by("-downloaded_at", "-created_at", "-pk").prefetch_related("tags")
-    return "\n".join(json.dumps(snapshot.to_json()) for snapshot in snapshots)
-
-
 def _display_snapshot_title(snapshot: Snapshot) -> str:
     title = (snapshot.title or "").strip()
     url = (snapshot.url or "").strip()
@@ -292,15 +281,16 @@ def build_tag_card(tag: Tag, snapshot_previews: list[dict[str, Any]] | None = No
     count = tag.__dict__.get("num_snapshots")
     if count is None:
         count = tag.snapshot_set.count()
+    tag_query = f"?tag={tag.pk}"
     return {
         "id": tag.pk,
         "name": tag.name,
         "slug": tag.slug,
         "num_snapshots": count,
-        "filter_url": f"/admin/core/snapshot/?tags__id__exact={tag.pk}",
+        "filter_url": reverse("admin:core_snapshot_changelist") + tag_query,
         "edit_url": f"/admin/core/tag/{tag.pk}/change/",
-        "export_urls_url": f"/api/v1/core/tag/{tag.pk}/urls.txt",
-        "export_jsonl_url": f"/api/v1/core/tag/{tag.pk}/snapshots.jsonl",
+        "export_urls_url": reverse("api-1:snapshot_export", args=["txt"]) + tag_query,
+        "export_jsonl_url": reverse("api-1:snapshot_export", args=["jsonl"]) + tag_query,
         "rename_url": f"/api/v1/core/tag/{tag.pk}/rename",
         "delete_url": reverse("api-1:delete_tag", args=[tag.pk]),
         "snapshots": snapshot_previews or [],

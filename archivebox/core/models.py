@@ -7,7 +7,6 @@ import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import urlparse
@@ -249,10 +248,17 @@ class Folder(models.Model):
     @classmethod
     def tree(cls, *, public=False):
         from archivebox.core.smart_folders import RuleQuery
-        from archivebox.core.permissions import public_snapshots_queryset
+        from archivebox.core.permissions import PERMISSIONS_PUBLIC, public_snapshots_queryset
 
         if public:
-            visible = public_snapshots_queryset(Snapshot.objects.filter(folder_id=models.OuterRef("pk")))
+            # Equal bounds keep the existence probe on the existing
+            # (folder, permissions) index even when SQLite's statistics make
+            # equality choose a table scan for a heavily skewed collection.
+            visible = Snapshot.objects.filter(
+                folder_id=models.OuterRef("pk"),
+                permissions__gte=PERMISSIONS_PUBLIC,
+                permissions__lte=PERMISSIONS_PUBLIC,
+            )
             folders = list(cls.objects.annotate(has_public_snapshots=models.Exists(visible)))
         else:
             folders = list(cls.objects.all())
@@ -579,7 +585,7 @@ class SnapshotQuerySet(PagedQuerySet):
     @staticmethod
     def domain_q(pattern: str) -> Q:
         """Match complete HTTP(S) hosts; *.example.com includes the apex."""
-        query = Q(pk__in=[])
+        authorities = []
         for value in str(pattern or "").split(","):
             value = value.strip()
             if not value:
@@ -616,8 +622,10 @@ class SnapshotQuerySet(PagedQuerySet):
             elif wildcard:
                 host_pattern = rf"(?:[^./:@?#]+\.)*{host_pattern}"
             port_pattern = f":{port}" if port is not None else r"(?::\d+)?"
-            query |= Q(url__iregex=rf"^https?://(?:[^/?#]*@)?{host_pattern}\.?{port_pattern}(?:[/?#]|$)")
-        return query
+            authorities.append(rf"{host_pattern}\.?{port_pattern}")
+        if not authorities:
+            return Q(pk__in=[])
+        return Q(url__iregex=rf"^https?://(?:[^/?#]*@)?(?:{'|'.join(authorities)})(?:[/?#]|$)")
 
     def filter_by_domain(self, pattern: str) -> "SnapshotQuerySet":
         return self.filter(self.domain_q(pattern))
@@ -677,15 +685,6 @@ class SnapshotQuerySet(PagedQuerySet):
         )
         return queryset if allow_empty else queryset.exclude(_domain_host="")
 
-    @staticmethod
-    @lru_cache(maxsize=1)
-    def _domain_suffixes():
-        from tldextract import TLDExtract
-
-        # The bundled PSL handles co.uk and tenant domains such as github.io.
-        # No network request or writable suffix cache is needed by an admin view.
-        return TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
-
     def domain_summary(self) -> list[dict]:
         """Aggregate narrow metadata in bounded primary-key batches.
 
@@ -694,15 +693,14 @@ class SnapshotQuerySet(PagedQuerySet):
         Only domain-sized state is retained here, never Snapshot models or their
         output manifests, and each batch releases its read cursor before parsing.
         """
-        from ipaddress import ip_address
         from urllib.parse import urlsplit
+        from archivebox.core.domain_index import group_host
 
         # Keep filters on this query so pk > last seeks directly into its index.
         # A self-IN subquery made SQLite enumerate the whole ID index again for
         # every page. DISTINCT still deduplicates matching tag/folder joins.
         metadata = self.order_by("pk").values_list("pk", "url", "created_at", "output_size", "crawl__persona_id").distinct()
-        rows, hosts, personas, root_ranks = {}, {}, {}, {}
-        extract = self._domain_suffixes()
+        rows, personas, root_ranks = {}, {}, {}
         last = None
         while True:
             batch = list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000])
@@ -716,20 +714,7 @@ class SnapshotQuerySet(PagedQuerySet):
                     continue
                 if parsed.scheme not in {"http", "https"} or not host:
                     continue
-                if host not in hosts:
-                    try:
-                        normalized = host.rstrip(".").encode("idna").decode("ascii").lower()
-                    except UnicodeError:
-                        normalized = host.rstrip(".").lower()
-                    registered = extract(normalized).top_domain_under_public_suffix
-                    domain = registered or normalized
-                    try:
-                        ip_address(domain)
-                        scope = f"[{domain}]" if ":" in domain else domain
-                    except ValueError:
-                        scope = f"*.{domain}" if registered else domain
-                    hosts[host] = domain, scope
-                domain, scope = hosts[host]
+                domain, scope = group_host(host)
                 if domain not in rows:
                     rows[domain] = {
                         "domain": domain,
@@ -922,7 +907,14 @@ class SnapshotQuerySet(PagedQuerySet):
         row_strs = (s.to_csv(cols=cols, ljust=ljust, separator=separator) for s in self.iterator(chunk_size=500))
         return "\n".join((header_str, *row_strs))
 
-    def to_html(self, with_headers: bool = True, *, out_dir: Path | None = None, preview_paths: dict | None = None) -> str:
+    def to_html(
+        self,
+        with_headers: bool = True,
+        *,
+        out_dir: Path | None = None,
+        preview_paths: dict | None = None,
+        snapshot_order=None,
+    ) -> str:
         """Generate main index HTML from snapshots"""
         from datetime import datetime
 
@@ -940,6 +932,9 @@ class SnapshotQuerySet(PagedQuerySet):
         write_static_ui_assets(export_root)
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        if snapshot_order is not None:
+            positions = {snapshot_id: index for index, snapshot_id in enumerate(snapshot_order)}
+            snapshot_list.sort(key=lambda snapshot: positions[snapshot.pk])
         exported_ids = {str(item.pk) for item in snapshot_list}
         list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         manifest_records = []

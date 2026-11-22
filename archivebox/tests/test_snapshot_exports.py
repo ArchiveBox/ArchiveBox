@@ -293,12 +293,12 @@ def test_export_controls_preserve_request_and_csrf_context(admin_user, surface):
     assert b"absolute server directory" in response.content
 
 
-def test_private_feed_url_uses_revocable_existing_key_and_public_feed_stays_public(admin_client, admin_user):
+def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_user):
     import re
     from html import unescape
     from urllib.parse import parse_qs, urlsplit
     from django.test import Client
-    from archivebox.api.models import APIToken
+    from archivebox.api.auth import get_or_create_api_token
 
     crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
     snapshots = {
@@ -310,24 +310,30 @@ def test_private_feed_url_uses_revocable_existing_key_and_public_feed_stays_publ
     body = response.content.decode()
     urls = {format: unescape(url) for url, format in re.findall(r'href="([^"]+)" data-export-format="(rss|rss_public)"', body)}
     assert set(urls) == {"rss", "rss_public"}
-    key = parse_qs(urlsplit(urls["rss"]).query)["api_key"][0]
-    token = APIToken.objects.get(token=key, created_by=admin_user)
-    assert "api_key" not in parse_qs(urlsplit(urls["rss_public"]).query)
+    for url in urls.values():
+        assert "api_key" not in parse_qs(urlsplit(url).query)
     external_reader = Client()
-    feed = external_reader.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST)
+    feed = admin_client.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST)
     assert feed.status_code == 200
-    body = feed.getvalue()
-    assert exported_body_ids(body, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
-    assert key.encode() not in body
+    assert exported_ids(feed, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
     assert feed["Referrer-Policy"] == "no-referrer"
-    for http_client in (admin_client, external_reader):
-        public = http_client.get(urls["rss_public"], HTTP_HOST=ADMIN_TEST_HOST)
+    for http_client, href in (
+        (admin_client, urls["rss_public"]),
+        (external_reader, urls["rss"]),
+        (external_reader, urls["rss_public"]),
+    ):
+        public = http_client.get(href, HTTP_HOST=ADMIN_TEST_HOST)
         assert public.status_code == 200
-        body = public.getvalue()
-        assert exported_body_ids(body, "rss") == {str(snapshots["public"].pk)}
-        assert b"public_only=1" in body
+        assert exported_ids(public, "rss") == {str(snapshots["public"].pk)}
+    token = get_or_create_api_token(admin_user)
+    headers = {"HTTP_HOST": ADMIN_TEST_HOST, "HTTP_X_ARCHIVEBOX_API_KEY": token.token}
+    authenticated = external_reader.get(urls["rss"], **headers)
+    assert authenticated.status_code == 200
+    body = authenticated.getvalue()
+    assert token.token.encode() not in body
+    assert exported_body_ids(body, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
     token.delete()
-    assert external_reader.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST).status_code == 401
+    assert external_reader.get(urls["rss"], **headers).status_code == 401
 
 
 def test_folder_export_defaults_to_configured_content_search(admin_client, admin_user, cached_abxpkg_lib_dir):
@@ -349,7 +355,7 @@ def test_folder_export_defaults_to_configured_content_search(admin_client, admin
     assert exported_ids(response, "jsonl") == {str(snapshot.pk)}
 
 
-def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warning(live_server, admin_user, browser_runtime, settings):
+def test_feed_links_keep_the_dropdown_and_use_request_permissions(live_server, admin_user, browser_runtime, settings):
     from urllib.parse import parse_qs, urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.machine.models import Machine
@@ -395,31 +401,21 @@ def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warni
                     ids = {row["id"] for row in rows}
                 assert str(public.pk) in ids
                 assert str(private_snapshot.pk) not in ids
-            dialogs = []
-
-            def accept_warning(dialog):
-                dialogs.append(dialog.message)
-                assert "full administrator access" in dialog.message
-                assert "admin password" in dialog.message
-                assert "outside this feed" in dialog.message
-                dialog.accept()
-
-            page.on("dialog", accept_warning)
             private = page.locator('a[data-export-format="rss"]').first
-            assert "api_key=" in private.get_attribute("href")
-            private.click(button="right")
-            assert len(dialogs) == 1
-            page.keyboard.press("Escape")
+            url = private.get_attribute("href")
+            assert "api_key=" not in url
+            for credentials, expected in (("same-origin", {str(public.pk), str(private_snapshot.pk)}), ("omit", {str(public.pk)})):
+                body = page.evaluate(
+                    "async ([url, credentials]) => (await fetch(url, {credentials})).text()",
+                    [url, credentials],
+                )
+                ids = {item.findtext("guid") for item in ElementTree.fromstring(body).findall("./channel/item")}
+                assert expected <= ids
+                if credentials == "omit":
+                    assert str(private_snapshot.pk) not in ids
             with page.expect_navigation() as opened:
                 private.click()
             assert opened.value.status == 200
-            assert len(dialogs) == 2
-            page.go_back()
-            with page.expect_navigation() as opened:
-                page.locator('a[data-export-format="rss_public"]').first.click()
-            assert opened.value.status == 200
-            assert "api_key=" not in page.url
-            assert len(dialogs) == 2
             page = browser.new_page()
             page.goto(base_url.replace("//archivebox", "//web.archivebox") + "/public/")
             assert page.locator("[data-private-feed]").count() == 0
@@ -429,12 +425,12 @@ def test_private_feed_warning_precedes_navigation_and_public_feed_needs_no_warni
 
 
 @pytest.mark.parametrize("surface", ["folders", "users"])
-def test_private_feed_keys_are_resolved_once_per_render(admin_client, admin_user, surface):
+def test_private_feed_links_do_not_use_stored_keys(admin_client, admin_user, surface):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
     from archivebox.api.auth import get_or_create_api_token
 
-    get_or_create_api_token(admin_user)
+    token = get_or_create_api_token(admin_user)
     if surface == "folders":
         for index in range(20):
             Folder.objects.create(name=f"Export folder {index}", created_by=admin_user)
@@ -448,7 +444,14 @@ def test_private_feed_keys_are_resolved_once_per_render(admin_client, admin_user
     assert response.status_code == 200
     assert response.content.count(b'data-private-feed="1"') >= 20
     key_queries = [query["sql"] for query in queries if 'FROM "api_apitoken"' in query["sql"]]
-    assert len(key_queries) == 2
+    from html import unescape
+    import re
+
+    urls = [unescape(url) for url in re.findall(r'href="([^"]+)" data-export-format="rss"', response.content.decode())]
+    assert len(urls) >= 20
+    assert all("api_key=" not in url and token.token not in url for url in urls)
+    # Other admin widgets may resolve a key for API requests; export menus never add a per-row lookup.
+    assert len(key_queries) <= 2
 
 
 def test_public_folder_export_links_keep_default_content_search(admin_user, cached_abxpkg_lib_dir, settings):
@@ -486,7 +489,7 @@ def test_public_folder_export_links_keep_default_content_search(admin_user, cach
     response = client.get("/public/", query, HTTP_HOST=WEB_TEST_HOST)
     assert response.status_code == 200
     assert [snapshot.pk for snapshot in response.context["object_list"]] == [snapshots[0].pk]
-    exported_folder = next(entry for entry in response.context["folder_tree"] if entry.pk == folder.pk)
+    exported_folder = next(entry for entry in response.context["sidebar_folder_tree"] if entry.pk == folder.pk)
     url = exported_folder.export_urls["jsonl"]
     assert parse_qs(urlsplit(url).query)["search_mode"] == ["deep:ripgrep"]
     exported = client.get(url, HTTP_HOST=API_TEST_HOST)

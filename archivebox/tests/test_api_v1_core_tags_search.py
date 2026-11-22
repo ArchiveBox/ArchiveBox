@@ -98,8 +98,9 @@ def test_tag_search_api_returns_card_payload(client, api_token, tagged_data):
     for card in payload["tags"]:
         assert card["num_snapshots"] == 2
         assert card["snapshots"] == []
-        assert card["export_jsonl_url"].endswith(f"/api/v1/core/tag/{card['id']}/snapshots.jsonl")
-        assert card["filter_url"].endswith(f"/admin/core/snapshot/?tags__id__exact={card['id']}")
+        assert card["export_jsonl_url"] == f"/api/v1/core/snapshots/export/jsonl?tag={card['id']}"
+        assert card["export_urls_url"] == f"/api/v1/core/snapshots/export/txt?tag={card['id']}"
+        assert card["filter_url"] == f"/admin/core/snapshot/?tag={card['id']}"
     assert {snap.url for snap in snapshots} == {"https://example.com/one", "https://example.com/two"}
 
 

@@ -94,6 +94,30 @@ def test_public_folder_tree_uses_bounded_indexed_exists_queries(public_folder_da
         assert "snapshot_folder_public_idx" in plan
 
 
+def test_public_folder_tree_seeks_index_with_skewed_assignments(admin_user):
+    folder = Folder.objects.create(name="Research")
+    Folder.objects.bulk_create([Folder(name=f"Empty folder {index}") for index in range(100)])
+    crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user, config={"PERMISSIONS": "public"})
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(crawl=crawl, folder=folder, url=f"https://example.com/article/{index}", timestamp=str(1900930000 + index))
+            for index in range(1_000)
+        ],
+    )
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("ANALYZE core_snapshot")
+
+    with CaptureQueriesContext(connection) as queries:
+        assert [entry.pk for entry in Folder.tree(public=True)] == [folder.pk]
+
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("EXPLAIN QUERY PLAN " + queries[0]["sql"])
+            details = [row[-1] for row in cursor.fetchall()]
+        assert any("SEARCH" in line and "snapshot_folder_public_idx" in line for line in details), details
+
+
 @override_settings(PUBLIC_INDEX=True)
 def test_public_folder_visibility_updates_immediately(client, public_folder_data):
     parent, child, _, _, _, _, snapshots = public_folder_data

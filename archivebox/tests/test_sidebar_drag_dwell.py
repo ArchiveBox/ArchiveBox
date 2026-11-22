@@ -31,6 +31,8 @@ def test_snapshot_drag_dwell_reopens_hidden_folder_sidebar(live_server, admin_us
         expect(row).to_have_count(1)
         parent_row = sidebar.locator(f'.folder-row[data-folder-id="{parent.pk}"]')
         child_row = sidebar.locator(f'.folder-row[data-folder-id="{child.pk}"]')
+        parent_row.get_by_role("button", name="Expand Research").click()
+        expect(child_row).to_be_visible()
         parent_row.get_by_role("button", name="Collapse Research").click()
         expect(child_row).to_be_hidden()
         hide.click()

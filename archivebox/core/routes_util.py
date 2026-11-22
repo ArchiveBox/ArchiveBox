@@ -19,23 +19,44 @@ _URL_PATH_SAFE = "/@-._~!$&'()*+,;="
 _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
-def build_snapshot_export_urls(filters, *, api=False) -> dict[str, str]:
-    """Keyless exports of an existing snapshot filter, independent of page size."""
+def build_snapshot_export_urls(filters, *, api=False, request=None) -> dict[str, str]:
+    """Export the full snapshot selection using stable, credential-free URLs."""
     from django.apps import apps
     from django.urls import reverse
-    from archivebox.core.exports import normalize_export_query
+    from archivebox.core.exports import normalize_export_query, snapshot_admin_sort
+    from archivebox.search.config import get_search_mode
 
     query = normalize_export_query(filters)
+    if query.get("q") and request is not None:
+        query["search_mode"] = get_search_mode(query.get("search_mode"), config=get_request_config(request))
+    if request is not None and not api and query.get("o"):
+        ordering = snapshot_admin_sort(query["o"], request=request)
+        query.pop("o")
+        if ordering:
+            query["sort"] = ",".join([*ordering, "-id"])
+    if api:
+        query["public_only"] = "1"
+        if not query.get("sort"):
+            query["sort"] = "-bookmarked_at,-created_at,id"
+    elif not query.get("sort") and not query.get("o") and not query.get("folder"):
+        query["sort"] = "-created_at,-id"
+    route = "api-1:snapshot_export" if api else "admin:core_snapshot_export"
+    formats = ("rss", "csv", "jsonl")
+    if apps.is_installed("archivebox.domains"):
+        formats += ("html_zip", "wacz")
     suffix = "?" + query.urlencode() if query else ""
-    formats = ("csv", "jsonl", "html_zip", "wacz") if apps.is_installed("archivebox.domains") else ("csv", "jsonl")
-    rss = reverse("api-1:snapshot_export", args=["rss"]) if api else reverse("admin:core_snapshot_feed")
-    public_query = query.copy()
-    public_query["public_only"] = "1"
-    return {
-        "rss": rss + suffix,
-        "rss_public": rss + "?" + public_query.urlencode(),
-        **{format: reverse("api-1:snapshot_export" if api else "admin:core_snapshot_export", args=[format]) + suffix for format in formats},
-    }
+    urls = {format: reverse(route, args=[format]) + suffix for format in formats}
+    if api:
+        urls = {"rss_public": urls.pop("rss"), **urls}
+    else:
+        public_query = query.copy()
+        public_query["public_only"] = "1"
+        urls = {
+            "rss": urls.pop("rss"),
+            "rss_public": reverse(route, args=["rss"]) + "?" + public_query.urlencode(),
+            **urls,
+        }
+    return urls
 
 
 def split_host_port(host: str) -> tuple[str, str | None]:

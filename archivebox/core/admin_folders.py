@@ -1,5 +1,6 @@
 import json
 from contextlib import contextmanager
+from copy import copy
 from html import unescape
 from time import monotonic
 
@@ -419,17 +420,19 @@ class FolderAdmin(admin.ModelAdmin):
         choices = Folder.path_choices(folders)
         result = {"id": str(folder.pk), "name": folder.name, "path_label": dict(choices)[folder.pk]}
         if request.POST.get("refresh_tree") == "1":
-            from archivebox.core.routes_util import build_snapshot_export_urls
+            from archivebox.core.sidebar import sidebar_page
 
-            for item in folders:
-                filters = request.GET.copy()
-                filters["folder"] = str(item.pk)
-                item.export_urls = build_snapshot_export_urls(filters)
+            page_request = copy(request)
+            page_request.GET = request.GET.copy()
+            page_request.GET["folder"] = str(folder.pk)
+            page_request.GET.pop("cursor", None)
+            page = sidebar_page(page_request, mode="folders", folder_tree=folders)
             result["folder_html"] = render_to_string(
                 "core/folder_tree.html",
-                {"folder_tree": folders, "selected_folder": request.GET.get("folder", "")},
+                {"folder_tree": page["sidebar_folder_tree"], "selected_folder": request.GET.get("folder", "")},
                 request=request,
             )
+            result["folder_next"] = page["sidebar_next"]
             result["folder_choices"] = choices
             result["move_folder_choices"] = Folder.path_choices(folder for folder in folders if not folder.is_smart or folder.is_container)
         return JsonResponse(result)

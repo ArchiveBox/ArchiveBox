@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const snapshots = (card.snapshots || []).slice(0, 3).map(function (snapshot) {
                 return '' +
                     '<span class="tag-similar-snapshot">' +
-                        '<img src="' + escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.style.display=\\'none\\'">' +
+                        '<img src="' + escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.hidden=true">' +
                         '<span>' + escapeHtml(snapshot.title) + '</span>' +
                     '</span>';
             }).join('');

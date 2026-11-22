@@ -38,33 +38,47 @@ def test_invalid_domain_identifiers_return_not_found(admin_client, identifier):
 
 
 @pytest.mark.parametrize("action", ["export", "delete_selected"])
-def test_domain_actions_reject_mixed_prefix_selection(admin_client, crawl, action):
+def test_domain_actions_combine_each_host_and_path_scope(admin_client, crawl, action):
     from archivebox.core.models import Snapshot
-    from archivebox.machine.models import Process
 
-    snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/docs/keep")
+    under_prefix = Snapshot.objects.create(crawl=crawl, url="https://example.com/docs/keep")
+    other_host = Snapshot.objects.create(crawl=crawl, url="https://other.com/read")
+    outside_prefix = Snapshot.objects.create(crawl=crawl, url="https://example.com/outside")
+    case_mismatch = Snapshot.objects.create(crawl=crawl, url="https://example.com/Docs/outside")
+    filters = {"site_scope": ["example.com/docs", "other.com"]}
+    if action == "delete_selected":
+        response = admin_client.post(
+            "/admin/core/snapshot/",
+            {"action": action, "index": "0", "select_across": "1", "_selected_action": [str(under_prefix.pk)]},
+            query_params=filters,
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+    else:
+        response = admin_client.get("/admin/core/snapshot/export.csv", filters, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    if action == "delete_selected":
+        assert response.context["title"] == "Confirm snapshot deletion"
+        assert {row[0] for row in response.context["preview"]} == {under_prefix.pk, other_host.pk}
+    else:
+        csv_text = b"".join(response.streaming_content).decode()
+        assert under_prefix.url in csv_text and other_host.url in csv_text
+        assert outside_prefix.url not in csv_text and case_mismatch.url not in csv_text
+    assert not Snapshot.objects.filter(status="deleting").exists()
 
-    response = admin_client.post(
-        "/admin/domains/actions/",
-        {"action": action, "export_format": "html", "_selected_action": ["example.com/docs", "other.com"]},
-        HTTP_HOST=ADMIN_TEST_HOST,
-    )
-    assert response.status_code == 400
-    assert not Process.objects.filter(worker_type="site-export").exists()
-    snapshot.refresh_from_db()
-    assert snapshot.status != "deleting"
 
-
-@pytest.mark.parametrize("row_action", [False, True])
-def test_domain_delete_post_uses_native_confirmation_without_javascript(admin_client, crawl, row_action):
+def test_domain_delete_link_uses_native_confirmation(admin_client, crawl):
     from archivebox.core.models import Snapshot
 
     selected = Snapshot.objects.create(crawl=crawl, url="https://example.com/delete-confirmation")
     unrelated = Snapshot.objects.create(crawl=crawl, url="https://other.example/keep")
-    data = {"action": "delete_selected", "_selected_action": ["example.com"], "select_across": "0", "index": "0"}
-    if row_action:
-        data = {"delete_domain": "example.com"}
-    response = admin_client.post("/admin/domains/actions/", data, HTTP_HOST=ADMIN_TEST_HOST)
+    page = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    path = next(row["snapshot_url"] for row in page.context["domains"] if row["domain"] == "example.com")
+    assert (path + "#delete-snapshots").encode() in page.content
+    response = admin_client.post(
+        path,
+        {"action": "delete_selected", "_selected_action": str(selected.pk), "select_across": "1", "index": "0"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
     assert response.status_code == 200
     assert response.context["title"] == "Confirm snapshot deletion"
     assert selected.url.encode() in response.content

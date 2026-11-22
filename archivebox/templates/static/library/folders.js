@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
           dialog.close();
           picker.focus();
         } else if (refreshTree) {
-          refreshFolderTree(result.folder_html, result.id, result.folder_choices, result.move_folder_choices);
+          refreshFolderTree(result.folder_html, result.id, result.folder_choices, result.move_folder_choices, result.folder_next);
           dialog.close();
         } else {
           dialog.close();
@@ -415,8 +415,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   function initializeMenus(root) {
-    root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle').forEach(button => {
-      const menu = document.getElementById(button.getAttribute('popovertarget'));
+    const groups = new Map();
+    root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle,.library-mode-toggle').forEach(button => {
+      const id = button.getAttribute('popovertarget');
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(button);
+    });
+    groups.forEach((buttons, id) => {
+      let button = buttons[0];
+      const menu = document.getElementById(id);
+      if (menu.dataset.initialized) return;
+      menu.dataset.initialized = 'true';
+      const exports = [...menu.querySelectorAll('[data-export-format]')].map(link => [link, link.href]);
+      function activate(trigger) {
+        button.setAttribute('aria-expanded', 'false');
+        button = trigger;
+        const entry = trigger.closest('.library-entry');
+        if (!entry) return;
+        menu.setAttribute('aria-label', entry.dataset.name);
+        const filter = sidebar.dataset.mode === 'tags' ? 'tag' : 'domain';
+        for (const [link, base] of exports) {
+          const url = new URL(base);
+          url.searchParams.set(filter, entry.dataset.filterValue);
+          link.href = url.href;
+        }
+        const rename = menu.querySelector('[data-entry-rename]');
+        if (rename) rename.href = entry.dataset.renameUrl;
+        const merge = menu.querySelector('[data-sidebar-tag-merge]');
+        if (merge) merge.dataset.sidebarTagMerge = entry.dataset.filterValue;
+        const removal = menu.querySelector('.library-delete');
+        if (removal) {
+          const tag = entry.dataset.deleteLabel === 'Delete tag';
+          removal.hidden = (tag ? removal.dataset.canDeleteTag : removal.dataset.canDeleteSnapshots) !== 'true';
+          removal.href = entry.dataset.deleteUrl;
+          removal.querySelector('.folder-menu-label').textContent = entry.dataset.deleteLabel;
+        }
+      }
+      if (id === 'library-entry-menu') {
+        sidebar.addEventListener('click', event => {
+          const trigger = event.target.closest('[popovertarget="library-entry-menu"]');
+          if (trigger) activate(trigger);
+        });
+        sidebar.addEventListener('keydown', event => {
+          const trigger = event.target.closest('[popovertarget="library-entry-menu"]');
+          if (trigger && ['ArrowDown','ArrowUp'].includes(event.key)) {
+            event.preventDefault(); activate(trigger); menu.showPopover();
+          }
+        });
+      } else buttons.forEach(trigger => trigger.addEventListener('click', () => activate(trigger)));
       const items = [...menu.querySelectorAll('[role=menuitem]')];
       const removal = menu.querySelector('.folder-delete-snapshots');
       let removalGeneration = 0;
@@ -481,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
       menu.addEventListener('toggle', event => {
         const open = event.newState === 'open';
         button.setAttribute('aria-expanded', String(open));
+        button.closest('.library-entry')?.classList.toggle('has-open-menu', open);
         if (open) {
           refreshRemoval();
           positionMenu();
@@ -493,12 +540,13 @@ document.addEventListener('DOMContentLoaded', () => {
           window.removeEventListener('scroll', positionMenu, true);
         }
       });
-      button.addEventListener('keydown', event => {
+      if (id !== 'library-entry-menu') buttons.forEach(trigger => trigger.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
+          activate(trigger);
           if (!menu.matches(':popover-open')) menu.showPopover();
         }
-      });
+      }));
       menu.addEventListener('keydown', event => {
         const index = items.indexOf(document.activeElement);
         if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
@@ -512,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeMenus(document);
   if (!sidebar) return;
   let form = document.querySelector('#changelist-form');
-  if (location.hash === '#delete-snapshots' && form && new URLSearchParams(location.search).has('folder')) {
+  if (location.hash === '#delete-snapshots' && form && ['folder','tag','domain'].some(key => new URLSearchParams(location.search).has(key))) {
     history.replaceState(null, '', location.pathname + location.search);
     const action = form.querySelector('select[name=action]');
     const selection = form.querySelector('input.action-select');
@@ -529,38 +577,61 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const status = sidebar.querySelector('.folder-drop-status');
   let rows = [...sidebar.querySelectorAll('.folder-row')];
-  function initializeTreeRows() {
-    rows.forEach(row => row.querySelector('.folder-toggle')?.addEventListener('click', () => {
-      const id = row.dataset.folderId;
-      if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
-      try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
-      renderTree();
-    }));
-  }
-  initializeTreeRows();
-  const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
-  const search = sidebar.querySelector('.folder-search');
+  let rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
   const collapsed = new Set();
   try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
+
+  function initializeTreeRows() {
+    rows.forEach(row => {
+      if (row.dataset.treeInitialized) return;
+      row.dataset.treeInitialized = 'true';
+      const toggle = row.querySelector('.folder-toggle');
+      if (!toggle) return;
+      collapsed.add(row.dataset.folderId);
+      toggle.addEventListener('click', () => {
+        const id = row.dataset.folderId;
+        if (collapsed.has(id)) {
+          collapsed.delete(id);
+          if (!row.dataset.childrenLoaded) loadChildren(row);
+        } else collapsed.add(id);
+        try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+        renderTree();
+      });
+    });
+  }
+  initializeTreeRows();
+  let entries = [...sidebar.querySelectorAll('.library-entry')].map(row => ({row, name:row.dataset.name.toLocaleLowerCase()}));
+  const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
+  const search = sidebar.querySelector('.folder-search');
   // Always reveal the selected folder's path when opening a saved list URL.
   let selected = sidebar.querySelector('[aria-current="page"]')?.closest('.folder-row');
   while (selected?.dataset.parentId) {
     collapsed.delete(selected.dataset.parentId);
-    selected = rows.find(row => row.dataset.folderId === selected.dataset.parentId);
+    selected = rowsById.get(selected.dataset.parentId);
   }
   function renderTree() {
     const term = search.value.trim().toLocaleLowerCase();
+    if (sidebar.dataset.mode !== 'folders') {
+      let visible = 0;
+      for (const entry of entries) {
+        const hidden = !entry.name.includes(term);
+        if (entry.row.hidden !== hidden) entry.row.hidden = hidden;
+        if (!hidden) visible++;
+      }
+      sidebar.querySelector('.folder-search-empty').hidden = !term || visible > 0;
+      return;
+    }
     const matching = new Set(rows.filter(row => row.dataset.folderName.toLocaleLowerCase().includes(term)).map(row => row.dataset.folderId));
     if (term) rows.filter(row => matching.has(row.dataset.folderId)).forEach(row => {
       let parent = row.dataset.parentId;
-      while (parent) {matching.add(parent); parent = rows.find(item => item.dataset.folderId === parent)?.dataset.parentId;}
+      while (parent) {matching.add(parent); parent = rowsById.get(parent)?.dataset.parentId;}
     });
     rows.forEach(row => {
       let parent = row.dataset.parentId;
       let hidden = false;
       while (parent) {
         if (collapsed.has(parent)) hidden = true;
-        parent = rows.find(candidate => candidate.dataset.folderId === parent)?.dataset.parentId;
+        parent = rowsById.get(parent)?.dataset.parentId;
       }
       row.hidden = term ? !matching.has(row.dataset.folderId) : hidden;
       const toggle = row.querySelector('.folder-toggle');
@@ -570,16 +641,27 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`);
       }
     });
+    sidebar.querySelectorAll('.library-child-more').forEach(button => {
+      let parent = button.dataset.parent;
+      let hidden = false;
+      while (parent) {if (collapsed.has(parent)) hidden = true; parent = rowsById.get(parent)?.dataset.parentId;}
+      button.hidden = hidden || !button.dataset.cursor;
+    });
     sidebar.querySelector('.folder-search-empty').hidden = !term || matching.size > 0;
   }
-  function refreshFolderTree(html, createdId, parentChoices, moveChoices) {
+  function refreshFolderTree(html, createdId, parentChoices, moveChoices, next) {
     const tree = sidebar.querySelector('.folder-tree');
     tree.innerHTML = html;
+    tree.append(more);
+    more.dataset.cursor = next || "";
+    more.hidden = !next;
     rows = [...tree.querySelectorAll('.folder-row')];
+    rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
     initializeTreeRows();
     initializeMenus(tree);
     initializeFolderDragging(rows);
     initializeDropTargets(rows);
+    rows.forEach(row => row.dataset.dragInitialized = 'true');
     let parent = rows.find(row => row.dataset.folderId === createdId)?.dataset.parentId;
     while (parent) {
       collapsed.delete(parent);
@@ -595,23 +677,169 @@ document.addEventListener('DOMContentLoaded', () => {
       select.value = selectedValue;
     });
   }
-  search.addEventListener('input', renderTree);
+  const tree = sidebar.querySelector('.folder-tree');
+  const more = sidebar.querySelector('.library-load-more');
+  const loading = sidebar.querySelector('.library-load-status');
+  more.dataset.cursor = sidebar.dataset.next || '';
+  let searchTimer, searchRequest, indexTimer, searchVersion = 0, loadVersion = 0;
+  function refreshRows() {
+    rows = [...tree.querySelectorAll('.folder-row')];
+    rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
+    entries = [...tree.querySelectorAll('.library-entry')].map(row => ({row, name:row.dataset.name.toLocaleLowerCase()}));
+    initializeTreeRows();
+    initializeMenus(sidebar);
+    if (sidebar.dataset.moveUrl) {
+      const fresh = rows.filter(row => !row.dataset.dragInitialized);
+      initializeFolderDragging(fresh); initializeDropTargets(fresh);
+      fresh.forEach(row => row.dataset.dragInitialized = 'true');
+    }
+    renderTree();
+  }
+  async function loadPage(button, replace=false, signal) {
+    if (button.disabled) return;
+    button.disabled = true;
+    const version = searchVersion, requestVersion = ++loadVersion;
+    button.dataset.loadVersion = String(requestVersion);
+    loading.hidden = false; loading.textContent = 'Loading…';
+    try {
+      const url = new URL(sidebar.dataset.sidebarUrl, location.href);
+      url.search = location.search;
+      url.searchParams.set('sidebar', sidebar.dataset.mode);
+      url.searchParams.set('sidebar_q', search.value.trim());
+      if (!replace && button.dataset.cursor) url.searchParams.set('cursor', button.dataset.cursor);
+      if (button.dataset.parent) url.searchParams.set('parent', button.dataset.parent);
+      const response = await fetch(url, {credentials:'same-origin', signal});
+      if (!response.ok) throw new Error('Could not load sidebar.');
+      const result = await response.json();
+      if (signal?.aborted || version !== searchVersion) return;
+      if (result.building) {
+        loading.textContent = 'Indexing domains…';
+        waitForDomainIndex(version);
+        return;
+      }
+      const fragment = document.createElement('template');
+      fragment.innerHTML = result.html;
+      if (replace) tree.replaceChildren(more);
+      else fragment.content.querySelectorAll('.folder-row').forEach(row => {
+        if (rowsById.has(row.dataset.folderId)) row.remove();
+      });
+      button.before(fragment.content);
+      button.dataset.cursor = result.next;
+      button.hidden = !result.next;
+      if (button.dataset.parent) rowsById.get(button.dataset.parent).dataset.childrenLoaded = 'true';
+      refreshRows();
+      loading.hidden = true;
+    } catch (error) {
+      if (error.name !== 'AbortError') {loading.textContent = error.message; loading.hidden = false;}
+    } finally {if (button.dataset.loadVersion === String(requestVersion)) button.disabled = false;}
+  }
+  function loadChildren(row) {
+    let button = [...tree.querySelectorAll('.library-child-more')].find(item => item.dataset.parent === row.dataset.folderId);
+    if (!button) {
+      button = document.createElement('button'); button.type = 'button';
+      button.className = 'library-child-more'; button.textContent = 'Load more';
+      button.dataset.parent = row.dataset.folderId;
+      row.after(button);
+      button.addEventListener('click', () => loadPage(button));
+      observer.observe(button);
+    }
+    return loadPage(button);
+  }
+  const observer = new IntersectionObserver(items => {
+    for (const item of items) if (item.isIntersecting && item.target.dataset.cursor) loadPage(item.target);
+  }, {root:tree, rootMargin:'100px'});
+  observer.observe(more);
+  more.addEventListener('click', () => loadPage(more));
+  function waitForDomainIndex(version) {
+    clearTimeout(indexTimer);
+    indexTimer = setTimeout(() => {
+      if (sidebar.isConnected && version === searchVersion) loadPage(more, true);
+    }, 1500);
+  }
+  if (sidebar.dataset.indexBuilding) waitForDomainIndex(searchVersion);
+  function searchSidebar() {
+    clearTimeout(searchTimer); clearTimeout(indexTimer); searchRequest?.abort(); searchVersion++;
+    renderTree();
+    searchTimer = setTimeout(() => {
+      searchRequest = new AbortController();
+      // A canceled previous request must not suppress this new query.
+      more.disabled = false;
+      loadPage(more, true, searchRequest.signal);
+    }, 25);
+  }
+  search.addEventListener('input', searchSidebar);
+  (async () => {
+    for (const id of (sidebar.dataset.folderPath || '').split(',').filter(Boolean)) {
+      const row = rowsById.get(id);
+      if (row?.querySelector('.folder-toggle')) {
+        collapsed.delete(id);
+        await loadChildren(row);
+      }
+    }
+  })();
   const searchToggle = sidebar.querySelector('.folder-search-toggle');
   const sectionLabel = sidebar.querySelector('.folder-section-label');
   function toggleFolderSearch(open) {
     search.hidden = !open;
     sectionLabel.hidden = open;
     searchToggle.setAttribute('aria-expanded', String(open));
-    searchToggle.setAttribute('aria-label', open ? 'Close folder search' : 'Find a folder');
-    searchToggle.title = open ? 'Close folder search' : 'Find a folder';
+    searchToggle.setAttribute('aria-label', open ? 'Close sidebar search' : search.getAttribute('aria-label'));
+    searchToggle.title = open ? 'Close sidebar search' : search.getAttribute('aria-label');
     if (open) search.focus();
     else {
       search.value = '';
-      renderTree();
+      searchSidebar();
       searchToggle.focus();
     }
   }
   searchToggle.addEventListener('click', () => toggleFolderSearch(search.hidden));
+  const tagName = sidebar.querySelector('.library-tag-name');
+  const addTag = tagName ? sidebar.querySelector('.library-add') : null;
+  if (addTag) {
+    let previousSearchOpen = false;
+    function toggleTagInput(open) {
+      if (tagName.disabled) return;
+      clearTimeout(searchTimer); searchRequest?.abort();
+      if (open) previousSearchOpen = !search.hidden;
+      tagName.hidden = !open;
+      search.hidden = open || !previousSearchOpen;
+      sectionLabel.hidden = open || previousSearchOpen;
+      searchToggle.hidden = open;
+      addTag.setAttribute('aria-expanded', String(open));
+      addTag.setAttribute('aria-label', open ? 'Cancel new tag' : 'Add tag');
+      addTag.title = open ? 'Cancel new tag' : 'Add tag';
+      if (open) {tagName.value = ''; tagName.focus();}
+      else {loading.hidden = true; addTag.focus();}
+    }
+    addTag.addEventListener('click', () => toggleTagInput(tagName.hidden));
+    tagName.addEventListener('keydown', async event => {
+      if (event.key === 'Escape') {
+        event.preventDefault(); event.stopPropagation(); toggleTagInput(false); return;
+      }
+      if (event.key !== 'Enter' || event.isComposing || tagName.disabled) return;
+      event.preventDefault();
+      if (!tagName.value.trim() || !tagName.reportValidity()) return;
+      tagName.disabled = true; addTag.disabled = true;
+      loading.hidden = false; loading.textContent = 'Creating tag…';
+      try {
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        const response = await fetch(tagName.dataset.createUrl, {
+          method:'POST', credentials:'same-origin',
+          headers:{'Content-Type':'application/json', 'X-CSRFToken':csrf},
+          body:JSON.stringify({name:tagName.value.trim()}),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.detail || 'Could not create tag.');
+        tagName.disabled = false;
+        toggleTagInput(false);
+        search.value = result.tag_name;
+        toggleFolderSearch(true);
+        searchSidebar();
+      } catch (error) {
+        loading.textContent = error.message; loading.hidden = false;
+      } finally {tagName.disabled = false; addTag.disabled = false;}
+    });
+  }
   search.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -621,9 +849,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const mobileToggle = sidebar.querySelector('.folder-mobile-toggle');
   const reopenToggle = document.querySelector('.folder-sidebar-reopen');
-  const currentFolder = current?.dataset.folderName || 'All snapshots';
+  const currentFolder = current?.dataset.folderName || sidebar.querySelector('.library-entry [aria-current=page]')?.textContent.trim() || sidebar.querySelector('.library-root-link').textContent;
   reopenToggle.querySelector('span').textContent = currentFolder;
-  reopenToggle.title = `Show folders · ${currentFolder}`;
+  const viewNoun = sidebar.dataset.mode || 'folders';
+  reopenToggle.title = `Show ${viewNoun} · ${currentFolder}`;
+  reopenToggle.setAttribute('aria-label', `Show ${viewNoun}`);
   const library = sidebar.closest('.snapshot-library');
   const mobileViewport = matchMedia('(max-width: 767px)');
   let desktopHidden = false;
@@ -643,8 +873,8 @@ document.addEventListener('DOMContentLoaded', () => {
     library.classList.toggle('sidebar-hidden', !mobileViewport.matches && desktopHidden);
     reopenToggle.hidden = mobileViewport.matches || !desktopHidden;
     mobileToggle.setAttribute('aria-expanded', String(!hidden));
-    mobileToggle.setAttribute('aria-label', hidden ? 'Show folders' : 'Hide folders');
-    mobileToggle.title = hidden ? 'Show folders' : 'Hide folders';
+    mobileToggle.setAttribute('aria-label', `${hidden ? 'Show' : 'Hide'} ${viewNoun}`);
+    mobileToggle.title = `${hidden ? 'Show' : 'Hide'} ${viewNoun}`;
   }
   mobileViewport.addEventListener('change', viewportChanged);
   viewportChanged();
@@ -939,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   initializeFolderDragging(rows);
+  rows.forEach(row => row.dataset.dragInitialized = 'true');
   const rootTarget = sidebar.querySelector('.library-root-link');
   rootTarget.dataset.folderId = '';
   rootTarget.classList.add('folder-drop-target');
@@ -986,7 +1217,12 @@ document.addEventListener('DOMContentLoaded', () => {
         target.classList.toggle('drop-after', position === 'after');
         target.classList.toggle('drop-active', position === 'inside');
         if (position === 'inside' && collapsed.has(target.dataset.folderId) && !expandTimer) {
-          expandTimer = setTimeout(() => {collapsed.delete(target.dataset.folderId); renderTree(); expandTimer = null;}, 600);
+          expandTimer = setTimeout(() => {
+            collapsed.delete(target.dataset.folderId);
+            if (!target.dataset.childrenLoaded) loadChildren(target);
+            renderTree();
+            expandTimer = null;
+          }, 600);
         }
       });
       target.addEventListener('dragleave', event => {if (!target.contains(event.relatedTarget) && hoverTarget === target) clearDropTarget();});

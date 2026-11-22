@@ -277,3 +277,25 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   max-width: 180px;
   white-space: nowrap;
 }
+
+.library-mode-heading{display:flex;align-items:center;gap:2px}
+.folder-sidebar .library-mode-toggle{width:20px;min-width:20px;height:24px;opacity:.65}
+.folder-sidebar .library-mode-toggle svg{width:14px;height:14px}
+.library-entry{position:relative;display:flex;align-items:center;border-radius:4px}
+.library-entry[hidden]{display:none}
+.library-entry>.library-link{flex:1;min-width:0}
+.library-entry:hover .folder-row-actions,.library-entry:focus-within .folder-row-actions,.library-entry:has(:popover-open) .folder-row-actions{opacity:1;pointer-events:auto;background:var(--body-bg,#fff)}
+.library-entry:is(:hover,:focus-within,:has(:popover-open))>.library-link{padding-right:28px}
+.library-tag-label{padding:1px 6px;border:1px solid var(--tag-border);border-radius:5px;background:var(--tag-bg);color:var(--tag-fg)}
+.library-entry .library-tag-icon{color:var(--tag-fg)}
+.library-domain-icon{position:relative;display:inline-flex;flex:0 0 16px;width:16px;height:16px}
+.library-domain-icon img{position:absolute;inset:0;width:16px;height:16px;object-fit:contain;background:var(--body-bg,#fff)}
+.folder-menu [role=menuitem].library-delete,.folder-menu .library-delete .folder-menu-icon{color:var(--error-fg,#ba2121)}
+.folder-tree{max-height:calc(100dvh - 200px);overflow:auto;overscroll-behavior:contain}
+.library-load-more,.library-child-more{display:block;width:100%;padding:8px;border:0;background:none;color:var(--body-quiet-color);font:inherit;font-size:11px;cursor:pointer}
+.library-load-more[hidden],.library-child-more[hidden],.folder-menu [hidden]{display:none!important}
+.library-load-status{padding:4px 12px;font-size:11px!important;color:var(--body-quiet-color)}
+.library-entry.has-open-menu .folder-row-actions{opacity:1;pointer-events:auto;background:var(--body-bg,#fff)}
+
+.folder-sidebar .library-tag-name[hidden],.folder-sidebar .folder-search-toggle[hidden]{display:none}
+.folder-sidebar .library-add[aria-expanded=true] svg{transform:rotate(45deg)}

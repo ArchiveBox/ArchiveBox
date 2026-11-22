@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 from uuid import UUID
 from typing import Union, Any, Annotated
-from datetime import datetime, time
+from datetime import datetime
 
 from django.db import IntegrityError
 from django.db.models import Model, Q
@@ -24,9 +24,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.feedgenerator import Rss201rev2Feed
-from django.utils.http import content_disposition_header
 from django.utils.xmlutils import SimplerXMLGenerator
 
 from ninja import Router, Schema, FilterLookup, FilterSchema, Query, Form, UploadedFile
@@ -40,13 +38,11 @@ from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.api.auth import API_AUTH_METHODS, authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
-from archivebox.misc.util import equivalent_urls, filter_queryset_by_uuid_substring, validate_url_length
+from archivebox.misc.util import equivalent_urls, validate_url_length
 from archivebox.core.tag_util import (
     add_snapshot_counts,
     build_tag_cards,
     delete_tag as delete_tag_record,
-    export_tag_snapshots_jsonl,
-    export_tag_urls,
     get_matching_tags,
     get_or_create_tag,
     get_tag_by_ref,
@@ -807,78 +803,6 @@ def normalize_tag_list(tags: list[str] | None = None) -> list[str]:
     return [tag.strip() for tag in (tags or []) if tag and tag.strip()]
 
 
-def _parse_rss_before(before: str | None) -> datetime:
-    if not before:
-        return timezone.now()
-
-    value = before.strip()
-    parsed_dt = None
-
-    if len(value) == 8 and value.isdigit():
-        parsed_date = datetime.strptime(value, "%Y%m%d").date()
-    else:
-        parsed_dt = parse_datetime(value)
-        parsed_date = None if parsed_dt else parse_date(value)
-
-    if parsed_dt is None:
-        if parsed_date is None:
-            raise HttpError(400, "before must be an ISO datetime, YYYY-MM-DD, or YYYYMMDD")
-        parsed_dt = datetime.combine(parsed_date, time.max)
-
-    if timezone.is_naive(parsed_dt):
-        parsed_dt = timezone.make_aware(parsed_dt, timezone.get_current_timezone())
-    return parsed_dt
-
-
-def _filter_snapshots_for_rss(
-    *,
-    crawl_id: str = "",
-    created_by: str = "",
-    before: str | None = None,
-    limit: int = 50,
-):
-    limit = max(1, min(int(limit or 50), 500))
-    before_dt = _parse_rss_before(before)
-    queryset = (
-        Snapshot.objects.select_related("crawl__created_by")
-        .prefetch_related("tags")
-        .only(
-            "id",
-            "url",
-            "title",
-            "timestamp",
-            "bookmarked_at",
-            "created_at",
-            "modified_at",
-            "fs_version",
-            "crawl_id",
-            "crawl__id",
-            "crawl__created_by_id",
-            "crawl__created_by__id",
-            "crawl__created_by__username",
-        )
-        .filter(bookmarked_at__lte=before_dt)
-    )
-    crawl_id = crawl_id.strip()
-    if crawl_id:
-        matching_crawl_pks = list(filter_queryset_by_uuid_substring(Crawl.objects.all(), crawl_id).values_list("pk", flat=True)[:100])
-        queryset = queryset.filter(crawl_id__in=matching_crawl_pks)
-
-    created_by = created_by.strip()
-    if created_by:
-        created_by_query = Q(crawl__created_by__username__iexact=created_by)
-        user_model = get_user_model()
-        try:
-            prepared_pk = user_model._meta.pk.get_prep_value(created_by)
-        except (TypeError, ValueError, ValidationError):
-            prepared_pk = None
-        if prepared_pk not in (None, ""):
-            created_by_query |= Q(crawl__created_by_id=prepared_pk)
-        queryset = queryset.filter(created_by_query)
-
-    return queryset.order_by("-bookmarked_at", "-created_at", "-id")[:limit]
-
-
 class _SpooledSnapshotRssFeed(Rss201rev2Feed):
     """Keep one Django-generated item in memory while tracking the channel date."""
 
@@ -1041,24 +965,6 @@ def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], wi
         if get_search_mode_backend(search_mode, config=runtime_config):
             return queryset.none()
         return apply_snapshot_search(queryset, query, search_mode="meta", config=runtime_config, include_id_matches=True)
-
-
-@router.get("/snapshots.rss", url_name="get_snapshots_rss")
-def get_snapshots_rss(
-    request: HttpRequest,
-    crawl_id: str = "",
-    created_by: str = "",
-    limit: int = 50,
-    before: str | None = None,
-):
-    """Return matching snapshots as an RSS feed, newest first."""
-    snapshots = _filter_snapshots_for_rss(
-        crawl_id=crawl_id,
-        created_by=created_by,
-        limit=limit,
-        before=before,
-    )
-    return _snapshots_rss_response(request, snapshots=snapshots)
 
 
 @router.get("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="get_snapshot")
@@ -1562,30 +1468,6 @@ def delete_tag(request: HttpRequest, tag_id: int):
         "tag_id": int(tag_id),
         "deleted_count": deleted_count,
     }
-
-
-@router.get("/tag/{tag_id}/urls.txt", url_name="tag_urls_export")
-def tag_urls_export(request: HttpRequest, tag_id: int):
-    try:
-        tag = get_tag_by_ref(tag_id)
-    except Tag.DoesNotExist as err:
-        raise HttpError(404, "Tag not found") from err
-
-    response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
-    response["Content-Disposition"] = content_disposition_header(True, f"tag-{tag.slug}-urls.txt")
-    return response
-
-
-@router.get("/tag/{tag_id}/snapshots.jsonl", url_name="tag_snapshots_export")
-def tag_snapshots_export(request: HttpRequest, tag_id: int):
-    try:
-        tag = get_tag_by_ref(tag_id)
-    except Tag.DoesNotExist as err:
-        raise HttpError(404, "Tag not found") from err
-
-    response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
-    response["Content-Disposition"] = content_disposition_header(True, f"tag-{tag.slug}-snapshots.jsonl")
-    return response
 
 
 @router.post("/tags/add-to-snapshot/", response=TagSnapshotResponseSchema, url_name="tags_add_to_snapshot")

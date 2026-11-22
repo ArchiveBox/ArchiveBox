@@ -63,17 +63,17 @@ def test_snapshots_rss_filters_by_user_and_orders_newest_first(client, api_token
     older_snapshot.tags.add(Tag.objects.create(name="rss-tag", created_by=api_admin_user))
 
     response = client.get(
-        "/api/v1/core/snapshots.rss",
-        {"created_by": api_admin_user.username, "limit": 50, "api_key": api_token.token},
+        "/api/v1/core/snapshots/export/rss",
+        {"created_by_username": api_admin_user.username, "sort": "-bookmarked_at,-id", "api_key": api_token.token},
         HTTP_HOST=ADMIN_HOST,
     )
 
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
-    body = response.content.decode()
+    body = response.getvalue().decode()
     assert '<rss version="2.0"' in body
     assert api_token.token not in body
-    assert f"created_by={api_admin_user.username}&amp;limit=50" in body
+    assert f"created_by_username={api_admin_user.username}&amp;sort=-bookmarked_at%2C-id" in body
     assert "Newer Snapshot" in body
     assert "Older &amp; Escaped" in body
     assert "Tags: rss-tag" not in body
@@ -82,7 +82,7 @@ def test_snapshots_rss_filters_by_user_and_orders_newest_first(client, api_token
     assert body.index("rss-newer") < body.index("rss-older")
 
 
-def test_snapshots_rss_supports_before_yyyymmdd_and_limit(client, api_token, api_admin_user):
+def test_snapshots_rss_supports_cutoff_and_limit(client, api_token, api_admin_user):
     make_snapshot(
         user=api_admin_user,
         url="https://example.com/rss-before-too-new",
@@ -103,13 +103,19 @@ def test_snapshots_rss_supports_before_yyyymmdd_and_limit(client, api_token, api
     )
 
     response = client.get(
-        "/api/v1/core/snapshots.rss",
-        {"created_by": str(api_admin_user.pk), "before": "20260523", "limit": 1, "api_key": api_token.token},
+        "/api/v1/core/snapshots/export/rss",
+        {
+            "created_by_id": str(api_admin_user.pk),
+            "bookmarked_at__lte": "2026-05-23T23:59:59Z",
+            "max_results": 1,
+            "sort": "-bookmarked_at,-id",
+            "api_key": api_token.token,
+        },
         HTTP_HOST=ADMIN_HOST,
     )
 
     assert response.status_code == 200
-    body = response.content.decode()
+    body = response.getvalue().decode()
     assert "rss-before-too-new" not in body
     assert "rss-before-keep-one" in body
     assert "rss-before-keep-two" not in body

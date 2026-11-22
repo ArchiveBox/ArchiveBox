@@ -12,6 +12,7 @@ from archivebox.config.constants import CONSTANTS
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
+from archivebox.core.sidebar import sidebar_view
 from archivebox.core.views import (
     HomepageView,
     SnapshotView,
@@ -38,6 +39,8 @@ def legacy_rules_redirect(request, suffix=""):
 
 
 urlpatterns = [
+    path("admin/core/snapshot/sidebar/", archivebox_admin.admin_view(sidebar_view), name="admin-sidebar"),
+    path("public/sidebar/", sidebar_view, {"public": True}, name="public-sidebar"),
     path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),

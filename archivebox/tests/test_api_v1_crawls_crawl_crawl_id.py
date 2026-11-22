@@ -587,18 +587,19 @@ def test_crawl_as_rss_redirects_to_canonical_snapshots_feed(client, api_token, a
 
     response = client.get(
         f"/api/v1/crawls/crawl/{crawl.id}",
-        {"as_rss": "true", "limit": 50, "api_key": api_token.token},
+        {"as_rss": "true", "limit": 50},
         HTTP_HOST=ADMIN_HOST,
+        HTTP_X_ARCHIVEBOX_API_KEY=api_token.token,
         follow=True,
     )
 
     assert response.status_code == 200
     assert response.redirect_chain
     redirect_url = response.redirect_chain[0][0]
-    assert redirect_url.startswith("/api/v1/core/snapshots.rss?")
+    assert redirect_url.startswith("/api/v1/core/snapshots/export/rss?")
     assert f"crawl_id={crawl.id}" in redirect_url
-    assert "as_rss" not in redirect_url
+    assert "as_rss" not in redirect_url and "api_key" not in redirect_url
     assert response["Content-Type"].startswith("application/rss+xml")
-    body = response.content.decode()
+    body = response.getvalue().decode()
     assert "rss-crawl-feed" in body
     assert "rss-crawl-other" not in body

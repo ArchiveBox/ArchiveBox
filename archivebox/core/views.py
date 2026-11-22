@@ -1659,10 +1659,14 @@ class PublicIndexView(ListView):
             "folder_readonly": True,
             "library_root_url": self.request.path,
             "snapshot_export_urls": build_snapshot_export_urls(
-                {"q": query, "search_mode": search_mode, "folder": self.selected_folder},
+                self.request.GET,
                 api=True,
+                request=self.request,
             ),
         }
+        from archivebox.core.sidebar import sidebar_context
+
+        context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
         context["show_search_index_hint"] = bool(
             query
             and not public_search_pending
@@ -1719,15 +1723,6 @@ class PublicIndexView(ListView):
 
     def get_queryset(self, **kwargs):
         self.folder_tree = Folder.tree(public=True)
-        for folder in self.folder_tree:
-            folder.export_urls = build_snapshot_export_urls(
-                {
-                    "folder": folder.pk,
-                    "q": self.request.GET.get("q", ""),
-                    "search_mode": get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config),
-                },
-                api=True,
-            )
         self.selected_folder = self.request.GET.get("folder", "")
         self.folder_query = None
         self.folder_breadcrumbs = []
@@ -1744,6 +1739,19 @@ class PublicIndexView(ListView):
             while selected:
                 self.folder_breadcrumbs.insert(0, selected)
                 selected = by_id.get(str(selected.parent_id))
+        # Use the same predicate for ordinary pages and searched results.
+        scope = Q()
+        tag = self.request.GET.get("tag")
+        if tag:
+            scope &= Q(tags__id=int(tag)) if tag.isdecimal() else Q(pk__in=[])
+        domain = self.request.GET.get("domain")
+        if domain:
+            try:
+                scope &= Snapshot.objects.all().domain_q(domain)
+            except ValueError:
+                scope &= Q(pk__in=[])
+        if tag or domain:
+            self.folder_query = (self.folder_query if self.folder_query is not None else Q()) & scope
         qs = (
             public_snapshots_queryset(super().get_queryset(**kwargs))
             .select_related("crawl__created_by")

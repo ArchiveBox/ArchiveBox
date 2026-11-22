@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function copyTextFromUrl(url) {
-        const response = await fetch(withApiKey(url), {
+        const response = await fetch(url, {
             headers: buildHeaders(false),
             credentials: 'same-origin',
         });
@@ -716,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function downloadFileFromUrl(url, fallbackFilename) {
-        const response = await fetch(withApiKey(url), {
+        const response = await fetch(url, {
             headers: buildHeaders(false),
             credentials: 'same-origin',
         });

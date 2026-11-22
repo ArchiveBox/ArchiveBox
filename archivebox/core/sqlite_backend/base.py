@@ -189,7 +189,10 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
             if conn is not None:
                 self._connection_file_identity = identity
                 return conn
+        from archivebox.core.domain_index import domain_group
+
         conn = super().get_new_connection(conn_params)
+        conn.create_function("archivebox_domain_group", 1, domain_group, deterministic=True)
         if self._idle_pool_key is not None:
             self._connection_file_identity = _database_file_identity(conn_params["database"])
         return conn

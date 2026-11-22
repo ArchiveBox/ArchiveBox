@@ -66,11 +66,36 @@ def test_move_destination_labels_match_refreshed_folder_paths(admin_client, view
     # action field for containers carrying sort/limit metadata).
     assert str(limited.pk) in dict(renamed.json()["move_folder_choices"])
     assert 'title="2026 / Bookmarks"' in tree
-    assert 'title="2026 / Bookmarks / Reading"' in tree
+    children = admin_client.get("/admin/core/snapshot/sidebar/", {"parent": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert children.status_code == 200
+    assert 'title="2026 / Bookmarks / Reading"' in children.json()["html"]
     updated = admin_client.get(view, HTTP_HOST=ADMIN_TEST_HOST)
     labels = dict(choices(updated))
     assert labels[str(child.pk)] == "2026 / Bookmarks"
     assert labels[str(nested.pk)] == "2026 / Bookmarks / Reading"
+
+
+def test_initial_folder_sidebar_reuses_picker_tree_and_limits_roots(admin_client):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.core.models import Folder
+    from archivebox.core.smart_folders import CHILDREN_RULES
+
+    roots = Folder.objects.bulk_create([Folder(name=f"Folder {i:03d}", position=i, rules=CHILDREN_RULES) for i in range(105)])
+    selected = Folder.objects.create(name="Nested", parent=roots[-1])
+    with CaptureQueriesContext(connection) as queries:
+        initial = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert initial.status_code == 200
+    assert sum('FROM "core_folder"' in query["sql"] for query in queries) == 1
+    assert len(initial.context["sidebar_folder_tree"]) == 100
+    response = admin_client.get("/admin/core/snapshot/", {"folder": selected.pk}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    visible = response.context["sidebar_folder_tree"]
+    assert len(visible) == 102
+    assert [folder.pk for folder in visible[-2:]] == [roots[-1].pk, selected.pk]
+    assert response.context["sidebar_next"]
+    assert len(response.context["folder_choices"]) == 107
 
 
 def test_folder_path_choices_and_admin_foreign_keys(admin_client, snapshot):
@@ -149,7 +174,7 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
         elif _format == "rss_public":
             assert parameters.pop("public_only") == ["1"]
         assert parameters == {"folder": [str(parent.pk)], "q": ["A paper"]}
-    response = admin_client.get("/admin/core/snapshot/feed/", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/core/snapshot/export.rss", {"folder": parent.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/rss+xml")
     body = response.getvalue()
@@ -209,10 +234,10 @@ def test_public_only_folder_feed_stays_public_even_with_admin_session(admin_clie
             crawl=crawl,
             config={"PERMISSIONS": permissions},
         )
-    response = Client().get("/admin/core/snapshot/feed/", HTTP_HOST=ADMIN_TEST_HOST)
+    response = Client().get("/admin/core/snapshot/export.rss", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [item.findtext("title") for item in ElementTree.fromstring(response.getvalue()).findall("./channel/item")] == ["public"]
-    response = admin_client.get("/admin/core/snapshot/feed/", {"public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/core/snapshot/export.rss", {"public_only": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [item.findtext("title") for item in ElementTree.fromstring(response.getvalue()).findall("./channel/item")] == ["public"]
 
@@ -235,7 +260,7 @@ def test_folder_feed_search_resolves_without_browser_cache(admin_client, admin_u
     Snapshot.objects.create(url="https://example.com/unrelated", title="Unrelated story", crawl=crawl, folder=folder)
     Snapshot.objects.create(url="https://example.com/feed-query-match-outside", title="Outside folder", crawl=crawl)
     response = admin_client.get(
-        "/admin/core/snapshot/feed/",
+        "/admin/core/snapshot/export.rss",
         {"folder": folder.pk, "q": "feed-query-match", "search_mode": "meta"},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
@@ -255,8 +280,8 @@ def test_list_rss_is_a_native_link_without_export_state(admin_client, api_token)
     assert response.status_code == 200
     links = response.context["list_export_urls"]
     link = urlsplit(links["rss"])
-    assert link.path == "/admin/core/snapshot/feed/"
-    assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"]}
+    assert link.path == "/admin/core/snapshot/export.rss"
+    assert parse_qs(link.query) == {"q": ["Hacker News"], "search_mode": ["meta"], "sort": ["-created_at,-id"]}
     assert set(links) == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}
     for format, url in links.items():
         assert api_token.token not in url
@@ -290,7 +315,7 @@ def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token
     wrong_owner = Snapshot.objects.create(url=other_crawl.urls, title="Matching other owner", crawl=other_crawl, folder=child)
     wrong_owner.tags.add(tag)
     query = {"folder": parent.pk, "tag": tag.pk, "crawl__created_by__id__exact": api_admin_user.pk, "q": "Matching", "search_mode": "meta"}
-    endpoint = "/admin/core/snapshot/feed/"
+    endpoint = "/admin/core/snapshot/export.rss"
     public_response = client.get(endpoint, query, HTTP_HOST=ADMIN_TEST_HOST)
     assert public_response.status_code == 200
     assert ElementTree.fromstring(public_response.getvalue()).findall("./channel/item") == []
@@ -322,7 +347,7 @@ def test_native_rss_uses_current_filters_and_existing_api_auth(client, api_token
 
 
 def test_native_rss_rejects_writes_and_invalid_filters(admin_client):
-    endpoint = "/admin/core/snapshot/feed/"
+    endpoint = "/admin/core/snapshot/export.rss"
     assert admin_client.post(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
     assert admin_client.get(endpoint, {"not_a_snapshot_field": "x"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
 
@@ -332,7 +357,7 @@ def test_feed_key_does_not_inherit_browser_privileges(admin_client, django_user_
 
     user = django_user_model.objects.create_user("no-feed-permission")
     token = APIToken.objects.create(created_by=user)
-    response = admin_client.get("/admin/core/snapshot/feed/", {"api_key": token.token}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/core/snapshot/export.rss", {"api_key": token.token}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 403
 
 
@@ -342,7 +367,7 @@ def test_public_feed_cannot_query_sensitive_config(client, admin_user):
 
     crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
     Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})
-    response = client.get("/admin/core/snapshot/feed/", {"config__contains": "secret"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = client.get("/admin/core/snapshot/export.rss", {"config__contains": "secret"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 400
 
 
@@ -525,6 +550,7 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         row_selector, drag_selector = (".cards .card", ".card-title") if view == "grid" else ("#result_list tbody tr", ".field-title_str")
         source = page.locator(row_selector).filter(has_text="Capture 0")
         expect(source).to_have_attribute("draggable", "true")
+        page.get_by_role("button", name="Expand Research", exact=True).click()
         source.locator(drag_selector).drag_to(page.locator(f'.folder-row[data-folder-id="{child.pk}"]'))
         expect(page.locator(".messagelist")).to_contain_text("Moved 1 snapshot(s) to Papers")
         for snapshot in snapshots[1:]:
@@ -571,8 +597,13 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         page.get_by_role("searchbox", name="Find a folder").fill("Design")
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_be_hidden()
         expect(page.locator(f'.folder-row[data-folder-id="{parent.pk}"]')).to_be_visible()
-        page.get_by_role("searchbox", name="Find a folder").fill("")
-        page.keyboard.press("Escape")
+        expect(page.locator(".folder-tree")).to_contain_text("Design inspiration")
+        with page.expect_response(
+            lambda response: urlsplit(response.url).path.endswith("/sidebar/") and "sidebar_q=" in urlsplit(response.url).query.split("&"),
+        ) as reset:
+            page.keyboard.press("Escape")
+        assert reset.value.ok
+        page.get_by_role("button", name="Expand Research", exact=True).click()
         page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(page.get_by_role("link", name="All Snapshots"))
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_have_attribute("data-parent-id", "")
         page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
@@ -674,17 +705,35 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         def row(folder):
             return page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
 
+        def reveal(folder):
+            records = db.submit(lambda: dict(Folder.objects.values_list("pk", "parent_id"))).result()
+            ids, parent_id = [], records[folder.pk]
+            while parent_id:
+                ids.append(parent_id)
+                parent_id = records[parent_id]
+            for branch_id in reversed(ids):
+                toggle = page.locator(f'.folder-row[data-folder-id="{branch_id}"] .folder-toggle')
+                expect(toggle).to_be_visible()
+                if toggle.get_attribute("aria-expanded") == "false":
+                    toggle.click()
+            expect(row(folder)).to_be_visible()
+
         def drag(source, target, placement):
+            reveal(source)
+            reveal(target)
             box = row(target).bounding_box()
             y = {"before": 2, "inside": box["height"] / 2, "after": box["height"] - 2}[placement]
             with page.expect_navigation():
                 row(source).locator(".folder-link").drag_to(row(target), target_position={"x": 80, "y": y})
+            reveal(source)
             expect(row(source)).to_have_attribute(
                 "data-parent-id",
                 db.submit(lambda: str(Folder.objects.get(pk=source.pk).parent_id or "")).result(),
             )
 
         def order(parent, expected):
+            for folder in expected:
+                reveal(folder)
             assert db.submit(lambda: list(Folder.objects.filter(parent=parent).values_list("pk", flat=True))).result() == [
                 f.pk for f in expected
             ]
@@ -708,6 +757,7 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         order(child, [smart, second])
         drag(smart, first, "after")
         order(None, roots + [first, smart])
+        reveal(second)
         with page.expect_navigation():
             row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
         order(None, roots + [first, smart, second])
@@ -715,12 +765,14 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         order(child, [smart])
         drag(second, smart, "inside")
         assert db.submit(lambda: Folder.objects.get(parent=smart, name="Items").rules).result() == smart.rules
+        reveal(smart)
         with page.expect_navigation():
             row(smart).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
+        reveal(second)
         expect(row(second)).to_have_attribute("data-parent-id", str(smart.pk))
         with page.expect_navigation():
             row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All Snapshots", exact=True))
-        row(first).locator(".folder-toggle").click()
+        expect(row(first).locator(".folder-toggle")).to_have_attribute("aria-expanded", "false")
         expect(row(child)).to_be_hidden()
         source = row(second).locator(".folder-link").bounding_box()
         target = row(first).bounding_box()

@@ -1,0 +1,9 @@
+{% for entry in sidebar_entries %}
+<div class="library-entry" data-name="{{ entry.name }}" data-filter-value="{{ entry.filter_value }}" data-delete-url="{{ entry.delete_url }}" data-delete-label="{{ entry.delete_label }}"{% if entry.rename_url %} data-rename-url="{{ entry.rename_url }}"{% endif %}>
+  <a class="library-link" href="{{ entry.url }}" {% if entry.selected %}aria-current="page"{% endif %}>
+    {% if sidebar_mode == 'tags' %}<svg class="library-tag-icon" style="{{ entry.style }}" aria-hidden="true"><use href="#library-tag"/></svg><span class="library-tag-label" style="{{ entry.style }}">{{ entry.name }}</span>{% else %}<span class="library-domain-icon"><svg aria-hidden="true"><use href="#library-globe"/></svg>{% if entry.favicon %}<img src="{{ entry.favicon }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}</span><span>{{ entry.name }}</span>{% endif %}
+  </a>
+  <div class="folder-row-actions"><button type="button" class="folder-menu-toggle icon-button" aria-label="Actions for {{ entry.name }}" title="Actions for {{ entry.name }}" aria-haspopup="menu" aria-expanded="false" popovertarget="library-entry-menu"><svg><use href="#library-more"/></svg></button></div>
+
+</div>
+{% empty %}{% if not sidebar_index_building %}<div class="folder-empty"><p>No {{ sidebar_mode }} yet.</p></div>{% endif %}{% endfor %}

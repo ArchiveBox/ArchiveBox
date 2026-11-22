@@ -89,8 +89,8 @@
 </script>
 <div id="changelist" class="module site-domain-list"><div class="changelist-form-container"><div>
   {% include "admin/search_form.html" with search_var="q" %}
-  <form method="post" id="changelist-form" novalidate action="{% url 'domains:actions' %}" data-snapshot-actions="{% url 'admin:core_snapshot_changelist' %}">
-    {% csrf_token %}<input type="hidden" name="domain" value=""><input type="hidden" name="export_format" value=""><input type="hidden" name="directory" value="{{ export_directory }}">
+  <form method="post" id="changelist-form" novalidate action="{% url 'admin:core_snapshot_changelist' %}" data-domain-query="{{ domain_query }}" data-export-url="{% url 'admin:core_snapshot_export' '__format__' %}">
+    {% csrf_token %}<input type="hidden" name="directory" value="{{ export_directory }}">
     {% include "domains/domain_actions.html" %}
     <div class="results">
       <table id="result_list">
@@ -110,68 +110,73 @@
           <td class="field-domain-actions">
             <a href="{{ row.replay_url }}" title="Replay saved {{ row.domain }}" aria-label="Replay saved {{ row.domain }}">🌐</a>
             <a href="https://web.archive.org/web/*/https://{{ row.domain }}/" target="_blank" rel="noopener" title="{{ row.domain }} on Archive.org" aria-label="{{ row.domain }} on Archive.org">🏛️</a>
-            <select class="site-domain-row-export" aria-label="Export {{ row.domain }}" data-domain="{{ row.scope }}" data-site-url="{{ row.site_url }}">
+            <select class="site-domain-row-export" aria-label="Export {{ row.domain }}" data-domain="{{ row.scope }}">
               <option value="">Export ▾</option>{% for value, label in export_formats %}<option value="{{ value }}">{{ label }}{% if value == "html_zip" or value == "wacz" %} · MAX 4GB{% endif %}</option>{% endfor %}
             </select>
-            <button type="submit" name="delete_domain" value="{{ row.scope }}" data-domain-delete="{{ row.scope }}" class="site-domain-delete" aria-label="Delete snapshots for {{ row.domain }}">Delete</button>
+            {% if perms.core.delete_snapshot %}<a href="{{ row.snapshot_url }}#delete-snapshots" class="site-domain-delete" aria-label="Delete snapshots for {{ row.domain }}">Delete</a>{% endif %}
           </td>
-        </tr>{% empty %}<tr><td colspan="8">No saved domains.</td></tr>{% endfor %}</tbody>
+        </tr>{% empty %}<tr><td colspan="8">{% if domain_index_building %}Indexing domains… <a href="{{ request.get_full_path }}">Refresh</a>{% else %}No saved domains.{% endif %}</td></tr>{% endfor %}</tbody>
       </table>
     </div>
-    <button type="submit" name="action" value="export" id="site-export-submit" hidden>Export</button>
-    <div class="changelist-footer"><p class="paginator">{{ domains.paginator.count|intcomma }} domain{{ domains.paginator.count|pluralize }} {% if domains.has_previous %}<a href="?{{ page_query }}&amp;page={{ domains.previous_page_number }}">Previous</a>{% endif %} {% if domains.paginator.num_pages > 1 %}<span class="this-page">{{ domains.number }}</span>{% endif %} {% if domains.has_next %}<a href="?{{ page_query }}&amp;page={{ domains.next_page_number }}">Next</a>{% endif %}</p></div>
+    <div class="changelist-footer"><p class="paginator">{{ domains|length }} domains shown {% if domain_previous_url %}<a href="{{ domain_previous_url }}">Previous</a>{% endif %} <span class="this-page">{{ domains.number }}</span> {% if domain_next_url %}<a href="{{ domain_next_url }}">Next</a>{% endif %}</p></div>
   </form>
 </div></div></div>
-{{ domain_scopes|json_script:"site-domain-scopes" }}
 <script type="module">
 import {startSnapshotExport} from "{% static 'exports.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}";
 (() => {
   const form = document.getElementById('changelist-form');
-  const action = form.querySelector('select[name="action"]');
-  const override = form.querySelector('input[name="domain"]');
-  const selected = () => form.querySelector('[name="select_across"]').value === '1' ? JSON.parse(document.getElementById('site-domain-scopes').textContent) : [...form.querySelectorAll('.action-select:checked')].map(input => input.value);
-  document.querySelectorAll('.site-domain-export,.site-domain-row-export').forEach(select => select.addEventListener('change', () => {
-    if (!select.value) return;
-    override.value = select.dataset.domain || '';
-    if (!override.value && !selected().length) { alert('Select at least one domain.'); select.value = ''; return; }
-    if (select.value === 'html') {
-      const directory = prompt('Save export to server directory (absolute path):', form.elements.directory.value);
-      if (directory === null) { select.value = ''; return; }
-      form.elements.directory.value = directory;
+  const actionsUrl = form.action;
+  const selectAcross = form.elements.select_across;
+  const selected = () => [...form.querySelectorAll('.action-select:checked')].map(input => input.value);
+
+  function urlWithSelection(base, domain) {
+    const url = new URL(base, location.href);
+    if (base !== actionsUrl) url.searchParams.set('sort', '-created_at,-id');
+    if (domain) {
+      url.searchParams.set('domain', domain);
+    } else if (selectAcross.value === '1') {
+      url.searchParams.set('domain_search', form.dataset.domainQuery);
+    } else {
+      const scopes = selected();
+      if (!scopes.length) return null;
+      url.searchParams.set('domain', scopes.join(','));
     }
-    form.querySelector('[name="export_format"]').value = select.value;
-    form.exportAnchor = select;
-    form.requestSubmit(document.getElementById('site-export-submit'));
-    select.value = '';
-  }));
-  form.querySelectorAll('[data-domain-delete]').forEach(button => button.addEventListener('click', () => {
-    override.value = button.dataset.domainDelete;
-    action.value = 'delete_selected';
-  }));
-  form.addEventListener('submit', event => {
-    const requested = event.submitter?.name === 'action' ? event.submitter.value : action.value;
-    const domains = override.value ? [override.value] : selected();
-    if (!domains.length) { event.preventDefault(); alert('Select at least one domain.'); return; }
-    if (requested === 'export') {
-      if (!override.value && form.querySelector('[name="select_across"]').value === '1') domains.forEach(domain => { const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = domain; form.append(input); });
-      const format = form.elements.export_format.value;
-      if (['html_zip', 'wacz', 'html'].includes(format)) {
-        event.preventDefault();
-        const data = new FormData(form);
-        data.set('action', 'export');
-        data.delete('_selected_action');
-        domains.forEach(domain => data.append('_selected_action', domain));
-        startSnapshotExport(new URL(form.getAttribute('action'), location.href).href, {format, anchor: form.exportAnchor || event.submitter, data, csrf: form.elements.csrfmiddlewaretoken.value, session: true}).catch(() => {});
+    return url;
+  }
+
+  document.querySelectorAll('.site-domain-export,.site-domain-row-export').forEach(select => {
+    select.addEventListener('change', () => {
+      const format = select.value;
+      select.value = '';
+      if (!format) return;
+      const url = urlWithSelection(form.dataset.exportUrl.replace('__format__', format), select.dataset.domain);
+      if (!url) {
+        alert('Select at least one domain.');
+        return;
       }
+      if (['html_zip', 'wacz', 'html', 'replay'].includes(format)) {
+        const data = new FormData();
+        const directory = format === 'html' ? prompt('Save export to server directory (absolute path):', form.elements.directory.value) : '';
+        if (directory === null) return;
+        if (directory) data.set('directory', directory);
+        startSnapshotExport(url.href, {
+          format, anchor: select, data, csrf: form.elements.csrfmiddlewaretoken.value, session: true,
+        }).catch(() => {});
+      } else {
+        location.href = url.href;
+      }
+    });
+  });
+
+  form.addEventListener('submit', event => {
+    const url = urlWithSelection(actionsUrl);
+    if (!url) {
+      event.preventDefault();
+      alert('Select at least one domain.');
       return;
     }
-    const target = new URL(form.dataset.snapshotActions, location.href);
-    target.searchParams.set('domain', domains.join(','));
-    form.setAttribute('action', target.href);
-    form.querySelector('[name="select_across"]').value = '1';
-    if (override.value) {
-      const input = document.createElement('input'); input.type = 'hidden'; input.name = '_selected_action'; input.value = override.value; form.append(input);
-    }
+    form.action = url.href;
+    selectAcross.value = '1';
   });
 })();
 </script>
