@@ -1,0 +1,81 @@
+archivebox/templates/static/library/folders.js
+  s_ea615ec0b76fae::t_6b5dcf95eb5ddb 407,418-465,530,543,546,549,563,580-583,591,606-621,624,631,635-644,648,655,665-670,673,676-678,680,685,701-777
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 1134
+  s_ea615ec0b76fae::t_bdc35deb2a677c 778-788,795-796,800,814,816-818,838-839
+archivebox/templates/static/admin-tag-merge.js
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 17-28
+  s_ea615ec0b76fae::t_8fda4526d88c61 3-16,29-43
+archivebox/domains/views.py
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 159-185,196,275-276,303-305,314-317,320
+  s_ea615ec0b76fae::t_f36ecf944cb5e0 3-4,14,16-17,29-30,53-81,83-84,87,92,99,114-158,326
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_8f91164d526d34 184-185
+  s_ea615ec0b76fae::t_baac8b7209e03f 1-183,186-226
+archivebox/core/admin_folders.py
+  s_ea615ec0b76fae::t_6b5dcf95eb5ddb 3,423,425-429,432,435
+archivebox/core/sidebar.py
+  s_ea615ec0b76fae::t_6b5dcf95eb5ddb 143-147,149-153,155-187
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 12,195
+  s_ea615ec0b76fae::t_ca8d05a0fd88e1 1-11,13-142,148,154,188-194,196-239
+archivebox/core/models.py
+  s_ea615ec0b76fae::t_7c4abea871d59d 256,258,260-262
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 257,259,635
+  s_ea615ec0b76fae::t_bbebc90e8f2e12 100,263-267,523-529,537-543,591,595-596,636-640,717,719,729,751,1091-1092,1172-1176,1665-1666,1668-1671
+archivebox/templates/core/tag_merge_dialog.html
+  s_ea615ec0b76fae::t_e0e1ec4db4fd04 3
+  s_ea615ec0b76fae::t_3e747155a83ded 1-2,4-13
+archivebox/core/admin_snapshots.py
+  s_ea615ec0b76fae::t_2db179f9fd9ec5 234-238,645-648
+archivebox/core/domain_index.py
+  s_ea615ec0b76fae::t_93358dea60529f 1-46
+archivebox/core/exports.py
+  s_ea615ec0b76fae::t_c14129b5d673eb 77
+archivebox/core/migrations/0066_snapshot_domain_group.py
+  s_ea615ec0b76fae::t_448d119f936310 1-53
+archivebox/core/urls.py
+  s_ea615ec0b76fae::t_e0a5106e16df68 15,42-43
+archivebox/core/views.py
+  s_ea615ec0b76fae::t_b81d4f433b26a8 1662,1666-1668,1741-1753
+archivebox/domains/actions.py
+  s_ea615ec0b76fae::t_bc954eceee9fe3 6,37-38,41-46,53,69
+archivebox/domains/templates/domains/index.html
+  s_ea615ec0b76fae::t_bb1c017b0d96ad 93,122,132,168
+archivebox/templates/admin/core/tag/change_form.html
+  s_ea615ec0b76fae::t_8ffc63572dc489 237
+archivebox/templates/admin/core/tag/native_change_list.html
+  s_ea615ec0b76fae::t_2e4b94a0afcaa6 11
+archivebox/templates/core/folder_sidebar.html
+  s_ea615ec0b76fae::t_a72de1ae3b36ec 1,12,15-16,18-19,32-36
+archivebox/templates/core/public_index.html
+  s_ea615ec0b76fae::t_d6c5a994e08a79 674-675,678,680-682
+archivebox/templates/core/sidebar_entries.html
+  s_ea615ec0b76fae::t_471544c0802e61 1-9
+archivebox/templates/core/sidebar_entry_menu.html
+  s_ea615ec0b76fae::t_b63e172914936e 1-8
+archivebox/templates/static/library/folders.css
+  s_ea615ec0b76fae::t_eb62c895efe6ab 278-296
+archivebox/tests/test_public_folders.py
+  s_ea615ec0b76fae::t_0e70b67415c846 81,87,94-95
+archivebox/tests/test_sidebar_drag_dwell.py
+  s_ea615ec0b76fae::t_81100d78fc9301 34-35
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_4516eab99ede4f 1-117
+archivebox/tests/test_snapshot_domains.py
+  s_ea615ec0b76fae::t_d64f295c29f923 272,277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bf13a1f2c34b1b5838707081ad5f975f008e2a26",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
