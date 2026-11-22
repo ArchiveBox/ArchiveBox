@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import runpy
 import shutil
@@ -47,7 +48,7 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
     matrix = public["strategy"]["matrix"]["include"]
     assert {item["lane"]: tuple(item["plugins"].split(",")) for item in matrix} == assembler["PUBLIC_LANES"]
-    assert len(matrix) == 11
+    assert len(matrix) == 12
     assert "environment" not in public
     assert "secrets." not in str(public)
     assert "inputs.plugin_revision == ''" in public["if"]
@@ -108,10 +109,25 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     full = set(recipes(plan, False))
     base = set(recipes(plan, True))
     moved = full - base
-    assert len(moved) == 22  # Five singleton, 15 compound and two browser automation visits.
-    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 24
+    assert len(moved) == 23  # Six singleton, 15 compound and two browser automation visits.
+    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 25
     assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= assembler["PUBLIC_VIEWS"]["cad"]
     assert "Snapshot View (opendataloader)" in assembler["PUBLIC_VIEWS"]["documents"]
+    # Keep the installed iWork recipe and its real PDF readiness check intact;
+    # it is a singleton and must not inherit the Documents job's ODL preset.
+    iwork = plan["overrides"]["iwork"]
+    assert assembler["PUBLIC_VIEWS"]["iwork"] == {"Snapshot View (iwork)"}
+    assert [example["plugins"] for example in plan["examples"] if example["url"] == iwork["url"]] == [["iwork"]]
+    assert {recipe for recipe in moved if recipe.split("|")[0] == "iwork"} == {f"iwork|{iwork['url']}"}
+    assert iwork["wait_for_text"] == "CoT-zuzalu-final.pdf"
+    capture = next(
+        step
+        for step in workflow("screenshots.yml")["jobs"]["public_recipes"]["steps"]
+        if step.get("name") == "Capture native public recipe"
+    )
+    odl_lanes = re.search(r"^\s*([a-z|]+)\) export OPENDATALOADER_ENABLED=True ;;$", capture["run"], re.MULTILINE)
+    assert odl_lanes and "iwork" not in odl_lanes[1].split("|")
+
     automation = assembler["PUBLIC_LANES"]["browser-automation"]
     assert assembler["PUBLIC_VIEWS"]["browser-automation"] == {f"Snapshot View ({plugin})" for plugin in automation}
     assert {recipe for recipe in moved if recipe.split("|")[0] in automation} == {

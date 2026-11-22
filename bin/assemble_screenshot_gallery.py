@@ -11,7 +11,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 PUBLIC_LANES = {
-    **{plugin: (plugin,) for plugin in ("git", "packageregistry", "papersdl", "staticfile", "ytdlp")},
+    **{plugin: (plugin,) for plugin in ("git", "packageregistry", "papersdl", "staticfile", "ytdlp", "iwork")},
     "cad": ("caddl",),
     "boards": ("drawio", "excalidraw", "tldraw"),
     "documents": ("calendar", "liteparse", "opendataloader", "podcast_archiver"),
