@@ -5239,18 +5239,20 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     @staticmethod
     def _resolve_output_file_path(plugin: str, path: str, output_file_map: dict[str, dict[str, Any]]) -> str | None:
         requested_path = str(path or "")
-        if not requested_path or requested_path.startswith("/") or ".." in Path(requested_path).parts:
+        # Manifest keys are relative POSIX paths; checking their components
+        # needs no pathlib allocation for every icon and replay lookup.
+        if not requested_path or requested_path.startswith("/") or ".." in requested_path.split("/"):
             return None
 
-        plugin_relative_path = requested_path.removeprefix(f"{plugin}/")
-        plugin_path = f"{plugin}/{plugin_relative_path}"
-        for candidate in dict.fromkeys((requested_path, plugin_relative_path, plugin_path)):
+        prefix = f"{plugin}/"
+        alternate = requested_path.removeprefix(prefix) if requested_path.startswith(prefix) else prefix + requested_path
+        for candidate in (requested_path, alternate):
             file_info = output_file_map.get(candidate)
             if not isinstance(file_info, dict):
                 continue
             if file_info.get("root_relative"):
-                return candidate.removeprefix(f"{plugin}/")
-            return candidate if candidate.startswith(f"{plugin}/") else f"{plugin}/{candidate}"
+                return candidate.removeprefix(prefix)
+            return candidate if candidate.startswith(prefix) else prefix + candidate
         return None
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
@@ -5326,9 +5328,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             return False
         if plugin_name and value.startswith(f"{plugin_name}/"):
             return True
-        if Path(value).is_absolute():
+        path = Path(value)
+        if path.is_absolute():
             return True
-        if Path(value).suffix:
+        if path.suffix:
             return True
         if "/" in value and "\\" not in value and " " not in value:
             left, _, right = value.partition("/")
