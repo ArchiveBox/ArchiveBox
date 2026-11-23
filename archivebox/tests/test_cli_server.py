@@ -967,7 +967,7 @@ def test_supervisord_takeover_stops_all_live_process_rows(initialized_archive, d
 )
 def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initialized_archive, stop_signal, expected_notice):
 
-    env = cli_env(live=True)
+    env = cli_env(live=True, WEB_CONCURRENCY="2")
     port = get_free_port()
     server = None
     resumed = None
@@ -996,6 +996,11 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
             ]
             offsets = [log_text.index(marker) for marker in markers]
             assert offsets == sorted(offsets), log_text
+            worker_log = (initialized_archive / "logs" / "worker_uvicorn.log").read_text()
+            assert worker_log.count("Application shutdown complete") == 2, worker_log
+            assert worker_log.count("worker_memory_stopped") == 2, worker_log
+            supervisor_log = (initialized_archive / "logs" / "supervisord.log").read_text()
+            assert "killing 'worker_uvicorn' with SIGKILL" not in supervisor_log, supervisor_log
             # Read the completed command before another CLI can reap local
             # stale rows; a new Compose container cannot validate this PID.
             connection = sqlite3.connect(f"file:{initialized_archive / 'index.sqlite3'}?mode=ro", uri=True)

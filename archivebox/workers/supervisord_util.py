@@ -412,7 +412,10 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
         "autorestart": "true",
         "stopasgroup": "true",
         "killasgroup": "true",
-        "stopwaitsecs": "1",
+        # HTTP lifespan closes plugin exporters after requests finish. Allow
+        # their native 30-second drain budget plus observer/SDK cleanup before
+        # Supervisor escalates; this does not unblock stuck filesystem calls.
+        "stopwaitsecs": "35",
         "stdout_logfile": "logs/worker_uvicorn.log",
         "redirect_stderr": "true",
     }
