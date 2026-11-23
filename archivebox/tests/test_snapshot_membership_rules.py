@@ -336,7 +336,7 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
 
     tagged = OutboundWebhook.objects.get(name="Tagged rule")
     assert tagged.signal == "TAGGED"
-    assert tagged.tag_id == tag.pk and tagged.folder_id is None
+    assert tagged.relationship == str(tag.pk) and tagged.folder_id is None
     filed = OutboundWebhook.objects.get(name="Added to folder rule")
     assert filed.signal == "FOLDER_ENTERED"
-    assert filed.folder_id == folder.pk and filed.tag_id is None
+    assert filed.folder_id == folder.pk and filed.relationship == ""
