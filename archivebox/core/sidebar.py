@@ -1,5 +1,6 @@
 """Bounded, keyset-paginated navigation shared by the two snapshot libraries."""
 
+from collections import defaultdict
 from urllib.parse import urlencode
 
 from django.core import signing
@@ -13,13 +14,12 @@ from django.views.decorators.http import require_GET
 from django.views.decorators.cache import never_cache
 
 from archivebox.config.common import get_request_config
-from archivebox.core.list_results_util import load_snapshot_list_results
+from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.permissions import public_snapshots_queryset
-from archivebox.core.routes_util import build_snapshot_url, build_snapshot_export_urls
+from archivebox.core.routes_util import build_snapshot_export_urls
 from archivebox.core.tag_colors import tag_color_style
 from archivebox.core.tag_util import _tag_snapshot_memberships
-from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.search.config import get_search_mode
 
 from archivebox.uuid_compat import compact_uuid
@@ -96,16 +96,16 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             snapshots = Snapshot.objects.using(snapshots.db).filter(Exists(snapshots.filter(pk=OuterRef("pk"))))
         choices, next_key = snapshots.domain_choices_page(term, DOMAIN_SIDEBAR_PAGE_SIZE, cursor)
         ids = snapshots.domain_representative_ids(key for scope, key in choices.values())
-        roots = {snapshot.pk: snapshot for snapshot in snapshots.filter(pk__in=ids.values()).only("id", "url", "reversed_domain")}
-        results = load_snapshot_list_results(roots.values())
-        icon_plugins = set(get_snapshot_role_names("list_icon"))
+        roots = dict(snapshots.filter(pk__in=ids.values()).values_list("pk", "reversed_domain"))
+        results = defaultdict(list)
+        for result in favicon_results().filter(snapshot_id__in=roots):
+            results[result.snapshot_id].append(result)
         for name, (scope, key) in choices.items():
-            root = roots.get(ids.get(key))
-            if root is None or root.reversed_domain != key:
+            root_id = ids.get(key)
+            if root_id is None or roots.get(root_id) != key:
                 continue
-            root_id = root.pk
             url = "?" + urlencode({"sidebar": mode, "domain": scope})
-            favicons = [build_snapshot_url(str(root_id), path, request=request) for path in results[root_id].succeeded_paths(icon_plugins)]
+            favicon = snapshot_favicon_data(root_id, results[root_id], request=request)
             entries.append(
                 {
                     "id": root_id,
@@ -114,8 +114,8 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "url": url,
                     "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots" if not public else "",
                     "selected": request.GET.get("domain") == scope,
-                    "favicon": favicons[0] if favicons else "",
-                    "favicon_fallbacks": ",".join(favicons[1:]),
+                    "favicon": favicon["url"] if favicon else "",
+                    "favicon_fallbacks": favicon["fallbacks"] if favicon else "",
                 },
             )
     else:

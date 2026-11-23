@@ -1,4 +1,3 @@
-from copy import copy
 from functools import wraps
 from heapq import nlargest, nsmallest
 import logging
@@ -26,9 +25,9 @@ from archivebox.config.common import get_request_config
 from archivebox.machine.models import Machine
 from .scope import crawl_site_scope, normalize_site_scope
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
+from archivebox.core.models import Snapshot
 from archivebox.progressmonitor.collection import _refresh_lock
-from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
 from archivebox.core.routes_util import build_original_url, build_snapshot_detail_url, build_snapshot_export_urls, is_snapshot_subdomain
 from archivebox.personas.models import Persona
@@ -198,11 +197,8 @@ def index(request):
             .prefetch_related(
                 Prefetch(
                     "archiveresult_set",
-                    queryset=ArchiveResult.objects.filter(
-                        snapshot_id__in={row["root_id"] for row in domains},
-                        plugin__in=get_snapshot_role_names("list_icon"),
-                        status=ArchiveResult.StatusChoices.SUCCEEDED,
-                    ).only("id", "snapshot_id", "plugin", "status", "output_str", "output_files"),
+                    queryset=favicon_results().filter(snapshot_id__in={row["root_id"] for row in domains}),
+                    to_attr="favicon_results",
                 ),
             )
         }
@@ -214,8 +210,6 @@ def index(request):
             pk: {"name": name, "url": reverse("admin:personas_persona_change", args=[pk])}
             for pk, name in Persona.objects.filter(pk__in=persona_ids).values_list("pk", "name")
         }
-        snapshot_admin = copy(archivebox_admin._registry[Snapshot])
-        snapshot_admin.request = request
         config = get_request_config(request)
         for row in domains:
             latest = captures[str(row["newest_id"])]
@@ -251,7 +245,7 @@ def index(request):
                     ),
                     "oldest_url": build_snapshot_detail_url(earliest.archive_path_from_db, request=request),
                     "newest_url": build_snapshot_detail_url(latest.archive_path_from_db, request=request),
-                    "favicon": snapshot_admin._get_favicon_data(root),
+                    "favicon": snapshot_favicon_data(root.pk, root.favicon_results, request=request),
                 },
             )
     headers = []

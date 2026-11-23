@@ -31,6 +31,8 @@ from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
 from archivebox.core.models import ArchiveResult
+from archivebox.core.routes_util import build_snapshot_url
+from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.uuid_compat import compact_uuid
 
 if TYPE_CHECKING:
@@ -38,6 +40,30 @@ if TYPE_CHECKING:
 
 
 _UNRESOLVED = object()
+
+
+def favicon_results():
+    """Fetch only the archived outputs eligible to be favicons."""
+    return (
+        ArchiveResult.objects.filter(plugin__in=get_snapshot_role_names("list_icon"), status=ArchiveResult.StatusChoices.SUCCEEDED)
+        .only("id", "snapshot_id", "plugin", "status", "output_str", "output_files")
+        .order_by("plugin", "id")
+    )
+
+
+def snapshot_favicon_data(snapshot_id, results, *, request):
+    icon_plugins = get_snapshot_role_names("list_icon")
+    urls = []
+    for result in results:
+        if result.plugin not in icon_plugins or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
+            continue
+        try:
+            output_path = result.embed_path()
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if output_path:
+            urls.append(build_snapshot_url(str(snapshot_id), output_path, request=request))
+    return {"url": urls[0], "fallbacks": ",".join(urls[1:])} if urls else None
 
 
 @dataclass(slots=True, eq=False)

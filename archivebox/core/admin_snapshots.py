@@ -36,14 +36,13 @@ from archivebox.core.routes_util import (
     build_snapshot_export_urls,
     build_snapshot_files_url,
     build_snapshot_role_output_url,
-    build_snapshot_url,
     build_snapshot_zip_url,
     get_snapshot_output_anchor,
 )
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon, get_snapshot_role_names
+from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -57,7 +56,7 @@ from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult, Folder
 from archivebox.core.smart_folders import CHILDREN_RULES
-from archivebox.core.list_results_util import load_snapshot_list_results
+from archivebox.core.list_results_util import favicon_results, load_snapshot_list_results, snapshot_favicon_data
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_timing import timed_snapshot_changelist
 from archivebox.core.admin_archiveresults import render_archiveresults_list
@@ -1179,26 +1178,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
     def _get_favicon_data(self, obj):
-        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         results = self._get_prefetched_results(obj)
         if results is None:
-            results = obj.archiveresult_set.filter(
-                plugin__in=list_icon_plugins,
-                status=ArchiveResult.StatusChoices.SUCCEEDED,
-            )
-        urls = []
-        for result in results:
-            if result.plugin not in list_icon_plugins or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
-                continue
-            try:
-                output_path = result.embed_path()
-            except (TypeError, ValueError, OverflowError):
-                continue
-            if output_path:
-                urls.append(
-                    build_snapshot_url(str(obj.id), output_path, request=self.request, config=self.request.archivebox_config),
-                )
-        return {"url": urls[0], "fallbacks": ",".join(urls[1:])} if urls else None
+            results = favicon_results().filter(snapshot_id=obj.pk)
+        return snapshot_favicon_data(obj.pk, results, request=self.request)
 
     def _render_thumbnail(self, obj, width="100px", height="100px"):
         return snapshot_thumbnail(
