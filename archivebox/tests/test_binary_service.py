@@ -361,3 +361,32 @@ def test_hook_resolution_preserves_registered_binary_installations(
         resolved = Binary.objects.filter(name="python3").exclude(pk__in=original)
         assert resolved.exists()
         assert Process.objects.filter(binary__in=resolved, process_type=Process.TypeChoices.BINARY, exit_code=0).exists()
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.services.binary_service import project_abxpkg_derived_cache_to_db
+
+        before = dict(Binary.objects.values_list("id", "modified_at"))
+        process_ids = set(Process.objects.values_list("id", flat=True))
+        with CaptureQueriesContext(connection) as queries:
+            project_abxpkg_derived_cache_to_db(hermetic_lib_dir)
+        binary_reads = [query["sql"] for query in queries if 'FROM "machine_binary"' in query["sql"]]
+        assert len(binary_reads) == 1, binary_reads
+        assert not any(query["sql"].startswith('UPDATE "machine_binary"') for query in queries), queries.captured_queries
+        assert dict(Binary.objects.values_list("id", "modified_at")) == before
+        assert set(Process.objects.values_list("id", flat=True)) == process_ids
+
+        # Only unchanged records are skipped. A queued installation must still
+        # reconcile from the real resolver cache and retain its identity/history.
+        from django.utils import timezone
+
+        recovered = resolved.first()
+        assert recovered is not None
+        previous_attempts = recovered.process_set.count()
+        Binary.objects.filter(pk=recovered.pk).update(status=Binary.StatusChoices.QUEUED, retry_at=timezone.now(), binprovider="")
+        project_abxpkg_derived_cache_to_db(hermetic_lib_dir)
+        recovered.refresh_from_db()
+        assert recovered.status == Binary.StatusChoices.INSTALLED
+        assert recovered.retry_at is None
+        assert recovered.binprovider
+        assert recovered.process_set.count() == previous_attempts + 1
