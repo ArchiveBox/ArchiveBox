@@ -60,22 +60,22 @@ def _check_merge_dependencies(retired, target, final_name, memberships):
         return {name.casefold() for name in Crawl.parse_tag_names(value)}
 
     affected = [*retired, (target.pk if target else None, final_name)]
-    retired_ids = {pk for pk, _name in retired}
+    retired_ids = {str(pk) for pk, _name in retired}
     retired_names = {name.casefold() for _pk, name in retired}
     for folder_id, rules in Folder.objects.exclude(rules__isnull=True).values_list("pk", "rules").iterator():
         if _folder_tag_condition_matches(rules, affected):
             raise ValueError(f"Update Smart Folder {folder_id}: its tag filter would change. No tags were merged.")
-    rules = OutboundWebhook.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions", "tag_id", "any_tag")
+    rules = OutboundWebhook.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions")
     missed_events = {}
-    for rule_id, ref, signal, relationship, actions, tag_id, any_tag in rules.iterator():
-        if tag_id in retired_ids:
+    for rule_id, ref, signal, relationship, actions in rules.iterator():
+        if signal in {"TAGGED", "UNTAGGED"} and relationship in retired_ids:
             raise ValueError(f"Update Rule {rule_id}: its trigger uses a tag being retired. No tags were merged.")
         change = None
         if ref == "core.snapshot" and relationship in {"", "*", "tags"}:
             change = {"M2M_ADD": "add", "M2M_REMOVE": "remove"}.get(signal)
-        if signal == "TAGGED" and (any_tag or (target and tag_id == target.pk)):
+        if signal == "TAGGED" and (relationship == "*" or (target and relationship == str(target.pk))):
             change = "add"
-        if signal == "UNTAGGED" and any_tag:
+        if signal == "UNTAGGED" and relationship == "*":
             change = "remove"
         if change:
             if change not in missed_events:
