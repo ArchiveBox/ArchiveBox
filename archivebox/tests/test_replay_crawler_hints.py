@@ -49,9 +49,8 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
             assert "Allow: /dom/output.html$\n" in robots.text
             assert "Allow: /readability/content.html$\n" in robots.text
             assert "singlefile" not in robots.text
-            general, training = robots.text.split("\n\n", 1)
-            assert general == "User-agent: *\nDisallow: /"
-            assert training.startswith("User-agent: GPTBot\nUser-agent: ClaudeBot\nUser-agent: MistralAI-Training\nDisallow: /\n")
+            assert robots.text.count("User-agent:") == 1
+            assert "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n" in robots.text
 
         client.headers["Host"] = snapshot_host
         raw = client.get(f"{live_server.url}/wget/index.html?raw=1", timeout=10)
@@ -187,14 +186,39 @@ def test_crawler_allowlist_does_not_admit_derived_or_lookalike_paths(client, pat
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("plugin,filename", [("readability", "content.html"), ("dom", "output.html")])
-@pytest.mark.parametrize("training_agent", ["GPTBot/1.3", "ClaudeBot/1.0", "MistralAI-Training/1.0"])
+@pytest.mark.parametrize(
+    "crawler_agent",
+    [
+        "GPTBot/1.3",
+        "ClaudeBot/1.0",
+        "MistralAI-Training/1.0",
+        "FutureCrawler/1.0",
+        "Googlebot/2.1",
+        "bingbot/2.0",
+        "Baiduspider",
+        "YandexBot/3.0",
+        "DuckDuckBot/1.1",
+        "OAI-SearchBot/1.3",
+        "Claude-SearchBot/1.0",
+        "PerplexityBot/1.0",
+        "MistralAI-Index/1.0",
+        "ChatGPT-User/1.0",
+        "Claude-User/1.0",
+        "meta-externalagent/1.1",
+        "CCBot/2.0",
+        "NotGPTBot/1.0",
+        "GPTBot-Search/1.0",
+        "ClaudeBot-Search/1.0",
+        "MistralAI-Training-Index/1.0",
+    ],
+)
 def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
     snapshot,
     client,
     live_server,
     plugin,
     filename,
-    training_agent,
+    crawler_agent,
 ):
     import cProfile
     import pstats
@@ -213,7 +237,7 @@ def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
     host = get_snapshot_host(str(snapshot.id))
     profile = cProfile.Profile()
     with CaptureQueriesContext(connection) as queries, profile:
-        response = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=training_agent)
+        response = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=crawler_agent)
         body = b"".join(response.streaming_content) if response.streaming else response.content
         response.close()
     assert response.status_code == 200
@@ -234,14 +258,14 @@ def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
         },
     ), calls
 
-    versioned = client.get(f"/{plugin}/{filename}?raw=1&_abx_rev=123.456789", HTTP_HOST=host, HTTP_USER_AGENT=training_agent)
+    versioned = client.get(f"/{plugin}/{filename}?raw=1&_abx_rev=123.456789", HTTP_HOST=host, HTTP_USER_AGENT=crawler_agent)
     assert versioned.status_code == 200
     assert b"".join(versioned.streaming_content) == content
     versioned.close()
 
     with requests.Session() as network:
         network.trust_env = False
-        network.headers.update({"Host": host, "User-Agent": training_agent})
+        network.headers.update({"Host": host, "User-Agent": crawler_agent})
         public = network.get(f"{live_server.url}/{plugin}/{filename}", timeout=10)
         assert public.status_code == 200
         assert public.content == content
@@ -251,14 +275,14 @@ def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
         assert int(head.headers["Content-Length"]) == len(content)
 
     for route in (f"/snapshot/{snapshot.id}/{plugin}/{filename}", f"/{snapshot.archive_path_from_db}/{plugin}/{filename}"):
-        routed = client.get(route, HTTP_HOST="web.archivebox.localhost", HTTP_USER_AGENT=training_agent)
+        routed = client.get(route, HTTP_HOST="web.archivebox.localhost", HTTP_USER_AGENT=crawler_agent)
         assert routed.status_code in {200, 302}, routed.content
         routed.close()
 
     output.unlink()
     missing_profile = cProfile.Profile()
     with missing_profile:
-        missing = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=training_agent)
+        missing = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=crawler_agent)
     assert missing.status_code == 404
     missing_calls = {name for (_filename, _line, name) in pstats.Stats(missing_profile).stats}
     assert "iterdir" not in missing_calls, missing_calls
@@ -266,7 +290,7 @@ def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
 
     snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
     snapshot.save(update_fields=["config"])
-    private = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=training_agent)
+    private = client.get(f"/{plugin}/{filename}", HTTP_HOST=host, HTTP_USER_AGENT=crawler_agent)
     assert private.status_code in {302, 403, 404}
     assert content not in private.content
 
@@ -294,40 +318,3 @@ def test_crawler_refusal_uses_async_django_handler(async_client):
     )
     assert response.status_code == 403
     assert response["X-Robots-Tag"] == "noindex, follow"
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize(
-    "user_agent",
-    [
-        "Googlebot/2.1",
-        "bingbot/2.0",
-        "Baiduspider",
-        "YandexBot/3.0",
-        "DuckDuckBot/1.1",
-        "OAI-SearchBot/1.3",
-        "Claude-SearchBot/1.0",
-        "PerplexityBot/1.0",
-        "MistralAI-Index/1.0",
-        "ChatGPT-User/1.0",
-        "Claude-User/1.0",
-        "meta-externalagent/1.1",
-        "CCBot/2.0",
-        "NotGPTBot/1.0",
-        "GPTBot-Search/1.0",
-        "ClaudeBot-Search/1.0",
-        "MistralAI-Training-Index/1.0",
-    ],
-)
-@pytest.mark.parametrize("path", ["/readability/content.html", "/dom/output.html?raw=1"])
-def test_search_crawlers_cannot_fetch_training_outputs(client, user_agent, path):
-    from django.db import connection
-    from django.test.utils import CaptureQueriesContext
-
-    client.get("/health/")
-    with CaptureQueriesContext(connection) as queries:
-        response = client.get(path, HTTP_HOST="snap-123456789abc.archivebox.localhost", HTTP_USER_AGENT=user_agent)
-    assert response.status_code == 403
-    assert response["X-Robots-Tag"] == "noindex, follow"
-    assert "User-Agent" in response["Vary"]
-    assert not queries

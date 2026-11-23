@@ -10,10 +10,6 @@ from django.utils.decorators import sync_and_async_middleware
 from archivebox.plugins.discovery import get_plugin_catalog
 
 
-# Dedicated training crawlers; search and user-directed answer fetchers remain blocked.
-TRAINING_CRAWLERS = ("GPTBot", "ClaudeBot", "MistralAI-Training")
-TRAINING_USER_AGENT = re.compile(r"(?<![\w-])(?:" + "|".join(TRAINING_CRAWLERS) + r")(?=/|[\s;)]|$)", re.IGNORECASE)
-
 # Crawler families and user-triggered fetchers documented by their operators.
 # Generic bot/spider/crawler identifiers cover additional self-declared robots;
 # ordinary browser, curl, wget, requests and httpx user agents remain unchanged.
@@ -44,9 +40,9 @@ def CrawlerMiddleware(get_response):
     suffix = "(?:" + "|".join(re.escape(path) for path in outputs) + ")" if outputs else r"(?!)"
     direct_path = re.compile(rf"^/{suffix}$")
     snapshot_path = re.compile(rf"^/(?:{'|'.join(PREFIXES[1:])}){suffix}$")
-    robots = "User-agent: *\nDisallow: /\n\n"
-    robots += "".join(f"User-agent: {agent}\n" for agent in TRAINING_CRAWLERS)
-    robots += "Disallow: /\nAllow: /robots.txt$\nAllow: /static/\nAllow: /favicon.ico$\n"
+    robots = "User-agent: *\nDisallow: /\n"
+    robots += "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n"
+    robots += "Allow: /robots.txt$\nAllow: /static/\nAllow: /favicon.ico$\n"
     for output in outputs:
         for prefix in ("", "snapshot/*/", "*/*/*/*/"):
             robots += f"Allow: /{prefix}{output}$\nAllow: /{prefix}{output}?raw=1$\n"
@@ -77,9 +73,9 @@ def CrawlerMiddleware(get_response):
         if not is_crawler:
             # Human replay responses must not be cached and served to blocked bots.
             return None, True
-        if not safe or not TRAINING_USER_AGENT.search(user_agent):
+        if not safe:
             response = HttpResponseForbidden(
-                "Only AI training crawlers may request declared static HTML outputs.\n",
+                "Crawlers may only request declared static HTML outputs.\n",
                 content_type="text/plain",
             )
             response["X-Robots-Tag"] = "noindex, follow"
