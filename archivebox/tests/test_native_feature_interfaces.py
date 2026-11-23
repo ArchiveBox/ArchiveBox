@@ -284,7 +284,8 @@ def test_folder_and_importer_ui_downloads(live_server, admin_user, browser_runti
         expect(picker.locator(f'option[value="{folder.pk}"]')).to_have_count(1)
         picker.locator('[name="folder"]').select_option(str(folder.pk))
         page.get_by_role("button", name="Save importer", exact=True).click()
-        expect(page.get_by_role("link", name="UI exports", exact=True)).to_be_visible()
+        folder_link = page.locator(f'a[href="/admin/core/snapshot/?folder={folder.pk}"]', has_text=folder.name)
+        expect(folder_link).to_be_visible()
         for label in ("Reset learned code", "Reset progress", "Delete importer"):
             button = page.get_by_role("button", name=label, exact=True)
             expect(button).to_be_visible()
