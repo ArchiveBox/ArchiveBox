@@ -1509,6 +1509,10 @@ class CrawlRunner:
                 # Explicit plugin maintenance used the same cleanup phase and
                 # canonical write. Nothing may rewrite its outputs after the
                 # terminal projection has released its lease.
+                if snapshot["status"] != "sealed" and not completed_snapshot.error and config.get("HASHES_COLLECTION_DEDUP") is True:
+                    from archivebox.core.collection_dedupe import deduplicate_sealed
+
+                    await asyncio.to_thread(deduplicate_sealed, snapshot_id)
                 if snapshot["status"] != "sealed" and self.process_discovered_snapshots_inline:
                     # Cleanup already projected discovery. Re-reading those
                     # remote files here would duplicate work after completion.

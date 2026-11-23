@@ -99,6 +99,11 @@ def _resolve_contained_path(root: Path, path: Path) -> Path:
     # within that root: plugins legitimately share captured response files.
     try:
         resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            from archivebox.core.collection_dedupe import permitted_shared_file
+
+            if permitted_shared_file(root, path, resolved):
+                return resolved
         relative = resolved.relative_to(root)
     except (OSError, RuntimeError, ValueError) as err:
         raise Http404("Archive output is outside the document root or unavailable") from err
@@ -966,12 +971,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if statobj is None:
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
 
+    display_path = canonical_root / path if not fullpath.is_relative_to(canonical_root) else fullpath
     # Captured site icons are intentionally shareable even for private snapshots.
     # Only raw icon responses qualify, not generated previews or directory pages.
     favicon_cache_control = (
         FAVICON_CACHE_CONTROL
-        if fullpath.stem.lower() == "favicon"
-        and fullpath.suffix.lower() in {".ico", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}
+        if display_path.stem.lower() == "favicon"
+        and display_path.suffix.lower() in {".ico", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}
         and not request.GET.get("preview")
         else None
     )
@@ -979,7 +985,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     rel_path = path
     # Available captured assets can change without changing the CSS source.
     # Raw/ranges keep stored bytes; HEAD must not fetch a cold payload.
-    content_type, encoding = mimetypes.guess_type(str(fullpath))
+    content_type, encoding = mimetypes.guess_type(str(display_path))
     enrich_document = bool(
         document_root
         and content_type != "text/html"
@@ -1024,14 +1030,14 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # Captured favicons retain the conventional .ico filename even when a site
     # returns SVG. Browsers cannot decode SVG served as image/x-icon.
-    if fullpath.suffix.lower() == ".ico":
+    if display_path.suffix.lower() == ".ico":
         with fullpath.open("rb") as icon_file:
             icon_head = icon_file.read(4096)
         if re.search(rb"<svg(?:\s|>)", icon_head):
             content_type = "image/svg+xml"
     # yt-dlp description sidecars have no standard mimetypes mapping; serving
     # them as octet-stream makes browsers download instead of displaying text.
-    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl", ".description"}
+    preserve_plain_text = display_path.suffix.lower() in {".log", ".sh", ".jsonl", ".description"}
     if preserve_plain_text:
         content_type = "text/plain"
     content_type = content_type or "application/octet-stream"
@@ -1052,7 +1058,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         and is_text_like
         and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
-        and not (request.META.get("HTTP_RANGE") and fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS)
+        and not (request.META.get("HTTP_RANGE") and display_path.suffix.lower() in MODEL_PREVIEW_EXTENSIONS)
     )
     preview_as_image_html = bool(request.GET.get("preview")) and not thumbnail and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
@@ -1077,7 +1083,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         )
 
     if (
-        fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS
+        display_path.suffix.lower() in MODEL_PREVIEW_EXTENSIONS
         and request.GET.get("preview")
         and not thumbnail
         and not request.META.get("HTTP_RANGE")
@@ -1087,8 +1093,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         raw_query["raw"] = "1"
         wrapped = loader.get_template("static/model_viewer.html").render(
             {
-                "title": fullpath.name,
-                "model_format": fullpath.suffix.lower().lstrip("."),
+                "title": display_path.name,
+                "model_format": display_path.suffix.lower().lstrip("."),
                 "output_path": f"{quote(request.path, safe='/')}?{raw_query.urlencode()}",
             },
         )
@@ -1105,13 +1111,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # A shared archive explorer for ZIP outputs from any plugin. Raw/range
     # requests retain the original bytes for downloads and seekable reads.
-    if fullpath.suffix.lower() == ".zip" and request.GET.get("preview") and not thumbnail and not request.META.get("HTTP_RANGE"):
+    if display_path.suffix.lower() == ".zip" and request.GET.get("preview") and not thumbnail and not request.META.get("HTTP_RANGE"):
         raw_query = request.GET.copy()
         raw_query.pop("preview", None)
         raw_query["raw"] = "1"
         wrapped = loader.get_template("static/zip_index.html").render(
             {
-                "title": fullpath.name,
+                "title": display_path.name,
                 "output_path": f"{request.path}?{raw_query.urlencode()}",
                 "archive_size": statobj.st_size,
             },
@@ -1133,7 +1139,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             max_preview_size = 10 * 1024 * 1024
             if statobj.st_size <= max_preview_size:
                 decoded = fullpath.read_text(encoding="utf-8", errors="replace")
-                wrapped = _render_text_preview_document(decoded, fullpath.name)
+                wrapped = _render_text_preview_document(decoded, display_path.name)
                 response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                 _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                 return _apply_archive_replay_headers(
@@ -1154,7 +1160,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             raw_image_url = request.path
             if preview_query:
                 raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
-            wrapped = _render_image_preview_document(raw_image_url, fullpath.name)
+            wrapped = _render_image_preview_document(raw_image_url, display_path.name)
             response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
             _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
             return _apply_archive_replay_headers(
@@ -1176,9 +1182,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if raw_query:
                 raw_output_path = f"{raw_output_path}?{raw_query.urlencode()}"
             plugin_replay = render_plugin_full_response(
-                fullpath.name,
+                display_path.name,
                 raw_output_path,
-                source_path=fullpath,
+                source_path=display_path,
                 replay_base=urljoin(request.path, posixpath.relpath("replay", posixpath.dirname(rel_path) or ".") + "/"),
                 fallback_url=request.archivebox_snapshot_url or "",
                 last_modified=http_date(statobj.st_mtime),
@@ -1217,7 +1223,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         if document_query:
             document_url = f"{document_url}?{document_query.urlencode()}"
         response = HttpResponse(
-            loader.render_to_string("static/html_preview.html", {"document_url": document_url, "title": fullpath.name}),
+            loader.render_to_string("static/html_preview.html", {"document_url": document_url, "title": display_path.name}),
             content_type="text/html; charset=utf-8",
         )
         _set_transformed_response_headers(response, fullpath, statobj, None, cache_policy)
@@ -1447,7 +1453,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     else:
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
     if is_text_like:
-        response.headers["Content-Disposition"] = cast(str, content_disposition_header(False, fullpath.name))
+        response.headers["Content-Disposition"] = cast(str, content_disposition_header(False, display_path.name))
     if content_type.startswith("image/"):
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=604800, immutable"
     if favicon_cache_control:

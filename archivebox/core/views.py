@@ -87,7 +87,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
-from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, serve_static_with_byterange_support
+from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, _resolve_contained_path, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
     equivalent_urls,
@@ -1166,8 +1166,8 @@ def _latest_replay_match(
         for replay_root in get_plugin_replay_roots(snapshot_root, snapshot.url):
             target = replay_root / rel_to_root
             try:
-                available = target.resolve().is_relative_to(snapshot_root.resolve()) and target.exists()
-            except (OSError, RuntimeError):
+                available = _resolve_contained_path(snapshot_root.resolve(), target).exists()
+            except (Http404, OSError, RuntimeError):
                 continue
             if available:
                 return snapshot, replay_root, rel_to_root

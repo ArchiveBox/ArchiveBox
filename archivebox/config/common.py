@@ -345,6 +345,11 @@ class StorageConfig(BaseConfigSet):
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
     ABXPKG_LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_ABXPKG_LIB_DIR, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
+    HASHES_COLLECTION_DEDUP: bool = Field(
+        default=False,
+        json_schema_extra={"scope": _SCOPE_CRAWL_FROZEN},
+        description="Save disk space by sharing identical retained files across sealed snapshots with the same owner, persona and visibility.",
+    )
     OUTPUT_PERMISSIONS: str = Field(default="644")
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
     ALLOW_NO_UNIX_SOCKETS: bool = Field(default=False, alias="ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS")
