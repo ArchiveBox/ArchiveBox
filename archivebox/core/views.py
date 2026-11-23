@@ -118,7 +118,7 @@ from archivebox.search.config import (
     get_search_mode_options,
 )
 from archivebox.search.query import url_search_q
-from archivebox.search.views import get_cached_public_search_state, ranked_page_ids, streamed_page_ids
+from archivebox.search.views import get_cached_public_search_state, ranked_page_ids, search_row_cursor, streamed_page_ids
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -1799,7 +1799,6 @@ class PublicIndexView(ListView):
         }
         from archivebox.core.sidebar import sidebar_context
 
-        context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
         context["show_search_index_hint"] = bool(
             query
             and not public_search_pending
@@ -1826,6 +1825,13 @@ class PublicIndexView(ListView):
             snapshots = list(objects or ())
         from archivebox.core.list_results_util import load_snapshot_list_results
 
+        previous = self.request.headers.get("X-ArchiveBox-Search-Rows")
+        if self.search_fragment and previous:
+            self.retained_rows, self.row_cursor = search_row_cursor(snapshots, previous)
+            context["search_retained"] = self.retained_rows
+            snapshots = snapshots[self.retained_rows :]
+        if not context.get("search_retained"):
+            context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         if snapshots:
             for snapshot_id, tag_name in (
@@ -1946,7 +1952,10 @@ class PublicIndexView(ListView):
             phase = self.request.headers.get("X-ArchiveBox-Search-Fragment")
             self.search_fragment = phase if phase in {"preview", "rows"} and self.request.GET.get("q") else None
             response = super().get(*args, **kwargs)
-            patch_vary_headers(response, ("X-ArchiveBox-Search-Fragment",))
+            patch_vary_headers(response, ("X-ArchiveBox-Search-Fragment", "X-ArchiveBox-Search-Rows"))
+            if hasattr(self, "row_cursor"):
+                response["X-ArchiveBox-Search-Rows"] = self.row_cursor
+                response["X-ArchiveBox-Search-Retained"] = str(self.retained_rows)
             if self.preview_has_more:
                 response["X-ArchiveBox-Search-More-Rows"] = "1"
             if self.search_fragment and (state := self.__dict__.get("public_search_state")) is not None:

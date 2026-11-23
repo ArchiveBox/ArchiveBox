@@ -671,7 +671,7 @@
 {% block body %}
     {% partialdef search-results inline %}
     <div class="snapshot-library public-library">
-        {% include "core/folder_sidebar.html" %}
+        {% if not search_retained %}{% include "core/folder_sidebar.html" %}{% endif %}
     <div id="content-main" class="public-snapshot-list">
         <div class="public-snapshot-toolbar">
             {% if not search_fragment %}
@@ -716,7 +716,7 @@
                 <tbody>
                     {% for link in object_list %}
                         {% snapshot_index_row link %}
-                    {% empty %}
+                    {% empty %}{% if not search_retained %}
                         <tr>
                             <td colspan="7" class="public-search-empty">
                                 {% if public_search_stream_pending %}
@@ -729,11 +729,11 @@
                                 {% endif %}
                             </td>
                         </tr>
-                    {% endfor %}
+                    {% endif %}{% endfor %}
                 </tbody>
             </table>
         </div>
-        {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}
+        {% if not search_retained %}{% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}{% endif %}
         <div class="public-pagination" role="navigation" aria-label="Snapshot pages">
             Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
             <br>
@@ -845,7 +845,7 @@
                 let renderedCount = -1
                 let firstPageFilled = false
                 let exportsUpdated = false
-                const renderHeaders = {'X-Requested-With': 'XMLHttpRequest'}
+                const renderHeaders = {'X-Requested-With': 'XMLHttpRequest', 'X-ArchiveBox-Search-Rows': 'start'}
 
                 function buildListUrl() {
                     const url = new URL(window.location.href)
@@ -880,7 +880,8 @@
                         replaceRegionFromDocument(doc, '.public-snapshot-count')
                     }
                     replaceRegionFromDocument(doc, '#table-bookmarks thead th:nth-child(3)')
-                    syncSearchRows(document.querySelector('#table-bookmarks tbody'), doc.querySelector('#table-bookmarks tbody'))
+                    syncSearchRows(document.querySelector('#table-bookmarks tbody'), doc.querySelector('#table-bookmarks tbody'), Number(response.headers.get('X-ArchiveBox-Search-Retained')))
+                    renderHeaders['X-ArchiveBox-Search-Rows'] = response.headers.get('X-ArchiveBox-Search-Rows') || 'start'
                     replaceRegionFromDocument(doc, '.public-pagination')
                     // The server may already have rendered a later count than
                     // the stream chunk that triggered this fetch. A full,

@@ -1303,6 +1303,7 @@
             }
 
             /* The native select receives the actual click, including in WKWebView. */
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-folder-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-rearchive-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-permissions-select {
                 position: absolute;
@@ -1315,6 +1316,7 @@
                 margin: 0;
             }
 
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .action-folder-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-rearchive-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-permissions-wrapper > .button {
                 padding: 8px 18px !important;

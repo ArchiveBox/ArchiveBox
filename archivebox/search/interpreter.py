@@ -95,7 +95,7 @@ class SnapshotSearch:
         self.scope = scope
         self.tree = parse(query)
         self.terms = tuple(dict.fromkeys(leaves(self.tree)))
-        if rules is None and any("__" in t.field for t in self.terms):
+        if rules is None and any(t.field == "folder" or "__" in t.field for t in self.terms):
             from archivebox.core.smart_folders import RuleQuery
 
             rules = RuleQuery()

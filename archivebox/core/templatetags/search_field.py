@@ -2,6 +2,8 @@ import json
 from django import template
 from archivebox.core.context_processors import get_static_cache_key
 from archivebox.search.language import OPERATORS
+from archivebox.search.fields import snapshot_plugin_choices
+from archivebox.core.permissions import is_admin_user
 
 register = template.Library()
 
@@ -12,6 +14,11 @@ def search_field(context, value="", name="q", field_id="searchbar"):
         {"key": key, "icon": icon, "description": description, "aliases": ["site"] if key == "domain" else []}
         for key, (icon, description) in OPERATORS.items()
     ]
+    request = context.get("request")
+    # A global admin search can complete registered plugins locally, including
+    # installed plugins that have yet to produce their first successful output.
+    if request and is_admin_user(request) and not any(key not in {"q", "p", "page", "search_mode", "o", "sidebar"} for key in request.GET):
+        next(op for op in operators if op["key"] == "plugins")["choices"] = snapshot_plugin_choices()
     return {
         "value": value or "",
         "name": name,

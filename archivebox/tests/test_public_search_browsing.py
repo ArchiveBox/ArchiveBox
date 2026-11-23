@@ -215,3 +215,21 @@ def test_public_search_actual_http_next_and_expired_page(live_server, crawl):
     assert len({r.pk for r in rows if r.url in url_page.text}) == 15
     assert "const initialForm =" not in url_page.text
     session.close()
+
+
+def test_fragment_cursor_rechecks_public_page_before_retaining_rows(client, crawl):
+    Machine.from_json({"config": {"PUBLIC_INDEX": True}})
+    first = Snapshot.objects.create(crawl=crawl, title="Before", url="https://cursor.example/1", config={"PERMISSIONS": "public"})
+    params = {"q": "domain:cursor.example"}
+    headers = {"X-ArchiveBox-Search-Fragment": "rows", "X-ArchiveBox-Search-Rows": "start"}
+    initial = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert f'data-snapshot-id="{first.pk}"' in initial.text
+    headers["X-ArchiveBox-Search-Rows"] = initial["X-ArchiveBox-Search-Rows"]
+    unchanged = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert unchanged["X-ArchiveBox-Search-Retained"] == "1" and "data-snapshot-id=" not in unchanged.text
+    first.config["PERMISSIONS"] = "private"
+    first.save(update_fields=["config"])
+    second = Snapshot.objects.create(crawl=crawl, title="After", url="https://cursor.example/2", config={"PERMISSIONS": "public"})
+    changed = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert changed["X-ArchiveBox-Search-Retained"] == "0"
+    assert f'data-snapshot-id="{second.pk}"' in changed.text and f'data-snapshot-id="{first.pk}"' not in changed.text

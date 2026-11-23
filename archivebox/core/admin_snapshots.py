@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
+from django.utils.cache import patch_vary_headers
 from django.utils.translation import gettext
 from django.db.models import Count, Prefetch
 from django import forms
@@ -29,7 +30,7 @@ from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
-from archivebox.search.views import admin_snapshot_search_stream_view, streamed_page_ids
+from archivebox.search.views import admin_snapshot_search_stream_view, search_row_cursor, streamed_page_ids
 from archivebox.search.query import apply_snapshot_filters
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
@@ -256,15 +257,15 @@ class SnapshotChangeList(SearchResultsChangeList):
             resolver_name == "grid" or request.path.rstrip("/").endswith("/grid")
         )
 
-    def _attach_archiveresult_summaries(self):
-        if not self.result_list:
+    def _attach_archiveresult_summaries(self, snapshots):
+        if not snapshots:
             return
 
         # Progress counts, file icons, favicons and thumbnails come from plain
         # rows plus the few manifest entries their links need: responses/wget
         # manifests hold thousands of entries (see list_results_util).
-        list_results = load_snapshot_list_results(self.result_list)
-        for obj in self.result_list:
+        list_results = load_snapshot_list_results(snapshots)
+        for obj in snapshots:
             summary = list_results[obj.pk]
             counts = summary.status_counts + summary.unnamed_status_counts
             total = sum(counts.values())
@@ -405,7 +406,11 @@ class SnapshotChangeList(SearchResultsChangeList):
             ]
         self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
-        self._attach_archiveresult_summaries()
+        previous = request.headers.get("X-ArchiveBox-Search-Rows")
+        self.retained_rows = 0
+        if previous and self.query and request.method == "GET" and request.GET.get("_embedded") != "crawl":
+            self.retained_rows, self.row_cursor = search_row_cursor(self.result_list, previous)
+        self._attach_archiveresult_summaries(self.result_list[self.retained_rows :])
 
 
 class SnapshotAdminForm(forms.ModelForm):
@@ -735,7 +740,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET, request=request)
         try:
             try:
-                return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+                response = super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+                patch_vary_headers(response, ("X-ArchiveBox-Search-Rows",))
+                cl = (getattr(response, "context_data", None) or {}).get("cl")
+                if cl and hasattr(cl, "row_cursor"):
+                    response["X-ArchiveBox-Search-Rows"] = cl.row_cursor
+                    if cl.retained_rows:
+                        # Actions and pagination use the entire page. Only the
+                        # table/grid renderer receives the newly arrived suffix.
+                        additions = copy(cl)
+                        additions.result_list = cl.result_list[cl.retained_rows :]
+                        response.context_data["additions"] = additions
+                        response.template_name = "admin/core/snapshot/search_rows.html"
+                        response["X-ArchiveBox-Search-Retained"] = str(cl.retained_rows)
+                return response
             except Exception as e:
                 self.message_user(request, f"Error occurred while loading the page: {str(e)} {request.GET} {request.POST}")
                 return super().changelist_view(request, GLOBAL_CONTEXT)

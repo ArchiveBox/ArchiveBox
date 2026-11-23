@@ -1,12 +1,27 @@
 .record-picker { display: inline-flex; flex-direction: column; gap: 4px; max-width: 100%; min-width: 0; }
 .record-picker > input, .record-picker > select { box-sizing: border-box; width: 100%; min-width: 0; }
 .record-picker > button { align-self: flex-start; }
-.record-picker > button[hidden] { display: none !important; }
-.record-picker > button[hidden] { display: none !important; }
+.record-picker > [hidden] { display: none !important; }
 .record-picker-status:empty { display: none; }
 @media (max-width: 767px) {
   .record-picker > input, .record-picker > select, .record-picker > button { min-height: 44px; }
 }
+.action-folder-wrapper .record-picker { display: contents; }
+.record-picker-menu {
+  position: fixed; inset: auto; margin: 0; box-sizing: border-box; padding: 6px;
+  width: min(18rem, calc(100vw - 8px)); max-height: min(18rem, 40dvh); overflow: auto;
+  border: 1px solid var(--border-color, #ccc); border-radius: 6px;
+  background: var(--body-bg, white); color: var(--body-fg, #333);
+  box-shadow: 0 4px 14px #0002;
+}
+.record-picker-menu > input { box-sizing: border-box; width: 100%; min-height: 36px; }
+.record-picker-menu .record-picker-choices > button {
+  display: block; box-sizing: border-box; width: 100%; min-height: 32px; padding: 4px 8px;
+  color: inherit; background: transparent; border: 0; border-radius: 4px; text-align: left;
+  white-space: normal; cursor: pointer; font: inherit;
+}
+.record-picker-choices > button:is(:focus-visible,:hover) { background: var(--darkened-bg,#f3f4f6); }
+.record-picker-menu [hidden] { display: none !important; }
 @media (max-width: 767px) {
-  .record-picker > input, .record-picker > select, .record-picker > button { min-height: 44px; }
+  .record-picker-menu > input, .record-picker-menu .record-picker-choices > button { min-height: 44px; }
 }

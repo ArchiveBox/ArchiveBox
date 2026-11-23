@@ -56,7 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = button.closest('.folder-row');
       const label = picker?.value === parentId ? picker.selectedOptions[0]?.text :
         row?.dataset.folderId === parentId ? row.querySelector('.folder-link')?.title : null;
-      for (const option of Array.from(parent.options).slice(1)) option.remove();
+      for (const option of Array.from(parent.options)) {
+        if (option.value && !option.dataset.pickerCommand) option.remove();
+      }
       if (parentId && label) window.ArchiveBoxPicker.selectChoice(parent, parentId, label);
       parent.dataset.pickerExclude = button.dataset.id || '';
       document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
@@ -66,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else dialog.setAttribute('aria-describedby', subtitle.id);
       dialog.querySelector('.folder-form-error').textContent = '';
       dialog.showModal();
-      (moving ? parentPicker.input : folderForm.elements.name).focus();
+      (moving ? parent : folderForm.elements.name).focus();
       const kind = dialog.querySelector('#folder-kind');
       kind.disabled = true;
       folderForm.querySelector('[type=submit]').disabled = true;

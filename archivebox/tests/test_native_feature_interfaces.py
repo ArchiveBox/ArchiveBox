@@ -279,6 +279,7 @@ def test_folder_and_importer_ui_downloads(live_server, admin_user, browser_runti
         page.get_by_text("Advanced options", exact=True).click()
         page.locator('[name="name"]').fill("UI feed")
         picker = page.locator('.record-picker:has([name="folder"])')
+        picker.get_by_role("combobox").select_option(label="Find a folder…")
         picker.get_by_role("searchbox").fill(folder.name)
         expect(picker.locator(f'option[value="{folder.pk}"]')).to_have_count(1)
         picker.locator('[name="folder"]').select_option(str(folder.pk))

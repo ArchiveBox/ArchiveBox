@@ -36,6 +36,7 @@ UNQUOTED_ITEM = re.compile(r'[^",\s]+')
 JSON_STRING = json.JSONDecoder()
 ALIASES = {"tag": "tags", "site": "domain"}
 OPERATORS = {
+    "folder": ("folder", "Folder name or nested path"),
     "tags": ("tag", "Tag name contains this text"),
     "plugins": ("puzzle", "Successful plugin name contains this text"),
     "owner": ("user", "Username contains this text"),
@@ -304,6 +305,10 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
         }:
             raise ValueError("This advanced field is available only in authenticated administrative searches.")
         return (rules or RuleQuery()).advanced_term(field, lookup, v, stack)
+    if f == "folder":
+        from archivebox.core.smart_folders import RuleQuery
+
+        return (rules or RuleQuery()).named_folders(v, stack, public=public)
     if f == "domain":
         return SnapshotQuerySet.domain_q(v)
     if f in {"permissions", "status", "title"}:

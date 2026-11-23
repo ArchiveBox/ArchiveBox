@@ -108,7 +108,7 @@
       // Django Actions closes over this array for shift-click and select-all.
       // Keep that binding valid when the stream adds or removes checkboxes.
       var actionCheckboxes = [];
-      var renderHeaders = {"X-Requested-With": "XMLHttpRequest"};
+      var renderHeaders = {"X-Requested-With": "XMLHttpRequest", "X-ArchiveBox-Search-Rows": "start"};
 
       function failSearch(error) {
         if (activeSearch !== controller || controller.signal.aborted || error.name === "AbortError") return;
@@ -146,11 +146,11 @@
         renderedVersion = resultVersion;
         lastRender = Date.now();
         renderPromise = fetch(url, {headers: renderHeaders, signal: controller.signal})
-          .then(function(response) {
+          .then(async function(response) {
             if (!response.ok) throw new Error("Could not load snapshot results");
-            return response.text();
+            return {html: await response.text(), retained: Number(response.headers.get("X-ArchiveBox-Search-Retained")), cursor: response.headers.get("X-ArchiveBox-Search-Rows")};
           })
-          .then(function(html) {
+          .then(function({html, retained, cursor}) {
             if (controller.signal.aborted) return;
             var doc = searchFragment(html);
             var nextMain = doc.getElementById("content-main");
@@ -159,7 +159,7 @@
             var nextRows = nextMain?.querySelector(rowsSelector);
             if (renderedRows?.isConnected && nextRows && renderedRows.tagName === nextRows.tagName) {
               const across = currentMain.querySelector('input.select-across')?.value === '1';
-              const added = syncSearchRows(renderedRows, nextRows);
+              const added = syncSearchRows(renderedRows, nextRows, retained);
               const boxes = renderedRows.querySelectorAll('input.action-select');
               actionCheckboxes.splice(0, actionCheckboxes.length, ...boxes);
               for (const row of added) {
@@ -225,6 +225,7 @@
             } else {
               throw new Error("Missing snapshot results");
             }
+            renderHeaders["X-ArchiveBox-Search-Rows"] = renderedRows && cursor || "start";
           })
           .catch(failSearch)
           .finally(function() {

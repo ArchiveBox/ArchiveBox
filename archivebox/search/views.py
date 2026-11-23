@@ -47,6 +47,22 @@ def ranked_page_ids(scope, ids, *, start, size):
     return page
 
 
+def search_row_cursor(rows, previous):
+    """Acknowledge an ordered page prefix without storing browser state on the server."""
+    # Validate against current, permission-filtered rows. A new sort, removed
+    # permission or changed prefix gets an authoritative replacement page.
+    # A long-running disk scan can resume even after a server cache expires.
+    digest = hashlib.sha256()
+    retained = 0
+    length = 0
+    head, _, signature = previous.partition(".")
+    for length, row in enumerate(rows, 1):
+        digest.update(row.pk.bytes)
+        if str(length) == head and digest.hexdigest() == signature:
+            retained = length
+    return retained, f"{length}.{digest.hexdigest()}"
+
+
 def sql_page_key(request, url, token):
     # A page belongs to one search, user, sort, and submission. Never put its
     # bounded IDs in the membership cache shared by exports or other pages.

@@ -42,16 +42,19 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             folder_select = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(folder_select).to_be_visible()
             folder_search = page.get_by_role("searchbox", name="Find a folder", exact=True)
-            expect(folder_search).to_be_visible()
+            expect(folder_search).to_be_hidden()
+            expect(page.locator(".action-folder-wrapper > .button")).to_be_visible()
+            folder_select.select_option(label="Find a folder…")
+            expect(folder_search).to_be_focused()
             expect(page.locator(".action-folder-wrapper .record-picker > button")).to_be_hidden()
-            assert folder_select.evaluate("node => getComputedStyle(node).opacity") == "1"
+            assert folder_select.evaluate("node => node.tagName") == "SELECT"
             for control in (folder_search, folder_select):
                 box = control.bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1
                 if width <= 390:
                     assert box["height"] >= 44
-            folder_select.focus()
-            page.keyboard.press("Escape")
+            folder_search.press("Escape")
+            expect(folder_search).to_be_hidden()
             page.get_by_role("combobox", name="Permissions", exact=True).focus()
             expect(folder_select).to_have_value("__choose__")
             page.locator("input.action-select").first.uncheck()
@@ -67,6 +70,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
                     assert box["height"] >= 44, control.evaluate(
                         "node => ({html:node.outerHTML,min:getComputedStyle(node).minHeight,height:getComputedStyle(node).height,box:getComputedStyle(node).boxSizing})",
                     )
+            page.locator(".actions-top").screenshot(path=str(output / f"snapshot-toolbar-{width}.png"))
             page.screenshot(path=str(output / f"admin-actions-{width}.png"))
         page.locator(".action-permissions-select").select_option("private")
         expect(page.locator(".messagelist")).to_contain_text("private")
@@ -140,13 +144,15 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
 
 
 @pytest.mark.django_db(transaction=True)
-def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browser_runtime, admin_user, crawl):
+@pytest.mark.parametrize("streamed", [False, True])
+def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browser_runtime, admin_user, crawl, streamed):
     from archivebox.core.models import Folder
 
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
     machine.save(update_fields=["config"])
     snapshot = Snapshot.objects.create(url="https://example.com/folder-menu", crawl=crawl)
+    Snapshot.objects.create(url="https://example.com/also-in-search", crawl=crawl)
     parent = Folder.objects.create(name="2026")
     folder = Folder.objects.create(name="OneTab", parent=parent)
     base = live_server.url.replace("localhost", "admin.archivebox.localhost")
@@ -168,11 +174,17 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
         page.locator("#id_password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         page.goto(base + "/admin/core/snapshot/")
+        if streamed:
+            editor = page.locator('#changelist-search [role="combobox"]')
+            editor.fill("title:missing OR domain:example.com")
+            editor.press("Enter")
+            expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
         for destination in (str(folder.pk), "", str(folder.pk)):
             checkbox = page.locator(f'input.action-select[value="{snapshot.pk}"]')
             checkbox.check()
             menu = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(menu).to_be_visible()
+            menu.select_option(label="Find a folder…")
             page.get_by_role("searchbox", name="Find a folder", exact=True).fill("OneTab")
             expect(menu.locator(f'option[value="{folder.pk}"]')).to_have_text("2026 / OneTab")
             expect(menu).to_have_value("__choose__")
@@ -180,8 +192,14 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
             page.keyboard.press("Escape")
             page.get_by_role("combobox", name="Re-Archive", exact=True).focus()
             expect(menu).to_have_value("__choose__")
+            if destination and streamed:
+                menu.select_option(label="Find a folder…")
+                page.get_by_role("searchbox", name="Find a folder", exact=True).fill("OneTab")
             with page.expect_navigation(wait_until="domcontentloaded"):
-                menu.select_option(destination)
+                if destination and streamed:
+                    page.get_by_role("button", name="2026 / OneTab", exact=True).click()
+                else:
+                    menu.select_option(destination)
             assert reader.submit(current_folder_id).result() == destination
             expect(menu).not_to_be_visible()
         browser.close()

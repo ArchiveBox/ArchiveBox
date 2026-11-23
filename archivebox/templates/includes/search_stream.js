@@ -6,20 +6,20 @@ function searchFragment(html) {
     return template.content;
 }
 
-function syncSearchRows(current, incoming) {
+function syncSearchRows(current, incoming, retained = 0) {
     // Keep live browsing contexts attached. Even removing and reinserting the
     // same iframe node starts a new navigation in its embedded document.
     const next = Array.from(incoming.children);
     const keep = new Set(next.map(row => row.dataset.snapshotId).filter(Boolean));
     const existing = new Map();
-    for (const row of Array.from(current.children)) {
+    for (const row of Array.from(current.children).slice(retained)) {
         const id = row.dataset.snapshotId;
         if (keep.has(id)) existing.set(id, row);
         else row.remove();
     }
     const added = [];
     const tail = document.createDocumentFragment();
-    let cursor = current.firstElementChild;
+    let cursor = current.children[retained] || null;
     for (const fresh of next) {
         const row = existing.get(fresh.dataset.snapshotId);
         if (!row) {

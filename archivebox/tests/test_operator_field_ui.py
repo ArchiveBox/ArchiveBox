@@ -10,7 +10,7 @@ import pytest
 def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtime):
     from playwright.sync_api import expect, sync_playwright
 
-    from archivebox.core.models import Snapshot, Tag
+    from archivebox.core.models import Folder, Snapshot, Tag
     from archivebox.machine.models import Machine
 
     port = urlsplit(live_server.url).port
@@ -19,6 +19,8 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
     machine.save(update_fields=["config"])
     tagged = Snapshot.objects.create(url="https://example.org/one", title="Tagged page", crawl=crawl)
     tagged.tags.add(Tag.objects.create(name="ABC:DEF", created_by=admin_user))
+    research = Folder.objects.create(name="Research")
+    Folder.objects.create(name="Field notes", parent=research, rules={"query": "title:Tagged"})
     Snapshot.objects.create(url="https://example.org/two", title="Other page", crawl=crawl)
 
     with sync_playwright() as playwright:
@@ -63,7 +65,16 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
                 suggestion_prefixes.extend(params["prefix"])
 
         page.on("request", record_suggestion_request)
+        # Observe the handler after ArchiveBox has seen the native input event.
+        # Decoration must never detach the text node the browser just edited.
+        field.evaluate("""el => {
+            window.keptTypingNode = [];
+            let node;
+            el.addEventListener('input', () => { node = getSelection().focusNode; }, true);
+            el.addEventListener('input', () => window.keptTypingNode.push(node.isConnected));
+        }""")
         field.press_sequentially("ABC")
+        assert page.evaluate("window.keptTypingNode") == [True, True, True]
         page.get_by_role("option", name="ABC:DEF", exact=True).tap()
         expect(hidden).to_have_value('tags:"ABC:DEF" ')
         assert suggestion_prefixes == ["ABC"]
@@ -81,6 +92,16 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
                 },
             )["result"]["value"]
 
+        # Catalog completion works before the first successful capture by this
+        # plugin. Typing a prefix must not invent a plugin of that name.
+        saved_query = hidden.input_value()
+        field.fill("plugins:paper")
+        expect(page.locator('[role="option"] .suggestion-name')).to_have_text(["papersdl"])
+        field.fill("folder:Field")
+        page.get_by_role("option", name="Research / Field notes").tap()
+        expect(hidden).to_have_value('folder:"Research / Field notes" ')
+        field.fill(saved_query)
+        field.press("Escape")
         before = viewport_listener_count()
         original = field.element_handle()
         field.press("Enter")
@@ -355,6 +376,15 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
             page.goto(origin + path)
             rows = page.locator(".cards > .card" if view == "grid" else "#result_list tbody tr[data-snapshot-id]")
         editor = page.locator("#changelist-search [role=combobox]")
+        fragments = []
+        page.on(
+            "response",
+            lambda response: (
+                fragments.append(response)
+                if response.request.headers.get("x-requested-with") == "XMLHttpRequest" and "q=" in response.url
+                else None
+            ),
+        )
         original_editor = editor.element_handle()
         editor.fill("title:Early OR deep:sunrise")
         editor.press("Escape")
@@ -390,6 +420,13 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
         assert first_row.evaluate("row => row.isConnected && row === row.parentElement.firstElementChild")
         assert removals.evaluate("removed => removed.length") == 0
         assert not repeat_requests
+        bodies = [response.text() for response in fragments]
+        for row in rows.all():
+            row_id = row.get_attribute("data-snapshot-id")
+            assert sum(f'data-snapshot-id="{row_id}"' in body for body in bodies) == 1
+
+        assert len(bodies) >= 2
+        assert all("changelist-search" not in body and "folder-sidebar" not in body for body in bodies[1:])
         if view == "public":
             assert original_editor.evaluate("el => el.isConnected")
         if view == "grid":

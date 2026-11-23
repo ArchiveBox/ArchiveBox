@@ -7,6 +7,7 @@
 {% if results %}
 <div class="results">
 <table id="result_list">
+{% if not cl.retained_rows %}
 {% if cl.opts.model_name == "snapshot" %}
 <colgroup>
   <col>
@@ -39,6 +40,7 @@
 </th>{% endfor %}
 </tr>
 </thead>
+{% endif %}
 <tbody>
 {% for result in results %}
 {% if result.form and result.form.non_field_errors %}
