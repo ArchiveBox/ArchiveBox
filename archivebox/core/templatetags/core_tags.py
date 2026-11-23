@@ -46,6 +46,22 @@ register.filter("permission_icon", render_permission_icon)
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
 
 
+@register.simple_tag(takes_context=True)
+def plugin_page_head(context):
+    """Let registered plugin apps contribute enabled UI integrations."""
+    from django.apps import apps
+    from django.utils.html import format_html_join
+    from archivebox.config.common import get_config
+
+    request = context.get("request")
+    config = get_config().model_dump(mode="json")
+    return format_html_join(
+        "\n",
+        "{}",
+        ((app.render_page_head(request, config),) for app in apps.get_app_configs() if callable(getattr(app, "render_page_head", None))),
+    )
+
+
 _INITIAL_GRAPHEME = regex.compile(r"\X")
 _FOLDER_EMOJI = regex.compile(r"\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3")
 
