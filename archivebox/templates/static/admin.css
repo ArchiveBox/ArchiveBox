@@ -125,13 +125,22 @@ body.change-list #content .object-tools {
     margin-right: 0;
     float: none;
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    gap: 8px;
     clear: both;
+}
+
+body.change-list #content .object-tools li {
+    display: flex;
+    align-items: center;
+    margin-left: 0;
 }
 
 #content .object-tools a:link,
 #content .object-tools a:visited,
 #content .object-tools form button {
+    box-sizing: border-box;
     border: 1px solid var(--border-color, #d0d5dd);
     border-radius: 6px;
     background-color: var(--body-bg, #fff);
@@ -140,7 +149,27 @@ body.change-list #content .object-tools {
     padding: 8px 12px;
 }
 #content .object-tools form { display: inline; margin: 0; }
-#content .object-tools a.addlink { padding-right: 26px; }
+#content .object-tools a {
+    float: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: nowrap;
+}
+
+/* Django's white toolbar glyphs need the control's foreground on outline buttons. */
+#content .object-tools a:is(.addlink, .viewsitelink) { background-image: none; }
+#content .object-tools a:is(.addlink, .viewsitelink)::after {
+    content: "";
+    flex: 0 0 13px;
+    height: 13px;
+    background-color: currentColor;
+    mask: var(--object-tool-icon) center / contain no-repeat;
+}
+#content .object-tools a.addlink { --object-tool-icon: url("admin/img/tooltag-add.svg"); }
+#content .object-tools a.viewsitelink { --object-tool-icon: url("admin/img/tooltag-arrowright.svg"); }
 
 @media (max-width: 900px) {
     body.change-form div.breadcrumbs {

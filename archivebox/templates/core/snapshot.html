@@ -350,7 +350,9 @@
             }
             html.archivebox-ios-app header:has(> .header-top),
             html.archivebox-ios-app .header-top { background: #a51c50 !important; }
-            html.archivebox-ios-app .header-top { padding-left: 8px !important; padding-right: 8px !important; }
+            html.archivebox-ios-app .header-top { padding-left: 8px !important; }
+            /* Reserve the native Back overlay without squeezing the logo and label. */
+            html.archivebox-ios-app .header-top .header-nav { grid-template-columns: 134px minmax(0, 1fr) auto; }
             html.archivebox-ios-app .header-top .header-left {
                 box-sizing: border-box; padding-left: 52px !important; min-height: 48px;
                 display: flex; align-items: center;
@@ -365,6 +367,7 @@
             @container snapshot-header (max-width: 600px) {
                 /* Keep the native Back clearance on the URL row only. All other
                    rows use the same narrow tracks as the regular mobile layout. */
+                html.archivebox-ios-app .header-top { padding-right: 8px !important; }
                 html.archivebox-ios-app .header-top .header-nav { grid-template-columns: minmax(0, 1fr) auto !important; }
                 html.archivebox-ios-app .header-top .header-left { display: none !important; }
                 html.archivebox-ios-app .header-top .header-url-text {
