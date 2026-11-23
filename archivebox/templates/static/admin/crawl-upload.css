@@ -1,0 +1,31 @@
+#crawl-drop-overlay[hidden], #crawl-drop-close[hidden] { display: none; }
+#crawl-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(15 23 42 / 45%);
+    backdrop-filter: blur(3px);
+    pointer-events: none;
+}
+#crawl-drop-overlay[data-state="error"] { pointer-events: auto; }
+.crawl-drop-card {
+    box-sizing: border-box;
+    width: min(100%, 520px);
+    padding: 38px 32px 30px;
+    border: 2px dashed var(--primary, #417690);
+    border-radius: 16px;
+    background: var(--body-bg, white);
+    color: var(--body-fg, #333);
+    box-shadow: 0 20px 70px rgb(0 0 0 / 20%);
+    text-align: center;
+}
+.crawl-drop-icon { width: 48px; height: 48px; color: var(--primary, #417690); margin-bottom: 16px; }
+.crawl-drop-card h2 { margin: 0 0 12px; padding: 0; font-size: 24px; font-weight: 600; color: inherit; background: none; }
+.crawl-drop-card p { margin: 0; font-size: 15px; line-height: 1.6; }
+.crawl-drop-card #crawl-drop-detail { margin-top: 22px; font-size: 13px; color: var(--body-quiet-color, #666); overflow-wrap: anywhere; }
+#crawl-drop-close { margin-top: 20px; }
+#crawl-drop-overlay[data-state="uploading"] .crawl-drop-card { border-style: solid; }
+#crawl-drop-overlay[data-state="error"] .crawl-drop-card { border-color: var(--error-fg, #ba2121); }

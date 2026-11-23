@@ -628,6 +628,10 @@ class CrawlAdminForm(forms.ModelForm):
 
 
 class CrawlChangeList(ChangeList):
+    def __init__(self, request, *args, **kwargs):
+        super().__init__(request, *args, **kwargs)
+        self.can_upload = request.user.has_perm("crawls.add_crawl")
+
     def get_ordering(self, request, queryset):
         # Keep running jobs first even when an old sortable-column URL supplies ?o=.
         return self.model_admin.get_ordering(request)
