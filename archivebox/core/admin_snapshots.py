@@ -999,7 +999,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def admin_actions(self, obj):
         summary_url = self.get_snapshot_view_url(obj)
         files_url = self.get_snapshot_files_url(obj)
-        zip_url = self.get_snapshot_zip_url(obj)
+        zip_url = self.get_snapshot_zip_url(obj).split("?", 1)[0]
         redo_failed_url = f"/admin/core/snapshot/{obj.pk}/redo-failed/"
         return format_html(
             """
@@ -1016,15 +1016,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📁 All files
                 </a>
-                <a class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="{}"
+                <button type="button" class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   data-zip-path="{}"
                    data-loading-label="Preparing..."
                    onclick="return window.archiveboxHandleZipClick(this, event);"
                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd';"
                    onmouseout="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe';">
                     <span class="archivebox-zip-spinner" aria-hidden="true"></span>
                     <span class="archivebox-zip-label">⬇ Download Zip</span>
-                </a>
+                </button>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
                    target="_blank"

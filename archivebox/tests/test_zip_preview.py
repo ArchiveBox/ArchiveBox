@@ -86,7 +86,10 @@ def test_directory_filter_and_row_downloads(snapshot, live_server, browser_runti
             args=[*browser_runtime["chrome_args"], f"--host-resolver-rules=MAP {host} 127.0.0.1"],
         )
         page = browser.new_page(accept_downloads=True, locale="tr-TR")
-        page.goto(f"http://{host}:{port}/dropbox/files/?files=1")
+        listing_url = f"http://{host}:{port}/dropbox/files/?files=1"
+        listing = page.goto(listing_url)
+        assert "download=zip" not in listing.text()
+        expect(page.locator('a[href*="download=zip"]')).to_have_count(0)
         expect(page.locator(".entry-download")).to_have_count(5)
         assert page.evaluate("navigator.language") == "tr-TR"
         page.get_by_role("searchbox", name="Filter files").fill("PICTURE")
@@ -125,11 +128,15 @@ def test_directory_filter_and_row_downloads(snapshot, live_server, browser_runti
         assert Path(downloaded.value.path()).read_text() == "raw file download"
         page.get_by_role("searchbox", name="Filter files").fill("")
         with page.expect_download() as downloaded:
-            page.get_by_role("link", name="Download nested/", exact=True).click()
+            page.get_by_role("button", name="Download nested/", exact=True).press("Enter")
         assert downloaded.value.failure() is None
         with zipfile.ZipFile(downloaded.value.path()) as archive:
             assert archive.namelist() == ["nested/child.txt"]
             assert archive.read("nested/child.txt") == b"folder member"
+        direct = page.request.get(f"http://{host}:{port}/dropbox/files/nested/?files=1&download=zip")
+        assert direct.status == 200
+        assert direct.body() == Path(downloaded.value.path()).read_bytes()
+        expect(page.locator('a[href*="download=zip"]')).to_have_count(0)
         assert not list(root.rglob("*.zip"))
         (root / "nested" / "file10.txt").write_text("ten")
         (root / "nested" / "file2.txt").write_text("two")

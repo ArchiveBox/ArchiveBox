@@ -46,6 +46,22 @@ register.filter("permission_icon", render_permission_icon)
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
 
 
+@register.simple_tag
+def snapshot_export_action(url, format):
+    """Describe an export action without publishing a crawlable export URL."""
+    parts = urlsplit(url)
+    format = "rss" if format == "rss_public" else format
+    return {
+        "route": urlunsplit(parts._replace(path=parts.path[: -len(format)] + "{format}", query="")),
+        "query": parts.query,
+    }
+
+
+@register.filter
+def url_without_query(url):
+    return urlunsplit(urlsplit(url)._replace(query="", fragment=""))
+
+
 @register.simple_tag(takes_context=True)
 def plugin_page_head(context):
     """Let registered plugin apps contribute enabled UI integrations."""

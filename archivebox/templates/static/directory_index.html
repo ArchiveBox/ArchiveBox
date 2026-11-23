@@ -1,9 +1,10 @@
-{% load i18n %}
+{% load i18n static core_tags %}
 {% get_current_language as language_code %}
 <!DOCTYPE html>
 <html lang="{{ language_code }}">
   <head>
     {% include "core/typography.html" %}
+    {% if not static_export %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta http-equiv="Content-Language" content="{{ language_code }}">
     <meta name="robots" content="NONE,NOARCHIVE">
@@ -38,7 +39,7 @@
       .directory-entry[hidden] { display: none; }
       .directory-entry:hover { background: #f8fafc; }
       .directory-link { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; height: 49px; padding: 6px 12px; }
-      a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
       .entry-icon, .entry-preview { width: 48px; height: 36px; margin: 0; overflow: hidden; border-radius: 3px; }
       .entry-icon { display: grid; place-items: center; font-size: 20px; }
       .entry-preview { border: 1px solid var(--line); background: white; }
@@ -60,18 +61,18 @@
     <main>
       <nav class="directory-toolbar" aria-label="{% translate "Directory navigation" %}">
         {% if directory != "/" %}
-          <a class="toolbar-link" href="../{{ directory_query }}">↩ {% translate "Up One Level" %}</a>
+          <a class="toolbar-link" href="../{{ directory_query }}"{% if not static_export %} rel="nofollow"{% endif %}>↩ {% translate "Up One Level" %}</a>
         {% endif %}
         <a class="toolbar-link" data-snapshot-page href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
-        {% if zip_url %}<a
+        {% if zip_url %}<button type="button"
           class="toolbar-link archivebox-zip-button"
-          href="{{ zip_url }}"
+          data-zip-path="{{ zip_url|url_without_query }}"
           data-loading-label="{% translate "Preparing..." %}"
           onclick="return window.archiveboxHandleZipClick(this, event);"
         >
           <span class="archivebox-zip-spinner" aria-hidden="true"></span>
           <span class="archivebox-zip-label">⬇ {% translate "Download Zip" %}</span>
-        </a>{% endif %}
+        </button>{% endif %}
       </nav>
 
       <section>
@@ -95,7 +96,7 @@
             <tbody>
             {% if directory != "/" %}
               <tr class="directory-entry parent"><td>
-                <a class="directory-link" href="../{{ directory_query }}">
+                <a class="directory-link" href="../{{ directory_query }}"{% if not static_export %} rel="nofollow"{% endif %}>
                   <span class="entry-icon" aria-hidden="true">↩</span>
                   <span class="entry-label">
                     <span class="entry-name">../</span>
@@ -107,7 +108,7 @@
             {% for entry in entries %}
               {% with f=entry.name %}
               <tr class="directory-entry{% if entry.is_dir %} folder{% endif %}" data-name="{{ f }}" data-size="{{ entry.size_bytes }}" data-type="{{ entry.mimetype }}"><td>
-                <a class="directory-link" href="{% if entry.preview_url %}{{ entry.preview_url }}{% else %}{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif entry.model_preview or f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %}?preview=1&amp;raw=1{% endif %}{% endif %}">
+                <a class="directory-link" href="{% if entry.preview_url %}{{ entry.preview_url }}{% else %}{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif entry.model_preview or f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %}?preview=1&amp;raw=1{% endif %}{% endif %}"{% if not static_export %}{% if entry.is_dir or entry.model_preview or f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %} rel="nofollow"{% endif %}{% endif %}>
                   {% if entry.preview_kind == "image" %}
                     <img class="entry-preview" src="{{ f|urlencode }}?raw=1" alt="" loading="lazy" decoding="async">
                   {% elif entry.preview_kind == "text" %}
@@ -120,7 +121,7 @@
                   </span>
                 </a>
                 </td><td class="entry-size">{{ entry.size }}</td><td class="entry-type" title="{{ entry.mimetype }}">{{ entry.mimetype }}</td><td>
-                {% if not static_export or not entry.is_dir %}<a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>{% endif %}
+                {% if entry.is_dir %}{% if not static_export %}<button type="button" class="entry-download archivebox-zip-button" data-zip-path="{{ f|urlencode }}" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}">⬇</button>{% endif %}{% else %}<a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}?raw=1" download>⬇</a>{% endif %}
               </td></tr>
               {% endwith %}
             {% endfor %}
@@ -188,45 +189,6 @@
         }
       }, {rootMargin: "100px"});
       document.querySelectorAll("pre.entry-preview").forEach((preview) => previews.observe(preview));
-      window.archiveboxHandleZipClick = function(link, event) {
-        if (!link || link.dataset.loading === "1") {
-          if (event) event.preventDefault();
-          return false;
-        }
-        if (event) event.preventDefault();
-        link.dataset.loading = "1";
-        link.classList.add("is-loading");
-        link.setAttribute("aria-busy", "true");
-        const label = link.querySelector(".archivebox-zip-label");
-        const spinner = link.querySelector(".archivebox-zip-spinner");
-        if (label) {
-          link.dataset.originalLabel = label.textContent || "";
-          label.textContent = link.dataset.loadingLabel;
-          label.style.opacity = "0.92";
-        }
-        if (spinner) {
-          spinner.style.display = "inline-block";
-        }
-        link.style.pointerEvents = "none";
-        link.style.opacity = "0.96";
-        const destination = link.href;
-        let iframe = document.getElementById("archivebox-zip-download-frame");
-        if (!iframe) {
-          iframe = document.createElement("iframe");
-          iframe.id = "archivebox-zip-download-frame";
-          iframe.name = "archivebox-zip-download-frame";
-          iframe.hidden = true;
-          iframe.style.display = "none";
-          document.body.appendChild(iframe);
-        }
-        void link.offsetWidth;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            iframe.src = destination;
-          });
-        });
-        return false;
-      };
     </script>
     {% include "includes/preview_height.html" %}
   </body>

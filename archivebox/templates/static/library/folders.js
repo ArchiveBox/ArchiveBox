@@ -1,11 +1,3 @@
-function setSidebarEntryExport(link, menu) {
-  const base = link.dataset.exportBase ??= link.getAttribute('href');
-  if (!menu.dataset.entryValue) return;
-  const url = new URL(base, location.href);
-  url.searchParams.set(menu.dataset.entryFilter, menu.dataset.entryValue);
-  link.href = url.href;
-}
-
 window.archiveboxRefreshLibraryExportLinks = doc => {
   document.querySelectorAll('a[data-export-format]').forEach(link => {
     const menu = link.closest('.folder-menu');
@@ -14,24 +6,21 @@ window.archiveboxRefreshLibraryExportLinks = doc => {
       ? doc.getElementById(menu.id)?.querySelector(format)
       : doc.querySelector('.snapshot-export-links:not(.snapshot-export-menu) ' + format);
     if (nextLink) {
-      link.setAttribute('href', nextLink.getAttribute('href'));
-      if (menu?.dataset.entryFilter) {
-        link.dataset.exportBase = nextLink.getAttribute('href');
-        setSidebarEntryExport(link, menu);
-      }
+      link.dataset.exportRoute = nextLink.dataset.exportRoute;
+      link.dataset.exportQuery = nextLink.dataset.exportQuery;
     } else if (menu?.closest('.folder-row')) {
-      // This branch may have been loaded independently with sidebar pagination.
-      // Only q and search_mode change during a streamed result refresh.
+      // Independently paginated branches retain their scope during streamed search.
       const currentView = doc.getElementById('snapshot-export-menu-sidebar')?.querySelector(format);
       if (!currentView) return;
-      const url = new URL(link.href);
-      const next = new URL(currentView.getAttribute('href'), location.href);
+      const query = new URLSearchParams(link.dataset.exportQuery);
+      const next = new URLSearchParams(currentView.dataset.exportQuery);
       for (const key of ['q', 'search_mode']) {
-        if (next.searchParams.has(key)) url.searchParams.set(key, next.searchParams.get(key));
-        else url.searchParams.delete(key);
+        if (next.has(key)) query.set(key, next.get(key));
+        else query.delete(key);
       }
-      link.href = url.href;
+      link.dataset.exportQuery = query.toString();
     }
+    if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);
   });
   document.querySelectorAll('[data-sidebar-mode-link]').forEach(link => {
     const next = doc.querySelector('[data-sidebar-mode-link="' + link.dataset.sidebarModeLink + '"]');
@@ -495,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!entry) return;
         menu.setAttribute('aria-label', entry.dataset.name);
         menu.dataset.entryValue = entry.dataset.filterValue;
-        exports.forEach(link => setSidebarEntryExport(link, menu));
+        exports.forEach(link => {if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);});
         const rename = menu.querySelector('[data-entry-rename]');
         if (rename) rename.href = entry.dataset.renameUrl;
         const merge = menu.querySelector('[data-sidebar-tag-merge]');
@@ -1055,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   try {desktopHidden = localStorage.getItem('archivebox.sidebar-hidden') === 'true';} catch (_) {}
   function viewportChanged() {
+    const reopenToggle = document.querySelector('.folder-sidebar-reopen');
     if (mobileViewport.matches) clearSidebarDwell();
     const hidden = mobileViewport.matches ? mobileCollapsed : desktopHidden;
     // The mobile CSS owns the breakpoint. Preserve its state on desktop so a
@@ -1078,14 +1068,15 @@ document.addEventListener('DOMContentLoaded', () => {
       try {localStorage.setItem('archivebox.sidebar-hidden', 'true');} catch (_) {}
     }
     viewportChanged();
-    if (!mobileViewport.matches) reopenToggle.focus();
+    if (!mobileViewport.matches) document.querySelector('.folder-sidebar-reopen').focus();
   });
   function showDesktopSidebar() {
     desktopHidden = false;
     try {localStorage.setItem('archivebox.sidebar-hidden', 'false');} catch (_) {}
     viewportChanged();
   }
-  reopenToggle.addEventListener('click', () => {
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.folder-sidebar-reopen')) return;
     showDesktopSidebar();
     mobileToggle.focus();
   });
@@ -1432,6 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeDropTargets(sidebar.querySelectorAll('.folder-drop-target'));
   let initializedForm;
   window.archiveboxInitLibraryRows = () => {
+    viewportChanged();
     form = document.querySelector('#changelist-form');
     if (form !== initializedForm) {
       initializedForm = form;

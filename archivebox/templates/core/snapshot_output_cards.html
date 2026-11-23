@@ -15,7 +15,7 @@
                                         {% endif %}
                                     </div>
                                     {% if display_path %}
-                                        <a href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
+                                        <a href="{{preview_url}}"{% if not STATIC_EXPORT %}{% if "preview=" in preview_url or "files=" in preview_url %} rel="nofollow"{% endif %}{% endif %} target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
                                             <h4><span class="card-title-icon" aria-hidden="true">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
                                         </a>
                                     {% else %}
@@ -29,7 +29,7 @@
                                            snapshot origin in both stack positions. Never run saved
                                            HTML/JS/CSS on web.* or share the admin session with snap-*.{% endcomment %}
                                         {% if not result.name|plugin_card_is_interactive %}
-                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}"{% if not STATIC_EXPORT %}{% if "preview=" in preview_url or "files=" in preview_url %} rel="nofollow"{% endif %}{% endif %} target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
                                         {% endif %}
                                         {% if not result.name|plugin_card_is_interactive %}<div inert aria-hidden="true" style="display:contents">{% endif %}
                                         {% plugin_card result.result %}
@@ -37,13 +37,13 @@
                                     </div>
                                 {% elif result.is_metadata and display_path %}
                                     <div class="card-img-top thumbnail-wrapper">
-                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}"{% if not STATIC_EXPORT %}{% if "preview=" in preview_url or "files=" in preview_url %} rel="nofollow"{% endif %}{% endif %} target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
                                         {% output_card snapshot display_path result.name %}
                                     </div>
                                 {% elif display_path %}
                                     {# Fall back to generic iframe for filesystem-discovered files #}
                                     <div class="card-img-top thumbnail-wrapper">
-                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}"{% if not STATIC_EXPORT %}{% if "preview=" in preview_url or "files=" in preview_url %} rel="nofollow"{% endif %}{% endif %} target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
                                         <iframe title="{{result.name|plugin_name}} preview" class="card-img-top" src="{{display_url}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" fetchpriority="low"></iframe>
                                     </div>
                                 {% endif %}

@@ -130,10 +130,11 @@ async function prepareExports(page, adminBaseUrl, libraryUrl, homepage) {
   await page.goto(libraryUrl, {waitUntil: 'domcontentloaded'});
   const snapshotIds = await page.$$eval('#result_list input.action-select', nodes => nodes.map(node => node.value.replaceAll('-', '')));
   if (!snapshotIds.length) throw new Error('The export gallery folder has no real captures.');
+  await page.click('#folder-sidebar button[popovertarget="snapshot-export-menu-sidebar"]');
   const urls = await page.$$eval('.folder-actions [data-export-format]', links => Object.fromEntries(links.map(link => [link.dataset.exportFormat, link.href])));
+  await page.keyboard.press('Escape');
   for (const format of ['rss', 'csv', 'jsonl']) {
-    // Private RSS subscriptions intentionally carry the administrator's key.
-    // This anonymous gallery check uses the separate native public feed link.
+    // This anonymous gallery check uses the native public-only feed link.
     const linkFormat = format === 'rss' ? 'rss_public' : format;
     if (!urls[linkFormat]) throw new Error(`Missing native ${linkFormat} export link.`);
     const url = new URL(urls[linkFormat]);

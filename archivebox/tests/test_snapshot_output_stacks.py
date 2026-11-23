@@ -1205,6 +1205,8 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             == f"https://web.archive.org/web/{snapshot.url}"
         )
         assert page.locator("#snapshot-output-browser").is_visible()
+        assert page.locator('a[href*="download=zip"]').count() == 0
+        assert actions.get_by_role("button", name="Download snapshot ZIP", exact=True).count() == 1
         with page.expect_download() as download_info:
             actions.locator(".header-url-download .header-status").click()
         archive_path = tmp_path / "snapshot.zip"

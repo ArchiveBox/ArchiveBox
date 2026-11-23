@@ -1,6 +1,7 @@
 """Authenticated Folder and Importer exports keep native bytes while spooling."""
 
 from io import StringIO
+from pathlib import Path
 
 import pytest
 from django.urls import reverse
@@ -48,3 +49,46 @@ def test_api_model_export_empty_json_remains_downloadable(client, api_headers):
     assert response["Content-Disposition"] == 'attachment; filename="importer-runs.json"'
     assert response.getvalue() == b"[]\n"
     response.close()
+
+
+def test_model_export_actions_create_links_only_on_interaction(live_server, admin_user, browser_runtime):
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.tests.test_export_helpers import export_action_urls
+
+    folder = Folder.objects.create(name="Export selection", created_by=admin_user)
+    source = ImporterSource.objects.create(name="Export feed", plugin="feeds", feed="rss", created_by=admin_user, folder=folder)
+    ImporterRun.objects.create(source=source, status=ImporterRun.Status.SUCCEEDED, result={"saved": 1})
+    origin = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    pages = (
+        (
+            reverse("admin:core_folder_changelist") + "?q=selection",
+            reverse("admin:core_folder_export", args=["csv"]) + "?q=selection",
+            b"Export selection",
+        ),
+        (reverse("importers:index"), reverse("importers:export", args=["csv"]), b"Export feed"),
+        (reverse("importers:detail", args=[source.pk]), reverse("importers:export-runs", args=[source.pk, "csv"]), b"succeeded"),
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(origin + "/admin/login/?next=/admin/core/folder/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        for path, direct_url, expected in pages:
+            response = page.goto(origin + path)
+            assert response.status == 200
+            export_action_urls(response.text())
+            expect(page.locator("a[data-export-format][href]")).to_have_count(0)
+            action = page.locator('a[data-export-format="csv"]').first
+            action.focus()
+            expect(action).to_have_attribute("href", origin + direct_url)
+            with page.expect_download() as download:
+                action.press("Enter")
+            assert download.value.failure() is None
+            body = Path(download.value.path()).read_bytes()
+            assert expected in body
+            direct = page.request.get(origin + direct_url)
+            assert direct.status == 200
+            assert direct.body() == body
+        browser.close()

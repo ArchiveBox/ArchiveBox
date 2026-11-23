@@ -281,7 +281,9 @@ def test_snapshot_admin_zip_links(real_hook_result):
 
     assert html.escape(zip_url, quote=True) not in str(admin.files(snapshot))
     assert html.escape(files_url, quote=True) in str(admin.size_with_stats(snapshot))
-    assert html.escape(zip_url, quote=True) in str(admin.admin_actions(snapshot))
+    actions = str(admin.admin_actions(snapshot))
+    assert f'data-zip-path="{html.escape(zip_url.split("?", 1)[0], quote=True)}"' in actions
+    assert "download=zip" not in actions
 
 
 def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(live_server, admin_user, browser_runtime):
@@ -430,8 +432,9 @@ def test_archiveresult_admin_zip_links():
     admin.request = _admin_get_request()
     zip_url = admin.get_output_zip_url(result)
 
-    assert html.escape(zip_url, quote=True) in str(admin.zip_link(result))
-    assert html.escape(zip_url, quote=True) in str(admin.admin_actions(result))
+    for markup in (str(admin.zip_link(result)), str(admin.admin_actions(result))):
+        assert f'data-zip-path="{html.escape(zip_url.split("?", 1)[0], quote=True)}"' in markup
+        assert "download=zip" not in markup
 
 
 def test_archiveresult_admin_summary_and_view_link_are_result_scoped(real_hook_result):

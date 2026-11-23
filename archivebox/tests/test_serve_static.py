@@ -742,7 +742,8 @@ def test_directory_index_has_filter_and_per_entry_downloads(tmp_path: Path):
     )
     html = response.content.decode()
     assert 'aria-label="Filter files"' in html
-    assert 'href="nested/?files=1&amp;download=zip"' in html
+    assert 'data-zip-path="nested/"' in html
+    assert "download=zip" not in html
     assert 'href="note.txt?raw=1" download' in html
 
 

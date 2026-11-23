@@ -16,6 +16,7 @@ from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST, API_TEST_HOST, run_archivebox_cmd
 from archivebox.tests.test_orm_helpers import use_archivebox_db
+from archivebox.tests.test_export_helpers import export_action_urls
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -179,7 +180,10 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             url = f"{admin_url}/admin/core/snapshot/?folder={child.pk}"
         else:
             url = base_url.replace("//archivebox", "//web.archivebox") + f"/public/?folder={child.pk}"
-        assert page.goto(url).status == 200
+        response = page.goto(url)
+        assert response.status == 200
+        expect(page.locator("a[data-export-format][href]")).to_have_count(0)
+        export_action_urls(response.text())
         expect(page.locator("#folder-sidebar .folder-actions a[data-export-format]")).to_have_count(6 if view == "admin" else 5)
         menu = page.locator(f"#folder-menu-{parent.pk}")
         menu_link = menu.locator('a[data-export-format="jsonl"]')
@@ -190,25 +194,29 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             field.fill(query)
             field.press("Escape")
             field.press("Enter")
-            expect(menu_link).to_have_attribute("href", re.compile(r"[?&]q=" + re.escape(quote_plus(query)) + r"(?:&|$)"))
+            expect(menu_link).to_have_attribute("data-export-query", re.compile(r"(?:^|&)q=" + re.escape(quote_plus(query)) + r"(?:&|$)"))
             assert existing_link.evaluate("node => node.isConnected")
             page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
             page.get_by_role("button", name="Actions for Research", exact=True).click()
             expect(menu).to_be_visible()
             for link in page.locator("a[data-export-format]").all():
-                parsed = parse_qs(urlsplit(link.get_attribute("href")).query)
+                parsed = parse_qs(link.get_attribute("data-export-query"))
                 assert parsed.get("q") == [query], link.evaluate("node => node.outerHTML")
                 assert parsed["search_mode"] == ["query"]
             parsed = parse_qs(urlsplit(menu_link.get_attribute("href")).query)
             assert parsed["folder"] == [str(parent.pk)]
             ordinary = page.locator('.folder-actions a[data-export-format="jsonl"]').first
-            parsed = parse_qs(urlsplit(ordinary.get_attribute("href")).query)
+            parsed = parse_qs(ordinary.get_attribute("data-export-query"))
             assert parsed["folder"] == [str(child.pk)]
-            response = ordinary.evaluate(
-                "async node => { const response = await fetch(node.href); return {status: response.status, text: await response.text()}; }",
-            )
-            assert response["status"] == 200
-            assert [json.loads(line)["title"] for line in response["text"].splitlines()] == [term]
+            direct_url = menu_link.get_attribute("href")
+            with page.expect_download() as download:
+                menu_link.press("Enter")
+            assert download.value.failure() is None
+            content = Path(download.value.path()).read_bytes()
+            assert [json.loads(line)["title"] for line in content.splitlines()] == [term]
+            direct = page.request.get(direct_url)
+            assert direct.status == 200
+            assert direct.body() == content
             page.keyboard.press("Escape")
         browser.close()
 
@@ -283,6 +291,10 @@ def test_sidebar_exports_follow_live_search_filters_and_order(live_server, admin
             expect(page.locator("#result_list tbody .field-title_str")).to_contain_text(expected)
             expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
 
+            page.locator("#folder-sidebar .folder-mobile-toggle").click()
+            page.locator('button[popovertarget="snapshot-export-menu-list"]').click()
+            page.keyboard.press("Escape")
+            page.locator(".folder-sidebar-reopen").click()
             footer = page.locator("#snapshot-export-menu-sidebar")
             page.locator('#folder-sidebar button[popovertarget="snapshot-export-menu-sidebar"]').click()
             expect(footer).to_be_visible()
@@ -360,7 +372,6 @@ def test_authorized_archive_export_scope_includes_private_and_unlisted(client, a
 @pytest.mark.parametrize("surface", ["users", "importer-run"])
 def test_export_controls_preserve_request_and_csrf_context(admin_user, surface):
     import re
-    from html import unescape
     from django.test import Client
     from django.urls import reverse
     from archivebox.importers.models import ImporterSource, ImporterRun
@@ -381,7 +392,7 @@ def test_export_controls_preserve_request_and_csrf_context(admin_user, surface):
     assert 'data-export-session="1"' in controls
     csrf = re.search(r'data-export-csrf="([^"]+)"', controls).group(1)
     assert csrf and csrf != "NOTPROVIDED"
-    url = unescape(re.search(r'href="([^"]+)" data-export-format="html_zip"', body).group(1))
+    url = next(url for url, format in export_action_urls(body) if format == "html_zip")
     post = {"session": "1", "directory": "relative/path", "format": "html_zip"}
     assert client.post(url, post, HTTP_HOST=ADMIN_TEST_HOST).status_code == 403
     response = client.post(url, post, HTTP_HOST=ADMIN_TEST_HOST, HTTP_X_CSRFTOKEN=csrf)
@@ -390,8 +401,6 @@ def test_export_controls_preserve_request_and_csrf_context(admin_user, surface):
 
 
 def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_user):
-    import re
-    from html import unescape
     from urllib.parse import parse_qs, urlsplit
     from django.test import Client
     from archivebox.api.auth import get_or_create_api_token
@@ -413,7 +422,7 @@ def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_u
     response = admin_client.get("/admin/core/snapshot/", filters, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     body = response.content.decode()
-    urls = {format: unescape(url) for url, format in re.findall(r'href="([^"]+)" data-export-format="(rss|rss_public)"', body)}
+    urls = {format: url for url, format in export_action_urls(body) if format in {"rss", "rss_public"}}
     assert set(urls) == {"rss", "rss_public"}
     for url in urls.values():
         params = parse_qs(urlsplit(url).query)
@@ -526,7 +535,9 @@ def test_feed_links_keep_the_dropdown_and_use_request_permissions(live_server, a
             page.get_by_role("button", name="Log in", exact=True).click()
             page.wait_for_url(f"{admin_url}/admin/auth/user/")
             for format in ("rss_public", "csv", "jsonl"):
-                url = page.locator(f'a[data-export-format="{format}"]').first.get_attribute("href")
+                action = page.locator(f'a[data-export-format="{format}"]').first
+                action.focus()
+                url = action.get_attribute("href")
                 query = parse_qs(urlsplit(url).query)
                 assert not {"api_key", "token", "password"}.intersection(query)
                 if format == "rss_public":
@@ -545,6 +556,7 @@ def test_feed_links_keep_the_dropdown_and_use_request_permissions(live_server, a
                 assert str(public.pk) in ids
                 assert str(private_snapshot.pk) not in ids
             private = page.locator('a[data-export-format="rss"]').first
+            private.focus()
             url = private.get_attribute("href")
             assert "api_key=" not in url
             for credentials, expected in (("same-origin", {str(public.pk), str(private_snapshot.pk)}), ("omit", {str(public.pk)})):
@@ -587,10 +599,8 @@ def test_private_feed_links_do_not_use_stored_keys(admin_client, admin_user, sur
     assert response.status_code == 200
     assert response.content.count(b'data-private-feed="1"') >= 20
     key_queries = [query["sql"] for query in queries if 'FROM "api_apitoken"' in query["sql"]]
-    from html import unescape
-    import re
 
-    urls = [unescape(url) for url in re.findall(r'href="([^"]+)" data-export-format="rss"', response.content.decode())]
+    urls = [url for url, format in export_action_urls(response.content) if format == "rss"]
     assert len(urls) >= 20
     assert all("api_key=" not in url and token.token not in url for url in urls)
     # Other admin widgets may resolve a key for API requests; export menus never add a per-row lookup.
