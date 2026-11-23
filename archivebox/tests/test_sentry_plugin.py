@@ -436,6 +436,8 @@ for enabled in [False, True]:
     assert any("SELECT" in span["attributes"]["db.statement"] and span["trace_id"] in request_trace_ids for span in sql_spans)
     assert any(span["trace_id"] in crawl_trace_ids for span in sql_spans)
     spans_by_id = {span["span_id"]: span for span in spans}
+    assert head_log["span_id"] in spans_by_id
+    assert head_failure["contexts"]["trace"]["span_id"] in spans_by_id
     for span in sql_spans:
         if span["trace_id"] in request_trace_ids | crawl_trace_ids:
             assert span["parent_span_id"] in spans_by_id, span
@@ -460,6 +462,10 @@ for enabled in [False, True]:
     metrics = [item for kind, payload in items if kind == "trace_metric" for item in payload["items"]]
     assert any(item["name"] == "archivebox.spans" for item in metrics)
     assert any(item["name"] == "archivebox.span.duration" for item in metrics)
+    for metric in metrics:
+        if metric["name"] in {"archivebox.spans", "archivebox.span.duration"}:
+            assert metric["span_id"] in spans_by_id, metric
+            assert metric["trace_id"] == spans_by_id[metric["span_id"]]["trace_id"]
     profiles = [payload for kind, payload in items if kind == "profile_chunk"]
     assert profiles
     assert any(profile["profile"]["samples"] for profile in profiles)
