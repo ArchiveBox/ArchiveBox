@@ -154,19 +154,49 @@ def test_domains_page_paginates_grouped_snapshots(admin_client, admin_user):
         [Snapshot(crawl=crawl, url=f"https://site{i:03}.com/", timestamp=str(1910000000 + i)) for i in range(105)],
     )
 
-    def fetch(**params):
-        response = admin_client.get("/admin/domains/", params, HTTP_HOST=ADMIN_TEST_HOST)
+    def fetch(query="", **params):
+        response = admin_client.get("/admin/domains/" + query, params or None, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        return response.context["domains"]
+        return response.context
 
     first = fetch()
-    assert [row["domain"] for row in first] == [f"site{i:03}.com" for i in range(50)]
-    assert first.has_next()
-    second = fetch(page=first.next_page_number())
-    assert [row["domain"] for row in second] == [f"site{i:03}.com" for i in range(50, 100)]
-    assert list(fetch(page=second.previous_page_number())) == list(first)
+    assert [row["domain"] for row in first["domains"]] == [f"site{i:03}.com" for i in range(50)]
+    assert first["domain_total"] is None
+    assert first["domain_next_url"]
+    second = fetch(first["domain_next_url"])
+    assert [row["domain"] for row in second["domains"]] == [f"site{i:03}.com" for i in range(50, 100)]
+    assert fetch(second["domain_previous_url"])["domains"] == first["domains"]
+    last = fetch(o="-domain")
+    assert [row["domain"] for row in last["domains"]] == [f"site{i:03}.com" for i in range(104, 54, -1)]
     for term in ("104", "site104.com", "*.site104.com"):
-        assert [row["domain"] for row in fetch(q=term)] == ["site104.com"]
+        assert [row["domain"] for row in fetch(q=term)["domains"]] == ["site104.com"]
+
+
+@pytest.mark.django_db
+def test_domains_page_bounds_capture_metadata_and_defers_global_totals(admin_client, admin_user):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    Snapshot.objects.bulk_create(
+        [Snapshot(crawl=crawl, url=f"https://example.com/post/{i}", timestamp=str(1917800000 + i)) for i in range(300)],
+    )
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response.context["domain_total"] is None
+    row = response.context["domains"][0]
+    assert row["domain"] == "example.com" and row["totals_limited"]
+    assert 0 < row["snapshot_count"] < 300
+    metadata_sql = [query["sql"] for query in queries if 'AS "crawl__persona_id"' in query["sql"]]
+    assert len(metadata_sql) == 1 and f"LIMIT {row['snapshot_count'] + 1}" in metadata_sql[0]
+    with CaptureQueriesContext(connection) as queries:
+        sorted_page = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert sorted_page.status_code == 200 and sorted_page.context["domain_table_loading"]
+    assert not any('FROM "core_snapshot"' in query["sql"] for query in queries)
+    table = admin_client.get("/admin/domains/", {"o": "-count", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert table.status_code == 200
+    assert table.context["domains"][0]["snapshot_count"] == 300
 
 
 @pytest.mark.django_db

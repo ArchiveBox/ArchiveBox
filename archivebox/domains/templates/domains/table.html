@@ -1,0 +1,33 @@
+{% load core_tags %}
+<div id="changelist" class="module site-domain-list"><div class="changelist-form-container"><div>
+  {% include "admin/search_form.html" with search_var="q" %}
+  <form method="post" id="changelist-form" novalidate action="{% url 'admin:core_snapshot_changelist' %}" data-domain-query="{{ domain_query }}" data-export-url="{% url 'admin:core_snapshot_export' '__format__' %}">
+    {% csrf_token %}<input type="hidden" name="directory" value="{{ export_directory }}">
+    {% include "domains/domain_actions.html" %}
+    <div class="results">
+      <span id="domain-sample-note" hidden>Based on a sample of saved snapshots.</span>
+      <table id="result_list">
+        <thead><tr>
+          <th scope="col" class="action-checkbox-column"><div class="text"><input type="checkbox" id="action-toggle" aria-label="Select all domains on this page"></div></th>
+          {% for header in domain_headers %}<th scope="col" class="sortable column-{{ header.key }}{% if header.active %} sorted {{ header.descending|yesno:'descending,ascending' }}{% endif %}"><div class="text"><a href="{{ header.url }}">{{ header.label }}{% if header.active %}<span class="domain-sort-arrow" aria-hidden="true"> {{ header.descending|yesno:'↓,↑' }}</span>{% endif %}</a></div></th>{% endfor %}
+        </tr></thead>
+        <tbody>{% for row in domains %}<tr>
+          <td class="action-checkbox"><input type="checkbox" class="action-select" name="_selected_action" value="{{ row.scope }}" aria-label="Select {{ row.domain }}"></td>
+          <th scope="row" class="field-domain"><div class="domain-identity library-entry" data-name="{{ row.domain }}" data-filter-value="{{ row.scope }}"{% if perms.core.delete_snapshot %} data-delete-snapshots-url="{{ row.delete_snapshots_url }}"{% endif %}>{% include "core/domain_favicon.html" with favicon=row.favicon.url favicon_fallbacks=row.favicon.fallbacks %}<a href="{{ row.domain_url }}" title="Browse saved {{ row.domain }}">{{ row.domain }}</a>{% include "core/sidebar_entry_menu_button.html" with entry_name=row.domain %}</div></th>
+          <td class="field-count"><a href="{{ row.snapshot_url }}"{% if row.totals_limited %} aria-label="{{ row.snapshot_count|intcomma }} or more snapshots"{% endif %}>{{ row.snapshot_count|intcomma }}{% if row.totals_limited %}+{% endif %}</a></td>
+          <td class="field-size">{% if row.totals_limited %}At least {% endif %}{{ row.total_size|file_size }}</td>
+          <td class="field-personas"{% if row.totals_limited %} title="Personas from sampled snapshots" aria-describedby="domain-sample-note"{% endif %}>{% if row.personas %}<div class="domain-personas tag-editor-inline"><span class="tag-pills-inline" data-badge-label="personas">{% for persona in row.personas %}<span class="tag-pill" title="{{ persona.name }}"><a class="tag-link" href="{{ persona.url }}">{{ persona.name }}</a></span>{% endfor %}</span></div>{% else %}—{% endif %}</td>
+          <td class="field-newest"><a href="{{ row.newest_url }}" title="{{ row.newest_at|date:'Y-m-d H:i:s T' }}{% if row.totals_limited %} · From sampled snapshots{% endif %}"{% if row.totals_limited %} aria-describedby="domain-sample-note"{% endif %}>{{ row.newest_at|date:"Y-m-d" }}</a></td>
+          <td class="field-oldest"><a href="{{ row.oldest_url }}" title="{{ row.oldest_at|date:'Y-m-d H:i:s T' }}{% if row.totals_limited %} · From sampled snapshots{% endif %}"{% if row.totals_limited %} aria-describedby="domain-sample-note"{% endif %}>{{ row.oldest_at|date:"Y-m-d" }}</a></td>
+        </tr>{% empty %}<tr><td colspan="7">No saved domains.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <div class="changelist-footer"><p class="paginator">
+      {% if domain_total is None %}Showing {{ domains|length|intcomma }} domain{{ domains|length|pluralize }}{% else %}{{ domain_total|intcomma }} domain{{ domain_total|pluralize }}{% endif %}
+      {% if domain_previous_url %}<a href="{{ domain_previous_url }}">Previous</a>{% endif %}
+      {% if domain_page %}<span class="this-page">{{ domain_page }}</span>{% endif %}
+      {% if domain_next_url %}<a href="{{ domain_next_url }}">Next</a>{% endif %}
+    </p></div>
+  </form>
+  {% include "core/sidebar_entry_menu.html" with sidebar_mode="domains" export_urls=domain_export_urls %}
+</div></div></div>

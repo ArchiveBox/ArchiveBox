@@ -82,7 +82,7 @@ def test_derived_site_reads_other_crawls_without_creating_state(admin_client, sa
 
 
 def test_domain_table_uses_native_snapshot_actions_and_links(admin_client, saved_site):
-    response = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", {"o": "-count", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     rows = list(response.context["domains"])
     assert len(rows) == 1

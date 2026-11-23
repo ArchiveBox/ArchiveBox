@@ -250,7 +250,10 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains")
         sidebar.get_by_role("link", name="Add domain", exact=True).click()
         expect(page).to_have_url(f"{origin}/admin/domains/")
-        domains_response = page.request.get(page.url)
+        page.get_by_role("link", name="Newest Snapshot", exact=True).click()
+        expect(page).to_have_url(f"{origin}/admin/domains/?o=newest")
+        expect(page.locator("#domains-table[data-url] #result_list")).to_be_visible()
+        domains_response = page.request.get(f"{page.url}&table=1")
         assert domains_response.ok and "/favicon/missing.ico" in domains_response.text()
         expect(page.get_by_role("columnheader", name="Actions", exact=True)).to_have_count(0)
         for label in ("Total Size", "Newest Snapshot", "Oldest Snapshot"):

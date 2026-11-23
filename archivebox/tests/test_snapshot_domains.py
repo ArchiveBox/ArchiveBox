@@ -288,12 +288,12 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
         notes="Not needed for the favicon",
         output_size=12,
     )
-    response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", {"o": "size", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["small.example", "large.example"]
     assert b"favicon/favicon.ico" in response.content
     with CaptureQueriesContext(connection) as queries:
-        response = admin_client.get("/admin/domains/", {"o": "-size"}, HTTP_HOST=ADMIN_TEST_HOST)
+        response = admin_client.get("/admin/domains/", {"o": "-size", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["large.example", "small.example"]
     assert b"favicon/favicon.ico" in response.content
@@ -305,7 +305,7 @@ def test_domain_size_sort_reuses_metadata_and_only_loads_favicons(admin_client, 
     assert all(f'"core_archiveresult"."{field}"' not in output_queries[0] for field in ("output_json", "notes", "process_id"))
     # Cached totals do not turn a concurrently removed capture into a 500.
     Snapshot.objects.filter(pk=pages[0].pk).delete()
-    response = admin_client.get("/admin/domains/", {"o": "size"}, HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", {"o": "size", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [row["domain"] for row in response.context["domains"]] == ["small.example"]
 
@@ -314,22 +314,23 @@ def test_domain_metadata_is_reused_across_administrators(admin_client, admin_use
     from django.contrib.auth import get_user_model
 
     create_pages(admin_user, ["https://shared.example/", "https://shared.example/article"])
-    first = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    first = admin_client.get("/admin/domains/", {"o": "count", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert first.status_code == 200
     assert [(row["domain"], row["snapshot_count"]) for row in first.context["domains"]] == [("shared.example", 2)]
 
     other = get_user_model().objects.create_superuser(username="other_domain_admin", password="testpassword")
     admin_client.force_login(other)
     with CaptureQueriesContext(connection) as queries:
-        response = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
+        response = admin_client.get("/admin/domains/", {"o": "-count", "table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [(row["domain"], row["snapshot_count"]) for row in response.context["domains"]] == [("shared.example", 2)]
     assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
 
     other.is_superuser = False
     other.save(update_fields=["is_superuser"])
-    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 403
+    for params in ({}, {"o": "count", "table": "1"}):
+        response = admin_client.get("/admin/domains/", params, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 403
 
 
 def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_user):
@@ -338,7 +339,8 @@ def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_u
     from archivebox.config import CONSTANTS
 
     create_pages(admin_user, ["https://shared.example/"])
-    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    stats = {"o": "count", "table": "1"}
+    response = admin_client.get("/admin/domains/", stats, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     key = f"domain-summary:{CONSTANTS.COLLECTION_ID}"
     assert cache.touch(key, timeout=3600)
@@ -349,7 +351,7 @@ def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_u
             thread.join(timeout=10)
             assert not thread.is_alive()
     with CaptureQueriesContext(connection) as queries:
-        response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+        response = admin_client.get("/admin/domains/", stats, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response.context["domains"][0]["snapshot_count"] == 1
     assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
@@ -357,7 +359,7 @@ def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_u
         if thread.name == "domain-summary":
             thread.join(timeout=10)
             assert not thread.is_alive()
-    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", stats, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response.context["domains"][0]["snapshot_count"] == 2
 

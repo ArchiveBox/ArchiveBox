@@ -52,6 +52,7 @@ async function findDomainRow(page, adminUrl, originalUrl) {
   const domainsUrl = new URL('/admin/domains/', adminUrl).href;
   await page.goto(domainsUrl, {waitUntil: 'domcontentloaded'});
   if (page.url() !== domainsUrl) throw new Error('Domains redirected away from the gallery server.');
+  await page.waitForSelector('#result_list');
   const selected = await page.evaluateHandle(url => {
     const original = new URL(url);
     const port = value => ['80', '443'].includes(value) ? '' : value;

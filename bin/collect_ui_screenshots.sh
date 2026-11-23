@@ -624,6 +624,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != "snapshot-collapsed" ]] || snapshot_header=collapsed
     wait_for_text=""
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
+    wait_for_selector=""
+    [[ "$expected_path" != /admin/domains/ ]] || wait_for_selector="#result_list"
     export SCREENSHOT_WAIT_FOR_MODEL=""
     [[ "$capture_mode" != "model" ]] || export SCREENSHOT_WAIT_FOR_MODEL=1
     preview_wait_for_text=""
@@ -789,6 +791,7 @@ PY
                     SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR="$config_required_in_frame" \
                     SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
+                    SCREENSHOT_WAIT_SELECTOR="$wait_for_selector" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json" || capture_status=$?
                 if [[ "$capture_status" != 0 ]]; then

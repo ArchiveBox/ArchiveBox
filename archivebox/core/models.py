@@ -628,10 +628,10 @@ class SnapshotQuerySet(PagedQuerySet):
         queryset = super().filter(*args, **kwargs)
         return queryset.filter_by_domain(domain) if domain is not None else queryset
 
-    def _domain_key_candidates(self, needle="", after=""):
+    def _domain_key_candidates(self, needle=""):
         from django.db import connections
 
-        candidates = self.filter(reversed_domain__gt=after)
+        candidates = self.filter(reversed_domain__gt="")
         if needle.isascii() and needle and connections[self.db].vendor == "sqlite":
             # SQLite stores IDNA labels in ASCII. A displayed substring must
             # share a label fragment with the indexed key.
@@ -640,10 +640,10 @@ class SnapshotQuerySet(PagedQuerySet):
                 candidates = candidates.filter(reversed_domain__contains=fragment)
         return candidates
 
-    def _distinct_domain_keys(self):
-        return self.order_by("reversed_domain").values_list("reversed_domain", flat=True).distinct()
+    def _distinct_domain_keys(self, descending=False):
+        return self.order_by("-reversed_domain" if descending else "reversed_domain").values_list("reversed_domain", flat=True).distinct()
 
-    def domain_choices_page(self, search, limit, cursor=None):
+    def domain_choices_page(self, search, limit, cursor=None, *, descending=False):
         """Page over distinct host keys, carrying open subdomain ranges forward."""
         from archivebox.core.domain_grouping import domain_key, domain_search_term, group_domain_key
 
@@ -652,8 +652,11 @@ class SnapshotQuerySet(PagedQuerySet):
         open_groups = dict(saved)
         choices = {}
         latest = after
-        keys = self._domain_key_candidates(needle, after)._distinct_domain_keys()
-        for key in keys.iterator(chunk_size=512):
+        keys = self._domain_key_candidates(needle)
+        if after:
+            keys = keys.filter(**{"reversed_domain__lt" if descending else "reversed_domain__gt": after})
+        previous_keys = {"reversed_domain__gte" if descending else "reversed_domain__lte": after}
+        for key in keys._distinct_domain_keys(descending).iterator(chunk_size=512):
             domain, scope = group_domain_key(key)
             if domain in choices or domain in open_groups or needle not in domain.casefold():
                 continue
@@ -664,17 +667,18 @@ class SnapshotQuerySet(PagedQuerySet):
                 and "xn--" in domain
                 and any(
                     group_domain_key(prior)[0] == domain
-                    for prior in self.filter_by_domain(scope).filter(reversed_domain__lte=after)._distinct_domain_keys()
+                    for prior in self.filter_by_domain(scope).filter(**previous_keys)._distinct_domain_keys()
                 )
             ):
                 continue
             if len(choices) == limit:
-                return choices, [latest, [[name, end] for name, end in open_groups.items() if end > latest]]
+                remaining = [[name, end] for name, end in open_groups.items() if (end < latest if descending else end > latest)]
+                return choices, [latest, remaining]
             choices[domain] = (scope, key)
             latest = key
             if scope.startswith("*."):
                 parts = urlparse("//" + scope[2:])
-                open_groups[domain] = domain_key(parts.hostname, parts.port) + "/"
+                open_groups[domain] = domain_key(parts.hostname, parts.port) + ("" if descending else "/")
         return choices, None
 
     def domain_representative_ids(self, keys):
@@ -748,6 +752,62 @@ class SnapshotQuerySet(PagedQuerySet):
         }[lookup]
         return Q(comparison(authority, value))
 
+    _domain_summary_fields = ("pk", "url", "reversed_domain", "created_at", "output_size", "crawl__persona_id")
+
+    def domain_page_summary(self, choices, *, per_group_limit=64) -> list[dict]:
+        """Summarize only a bounded number of captures per visible domain."""
+        from django.db import connections
+
+        if not choices:
+            return []
+        alias = self.db
+        fragments, parameters = [], []
+        for name, (scope, key) in choices.items():
+            try:
+                captures = self.filter_by_domain(scope)
+            except ValueError:
+                # Historical URLs can have hosts outside the domain filter syntax.
+                captures = self.filter(reversed_domain=key)
+            sample = (
+                captures.order_by()
+                .annotate(_page_domain=Value(name, output_field=models.TextField()))
+                .values_list("_page_domain", *self._domain_summary_fields)[: per_group_limit + 1]
+            )
+            compiler = sample.query.get_compiler(using=alias)
+            sql, params = compiler.as_sql()
+            fragments.append(f"SELECT * FROM ({sql}) AS domain_sample")
+            parameters.extend(params)
+
+        # No ORDER BY or DISTINCT inside the limited probes. Either can force a
+        # whole-group scan before the database is able to apply LIMIT.
+        converters = compiler.get_converters([expression for expression, _, _ in compiler.select])
+        samples = {name: [] for name in choices}
+        with connections[alias].cursor() as cursor:
+            cursor.execute(" UNION ALL ".join(fragments), parameters)
+            for name, *capture in compiler.apply_converters(cursor, converters):
+                samples[name].append(capture)
+
+        summaries = {}
+        for name, captures in samples.items():
+            unique = {capture[0]: capture for capture in captures[:per_group_limit]}
+            for row in self._summarize_domain_rows(unique.values()):
+                if row["domain"] == name:
+                    row["totals_limited"] = len(captures) > per_group_limit
+                    summaries[name] = row
+
+        # A public suffix nested within the scope can fill its sample without
+        # including the displayed group. Retain the representative we saw.
+        missing = {name for name, captures in samples.items() if captures and name not in summaries}
+        if missing:
+            representatives = self.domain_representative_ids(choices[name][1] for name in missing)
+            rows = self.filter(pk__in=representatives.values()).order_by().values_list(*self._domain_summary_fields).distinct()
+            for row in self._summarize_domain_rows(rows):
+                name = row["domain"]
+                if name in missing:
+                    row["totals_limited"] = len(samples[name]) > per_group_limit
+                    summaries[name] = row
+        return [summaries[name] for name in choices if name in summaries]
+
     def domain_summary(self) -> list[dict]:
         """Aggregate narrow metadata in bounded primary-key batches.
 
@@ -756,57 +816,58 @@ class SnapshotQuerySet(PagedQuerySet):
         Only domain-sized state is retained here, never Snapshot models or their
         output manifests, and each batch releases its read cursor before parsing.
         """
-        from archivebox.core.domain_grouping import group_domain_key
-
         # Keep filters on this query so pk > last seeks directly into its index.
         # A self-IN subquery made SQLite enumerate the whole ID index again for
         # every page. DISTINCT still deduplicates matching tag/folder joins.
         snapshots = self.filter(reversed_domain__gt="")
-        metadata = (
-            snapshots.order_by("pk")
-            .values_list("pk", "url", "reversed_domain", "created_at", "output_size", "crawl__persona_id")
-            .distinct()
-        )
+        metadata = snapshots.order_by("pk").values_list(*self._domain_summary_fields).distinct()
+
+        def iter_metadata():
+            last = None
+            while batch := list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000]):
+                yield from batch
+                if len(batch) < 1000:
+                    break
+                last = batch[-1][0]
+
+        return self._summarize_domain_rows(iter_metadata())
+
+    @staticmethod
+    def _summarize_domain_rows(metadata) -> list[dict]:
+        from archivebox.core.domain_grouping import group_domain_key
+
         rows, hosts, personas, root_ranks = {}, {}, {}, {}
-        last = None
-        while True:
-            batch = list((metadata.filter(pk__gt=last) if last is not None else metadata)[:1000])
-            if not batch:
-                break
-            for snapshot_id, url, key, created, size, persona in batch:
-                if key not in hosts:
-                    hosts[key] = group_domain_key(key)
-                domain, scope = hosts[key]
-                if domain not in rows:
-                    rows[domain] = {
-                        "domain": domain,
-                        "scope": scope,
-                        "snapshot_count": 0,
-                        "total_size": 0,
-                        "oldest_at": created,
-                        "newest_at": created,
-                        "oldest_id": snapshot_id,
-                        "newest_id": snapshot_id,
-                        "root_id": snapshot_id,
-                    }
-                row = rows[domain]
-                row["snapshot_count"] += 1
-                row["total_size"] += size or 0
-                if persona is not None:
-                    personas.setdefault(domain, set()).add(persona)
-                if (created, snapshot_id) < (row["oldest_at"], row["oldest_id"]):
-                    row["oldest_at"], row["oldest_id"] = created, snapshot_id
-                if (created, snapshot_id) > (row["newest_at"], row["newest_id"]):
-                    row["newest_at"], row["newest_id"] = created, snapshot_id
-                path = urlsplit(url).path
-                depth = path.count("/") - int(path.endswith("/"))
-                rank = (-depth, created, snapshot_id)
-                if domain not in root_ranks or rank > root_ranks[domain]:
-                    root_ranks[domain] = rank
-                    row["root_id"] = snapshot_id
-            if len(batch) < 1000:
-                break
-            last = batch[-1][0]
+        for snapshot_id, url, key, created, size, persona in metadata:
+            if key not in hosts:
+                hosts[key] = group_domain_key(key)
+            domain, scope = hosts[key]
+            if domain not in rows:
+                rows[domain] = {
+                    "domain": domain,
+                    "scope": scope,
+                    "snapshot_count": 0,
+                    "total_size": 0,
+                    "oldest_at": created,
+                    "newest_at": created,
+                    "oldest_id": snapshot_id,
+                    "newest_id": snapshot_id,
+                    "root_id": snapshot_id,
+                }
+            row = rows[domain]
+            row["snapshot_count"] += 1
+            row["total_size"] += size or 0
+            if persona is not None:
+                personas.setdefault(domain, set()).add(persona)
+            if (created, snapshot_id) < (row["oldest_at"], row["oldest_id"]):
+                row["oldest_at"], row["oldest_id"] = created, snapshot_id
+            if (created, snapshot_id) > (row["newest_at"], row["newest_id"]):
+                row["newest_at"], row["newest_id"] = created, snapshot_id
+            path = urlsplit(url).path
+            depth = path.count("/") - int(path.endswith("/"))
+            rank = (-depth, created, snapshot_id)
+            if domain not in root_ranks or rank > root_ranks[domain]:
+                root_ranks[domain] = rank
+                row["root_id"] = snapshot_id
         for domain, row in rows.items():
             row["persona_ids"] = tuple(sorted(personas.get(domain, ())))
             row["persona_count"] = len(row["persona_ids"])

@@ -12,6 +12,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
 from django.core.paginator import Paginator
+from django.core import signing
 from django.db import close_old_connections, connection, connections
 from django.db.models import Prefetch
 from django.http import Http404
@@ -104,6 +105,41 @@ def _domain_rows():
     return rows
 
 
+def _domain_index_page(request, query, ordering):
+    # A page of names comes from the same index and grouping as the sidebar.
+    # Sample only the displayed groups and leave the collection total unknown.
+    descending = ordering.startswith("-")
+    backwards, cursor = False, None
+    if token := request.GET.get("cursor"):
+        try:
+            saved_query, saved_ordering, backwards, cursor = signing.loads(token, salt="archivebox-domain-page")
+            if (saved_query, saved_ordering) != (query, ordering):
+                raise ValueError
+        except (ValueError, signing.BadSignature) as error:
+            raise Http404("Invalid domain page cursor") from error
+
+    snapshots = Snapshot.objects.all()
+    choices, further = snapshots.domain_choices_page(query, 50, cursor, descending=descending != backwards)
+    if backwards:
+        choices = dict(reversed(choices.items()))
+
+    def page_url(reverse, boundary):
+        token = signing.dumps([query, ordering, reverse, boundary], salt="archivebox-domain-page", compress=True)
+        return "?" + urlencode({"q": query, "o": ordering, "cursor": token})
+
+    previous_url = next_url = None
+    if choices:
+        first = next(iter(choices.values()))[1]
+        last = next(reversed(choices.values()))[1]
+        if backwards:
+            previous_url = page_url(True, further) if further is not None else None
+            next_url = page_url(False, [last, []])
+        else:
+            previous_url = page_url(True, [first, []]) if cursor is not None else None
+            next_url = page_url(False, further) if further is not None else None
+    return snapshots.domain_page_summary(choices), previous_url, next_url
+
+
 @clone_admin
 @require_http_methods(["GET", "POST"])
 def index(request):
@@ -114,10 +150,7 @@ def index(request):
         crawl = form.save(request.user)
         messages.success(request, "Crawl queued.")
         return redirect(crawl.admin_change_url)
-    query = str(request.GET.get("q", "")).strip()
-    # Search the indexed host keys and aggregate only the matched captures.
-    # Unfiltered counts and sizes reuse the existing summary between requests.
-    rows = Snapshot.objects.filter_by_domain_search(query).domain_summary() if query else _domain_rows()
+    query = request.GET.get("q", "").strip()[:253]
     ordering = request.GET.get("o", "domain")
     fields = {
         "domain": "domain",
@@ -129,20 +162,32 @@ def index(request):
     }
     if ordering.lstrip("-") not in fields:
         ordering = "domain"
-    domains = Paginator(rows, 50).get_page(request.GET.get("page"))
     field = fields[ordering.lstrip("-")]
     descending = ordering.startswith("-")
-    start, end = max(domains.start_index() - 1, 0), domains.end_index()
-    if field == "domain":
-        if descending:
-            domains.object_list = rows[len(rows) - end : len(rows) - start][::-1]
+    fragment = request.GET.get("table") == "1"
+    loading = field != "domain" and not fragment
+    domain_total = domain_page = previous_url = next_url = None
+    if loading:
+        domains = ()
+    elif field == "domain":
+        domains, previous_url, next_url = _domain_index_page(request, query, ordering)
     else:
+        rows = Snapshot.objects.filter_by_domain_search(query).domain_summary() if query else _domain_rows()
+        page = Paginator(rows, 50).get_page(request.GET.get("page"))
+        domain_total, domain_page = page.paginator.count, page.number
+        start, end = max(page.start_index() - 1, 0), page.end_index()
         sort_key = itemgetter(field, "domain")
         if end * 4 < len(rows):
             earliest = nlargest if descending else nsmallest
-            domains.object_list = earliest(end, rows, key=sort_key)[start:]
+            domains = earliest(end, rows, key=sort_key)[start:]
         else:
-            domains.object_list = sorted(rows, key=sort_key, reverse=descending)[start:end]
+            domains = sorted(rows, key=sort_key, reverse=descending)[start:end]
+
+        def page_url(number):
+            return "?" + urlencode({"q": query, "o": ordering, "page": number})
+
+        previous_url = page_url(page.previous_page_number()) if page.has_previous() else None
+        next_url = page_url(page.next_page_number()) if page.has_next() else None
     ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
     captures = {
         str(snapshot.pk): snapshot
@@ -162,7 +207,7 @@ def index(request):
     }
     # Captures may have been deleted since the metadata refresh. Their stale
     # display totals are harmless, but must not turn the next page into a 500.
-    domains.object_list = [row.copy() for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
+    domains = [row.copy() for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
     persona_ids = {pk for row in domains for pk in row.get("persona_ids", ())}
     personas = {
         pk: {"name": name, "url": reverse("admin:personas_persona_change", args=[pk])}
@@ -218,7 +263,8 @@ def index(request):
         ("oldest", "Oldest Snapshot"),
     ):
         params = request.GET.copy()
-        params.pop("page", None)
+        for parameter in ("page", "cursor", "table"):
+            params.pop(parameter, None)
         params["o"] = "-" + key if ordering == key else key
         headers.append(
             {
@@ -239,13 +285,18 @@ def index(request):
     ]
     return render(
         request,
-        "domains/index.html",
+        "domains/table.html" if fragment else "domains/index.html",
         {
             **archivebox_admin.each_context(request),
             "title": "Domains",
             "form": form,
             "domains": domains,
-            "page_query": urlencode({"q": query, "o": ordering}),
+            "domain_table_loading": loading,
+            "domain_table_url": "?" + urlencode({"q": query, "o": ordering, "page": request.GET.get("page", ""), "table": "1"}),
+            "domain_total": domain_total,
+            "domain_page": domain_page,
+            "domain_previous_url": previous_url,
+            "domain_next_url": next_url,
             "export_formats": ALL_EXPORT_FORMATS.items(),
             "domain_export_urls": build_snapshot_export_urls({}, request=request),
             "export_directory": str(CONSTANTS.DATA_DIR / "exports"),
@@ -254,11 +305,11 @@ def index(request):
             "action_form": action_form,
             "actions_selection_counter": True,
             "cl": {
-                "result_list": domains.object_list,
-                "result_count": domains.paginator.count,
-                "display_result_count": domains.paginator.count,
-                "result_count_exact": True,
-                "full_result_count": domains.paginator.count,
+                "result_list": domains,
+                "result_count": domain_total if domain_total is not None else len(domains),
+                "display_result_count": domain_total if domain_total is not None else len(domains),
+                "result_count_exact": domain_total is not None,
+                "full_result_count": domain_total,
                 "search_fields": ["domain"],
                 "query": query,
                 "params": {"q": query, "o": ordering},
@@ -266,7 +317,7 @@ def index(request):
                 "model_admin": {"show_search_mode_selector": False},
                 "has_filters": False,
             },
-            "selection_note": f"0 of {len(domains.object_list)} selected",
+            "selection_note": f"0 of {len(domains)} selected",
             "selection_note_all": "All matching domains selected",
             "module_name": "domains",
         },

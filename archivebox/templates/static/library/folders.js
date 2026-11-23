@@ -563,8 +563,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
-  initializeMenus(document);
-
   function setBadgeCounter(row, total, visible) {
     const expanded = row.pills.classList.contains('library-tags-expanded');
     const label = row.pills.dataset.badgeLabel || 'tags';
@@ -593,11 +591,15 @@ document.addEventListener('DOMContentLoaded', () => {
       update();
     });
   }
-  document.querySelectorAll('.domain-personas .tag-pills-inline').forEach(pills => {
-    const row = {pills, editor: pills.parentElement};
-    bindBadgeToggle(row, () => updateCompactBadges(row));
-    updateCompactBadges(row);
-  });
+  window.archiveboxInitDomainRows = root => {
+    initializeMenus(root);
+    root.querySelectorAll('.domain-personas .tag-pills-inline').forEach(pills => {
+      const row = {pills, editor: pills.parentElement};
+      bindBadgeToggle(row, () => updateCompactBadges(row));
+      updateCompactBadges(row);
+    });
+  };
+  window.archiveboxInitDomainRows(document);
   if (!sidebar) return;
   let form = document.querySelector('#changelist-form');
   if (location.hash === '#delete-snapshots' && form && ['folder','tag','domain'].some(key => new URLSearchParams(location.search).has(key))) {
