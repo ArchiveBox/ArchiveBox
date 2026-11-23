@@ -1,9 +1,44 @@
-"""Real table and compact Snapshot tag sizing."""
+"""Snapshot table alignment and compact tag sizing."""
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_snapshot_list_select_all_aligns_with_grid_toggle(browser_runtime, live_server, admin_user, crawl):
+    from archivebox.core.models import Snapshot
+
+    for index in range(2):
+        Snapshot.objects.create(url=f"https://example.com/checkbox/{index}", status="sealed", crawl=crawl)
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        for has_touch in (False, True):
+            page = browser.new_page(viewport={"width": 1920, "height": 1000}, has_touch=has_touch)
+            page.goto(f"{live_server.url}/admin/login/?next=/admin/core/snapshot/")
+            page.locator("#id_username").fill(admin_user.username)
+            page.locator("#id_password").fill("testpassword")
+            page.locator('input[type="submit"]').click()
+
+            controls = page.locator("#snapshot-view-toggle, #action-toggle, #result_list tbody .action-select")
+            expect(controls).to_have_count(4)
+            for width, sidebar_visible in ((1920, True), (1440, True), (1440, False)):
+                if sidebar_visible:
+                    page.set_viewport_size({"width": width, "height": 1000})
+                else:
+                    page.get_by_role("button", name="Hide folders", exact=True).click()
+                    expect(page.locator(".folder-sidebar-reopen")).to_be_visible()
+                expect(page.locator("#action-toggle")).to_be_visible()
+                grid_center, *checkbox_centers = controls.evaluate_all(
+                    """nodes => nodes.map(node => {
+                        const rect = node.getBoundingClientRect();
+                        return rect.x + rect.width / 2;
+                    })""",
+                )
+                assert checkbox_centers == pytest.approx([grid_center] * 3, abs=0.5)
+            page.close()
+        browser.close()
 
 
 def create_snapshot_tag_layout_rows(crawl):

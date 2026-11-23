@@ -123,6 +123,8 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 }
 @media(pointer:coarse){
   .snapshot-library{--library-control-size:36px;--library-toolbar-height:48px;--library-row-height:36px}
+  /* Keep the wider grid toggle centered over the same checkbox column. */
+  body.model-snapshot.change-list .snapshot-library #changelist #toolbar{padding-inline-start:4px!important}
   .folder-sidebar .icon-button{width:36px;height:36px;flex-basis:36px}
   .folder-row,.folder-sidebar a.library-link{min-height:36px}
   .folder-row-actions{opacity:1;pointer-events:auto}.folder-row:has(.folder-row-actions) .folder-link{padding-right:76px!important}.folder-row:not(:has(.folder-row-actions>.folder-new)) .folder-link{padding-right:40px!important}.folder-row .folder-count{display:none}

@@ -4253,6 +4253,10 @@ body.model-snapshot.change-list #changelist .changelist-form-container > div {
     padding-bottom: 4px;
 }
 
+.model-snapshot.change-list #content #result_list th.action-checkbox-column .text span {
+    padding-inline: 0;
+}
+
 /* Change forms use a dense grid so ordinary cards keep tiling even when a
    full-width card appears earlier in document order. */
 body.change-form #content-main > form > div {
