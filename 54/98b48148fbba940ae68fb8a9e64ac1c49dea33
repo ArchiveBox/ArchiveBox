@@ -1,0 +1,40 @@
+archivebox/tests/test_library_screenshots.py
+  s_ea615ec0b76fae::t_998ebe2c3f9aa8 189
+archivebox/tests/test_site_exports.py
+  s_ea615ec0b76fae::t_15739561906475 20
+archivebox/tests/test_snapshot_domains.py
+  s_ea615ec0b76fae::t_293a565e91bcf1 166
+archivebox/domains/views.py
+  s_ea615ec0b76fae::t_efe3866dc6285c 168,191-205,207-256,287,297
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_c88f5e41eedce3 86,285,294-296
+  s_ea615ec0b76fae::t_0a424ed30a59eb 297-298
+  s_ea615ec0b76fae::t_f79d193535be63 253
+archivebox/tests/test_original_domain_replay.py
+  s_ea615ec0b76fae::t_76f4e34fb92981 103
+archivebox/domains/templates/domains/index.html
+  s_ea615ec0b76fae::t_c88f5e41eedce3 102,150,165
+  s_ea615ec0b76fae::t_f519d936e579cf 92,97,157
+archivebox/core/models.py
+  s_ea615ec0b76fae::t_19498f3ed76f24 659,774,790-794,797
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_523223f2fc89aa 160-163,188-192,198,200
+archivebox/tests/test_domain_review.py
+  s_ea615ec0b76fae::t_35d1b5d3b3f1bd 83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5498b48148fbba940ae68fb8a9e64ac1c49dea33",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": null
+    }
+  }
+}
