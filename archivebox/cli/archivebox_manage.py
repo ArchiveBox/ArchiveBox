@@ -22,9 +22,9 @@ def manage(args: list[str] | None = None) -> None:
     from django.core.management import execute_from_command_line
 
     if args and args[0] == "migrate" and not any(arg in args for arg in ("--plan", "--check", "--help", "-h")):
-        from archivebox.misc.db import checked_database_migration, migration_lock
+        from archivebox.misc.db import migration_lock
 
-        with migration_lock(), checked_database_migration():
+        with migration_lock():
             execute_from_command_line(["manage.py", *args])
     else:
         try:

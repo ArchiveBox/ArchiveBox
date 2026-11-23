@@ -38,7 +38,6 @@ class ArchiveBoxGroup(click.Group):
     }
     setup_commands = {
         "init": "archivebox.cli.archivebox_init.main",
-        "check": "archivebox.cli.archivebox_check.main",
         "install": "archivebox.cli.archivebox_install.main",
     }
     # Model commands (CRUD operations via subcommands)

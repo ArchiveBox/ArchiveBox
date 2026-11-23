@@ -151,22 +151,11 @@ def test_killed_table_rebuild_preserves_every_row_and_resumes(archive_07):
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
-def test_check_legacy_database_is_read_only_and_reports_broken_references(archive_07):
+def test_migration_rejects_broken_legacy_references_without_changing_rows_or_history(archive_07):
     work_dir, db_path, _ = archive_07
-    before = db_path.read_bytes()
-    result = run_archivebox_migration_cmd(work_dir, ["check"])
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "foreign_key_check" in result.stdout
-    assert "core_archiveresult" in result.stdout
-    assert db_path.read_bytes() == before
-
     with sqlite3.connect(db_path) as db:
         db.execute("UPDATE core_archiveresult SET snapshot_id = 'missing' WHERE id = (SELECT MIN(id) FROM core_archiveresult)")
         before_migrations = db.execute("SELECT app, name FROM django_migrations ORDER BY app, name").fetchall()
-    result = run_archivebox_migration_cmd(work_dir, ["check"])
-    assert result.returncode != 0
-    assert "foreign_key_check" in result.stdout + result.stderr
-    before = db_path.read_bytes()
     result = run_archivebox_migration_cmd(work_dir, ["init"])
     assert result.returncode != 0
     with sqlite3.connect(db_path) as db:
@@ -182,22 +171,8 @@ def test_migration_preserves_snapshot_urls(archive_07):
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    reports = result.stdout + result.stderr
-    phases = [
-        "Pre-migration SQLite integrity_check",
-        "Pre-migration SQLite foreign_key_check",
-        "Pre-migration SQLite table readability",
-        "Django migrate (including schema-editor checks)",
-        "Post-migration SQLite integrity_check",
-        "Post-migration SQLite foreign_key_check",
-        "Post-migration SQLite table readability",
-    ]
-    phase_offsets = [reports.index(f"{phase} verified in ") for phase in phases]
-    assert phase_offsets == sorted(phase_offsets)
-
     up_to_date = run_archivebox_migration_cmd(work_dir, ["init", "--quick"], timeout=45)
     assert up_to_date.returncode == 0, up_to_date.stdout + up_to_date.stderr
-    assert not any(phase in up_to_date.stdout + up_to_date.stderr for phase in phases)
 
     ok, msg = verify_snapshot_urls(db_path, expected_urls)
     assert ok, msg

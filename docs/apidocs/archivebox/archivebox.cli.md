@@ -30,7 +30,6 @@ archivebox.cli.rescan
 archivebox.cli.archivebox_extract
 archivebox.cli.archivebox_crawl
 archivebox.cli.archivebox_remove
-archivebox.cli.archivebox_check
 archivebox.cli.archivebox_install
 archivebox.cli.archivebox_folder
 archivebox.cli.archivebox_mcp

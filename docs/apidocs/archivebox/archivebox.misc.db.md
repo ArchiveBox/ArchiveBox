@@ -51,14 +51,6 @@
   - ```{autodoc2-docstring} archivebox.misc.db.truncate_overlong_charfields
     :summary:
     ```
-* - {py:obj}`check_sqlite_database <archivebox.misc.db.check_sqlite_database>`
-  - ```{autodoc2-docstring} archivebox.misc.db.check_sqlite_database
-    :summary:
-    ```
-* - {py:obj}`checked_database_migration <archivebox.misc.db.checked_database_migration>`
-  - ```{autodoc2-docstring} archivebox.misc.db.checked_database_migration
-    :summary:
-    ```
 * - {py:obj}`rebuild_models_from_migration_state <archivebox.misc.db.rebuild_models_from_migration_state>`
   - ```{autodoc2-docstring} archivebox.misc.db.rebuild_models_from_migration_state
     :summary:
@@ -198,20 +190,6 @@
 :canonical: archivebox.misc.db.truncate_overlong_charfields
 
 ```{autodoc2-docstring} archivebox.misc.db.truncate_overlong_charfields
-```
-````
-
-````{py:function} check_sqlite_database(db_path: pathlib.Path) -> dict[str, int]
-:canonical: archivebox.misc.db.check_sqlite_database
-
-```{autodoc2-docstring} archivebox.misc.db.check_sqlite_database
-```
-````
-
-````{py:function} checked_database_migration(stdout: typing.TextIO | None = None)
-:canonical: archivebox.misc.db.checked_database_migration
-
-```{autodoc2-docstring} archivebox.misc.db.checked_database_migration
 ```
 ````
 
