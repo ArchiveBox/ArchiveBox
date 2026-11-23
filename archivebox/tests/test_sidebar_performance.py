@@ -69,6 +69,70 @@ def test_sidebar_cursors_search_and_parent_order(admin_client, admin_user):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, browser_runtime):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Folder
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    root = Folder.objects.create(name="Research")
+    branch = Folder.objects.create(name="Archives", parent=root)
+    Folder.objects.create(name="Field notes", parent=branch)
+
+    origin = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.goto(f"{origin}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        tree = page.locator(".folder-tree")
+        leaf = tree.get_by_role("link", name="Field notes", exact=True)
+        tree.get_by_role("button", name="Expand Research", exact=True).click()
+        tree.get_by_role("button", name="Expand Archives", exact=True).click()
+        expect(leaf).to_be_visible()
+
+        page.reload()
+        expect(leaf).to_be_visible()
+
+        row = tree.locator(f'.folder-row[data-folder-id="{root.pk}"]')
+        row.hover()
+        row.get_by_role("button", name="Actions for Research", exact=True).click()
+        row.get_by_role("menuitem", name="Rename", exact=True).click()
+        page.locator("#folder-name").fill("Research notes")
+        page.get_by_role("button", name="Save folder", exact=True).click()
+        expect(row.get_by_role("button", name="Collapse Research notes", exact=True)).to_be_visible()
+        expect(leaf).to_be_visible()
+
+        sidebar = page.locator(".folder-sidebar")
+        sidebar.get_by_role("button", name="Find a folder", exact=True).click()
+        sidebar.get_by_role("searchbox", name="Find a folder", exact=True).fill("Field notes")
+        tree.get_by_role("button", name="Collapse Archives", exact=True).click()
+        expect(leaf).to_be_hidden()
+        sidebar.get_by_role("button", name="Close sidebar search", exact=True).click()
+        expect(leaf).to_be_visible()
+        assert page.evaluate("JSON.parse(localStorage.getItem('archivebox.folder-expansion'))") == {
+            "expanded": [str(root.pk), str(branch.pk)],
+            "collapsed": [],
+        }
+
+        leaf.click()
+        tree.get_by_role("button", name="Collapse Research notes", exact=True).click()
+        page.reload()
+        expect(tree.get_by_role("button", name="Expand Research notes", exact=True)).to_be_visible()
+        expect(leaf).to_be_hidden()
+        tree.get_by_role("button", name="Expand Research notes", exact=True).click()
+        expect(leaf).to_be_visible()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_sidebar_search_replaces_lazy_pages(live_server, admin_user, browser_runtime):
     from urllib.parse import parse_qs, urlsplit
 

@@ -219,7 +219,9 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains&domain=*.djangoproject.com")
         expect(page.locator("#result_list tbody tr")).to_have_count(2)
         choose("Folders")
-        expect(sidebar.locator(".folder-row")).to_have_count(4)  # Root folders only; children load on expansion.
+        expect(sidebar.locator('.folder-row[data-parent-id=""]')).to_have_count(4)
+        expect(sidebar.get_by_role("link", name="Web archiving", exact=True)).to_be_visible()
+        expect(sidebar.get_by_role("link", name="Python & Django", exact=True)).to_be_visible()
         public = browser.new_page(viewport={"width": 1440, "height": 1000})
         public_origin = live_server.url.replace("localhost", "web.archivebox.localhost")
         for mode in ("folders", "tags", "domains"):

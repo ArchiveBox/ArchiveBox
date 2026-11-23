@@ -687,9 +687,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let loadError = '';
   let rows = [...sidebar.querySelectorAll('.folder-row')];
   let rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
-  const collapsed = new Set();
+  const folderExpansionKey = 'archivebox.folder-expansion';
+  const folderExpansion = new Map();
   const searchCollapsed = new Set();
-  try {JSON.parse(localStorage.getItem('archivebox.folder-collapsed') || '[]').forEach(id => collapsed.add(String(id)));} catch (_) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem(folderExpansionKey) || '{}');
+    (saved.expanded || []).forEach(id => folderExpansion.set(id, true));
+    (saved.collapsed || []).forEach(id => folderExpansion.set(id, false));
+  } catch (_) {}
+  const revealedFolders = new Set(folderPath.filter(id => folderExpansion.get(id) !== false));
+
+  function saveFolderExpansion() {
+    const expanded = [], collapsed = [];
+    for (const [id, open] of folderExpansion) (open ? expanded : collapsed).push(id);
+    try {localStorage.setItem(folderExpansionKey, JSON.stringify({expanded, collapsed}));} catch (_) {}
+  }
+  function isFolderExpanded(id) {
+    return sidebarQuery ? !searchCollapsed.has(id) : revealedFolders.has(id) || folderExpansion.get(id) === true;
+  }
 
   function initializeTreeRows() {
     rows.forEach(row => {
@@ -697,15 +712,17 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.treeInitialized = 'true';
       const toggle = row.querySelector('.folder-toggle');
       if (!toggle) return;
-      if (!sidebarQuery) collapsed.add(row.dataset.folderId);
       toggle.addEventListener('click', () => {
         const id = row.dataset.folderId;
-        const closed = sidebarQuery ? searchCollapsed : collapsed;
-        if (closed.delete(id)) {
-          if (!sidebarQuery && !row.dataset.childrenLoaded) loadChildren(row);
-        } else closed.add(id);
-        if (!sidebarQuery) {
-          try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+        const open = !isFolderExpanded(id);
+        if (sidebarQuery) {
+          if (open) searchCollapsed.delete(id);
+          else searchCollapsed.add(id);
+        } else {
+          revealedFolders.delete(id);
+          folderExpansion.set(id, open);
+          saveFolderExpansion();
+          if (open && !row.dataset.childrenLoaded) loadChildren(row);
         }
         renderTree();
       });
@@ -715,27 +732,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const current = sidebar.querySelector('.folder-row:has([aria-current="page"])');
   function renderTree() {
     if (sidebar.dataset.mode !== 'folders') return;
-    const closed = sidebarQuery ? searchCollapsed : collapsed;
     const loadedParents = sidebarQuery ? new Set(rows.map(row => row.dataset.parentId)) : null;
     rows.forEach(row => {
       let parent = row.dataset.parentId;
       let hidden = false;
       while (parent) {
-        if (closed.has(parent)) hidden = true;
+        if (!isFolderExpanded(parent)) hidden = true;
         parent = rowsById.get(parent)?.dataset.parentId;
       }
       row.hidden = hidden;
       const toggle = row.querySelector('.folder-toggle');
       if (toggle) {
-        const expanded = !closed.has(row.dataset.folderId) && (!loadedParents || loadedParents.has(row.dataset.folderId));
+        const expanded = isFolderExpanded(row.dataset.folderId) && (!loadedParents || loadedParents.has(row.dataset.folderId));
         toggle.setAttribute('aria-expanded', String(expanded));
         toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`);
+        if (expanded && !hidden && !sidebarQuery && !row.dataset.childrenRequested) loadChildren(row);
       }
     });
     sidebar.querySelectorAll('.library-child-more').forEach(button => {
       let parent = button.dataset.parent;
       let hidden = false;
-      while (parent) {if (collapsed.has(parent)) hidden = true; parent = rowsById.get(parent)?.dataset.parentId;}
+      while (parent) {if (!isFolderExpanded(parent)) hidden = true; parent = rowsById.get(parent)?.dataset.parentId;}
       button.hidden = hidden || !button.dataset.cursor;
     });
   }
@@ -750,11 +767,11 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshRows();
       let parent = rowsById.get(createdId)?.dataset.parentId;
       while (parent) {
-        collapsed.delete(parent);
+        revealedFolders.add(parent);
         parent = rowsById.get(parent)?.dataset.parentId;
       }
-      renderTree();
       loading.hidden = true;
+      renderTree();
     }
     [folderForm.elements.parent, form?.querySelector('[name=folder_destination]')].filter(Boolean).forEach(select => {
       const selectedValue = select.value;
@@ -775,7 +792,6 @@ document.addEventListener('DOMContentLoaded', () => {
       initializeFolderDragging(fresh); initializeDropTargets(fresh);
       fresh.forEach(row => row.dataset.dragInitialized = 'true');
     }
-    renderTree();
   }
   function resetPageRequests() {
     pageRequests.abort();
@@ -850,10 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button.dataset.parent) rowsById.get(button.dataset.parent).dataset.childrenLoaded = 'true';
       }
       refreshRows();
-      if (replace && !sidebarQuery) {
-        folderPath.slice(0, -1).forEach(id => collapsed.delete(id));
-        renderTree();
-      }
+      renderTree();
       empty.hidden = !sidebarQuery || Boolean(result.next || tree.querySelector('.folder-row, .library-entry'));
       observer.unobserve(button);
       if (!button.hidden) observer.observe(button);
@@ -872,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function loadChildren(row) {
     if (sidebarQuery || !tree.contains(row)) return;
+    row.dataset.childrenRequested = 'true';
     let button = [...tree.querySelectorAll('.library-child-more')].find(item => item.dataset.parent === row.dataset.folderId);
     if (!button) {
       button = document.createElement('button'); button.type = 'button';
@@ -881,6 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.addEventListener('click', () => loadPage(button));
       observer.observe(button);
     }
+    button.hidden = false;
     return loadPage(button);
   }
   const observer = new IntersectionObserver(items => {
@@ -907,17 +922,6 @@ document.addEventListener('DOMContentLoaded', () => {
   search.addEventListener('input', () => {
     if (sidebarQuery || search.value.trim()) searchSidebar();
   });
-  (async () => {
-    const signal = pageRequests.signal;
-    for (const id of folderPath) {
-      if (signal.aborted) return;
-      const row = rowsById.get(id);
-      if (row?.querySelector('.folder-toggle')) {
-        collapsed.delete(id);
-        await loadChildren(row);
-      }
-    }
-  })();
   const searchToggle = sidebar.querySelector('.folder-search-toggle');
   const sectionLabel = sidebar.querySelector('.folder-section-label');
   function toggleFolderSearch(open) {
@@ -1353,9 +1357,9 @@ document.addEventListener('DOMContentLoaded', () => {
         target.classList.toggle('drop-before', position === 'before');
         target.classList.toggle('drop-after', position === 'after');
         target.classList.toggle('drop-active', position === 'inside');
-        if (position === 'inside' && collapsed.has(target.dataset.folderId) && !expandTimer) {
+        if (position === 'inside' && !sidebarQuery && !isFolderExpanded(target.dataset.folderId) && target.querySelector('.folder-toggle') && !expandTimer) {
           expandTimer = setTimeout(() => {
-            collapsed.delete(target.dataset.folderId);
+            revealedFolders.add(target.dataset.folderId);
             if (!target.dataset.childrenLoaded) loadChildren(target);
             renderTree();
             expandTimer = null;
@@ -1378,10 +1382,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(result.error || 'Could not move folder.');
             let ancestor = data.get('placement') === 'inside' ? target : rows.find(row => row.dataset.folderId === target.dataset.parentId);
             while (ancestor) {
-              collapsed.delete(ancestor.dataset.folderId);
+              if (ancestor.dataset.folderId) folderExpansion.set(ancestor.dataset.folderId, true);
               ancestor = rows.find(row => row.dataset.folderId === ancestor.dataset.parentId);
             }
-            try {localStorage.setItem('archivebox.folder-collapsed', JSON.stringify([...collapsed]));} catch (_) {}
+            saveFolderExpansion();
             location.reload();
           } catch (error) {status.textContent = error.message;}
           return;
