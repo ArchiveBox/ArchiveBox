@@ -73,7 +73,7 @@ from archivebox.config.common import (
 from archivebox.base_models.models import PagedQuerySet
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
-from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.plugins.discovery import get_plugin_catalog, register_plugin_eventbus
 from archivebox.plugins.selection import parse_plugin_selection
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
@@ -215,9 +215,8 @@ class CrawlRunner:
         self.bus = create_bus(
             name=_bus_name("ArchiveBox", str(crawl.id)),
             total_timeout=3600.0,
-            config=get_config(include_machine=False).model_dump(mode="json"),
-            catalog=self.catalog,
         )
+        register_plugin_eventbus(self.bus, get_config(include_machine=False).model_dump(mode="json"))
         self.process_service = HookProcessService(
             self.bus,
             emit_jsonl=False,
@@ -1661,9 +1660,8 @@ async def _run_binary(binary_id: str) -> None:
     bus = create_bus(
         name=_bus_name("ArchiveBox_binary", str(binary.id)),
         total_timeout=1800.0,
-        config=config,
-        catalog=get_plugin_catalog(),
     )
+    register_plugin_eventbus(bus, config)
     process_service = PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
@@ -2098,7 +2096,8 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
-    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0, config=config, catalog=catalog)
+    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
+    register_plugin_eventbus(bus, config)
     PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus)
