@@ -387,15 +387,14 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
     # The shared binary projection may belong to another ArchiveBox install.
     # Its server shebang would load that install's plugins/templates even when
     # the CLI and crawl workers use this runtime, so retain the caller's Python.
-    # Our ASGI app handles HTTP/WebSockets, not lifespan events. Retain Daphne's
-    # 1 MiB WebSocket message bound when choosing the production transport.
+    # Retain Daphne's 1 MiB WebSocket message bound. The launcher owns native
+    # ASGI lifespan and honors Uvicorn's WEB_CONCURRENCY worker setting.
     command = [
         sys.executable,
         "-m",
         "archivebox.workers.http_server",
         f"--host={host.strip('[]')}",
         f"--port={port}",
-        "--lifespan=off",
         "--ws-max-size=1048576",
     ]
     return {
@@ -404,7 +403,11 @@ def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
         # Django's short-lived request threads otherwise leave many glibc
         # arenas retaining freed preview/SQLite buffers after requests finish.
         # Set before exec: changing os.environ inside Python is too late.
-        "environment": archivebox_worker_environment(command, MALLOC_ARENA_MAX=os.environ.get("MALLOC_ARENA_MAX", "2")),
+        "environment": archivebox_worker_environment(
+            command,
+            MALLOC_ARENA_MAX=os.environ.get("MALLOC_ARENA_MAX", "2"),
+            WEB_CONCURRENCY=os.environ.get("WEB_CONCURRENCY", "1"),
+        ),
         "autostart": "false",
         "autorestart": "true",
         "stopasgroup": "true",

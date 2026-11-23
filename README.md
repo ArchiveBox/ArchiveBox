@@ -1327,6 +1327,11 @@ archivebox server --debug --reload 0.0.0.0:5797
 archivebox server 0.0.0.0:5797
 ```
 
+The production HTTP server honors `WEB_CONCURRENCY` (default `1`). For example,
+`WEB_CONCURRENCY=2 archivebox server 0.0.0.0:5797` starts two HTTP processes sharing
+the listener, each with its own Python interpreter and Django connections.
+Size this against available CPU and memory; the capture orchestrator is separate.
+
 #### 2. Option B: Build the docker container and use that for development instead
 
 ```bash

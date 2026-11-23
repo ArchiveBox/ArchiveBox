@@ -3,6 +3,7 @@
 import io
 import json
 import logging
+import mmap
 import os
 import sys
 import time
@@ -45,15 +46,21 @@ def main():
     )
     with observer:
         wait_for("worker_memory_baseline")
-        # Two ordinary touched buffers, 8 MiB TOTAL, never retained beyond this process.
-        buffers = [bytearray((8 if mode == "transient" else 4) * 1024 * 1024)]
         if mode == "transient":
-            del buffers
+            # Unmap real touched pages so the transient allocation returns to
+            # the OS. Freeing a bytearray may leave it resident in malloc's
+            # arena, which would test allocator retention instead of a spike.
+            with mmap.mmap(-1, 8 * 1024 * 1024) as allocation:
+                for offset in range(0, len(allocation), mmap.PAGESIZE):
+                    allocation[offset] = 1
             wait_for("worker_memory_growth")
             assert output.getvalue().count("worker_memory_growth") == 1
             row = next(row for row in output.getvalue().splitlines() if "worker_memory_growth" in row)
             fields = dict(item.split("=", 1) for item in row.split()[1:])
             assert int(fields["kernel_peak_bytes"]) > int(fields["sampled_peak_bytes"])
+        else:
+            # Two ordinary touched buffers, 8 MiB TOTAL, retained below.
+            buffers = [bytearray(4 * 1024 * 1024)]
         if mode == "audit-denial":
             wait_for("worker_memory_unavailable")
         elif mode != "transient":

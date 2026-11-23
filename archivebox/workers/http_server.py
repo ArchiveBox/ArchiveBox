@@ -8,31 +8,61 @@ from contextlib import ExitStack
 from ipaddress import IPv6Address, ip_address
 
 import uvicorn
+from uvicorn.supervisors import Multiprocess
 
 from archivebox.workers.memory_observer import MemoryObserver
 
 
-class ObservedServer(uvicorn.Server):
-    memory_observer: MemoryObserver
+class WorkerApplication:
+    """Initialize and close each spawned worker through ASGI lifespan."""
 
-    async def shutdown(self, sockets=None):
+    def __init__(self):
+        self.application = None
+
+    @staticmethod
+    def load():
+        # Django startup reads the collection database. Do that outside the
+        # event loop, independently in each worker rather than in the manager.
+        from archivebox.core.asgi import application
+
+        return application
+
+    @staticmethod
+    def shutdown():
+        from django.apps import apps
+
+        for app in apps.get_app_configs():
+            shutdown = getattr(app, "shutdown", None)
+            if callable(shutdown):
+                try:
+                    shutdown()
+                except Exception:
+                    logging.getLogger(__name__).exception("Application shutdown failed: %s", app.name)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "lifespan":
+            assert self.application is not None, "Worker startup has not completed"
+            return await self.application(scope, receive, send)
+
+        message = await receive()
+        assert message["type"] == "lifespan.startup"
+        self.application = await asyncio.to_thread(self.load)
+        observer = MemoryObserver().start()
         try:
-            await super().shutdown(sockets=sockets)
+            await send({"type": "lifespan.startup.complete"})
+            message = await receive()
+            assert message["type"] == "lifespan.shutdown"
         finally:
-            stopped = self.memory_observer.stop()
+            stopped = await asyncio.to_thread(observer.stop)
             logging.getLogger("uvicorn.error").log(
                 logging.INFO if stopped else logging.WARNING,
                 "worker_memory_stopped" if stopped else "worker_memory_stop_pending",
             )
-            from django.apps import apps
+            await asyncio.to_thread(self.shutdown)
+        await send({"type": "lifespan.shutdown.complete"})
 
-            for app in apps.get_app_configs():
-                shutdown = getattr(app, "shutdown", None)
-                if callable(shutdown):
-                    try:
-                        await asyncio.to_thread(shutdown)
-                    except Exception:
-                        logging.getLogger(__name__).exception("Application shutdown failed: %s", app.name)
+
+application = WorkerApplication()
 
 
 def main() -> None:
@@ -40,8 +70,10 @@ def main() -> None:
     parser.add_argument("--host", required=True)
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--ws-max-size", type=int, default=1048576)
-    parser.add_argument("--lifespan", choices=("off",), default="off")
+    parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args()
+    if args.workers is not None and args.workers < 1:
+        parser.error("workers must be at least one")
     address = ip_address(args.host.strip("[]"))
     if isinstance(address, IPv6Address) and address.ipv4_mapped is not None:
         if address.scope_id is not None:
@@ -49,17 +81,17 @@ def main() -> None:
         address = address.ipv4_mapped
     host = str(address)
     config = uvicorn.Config(
-        "archivebox.core.asgi:application",
+        "archivebox.workers.http_server:application",
         host=host,
         port=args.port,
-        lifespan=args.lifespan,
+        lifespan="on",
+        workers=args.workers,
         ws_max_size=args.ws_max_size,
         # Django owns proxy trust and must receive the original socket peer.
         proxy_headers=False,
     )
-    # Django initialization performs synchronous database reads. Load before
-    # Server.run enters the event loop, as Uvicorn's CLI does.
-    config.load()
+    if config.workers < 1:
+        parser.error("workers must be at least one")
     addresses = [(host, socket.AF_INET6 if ":" in host else socket.AF_INET)]
     if host == "::":
         # asyncio otherwise silently makes [::] IPv6-only. Separate sockets
@@ -75,10 +107,10 @@ def main() -> None:
         # Match Uvicorn's bind_socket announcement for prebound listeners.
         for listener in sockets:
             logging.getLogger("uvicorn.error").info("Uvicorn running on socket %s", listener.getsockname())
-        server = ObservedServer(config)
-        with MemoryObserver() as observer:
-            server.memory_observer = observer
-            server.run(sockets=sockets)
+        if config.workers > 1:
+            Multiprocess(config, sockets=sockets).run()
+        else:
+            uvicorn.Server(config).run(sockets=sockets)
 
 
 if __name__ == "__main__":

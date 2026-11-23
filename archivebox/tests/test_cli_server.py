@@ -477,7 +477,6 @@ def test_uvicorn_worker_preserves_websocket_message_limit():
 
     assert "archivebox.workers.http_server" in command
     assert "--ws-max-size=1048576" in command
-    assert "--lifespan=off" in command
 
 
 @pytest.mark.parametrize("arena_limit", [None, "7"])

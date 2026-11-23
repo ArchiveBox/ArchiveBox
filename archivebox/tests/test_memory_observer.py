@@ -64,7 +64,8 @@ def test_observer_idle_graceful_stop_and_single_start():
         observer.start()
 
 
-def test_real_uvicorn_observer_http_and_graceful_shutdown(initialized_archive, free_tcp_port_factory):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_real_uvicorn_observer_http_and_graceful_shutdown(initialized_archive, free_tcp_port_factory, workers):
     import signal
     import psutil
     import requests
@@ -78,6 +79,7 @@ def test_real_uvicorn_observer_http_and_graceful_shutdown(initialized_archive, f
         ALLOWED_HOSTS="*",
         PUBLIC_INDEX="True",
         SEARCH_BACKEND_ENGINE="sqlite",
+        WEB_CONCURRENCY=str(workers),
     )
     log_path = initialized_archive / "observer-uvicorn.log"
     with log_path.open("w") as log:
@@ -91,10 +93,15 @@ def test_real_uvicorn_observer_http_and_graceful_shutdown(initialized_archive, f
         process = psutil.Process(worker.pid)
         try:
             deadline = time.monotonic() + 20
-            while "Started server process" not in log_path.read_text():
+            while log_path.read_text().count("Application startup complete") != workers:
                 assert worker.poll() is None, log_path.read_text()
                 assert time.monotonic() < deadline, log_path.read_text()
                 time.sleep(0.05)
+            server_pids = {int(pid) for pid in re.findall(r"Started server process \[(\d+)\]", log_path.read_text())}
+            assert len(server_pids) == workers
+            if workers > 1:
+                assert worker.pid not in server_pids
+                assert server_pids <= {child.pid for child in process.children()}
             with requests.Session() as client:
                 client.trust_env = False
                 headers = {"Host": f"web.archivebox.localhost:{port}"}
@@ -118,16 +125,21 @@ def test_real_uvicorn_observer_http_and_graceful_shutdown(initialized_archive, f
     assert "Shutting down" in logs
     assert "Finished server process" in logs
     memory_rows = [line for line in logs.splitlines() if "worker_memory_" in line]
-    assert len(memory_rows) == 2
-    assert re.fullmatch(
-        r"worker_memory_baseline pid=\d+ rss_bytes=\d+ kernel_peak_bytes=\d+",
-        memory_rows[0][memory_rows[0].index("worker_memory_baseline") :],
-    )
-    assert memory_rows[1].endswith("worker_memory_stopped")
+    assert len(memory_rows) == workers * 2
+    baselines = [line for line in memory_rows if "worker_memory_baseline" in line]
+    assert len(baselines) == workers
+    for baseline in baselines:
+        assert re.fullmatch(
+            r"worker_memory_baseline pid=\d+ rss_bytes=\d+ kernel_peak_bytes=\d+",
+            baseline[baseline.index("worker_memory_baseline") :],
+        )
+    assert {int(re.search(r"pid=(\d+)", line)[1]) for line in baselines} == server_pids
+    assert sum(line.endswith("worker_memory_stopped") for line in memory_rows) == workers
     assert logs.index("worker_memory_stopped") < logs.index("Finished server process")
     assert "worker_memory_unavailable" not in logs
     assert "worker_memory_growth" not in logs
     assert not psutil.pid_exists(worker.pid)
+    assert all(not psutil.pid_exists(pid) for pid in server_pids)
     print(f"ordinary health and public GET passed; shutdown={returncode}; observer rows={len(memory_rows)}")
 
 
