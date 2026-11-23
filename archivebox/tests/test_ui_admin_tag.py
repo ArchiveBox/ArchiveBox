@@ -295,9 +295,10 @@ def test_sidebar_list_and_detail_delete_tags_without_confirmation(live_server, a
     machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
     machine.save(update_fields=["config"])
     sidebar_tag = Tag.objects.create(name="Sidebar tag")
+    other_tag = Tag.objects.create(name="Other sidebar tag")
     detail_tag = Tag.objects.create(name="Detail tag")
     list_tag = Tag.objects.create(name="List tag")
-    snapshot.tags.add(sidebar_tag, detail_tag, list_tag)
+    snapshot.tags.add(sidebar_tag, other_tag, detail_tag, list_tag)
     library = live_server.url + reverse("admin:core_snapshot_changelist")
     tags_url = live_server.url + reverse("admin:core_tag_changelist")
     with sync_playwright() as playwright:
@@ -310,6 +311,15 @@ def test_sidebar_list_and_detail_delete_tags_without_confirmation(live_server, a
 
         page.goto(f"{library}?sidebar=tags&tag={sidebar_tag.pk}")
         sidebar = page.locator(".folder-sidebar")
+        navigation_start = page.evaluate("performance.timeOrigin")
+        sidebar.get_by_role("link", name="Other sidebar tag", exact=True).hover()
+        sidebar.get_by_role("button", name="Actions for Other sidebar tag", exact=True).click()
+        page.get_by_role("menuitem", name="Delete tag", exact=True).click()
+        expect(sidebar.get_by_role("link", name="Other sidebar tag", exact=True)).to_have_count(0)
+        expect(page.locator(f'#result_list .tag-pill[data-tag-id="{other_tag.pk}"]')).to_have_count(0)
+        expect(sidebar.get_by_role("link", name="Sidebar tag", exact=True)).to_have_attribute("aria-current", "page")
+        assert page.url == f"{library}?sidebar=tags&tag={sidebar_tag.pk}"
+        assert page.evaluate("performance.timeOrigin") == navigation_start
         sidebar.get_by_role("link", name="Sidebar tag", exact=True).hover()
         sidebar.get_by_role("button", name="Actions for Sidebar tag", exact=True).click()
         page.get_by_role("menuitem", name="Delete tag", exact=True).click()
@@ -329,5 +339,5 @@ def test_sidebar_list_and_detail_delete_tags_without_confirmation(live_server, a
         expect(page.get_by_role("link", name="List tag", exact=True)).to_have_count(0)
         browser.close()
 
-    assert not Tag.objects.filter(pk__in=[sidebar_tag.pk, detail_tag.pk, list_tag.pk]).exists()
+    assert not Tag.objects.filter(pk__in=[sidebar_tag.pk, other_tag.pk, detail_tag.pk, list_tag.pk]).exists()
     assert Snapshot.objects.filter(pk=snapshot.pk).exists()

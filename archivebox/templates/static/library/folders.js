@@ -504,10 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!action) continue;
           const url = entry.dataset[key];
           action.hidden = !url;
-          if (action.form) {
-            action.form.action = url || '';
-            action.form.elements.return_to.value = location.pathname + location.search;
-          } else if (url) action.href = url;
+          if (action.form) action.form.action = url || '';
+          else if (url) action.href = url;
           else action.removeAttribute('href');
         }
         if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);
@@ -921,6 +919,34 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPage(more, true);
     }, 25);
   }
+  const deleteTagForm = sidebar.querySelector('#library-tag-delete-form');
+  deleteTagForm?.addEventListener('submit', async event => {
+    const menu = deleteTagForm.closest('.folder-menu');
+    const tagId = menu.dataset.entryValue;
+    deleteTagForm.elements.return_to.value = location.pathname + location.search;
+    const filters = new URLSearchParams(location.search);
+    if (['tag', 'tags__id__exact'].some(key => filters.get(key) === tagId)) return;
+    event.preventDefault();
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      const response = await fetch(deleteTagForm.action, {
+        method: 'POST',
+        body: new FormData(deleteTagForm),
+        headers: {Accept: 'application/json'},
+        credentials: 'same-origin',
+      });
+      if (!response.ok || !(await response.json()).deleted) throw new Error('Could not delete tag.');
+      menu.hidePopover();
+      document.dispatchEvent(new CustomEvent('archivebox:tag-deleted', {detail: tagId}));
+      status.textContent = 'Tag deleted.';
+      searchSidebar();
+    } catch {
+      status.textContent = 'Could not delete tag.';
+    } finally {
+      button.disabled = false;
+    }
+  });
   search.addEventListener('input', () => {
     if (sidebarQuery || search.value.trim()) searchSidebar();
   });
