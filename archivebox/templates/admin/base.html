@@ -2302,7 +2302,7 @@
                     $("#snapshot-view-grid").removeClass('active')
                 }
 
-                $('#changelist-form .card input:checkbox').change(function() {
+                $('#changelist-form').off('change.snapshotCard').on('change.snapshotCard', '.card input:checkbox', function() {
                     $(this).closest('.card').toggleClass('selected-card', this.checked)
                     if (!this.checked) {
                         const selectAcross = document.querySelector('div.actions input.select-across')

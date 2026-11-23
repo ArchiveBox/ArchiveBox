@@ -921,7 +921,7 @@ def snapshot_index_row(context, link) -> str:
         )
 
     html = f"""
-<tr class="snapshot-row status-{escape(status)}">
+<tr class="snapshot-row status-{escape(status)}" data-snapshot-id="{escape(str(getattr(link, "pk", timestamp)))}">
     <td class="snapshot-time" title="{escape(title_time)}" data-sort="{escape(sort_value)}">
         <a href="{escape(detail_url)}">
             <span>{escape(date_text)}</span>

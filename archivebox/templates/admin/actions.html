@@ -56,13 +56,15 @@
               total
             {% endif %}
           </span>
-          {% if cl.result_count != cl.result_list|length %}
+          {% if cl.opts.model_name == 'snapshot' %}<span class="snapshot-across-options"{% if cl.result_count == cl.result_list|length %} hidden{% endif %}>{% endif %}
+          {% if cl.opts.model_name == 'snapshot' or cl.result_count != cl.result_list|length %}
           <span class="all hidden">{% if cl.opts.model_name == 'snapshot' %}All matching snapshots selected{% elif cl.display_result_count != None %}All matching rows selected{% else %}{{ selection_note_all }}{% endif %}</span>
           <span class="question hidden">
               <a role="button" href="#" title="{% translate "Click here to select the objects across all pages" %}">{% if cl.opts.model_name == 'snapshot' %}Select all matching snapshots{% elif cl.display_result_count != None %}Select all matching rows{% else %}{% blocktranslate with cl.result_count as total_count %}Select all {{ total_count }} {{ module_name }}{% endblocktranslate %}{% endif %}</a>
           </span>
           <span class="clear hidden"><a role="button" href="#">{% translate "Clear selection" %}</a></span>
           {% endif %}
+          {% if cl.opts.model_name == 'snapshot' %}</span>{% endif %}
         </span>
       {% endif %}
       {% endblock %}

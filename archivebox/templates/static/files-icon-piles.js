@@ -84,9 +84,9 @@
         popup.addEventListener('pointerleave', scheduleClose);
     }
 
-    window.archiveboxInitFilesIconPiles = () => {
-        if (activePopup) activePopup.closeImmediately();
-        document.querySelectorAll('.files-icon-pile').forEach(initializePile);
+    window.archiveboxInitFilesIconPiles = (root = document) => {
+        if (root === document && activePopup) activePopup.closeImmediately();
+        root.querySelectorAll('.files-icon-pile').forEach(initializePile);
     };
     window.archiveboxInitFilesIconPiles();
 })();
