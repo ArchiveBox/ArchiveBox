@@ -179,7 +179,7 @@ def CacheControlMiddleware(get_response):
         ):
             # Derived views/downloads can trigger filesystem scans or rendering.
             # Keep raw artifacts' policy intact; these are crawler hints only.
-            response["X-Robots-Tag"] = ", ".join(filter(None, (response.get("X-Robots-Tag"), "noindex, nofollow")))
+            response["X-Robots-Tag"] = ", ".join(filter(None, (response.get("X-Robots-Tag"), "noindex, follow")))
 
         if request.path.startswith("/static/") and response.status_code in (200, 304):
             rel_path = request.path[len("/static/") :]

@@ -1,6 +1,8 @@
 __package__ = "archivebox.plugins"
 
 import re
+from html import escape
+from html.parser import HTMLParser
 from collections.abc import Iterable
 from functools import lru_cache
 from fnmatch import fnmatchcase
@@ -470,12 +472,80 @@ def get_plugin_replay_roots(snapshot_root: Path, url: str):
                 yield root
 
 
+class _ReplayMetadataHead(HTMLParser):
+    """Locate head metadata without parsing a potentially huge saved body."""
+
+    def __init__(self):
+        super().__init__()
+        self.offsets = [0]
+        self.insertion = 0
+        self.removals = []
+        self.done = False
+
+    def handle_decl(self, decl):
+        if not self.done and decl.lower().startswith("doctype"):
+            line, column = self.getpos()
+            self.insertion = self.offsets[line - 1] + column + len(decl) + 3
+
+    def handle_starttag(self, tag, attrs):
+        if self.done:
+            return
+        line, column = self.getpos()
+        start = self.offsets[line - 1] + column
+        end = start + len(self.get_starttag_text())
+        if tag in {"html", "head"}:
+            self.insertion = end
+        elif tag not in {"base", "basefont", "bgsound", "link", "meta", "title", "noframes", "script", "style", "template", "noscript"}:
+            # HTML permits omitted head/body tags. The first body element also
+            # ends the head, so fragments need not scan their saved content.
+            self.done = True
+        values = dict(reversed(attrs))
+        if (tag == "link" and {"canonical", "original"}.intersection((values.get("rel") or "").lower().split())) or (
+            tag == "meta" and (values.get("name") or "").lower() == "robots"
+        ):
+            self.removals.append((start, end, ""))
+
+    def handle_endtag(self, tag):
+        if tag == "head":
+            self.done = True
+
+
+def add_replay_document_metadata(document: str, original_url: str) -> str:
+    """Set attribution on a rendered representation, never its saved source."""
+    if not original_url:
+        return document
+    parsed = _ReplayMetadataHead()
+    for offset in range(0, len(document), 4096):
+        chunk = document[offset : offset + 4096]
+        parsed.offsets.extend(offset + match.end() for match in re.finditer("\n", chunk))
+        parsed.feed(chunk)
+        if parsed.done:
+            break
+    url = escape(original_url, quote=True)
+    metadata = f'<link rel="canonical" href="{url}"><link rel="original" href="{url}"><meta name="robots" content="noindex, follow">'
+    if len(parsed.removals) == 3 and document.startswith(metadata, parsed.insertion):
+        # Full/card viewers may also pass through shared response/export code.
+        # Already-normalized metadata needs no second copy of the saved body.
+        return document
+    edits = [*parsed.removals, (parsed.insertion, parsed.insertion, metadata)]
+    chunks = []
+    previous = 0
+    for start, end, replacement in sorted(edits):
+        chunks.extend((document[previous:start], replacement))
+        previous = end
+    chunks.append(document[previous:])
+    return "".join(chunks)
+
+
 def render_plugin_full_response(path: str, output_url: str, **kwargs):
     """Let plugin presentation hooks render a saved output's full template."""
     for module in get_plugin_presentation_modules():
         render = getattr(module, "render_full_response", None)
         if render is not None and (response := render(path, output_url, **kwargs)) is not None:
-            return response
+            body, content_type, headers = response
+            if content_type.partition(";")[0].strip().lower() == "text/html":
+                body = add_replay_document_metadata(body, kwargs.get("fallback_url", ""))
+            return body, content_type, headers
     return None
 
 

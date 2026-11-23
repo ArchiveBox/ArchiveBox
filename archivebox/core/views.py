@@ -478,7 +478,7 @@ class SnapshotView(View):
                         query = request.META.get("QUERY_STRING")
                         if query:
                             target_path = f"{target_path}?{query}"
-                        return redirect(target_path)
+                        return add_memento_headers(request, snapshot, redirect(target_path))
 
                     if request.GET.get("files"):
                         target_path = _files_index_target(snapshot, archivefile)
@@ -489,6 +489,7 @@ class SnapshotView(View):
                             show_indexes=True,
                             is_archive_replay=True,
                         )
+                        add_memento_headers(request, snapshot, response, primary=False)
                     elif archivefile in ("", "index.html"):
                         # Both the canonical extensionless URL and the legacy
                         # index.html URL render the live Django snapshot page.
@@ -498,8 +499,7 @@ class SnapshotView(View):
                         query = request.META.get("QUERY_STRING")
                         if query:
                             target = f"{target}?{query}"
-                        return redirect(target)
-                    response["Link"] = ", ".join(filter(None, [response.get("Link"), f'<{snapshot.url}>; rel="canonical"']))
+                        return add_memento_headers(request, snapshot, redirect(target))
                     return response
                 except Snapshot.DoesNotExist:
                     snapshots = discoverable_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
@@ -675,7 +675,7 @@ class SnapshotView(View):
         query = request.META.get("QUERY_STRING")
         if query:
             target_path = f"{target_path}?{query}"
-        return redirect(target_path)
+        return add_memento_headers(request, snapshot, redirect(target_path))
 
 
 class SnapshotPathView(View):
@@ -796,7 +796,7 @@ class SnapshotPathView(View):
             query = request.META.get("QUERY_STRING")
             if query:
                 target = f"{target}?{query}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         archivefile = path or "index.html"
         if archivefile != "index.html" and not request.GET.get("files"):
@@ -804,17 +804,18 @@ class SnapshotPathView(View):
             query = request.META.get("QUERY_STRING")
             if query:
                 target = f"{target}?{query}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         if request.GET.get("files"):
             target_path = _files_index_target(snapshot, archivefile)
-            return serve_static_with_byterange_support(
+            response = serve_static_with_byterange_support(
                 request,
                 target_path,
                 document_root=snapshot.output_dir,
                 show_indexes=True,
                 is_archive_replay=True,
             )
+            return add_memento_headers(request, snapshot, response, primary=False)
 
         if archivefile == "index.html":
             return SnapshotView.render_live_index(request, snapshot)
@@ -1084,11 +1085,13 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
             f"</style>{CARD_OVERFLOW_STYLE}{render_to_string('core/typography.html')}</head><body>"
             f"{fragment}</body></html>"
         )
-    response = HttpResponse(card_html, content_type="text/html; charset=utf-8")
+    from archivebox.plugins.discovery import add_replay_document_metadata
+
+    response = HttpResponse(add_replay_document_metadata(card_html, snapshot.url), content_type="text/html; charset=utf-8")
     response.headers["Content-Security-Policy"] = _trusted_snapshot_frame_csp(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
-    return response
+    return add_memento_headers(request, snapshot, response)
 
 
 def _has_original_domain_replay_cookie(request: HttpRequest, domain: str) -> bool:
@@ -1248,16 +1251,22 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
         # Host authorization has already selected this snapshot. A declared
         # crawler output needs only its saved file, never manifests or fallbacks.
         request.archivebox_output_revision = ""
-        return serve_static_with_byterange_support(
+        response = serve_static_with_byterange_support(
             request,
             rel_path,
             document_root=snapshot.output_dir,
             is_archive_replay=True,
         )
+        return add_memento_headers(request, snapshot, response, path=rel_path, enclosures=False)
 
     if rel_path.startswith("replay/") or rel_path == "replay":
         response = serve_plugin_replay_asset(rel_path, request_config, HttpResponse)
         if response is not None:
+            if response.get("Content-Type", "").startswith("text/html"):
+                from archivebox.plugins.discovery import add_replay_document_metadata
+
+                response.content = add_replay_document_metadata(response.content.decode(response.charset), snapshot.url)
+                return add_memento_headers(request, snapshot, response, primary=False)
             return response
 
     if rel_path == "progress.json":
@@ -1286,7 +1295,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
             target = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
         return SnapshotView.render_live_index(request, snapshot)
 
     if not rel_path or rel_path.endswith("/"):
@@ -1315,12 +1324,14 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     request.archivebox_output_revision = f"{hashes_result['id'].hex}-{hashes_result['modified_at'].isoformat()}" if has_hashes else ""
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
-    # Only the primary representation describes the page; logs and helper assets do not.
+    # All replay pages identify their source; only the primary representation is a Memento.
     if plugin_preview is not None:
-        return (
-            add_memento_headers(request, snapshot, plugin_preview)
-            if archive_result and rel_path == archive_result.embed_path()
-            else plugin_preview
+        return add_memento_headers(
+            request,
+            snapshot,
+            plugin_preview,
+            path=rel_path,
+            primary=bool(archive_result and rel_path == archive_result.embed_path()),
         )
 
     for candidate_path in (rel_path, *fallback_relpaths):
@@ -1488,7 +1499,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
             target = build_snapshot_url(str(snapshot.id), snapshot_path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
     show_indexes = bool(request.GET.get("files"))
     if match:
         snapshot, replay_root, rel_to_root = match
@@ -1496,12 +1507,14 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         request.archivebox_snapshot = snapshot
         response = _serve_replay_path(request, Path(snapshot.output_dir), replay_root, str(rel_to_root), show_indexes)
         if response is not None:
-            return response
+            return add_memento_headers(request, snapshot, response, path=str(rel_to_root), primary=False)
 
     if root_match:
+        request.archivebox_snapshot_url = root_match[0].url
+        request.archivebox_snapshot = root_match[0]
         response = _serve_replay_path(request, Path(root_match[0].output_dir), replay_root, rel_path, show_indexes)
         if response is not None:
-            return response
+            return add_memento_headers(request, root_match[0], response, path=rel_path, primary=False)
 
     if requested_root_index and not show_indexes:
         if snapshots:
@@ -1533,7 +1546,7 @@ class SnapshotHostView(View):
             target = build_snapshot_url(str(snapshot.id), path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         return _serve_snapshot_replay(request, snapshot, path)
 

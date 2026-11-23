@@ -32,6 +32,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.plugins.discovery import (
+    add_replay_document_metadata,
     get_plugin_catalog,
     get_plugin_icon,
     get_plugin_icon_sprite,
@@ -1181,7 +1182,7 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
     from django.template.loader import render_to_string
 
     stylesheet = render_to_string("core/typography.html", context)
-    return document.replace("</head>", stylesheet + "</head>", 1)
+    return add_replay_document_metadata(document.replace("</head>", stylesheet + "</head>", 1), snapshot.url)
 
 
 def write_static_ui_assets(export_root):
@@ -1224,6 +1225,7 @@ def write_static_plugin_previews(context):
     def save(path, document, kind):
         from django.templatetags.static import static
 
+        document = add_replay_document_metadata(document, snapshot.url)
         base = re.search(r'<base href="([^"]+)"', document)
         document_base = (generated / unescape(base[1])).resolve() if base else generated
         stylesheet = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox/ui/typography.css"
@@ -1408,6 +1410,7 @@ def render_plugin_card_document(context, result) -> str:
 
                     stylesheet = render_to_string("core/typography.html", context.flatten())
                     rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + stylesheet + "</head>", 1)
+                    rendered = add_replay_document_metadata(rendered, result.snapshot.url)
                 if context.get("STATIC_EXPORT") and rendered.lstrip().lower().startswith("<!doctype html"):
                     # Static exports have no _card route. Keep the same card
                     # document in both stack positions, with relative saved-file

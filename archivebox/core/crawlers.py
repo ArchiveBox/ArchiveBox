@@ -82,7 +82,7 @@ def CrawlerMiddleware(get_response):
                 "Only AI training crawlers may request declared static HTML outputs.\n",
                 content_type="text/plain",
             )
-            response["X-Robots-Tag"] = "noindex, nofollow"
+            response["X-Robots-Tag"] = "noindex, follow"
             response["Cache-Control"] = "private, no-store"
             patch_vary_headers(response, ("User-Agent",))
             return response, False
@@ -98,7 +98,7 @@ def CrawlerMiddleware(get_response):
             response, vary = inspect(request)
             if response is None:
                 response = await get_response(request)
-            response["X-Robots-Tag"] = "noindex, nofollow"
+            response["X-Robots-Tag"] = "noindex, follow"
             if vary:
                 patch_vary_headers(response, ("User-Agent",))
             return response
@@ -109,7 +109,7 @@ def CrawlerMiddleware(get_response):
             response, vary = inspect(request)
             if response is None:
                 response = get_response(request)
-            response["X-Robots-Tag"] = "noindex, nofollow"
+            response["X-Robots-Tag"] = "noindex, follow"
             if vary:
                 patch_vary_headers(response, ("User-Agent",))
             return response

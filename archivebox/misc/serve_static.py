@@ -31,7 +31,12 @@ from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 from abx_plugins.plugins.base.html import Resources
 from abx_plugins.plugins.base.django import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
-from archivebox.plugins.discovery import get_replay_document_hooks, render_plugin_full_response, rewrite_plugin_replay_document
+from archivebox.plugins.discovery import (
+    add_replay_document_metadata,
+    get_replay_document_hooks,
+    render_plugin_full_response,
+    rewrite_plugin_replay_document,
+)
 
 DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
@@ -864,6 +869,7 @@ def _apply_archive_replay_headers(
     fullpath: Path,
     content_type: str,
     is_archive_replay: bool,
+    original_url: str = "",
     config=None,
     **config_kwargs,
 ) -> HttpResponse:
@@ -873,6 +879,11 @@ def _apply_archive_replay_headers(
     if not is_archive_replay:
         return response
 
+    if original_url and not response.streaming and response.get("Content-Type", "").startswith("text/html") and response.content:
+        response.content = add_replay_document_metadata(response.content.decode(response.charset), original_url)
+        if "Content-Length" in response:
+            response["Content-Length"] = str(len(response.content))
+    response.headers["X-Robots-Tag"] = "noindex, follow"
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     config = config or get_config(resolve_plugins=False, **config_kwargs)
     response.headers.setdefault("X-ArchiveBox-Security-Mode", config.SERVER_SECURITY_MODE)
@@ -948,6 +959,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 fullpath=fullpath,
                 content_type="text/html",
                 is_archive_replay=is_archive_replay,
+                original_url=getattr(request, "archivebox_snapshot_url", ""),
                 config=config,
             )
         raise Http404(_("Directory indexes are not allowed here."))
@@ -1006,6 +1018,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     fullpath=fullpath,
                     content_type="",
                     is_archive_replay=is_archive_replay,
+                    original_url=getattr(request, "archivebox_snapshot_url", ""),
                     config=config,
                 )
 
@@ -1059,6 +1072,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             fullpath=fullpath,
             content_type=content_type,
             is_archive_replay=is_archive_replay,
+            original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
         )
 
@@ -1085,6 +1099,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             fullpath=fullpath,
             content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
+            original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
         )
 
@@ -1108,6 +1123,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             fullpath=fullpath,
             content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
+            original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
         )
 
@@ -1125,6 +1141,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     fullpath=fullpath,
                     content_type="text/html; charset=utf-8",
                     is_archive_replay=is_archive_replay,
+                    original_url=getattr(request, "archivebox_snapshot_url", ""),
                     config=config,
                 )
         except (OSError, UnicodeDecodeError, ValueError):
@@ -1145,6 +1162,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 fullpath=fullpath,
                 content_type="text/html; charset=utf-8",
                 is_archive_replay=is_archive_replay,
+                original_url=getattr(request, "archivebox_snapshot_url", ""),
                 config=config,
             )
         except (OSError, ValueError):
@@ -1180,6 +1198,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     fullpath=fullpath,
                     content_type=replay_content_type,
                     is_archive_replay=is_archive_replay,
+                    original_url=getattr(request, "archivebox_snapshot_url", ""),
                     config=config,
                 )
         except (OSError, RuntimeError, ValueError):
@@ -1207,6 +1226,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             fullpath=fullpath,
             content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
+            original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
         )
 
@@ -1228,6 +1248,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     fullpath=fullpath,
                     content_type=content_type,
                     is_archive_replay=is_archive_replay,
+                    original_url=getattr(request, "archivebox_snapshot_url", ""),
                     config=config,
                 )
         except (OSError, ValueError, TypeError):
@@ -1254,6 +1275,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         fullpath=fullpath,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
+                        original_url=getattr(request, "archivebox_snapshot_url", ""),
                         config=config,
                     )
                 raw = fullpath.read_bytes()
@@ -1292,9 +1314,14 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         fullpath=fullpath,
                         content_type="text/html; charset=utf-8",
                         is_archive_replay=is_archive_replay,
+                        original_url=getattr(request, "archivebox_snapshot_url", ""),
                         config=config,
                     )
-                if rewritten_count or passive_html:
+                if (
+                    rewritten_count
+                    or passive_html
+                    or (is_archive_replay and content_type.startswith("text/html") and request.__dict__.get("archivebox_snapshot_url"))
+                ):
                     if not HTML_DOCUMENT_RE.match(rewritten_html):
                         rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
@@ -1304,6 +1331,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         fullpath=fullpath,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
+                        original_url=getattr(request, "archivebox_snapshot_url", ""),
                         config=config,
                     )
                 if escaped_count and escaped_count > tag_count * 2:
@@ -1315,6 +1343,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         fullpath=fullpath,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
+                        original_url=getattr(request, "archivebox_snapshot_url", ""),
                         config=config,
                     )
             elif thumbnail:
@@ -1371,6 +1400,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     fullpath=fullpath,
                     content_type="text/html",
                     is_archive_replay=is_archive_replay,
+                    original_url=getattr(request, "archivebox_snapshot_url", ""),
                     config=config,
                 )
         except (OSError, UnicodeDecodeError, ValueError):
@@ -1387,6 +1417,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 fullpath=fullpath,
                 content_type="text/plain",
                 is_archive_replay=is_archive_replay,
+                original_url=getattr(request, "archivebox_snapshot_url", ""),
                 config=config,
             )
 
@@ -1463,6 +1494,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         fullpath=fullpath,
         content_type=content_type,
         is_archive_replay=is_archive_replay,
+        original_url=getattr(request, "archivebox_snapshot_url", ""),
         config=config,
     )
 

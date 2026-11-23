@@ -56,23 +56,23 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         client.headers["Host"] = snapshot_host
         raw = client.get(f"{live_server.url}/wget/index.html?raw=1", timeout=10)
         assert raw.status_code == 200
-        assert raw.headers["X-Robots-Tag"] == "noindex, nofollow"
+        assert raw.headers["X-Robots-Tag"] == "noindex, follow"
         assert b"Archived bytes" in raw.content
         assert "User-Agent" in raw.headers["Vary"]
 
         listing = client.get(f"{live_server.url}/wget/?files=1", timeout=10)
         assert listing.status_code == 200
-        assert listing.headers.get("X-Robots-Tag") == "noindex, nofollow"
+        assert listing.headers.get("X-Robots-Tag") == "noindex, follow"
 
         for suffix in ("index.html?preview=1", "index.html?preview=thumbnail", "index.html?thumbnail=1", "image.svg?preview=1&raw=1"):
             preview = client.get(f"{live_server.url}/wget/{suffix}", timeout=10)
             assert preview.status_code == 200, preview.text[:500]
-            assert preview.headers.get("X-Robots-Tag") == "noindex, nofollow"
+            assert preview.headers.get("X-Robots-Tag") == "noindex, follow"
 
         download = client.get(f"{live_server.url}/wget/?files=1&download=zip", timeout=10)
         assert download.status_code == 200
         assert download.headers["Content-Type"] == "application/zip"
-        assert download.headers.get("X-Robots-Tag") == "noindex, nofollow"
+        assert download.headers.get("X-Robots-Tag") == "noindex, follow"
         with zipfile.ZipFile(io.BytesIO(download.content)) as archive:
             assert {name: archive.read(name) for name in archive.namelist()} == {
                 f"wget/{name}": content for name, content in documents.items()
@@ -88,7 +88,7 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         detail_url = urlsplit(build_snapshot_detail_url(snapshot.archive_path_from_db))
         detail = client.get(f"{live_server.url}{detail_url.path}", headers={"Host": detail_url.netloc}, timeout=10)
         assert detail.status_code == 200
-        assert detail.headers["X-Robots-Tag"] == "noindex, nofollow"
+        assert detail.headers["X-Robots-Tag"] == "noindex, follow"
 
 
 @pytest.mark.parametrize(
@@ -219,7 +219,7 @@ def test_crawler_html_is_exact_saved_bytes_without_manifest_or_rewrite_work(
     assert response.status_code == 200
     assert body == content
     assert "User-Agent" in response["Vary"]
-    assert response["X-Robots-Tag"] == "noindex, nofollow"
+    assert response["X-Robots-Tag"] == "noindex, follow"
     assert not any('"core_archiveresult"' in query["sql"] for query in queries), [query["sql"] for query in queries]
     calls = {name for (_filename, _line, name) in pstats.Stats(profile).stats}
     assert calls.isdisjoint(
@@ -293,7 +293,7 @@ def test_crawler_refusal_uses_async_django_handler(async_client):
         ),
     )
     assert response.status_code == 403
-    assert response["X-Robots-Tag"] == "noindex, nofollow"
+    assert response["X-Robots-Tag"] == "noindex, follow"
 
 
 @pytest.mark.django_db
@@ -328,6 +328,6 @@ def test_search_crawlers_cannot_fetch_training_outputs(client, user_agent, path)
     with CaptureQueriesContext(connection) as queries:
         response = client.get(path, HTTP_HOST="snap-123456789abc.archivebox.localhost", HTTP_USER_AGENT=user_agent)
     assert response.status_code == 403
-    assert response["X-Robots-Tag"] == "noindex, nofollow"
+    assert response["X-Robots-Tag"] == "noindex, follow"
     assert "User-Agent" in response["Vary"]
     assert not queries
