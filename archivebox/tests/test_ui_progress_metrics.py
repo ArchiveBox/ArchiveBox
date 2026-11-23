@@ -112,6 +112,93 @@ def test_progress_metrics_are_admin_only(client, admin_user, snapshot):
     assert "metrics" not in client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST).json()
 
 
+def test_browser_reuses_telemetry_between_real_samples(admin_user, crawl, live_server, browser_runtime):
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import parse_qs, urlsplit
+    from django.db import connections
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    Snapshot.objects.create(crawl=crawl, url="https://example.com/metrics-cadence", status="sealed", downloaded_at=timezone.now())
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    cache.clear()
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        try:
+            page = browser.new_page()
+            page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/")
+            page.locator("#id_username").fill(admin_user.username)
+            page.locator("#id_password").fill("testpassword")
+            page.locator('input[type="submit"]').click()
+            page.wait_for_url("**/admin/")
+            resources = page.locator("#metric-resources .metric-text")
+            expect(resources).not_to_have_text("— · RAM —")
+            before = resources.text_content()
+            page.evaluate("""() => {
+                window.telemetryMutations = 0;
+                window.telemetryObserver = new MutationObserver(records => window.telemetryMutations += records.length);
+                for (const id of ['resources', 'storage']) {
+                    window.telemetryObserver.observe(document.querySelector(`#metric-${id} .metric-text`), {childList: true, subtree: true, characterData: true});
+                }
+            }""")
+            with page.expect_response(lambda response: urlsplit(response.url).path == "/progress.json") as poll:
+                pass
+            response = poll.value
+            assert "metrics" not in parse_qs(urlsplit(response.url).query)
+            payload = response.json()
+            assert "metrics" not in payload and "collection" not in payload
+            assert "snapshots_queued" in payload
+            page.evaluate("() => new Promise(requestAnimationFrame)")
+            assert resources.text_content() == before
+            assert page.evaluate("window.telemetryMutations") == 0
+            page.locator("#metric-resources").focus()
+            assert "seconds ago" in page.locator("#metric-resources").get_attribute("title")
+            first_sample = json.loads(page.locator("#metric-resources").get_attribute("data-sample-times"))[0]
+
+            def queue_capture():
+                try:
+                    return Snapshot.objects.create(
+                        crawl_id=crawl.pk,
+                        url="https://example.com/queued-during-telemetry-interval",
+                        status="queued",
+                    ).pk
+                finally:
+                    connections.close_all()
+
+            # Playwright owns an event loop on this thread. Real collection
+            # writes happen on a separate producer connection, as with a crawl.
+            with ThreadPoolExecutor(max_workers=1) as producer:
+                assert producer.submit(queue_capture).result()
+            # Let the real minute-long sample expire. Capture polls must keep
+            # flowing without telemetry, then deliver a new OS/throughput sample.
+            quiet_polls = 1
+            saw_new_queued_capture = False
+            deadline = time.monotonic() + 75
+            while time.monotonic() < deadline:
+                with page.expect_response(lambda response: urlsplit(response.url).path == "/progress.json") as poll:
+                    pass
+                payload = poll.value.json()
+                saw_new_queued_capture |= payload.get("snapshots_queued") == 1
+                if "metrics" not in parse_qs(urlsplit(poll.value.url).query):
+                    quiet_polls += 1
+                    assert "metrics" not in payload
+                elif (payload.get("metrics") or {}).get("system", {}).get("sampled_at", 0) > first_sample:
+                    assert payload["metrics"]["throughput"]["last_hour"] == 1
+                    expect(page.locator("#metric-io .metric-text")).not_to_have_text("I/O —")
+                    break
+            else:
+                pytest.fail("The browser did not receive a fresh real telemetry sample after one minute")
+            assert quiet_polls >= 5
+            assert saw_new_queued_capture
+            assert page.evaluate("window.telemetryMutations") > 0
+        finally:
+            browser.close()
+
+
 def test_large_crawl_cached_progress_workload(client, admin_user, crawl):
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
