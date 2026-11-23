@@ -1,79 +1,30 @@
 """ArchiveResult admin UI tests."""
 
-import asyncio
-import os
-from importlib.resources import files
 from pathlib import Path
 
 import pytest
 from django.db import connections, transaction
 from django.urls import reverse
 
-from archivebox.tests.conftest import ADMIN_TEST_HOST, resolve_abxpkg_binary_env
+from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @pytest.fixture
 def projected_noresults(snapshot, cached_abxpkg_lib_dir):
-    from abx_dl.events import ProcessEvent, SnapshotEvent
-    from abx_dl.orchestrator import create_bus
-    from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
-    from abx_dl.services.process_service import ProcessService as HookProcessService
-    from archivebox.core.models import ArchiveResult
-    from archivebox.services.archive_result_service import ArchiveResultService
-    from archivebox.services.process_service import ProcessService as PersistedProcessService
+    from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 
-    plugin = "parse_txt_urls"
-    hook_name = "on_Snapshot__71_parse_txt_urls.py"
-    hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath(hook_name)))
-    binary_env = resolve_abxpkg_binary_env(cached_abxpkg_lib_dir, deps_from=hook_path.parent / "config.json")
     staticfile_dir = snapshot.output_dir / "staticfile"
-    output_dir = snapshot.output_dir / plugin
     staticfile_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
     (staticfile_dir / "input.txt").write_text("plain text without links", encoding="utf-8")
-    bus = create_bus(name=f"test_admin_noresults_{snapshot.id}")
-    HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
-    HookArchiveResultService(bus, emit_jsonl=False)
-    PersistedProcessService(bus)
-    ArchiveResultService(bus)
-
-    async def run() -> None:
-        try:
-            snapshot_event = SnapshotEvent(
-                url=snapshot.url,
-                snapshot_id=str(snapshot.id),
-                output_dir=str(snapshot.output_dir),
-            )
-            await bus.emit(snapshot_event).now()
-            await bus.emit(
-                ProcessEvent(
-                    plugin_name=plugin,
-                    hook_name=hook_name,
-                    hook_path=str(hook_path),
-                    hook_args=[f"--url={snapshot.url}"],
-                    env={
-                        **binary_env,
-                        "ABXPKG_LIB_DIR": str(cached_abxpkg_lib_dir),
-                        "SNAP_DIR": str(snapshot.output_dir),
-                        "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
-                    },
-                    output_dir=str(output_dir),
-                    timeout=60,
-                    is_background=False,
-                    url=snapshot.url,
-                    process_type="hook",
-                    worker_type="hook",
-                    event_parent_id=snapshot_event.event_id,
-                ),
-            ).now()
-            await bus.wait_until_idle()
-        finally:
-            await bus.destroy(clear=False)
-
-    asyncio.run(run())
-    return ArchiveResult.objects.get(snapshot=snapshot, plugin=plugin, hook_name=hook_name)
+    _process, result = _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="parse_txt_urls",
+        hook_name="on_Snapshot__71_parse_txt_urls.py",
+        lib_dir=cached_abxpkg_lib_dir,
+    )
+    return result
 
 
 class TestArchiveResultAdminListView:
@@ -116,16 +67,26 @@ class TestArchiveResultAdminListView:
                 assert all(row.snapshot_first_tag == "matching alpha" for row in cl.result_list)
             result_queries = [query["sql"] for query in queries if 'FROM "core_archiveresult"' in query["sql"]]
             assert not any("COUNT(" in sql.upper() for sql in result_queries)
-            page_queries = [sql for sql in result_queries if "LIMIT 11" in sql]
-            assert len(page_queries) == (2 if page == 3 and any(key in params for key in ("status__exact", "plugin__exact", "q")) else 1)
+            # Each progressive probe reduces the remaining LIMIT. Count the
+            # ID-only reads, including their smaller remainder/fallback pages.
+            page_queries = [
+                sql
+                for sql in result_queries
+                if sql.startswith(('SELECT "core_archiveresult"."id" AS "pk"', 'SELECT DISTINCT "core_archiveresult"."id" AS "pk"'))
+            ]
+            filtered = any(key in params for key in ("status__exact", "plugin__exact"))
+            expected_reads = 2 if (page == 1 and filtered) or (page == 3 and (filtered or "q" in params)) else 1
+            assert len(page_queries) == expected_reads, page_queries
             assert all('"output_str"' not in sql.split(" FROM ")[0] for sql in page_queries)
             if page < 3:
                 assert b"Select all matching rows" in response.content
             if page == 1 and "status__exact" in params:
-                # The bounded candidate probe stays inside SQL rather than
-                # materializing 88 IDs in Python before fetching the page.
-                probes = [sql for sql in page_queries if 'IN (SELECT "U0"."id"' in sql and "LIMIT 88)" in sql]
-                assert len(probes) == 1
+                # The first 11 candidates and remaining 77 stay inside SQL,
+                # rather than materializing 88 IDs before fetching the page.
+                probes = [sql for sql in page_queries if 'IN (SELECT "U0"."id"' in sql]
+                assert len(probes) == 2
+                assert "LIMIT 11)" in probes[0]
+                assert "LIMIT 77 OFFSET 11)" in probes[1]
                 if connection.vendor == "sqlite":
                     with connection.cursor() as cursor:
                         cursor.execute("EXPLAIN QUERY PLAN " + probes[0])
