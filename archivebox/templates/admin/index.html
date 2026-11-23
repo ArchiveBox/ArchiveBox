@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static log %}
+{% load i18n static log core_tags %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -231,11 +231,7 @@
         border-color: rgba(62, 74, 85, .14);
     }
 
-    .abx-admin-card--configuration .abx-admin-card__icon,
-    .abx-admin-card--dependencies .abx-admin-card__icon,
-    .abx-admin-card--plugins .abx-admin-card__icon,
-    .abx-admin-card--workers .abx-admin-card__icon,
-    .abx-admin-card--logs .abx-admin-card__icon {
+    .abx-admin-card--environment .abx-admin-card__icon {
         color: var(--abx-moss);
         background: #e7ebdf;
         border-color: rgba(90, 107, 60, .16);
@@ -529,6 +525,7 @@
                                         {% endif %}
                                     {% endfor %}
                                 {% endfor %}
+                                {% plugin_ui "admin_archive_results_cards" %}
                             </div>
                         </div>
 
@@ -562,6 +559,7 @@
                             <h2 id="abx-admin-environment-title">{% translate "Environment" %}</h2>
                         </div>
                         <div class="abx-admin-card-grid">
+                            {% plugin_ui "admin_environment_cards" %}
                             {% for app in app_list %}
                                 {% if app.name == "Environment" %}
                                     {% for model in app.models %}
