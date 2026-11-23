@@ -1099,8 +1099,11 @@
                     // Preview work must stay bounded even for multi-megabyte
                     // exports. The textarea is submitted unchanged to the CLI.
                     const text = urlTextarea.value;
+                    // A complete URL on the first line cannot be the JSON opener or a CSV header.
+                    const firstURLLine = /^[\ufeff \t\r\n]*https?:\/\/[^\s,"]+[ \t]*(?:\r?\n|$)/i.exec(text.slice(0, 8192));
+                    const plainURL = firstURLLine && (text.length <= 8192 || firstURLLine[0].endsWith('\n'));
                     let parsed = null;
-                    if (text) {
+                    if (text && !plainURL) {
                         if (previewInput !== text) {
                             previewRequest?.abort();
                             previewRequest = new AbortController();
