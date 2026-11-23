@@ -91,6 +91,14 @@ def _validate_presentation_metadata(name: str, manifest: dict[str, Any]) -> None
         if len(PurePosixPath(path).parts) != 1:
             raise ValueError(f"{name}: default_output_path must be a filename")
 
+    crawler_paths = manifest.get("crawler_output_paths", [])
+    if not isinstance(crawler_paths, list):
+        raise ValueError(f"{name}: crawler_output_paths must be a list")
+    for path in crawler_paths:
+        relative_path("crawler_output_paths", path)
+        if any(char in path for char in "*?[]#$") or PurePosixPath(path).suffix not in {".html", ".htm"}:
+            raise ValueError(f"{name}: crawler_output_paths requires exact HTML paths")
+
     extensions = manifest.get("output_extension_preference", [])
     if not isinstance(extensions, list) or any(
         not isinstance(group, list)

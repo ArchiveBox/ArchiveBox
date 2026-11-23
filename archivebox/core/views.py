@@ -1244,6 +1244,17 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
     snapshot._runtime_config = request_config
 
+    if request.__dict__.get("archivebox_crawler_raw"):
+        # Host authorization has already selected this snapshot. A declared
+        # crawler output needs only its saved file, never manifests or fallbacks.
+        request.archivebox_output_revision = ""
+        return serve_static_with_byterange_support(
+            request,
+            rel_path,
+            document_root=snapshot.output_dir,
+            is_archive_replay=True,
+        )
+
     if rel_path.startswith("replay/") or rel_path == "replay":
         response = serve_plugin_replay_asset(rel_path, request_config, HttpResponse)
         if response is not None:

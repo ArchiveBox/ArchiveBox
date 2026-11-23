@@ -44,7 +44,6 @@ urlpatterns = [
     path("public/sidebar/", sidebar_view, {"public": True}, name="public-sidebar"),
     path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
     re_path(r"^static/(?P<path>.*)$", serve_static),
-    path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *(route for app in get_plugin_apps().values() if (routes := getattr(app, "get_urlpatterns", None)) for route in routes(host)),

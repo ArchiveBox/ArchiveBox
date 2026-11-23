@@ -1332,6 +1332,13 @@ The production HTTP server honors `WEB_CONCURRENCY` (default `1`). For example,
 the listener, each with its own Python interpreter and Django connections.
 Size this against available CPU and memory; the capture orchestrator is separate.
 
+Identified crawlers may fetch only exact saved HTML paths declared by plugins in
+`crawler_output_paths` (currently DOM and Readability), after normal access checks.
+Generated previews, exports, directory listings, and other archive routes return
+403 to those crawlers before database or archive storage work. `robots.txt` advertises
+the same inexpensive outputs; ordinary browsers and manual CLI downloads keep their
+existing URLs. User-agent identification is advisory, not an authentication boundary.
+
 #### 2. Option B: Build the docker container and use that for development instead
 
 ```bash

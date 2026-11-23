@@ -104,7 +104,7 @@ def _resolve_contained_path(root: Path, path: Path) -> Path:
     return resolved
 
 
-def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str, Path]:
+def _resolve_archive_path(document_root: str | Path, rel_path: str, *, case_sensitive: bool = False) -> tuple[Path, str, Path]:
     """Return the contained output, URL path, and canonical document root."""
     rel_path = posixpath.normpath(rel_path).lstrip("/") if rel_path else ""
     if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
@@ -114,7 +114,7 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         return root, rel_path, root
     # safe_join rejects lexical traversal; it does not inspect symlink targets.
     fullpath = _resolve_contained_path(root, Path(safe_join(root, rel_path)))
-    if os.access(fullpath, os.R_OK):
+    if os.access(fullpath, os.R_OK) or case_sensitive:
         return fullpath, rel_path, root
 
     # Case-insensitive fallback selects different filesystem entries, so each
@@ -918,7 +918,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if config is None:
         config = get_config(resolve_plugins=False)
     cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
-    fullpath, path, canonical_root = _resolve_archive_path(document_root, path)
+    fullpath, path, canonical_root = _resolve_archive_path(
+        document_root,
+        path,
+        case_sensitive=bool(request.__dict__.get("archivebox_crawler_raw")),
+    )
     # Reuse this stat for response metadata after path validation; redundant
     # metadata reads can each cost a round trip on FUSE storage.
     readable = os.access(fullpath, os.R_OK)

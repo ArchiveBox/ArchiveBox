@@ -94,6 +94,7 @@ DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 
 
 MIDDLEWARE = [
+    "archivebox.core.crawlers.CrawlerMiddleware",
     "archivebox.api.webhook_events.WebhookActionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "archivebox.core.middleware.HealthCheckMiddleware",
