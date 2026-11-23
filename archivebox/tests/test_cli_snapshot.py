@@ -14,6 +14,7 @@ import os
 import pytest
 
 from archivebox.core.models import Snapshot, Tag
+from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Process
 from archivebox.tests.conftest import (
     cli_env,
@@ -51,6 +52,75 @@ class TestSnapshotCreate:
         assert len(records) == 1
         assert records[0]["type"] == "Snapshot"
         assert records[0]["url"] == url
+
+    @pytest.mark.parametrize("status", ["queued", "started", "paused", "sealed"])
+    @pytest.mark.parametrize("input_type", ["url", "crawl", "snapshot"])
+    def test_create_honors_initial_status(self, initialized_archive, status, input_type):
+        url = create_test_url()
+        args = ["snapshot", "create", "--status", status, "--tag", "research"]
+        stdin = None
+        if input_type == "url":
+            args.append(url)
+        elif input_type == "crawl":
+            crawl = run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, check=True)
+            stdin = crawl.stdout
+        else:
+            stdin = json.dumps({"type": "Snapshot", "url": url})
+        result = run_archivebox_cmd(args, stdin=stdin, cwd=initialized_archive, check=True)
+        record = next(record for record in parse_jsonl_output(result.stdout) if record["type"] == "Snapshot")
+        assert record["status"] == status
+        assert "research" in record["tags"]
+        with use_archivebox_db(initialized_archive):
+            snapshot = Snapshot.objects.get(pk=record["id"])
+            assert snapshot.status == status
+            if status == "sealed":
+                assert snapshot.retry_at is None
+            elif status == "paused":
+                from archivebox.workers.models import RETRY_AT_MAX
+
+                assert snapshot.retry_at == RETRY_AT_MAX
+            else:
+                assert snapshot.retry_at is not None
+            assert not snapshot.archiveresult_set.exists()
+
+    @pytest.mark.parametrize("lookup", ["id", "url-in-crawl"])
+    def test_create_existing_snapshot_uses_lifecycle_status_transitions(self, initialized_archive, lookup):
+        url = create_test_url()
+        initial = run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, check=True)
+        record = parse_jsonl_output(initial.stdout)[0]
+        identity = {"type": "Snapshot", "url": url}
+        identity["id" if lookup == "id" else "crawl_id"] = record["id" if lookup == "id" else "crawl_id"]
+        for status in ("paused", "queued", "sealed", "queued"):
+            result = run_archivebox_cmd(
+                ["snapshot", "create", "--status", status],
+                stdin=json.dumps(identity),
+                cwd=initialized_archive,
+            )
+            assert result.returncode == 0, result.stderr
+            updated = parse_jsonl_output(result.stdout)[0]
+            assert updated["id"] == record["id"]
+            assert updated["status"] == status
+            with use_archivebox_db(initialized_archive):
+                snapshot = Snapshot.objects.get(pk=record["id"])
+                assert snapshot.status == status
+                assert Snapshot.objects.filter(url=url).count() == 1
+                assert Crawl.objects.count() == 1
+                if status == "sealed":
+                    assert snapshot.retry_at is None
+                elif status == "paused":
+                    from archivebox.workers.models import RETRY_AT_MAX
+
+                    assert snapshot.retry_at == RETRY_AT_MAX
+                else:
+                    assert snapshot.retry_at is not None
+                    assert snapshot.crawl.status in snapshot.crawl.RUNNABLE_STATES
+
+    def test_create_rejects_invalid_initial_status(self, initialized_archive):
+        url = create_test_url()
+        result = run_archivebox_cmd(["snapshot", "create", "--status", "typo", url], cwd=initialized_archive)
+        assert result.returncode != 0
+        with use_archivebox_db(initialized_archive):
+            assert not Snapshot.objects.filter(url=url).exists()
 
     def test_create_from_crawl_jsonl(self, initialized_archive):
         """Create snapshots from Crawl JSONL input."""
@@ -403,11 +473,26 @@ def test_snapshot_creates_snapshot_with_correct_url(tmp_path, initialized_archiv
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert not snapshot.output_dir.exists()
 
+    inactive_urls = {
+        "sealed": recursive_test_site["child_urls"][0],
+        "paused": recursive_test_site["child_urls"][1],
+    }
+    for status, inactive_url in inactive_urls.items():
+        created = run_archivebox_cmd(["snapshot", "create", "--status", status, inactive_url], cwd=tmp_path, env=env, check=True)
+        assert parse_jsonl_output(created.stdout)[0]["status"] == status
+
     server = start_archivebox_server(tmp_path, env=env, port=port, log_name="snapshot-create-server.log")
     try:
         assert "Root" in wait_for_snapshot_capture(tmp_path, url, timeout=120)
     finally:
         stop_archivebox_process(server)
+
+    with use_archivebox_db(tmp_path):
+        for status, inactive_url in inactive_urls.items():
+            inactive = Snapshot.objects.get(url=inactive_url)
+            assert inactive.status == status
+            assert not inactive.archiveresult_set.exists()
+            assert inactive.downloaded_at is None
 
     # Verify the crawl tree contains a relative symlink to the user-scoped snapshot output.
     snapshots_root = tmp_path / "archive" / "users" / username / "snapshots"

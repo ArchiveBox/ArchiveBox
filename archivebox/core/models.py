@@ -3967,7 +3967,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Args:
             record: Dict with 'url' (for create) or 'id' (for patch), plus other fields
             overrides: Dict with 'crawl', 'snapshot' (parent), 'created_by_id'
-            queue_for_extraction: If True, sets status=QUEUED and retry_at (default: True)
+            queue_for_extraction: If True, queues extraction (default). If False,
+                an explicit record status is applied through the normal lifecycle.
 
         Returns:
             Snapshot instance or None
@@ -3981,6 +3982,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         config = get_config()
 
         overrides = overrides or {}
+        explicit_status = record.get("status") if not queue_for_extraction else None
+        if explicit_status is not None and explicit_status not in Snapshot.StatusChoices.values:
+            raise ValueError(f"Invalid snapshot status: {explicit_status}")
+
+        def apply_explicit_status(snapshot):
+            if explicit_status == Snapshot.StatusChoices.SEALED:
+                snapshot.cancel()
+            elif explicit_status == Snapshot.StatusChoices.PAUSED:
+                snapshot.pause()
+            elif explicit_status in Snapshot.RUNNABLE_STATES:
+                if explicit_status == Snapshot.StatusChoices.QUEUED and snapshot.is_paused:
+                    snapshot.resume()
+                else:
+                    snapshot.update_and_requeue(status=explicit_status, retry_at=timezone.now())
 
         # If 'id' is provided, lookup and patch that specific snapshot
         snapshot_id = record.get("id")
@@ -3992,7 +4007,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 update_fields = []
                 for field_name, value in record.items():
                     # Skip internal fields
-                    if field_name in ("id", "type"):
+                    if field_name in ("id", "type") or (explicit_status is not None and field_name in ("status", "retry_at")):
                         continue
 
                     # Skip if field doesn't exist on model
@@ -4011,6 +4026,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if update_fields:
                     snapshot.save(update_fields=update_fields + ["modified_at"])
 
+                apply_explicit_status(snapshot)
                 return snapshot
             except Snapshot.DoesNotExist:
                 # ID not found, fall through to create-by-URL logic
@@ -4032,6 +4048,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         import sys
 
         record_crawl_id = record.get("crawl_id")
+        if not crawl and record_crawl_id:
+            crawl = Crawl.objects.get(pk=record_crawl_id)
         if record_crawl_id and crawl and str(crawl.id) != str(record_crawl_id):
             rprint(
                 f"[yellow]⚠️  Snapshot.from_json crawl mismatch: record has crawl_id={record_crawl_id}, overrides has crawl={crawl.id}[/yellow]",
@@ -4046,7 +4064,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             else:
                 # Auto-create a single-URL crawl
                 from archivebox.config import CONSTANTS
-                from archivebox.crawls.models import Crawl
 
                 timestamp_str = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
                 sources_file = CONSTANTS.SOURCES_DIR / f"{timestamp_str}__auto_crawl.txt"
@@ -4088,6 +4105,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         except (TypeError, ValueError, OSError):
             created_at = None
 
+        created = snapshot is None
         if snapshot:
             # Update existing snapshot
             if title and (not snapshot.title or len(title) > len(snapshot.title or "")):
@@ -4105,6 +4123,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 "title": title,
                 "crawl": crawl,
             }
+            if explicit_status is not None:
+                # Persist the initial state before the runner can claim this row.
+                create_kwargs["status"] = explicit_status
+                create_kwargs["retry_at"] = (
+                    None
+                    if explicit_status == Snapshot.StatusChoices.SEALED
+                    else RETRY_AT_MAX
+                    if explicit_status == Snapshot.StatusChoices.PAUSED
+                    else timezone.now()
+                )
             if "folder_id" in record:
                 create_kwargs["folder_id"] = Folder.destination(record["folder_id"])
             if bookmarked_at:
@@ -4144,6 +4172,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if update_fields:
             snapshot.save(update_fields=update_fields + ["modified_at"])
 
+        if not created:
+            apply_explicit_status(snapshot)
         snapshot.ensure_crawl_symlink()
 
         return snapshot
