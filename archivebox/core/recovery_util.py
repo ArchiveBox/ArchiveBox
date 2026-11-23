@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from django.utils import timezone
 from rich.console import Console
+
+logger = logging.getLogger(__name__)
 
 
 def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str | None = None) -> dict[str, int]:
@@ -60,8 +64,8 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
                 if type(count) is not int or count < 0:
                     raise ValueError("Recovery command must return a nonnegative processes_orphaned count")
                 cleaned["plugin_processes_orphaned"] += count
-            except (OSError, ValueError, subprocess.SubprocessError) as error:
-                recovery_console.print(f"Plugin {plugin} recovery failed: {error}", style="red", markup=False)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                logger.exception("Plugin %s recovery failed", plugin)
 
     running_hook_processes = Process.objects.filter(
         archiveresult__snapshot_id=OuterRef("pk"),
