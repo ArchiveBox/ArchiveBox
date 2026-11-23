@@ -198,6 +198,175 @@ class ArchiveBoxHost:
 
         return [sys.executable, "-m", "archivebox", "plugin", plugin, command]
 
+    def _require_collection_admin(self, request):
+        from django.core.exceptions import PermissionDenied
+
+        user = self.authenticate(request)
+        if not user or not user.is_active or not user.is_superuser:
+            raise PermissionDenied
+
+    def domain_records(self, request, *, cursor=None, limit=16):
+        """Page registered domains using the existing domain index and grouping."""
+        from archivebox.core.models import Snapshot
+
+        self._require_collection_admin(request)
+        choices, cursor = Snapshot.objects.all().domain_choices_page("", min(max(limit, 1), 32), cursor)
+        return {
+            "nodes": [
+                {"id": name, "scope": scope, "count": Snapshot.objects.filter_by_domain(scope).count()}
+                for name, (scope, _key) in choices.items()
+            ],
+            "cursor": cursor,
+        }
+
+    def snapshot_records(self, request, *, domain, after=None, limit=16):
+        """A short keyset page of capture metadata and discovery relationships."""
+        from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
+        from archivebox.core.models import Snapshot
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 32)
+        queryset = Snapshot.objects.filter_by_domain(domain)
+        if after:
+            queryset = queryset.filter(pk__lt=UUID(after))
+        captures = list(
+            queryset.select_related("crawl__created_by", "parent_snapshot")
+            .only(
+                "id",
+                "url",
+                "fs_version",
+                "timestamp",
+                "bookmarked_at",
+                "created_at",
+                "crawl_id",
+                "crawl__created_by__username",
+                "parent_snapshot__url",
+                "title",
+                "status",
+                "output_size",
+                "downloaded_at",
+            )
+            .order_by("-pk")[: limit + 1],
+        )
+
+        def group(url):
+            key = domain_key_from_url(url)
+            return group_domain_key(key)[0] if key else ""
+
+        records = []
+        for snapshot in captures[:limit]:
+            # LIMIT is applied per source, including high-fanout crawl roots.
+            children = list(Snapshot.objects.filter(parent_snapshot_id=snapshot.pk).order_by().values_list("url", flat=True)[:32])
+            records.append(
+                {
+                    "id": str(snapshot.pk),
+                    "url": snapshot.url,
+                    "domain": group(snapshot.url),
+                    "title": snapshot.title or "",
+                    "status": snapshot.status,
+                    "size": snapshot.output_size or 0,
+                    "created": snapshot.created_at.isoformat(),
+                    "downloaded": snapshot.downloaded_at.isoformat() if snapshot.downloaded_at else None,
+                    "output_dir": str(snapshot.get_storage_path_for_version(snapshot.fs_version)),
+                    "parent": group(snapshot.parent_snapshot.url) if snapshot.parent_snapshot else None,
+                    "children": [group(url) for url in children],
+                },
+            )
+        return {"records": records, "cursor": str(captures[limit - 1].pk) if len(captures) > limit else None}
+
+    def resolve_snapshot_urls(self, request, urls):
+        """Resolve a bounded set of saved link targets without scanning captures."""
+        from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
+        from archivebox.core.models import Snapshot
+        from archivebox.misc.util import equivalent_urls
+
+        self._require_collection_admin(request)
+        candidates = {}
+        for url in urls[:256]:
+            for equivalent in equivalent_urls(url):
+                candidates[equivalent] = url
+        result = {}
+        for url in Snapshot.objects.filter(url__in=candidates).order_by().values_list("url", flat=True).distinct():
+            key = domain_key_from_url(url)
+            if key:
+                result[candidates[url]] = group_domain_key(key)[0]
+        return result
+
+    def process_records(self, request, *, after=None, ids=(), limit=128):
+        """Bounded current-machine processes plus newly created lifecycle rows."""
+        from archivebox.machine.models import Machine, Process
+        from archivebox.core.models import Snapshot
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 128)
+        processes = Process.objects.filter(machine=Machine.current_readonly())
+        fields = (
+            "id",
+            "pid",
+            "parent_id",
+            "status",
+            "process_type",
+            "worker_type",
+            "started_at",
+            "ended_at",
+            "exit_code",
+            "archiveresult__plugin",
+            "archiveresult__snapshot__url",
+            "archiveresult__snapshot_id",
+            "archiveresult__hook_name",
+            "archiveresult__output_size",
+            "archiveresult__snapshot__title",
+            "archiveresult__snapshot__crawl_id",
+            "archiveresult__snapshot__crawl__label",
+            "iface__iface",
+            "iface__ip_local",
+            "iface__ip_public",
+            "iface__modified_at",
+        )
+        if after:
+            # Advance a bounded primary-key window before filtering by machine.
+            # Sorting all historical rows for one machine would grow with the collection.
+            keys = list(Process.objects.filter(pk__gt=UUID(after)).order_by("pk").values_list("pk", flat=True)[:limit])
+            rows = list(processes.filter(pk__in=keys).values(*fields))
+            cursor = str(keys[-1]) if keys else after
+        else:
+            # Uses the existing (machine, process_type, -modified_at) index.
+            rows = list(processes.filter(process_type=Process.TypeChoices.HOOK).order_by("-modified_at").values(*fields)[:limit])
+            cursor = str(max(row["id"] for row in rows)) if rows else None
+        active = list(processes.filter(status="running").order_by().values(*fields)[:limit])
+        tracked = list(processes.filter(pk__in=[UUID(value) for value in ids[:128]]).values(*fields))
+        records = list({str(row["id"]): row for row in [*rows, *tracked, *active]}.values())
+        snapshot_ids = list(
+            dict.fromkeys(row["archiveresult__snapshot_id"] for row in [*active, *rows, *tracked] if row["archiveresult__snapshot_id"]),
+        )[:16]
+        directories = {
+            str(snapshot.pk): str(snapshot.get_storage_path_for_version(snapshot.fs_version))
+            for snapshot in Snapshot.objects.filter(pk__in=snapshot_ids)
+            .select_related("crawl__created_by")
+            .only(
+                "id",
+                "url",
+                "fs_version",
+                "timestamp",
+                "bookmarked_at",
+                "created_at",
+                "crawl_id",
+                "crawl__created_by__username",
+            )
+        }
+        return {"records": records, "cursor": cursor, "output_dirs": directories}
+
+    def group_domains(self, request, hosts):
+        """Group a bounded set of hostnames using the collection's offline PSL."""
+        from archivebox.core.domain_grouping import domain_suffixes
+
+        self._require_collection_admin(request)
+        return {
+            host: domain_suffixes()(host, include_psl_private_domains=False).top_domain_under_public_suffix or host
+            for host in hosts[:512]
+            if isinstance(host, str) and len(host) <= 253
+        }
+
     def collection_context(self, *, crawl_id=None, limit=20):
         import json
         from datetime import datetime, timezone
