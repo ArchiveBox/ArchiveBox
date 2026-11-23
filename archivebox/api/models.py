@@ -58,6 +58,8 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
     actions = models.JSONField(default=list, blank=True)
     folder = models.ForeignKey("core.Folder", null=True, blank=True, on_delete=models.CASCADE)
     any_folder = models.BooleanField(default=False)
+    tag = models.ForeignKey("core.Tag", null=True, blank=True, on_delete=models.CASCADE, db_index=False)
+    any_tag = models.BooleanField(default=False)
     relationship = models.CharField(max_length=255, blank=True, default="")
     position = models.PositiveIntegerField(default=0)
     stop_processing = models.BooleanField(default=False)
@@ -74,7 +76,7 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
         super().clean()
         from django.core.exceptions import ValidationError
         from signal_webhooks.typing import SignalChoices
-        from archivebox.api.webhook_events import RELATIONSHIP_EVENTS, event_catalog
+        from archivebox.api.webhook_events import RELATIONSHIP_EVENTS, TAG_EVENTS, event_catalog
         from archivebox.api.webhook_actions import validate_actions
 
         supported = next((model for model in event_catalog() if model["ref"] == self.ref), None)
@@ -85,6 +87,8 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
         membership = self.signal in {"FOLDER_ENTERED", "FOLDER_LEFT"}
         if membership != bool(self.folder_id or self.any_folder) or (self.folder_id and self.any_folder):
             raise ValidationError({"folder": "Choose one folder or Any folder for a folder membership event only."})
+        if (self.signal in TAG_EVENTS) != bool(self.tag_id or self.any_tag) or (self.tag_id and self.any_tag):
+            raise ValidationError({"tag": "Choose one tag or Any tag for a tag event only."})
         if self.relationship and (
             self.signal not in RELATIONSHIP_EVENTS or self.relationship not in {item["id"] for item in supported["relationships"]}
         ):

@@ -19,7 +19,7 @@ from archivebox.plugins.discovery import get_plugin_catalog
 
 from .models import OutboundWebhook
 from .webhook_actions import configurable_fields
-from .webhook_events import RELATIONSHIP_EVENTS, event_catalog, event_payload
+from .webhook_events import RELATIONSHIP_EVENTS, TAG_EVENTS, event_catalog, event_payload
 
 
 def webhook_admin(view):
@@ -47,6 +47,8 @@ def webhook_data(hook):
         "signal": hook.signal,
         "enabled": hook.enabled,
         "folder_id": "*" if hook.any_folder else str(hook.folder_id) if hook.folder_id else None,
+        "tag_id": "*" if hook.any_tag else hook.tag_id,
+        "tag_name": hook.tag.name if hook.tag_id else None,
         "relationship": (hook.relationship or "*") if hook.signal in RELATIONSHIP_EVENTS else None,
         "actions": actions,
         "stop_processing": hook.stop_processing,
@@ -62,7 +64,7 @@ def webhook_data(hook):
 
 def editor_data():
     return {
-        "hooks": [webhook_data(hook) for hook in OutboundWebhook.objects.all().order_by("created_at", "pk")],
+        "hooks": [webhook_data(hook) for hook in OutboundWebhook.objects.select_related("tag").order_by("created_at", "pk")],
         "models": event_catalog(),
         "signal_labels": dict(OutboundWebhook._meta.get_field("signal").choices),
         "folders": [{"id": str(folder_id), "name": label} for folder_id, label in Folder.path_choices()],
@@ -100,6 +102,7 @@ def submitted_webhook(request):
         "signal",
         "enabled",
         "folder_id",
+        "tag_id",
         "relationship",
         "actions",
         "stop_processing",
@@ -121,6 +124,11 @@ def submitted_webhook(request):
             if field == "folder_id":
                 hook.any_folder = value == "*"
                 value = None if hook.any_folder else value
+            elif field == "tag_id":
+                if value not in (None, "*") and (type(value) is not int or value <= 0):
+                    raise ValidationError("Choose an existing tag or Any tag.")
+                hook.any_tag = value == "*"
+                value = None if hook.any_tag else value
             elif field == "relationship":
                 if value is not None and not isinstance(value, str):
                     raise ValidationError("Relationship must be a string.")
@@ -172,6 +180,12 @@ def preview(request):
         metadata = {}
         if hook.folder_id:
             metadata["folder_id"] = str(hook.folder_id)
+        if hook.tag_id and hook.signal in TAG_EVENTS:
+            if hook.signal == "TAGGED":
+                candidates = candidates.filter(tags=hook.tag_id)
+            else:
+                candidates = candidates.exclude(tags=hook.tag_id)
+            metadata.update(tag_id=hook.tag_id, tag_name=hook.tag.name)
         if hook.relationship:
             metadata["relationship"] = hook.relationship
         objects = [

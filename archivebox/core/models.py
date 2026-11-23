@@ -6,6 +6,7 @@ import os
 import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
@@ -490,6 +491,34 @@ class SnapshotTag(models.Model):
         app_label = "core"
         db_table = "core_snapshot_tags"
         unique_together: ClassVar[list[tuple[str, str]]] = [("snapshot", "tag")]
+
+    @classmethod
+    def remove_links(cls, links, tag_ids, *, snapshot=None) -> int:
+        """Delete SnapshotTag links and dispatch events for rows the delete changed."""
+        from django.db.models.sql import DeleteQuery
+
+        from archivebox.api.webhook_events import action_in_progress, emit_snapshot_tag_events, snapshot_tag_rules
+
+        if action_in_progress() or not snapshot_tag_rules("UNTAGGED", tag_ids).exists():
+            return links._raw_delete(links.db)
+
+        # A concurrent removal may win after a separate read of these links.
+        compiler = links.query.chain(DeleteQuery).get_compiler(using=links.db)
+        sql, params = compiler.as_sql()
+        quote = compiler.connection.ops.quote_name
+        columns = ", ".join(quote(cls._meta.get_field(name).column) for name in ("snapshot", "tag"))
+        with compiler.connection.cursor() as cursor:
+            cursor.execute(f"{sql} RETURNING {columns}", params)
+            removed = cursor.fetchall()
+
+        removed_by_snapshot = {}
+        for snapshot_id, tag_id in removed:
+            removed_by_snapshot.setdefault(compact_uuid(snapshot_id), []).append(tag_id)
+        snapshots = {snapshot.pk: snapshot} if snapshot else Snapshot.objects.in_bulk(removed_by_snapshot)
+        for snapshot_id, item in snapshots.items():
+            if snapshot_id in removed_by_snapshot:
+                emit_snapshot_tag_events(item, "UNTAGGED", removed_by_snapshot[snapshot_id])
+        return len(removed)
 
 
 class SnapshotQuerySet(PagedQuerySet):
@@ -1239,15 +1268,18 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     objects = SnapshotManager()
     archiveresult_set: models.Manager["ArchiveResult"]
 
-    def add_tag_ids(self, tag_ids: Iterable[int | str]) -> None:
+    def add_tag_ids(self, tag_ids: Iterable[int | str], *, emit_relationship: bool = True) -> None:
         from archivebox.api.webhook_membership import track_membership
 
         with track_membership([self.pk]):
             tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
             added = []
+            in_transaction = transaction.get_connection().in_atomic_block
             for tag_id in tag_ids:
                 try:
-                    SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
+                    # Roll back just this insert on a duplicate in a caller's transaction.
+                    with transaction.atomic() if in_transaction else nullcontext():
+                        SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
                     added.append(tag_id)
                 except IntegrityError:
                     # Only the unique (snapshot, tag) conflict is idempotent. Do
@@ -1259,25 +1291,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 # Through-table writes bypass Django's related manager signals.
                 # Use the existing webhook serializer/task handler, which delivers
                 # after commit and observes the complete resulting tag set.
-                from archivebox.api.webhook_events import emit_relationship_event
+                from archivebox.api.webhook_events import emit_relationship_event, emit_snapshot_tag_events
 
-                emit_relationship_event(self, "M2M_ADD", "tags")
+                emit_snapshot_tag_events(self, "TAGGED", added)
+                if emit_relationship:
+                    emit_relationship_event(self, "M2M_ADD", "tags")
 
     def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
+        from archivebox.api.webhook_events import emit_relationship_event
         from archivebox.api.webhook_membership import track_membership
 
         with track_membership([self.pk]):
             tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
             if not tag_ids:
                 return 0
-            # QuerySet.delete() wraps even a fast through-table DELETE in atomic().
-            # The surrounding membership diff owns this mutation; through rows
-            # have no child rows, so use one idempotent autocommit DELETE.
             links = SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)
-            deleted = links._raw_delete(SnapshotTag.objects.db)
+            deleted = SnapshotTag.remove_links(links, tag_ids, snapshot=self)
             if deleted:
-                from archivebox.api.webhook_events import emit_relationship_event
-
                 emit_relationship_event(self, "M2M_REMOVE", "tags")
             return deleted
 

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import os
 
 from django.db import transaction
+from django.db.models import Q
 from signal_webhooks.handlers import default_hook_handler
 from signal_webhooks.settings import webhook_settings
 from signal_webhooks.typing import SignalChoices
@@ -16,6 +17,7 @@ from signal_webhooks.utils import model_from_reference, get_webhook_model, refer
 executing_webhook = ContextVar("executing_webhook", default=False)
 active_relationship: ContextVar[str] = ContextVar("webhook_relationship", default="")
 RELATIONSHIP_EVENTS = {"M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"}
+TAG_EVENTS = {"TAGGED", "UNTAGGED"}
 
 
 def relationship_fields(model):
@@ -56,13 +58,79 @@ def dispatch_relationship_signal(sender, instance, reverse, model, **kwargs):
         webhook_m2m_handler(sender, instance=instance, reverse=reverse, model=model, **kwargs)
 
 
+def snapshot_tag_rules(signal, tag_ids=None):
+    from archivebox.core.models import Snapshot
+
+    rules = get_webhook_model().objects.filter(ref=reference_for_model(Snapshot), signal=signal, enabled=True)
+    if tag_ids is not None:
+        rules = rules.filter(Q(tag_id__in=tag_ids) | Q(any_tag=True))
+    return rules
+
+
+def emit_snapshot_tag_events(snapshot, signal, tag_ids):
+    """Emit one event for each changed tag link."""
+    from archivebox.core.models import Tag
+
+    if not tag_ids or action_in_progress():
+        return
+    scopes = set(snapshot_tag_rules(signal, tag_ids).values_list("tag_id", flat=True))
+    if not scopes:
+        return
+    tags = list(Tag.objects.filter(pk__in=tag_ids if None in scopes else scopes).order_by("pk").values_list("pk", "name"))
+    for tag_id, tag_name in tags:
+        emit_event(snapshot, signal, tag_id=tag_id, tag_name=tag_name)
+
+
+def snapshot_tags_added(sender, instance, action, reverse, pk_set, **kwargs):
+    if action != "post_add" or not pk_set or action_in_progress():
+        return
+    if reverse:
+        if snapshot_tag_rules("TAGGED", [instance.pk]).exists():
+            from archivebox.core.models import Snapshot
+
+            for snapshot in list(Snapshot.objects.filter(pk__in=pk_set)):
+                emit_event(snapshot, "TAGGED", tag_id=instance.pk, tag_name=instance.name)
+    else:
+        emit_snapshot_tag_events(instance, "TAGGED", pk_set)
+
+
+def snapshot_tag_deleted(sender, instance, origin, **kwargs):
+    # Related-manager remove/clear deletes through rows via the collector.
+    # Cascades from a deleted Tag or Snapshot have their own handlers.
+    if getattr(origin, "model", type(origin)) is not sender or action_in_progress():
+        return
+    if snapshot_tag_rules("UNTAGGED", [instance.tag_id]).exists():
+        emit_event(instance.snapshot, "UNTAGGED", tag_id=instance.tag_id, tag_name=instance.tag.name)
+
+
+def before_tag_delete(sender, instance, **kwargs):
+    # Specific subscriptions are deleted with their tag. Capture the links
+    # once for wildcard subscriptions while the tag and its name still exist.
+    instance.__dict__.pop("_untagged_snapshots", None)
+    if not action_in_progress() and snapshot_tag_rules("UNTAGGED").filter(any_tag=True).exists():
+        instance._untagged_snapshots = list(instance.snapshot_set.values_list("pk", flat=True))
+
+
+def after_tag_delete(sender, instance, **kwargs):
+    from archivebox.core.models import Snapshot
+
+    if snapshot_ids := instance.__dict__.pop("_untagged_snapshots", None):
+        for snapshot in Snapshot.objects.in_bulk(snapshot_ids).values():
+            emit_event(snapshot, "UNTAGGED", tag_id=instance.pk, tag_name=instance.name)
+
+
 def register_relationship_signals():
-    from django.db.models.signals import m2m_changed
+    from django.db.models.signals import m2m_changed, post_delete, pre_delete
+    from archivebox.core.models import SnapshotTag, Tag
 
     # The library otherwise discards the sender before its task handler runs.
     # Delegate once to the same library receiver with context attached.
     m2m_changed.disconnect(dispatch_uid=webhook_settings.DISPATCH_UID_M2M_CHANGED)
     m2m_changed.connect(dispatch_relationship_signal, weak=False, dispatch_uid="archivebox.webhook_relationship")
+    m2m_changed.connect(snapshot_tags_added, sender=SnapshotTag, weak=False, dispatch_uid="archivebox.webhook_tags_added")
+    post_delete.connect(snapshot_tag_deleted, sender=SnapshotTag, weak=False, dispatch_uid="archivebox.webhook_tag_deleted")
+    pre_delete.connect(before_tag_delete, sender=Tag, weak=False, dispatch_uid="archivebox.webhook_before_tag_delete")
+    post_delete.connect(after_tag_delete, sender=Tag, weak=False, dispatch_uid="archivebox.webhook_after_tag_delete")
 
 
 def action_in_progress():
@@ -101,8 +169,10 @@ EVENTS = {
     "BEFORE_QUEUE": dict(label="Before queuing", icon="queue", color="#967338", section=True, blocking=True),
     "BEFORE_CAPTURE": dict(label="Before capture", icon="capture", color="#597bab", blocking=True),
     "CAPTURE_COMPLETED": dict(label="Capture completed", icon="complete", color="#377b5b"),
-    "FOLDER_ENTERED": dict(label="Enters a folder", icon="folder", color="#9d618f", membership=True),
-    "FOLDER_LEFT": dict(label="Leaves a folder", icon="leave", color="#9d618f", membership=True),
+    "TAGGED": dict(label="Tagged", icon="plus", color="#377b5b", tag=True),
+    "UNTAGGED": dict(label="Untagged", icon="leave", color="#9d618f", tag=True),
+    "FOLDER_ENTERED": dict(label="Added to folder", icon="folder", color="#9d618f", membership=True),
+    "FOLDER_LEFT": dict(label="Removed from folder", icon="leave", color="#9d618f", membership=True),
     "STARTED": dict(label="Started", icon="play", color="#597bab"),
     "COMPLETED": dict(label="Completed", icon="complete", color="#377b5b"),
     "EXITED": dict(label="Exited", icon="complete", color="#377b5b"),

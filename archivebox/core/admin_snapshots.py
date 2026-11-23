@@ -1814,6 +1814,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="+",
     )
     def add_tags(self, request, queryset):
+        from archivebox.api.webhook_events import snapshot_tag_rules
+        from archivebox.api.webhook_membership import track_membership
         from archivebox.core.models import SnapshotTag
 
         # Get tags from the form - now comma-separated string
@@ -1835,12 +1837,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         snapshot_ids = list(queryset.values_list("id", flat=True))
         num_snapshots = len(snapshot_ids)
 
-        for tag in tags:
-            SnapshotTag.objects.bulk_create(
-                [SnapshotTag(snapshot_id=sid, tag_id=tag.pk) for sid in snapshot_ids],
-                ignore_conflicts=True,
-                batch_size=1000,
-            )
+        tag_ids = [tag.pk for tag in tags]
+        with track_membership(snapshot_ids):
+            if snapshot_tag_rules("TAGGED", tag_ids).exists():
+                for snapshot in queryset:
+                    snapshot.add_tag_ids(tag_ids, emit_relationship=False)
+            else:
+                for tag_id in tag_ids:
+                    SnapshotTag.objects.bulk_create(
+                        [SnapshotTag(snapshot_id=sid, tag_id=tag_id) for sid in snapshot_ids],
+                        ignore_conflicts=True,
+                        batch_size=1000,
+                    )
 
         messages.success(
             request,
@@ -1851,6 +1859,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="–",
     )
     def remove_tags(self, request, queryset):
+        from archivebox.api.webhook_membership import track_membership
         from archivebox.core.models import SnapshotTag
 
         # Get tags from the form - now comma-separated string
@@ -1876,10 +1885,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         num_snapshots = len(snapshot_ids)
         tag_ids = [t.pk for t in tags]
 
-        deleted_count, _ = SnapshotTag.objects.filter(
-            snapshot_id__in=snapshot_ids,
-            tag_id__in=tag_ids,
-        ).delete()
+        with track_membership(snapshot_ids):
+            deleted_count = SnapshotTag.remove_links(
+                SnapshotTag.objects.filter(snapshot_id__in=snapshot_ids, tag_id__in=tag_ids),
+                tag_ids,
+            )
 
         messages.success(
             request,

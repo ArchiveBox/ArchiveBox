@@ -124,7 +124,8 @@
       : undefined;
   const relationshipsFor = (ref) =>
     initial.models.find((m) => m.ref === ref)?.relationships || [];
-  const anyFolder = { id: "*", name: "Any folder (*)" };
+  const anyFolder = { id: "*", name: "Any folder" };
+  const anyTag = { id: "*", name: "Any tag" };
   const anyRelationship = { id: "*", name: "Any relationship (*)" };
   const modelName = (ref) => models.find((m) => m[2] === ref)?.[0] || ref;
   const modelIcon = (ref) => models.find((m) => m[2] === ref)?.[1] || "";
@@ -151,6 +152,7 @@
       .map((h) => {
         const e = eventOf(h),
           f = folderOf(h),
+          tag = e.tag && (h.tag_id === "*" ? anyTag.name : h.tag_name),
           relationship = e.relationship && [anyRelationship, ...relationshipsFor(h.ref)].find((item) => item.id === h.relationship);
         return `<tr data-id="${esc(h.id)}" class="${
           current?.id === h.id ? "selected" : ""
@@ -163,8 +165,8 @@
         )}</button><span class="scope-label">${
           f
             ? icons("folder") + esc(f.name)
-            : relationship
-              ? icons("plus") + esc(relationship.name)
+            : tag || relationship
+              ? icons("plus") + esc(tag || relationship.name)
               : esc(modelIcon(h.ref)) + " " + esc(modelName(h.ref))
         }</span></td><td class="event-cell">${esc(e.label)}<span>${esc(
           modelName(h.ref),
@@ -184,6 +186,7 @@
   }
   function renderTimeline() {
     $("event-timeline").innerHTML = eventsFor(current.ref)
+      .filter((e) => !e.legacy || e.key === current.signal)
       .map(
         (e) =>
           `<label class="event-option ${
@@ -201,19 +204,57 @@
       .join("");
   }
   function fillScope() {
-    const e = eventOf(current),
-      key = e.membership ? "folder_id" : "relationship",
-      items = e.membership
-        ? [anyFolder, ...(folders[modelName(current.ref)] || [])]
-        : e.relationship ? [anyRelationship, ...relationshipsFor(current.ref)] : [];
-    $("scope-field").hidden = !e.membership && !e.relationship;
-    $("scope-label").textContent = e.membership ? "Folder" : "Relationship";
-    $("scope").innerHTML =
-      (e.membership && items.length === 1 ? '<option value="" disabled>Choose a folder scope</option>' : "") +
-      items.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
-    if (items.length && !items.some((f) => f.id === current[key]))
-      current[key] = (e.membership ? items[1]?.id : items[0].id) || "";
-    $("scope").value = current[key] || "";
+    const e = eventOf(current);
+    const scope = $("scope");
+    const picker = window.jQuery(scope);
+    if (picker.data("select2")) picker.select2("destroy");
+    scope.replaceChildren();
+    $("scope-field").hidden = !e.membership && !e.tag && !e.relationship;
+    $("scope-label").textContent = e.membership ? "Folder" : e.tag ? "Tag" : "Relationship";
+    if (e.membership || e.tag) {
+      const selected = e.membership
+        ? folderOf(current)
+        : current.tag_id === "*" ? anyTag : { id: current.tag_id, name: current.tag_name };
+      scope.add(new Option("", ""));
+      if (selected?.id) scope.add(new Option(selected.name, selected.id, true, true));
+      picker.select2({
+        width: "100%",
+        placeholder: e.membership ? "Choose a folder" : "Choose a tag",
+        ajax: {
+          delay: 150,
+          transport(params, success, failure) {
+            const term = params.data.term || "";
+            const query = term.toLowerCase();
+            if (e.membership) {
+              const matching = [anyFolder, ...folders.Snapshot]
+                .filter((folder) => folder.name.toLowerCase().includes(query))
+                .slice(0, 20);
+              success({ results: matching.map((folder) => ({ id: folder.id, text: folder.name })) });
+              return;
+            }
+            const controller = new AbortController();
+            fetch("/api/v1/core/tags/autocomplete/?q=" + encodeURIComponent(term), { signal: controller.signal })
+              .then((response) => {
+                if (!response.ok) throw new Error("Could not load tags");
+                return response.json();
+              })
+              .then(({ tags }) => {
+                const matching = anyTag.name.toLowerCase().includes(query) ? [anyTag, ...tags] : tags;
+                success({ results: matching.map((tag) => ({ id: tag.id, text: tag.name })) });
+              })
+              .catch((error) => {
+                if (error.name !== "AbortError") failure(error);
+              });
+            return controller;
+          },
+        },
+      });
+    } else if (e.relationship) {
+      for (const item of [anyRelationship, ...relationshipsFor(current.ref)]) {
+        scope.add(new Option(item.name, item.id));
+      }
+      scope.value = current.relationship || "*";
+    }
     $("open-scope").hidden = !e.membership;
     $("open-scope").disabled = !current.folder_id || current.folder_id === "*";
   }
@@ -430,14 +471,14 @@
     .join("");
   $("event-rows").innerHTML = models
     .flatMap(([model, emoji, ref]) =>
-      eventsFor(ref).map(
+      eventsFor(ref).filter((e) => !e.legacy).map(
         (e) =>
           `<tr><td>${icons(e.icon)} ${
             esc(e.label)
           }</td><td>${esc(emoji)} ${esc(model)}</td><td>${
             e.blocking
               ? "Blocking"
-              : e.membership
+              : e.membership || e.tag
                 ? "On membership change"
                 : "After event"
           }</td></tr>`,
@@ -483,6 +524,8 @@
     current.ref = $("object-type").value;
     current.signal = "CREATE";
     current.folder_id = "";
+    current.tag_id = null;
+    current.tag_name = null;
     current.relationship = "";
     keepAvailableActions();
     renderTimeline();
@@ -502,6 +545,10 @@
     if (eventOf(current).membership) {
       current.folder_id = $("scope").value;
       $("open-scope").disabled = !current.folder_id || current.folder_id === "*";
+    } else if (eventOf(current).tag) {
+      const value = $("scope").value;
+      current.tag_id = value === "*" ? value : Number(value) || null;
+      current.tag_name = $("scope").selectedOptions[0]?.textContent || null;
     } else if (eventOf(current).relationship) {
       current.relationship = $("scope").value;
     }
@@ -745,6 +792,7 @@
       signal: webhook.signal,
       enabled: webhook.enabled,
       folder_id: eventOf(webhook).membership ? webhook.folder_id || null : null,
+      tag_id: eventOf(webhook).tag ? webhook.tag_id || null : null,
       relationship: eventOf(webhook).relationship ? webhook.relationship || "*" : null,
       stop_processing: !!webhook.stop_processing,
       stop_on_failure: webhook.stop_on_failure !== false,

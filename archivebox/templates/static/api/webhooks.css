@@ -429,9 +429,11 @@
   gap: 6px;
   align-items: center;
 }
-.webhooks .scope-line select {
+.webhooks .scope-line select,
+.webhooks .scope-line .select2-container {
   flex: 1;
   width: 0;
+  min-width: 0;
 }
 .webhooks .scope-open {
   border: 1px solid #ced5dc;

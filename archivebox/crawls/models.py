@@ -1302,20 +1302,31 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         tag_names = {tag for tags in tag_names_by_url.values() for tag in tags}
         if tag_names:
+            from archivebox.api.webhook_events import snapshot_tag_rules
+            from archivebox.api.webhook_membership import track_membership
+
             tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=tag_names)}
             missing_tags = [Tag(name=name) for name in sorted(tag_names - tags_by_name.keys())]
             if missing_tags:
                 Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
                 tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=tag_names)}
-            SnapshotTag.objects.bulk_create(
-                [
-                    SnapshotTag(snapshot=snapshot, tag=tags_by_name[tag_name])
-                    for snapshot in created_snapshots
-                    for tag_name in tag_names_by_url.get(snapshot.url, set())
-                    if tag_name in tags_by_name
-                ],
-                ignore_conflicts=True,
-            )
+            with track_membership([snapshot.pk for snapshot in created_snapshots if snapshot.url in tag_names_by_url]):
+                if snapshot_tag_rules("TAGGED", [tag.pk for tag in tags_by_name.values()]).exists():
+                    for snapshot in created_snapshots:
+                        snapshot.add_tag_ids(
+                            [tags_by_name[name].pk for name in tag_names_by_url.get(snapshot.url, ()) if name in tags_by_name],
+                            emit_relationship=False,
+                        )
+                else:
+                    SnapshotTag.objects.bulk_create(
+                        [
+                            SnapshotTag(snapshot=snapshot, tag=tags_by_name[tag_name])
+                            for snapshot in created_snapshots
+                            for tag_name in tag_names_by_url.get(snapshot.url, ())
+                            if tag_name in tags_by_name
+                        ],
+                        ignore_conflicts=True,
+                    )
 
         return created_snapshots
 

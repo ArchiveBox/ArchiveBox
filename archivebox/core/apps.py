@@ -18,7 +18,11 @@ class CoreConfig(AppConfig):
 
         register_webhooks(
             self.get_model("Snapshot"),
-            events={key: EVENTS[key] for key in ("BEFORE_QUEUE", "BEFORE_CAPTURE", "CAPTURE_COMPLETED", "FOLDER_ENTERED", "FOLDER_LEFT")},
+            events={
+                key: EVENTS[key]
+                for key in ("BEFORE_QUEUE", "BEFORE_CAPTURE", "CAPTURE_COMPLETED", "TAGGED", "UNTAGGED", "FOLDER_ENTERED", "FOLDER_LEFT")
+            }
+            | {key: {"legacy": True} for key in ("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR")},
         )
         register_webhooks(
             self.get_model("ArchiveResult"),

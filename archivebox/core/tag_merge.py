@@ -60,21 +60,31 @@ def _check_merge_dependencies(retired, target, final_name, memberships):
         return {name.casefold() for name in Crawl.parse_tag_names(value)}
 
     affected = [*retired, (target.pk if target else None, final_name)]
+    retired_ids = {pk for pk, _name in retired}
     retired_names = {name.casefold() for _pk, name in retired}
     for folder_id, rules in Folder.objects.exclude(rules__isnull=True).values_list("pk", "rules").iterator():
         if _folder_tag_condition_matches(rules, affected):
             raise ValueError(f"Update Smart Folder {folder_id}: its tag filter would change. No tags were merged.")
-    rules = OutboundWebhook.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions")
+    rules = OutboundWebhook.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions", "tag_id", "any_tag")
     missed_events = {}
-    for rule_id, ref, signal, relationship, actions in rules.iterator():
-        if ref == "core.snapshot" and relationship in {"", "*", "tags"} and signal in {"M2M_ADD", "M2M_REMOVE"}:
-            if signal not in missed_events:
+    for rule_id, ref, signal, relationship, actions, tag_id, any_tag in rules.iterator():
+        if tag_id in retired_ids:
+            raise ValueError(f"Update Rule {rule_id}: its trigger uses a tag being retired. No tags were merged.")
+        change = None
+        if ref == "core.snapshot" and relationship in {"", "*", "tags"}:
+            change = {"M2M_ADD": "add", "M2M_REMOVE": "remove"}.get(signal)
+        if signal == "TAGGED" and (any_tag or (target and tag_id == target.pk)):
+            change = "add"
+        if signal == "UNTAGGED" and any_tag:
+            change = "remove"
+        if change:
+            if change not in missed_events:
                 changed = memberships
-                if signal == "M2M_ADD" and target:
+                if change == "add" and target:
                     existing = SnapshotTag.objects.filter(tag_id=target.pk).order_by().values("snapshot_id")
                     changed = memberships.exclude(snapshot_id__in=existing)
-                missed_events[signal] = changed.exists()
-            if missed_events[signal]:
+                missed_events[change] = changed.exists()
+            if missed_events[change]:
                 raise ValueError(f"Update Rule {rule_id}: it acts on Snapshot tag changes. No tags were merged.")
         if ref == "core.tag" and (signal == "DELETE" or (signal == "CREATE" and target is None)):
             raise ValueError(f"Update Rule {rule_id}: it acts on Tag lifecycle events. No tags were merged.")
