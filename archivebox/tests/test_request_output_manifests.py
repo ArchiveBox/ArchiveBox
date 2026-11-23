@@ -117,7 +117,7 @@ def test_public_index_reads_saved_manifests_without_rebuilding_them(snapshot, cl
         assert response.status_code == 200, response.content
         body = response.content.decode()
         assert f'/favicon/{filename}" data-fallbacks=""' in body
-        assert f'#readability/{filename}"' in body
+        assert '#readability"' in body
         assert f"/_card/{results[1].id}" in body
         normalizations = sum(
             values[1]
@@ -125,3 +125,8 @@ def test_public_index_reads_saved_manifests_without_rebuilding_them(snapshot, cl
             if source.endswith("core/models.py") and function == "_normalize_output_files"
         )
         assert normalizations == 0, normalizations
+        # List icons target the plugin card without decoding its manifest.
+        # That card must still resolve the current saved output after replacement.
+        card = client.get(f"/_card/{results[2].id}", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+        assert card.status_code == 200
+        assert f"/readability/{filename}".encode() in card.content

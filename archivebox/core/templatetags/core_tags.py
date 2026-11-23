@@ -54,7 +54,9 @@ def plugin_page_head(context):
     from archivebox.config.common import get_config, get_request_config
 
     request = context.get("request")
-    config = (get_request_config(request, resolve_plugins=True) if request is not None else get_config()).model_dump(mode="json")
+    # Each app resolves its own schema; rendering a page head must not hydrate
+    # binary/config settings for every capture plugin on public pages.
+    config = (get_request_config(request) if request is not None else get_config(resolve_plugins=False)).model_dump(mode="json")
     fragments = []
     for app in apps.get_app_configs():
         render = getattr(app, "render_page_head", None)

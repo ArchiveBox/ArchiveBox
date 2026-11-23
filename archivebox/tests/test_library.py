@@ -607,7 +607,8 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
         ) as reset:
             page.keyboard.press("Escape")
         assert reset.value.ok
-        page.get_by_role("button", name="Expand Research", exact=True).click()
+        expect(page.get_by_role("button", name="Collapse Research", exact=True)).to_be_visible()
+        expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_be_visible()
         page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(
             page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True),
         )
@@ -778,6 +779,10 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         expect(row(second)).to_have_attribute("data-parent-id", str(smart.pk))
         with page.expect_navigation():
             row(second).locator(".folder-link").drag_to(page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True))
+        # Reordering preserves the expanded branch across its reload. Close it
+        # explicitly before exercising dwell-to-expand on a collapsed folder.
+        expect(row(first).locator(".folder-toggle")).to_have_attribute("aria-expanded", "true")
+        row(first).locator(".folder-toggle").click()
         expect(row(first).locator(".folder-toggle")).to_have_attribute("aria-expanded", "false")
         expect(row(child)).to_be_hidden()
         source = row(second).locator(".folder-link").bounding_box()

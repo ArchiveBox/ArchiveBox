@@ -122,7 +122,9 @@ class TestArchiveResultAdminListView:
             if page < 3:
                 assert b"Select all matching rows" in response.content
             if page == 1 and "status__exact" in params:
-                probes = [sql for sql in result_queries if 'FROM "core_archiveresult" ORDER BY' in sql and "LIMIT 88" in sql]
+                # The bounded candidate probe stays inside SQL rather than
+                # materializing 88 IDs in Python before fetching the page.
+                probes = [sql for sql in page_queries if 'IN (SELECT "U0"."id"' in sql and "LIMIT 88)" in sql]
                 assert len(probes) == 1
                 if connection.vendor == "sqlite":
                     with connection.cursor() as cursor:
