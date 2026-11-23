@@ -19,7 +19,7 @@
 
       {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
       {% if cl.opts.model_name == "snapshot" and not embedded_changelist and not cl.result_count and not cl.show_search_index_hint %}
-        <div class="results library-empty"><h2>No snapshots here yet</h2><p>Move captures into this folder, or adjust your search and filters.</p><a href="{% url 'admin:core_snapshot_changelist' %}">Browse all snapshots →</a></div>
+        <div class="results library-empty"><h2>No snapshots here yet</h2><p>Adjust your search or <a href="{{ cl.clear_all_filters_qs }}">clear filters</a>.</p><a href="{% url 'admin:core_snapshot_changelist' %}">Browse all snapshots →</a></div>
       {% elif cl.snapshot_is_grid_view %}
         {% snapshots_grid cl %}
       {% else %}
