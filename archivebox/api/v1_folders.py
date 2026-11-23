@@ -49,12 +49,12 @@ class FolderSelection(Schema):
 
 @router.get("/folders", response=list[FolderSchema])
 def list_folders(request, format: str | None = None):
-    records = (folder.to_json() for folder in Folder.objects.select_related("parent", "created_by"))
+    folders = Folder.objects.select_related("parent", "created_by")
     if format:
         from archivebox.core.exports import model_export_response
 
-        return model_export_response(records, format, name="folders")
-    return list(records)
+        return model_export_response(request, (folder.to_json() for folder in folders.iterator(chunk_size=32)), format, name="folders")
+    return [folder.to_json() for folder in folders]
 
 
 @router.get("/folders/rules")

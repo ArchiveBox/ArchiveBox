@@ -595,7 +595,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
         # Snapshot timestamps cannot say this: created_at predates any queue
         # wait and downloaded_at is only set once a capture completes.
         attempt_started_at_by_snapshot: dict[str, datetime] = {}
-        for proc in running_processes:
+        for proc in running_processes.iterator(chunk_size=64):
             if not proc["pwd"]:
                 continue
             path_parts = [path_part.replace("-", "") for path_part in reversed(Path(proc["pwd"]).parts)]
@@ -628,7 +628,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             if phase == "snapshot" and snapshot_id and proc["pid"]:
                 snapshot_process_pids.setdefault(snapshot_id, proc["pid"])
 
-        for proc in recent_processes:
+        for proc in recent_processes.iterator(chunk_size=64):
             if not proc["pwd"]:
                 continue
             proc_pwd = Path(proc["pwd"])

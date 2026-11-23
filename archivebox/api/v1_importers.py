@@ -89,12 +89,12 @@ def importer_catalog(request):
 
 @router.get("/sources", response=list[SourceSchema])
 def list_sources(request, format: str | None = None):
-    records = (source.to_json() for source in ImporterSource.objects.select_related("created_by", "persona", "folder"))
+    sources = ImporterSource.objects.select_related("created_by", "persona", "folder")
     if format:
         from archivebox.core.exports import model_export_response
 
-        return model_export_response(records, format, name="importers")
-    return list(records)
+        return model_export_response(request, (source.to_json() for source in sources.iterator(chunk_size=32)), format, name="importers")
+    return [source.to_json() for source in sources]
 
 
 @router.post("/sources", response=SourceSchema)
@@ -148,12 +148,12 @@ def list_runs(request, source_id: UUID | None = None, limit: int = 100, offset: 
     runs = ImporterRun.objects.select_related("source")
     if source_id:
         runs = runs.filter(source_id=source_id)
-    records = (run.to_json() for run in runs[offset : offset + limit])
+    runs = runs[offset : offset + limit]
     if format:
         from archivebox.core.exports import model_export_response
 
-        return model_export_response(records, format, name="importer-runs")
-    return list(records)
+        return model_export_response(request, (run.to_json() for run in runs.iterator(chunk_size=32)), format, name="importer-runs")
+    return [run.to_json() for run in runs]
 
 
 @router.get("/run/{run_id}", response=RunSchema)

@@ -292,8 +292,10 @@ def brand_icon(request, plugin, feed):
 def export_sources(request, format):
     from archivebox.core.exports import model_export_response
 
+    sources = ImporterSource.objects.select_related("persona", "created_by", "folder")
     return model_export_response(
-        (source.to_json() for source in ImporterSource.objects.select_related("persona", "created_by", "folder")),
+        request,
+        (source.to_json() for source in sources.iterator(chunk_size=32)),
         format,
         name="importers",
     )
@@ -305,4 +307,5 @@ def export_runs(request, source_id, format):
     from archivebox.core.exports import model_export_response
 
     source = get_object_or_404(ImporterSource, pk=source_id)
-    return model_export_response((run.to_json() for run in source.runs.select_related("source")), format, name="importer-runs")
+    runs = source.runs.select_related("source")
+    return model_export_response(request, (run.to_json() for run in runs.iterator(chunk_size=32)), format, name="importer-runs")

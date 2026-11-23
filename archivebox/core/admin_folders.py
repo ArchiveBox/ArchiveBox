@@ -89,7 +89,7 @@ class FolderAdmin(admin.ModelAdmin):
         if not self.has_view_or_change_permission(request):
             raise PermissionDenied
         folders = self.get_changelist_instance(request).get_queryset(request).select_related("parent", "created_by")
-        return model_export_response((folder.to_json() for folder in folders), format, name="folders")
+        return model_export_response(request, (folder.to_json() for folder in folders.iterator(chunk_size=32)), format, name="folders")
 
     def delete_folder(self, request):
         empty_only = request.GET.get("intent") == "empty_only" or request.POST.get("intent") == "empty_only"

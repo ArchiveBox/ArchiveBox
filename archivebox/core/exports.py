@@ -407,6 +407,15 @@ def _snapshot_metadata_file(request, snapshots, format):
         "txt": "text/plain; charset=utf-8",
     }[format]
     filename = "" if format == "rss" else f"snapshots.{format}"
+    return _spooled_export_response(
+        request,
+        lambda output: write_snapshot_metadata(snapshots, format, output, request=request),
+        content_type=content_type,
+        filename=filename,
+    )
+
+
+def _spooled_export_response(request, write, *, content_type, filename):
     # Keep the generated body off the Python heap and finish the database read
     # before sending headers. The anonymous tempfile is never a download path.
     spool = TemporaryFile()
@@ -419,7 +428,7 @@ def _snapshot_metadata_file(request, snapshots, format):
             own_stream(close_spool)
 
         with open(spool.fileno(), "w", encoding="utf-8", newline="", closefd=False) as output:
-            write_snapshot_metadata(snapshots, format, output, request=request)
+            write(output)
         if request.method == "HEAD":
             response = HttpResponse(content_type=content_type, headers={"Content-Length": str(spool.tell())})
             if filename:
@@ -633,15 +642,33 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
     return JsonResponse(_job_data(process, api=api))
 
 
-def model_export_response(records, format, *, name):
+def model_export_response(request, records, format, *, name):
     """Authenticated model tables share CLI serialization and relationship columns."""
     from archivebox.misc.jsonl import write_record_table
 
     content_types = {"csv": "text/csv", "tsv": "text/tab-separated-values", "jsonl": "application/x-ndjson", "json": "application/json"}
     if format not in content_types:
         return HttpResponseBadRequest("Choose json, jsonl, csv, or tsv.")
-    response = HttpResponse(content_type=content_types[format] + "; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="{name}.{format}"'
+
+    def write(output):
+        if format != "json":
+            write_record_table(records, format=format, stream=output)
+            return
+        # Keep the array and newline byte-identical to the former json.dump
+        # of a list without collecting every rendered model in memory.
+        encoder = json.JSONEncoder(ensure_ascii=False)
+        output.write("[")
+        for index, record in enumerate(records):
+            if index:
+                output.write(", ")
+            output.write(encoder.encode(record))
+        output.write("]\n")
+
+    response = _spooled_export_response(
+        request,
+        write,
+        content_type=content_types[format] + "; charset=utf-8",
+        filename=f"{name}.{format}",
+    )
     response["Cache-Control"] = "no-store"
-    write_record_table(records, format=format, stream=response)
     return response
