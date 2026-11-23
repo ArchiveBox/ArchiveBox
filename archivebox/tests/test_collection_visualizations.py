@@ -77,3 +77,22 @@ def test_graph_uses_saved_links_between_archived_urls(admin_client, crawl):
     assert response.json()["sampled"] == 2
     assert response.json()["links"] == [{"source": "google.co.uk", "target": "amazon.com", "value": 1}]
     assert admin_client.get("/admin/graph/data/?scan=links&after=bad", HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+
+
+def test_graph_excludes_schema_references_from_all_edges(admin_client, crawl):
+    import json
+
+    source = Snapshot.objects.create(crawl=crawl, url="https://example.com/article")
+    urls = ["https://www.w3.org/2000/svg", "https://schema.org/Article", "https://ogp.me/ns", "https://amazon.com/item"]
+    for url in urls:
+        Snapshot.objects.create(crawl=crawl, url=url, parent_snapshot=source)
+    directory = source.get_storage_path_for_version(source.fs_version) / "parse_dom_outlinks"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "urls.jsonl").write_text("\n".join(json.dumps({"url": url}) for url in urls))
+    for params in ({"scan": "1"}, {"scan": "links"}, {"domain": "*.example.com"}):
+        response = admin_client.get("/admin/graph/data/", params, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        data = response.json()
+        assert {"source": "example.com", "target": "amazon.com", "value": 1} in data["links"]
+        assert all(edge["target"] not in {"w3.org", "schema.org", "ogp.me"} for edge in data["links"])
+        assert all(node["id"] not in {"w3.org", "schema.org", "ogp.me"} for node in data.get("nodes", []))
