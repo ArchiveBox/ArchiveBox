@@ -205,6 +205,7 @@ class TagAdmin(BaseModelAdmin):
     def delete_view(self, request, object_id, extra_context=None):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
+        wants_json = request.headers.get("Accept") == "application/json"
         to_field = request.POST.get(TO_FIELD_VAR, request.GET.get(TO_FIELD_VAR))
         if to_field and not self.to_field_allowed(request, to_field):
             raise DisallowedModelAdminToField(f"The field {to_field} cannot be referenced.")
@@ -213,8 +214,12 @@ class TagAdmin(BaseModelAdmin):
             if not self.has_delete_permission(request, tag):
                 raise PermissionDenied
             if tag is None:
+                if wants_json:
+                    return JsonResponse({"error": "Tag not found."}, status=404)
                 return self._get_obj_does_not_exist_redirect(request, self.opts, object_id)
             if not self._can_delete_tags(request, [tag]):
+                if wants_json:
+                    return JsonResponse({"error": "The tag is still in use by protected records."}, status=409)
                 return self._redirect_to_changelist()
             tag_pk = tag.pk
             obj_id = tag.serializable_value(to_field or self.opts.pk.attname)
@@ -222,6 +227,8 @@ class TagAdmin(BaseModelAdmin):
             self.log_deletions(request, [tag])
             self.delete_model(request, tag)
 
+        if wants_json:
+            return JsonResponse({"deleted": True})
         response = self.response_delete(request, name, obj_id)
         path, _, query = request.POST.get("return_to", "").partition("?")
         if IS_POPUP_VAR in request.POST:
