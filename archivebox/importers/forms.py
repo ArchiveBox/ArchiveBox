@@ -7,7 +7,7 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 
 from archivebox.core.models import Folder
-from archivebox.core.widgets import ScheduleWidget, TagEditorWidget
+from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
 from archivebox.personas.models import Persona
 
@@ -18,7 +18,7 @@ class ImporterSourceForm(forms.ModelForm):
     class Meta:
         model = ImporterSource
         fields = ("name", "persona", "folder", "limit", "tags", "schedule")
-        widgets = {"tags": TagEditorWidget(), "schedule": ScheduleWidget()}
+        widgets = {"tags": TagEditorWidget(), "schedule": ScheduleWidget(), "folder": FolderPicker(destination=True)}
         help_texts: ClassVar = {
             "limit": "Items per batch (1–500). Import all continues until the source is exhausted.",
             "tags": "Comma-separated tags to apply to imported captures.",
@@ -34,7 +34,7 @@ class ImporterSourceForm(forms.ModelForm):
         self._original_enabled = self.instance.enabled
         self.fields["name"].required = False
         self.fields["name"].initial = self.instance.name or f"{definition.provider} · {definition.title}"
-        self.fields["folder"].choices = [("", self.fields["folder"].empty_label), *Folder.path_choices()]
+        self.fields["folder"].queryset = Folder.objects.destinations()
         self.fields["persona"].queryset = Persona.objects.order_by("name")
         self.fields["persona"].required = definition.auth == "persona"
         self.fields["persona"].help_text = "Authentication and capture settings from this server persona."

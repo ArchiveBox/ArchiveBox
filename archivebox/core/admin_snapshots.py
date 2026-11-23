@@ -56,7 +56,6 @@ from archivebox.plugins.output_groups import (
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult, Folder
-from archivebox.core.smart_folders import CHILDREN_RULES
 from archivebox.core.list_results_util import favicon_results, load_snapshot_list_results, snapshot_favicon_data
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_timing import timed_snapshot_changelist
@@ -69,7 +68,7 @@ from archivebox.core.permissions import (
     normalize_permissions,
     render_permission_icon,
 )
-from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
+from archivebox.core.widgets import FolderPicker, TagEditorWidget, InlineTagEditorWidget
 
 
 GLOBAL_CONTEXT = {}
@@ -87,10 +86,11 @@ class SnapshotActionForm(ActionForm):
             widget=TagEditorWidget(),
         )
         self.fields["folder_destination"] = forms.ModelChoiceField(
-            queryset=Folder.objects.filter(rules__isnull=True) | Folder.objects.filter(rules=CHILDREN_RULES),
+            queryset=Folder.objects.destinations(),
             required=False,
             label="Folder",
             empty_label="No folder",
+            widget=FolderPicker(destination=True),
         )
 
     def clean_tags(self):
@@ -119,9 +119,17 @@ class SnapshotDomainListFilter(admin.SimpleListFilter):
 class SnapshotFolderListFilter(admin.SimpleListFilter):
     title = "folder"
     parameter_name = "folder"
+    template = "admin/record_filter.html"
+    picker_kind = "folder"
 
     def lookups(self, request, model_admin):
-        return Folder.path_choices(getattr(request, "_archivebox_folder_tree", None))
+        if not self.value():
+            return [("", "")]
+        try:
+            folders = Folder.objects.filter(pk=self.value()).only("name", "parent")
+            return [(item["id"], item["name"]) for item in Folder.picker_choices(folders)] or [("", "")]
+        except ValidationError:
+            return [("", "")]
 
     def queryset(self, request, queryset):
         try:
@@ -133,15 +141,16 @@ class SnapshotFolderListFilter(admin.SimpleListFilter):
 class TagNameListFilter(admin.SimpleListFilter):
     title = "By tag name"
     parameter_name = "tag"
+    template = "admin/record_filter.html"
+    picker_kind = "tag"
 
     def lookups(self, request, model_admin):
         selected = self.value()
-        tags = list(Tag.objects.order_by("name").only("id", "name")[:100])
-        if selected and selected.isdigit() and all(str(tag.pk) != selected for tag in tags):
-            selected_tag = Tag.objects.filter(pk=int(selected)).only("id", "name").first()
-            if selected_tag:
-                tags.insert(0, selected_tag)
-        return [(str(tag.pk), tag.name) for tag in tags]
+        if selected and selected.isdigit():
+            tag = Tag.objects.filter(pk=int(selected)).only("name").first()
+            if tag:
+                return [(selected, tag.name)]
+        return [("", "")]
 
     def queryset(self, request, queryset):
         if self.value():
@@ -553,10 +562,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     inlines = []  # Removed TagInline, using TagEditorWidget instead
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
         if db_field.name == "folder":
-            field.choices = [("", field.empty_label), *Folder.path_choices()]
-        return field
+            kwargs["widget"] = FolderPicker(destination=True)
+            kwargs["queryset"] = Folder.objects.destinations()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     list_per_page = 50
 
@@ -676,13 +685,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["folder_tree"] = Folder.tree()
         if not embedded_changelist:
             extra_context.update(sidebar_context(request, folder_tree=extra_context["folder_tree"]))
-        request._archivebox_folder_tree = extra_context["folder_tree"]
-        # Reuse the loaded tree's paths/order without evaluating another folder
-        # queryset. Match SnapshotActionForm's destination eligibility exactly.
-        extra_context["move_folder_choices"] = Folder.path_choices(
-            folder for folder in extra_context["folder_tree"] if folder.rules is None or folder.rules == CHILDREN_RULES
-        )
-        extra_context["folder_choices"] = Folder.path_choices(extra_context["folder_tree"])
         extra_context["selected_folder"] = request.GET.get("folder", "")
         selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
         folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}

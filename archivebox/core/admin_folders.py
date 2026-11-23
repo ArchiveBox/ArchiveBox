@@ -16,6 +16,7 @@ from django.template.loader import render_to_string
 from django.urls import path
 
 from archivebox.core.models import Folder, Snapshot
+from archivebox.core.widgets import FolderPicker
 from archivebox.uuid_compat import compact_uuid
 
 
@@ -216,10 +217,11 @@ class FolderAdmin(admin.ModelAdmin):
                 search |= Q(schedule__icontains=query)
             queryset = queryset.filter(search).order_by(fields[0], "pk")
 
+        visible = [obj for obj in queryset[: 100 if query is None else 20] if related_admin.has_view_or_change_permission(request, obj)]
+        if model_label == "core.folder":
+            return Folder.picker_choices(visible)
         choices = []
-        for obj in queryset[: 100 if query is None else 20]:
-            if not related_admin.has_view_or_change_permission(request, obj):
-                continue
+        for obj in visible:
             label = str(getattr(obj, fields[0]) or "")
             if model_label == "crawls.crawl":
                 date = obj.created_at.strftime("%Y-%m-%d %H:%M") if obj.created_at else ""
@@ -253,8 +255,12 @@ class FolderAdmin(admin.ModelAdmin):
             query = request.GET.get("q", "").strip()[:100]
             return JsonResponse({"choices": self._rule_related_values(request, label, model_admins[label], query=query)})
 
-        folders = Folder.tree()
-        current = next((folder for folder in folders if str(folder.pk) == request.GET.get("folder_id")), None)
+        current = None
+        if folder_id := request.GET.get("folder_id"):
+            try:
+                current = Folder.objects.select_related("parent").filter(pk=compact_uuid(folder_id)).first()
+            except ValueError:
+                return JsonResponse({"error": "Invalid folder."}, status=400)
         if current and not self.has_view_or_change_permission(request, current):
             raise PermissionDenied
         # One query per relation type for saved selections, not one per chip.
@@ -272,6 +278,8 @@ class FolderAdmin(admin.ModelAdmin):
             elif node.get("lookup") in RELATED_LOOKUPS and (label := relations.get(node.get("field"))):
                 value = node.get("value")
                 saved.setdefault(label, []).extend(value[:100] if isinstance(value, list) else [value])
+            elif node.get("field") == "folder" and node.get("value") not in (None, "*", "self") and "core.folder" in model_admins:
+                saved.setdefault("core.folder", []).append(node["value"])
         selected = {
             label: self._rule_related_values(
                 request,
@@ -288,8 +296,7 @@ class FolderAdmin(admin.ModelAdmin):
                 "related_fields": relations,
                 "sort_fields": RuleQuery.sort_fields(),
                 "operators": OPERATORS,
-                "folders": [{"id": str(pk), "name": label} for pk, label in Folder.path_choices(folders)],
-                "unavailable_parents": [str(pk) for pk in Folder.subtree_ids(current.pk)] if current else [],
+                "parent_choice": Folder.picker_choices([current.parent])[0] if current and current.parent_id else None,
                 "rules": current.rules if current else None,
                 "container": current.is_container if current else False,
                 "can_delete": bool(current and self.has_delete_permission(request, current)),
@@ -416,9 +423,7 @@ class FolderAdmin(admin.ModelAdmin):
             last_position = Folder.objects.filter(parent=folder.parent).aggregate(last=Max("position"))["last"]
             folder.position = last_position + 1 if last_position is not None else 0
         self.save_model(request, folder, form, change=bool(folder_id))
-        folders = Folder.tree()
-        choices = Folder.path_choices(folders)
-        result = {"id": str(folder.pk), "name": folder.name, "path_label": dict(choices)[folder.pk]}
+        result = {"id": str(folder.pk), "name": folder.name, "path_label": Folder.picker_choices([folder])[0]["name"]}
         if request.POST.get("refresh_tree") == "1":
             from archivebox.core.sidebar import sidebar_page
 
@@ -426,24 +431,19 @@ class FolderAdmin(admin.ModelAdmin):
             page_request.GET = request.GET.copy()
             page_request.GET["folder"] = str(folder.pk)
             page_request.GET.pop("cursor", None)
-            page = sidebar_page(page_request, mode="folders", folder_tree=folders)
+            page = sidebar_page(page_request, mode="folders", folder_tree=Folder.tree())
             result["folder_html"] = render_to_string(
                 "core/folder_tree.html",
                 {"folder_tree": page["sidebar_folder_tree"], "selected_folder": request.GET.get("folder", "")},
                 request=request,
             )
             result["folder_next"] = page["sidebar_next"]
-            result["folder_choices"] = choices
-            result["move_folder_choices"] = Folder.path_choices(folder for folder in folders if not folder.is_smart or folder.is_container)
         return JsonResponse(result)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        excluded = set()
-        if db_field.name == "parent" and request.resolver_match.kwargs.get("object_id"):
-            folder_id = compact_uuid(request.resolver_match.kwargs["object_id"])
-            excluded = set(Folder.subtree_ids(folder_id))
-            kwargs["queryset"] = Folder.objects.exclude(pk__in=excluded)
-        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
         if db_field.name == "parent":
-            field.choices = [("", field.empty_label), *Folder.path_choices(folder for folder in Folder.tree() if folder.pk not in excluded)]
-        return field
+            folder_id = request.resolver_match.kwargs.get("object_id")
+            kwargs["widget"] = FolderPicker(exclude=folder_id)
+            if folder_id:
+                kwargs["queryset"] = Folder.objects.exclude(pk__in=Folder.subtree_ids(folder_id))
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

@@ -156,7 +156,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             rows = candidates[: SIDEBAR_PAGE_SIZE + 1]
         else:
             candidates = Folder.objects.annotate(has_children=Exists(Folder.objects.filter(parent_id=OuterRef("pk"))))
-            candidates = candidates.filter(name__icontains=term) if term else candidates.filter(parent_id=parent or None)
+            candidates = candidates.matching_name(term) if term else candidates.filter(parent_id=parent or None)
             if cursor:
                 position, name, pk = cursor
                 candidates = candidates.filter(
@@ -232,10 +232,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                         salt="library-sidebar",
                         compress=True,
                     )
-            path, ancestor = [], folder
-            while ancestor:
-                path.insert(0, ancestor.name)
-                ancestor = by_id.get(ancestor.parent_id)
+            path = folder.path_parts(by_id)
             folder.level = len(path) - 1
             folder.path_label = " / ".join(path)
             export_filters["folder"] = str(folder.pk)

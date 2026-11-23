@@ -3,6 +3,8 @@
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
+from django.core import signing
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -10,6 +12,8 @@ from pydantic import Field
 
 from archivebox.core.models import Folder, Snapshot
 from archivebox.core.smart_folders import OPERATORS, RuleQuery
+from archivebox.uuid_compat import compact_uuid
+from .auth import authenticated_user_from_request
 
 router = Router(tags=["Folders"])
 
@@ -60,6 +64,48 @@ def list_folders(request, format: str | None = None):
 @router.get("/folders/rules")
 def folder_rules(request):
     return {"fields": RuleQuery.schema(), "sort_fields": RuleQuery.sort_fields(), "operators": OPERATORS}
+
+
+@router.get("/folders/autocomplete/", url_name="folders_autocomplete", auth=None)
+def folders_autocomplete(request, q: str = "", destination: bool = False, exclude: UUID | None = None, after: str = ""):
+    """Return one page of folder IDs and their full paths."""
+    user = authenticated_user_from_request(request)
+    if user is None:
+        raise HttpError(401, "Authentication required.")
+    if not user.is_superuser and (
+        not user.is_staff
+        or not any(
+            user.has_perm(f"{app}.{action}_{model}")
+            for app, model in (("core", "folder"), ("core", "snapshot"), ("crawls", "crawl"), ("importers", "importersource"))
+            for action in ("view", "add", "change")
+        )
+    ):
+        raise HttpError(403, "Folder lookup is unavailable for this account.")
+    term = q.strip()[:100]
+    scope = [term, destination, str(exclude or "")]
+    salt = "folder-autocomplete"
+    folders = Folder.objects.matching_name(term)
+    if destination:
+        folders = folders.destinations()
+    if exclude:
+        folders = folders.exclude(pk__in=Folder.subtree_ids(exclude))
+    if after:
+        try:
+            cursor = signing.loads(after, salt=salt)
+            if cursor[:3] != scope:
+                raise ValueError
+            position, name, pk = cursor[3:]
+            folders = folders.filter(
+                Q(position__gt=position) | Q(position=position, name__gt=name) | Q(position=position, name=name, pk__gt=compact_uuid(pk)),
+            )
+        except (signing.BadSignature, ValueError, TypeError) as error:
+            raise HttpError(400, "Invalid folder cursor.") from error
+    page = list(folders.only("name", "parent", "position").order_by("position", "name", "pk")[:21])
+    last = page[19] if len(page) > 20 else None
+    return {
+        "choices": Folder.picker_choices(page[:20]),
+        "next": signing.dumps([*scope, last.position, last.name, str(last.pk)], salt=salt) if last else "",
+    }
 
 
 @router.post("/folders", response=FolderSchema)

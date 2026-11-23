@@ -15,6 +15,7 @@
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
         <link rel="stylesheet" href="{% static 'tag-badges.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" />
         <script src="{% static 'tag-colors.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
+        {% include "core/record_picker_assets.html" %}
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
@@ -1301,7 +1302,6 @@
             }
 
             /* The native select receives the actual click, including in WKWebView. */
-            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-folder-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-rearchive-select,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-permissions-select {
                 position: absolute;
@@ -1314,7 +1314,6 @@
                 margin: 0;
             }
 
-            :is(body.change-list, .snapshot-changelist-widget) #changelist .action-folder-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-rearchive-wrapper > .button,
             :is(body.change-list, .snapshot-changelist-widget) #changelist .action-permissions-wrapper > .button {
                 padding: 8px 18px !important;
@@ -1978,10 +1977,10 @@
                     e.stopPropagation()
                     submitAction(this.dataset.adminAction, this)
                 })
-                container.find('.action-folder-select').each(function() { this.selectedIndex = -1 })
-                    .on('change', function() {
-                        if (this.selectedIndex >= 0) submitAction('move_to_folder', this)
-                    }).on('blur', function() { this.selectedIndex = -1 })
+                container.find('.action-folder-select').on('change', function() {
+                    if (this.value === '__choose__') return
+                    submitAction('move_to_folder', this)
+                })
                 container.find('.action-rearchive-select').on('change', function() {
                     if (this.value) submitAction(this.value, this)
                 })
@@ -2007,7 +2006,7 @@
                 document.querySelectorAll('.action-buttons, .actions-tags-with-buttons').forEach(function(el) {
                     el.hidden = checked === 0
                 })
-                if (!checked) document.querySelectorAll('.action-folder-select').forEach(function(el) { el.selectedIndex = -1 })
+                if (!checked) document.querySelectorAll('.action-folder-select').forEach(function(el) { el.value = '__choose__' })
             }
             function setupActionSummary() {
                 const summary = document.querySelector('.action-summary')
