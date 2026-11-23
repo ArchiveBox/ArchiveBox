@@ -94,9 +94,9 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
     def last_run_at(self):
         if self.kind == "update":
             return self.modified_at
-        latest_crawl = self.crawl_set.order_by("-created_at").first()
-        if latest_crawl:
-            return latest_crawl.created_at
+        latest_created_at = self.crawl_set.order_by("-created_at").values_list("created_at", flat=True).first()
+        if latest_created_at is not None:
+            return latest_created_at
         if self.template:
             return self.template.created_at
         return self.created_at

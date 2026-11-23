@@ -2484,7 +2484,11 @@ def run_pending_crawls(
 
         if daemon and crawl_id is None:
             now = timezone.now()
-            for schedule in CrawlSchedule.objects.filter(is_enabled=True).select_related("template", "template__created_by"):
+            for schedule in (
+                CrawlSchedule.objects.filter(is_enabled=True)
+                .select_related("template", "template__created_by")
+                .defer("template__urls", "template__config", "template__notes")
+            ):
                 if schedule.is_due(now):
                     schedule.dispatch(queued_at=now)
 
@@ -2504,7 +2508,20 @@ def run_pending_crawls(
                 if run_snapshot_maintenance(str(filesystem_snapshot.id)):
                     continue
 
+        has_due_snapshots = False
+        has_due_crawls = False
         if not maintenance_only:
+            # Check after schedule dispatch and maintenance, which can enqueue
+            # work. An idle pass otherwise scans the same empty snapshot queue
+            # six times and the crawl queue three times. Successful work below
+            # restarts the loop, so these flags never survive a dispatch.
+            snapshot_queue = Snapshot.objects.filter(retry_at__lte=timezone.now())
+            crawl_queue = Crawl.objects.filter(retry_at__lte=timezone.now())
+            if crawl_id:
+                snapshot_queue = snapshot_queue.filter(crawl_id=crawl_id)
+                crawl_queue = crawl_queue.filter(id=crawl_id)
+            has_due_snapshots = snapshot_queue.exists()
+            has_due_crawls = crawl_queue.exists()
             active_snapshots = Snapshot.objects.filter(
                 retry_at__lte=timezone.now(),
                 crawl__status__in=Crawl.RUNNABLE_STATES,
@@ -2515,7 +2532,7 @@ def run_pending_crawls(
             # New submissions newest-first so they show progress before old
             # backlog (policy above _first_due_id). Keep this pass order in
             # sync with _higher_priority_crawl_waiting.
-            if _run_due_snapshot_id(
+            if has_due_snapshots and _run_due_snapshot_id(
                 _next_queued_crawl_snapshot_id(active_snapshots),
                 lock_seconds=60,
                 interactive_interrupts=interactive_interrupts,
@@ -2527,7 +2544,7 @@ def run_pending_crawls(
 
             # Same newest-first admission for queued crawls that have no due
             # snapshot yet (policy above _first_due_id).
-            if _run_due_crawl_status(
+            if has_due_crawls and _run_due_crawl_status(
                 Crawl.StatusChoices.QUEUED,
                 crawl_id=crawl_id,
                 lock_seconds=crawl_claim_lock_seconds,
@@ -2539,7 +2556,7 @@ def run_pending_crawls(
 
             # Started work resumes oldest-first before untouched backlog
             # (policy above _first_due_id).
-            if any(
+            if has_due_snapshots and any(
                 _run_due_snapshot_query(
                     due_snapshots,
                     lock_seconds=60,
@@ -2552,7 +2569,7 @@ def run_pending_crawls(
             ):
                 continue
 
-        if not maintenance_only:
+        if not maintenance_only and has_due_crawls:
             if _run_due_crawl_status(
                 Crawl.StatusChoices.STARTED,
                 crawl_id=crawl_id,
@@ -2562,7 +2579,7 @@ def run_pending_crawls(
             ):
                 continue
 
-        if not maintenance_only:
+        if not maintenance_only and has_due_snapshots:
             # Canceled-crawl child sealing is important cleanup, but it must
             # not starve live crawl work when a large bulk cancel leaves many
             # children due at once.
@@ -2582,7 +2599,7 @@ def run_pending_crawls(
             ):
                 continue
 
-        if not maintenance_only:
+        if not maintenance_only and has_due_snapshots:
             pausing_snapshots = Snapshot.objects.filter(
                 retry_at__lte=timezone.now(),
                 crawl__status=Crawl.StatusChoices.PAUSED,
@@ -2602,7 +2619,7 @@ def run_pending_crawls(
         # Final active-state fallback uses only the retry_at scheduler index and
         # selects an id first. Keep final SEALED rows out of this broad path so
         # large filesystem/index backfills cannot starve newly queued crawls.
-        if not maintenance_only:
+        if not maintenance_only and has_due_snapshots:
             due_snapshots = Snapshot.objects.filter(
                 retry_at__lte=timezone.now(),
                 status__in=Snapshot.OPEN_STATES,
@@ -2618,7 +2635,7 @@ def run_pending_crawls(
             ):
                 continue
 
-        if not maintenance_only:
+        if not maintenance_only and has_due_snapshots:
             # Final snapshots can still have an explicit filesystem/index-json
             # maintenance tick. Search extraction is invoked directly by the
             # update path and never enters this scheduler through ArchiveResult.
@@ -2637,7 +2654,7 @@ def run_pending_crawls(
             ):
                 continue
 
-        if not maintenance_only:
+        if not maintenance_only and has_due_crawls:
             if _run_due_crawl_status(
                 Crawl.StatusChoices.SEALED,
                 crawl_id=crawl_id,
