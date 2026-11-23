@@ -39,7 +39,7 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
         page.get_by_role("button", name="Log in", exact=True).click()
         nav = page.locator("#folder-sidebar")
         expect(nav.locator(".folder-mobile-toggle")).to_have_attribute("aria-expanded", "false")
-        for mode, menu_name in (("tags", "Tags"), ("domains", "Domains"), ("folders", "All folders")):
+        for mode, menu_name in (("tags", "Tags"), ("domains", "Domains"), ("folders", "Folders")):
             toggle = nav.locator(".folder-mobile-toggle")
             if toggle.get_attribute("aria-expanded") == "true":
                 toggle.click()

@@ -161,7 +161,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.get_by_role("button", name="Log in", exact=True).click()
         sidebar = page.locator(".folder-sidebar")
         expect(sidebar).to_be_visible()
-        expect(sidebar.get_by_role("link", name="All folders", exact=True)).to_be_visible()
+        expect(sidebar.get_by_role("link", name="Folders", exact=True)).to_be_visible()
         sidebar.get_by_role("button", name="Expand Research", exact=True).click()
         expect(sidebar.get_by_role("link", name="Web archiving", exact=True)).to_be_visible()
 
@@ -218,7 +218,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         expect(page.get_by_text("Queue exactly 2 selected snapshots for deletion?", exact=False)).to_be_visible()
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains&domain=*.djangoproject.com")
         expect(page.locator("#result_list tbody tr")).to_have_count(2)
-        choose("All folders")
+        choose("Folders")
         expect(sidebar.locator(".folder-row")).to_have_count(4)  # Root folders only; children load on expansion.
         public = browser.new_page(viewport={"width": 1440, "height": 1000})
         public_origin = live_server.url.replace("localhost", "web.archivebox.localhost")

@@ -56,7 +56,7 @@ def sidebar_context(request, *, public=False, folder_tree=None):
     return {
         "sidebar_mode_queries": mode_queries,
         "sidebar_mode": mode,
-        "sidebar_label": {"folders": "All folders", "tags": "Tags", "domains": "Domains"}[mode],
+        "sidebar_label": {"folders": "Folders", "tags": "Tags", "domains": "Domains"}[mode],
         "sidebar_search_label": {"folders": "Find a folder", "tags": "Find a tag", "domains": "Find a domain"}[mode],
         "sidebar_url": reverse("public-sidebar" if public else "admin-sidebar"),
         "sidebar_export_urls": build_snapshot_export_urls(export_filters, api=public, request=request),

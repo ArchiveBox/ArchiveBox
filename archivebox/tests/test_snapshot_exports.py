@@ -261,7 +261,7 @@ def test_sidebar_exports_follow_live_search_filters_and_order(live_server, admin
 
         previous_query = None
         for i, (mode, label, trigger) in enumerate(
-            (("folders", "All folders", "Export Research"), ("tags", "Tags", "export tag"), ("domains", "Domains", "export.example")),
+            (("folders", "Folders", "Export Research"), ("tags", "Tags", "export tag"), ("domains", "Domains", "export.example")),
         ):
             if i:
                 page.get_by_role("button", name="Choose sidebar view").click()

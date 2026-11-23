@@ -608,7 +608,9 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
             page.keyboard.press("Escape")
         assert reset.value.ok
         page.get_by_role("button", name="Expand Research", exact=True).click()
-        page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(page.get_by_role("link", name="All folders"))
+        page.locator(f'.folder-row[data-folder-id="{child.pk}"] .folder-link').drag_to(
+            page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True),
+        )
         expect(page.locator(f'.folder-row[data-folder-id="{child.pk}"]')).to_have_attribute("data-parent-id", "")
         page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
         page.get_by_role("button", name="Actions for Research", exact=True).click()
@@ -763,7 +765,7 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         order(None, roots + [first, smart])
         reveal(second)
         with page.expect_navigation():
-            row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All folders", exact=True))
+            row(second).locator(".folder-link").drag_to(page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True))
         order(None, roots + [first, smart, second])
         drag(smart, child, "inside")
         order(child, [smart])
@@ -771,11 +773,11 @@ def test_browser_folder_reordering_and_nesting(live_server, admin_user, browser_
         assert db.submit(lambda: Folder.objects.get(parent=smart, name="Items").rules).result() == smart.rules
         reveal(smart)
         with page.expect_navigation():
-            row(smart).locator(".folder-link").drag_to(page.get_by_role("link", name="All folders", exact=True))
+            row(smart).locator(".folder-link").drag_to(page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True))
         reveal(second)
         expect(row(second)).to_have_attribute("data-parent-id", str(smart.pk))
         with page.expect_navigation():
-            row(second).locator(".folder-link").drag_to(page.get_by_role("link", name="All folders", exact=True))
+            row(second).locator(".folder-link").drag_to(page.locator("#folder-sidebar").get_by_role("link", name="Folders", exact=True))
         expect(row(first).locator(".folder-toggle")).to_have_attribute("aria-expanded", "false")
         expect(row(child)).to_be_hidden()
         source = row(second).locator(".folder-link").bounding_box()
