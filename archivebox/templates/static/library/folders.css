@@ -111,6 +111,8 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   .folder-sidebar.is-collapsed .folder-section-heading>.icon-button:not(.folder-mobile-toggle){display:none}
   /* Leave room for the heading, pinned actions and one row in short landscape viewports. */
   .snapshot-library>.folder-sidebar{box-sizing:border-box;max-height:max(25dvh,124px)}
+  /* Folder search shows the ancestors and result together, even in a short viewport. */
+  .snapshot-library>.folder-sidebar[data-mode=folders]:has(.folder-search-toggle[aria-expanded=true]){max-height:max(25dvh,calc(88px + 3 * var(--library-row-height)))}
   .snapshot-library>.folder-sidebar>*{flex-shrink:0}
   .snapshot-library>.folder-sidebar>.folder-tree{min-height:0;flex-shrink:1}
   .snapshot-library:has(>.folder-sidebar.is-collapsed) .snapshot-list-exports{display:block}

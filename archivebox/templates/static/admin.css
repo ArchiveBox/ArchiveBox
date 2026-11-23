@@ -2241,7 +2241,7 @@ tbody .output-link:hover {opacity: 1;}
         position: relative;
         grid-area: preview;
         align-self: start;
-        justify-self: center;
+        justify-self: end;
         width: 68px !important;
         height: 42px;
     }
@@ -2291,7 +2291,7 @@ tbody .output-link:hover {opacity: 1;}
     .model-snapshot.change-list #result_list tbody td.field-tags_inline {
         display: flex;
         align-items: center;
-        gap: 0;
+        column-gap: 2px;
         margin-top: 1px;
         min-height: 22px;
     }

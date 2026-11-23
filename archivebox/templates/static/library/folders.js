@@ -887,7 +887,9 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPage(more, true);
     }, 25);
   }
-  search.addEventListener('input', searchSidebar);
+  search.addEventListener('input', () => {
+    if (sidebarQuery || search.value.trim()) searchSidebar();
+  });
   (async () => {
     const signal = pageRequests.signal;
     for (const id of folderPath) {
@@ -910,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (open) search.focus();
     else {
       search.value = '';
-      searchSidebar();
+      if (sidebarQuery) searchSidebar();
       searchToggle.focus();
     }
   }

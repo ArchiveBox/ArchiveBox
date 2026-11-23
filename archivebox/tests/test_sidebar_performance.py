@@ -236,3 +236,61 @@ def test_sidebar_domain_cursor_keeps_one_group_when_its_hosts_cross_pages(admin_
     assert not third["next"]
     for term in ("example.com", "*.example.com"):
         assert {row["name"] for row in fetch(sidebar_q=term)["choices"]} == {"example.com", "example.com:8080"}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_mobile_folder_search_keeps_tree_and_reveals_nested_results(live_server, admin_user, browser_runtime):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Folder
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    root = Folder.objects.create(name="OneTab")
+    year = Folder.objects.create(name="2025", parent=root)
+    Folder.objects.create(name="March", parent=year)
+    Folder.objects.create(name="2026", parent=root)
+
+    origin = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 390, "height": 400}, is_mobile=True, has_touch=True)
+        page.goto(f"{origin}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        sidebar = page.locator(".folder-sidebar")
+        sidebar.get_by_role("button", name="Show folders").tap()
+        tree = sidebar.locator(".folder-tree")
+        expect(tree.get_by_role("button", name="Expand OneTab")).to_be_visible()
+        root_link = tree.get_by_role("link", name="OneTab")
+        expect(root_link).to_be_in_viewport(ratio=0.5)
+        sidebar.get_by_role("button", name="Find a folder").tap()
+        box = sidebar.get_by_role("searchbox", name="Find a folder")
+        expect(box).to_be_focused()
+        expect(root_link).to_be_in_viewport(ratio=0.5)
+        original_root = root_link.element_handle()
+        box.fill("  ")
+        expect(root_link).to_be_in_viewport(ratio=0.5)
+        assert root_link.evaluate("(link, original) => link === original", original_root)
+        sidebar.get_by_role("button", name="Close sidebar search").tap()
+        assert root_link.evaluate("(link, original) => link === original", original_root)
+        sidebar.get_by_role("button", name="Find a folder").tap()
+        box.fill("202")
+        expect(tree.get_by_role("button", name="Collapse OneTab")).to_be_visible()
+        expect(tree.get_by_role("link", name="2025")).to_be_in_viewport(ratio=0.5)
+        expect(tree.get_by_role("link", name="2026")).to_be_in_viewport(ratio=0.5)
+        box.fill("March")
+        expect(tree.get_by_role("button", name="Collapse 2025")).to_be_visible()
+        leaf = tree.get_by_role("link", name="March")
+        expect(leaf).to_be_in_viewport(ratio=0.5)
+        tree.get_by_role("button", name="Collapse OneTab").tap()
+        expect(leaf).to_be_hidden()
+        sidebar.get_by_role("button", name="Close sidebar search").tap()
+        expect(tree.get_by_role("button", name="Expand OneTab")).to_be_visible()
+        expect(tree.get_by_role("link", name="2025")).to_have_count(0)
+        browser.close()
