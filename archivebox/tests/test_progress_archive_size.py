@@ -98,6 +98,12 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         )
         expect(page.locator("#metric-web .metric-text")).to_have_text(re.compile(r"^\d+ms$"))
         page.set_viewport_size({"width": 390, "height": 844})
+        # The compact strip shows only badges that fit. Details reveals the
+        # full wrapping metrics row on phones without horizontal overflow.
+        expect(estimate).to_be_hidden()
+        page.get_by_role("button", name="Details", exact=True).click()
         expect(estimate).to_be_visible()
+        expect(estimate).to_contain_text("55 GB (")
+        expect(estimate.locator("small")).to_contain_text(" free)")
         browser.close()
     cache.clear()

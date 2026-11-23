@@ -149,9 +149,9 @@ def test_full_repository_preview_normalizes_manifest_once_per_render(snapshot, c
         for (filename, _line, function), values in pstats.Stats(profile).stats.items()
         if filename.endswith("core/models.py") and function == "_normalize_output_files"
     )
-    # One normalization selects the requested output; one renders the template's
-    # manifest. Building each file URL must not revalidate all other files.
-    assert normalizations == 2, normalizations
+    # Replay selection reuses canonical metadata; only the template normalizes
+    # its manifest. Building each file URL must not revalidate all other files.
+    assert normalizations == 1, normalizations
 
     (repo / "replacement.txt").write_text("New capture bytes\n")
     result.output_files = {"README.md": {"size": 22}, "replacement.txt": {"size": 18}}
