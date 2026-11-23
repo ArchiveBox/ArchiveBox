@@ -207,6 +207,8 @@ permission_error() {
 ensure_dir "$DATA_DIR"
 ensure_dir "$CONFIG_DIR"
 ensure_dir "$DATA_DIR/logs"
+# Collection temp paths are separate from the configured runtime TMP_DIR.
+ensure_dir "$DATA_DIR/tmp"
 ensure_dir "$DATA_DIR/sources"
 ensure_dir "$DATA_DIR/archive"
 ensure_dir "$DATA_DIR/archive/users"
