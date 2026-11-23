@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from io import BytesIO
 
 import pytest
@@ -89,6 +90,7 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             "SENTRY_ENABLE_LOGS=True",
             "SENTRY_ENABLE_METRICS=True",
             "SENTRY_TRACES_SAMPLE_RATE=1",
+            "SENTRY_PROFILE_SESSION_SAMPLE_RATE=1",
         ],
         cwd=initialized_archive,
         env=env,
@@ -102,8 +104,57 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
         assert "bundle.tracing.replay" not in response.text
         assert "replaysOnErrorSampleRate: 0" in response.text
         assert "&lt;script" not in response.text
+        # Continuous profiling publishes native 60-second chunks. Keep a real
+        # request workload alive through that interval instead of altering SDK
+        # internals or forcing a test-only profiler flush.
+        deadline = time.monotonic() + 65
+        while time.monotonic() < deadline:
+            response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/", headers={"Host": "localhost"}, timeout=10)
+            assert response.status_code == 200
+            time.sleep(1)
     finally:
         stop_archivebox_process(server)
+    # A plugin-owned head template must not take down the host's login page.
+    head_template = initialized_archive / "custom_templates" / "sentry" / "head.html"
+    head_template.parent.mkdir(parents=True, exist_ok=True)
+    head_template.write_text("{% sentry_head_invalid_tag %}")
+    server = start_archivebox_server(
+        initialized_archive,
+        port=free_tcp_port,
+        env={"DEBUG": "False"},
+        log_name="sentry-head-server.log",
+    )
+    try:
+        response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/", headers={"Host": "localhost"}, timeout=10)
+        assert response.status_code == 200
+        assert "sentry-config" not in response.text
+    finally:
+        stop_archivebox_process(server)
+        head_template.unlink()
+    crawl_check = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            """
+import asyncio
+from django.contrib.auth import get_user_model
+from archivebox.crawls.models import Crawl
+from archivebox.personas.models import Persona
+from archivebox.services.runner import CrawlRunner
+
+user, _ = get_user_model().objects.get_or_create(username='sentry-acceptance')
+for enabled, expected in [(False, 0), (True, 1)]:
+    persona = Persona.objects.create(name=f'sentry-{enabled}', config={'SENTRY_ENABLED': enabled})
+    crawl = Crawl.objects.create(urls='', created_by=user, persona=persona)
+    runner = CrawlRunner(crawl, show_progress=False, wait_for_resources=False)
+    asyncio.run(runner.run())
+    assert len(runner.bus.middlewares) == expected, (enabled, runner.bus.middlewares)
+""",
+        ],
+        cwd=initialized_archive,
+    )
+    assert crawl_check.returncode == 0, crawl_check.stdout + crawl_check.stderr
     # A broken custom template is a real request-time failure in a supported
     # collection customization, not a test-only view or fabricated exception.
     template = initialized_archive / "custom_templates" / "admin" / "login.html"
@@ -121,6 +172,8 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             "assert client.options['include_local_variables'] is False; "
             "assert client.options['max_request_body_size'] == 'never'; "
             "assert client.options['enable_metrics'] is True; "
+            "assert client.options['profile_session_sample_rate'] == 1; "
+            "assert client.options['profile_lifecycle'] == 'trace'; "
             "logging.getLogger('archivebox.sentry_test').warning('Sentry breadcrumb acceptance'); "
             "logging.getLogger('archivebox.sentry_test').error('Sentry logging acceptance'); "
             "sentry_sdk.flush(timeout=10); print('SENTRY_ENABLED_OK')",
@@ -168,7 +221,10 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
     assert logged["environment"] == "plugin-test"
     assert logged["release"] == "plugin-test@1"
     assert any(crumb["message"] == "Sentry breadcrumb acceptance" for crumb in logged["breadcrumbs"]["values"])
-    failure = next(event for event in events if event.get("exception"))
+    head_failure = next(event for event in events if event.get("logger") == "archivebox.core.templatetags.core_tags")
+    assert head_failure["logentry"]["formatted"] == "Unable to render plugin page head: abx_plugins.plugins.sentry"
+    assert head_failure["exception"]["values"][-1]["type"] == "TemplateSyntaxError"
+    failure = next(event for event in events if "sentry_acceptance_invalid_tag" in str(event.get("exception", "")))
     assert failure["exception"]["values"][-1]["type"] == "TemplateSyntaxError"
     assert failure["request"]["url"].endswith("/admin/login/")
     assert failure["request"]["data"] == ""
@@ -186,3 +242,7 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
     metrics = [item for kind, payload in items if kind == "trace_metric" for item in payload["items"]]
     assert any(item["name"] == "archivebox.spans" for item in metrics)
     assert any(item["name"] == "archivebox.span.duration" for item in metrics)
+    profiles = [payload for kind, payload in items if kind == "profile_chunk"]
+    assert profiles
+    assert any(profile["profile"]["samples"] for profile in profiles)
+    assert any("archivebox" in frame.get("module", "") for profile in profiles for frame in profile["profile"]["frames"])

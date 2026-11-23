@@ -51,15 +51,20 @@ def plugin_page_head(context):
     """Let registered plugin apps contribute enabled UI integrations."""
     from django.apps import apps
     from django.utils.html import format_html_join
-    from archivebox.config.common import get_config
+    from archivebox.config.common import get_config, get_request_config
 
     request = context.get("request")
-    config = get_config().model_dump(mode="json")
-    return format_html_join(
-        "\n",
-        "{}",
-        ((app.render_page_head(request, config),) for app in apps.get_app_configs() if callable(getattr(app, "render_page_head", None))),
-    )
+    config = (get_request_config(request, resolve_plugins=True) if request is not None else get_config()).model_dump(mode="json")
+    fragments = []
+    for app in apps.get_app_configs():
+        render = getattr(app, "render_page_head", None)
+        if not callable(render):
+            continue
+        try:
+            fragments.append((render(request, config),))
+        except Exception:
+            logging.getLogger(__name__).exception("Unable to render plugin page head: %s", app.name)
+    return format_html_join("\n", "{}", fragments)
 
 
 _INITIAL_GRAPHEME = regex.compile(r"\X")

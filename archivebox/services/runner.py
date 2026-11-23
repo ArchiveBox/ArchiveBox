@@ -208,15 +208,12 @@ class CrawlRunner:
         wait_for_resources: bool = True,
         claimed_snapshot: tuple[str, str, datetime] | None = None,
     ):
-        from archivebox.config.common import get_config
-
         self.crawl = crawl
         self.catalog = get_plugin_catalog()
         self.bus = create_bus(
             name=_bus_name("ArchiveBox", str(crawl.id)),
             total_timeout=3600.0,
         )
-        register_plugin_eventbus(self.bus, get_config(include_machine=False).model_dump(mode="json"))
         self.process_service = HookProcessService(
             self.bus,
             emit_jsonl=False,
@@ -488,6 +485,7 @@ class CrawlRunner:
                 self._initial_snapshot_admitted = True
                 run_state_loaded = True
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
+                register_plugin_eventbus(self.bus, normalize_runtime_config(self.base_config))
                 # Reuse the cost this process already learned even when a limit
                 # is configured: the limit caps concurrency, it is not a reason
                 # to re-measure. Otherwise every crawl start (switch, restart,
