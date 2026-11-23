@@ -199,6 +199,9 @@
       }
 
       var listUrl = buildListUrl();
+      // Layout navigation must use the submitted query even while the old
+      // toolbar is still displayed and streamed results are in flight.
+      history.replaceState(null, "", listUrl);
       var streamUrl = new URL("{% url 'admin:core_snapshot_search_stream' %}", window.location.href);
       streamUrl.searchParams.set("q", query);
       streamUrl.searchParams.set("search_mode", mode);

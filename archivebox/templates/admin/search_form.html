@@ -12,7 +12,7 @@
         id="snapshot-view-toggle"
         aria-label="{% translate 'Switch to list view' %}"
         title="{% translate 'Switch to list view' %}"
-        onclick="window.location.href='{% url 'admin:core_snapshot_changelist' %}{% querystring cl.filter_params p=cl.page_num %}'"
+        onclick="return selectSnapshotListView(event)"
       ><span class="snapshot-view-icon snapshot-view-icon-list" aria-hidden="true"><span></span><span></span><span></span></span></button>
     {% else %}
       <button
@@ -21,7 +21,7 @@
         id="snapshot-view-toggle"
         aria-label="{% translate 'Switch to grid view' %}"
         title="{% translate 'Switch to grid view' %}"
-        onclick="window.location.href='{% url 'admin:grid' %}{% querystring cl.filter_params p=cl.page_num %}'"
+        onclick="return selectSnapshotGridView(event)"
       ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
     {% endif %}
 {% endif %}
