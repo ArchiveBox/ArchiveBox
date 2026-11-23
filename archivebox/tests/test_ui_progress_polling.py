@@ -8,6 +8,17 @@ import pytest
 from playwright.sync_api import expect, sync_playwright
 
 
+@pytest.fixture(autouse=True)
+def isolate_progress_samples():
+    from django.core.cache import cache
+
+    # Transactional tests replace the collection's rows, but Django's process
+    # cache otherwise retains header samples from the previous collection.
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.mark.django_db(transaction=True)
 def test_offscreen_progress_backs_off_and_resumes(admin_user, live_server, browser_runtime):
     from archivebox.machine.models import Machine
