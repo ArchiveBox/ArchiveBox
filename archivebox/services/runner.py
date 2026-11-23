@@ -44,7 +44,7 @@ from abx_dl.models import Snapshot as AbxSnapshot
 from abx_dl.orchestrator import (
     compute_install_phase_timeout,
     compute_phase_timeout,
-    create_bus,
+    create_bus as create_downloader_bus,
     get_install_plugins,
     parse_input,
 )
@@ -131,6 +131,18 @@ def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: st
         label = str(crawl_id)
     line.append(_runner_label(label, reserve=prefix_width))
     Console(highlight=False).print(line)
+
+
+def create_bus(*, config: ArchiveBoxBaseConfig | dict[str, Any] | None = None, **kwargs: Any) -> EventBus:
+    """Create an ArchiveBox bus and register apps with resolved operation config.
+
+    CrawlRunner defers registration until its asynchronous startup has resolved
+    crawl state. Passing None creates that bus without registering apps yet.
+    """
+    bus = create_downloader_bus(**kwargs)
+    if config is not None:
+        register_plugin_eventbus(bus, normalize_runtime_config(config))
+    return bus
 
 
 def _count_selected_hooks(catalog: PluginCatalog, selected_plugins: list[str] | None) -> int:
@@ -1658,8 +1670,8 @@ async def _run_binary(binary_id: str) -> None:
     bus = create_bus(
         name=_bus_name("ArchiveBox_binary", str(binary.id)),
         total_timeout=1800.0,
+        config=config,
     )
-    register_plugin_eventbus(bus, config)
     process_service = PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
@@ -2094,8 +2106,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
-    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
-    register_plugin_eventbus(bus, config)
+    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0, config=config)
     PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus)

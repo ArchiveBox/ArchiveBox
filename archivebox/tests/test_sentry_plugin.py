@@ -44,8 +44,8 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
             "shell",
             "-c",
             "import sys, asyncio; from django.apps import apps; from django.conf import settings; "
-            "from abx_dl.orchestrator import create_bus; from archivebox.plugins.discovery import register_plugin_eventbus; "
-            "bus = create_bus(); register_plugin_eventbus(bus, settings.CONFIG.model_dump(mode='json')); "
+            "from archivebox.services.runner import create_bus; "
+            "bus = create_bus(config=settings.CONFIG); "
             "assert not bus.middlewares; asyncio.run(bus.destroy()); "
             "assert apps.get_app_config('abx_sentry').name == 'abx_plugins.plugins.sentry'; "
             "assert 'abx_plugins.plugins.sentry.runtime' not in sys.modules; "
