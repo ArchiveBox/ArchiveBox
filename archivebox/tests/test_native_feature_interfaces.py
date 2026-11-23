@@ -187,8 +187,9 @@ def test_importer_ui_api_tables_and_private_access(admin_client, client, api_hea
         (admin_client, "/admin/importers/export.csv", {"HTTP_HOST": ADMIN_TEST_HOST}),
     ]:
         response = http_client.get(url, **headers)
-        assert response.status_code == 200, response.content
-        rows = list(csv.DictReader(io.StringIO(response.content.decode())))
+        assert response.status_code == 200
+        assert response.streaming
+        rows = list(csv.DictReader(io.StringIO(response.getvalue().decode())))
         assert rows[0]["id"] == source["id"] and rows[0]["name"] == data["name"]
         assert json.loads(rows[0]["settings"]) == data["settings"]
         assert "no-store" in response["Cache-Control"]
