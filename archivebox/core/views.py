@@ -24,7 +24,8 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.db.models import Case, Q, When
+from django.db.models import Case, F, Q, When
+from django.db.models.fields.json import HasKey, KeyTransform
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
@@ -840,6 +841,8 @@ def _safe_archive_relpath(path: str) -> str | None:
 def _resolve_archiveresult_relpath(
     snapshot: Snapshot,
     rel_path: str,
+    *,
+    include_all_files: bool = False,
 ) -> tuple[str, ArchiveResult | None, tuple[str, ...]]:
     """Resolve a declared output path and its exact historical fallbacks."""
     parts = Path(rel_path).parts
@@ -848,12 +851,35 @@ def _resolve_archiveresult_relpath(
 
     plugin = parts[0]
     plugin_relpath = posixpath.join(*parts[1:])
+    from archivebox.core.list_results_util import _LinkManifest
+    from archivebox.plugins.discovery import plugin_output_is_text
+
+    results_query = ArchiveResult.objects.filter(
+        snapshot=snapshot,
+        plugin=plugin,
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+    )
+    # Reuse the list-page projection: explicit primary outputs need only their
+    # own metadata. Include both requested keys to preserve legacy precedence.
+    # Text outputs and rows without a declared primary still need the complete
+    # manifest for the normal fallback selector.
+    # SQLite's Django key transform treats integer keys as array indices and
+    # cannot address quoted object keys on all supported SQLite versions.
+    project_manifest = (
+        not include_all_files
+        and not plugin_output_is_text(plugin)
+        and not (connection.vendor == "sqlite" and ('"' in plugin_relpath or plugin_relpath.strip().lstrip("+-").isdigit()))
+    )
+    if project_manifest:
+        results_query = results_query.annotate(
+            _replay_primary_files=_LinkManifest("output_files", "plugin", "output_str"),
+            _replay_requested_file=KeyTransform(plugin_relpath, "output_files"),
+            _replay_prefixed_file=KeyTransform(rel_path, "output_files"),
+            _replay_requested_present=HasKey(F("output_files"), plugin_relpath),
+            _replay_prefixed_present=HasKey(F("output_files"), rel_path),
+        )
     results = list(
-        ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=plugin,
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-        ).only("plugin", "output_str", "output_files"),
+        results_query.only("plugin", "output_str", *(() if project_manifest else ("output_files",))),
     )
     if not results:
         from archivebox.plugins.discovery import get_plugin_default_output_path
@@ -864,7 +890,32 @@ def _resolve_archiveresult_relpath(
     declared_paths: list[tuple[str, ArchiveResult]] = []
     historical_fallbacks: list[str] = []
     for result in results:
-        output_files = result.output_file_map()
+        if project_manifest:
+            output_files = json.loads(result._replay_primary_files)
+            if isinstance(output_files, dict):
+                for key, metadata, present in (
+                    (plugin_relpath, result._replay_requested_file, result._replay_requested_present),
+                    (rel_path, result._replay_prefixed_file, result._replay_prefixed_present),
+                ):
+                    if present:
+                        output_files[key] = metadata
+        else:
+            output_files = result.output_files
+        # Canonical metadata was validated when the hook published it. Reading
+        # it must not construct/dump a Pydantic model for every captured asset.
+        # Keep normalization for older path lists and incomplete metadata.
+        if not (
+            isinstance(output_files, dict)
+            and all(
+                isinstance(metadata, dict)
+                and isinstance(metadata.get("extension"), str)
+                and isinstance(metadata.get("mimetype"), str)
+                and type(metadata.get("size")) is int
+                and "path" not in metadata
+                for metadata in output_files.values()
+            )
+        ):
+            output_files = ArchiveResult._normalize_output_files(output_files)
         # Replay path selection and primary-output headers share this read-only row.
         result._render_output_file_map = output_files
         for candidate in (plugin_relpath, rel_path):
@@ -1236,7 +1287,11 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     if rel_path is None:
         raise Http404
 
-    rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(snapshot, rel_path)
+    rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(
+        snapshot,
+        rel_path,
+        include_all_files=bool(request.GET.get("preview")),
+    )
     # The completed hashes result is the seal marker. Its DB revision avoids
     # stat/read of hashes.json on every replay asset and WACZ range request.
     hashes_result = (
