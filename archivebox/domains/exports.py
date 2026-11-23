@@ -16,6 +16,7 @@ from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.misc.logging_util import printable_filesize
 from abx_plugins.plugins.base.html import Resources
 from archivebox.plugins.discovery import (
+    get_file_preview_providers,
     get_snapshot_replay_asset_providers,
     get_snapshot_role_paths,
     read_replay_assets,
@@ -147,12 +148,15 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
             reported_at = now
 
     providers = tuple(get_snapshot_replay_asset_providers())
+    file_players = get_file_preview_providers()
+    player_files = {}
     asset_cache = {}
-    for index, (_, root, relative_root) in enumerate(sources):
+    for index, (snapshot_id, root, relative_root) in enumerate(sources):
         if relative_root.is_absolute() or ".." in relative_root.parts:
             raise ValueError("Snapshot files must be inside the collection archive.")
         target_root = destination / relative_root
         target_root.mkdir(parents=True, exist_ok=True)
+        player_files[snapshot_id] = {}
         matched = {}
         # Include complete saved plugin output trees, including Git dotfiles.
         # Never follow directory links or file links outside the snapshot.
@@ -171,15 +175,21 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
                     while chunk := original.read(1024 * 1024):
                         report_bytes(len(chunk))
                         copied.write(chunk)
-                if len(matched) < len(providers):
-                    for provider, matches, paths in providers:
-                        if provider not in matched and matches(relative.as_posix()):
+                path = relative.as_posix()
+                if provider := file_players.get(source.suffix.lower()):
+                    player_files[snapshot_id][path] = provider
+                    continue
+                for provider, matches, paths in providers:
+                    if matches(path):
+                        player_files[snapshot_id][path] = provider
+                        if paths:
                             matched[provider] = paths
+                        break
         for provider, paths in matched.items():
             if provider not in asset_cache:
                 asset_cache[provider] = read_replay_assets(get_config(), provider, paths)
             for name, data in asset_cache[provider].items():
-                target = target_root / name
+                target = target_root / "_archivebox" / "viewers" / provider / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 report_bytes(len(data))
                 with target.open("xb") as asset:
@@ -195,7 +205,9 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     # The collection index and details are the same renderers used by the CLI
     # and live snapshot UI; only their destination and relative URLs differ.
     queryset = Snapshot.objects.filter(pk__in=archive_paths).prefetch_related("tags", "archiveresult_set")
-    (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews, snapshot_order=archive_paths))
+    (destination / "index.html").write_text(
+        queryset.to_html(out_dir=destination, preview_paths=previews, player_files=player_files, snapshot_order=archive_paths),
+    )
     (destination / "pages.json").write_text(json.dumps([{"url": page_url, "path": links[key]} for _, page_url, _, _, key in pages]))
     final_size = sum(path.stat().st_size for path in destination.rglob("*") if path.is_file())
     report_bytes(final_size - size)

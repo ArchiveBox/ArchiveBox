@@ -28,7 +28,8 @@ def test_wacz_preview_uses_served_mount_and_portable_replay_base(snapshot, clien
     machine.config = {**machine.config, "BASE_URL": "http://archivebox.localhost:8000", "SERVER_SECURITY_MODE": mode}
     machine.save(update_fields=["config"])
     snapshot.permissions = "public"
-    snapshot.save(update_fields=["permissions"])
+    snapshot.url = "http://localhost:20000/"
+    snapshot.save(update_fields=["permissions", "url"])
     fixture = Path(__file__).parent / "fixtures/memento/iframetest.wacz"
     output = snapshot.output_dir / "legacy-capture.wacz"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -53,14 +54,16 @@ def test_wacz_preview_uses_served_mount_and_portable_replay_base(snapshot, clien
     root = destination / snapshot.static_archive_path
     viewers = list((root / "_archivebox").glob("*-full.html"))
     assert len(viewers) == 1
-    assert '<script src="../replay/ui.js"></script>' in viewers[0].read_text()
-    assert (viewers[0].parent / "../replay/ui.js").resolve().is_file()
+    replay_script = "viewers/archivewebpage/replay/ui.js"
+    assert f'<script src="{replay_script}"></script>' in viewers[0].read_text()
+    assert (viewers[0].parent / replay_script).is_file()
     assert (root / output.name).read_bytes() == fixture.read_bytes() == output.read_bytes()
 
 
 @pytest.mark.django_db(transaction=True)
 def test_html_export_matches_loose_recordings_during_copy(snapshot, browser_runtime, tmp_path):
     from zipfile import ZipFile
+    from lxml import html
     from abx_plugins import get_plugins_dir
     from django.core.management import call_command
     from archivebox.tests.conftest import resolve_abxpkg_binary_env
@@ -71,17 +74,29 @@ def test_html_export_matches_loose_recordings_during_copy(snapshot, browser_runt
     (directory / "notes.warc.gz.txt").write_text("notes")
     plain = tmp_path / "plain"
     call_command("site_export", query=f"id__in={snapshot.pk}", format="html", destination=str(plain))
-    assert not (plain / snapshot.static_archive_path / "replay").exists()
+    assert not (plain / snapshot.static_archive_path / "_archivebox/viewers").exists()
+    assert not (plain / "_archivebox/viewers").exists()
 
     with ZipFile(Path(__file__).parent / "fixtures/memento/iframetest.wacz") as fixture:
         recording = fixture.read("archive/data.warc.gz")
     (directory / "page.WARC.GZ").write_bytes(recording)
+    original_script = snapshot.output_dir / "replay/ui.js"
+    original_script.parent.mkdir()
+    original_script.write_text("// saved script")
     portable = tmp_path / "portable"
     call_command("site_export", query=f"id__in={snapshot.pk}", format="html", destination=str(portable))
     root = portable / snapshot.static_archive_path
     assert (root / "legacy/recordings/page.WARC.GZ").read_bytes() == recording
-    assert (root / "replay/ui.js").stat().st_size > 0
-    assert (root / "replay/sw.js").stat().st_size > 0
+    assert (root / "replay/ui.js").read_bytes() == original_script.read_bytes()
+    player = root / "_archivebox/viewers/archivewebpage/replay"
+    assert (player / "ui.js").stat().st_size > 0
+    assert (player / "sw.js").stat().st_size > 0
+    (viewer,) = (root / "_archivebox").glob("*-full.html")
+    assert "../legacy/recordings/page.WARC.GZ" in viewer.read_text()
+    assert f"../../_archivebox/{viewer.name}" in (root / "legacy/recordings/index.html").read_text()
+    details = html.fromstring((root / "index.html").read_bytes())
+    (href,) = details.xpath('//div[@class="loose-items"]/a[contains(., "page.WARC.GZ")]/@href')
+    assert (root / href).resolve() == viewer
 
 
 @pytest.mark.django_db(transaction=True)

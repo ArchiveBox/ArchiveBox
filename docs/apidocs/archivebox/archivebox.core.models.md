@@ -823,7 +823,7 @@ Bases: {py:obj}`archivebox.base_models.models.PagedQuerySet`
 
 ````
 
-````{py:method} to_html(with_headers: bool = True, *, out_dir: pathlib.Path | None = None, preview_paths: dict | None = None) -> str
+````{py:method} to_html(with_headers: bool = True, *, out_dir: pathlib.Path | None = None, preview_paths: dict | None = None, player_files: dict | None = None, snapshot_order=None) -> str
 :canonical: archivebox.core.models.SnapshotQuerySet.to_html
 
 ```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.to_html
@@ -2314,7 +2314,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} write_html_details(out_dir: pathlib.Path | str | None = None, *, export_root: pathlib.Path | None = None, exported_ids: set[str] | None = None, preview_paths: dict | None = None) -> None
+````{py:method} write_html_details(out_dir: pathlib.Path | str | None = None, *, export_root: pathlib.Path | None = None, exported_ids: set[str] | None = None, preview_paths: dict | None = None, player_files: dict[str, str] | None = None) -> None
 :canonical: archivebox.core.models.Snapshot.write_html_details
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.write_html_details

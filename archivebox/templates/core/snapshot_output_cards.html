@@ -65,7 +65,7 @@
                                         {% if item.is_dir %}
                                             <a href="{% snapshot_files_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
-                                            <a href="{% snapshot_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
+                                            <a href="{% snapshot_url snapshot item.preview_path|default:item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
                                     {% empty %}
                                         <a href="{% snapshot_files_url snapshot %}" target="preview">📁 Browse all files</a>

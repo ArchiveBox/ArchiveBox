@@ -1189,6 +1189,7 @@ class SnapshotQuerySet(PagedQuerySet):
         *,
         out_dir: Path | None = None,
         preview_paths: dict | None = None,
+        player_files: dict | None = None,
         snapshot_order=None,
     ) -> str:
         """Generate main index HTML from snapshots"""
@@ -1229,6 +1230,7 @@ class SnapshotQuerySet(PagedQuerySet):
                 export_root=export_root if out_dir is not None else None,
                 exported_ids=exported_ids,
                 preview_paths=(preview_paths or {}).get(str(snapshot.pk), {}),
+                player_files=(player_files or {}).get(snapshot.pk),
             )
             if with_headers:
                 # Use the same portable schema as the JSON export. Rendering
@@ -5029,6 +5031,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         export_root: Path | None = None,
         exported_ids: set[str] | None = None,
         preview_paths: dict | None = None,
+        player_files: dict[str, str] | None = None,
     ) -> None:
         """Write the unified snapshot detail page with portable filesystem URLs."""
         from django.template.loader import render_to_string
@@ -5055,7 +5058,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     year["latest"] = year["snapshots"][0]
             manifest = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
             manifest.write_text(to_json(self.to_dict(extended=True, static_export=True), indent=None) + "\n")
-            write_static_plugin_previews(context)
+            write_static_plugin_previews(context, player_files=player_files)
         rendered_html = render_to_string("core/snapshot.html", context)
         atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 

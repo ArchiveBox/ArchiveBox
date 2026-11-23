@@ -16,10 +16,12 @@ from playwright.sync_api import expect, sync_playwright
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("extension", ["glb", "gltf"])
 def test_model_directory_preview_orbit_download_and_saved_sidecars(snapshot, live_server, browser_runtime, extension, tmp_path):
+    from abx_plugins import get_plugins_dir
     from django.core.management import call_command
     from archivebox.core.models import ArchiveResult
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
+    from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
     port = urlsplit(live_server.url).port
     machine = Machine.current()
@@ -40,11 +42,19 @@ def test_model_directory_preview_orbit_download_and_saved_sidecars(snapshot, liv
         output_str=f"models/Box.{extension}",
         output_files={f"models/{file.name}": {"size": file.stat().st_size} for file in root.iterdir()},
     )
+    loose = snapshot.output_dir / "legacy" / "unindexed"
+    shutil.copytree(root, loose)
+    resolve_abxpkg_binary_env(browser_runtime["lib_dir"], deps_from=Path(get_plugins_dir()) / "archivewebpage/config.json")
+    shutil.copyfile(Path(__file__).parent / "fixtures/memento/iframetest.wacz", loose / "capture.wacz")
     destination = tmp_path / "export"
     call_command("site_export", query=f"id__exact={snapshot.pk}", public_only=True, format="html_zip", destination=str(destination))
     extracted = tmp_path / "extracted"
     with zipfile.ZipFile(destination / "site.zip") as archive:
         archive.extractall(extracted)
+    loose_export = extracted / snapshot.static_archive_path / "legacy/unindexed"
+    assert (loose_export / "index.html").is_file()
+    assert len(list(extracted.rglob("three.bundle.js"))) == 1
+    assert (extracted / snapshot.static_archive_path / "_archivebox/viewers/archivewebpage/replay/sw.js").is_file()
     exported = extracted / snapshot.static_archive_path / "staticfile/models"
     assert (exported / f"Box.{extension}").read_bytes() == original
     with sync_playwright() as playwright:
@@ -93,6 +103,9 @@ def test_model_directory_preview_orbit_download_and_saved_sidecars(snapshot, liv
             page.goto(f"http://127.0.0.1:{server.server_port}/{snapshot.static_archive_path}/staticfile/models/")
             page.locator(".directory-link").filter(has_text=f"Box.{extension}").click()
             expect(canvas).to_have_attribute("data-state", "ready")
+            expect(canvas).to_have_attribute("data-rendered-triangles", "12")
+            page.goto(f"http://127.0.0.1:{server.server_port}/{snapshot.static_archive_path}/legacy/unindexed/")
+            page.locator(".directory-link").filter(has_text=f"Box.{extension}").click()
             expect(canvas).to_have_attribute("data-rendered-triangles", "12")
             assert all(urlsplit(url).netloc == f"127.0.0.1:{server.server_port}" for url in requests)
         finally:

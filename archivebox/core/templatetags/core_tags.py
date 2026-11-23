@@ -1205,7 +1205,7 @@ def write_static_ui_assets(export_root):
     shutil.copytree(fonts, target / "fonts/open-sans", dirs_exist_ok=True)
 
 
-def write_static_plugin_previews(context):
+def write_static_plugin_previews(context, *, player_files: dict[str, str] | None = None):
     """Materialize existing output viewers beside unchanged saved files."""
     from django.template.loader import render_to_string
     from archivebox.misc.serve_static import (
@@ -1237,6 +1237,7 @@ def write_static_plugin_previews(context):
         previews[path] = name
 
     preview_directories = set()
+    full_paths = set()
     files = {}
     for output in context["archiveresults"]:
         result = output.get("result")
@@ -1246,18 +1247,23 @@ def write_static_plugin_previews(context):
                     files[relative] = directory / relative
         if path := output.get("path"):
             files[str(path)] = directory / str(path)
+    player_files = player_files or {}
+    loose_players = {path: directory / path for path in sorted(player_files) if path not in files}
+    files.update(loose_players)
+    loose_items = {item["path"]: item for item in context["loose_items"]}
     for path, source in files.items():
         if path in previews or not source.resolve().is_relative_to(directory.resolve()) or not source.is_file():
             continue
         output_url = "../" + quote(path, safe=_STATIC_URL_SAFE)
         mime = mimetypes.guess_type(source.name)[0] or ""
         document = ""
+        kind = "file"
         if provider := get_file_preview_providers().get(source.suffix.lower()):
             from archivebox.config.common import get_config
             from archivebox.plugins.discovery import get_replay_asset_bundle, read_replay_assets
 
             asset_root = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "viewers" / provider
-            if not asset_root.exists():
+            if not asset_root.exists() and "file-preview" in get_plugin_catalog()[provider].manifest.get("replay_assets", {}):
                 _, paths = get_replay_asset_bundle("file-preview", provider=provider)
                 for asset_path, data in read_replay_assets(context.get("CONFIG") or get_config(), provider, paths).items():
                     target = asset_root / asset_path
@@ -1265,10 +1271,19 @@ def write_static_plugin_previews(context):
                     target.write_bytes(data)
             replay_base = quote(os.path.relpath(asset_root / "replay", generated), safe=_STATIC_URL_SAFE) + "/"
             document = render_plugin_file_preview(provider, source.name, output_url, replay_base=replay_base)
-            parent = source.parent
-            while parent != directory:
-                preview_directories.add(parent)
-                parent = parent.parent
+        elif path in player_files:
+            replay_provider = player_files[path]
+            response = render_plugin_full_response(
+                source.name,
+                output_url,
+                provider=replay_provider,
+                fallback_url=snapshot.url,
+                replay_base=f"viewers/{quote(replay_provider, safe='')}/replay/",
+            )
+            if response is not None:
+                document = response[0]
+                kind = "full"
+                full_paths.add(path)
         elif source.suffix.lower() == ".zip":
             document = render_to_string(
                 "static/zip_index.html",
@@ -1285,7 +1300,17 @@ def write_static_plugin_previews(context):
         elif source.suffix.lower() in _IMAGE_PREVIEW_EXTS:
             document = _render_image_preview_document(output_url, source.name)
         if document:
-            save(path, document, "file")
+            save(path, document, kind)
+            if path in loose_players or path in loose_items:
+                item = loose_items.setdefault(path, {"path": path, "name": path, "size": source.stat().st_size})
+                item["preview_path"] = previews[path]
+            if provider or path in player_files:
+                parent = source.parent
+                while parent != directory:
+                    preview_directories.add(parent)
+                    parent = parent.parent
+
+    context["loose_items"] = list(loose_items.values())
 
     # Materialize the same native browser, preserving any original index page.
     for folder in sorted(preview_directories):
@@ -1298,7 +1323,6 @@ def write_static_plugin_previews(context):
             font_url = quote(os.path.relpath(stylesheet, folder), safe=_STATIC_URL_SAFE)
             index.write_text(response.content.decode().replace(static("typography.css"), font_url))
 
-    full_paths = set()
     for output in context["archiveresults"]:
         path = str(output.get("path") or "")
         if path in full_paths:

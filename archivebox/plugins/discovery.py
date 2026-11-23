@@ -317,12 +317,13 @@ def get_replay_asset_bundle(format: str, provider: str | None = None) -> tuple[s
 def get_snapshot_replay_asset_providers():
     """Yield each plugin's path matcher and the assets it serves beside a matching snapshot."""
     for name, plugin in sorted(get_plugin_catalog().items()):
-        bundles = plugin.manifest.get("replay_assets", {})
-        if bundles:
-            matches = getattr(get_plugin_presentation_module(name), "is_replay_target", None)
-            if callable(matches):
-                paths = tuple(dict.fromkeys(path for bundle in bundles.values() for path in bundle))
-                yield name, matches, paths
+        matches = getattr(get_plugin_presentation_module(name), "is_replay_target", None)
+        if callable(matches):
+            bundles = plugin.manifest.get("replay_assets", {})
+            # File-preview assets are shared at the export root. Replay workers
+            # live beside the snapshot whose files they serve.
+            paths = tuple(dict.fromkeys(path for kind, bundle in bundles.items() if kind != "file-preview" for path in bundle))
+            yield name, matches, paths
 
 
 def read_replay_assets(config, provider: str, paths: tuple[str, ...]) -> dict[str, bytes]:
@@ -592,9 +593,10 @@ def add_replay_document_metadata(document: str, original_url: str) -> str:
     return "".join(chunks)
 
 
-def render_plugin_full_response(path: str, output_url: str, **kwargs):
+def render_plugin_full_response(path: str, output_url: str, *, provider: str | None = None, **kwargs):
     """Let plugin presentation hooks render a saved output's full template."""
-    for module in get_plugin_presentation_modules():
+    modules = (get_plugin_presentation_module(provider),) if provider else get_plugin_presentation_modules()
+    for module in modules:
         render = getattr(module, "render_full_response", None)
         if render is not None and (response := render(path, output_url, **kwargs)) is not None:
             body, content_type, headers = response

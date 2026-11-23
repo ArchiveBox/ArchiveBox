@@ -546,7 +546,7 @@ Bases: {py:obj}`typing.TypedDict`
 ```
 ````
 
-````{py:function} render_plugin_full_response(path: str, output_url: str, **kwargs)
+````{py:function} render_plugin_full_response(path: str, output_url: str, *, provider: str | None = None, **kwargs)
 :canonical: archivebox.plugins.discovery.render_plugin_full_response
 
 ```{autodoc2-docstring} archivebox.plugins.discovery.render_plugin_full_response

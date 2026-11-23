@@ -852,7 +852,7 @@ Bases: {py:obj}`html.parser.HTMLParser`
 ```
 ````
 
-````{py:function} write_static_plugin_previews(context)
+````{py:function} write_static_plugin_previews(context, *, player_files: dict[str, str] | None = None)
 :canonical: archivebox.core.templatetags.core_tags.write_static_plugin_previews
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.write_static_plugin_previews
