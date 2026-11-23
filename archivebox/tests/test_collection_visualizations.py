@@ -49,3 +49,31 @@ def test_visualizations_are_registered_private_and_self_contained(admin_client):
     # Unrelated host interfaces are absent when this collection has no captures running.
     assert telemetry.json()["interfaces"] == []
     assert all(interface["rx"] >= 0 and interface["tx"] >= 0 for interface in telemetry.json()["interfaces"])
+
+
+def test_graph_stream_counts_every_capture_once(admin_client, crawl):
+    parent = Snapshot.objects.create(crawl=crawl, url="https://news.google.co.uk/stream")
+    Snapshot.objects.create(crawl=crawl, url="https://amazon.com/stream", parent_snapshot=parent)
+    response = admin_client.get("/admin/graph/data/", {"scan": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["sampled"] == 2
+    assert sum(node["count"] for node in data["nodes"]) == 2
+    assert data["cursor"] is None
+    assert {"source": "google.co.uk", "target": "amazon.com", "value": 1} in data["links"]
+    assert admin_client.get("/admin/graph/data/?scan=1&after=bad", HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+
+
+def test_graph_uses_saved_links_between_archived_urls(admin_client, crawl):
+    import json
+
+    source = Snapshot.objects.create(crawl=crawl, url="https://news.google.co.uk/article")
+    Snapshot.objects.create(crawl=crawl, url="https://amazon.com/linked")
+    directory = source.get_storage_path_for_version(source.fs_version) / "parse_dom_outlinks"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "urls.jsonl").write_text(json.dumps({"url": "https://amazon.com/linked"}) + "\n")
+    response = admin_client.get("/admin/graph/data/", {"scan": "links"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200, response.content
+    assert response.json()["sampled"] == 2
+    assert response.json()["links"] == [{"source": "google.co.uk", "target": "amazon.com", "value": 1}]
+    assert admin_client.get("/admin/graph/data/?scan=links&after=bad", HTTP_HOST=ADMIN_TEST_HOST).status_code == 400

@@ -1,6 +1,7 @@
 """ArchiveBox data and request operations supplied to plugin web integrations."""
 
 from io import BytesIO
+from pathlib import Path
 from uuid import UUID
 
 
@@ -204,6 +205,89 @@ class ArchiveBoxHost:
         user = self.authenticate(request)
         if not user or not user.is_active or not user.is_superuser:
             raise PermissionDenied
+
+    def outlink_records(self, request, *, after=None, limit=32):
+        """Keyset-page captures and the registered saved-outlink paths."""
+        from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
+        from archivebox.core.models import Snapshot
+        from archivebox.plugins.discovery import get_plugin_catalog
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 32)
+        paths = [
+            str(Path(plugin.name) / plugin.manifest["outlinks_path"])
+            for plugin in get_plugin_catalog().values()
+            if plugin.manifest.get("outlinks_path")
+        ]
+        queryset = Snapshot.objects.all()
+        if after:
+            queryset = queryset.filter(pk__lt=UUID(after))
+        rows = list(
+            queryset.select_related("crawl__created_by")
+            .only(
+                "id",
+                "url",
+                "fs_version",
+                "timestamp",
+                "bookmarked_at",
+                "created_at",
+                "crawl_id",
+                "crawl__created_by__username",
+            )
+            .order_by("-pk")[: limit + 1],
+        )
+        records = []
+        for snapshot in rows[:limit]:
+            key = domain_key_from_url(snapshot.url)
+            records.append(
+                {
+                    "id": str(snapshot.pk),
+                    "domain": group_domain_key(key)[0] if key else "",
+                    "output_dir": str(snapshot.get_storage_path_for_version(snapshot.fs_version)),
+                },
+            )
+        return {"records": records, "paths": paths, "cursor": str(rows[limit - 1].pk) if len(rows) > limit else None}
+
+    def collection_records(self, request, *, after=None, limit=512):
+        """Stream narrow snapshot metadata using the existing primary-key index."""
+        from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
+        from archivebox.core.models import Snapshot
+        from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 1024)
+        queryset = Snapshot.objects.all()
+        if after:
+            queryset = queryset.filter(pk__gt=UUID(after))
+        rows = list(
+            queryset.order_by("pk").values(
+                "id",
+                "url",
+                "output_size",
+                "parent_snapshot__url",
+            )[: limit + 1],
+        )
+        icons = {}
+        for result in favicon_results().filter(snapshot_id__in=[row["id"] for row in rows[:limit]]):
+            icons.setdefault(result.snapshot_id, []).append(result)
+
+        def domain(url):
+            key = domain_key_from_url(url or "")
+            return group_domain_key(key)[0] if key else ""
+
+        records = []
+        for row in rows[:limit]:
+            icon = snapshot_favicon_data(row["id"], icons.get(row["id"], []), request=request)
+            records.append(
+                {
+                    "id": str(row["id"]),
+                    "domain": domain(row["url"]),
+                    "parent": domain(row["parent_snapshot__url"]),
+                    "size": row["output_size"] or 0,
+                    "favicon": icon["url"] if icon else "",
+                },
+            )
+        return {"records": records, "cursor": str(rows[limit - 1]["id"]) if len(rows) > limit else None}
 
     def domain_records(self, request, *, cursor=None, limit=16):
         """Page registered domains using the existing domain index and grouping."""
