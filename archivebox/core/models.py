@@ -3581,38 +3581,31 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         except (OSError, TypeError, ValueError):
             return {}
 
+    def storage_path_candidates(self) -> tuple[Path, ...]:
+        """Return the existing layout choices in precedence order, without touching storage."""
+        current = self.get_storage_path_for_version(self.fs_version)
+        if self.fs_version == self._fs_current_version():
+            return (current,)
+        paths = [current]
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
+            paths.append(current.with_name(str(uuid.UUID(str(self.id)))))
+        paths.append(CONSTANTS.ARCHIVE_DIR / self.timestamp)
+        return tuple(paths)
+
     @property
     def output_dir(self) -> Path:
         """The filesystem path to the snapshot's output directory."""
-        import os
-
-        current_path = self.get_storage_path_for_version(self.fs_version)
-
-        # WHY: once a row is at the latest layout, `archivebox update --rescan
-        # --migrate-only` (or the orchestrator's lazy migration) has already
-        # moved its files here, so trust the DB. The probes below are remote
-        # round trips on FUSE-mounted archive storage and are only a last-resort
-        # fallback for rows still awaiting migration.
-        if self.fs_version == self._fs_current_version():
-            return current_path
-
-        if current_path.exists():
-            return current_path
-
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
-            hyphen_path = current_path.with_name(str(uuid.UUID(str(self.id))))
-            if hyphen_path.exists():
-                return hyphen_path
-
-        # Check for backwards-compat symlink
-        old_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
-        if old_path.is_symlink():
-            link_target = Path(os.readlink(old_path))
-            return (old_path.parent / link_target).resolve() if not link_target.is_absolute() else link_target.resolve()
-        elif old_path.exists():
-            return old_path
-
-        return current_path
+        paths = self.storage_path_candidates()
+        # A migrated snapshot already has its definitive path. Avoid FUSE probes.
+        if len(paths) == 1:
+            return paths[0]
+        for path in paths[:-1]:
+            if path.exists():
+                return path
+        legacy = paths[-1]
+        if legacy.is_symlink():
+            return legacy.resolve()
+        return legacy if legacy.exists() else paths[0]
 
     def ensure_crawl_symlink(self, *, crawl_dir: Path | None = None, snapshot_dir: Path | None = None) -> None:
         """Ensure snapshot is symlinked under its crawl output directory."""

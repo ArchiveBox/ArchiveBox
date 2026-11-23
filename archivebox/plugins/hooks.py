@@ -13,7 +13,7 @@ from typing import Any
 
 from abx_dl.models import parse_hook_filename
 
-from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+from archivebox.plugins.url_outputs import parse_url_output, url_output_candidates
 from archivebox.plugins.discovery import ConfigLookup, get_enabled_plugins, get_plugin_catalog
 
 
@@ -55,20 +55,13 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> list[dict[str, Any]]:
     if not snapshot_dir.exists():
         return urls
 
-    from archivebox.machine.models import Process
-
-    for subdir in snapshot_dir.iterdir():
-        urls_file = subdir / "urls.jsonl"
-        if not subdir.is_dir() or not urls_file.is_file():
+    for relative in url_output_candidates(snapshot_dir):
+        urls_file = snapshot_dir / relative
+        if urls_file.is_symlink() or not urls_file.is_file():
             continue
         try:
-            for entry in Process.parse_records_from_text(urls_file.read_text()):
-                if not entry.get("url"):
-                    continue
-                entry["url"] = sanitize_extracted_url(fix_url_from_markdown(str(entry["url"]).strip()))
-                if entry["url"]:
-                    entry["plugin"] = subdir.name
-                    urls.append(entry)
+            with urls_file.open(encoding="utf-8") as stream:
+                urls.extend(record for line in stream if (record := parse_url_output(line, relative.parent.name)))
         except (OSError, UnicodeError):
             continue
     return urls

@@ -148,7 +148,7 @@ def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user):
     )
     base = Snapshot.objects.order_by("-created_at", "-pk")
     query = base.filter(title="match", folder=folder)
-    expected = list(query)
+    expected = list(query.all())
     first = snapshot_page(query, base_queryset=base, start=0, size=10)
     second = snapshot_page(query, base_queryset=base, start=10, size=10)
     assert first + second == expected

@@ -24,7 +24,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, Q, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
@@ -117,7 +117,7 @@ from archivebox.search.config import (
     get_search_mode_options,
 )
 from archivebox.search.query import url_search_q
-from archivebox.search.views import get_cached_public_search_state
+from archivebox.search.views import get_cached_public_search_state, ranked_page_ids, streamed_page_ids
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -1585,6 +1585,18 @@ class PublicIndexView(ListView):
             .only(*self._base_public_snapshot_fields()),
         )
 
+    def _rank_public_page(self, paginator, page, objects, paginated):
+        if hasattr(self, "public_rank_scope"):
+            ids = ranked_page_ids(
+                self.public_rank_scope,
+                self.public_search_state["ids"],
+                start=(page.number - 1) * paginator.per_page,
+                size=paginator.per_page,
+            )
+            by_id = self.public_rank_scope.in_bulk(ids)
+            page.object_list = objects = [by_id[pk] for pk in ids if pk in by_id]
+        return paginator, page, objects, paginated
+
     def paginate_queryset(self, queryset, page_size):
         query = self.request.GET.get("q", default="").strip()
         if query:
@@ -1599,12 +1611,12 @@ class PublicIndexView(ListView):
                 if str(requested).isdigit() and int(requested) > 1:
                     paginator = self.get_paginator(queryset, page_size, allow_empty_first_page=True)
                     page = paginator.page(1)
-                    return paginator, page, page.object_list, page.has_other_pages()
+                    return self._rank_public_page(paginator, page, page.object_list, page.has_other_pages())
             if not direct or requested == "last":
                 pagination = super().paginate_queryset(queryset, page_size)
                 if direct:
                     self.public_snapshot_count = pagination[0].count
-                return pagination
+                return self._rank_public_page(*pagination)
 
         page_kwarg = self.kwargs.get(self.page_kwarg)
         page_query = self.request.GET.get(self.page_kwarg)
@@ -1617,7 +1629,12 @@ class PublicIndexView(ListView):
         except (ValueError, TypeError) as err:
             raise Http404(f"Invalid page ({page_number}): {err}") from err
 
-        if self.public_search_uses_sql:
+        streamed_ids = streamed_page_ids(self.request) if query else None
+        if streamed_ids is not None:
+            # Recheck visibility and active filters while hydrating this wave.
+            by_id = {snap.pk: snap for snap in queryset.filter(pk__in=streamed_ids).order_by()}
+            snapshots = [by_id[pk] for pk in streamed_ids if pk in by_id]
+        elif self.public_search_uses_sql:
             # Reuse the chronological index probe for broad metadata matches.
             # SQLite can otherwise choose the visibility index and sort all
             # qualifying rows for the first page. Fetch display fields afterward.
@@ -1811,11 +1828,8 @@ class PublicIndexView(ListView):
                 return qs.none()
             if self.selected_folder and any(f.is_smart and str(f.pk) == self.selected_folder for f in self.folder_tree):
                 return qs.filter(pk__in=cached_ids).order_by(*self.ordering)
-            search_rank = Case(
-                *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(cached_ids)),
-                output_field=IntegerField(),
-            )
-            return qs.filter(pk__in=cached_ids).annotate(search_rank=search_rank).order_by("search_rank", *self.ordering)
+            self.public_rank_scope = qs
+            return qs.filter(pk__in=cached_ids).order_by("pk")
 
         return qs.none()
 

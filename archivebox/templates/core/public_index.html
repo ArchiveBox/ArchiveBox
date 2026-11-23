@@ -828,7 +828,6 @@
                 const mode = String(formData.get('search_mode') || 'query')
                 const query = String(formData.get('q') || '').trim()
                 if (!query) return
-                if (mode === 'url') return
 
                 if (eventOrForm && eventOrForm.preventDefault) eventOrForm.preventDefault()
                 if (activeSearch) activeSearch.abort()
@@ -838,6 +837,7 @@
                 setSearchLoading(controller, 'Searching...')
                 let failed = false
                 let resultVersion = 0
+                const renderHeaders = {'X-Requested-With': 'XMLHttpRequest'}
 
                 function buildListUrl() {
                     const url = new URL(window.location.href)
@@ -858,9 +858,11 @@
 
                 async function renderNow() {
                     const url = buildListUrl()
-                    const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal: controller.signal})
+                    const response = await fetch(url, {headers: renderHeaders, signal: controller.signal})
+                    if (!response.ok) throw new Error('Could not load snapshot results')
                     const html = await response.text()
                     const doc = new DOMParser().parseFromString(html, 'text/html')
+                    if (controller.signal.aborted) return
                     window.archiveboxRefreshLibraryExportLinks?.(doc)
                     replaceRegionFromDocument(doc, '.public-snapshot-count')
                     replaceRegionFromDocument(doc, '#table-bookmarks thead th:nth-child(3)')
@@ -876,13 +878,16 @@
                 streamUrl.searchParams.set('q', query)
                 streamUrl.searchParams.set('search_mode', mode)
                 streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
-                fetch(streamUrl, {signal: controller.signal})
+                fetch(streamUrl, {headers: {'X-ArchiveBox-Search-Page': 'first'}, signal: controller.signal})
                     .then(async function(response) {
+                        const token = response.headers.get('X-ArchiveBox-Search-Page')
+                        if (token) renderHeaders['X-ArchiveBox-Search-Page'] = token
                         if (response.status === 204) return renderNow()
                         if (!response.ok) throw new Error(response.status === 400 ? await response.text() : 'Search could not finish.')
                         const reader = response.body.getReader()
                         const decoder = new TextDecoder()
                         let buffer = ''
+                        let renderedCount = -1
                         async function read() {
                             const result = await reader.read()
                             buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done})
@@ -901,7 +906,10 @@
                                 }
                             })
                             setSearchLoading(controller, resultVersion ? 'Searching... ' + resultVersion + ' found' : 'Searching...')
-                            if (shouldRender || result.done) await renderNow()
+                            if ((shouldRender || result.done) && (!token || renderedCount !== resultVersion)) {
+                                await renderNow()
+                                renderedCount = resultVersion
+                            }
                             if (!result.done) return read()
                         }
                         return read()

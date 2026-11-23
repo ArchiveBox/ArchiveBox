@@ -125,8 +125,8 @@ def test_standalone_mobile_search_submits_from_keyboard(live_server, crawl, brow
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize(("query", "stream_status"), [("after:2026", 204), ("after:2026 AND sortable", 200)])
-def test_sort_search_results_by_column(live_server, admin_user, crawl, browser_runtime, query, stream_status):
+@pytest.mark.parametrize(("query", "sql_page"), [("after:2026", True), ("after:2026 AND sortable", False)])
+def test_sort_search_results_by_column(live_server, admin_user, crawl, browser_runtime, query, sql_page):
     from datetime import datetime, timezone
 
     from playwright.sync_api import expect, sync_playwright
@@ -153,7 +153,8 @@ def test_sort_search_results_by_column(live_server, admin_user, crawl, browser_r
         field.fill(query)
         with page.expect_response(lambda response: "/search-stream/" in response.url) as stream:
             field.press("Enter")
-        assert stream.value.status == stream_status
+        assert stream.value.status == 200
+        assert bool(stream.value.header_value("X-ArchiveBox-Search-Page")) is sql_page
         titles = page.locator("#result_list td.field-title_str .status-fetched")
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
         expect(titles).to_have_count(2)

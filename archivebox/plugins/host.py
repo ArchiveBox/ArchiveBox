@@ -1,7 +1,6 @@
 """ArchiveBox data and request operations supplied to plugin web integrations."""
 
 from io import BytesIO
-from pathlib import Path
 from uuid import UUID
 
 
@@ -207,18 +206,13 @@ class ArchiveBoxHost:
             raise PermissionDenied
 
     def outlink_records(self, request, *, after=None, limit=32):
-        """Keyset-page captures and the registered saved-outlink paths."""
+        """Keyset-page captures and their saved URL output paths."""
         from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
         from archivebox.core.models import Snapshot
-        from archivebox.plugins.discovery import get_plugin_catalog
+        from archivebox.plugins.url_outputs import url_output_candidates
 
         self._require_collection_admin(request)
         limit = min(max(limit, 1), 32)
-        paths = [
-            str(Path(plugin.name) / plugin.manifest["outlinks_path"])
-            for plugin in get_plugin_catalog().values()
-            if plugin.manifest.get("outlinks_path")
-        ]
         queryset = Snapshot.objects.all()
         if after:
             queryset = queryset.filter(pk__lt=UUID(after))
@@ -237,16 +231,22 @@ class ArchiveBoxHost:
             .order_by("-pk")[: limit + 1],
         )
         records = []
+        paths = set()
         for snapshot in rows[:limit]:
+            directory = snapshot.get_storage_path_for_version(snapshot.fs_version)
+            try:
+                paths.update(str(path) for path in url_output_candidates(directory) if (directory / path).is_file(follow_symlinks=False))
+            except FileNotFoundError:
+                pass
             key = domain_key_from_url(snapshot.url)
             records.append(
                 {
                     "id": str(snapshot.pk),
                     "domain": group_domain_key(key)[0] if key else "",
-                    "output_dir": str(snapshot.get_storage_path_for_version(snapshot.fs_version)),
+                    "output_dir": str(directory),
                 },
             )
-        return {"records": records, "paths": paths, "cursor": str(rows[limit - 1].pk) if len(rows) > limit else None}
+        return {"records": records, "paths": sorted(paths), "cursor": str(rows[limit - 1].pk) if len(rows) > limit else None}
 
     def collection_records(self, request, *, after=None, limit=512):
         """Stream narrow snapshot metadata using the existing primary-key index."""

@@ -26,6 +26,10 @@ class AcceleratedPaginator(Paginator):
 
 
 def snapshot_page(queryset, *, base_queryset, start, size, count=None):
+    return list(iter_snapshot_page(queryset, base_queryset=base_queryset, start=start, size=size, count=count))
+
+
+def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chunk_size=128):
     """Read a page plus lookahead, probing the existing order index first.
 
     Folder/status indexes can make SQLite sort a million matching rows before
@@ -36,8 +40,12 @@ def snapshot_page(queryset, *, base_queryset, start, size, count=None):
     # If an indexed exact count is already available, a small filtered scope
     # needs no speculative scan of unrelated rows. This is bounded by the same
     # maximum 1,000 * 8 candidates as the order-index probe below.
+    if queryset._result_cache is not None:
+        yield from queryset[start : start + size]
+        return
     if count is not None and count <= 8000:
-        return list(queryset[start : start + size])
+        yield from queryset[start : start + size].iterator(chunk_size=chunk_size)
+        return
     ordering = queryset.query.order_by or queryset.model._meta.ordering
     fields = {field.name for field in queryset.model._meta.concrete_fields} | {"pk"}
     if (
@@ -52,11 +60,19 @@ def snapshot_page(queryset, *, base_queryset, start, size, count=None):
         # Keep the bounded IDs inside SQL; hydrating and rebinding thousands of
         # UUIDs cost more than the index probe itself.
         candidates = queryset.model.objects.order_by(*ordering).values_list("pk", flat=True)[: (start + size) * 8]
-        page = list(
+        probe = (
             base_queryset.filter(pk__in=candidates)
             .filter(Exists(queryset.filter(pk=OuterRef("pk"))))
-            .order_by(*ordering)[start : start + size],
+            .order_by(*ordering)[start : start + size]
         )
-        if len(page) == size:
-            return page
-    return list(queryset[start : start + size])
+        # These are already the first matches in global sort order. Publish
+        # them before looking beyond the bounded prefix on a sparse search.
+        served = 0
+        for pk in probe.iterator(chunk_size=chunk_size):
+            served += 1
+            yield pk
+        if served == size:
+            return
+        start += served
+        size -= served
+    yield from queryset[start : start + size].iterator(chunk_size=chunk_size)

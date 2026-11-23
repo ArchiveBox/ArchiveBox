@@ -64,7 +64,18 @@ class SnapshotSearch:
 
             rules = RuleQuery()
         self.sql = {t: q for t in self.terms if (q := sql_leaf(t, scope.db, rules=rules, stack=stack, public=public)) is not None}
-        self.text = {t: text_metadata(t, public=public) for t in self.terms if t.field in {"word", "literal"}}
+        self.evidence = {t: text_metadata(t, public=public) for t in self.terms if t.field in {"word", "literal"}}
+        # Recursive captures preserve the discovering parent even when the
+        # parser output is missing. Other edges can still exist on disk,
+        # so a missing database edge is unknown, including under negation.
+        for term in self.terms:
+            if term.field in {"linkedfrom", "linksto"}:
+                endpoints = self.link_endpoints(term)
+                self.evidence[term] = (
+                    Q(parent_snapshot_id__in=endpoints.values("pk"))
+                    if term.field == "linkedfrom"
+                    else Q(pk__in=endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id"))
+                )
         self.config = config
         self.streaming = streaming
         self.stop_event = stop_event
@@ -135,10 +146,6 @@ class SnapshotSearch:
         self.read_ids.add(pk)
         return all(self.usage[name] < maximum for name, maximum in DISK_LIMITS.items())
 
-    @cached_property
-    def link_paths(self):
-        return [Path(p.name, p.manifest["outlinks_path"]) for p in get_plugin_catalog().values() if p.manifest.get("outlinks_path")]
-
     def command_records(self, command, payload, *, env=None):
         from abx_dl.execution import iter_plugin_command
 
@@ -193,42 +200,60 @@ class SnapshotSearch:
         finally:
             EXTERNAL_SLOTS.release()
 
-    def links(self, snapshot):
-        if snapshot.pk in self.link_cache:
-            return self.link_cache[snapshot.pk]
-        if not self.active() or not self.admit(snapshot.pk) or not self.link_paths:
-            return set(), False
+    def link_rows(self, snapshots):
+        # A connected search can traverse many small plugin outputs. Amortize
+        # interpreter startup across a DB page, publishing each source as read.
         root = CONSTANTS.ARCHIVE_DIR
-        # Use the stored layout here; guessing alternative paths by probing a
-        # remote mount on the request thread would bypass the read deadline.
-        folder = snapshot.get_storage_path_for_version(snapshot.fs_version)
-        if not folder.is_relative_to(root) or ".." in folder.parts:
-            return set(), False
-        payload = {
-            "root": str(root),
-            "relatives": [str(folder.relative_to(root) / p) for p in self.link_paths],
-            "byte_limit": DISK_LIMITS["bytes"] - self.usage["bytes"],
-            "file_limit": DISK_LIMITS["files"] - self.usage["files"],
-        }
-        if self.streaming:
-            # A connected search reads beyond the preview limits. Keep the
-            # helper cancellable even if the mounted archive stops responding.
+        for batch in batched(snapshots, PAGE_SIZE):
+            paths, pending = [], []
+            for snapshot in batch:
+                if not self.active():
+                    return
+                folders = snapshot.storage_path_candidates()
+                if any(not folder.is_relative_to(root) or ".." in folder.parts for folder in folders):
+                    yield snapshot, set(), False
+                    continue
+                path = [str(folder.relative_to(root)) for folder in folders]
+                if self.streaming:
+                    paths.append(path)
+                    pending.append(snapshot)
+                else:
+                    urls, done = self.preview_links(snapshot, path)
+                    yield snapshot, urls, done
+            if not pending:
+                continue
             from abx_dl.models import PluginCommand
 
             reader = Path(__file__).with_name("outlinks.py")
             command = PluginCommand(name="outlinks", plugin_name="archivebox", path=Path(sys.executable), args=["-I", str(reader)])
-            records = self.command_records(command, {**payload, "streaming": True})
-            urls, complete = set(), False
+            records = self.command_records(command, {"root": str(root), "snapshots": paths})
             try:
-                for item in records:
-                    if isinstance(item, str):
-                        urls.add(item)
+                for snapshot in pending:
+                    urls = set()
+                    for item in records:
+                        if isinstance(item, str):
+                            urls.add(item)
+                        else:
+                            yield snapshot, urls, item["complete"]
+                            break
                     else:
-                        complete = item["complete"]
+                        if self.active():
+                            raise RuntimeError("Outlink reader stopped before completing its batch")
+                        return
             finally:
                 records.close()
-            self.link_cache[snapshot.pk] = urls, complete
-            return urls, complete
+
+    def preview_links(self, snapshot, path):
+        if snapshot.pk in self.link_cache:
+            return self.link_cache[snapshot.pk]
+        if not self.admit(snapshot.pk):
+            return set(), False
+        payload = {
+            "root": str(CONSTANTS.ARCHIVE_DIR),
+            "snapshot": path,
+            "byte_limit": DISK_LIMITS["bytes"] - self.usage["bytes"],
+            "file_limit": DISK_LIMITS["files"] - self.usage["files"],
+        }
         try:
             worker = subprocess.run(
                 [sys.executable, "-I", str(Path(__file__).with_name("outlinks.py"))],
@@ -245,11 +270,21 @@ class SnapshotSearch:
             self.link_cache[snapshot.pk] = set(), False
         return self.link_cache[snapshot.pk]
 
+    def link_endpoints(self, term):
+        if term.exact_url:
+            lookup = "url__exact" if has_uppercase(term.value) else "url__iexact"
+            return self.scope.order_by().filter(**{lookup: term.value})
+        # Use native LIKE for the common lowercase ASCII URL fragment. Other
+        # operands use the shared smart-case matcher (SQLite LIKE is ASCII-only).
+        needle = Q(url__icontains=term.value) if term.value.isascii() and not has_uppercase(term.value) else substring("url", term.value)
+        return self.scope.order_by().filter(needle, Q(url__istartswith="http://") | Q(url__istartswith="https://"))
+
     def sources(self, term):
         qs = (
-            self.scope.filter(substring("url", term.value))
-            .filter(Q(url__istartswith="http://") | Q(url__istartswith="https://"))
+            self.link_endpoints(term)
+            .select_related(None)
             .select_related("crawl__created_by")
+            .only("pk", "url", "fs_version", "timestamp", "bookmarked_at", "created_at", "crawl__created_by__username")
             .order_by("pk")
         )
         if not self.streaming:
@@ -265,19 +300,18 @@ class SnapshotSearch:
 
     def target_batches(self, term):
         seen, complete = set(), True
-        for index, snapshot in enumerate(self.sources(term)):
-            if (not self.streaming and index == MAX_SNAPSHOTS) or not self.active():
-                complete = False
-                break
-            links, done = self.links(snapshot)
-            if self.streaming:
-                self.link_cache.pop(snapshot.pk, None)
+        sources = self.sources(term)
+        if not self.streaming:
+            bounded = list(sources)
+            complete = len(bounded) <= MAX_SNAPSHOTS
+            sources = bounded[:MAX_SNAPSHOTS]
+        for _, links, done in self.link_rows(sources):
             complete &= done
             new = links - seen
             seen.update(new)
             if new:
                 yield new
-        self.reverse[term] = seen, complete
+        self.reverse[term] = seen, complete and self.active()
 
     def provider(self, backend, terms, rows, *, disk=False):
         """Yield evidence from registered commands. An omitted answer is unknown."""
@@ -364,13 +398,7 @@ class SnapshotSearch:
             yield from self.queryset().values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
             return
         self.deadline = time.monotonic() + MAX_SECONDS
-        if isinstance(self.tree, Term) and self.tree.field == "linkedfrom" and not qs.query.order_by:
-            for targets in self.target_batches(self.tree):
-                for batch in batched(targets, 256):
-                    yield from qs.filter(url__in=batch).values_list("pk", flat=True)
-            self.partial |= not self.reverse[self.tree][1]
-            return
-        certain, possible = sql_bounds(self.tree, self.sql, self.text)
+        certain, possible = sql_bounds(self.tree, self.sql, self.evidence)
         if possible is False:
             return
         if isinstance(possible, Q):
@@ -384,8 +412,14 @@ class SnapshotSearch:
                     return
                 yield pk
             qs = qs.exclude(certain)
-        flags = {f"_abx_filter_{i}": term for i, term in enumerate((*self.sql, *self.text))}
-        predicates = self.sql | self.text
+        if isinstance(self.tree, Term) and self.tree.field == "linkedfrom" and not ordered:
+            for targets in self.target_batches(self.tree):
+                for batch in batched(targets, 256):
+                    yield from qs.filter(url__in=batch).values_list("pk", flat=True)
+            self.partial |= not self.reverse[self.tree][1]
+            return
+        flags = {f"_abx_filter_{i}": term for i, term in enumerate((*self.sql, *self.evidence))}
+        predicates = self.sql | self.evidence
         qs = qs.annotate(**{name: Case(When(predicates[t], then=Value(True)), default=Value(False)) for name, t in flags.items()})
         # REST and exports preselect relations for serialization. Candidate
         # pages need their own narrower projection until membership is known.
@@ -533,6 +567,25 @@ class SnapshotSearch:
             # hits for ranking or move a result the browser already received.
             yield from (pk for _, pk in sorted(ranked, key=lambda match: -match[0]))
             if not disk:
+                outgoing = [rows[pk] for pk, expr in pending.items() if any(term.field == "linksto" for term in leaves(expr))]
+                for snapshot, urls, done in self.link_rows(outgoing):
+                    pk = snapshot.pk.hex
+                    expr = pending[pk]
+                    answers = {}
+                    for term in dict.fromkeys(leaves(expr)):
+                        if term.field == "linksto":
+                            pattern = literal_pattern(term.value)
+                            matches = pattern.fullmatch if term.exact_url else pattern.search
+                            hit = any(matches(url) for url in urls)
+                            if hit or done:
+                                answers[term] = hit
+                    expr = simplify(expr, answers)
+                    if isinstance(expr, bool):
+                        del pending[pk]
+                        if expr:
+                            yield snapshot.pk
+                    else:
+                        pending[pk] = expr
                 for pk, expr in list(pending.items()):
                     for term in tuple(dict.fromkeys(leaves(expr))):
                         if term.field == "linkedfrom":
@@ -541,9 +594,6 @@ class SnapshotSearch:
                                     pass
                             urls, done = self.reverse[term]
                             hit = rows[pk].url in urls
-                        elif term.field == "linksto":
-                            urls, done = self.links(rows[pk])
-                            hit = any(literal_pattern(term.value).search(url) for url in urls)
                         else:
                             continue
                         if hit or done:

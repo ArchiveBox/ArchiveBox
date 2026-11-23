@@ -85,9 +85,6 @@ def _validate_presentation_metadata(name: str, manifest: dict[str, Any]) -> None
         ):
             raise ValueError(f"{name}: {key} has an invalid relative path: {path!r}")
 
-    if "outlinks_path" in manifest:
-        relative_path("outlinks_path", manifest["outlinks_path"])
-
     if "default_output_path" in manifest:
         path = manifest["default_output_path"]
         relative_path("default_output_path", path)

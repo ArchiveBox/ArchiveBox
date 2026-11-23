@@ -21,6 +21,7 @@ class Term:
     field: str
     value: str
     items: tuple = ()
+    exact_url: bool = False
 
 
 @dataclass(frozen=True)
@@ -49,8 +50,8 @@ OPERATORS = {
     "title": ("type", "Title contains this text"),
     "meta": ("database", "Search database metadata"),
     "deep": ("file", "Search archived file contents"),
-    "linksto": ("out", "Links to a URL containing this text"),
-    "linkedfrom": ("link", "Linked from a URL containing this text"),
+    "linksto": ("out", "Outgoing URL contains this text. Quote a full URL to match one page."),
+    "linkedfrom": ("link", "Source URL contains this text. Quote a full URL to match one page."),
 }
 
 
@@ -134,12 +135,14 @@ def parse(source):
                 decoded,
                 tuple(values) if any("," in part for part in values) else (),
             )
+        exact_url = False
         if not value and peek() and peek().startswith('"') and tokens[i][1] == tokens[i - 1][2]:
             value = json.loads(peek())
+            exact_url = field in {"linksto", "linkedfrom"} and value.lower().startswith(("https://", "http://"))
             i += 1
         if not value:
             raise ValueError(f"Empty {field}")
-        return Term(field, value)
+        return Term(field, value, exact_url=exact_url)
 
     def conjunction():
         nonlocal i

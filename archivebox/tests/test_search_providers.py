@@ -53,6 +53,60 @@ def test_link_operators_follow_real_outlinks_in_both_directions_within_scope(cra
     assert list(SnapshotSearch(scope.exclude(pk=source.pk), "linkedfrom:archive.example").stream()) == []
 
 
+def test_search_and_recursive_crawl_share_saved_plugin_urls(crawl):
+    from archivebox.plugins.hooks import collect_urls_from_plugins
+
+    source = Snapshot.objects.create(crawl=crawl, url="https://news.example/story")
+    target = Snapshot.objects.create(crawl=crawl, url="https://article.example/paper")
+    # An old/custom parser need no longer be installed. Recursive discovery
+    # also accepts plain URL lines and strips dangling prose punctuation.
+    output(source, "retired_parser/urls.jsonl", target.url + ",\n")
+    records = collect_urls_from_plugins(source.output_dir)
+    assert [(row["plugin"], row["url"]) for row in records] == [("retired_parser", target.url)]
+    scope = Snapshot.objects.filter(pk__in=[source.pk, target.pk])
+    for streaming in (False, True):
+        assert list(SnapshotSearch(scope, "linkedfrom:news.example", streaming=streaming).stream()) == [target.pk]
+        assert list(SnapshotSearch(scope, "linksto:article.example", streaming=streaming).stream()) == [source.pk]
+
+
+def test_links_in_pre_migration_output_directory(crawl):
+    source = Snapshot.objects.create(crawl=crawl, url="https://legacy.example/", fs_version="0.9.0")
+    target = Snapshot.objects.create(crawl=crawl, url="https://already-archived.example/")
+    standard = source.get_storage_path_for_version(source.fs_version)
+    legacy = standard.with_name(str(UUID(str(source.pk))))
+    folder = legacy / "custom_parser"
+    folder.mkdir(parents=True)
+    (folder / "urls.jsonl").write_text(target.url)
+    assert source.output_dir == legacy
+    assert list(SnapshotSearch(Snapshot.objects.all(), "linkedfrom:legacy.example").stream()) == [target.pk]
+
+
+def test_link_substrings_and_exact_page_urls(crawl):
+    page = "https://news.ycombinator.com/some/specific/page"
+    first, other = (Snapshot.objects.create(crawl=crawl, url=url) for url in (page, page + "/other"))
+    # Cover both saved output and the database edge kept by recursive capture.
+    target = Snapshot.objects.create(crawl=crawl, url="https://articles.example/a")
+    child = Snapshot.objects.create(crawl=crawl, url=target.url + "/part", parent_snapshot=other)
+    output(first, "parser/urls.jsonl", target.url)
+    output(other, "parser/urls.jsonl", child.url)
+    scope = Snapshot.objects.all()
+    assert set(SnapshotSearch(scope, "linkedfrom:ycombinator.com").stream()) == {target.pk, child.pk}
+    assert set(SnapshotSearch(scope, "linkedfrom:" + page).stream()) == {target.pk, child.pk}
+    assert list(SnapshotSearch(scope, f'linkedfrom:"{page}"').stream()) == [target.pk]
+    assert set(SnapshotSearch(scope, 'linksto:"articles.example"').stream()) == {first.pk, other.pk}
+    assert list(SnapshotSearch(scope, f'linksto:"{target.url}"').stream()) == [first.pk]
+
+
+def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):
+    parent = Snapshot.objects.create(crawl=crawl, url="https://news.example.org/story")
+    child = Snapshot.objects.create(crawl=crawl, url="https://article.example/paper", parent_snapshot=parent)
+    scope = Snapshot.objects.all()
+    assert list(SnapshotSearch(scope, "linkedfrom:example.org").stream()) == [child.pk]
+    assert list(SnapshotSearch(scope, "linksto:article.example").stream()) == [parent.pk]
+    assert list(SnapshotSearch(scope, "linkedfrom:example.org AND domain:article.example").stream()) == [child.pk]
+    assert not list(SnapshotSearch(scope.exclude(pk=parent.pk), "linkedfrom:example.org").stream())
+
+
 def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl):
     first = Snapshot.objects.create(crawl=crawl, url="https://reports.example/one")
     capped = Snapshot.objects.create(crawl=crawl, url="https://reports.example/two")

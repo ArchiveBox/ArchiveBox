@@ -48,17 +48,21 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         page.locator('#changelist-search [role="combobox"]').fill("title:Streamselection OR deep:late-match")
-        page.locator('#changelist-search [role="combobox"]').press("Enter")
-        checkboxes = page.locator("#result_list input.action-select")
-        expect(checkboxes).to_have_count(50)
-        old_row = page.locator("#result_list tbody tr").first.element_handle()
-        selected_id = checkboxes.first.input_value()
-        if across:
-            page.locator(".action-total-select").click()
-            expect(page.locator("input.select-across")).to_have_value("1")
-        else:
-            checkboxes.first.check()
-        page.wait_for_function("row => !row.isConnected", arg=old_row)
+        # Rows can now arrive several times before the deep scan has finished.
+        # Exercise selection during that interval, then check the settled UI
+        # against the actual stream completion event.
+        with page.expect_event("requestfinished", predicate=lambda request: "/search-stream/" in request.url):
+            page.locator('#changelist-search [role="combobox"]').press("Enter")
+            checkboxes = page.locator("#result_list input.action-select")
+            expect(checkboxes).to_have_count(50)
+            old_row = page.locator("#result_list tbody tr").first.element_handle()
+            selected_id = checkboxes.first.input_value()
+            if across:
+                page.locator(".action-total-select").click()
+                expect(page.locator("input.select-across")).to_have_value("1")
+            else:
+                checkboxes.first.check()
+            page.wait_for_function("row => !row.isConnected", arg=old_row)
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
         page.wait_for_load_state("networkidle")
         expect(page.locator(f'input.action-select[value="{selected_id}"]')).to_be_checked()

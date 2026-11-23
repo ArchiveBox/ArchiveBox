@@ -69,9 +69,14 @@ def test_public_search_scope_completion_and_invalid_query(client, crawl):
         assert response.json()["values"] == ["solarcity.com"]
     params = {"q": "title:study", "tag": str(visible.tags.get().pk)}
     path = reverse("public-index")
-    result = client.get(reverse("public-search-stream"), {**params, "search_url": path + "?" + urlencode(params)}, HTTP_HOST=WEB_TEST_HOST)
+    result = client.get(
+        reverse("public-search-stream"),
+        {**params, "search_url": path + "?" + urlencode(params)},
+        HTTP_HOST=WEB_TEST_HOST,
+        headers={"X-ArchiveBox-Search-Page": "first"},
+    )
     assert consume_streaming_response(result).splitlines()[-1].strip() == b"1"
-    page = client.get(path, params, HTTP_HOST=WEB_TEST_HOST)
+    page = client.get(path, params, HTTP_HOST=WEB_TEST_HOST, headers={"X-ArchiveBox-Search-Page": result["X-ArchiveBox-Search-Page"]})
     assert [r.pk for r in page.context["object_list"]] == [visible.pk]
     for query in ('tags:"broken', "config__has_key:secret"):
         result = client.get(reverse("public-search-stream"), {"q": query}, HTTP_HOST=WEB_TEST_HOST)

@@ -29,7 +29,7 @@ from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
-from archivebox.search.views import admin_snapshot_search_stream_view
+from archivebox.search.views import admin_snapshot_search_stream_view, streamed_page_ids
 from archivebox.search.query import apply_snapshot_filters
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
@@ -296,12 +296,19 @@ class SnapshotChangeList(SearchResultsChangeList):
         size = self.list_max_show_all if self.show_all else self.list_per_page
         queryset_ids = self.queryset.values_list("pk", flat=True)
         root_ids = self.root_queryset.values_list("pk", flat=True)
+        streamed_ids = streamed_page_ids(request)
         domain_count = None
-        if request.GET.get("domain") and (not self.query or getattr(request, "_archivebox_search_complete", False)):
+        if (
+            streamed_ids is None
+            and request.GET.get("domain")
+            and (not self.query or getattr(request, "_archivebox_search_complete", False))
+        ):
             # Reuse the exact indexed count to choose the smaller paging scope.
             domain_count = self.queryset.order_by().values("pk").count()
 
         def read_page(offset, limit):
+            if streamed_ids is not None:
+                return streamed_ids[offset : offset + limit]
             cached_page = cached_search_rank_page(request, start=offset, size=limit)
             if cached_page is not None:
                 return cached_page

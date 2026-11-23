@@ -90,7 +90,6 @@
       var mode = String(formData.get("search_mode") || "query");
       var query = String(formData.get("q") || "").trim();
       if (!query) return;
-      if (mode === "url") return;
 
       var isSubmission = Boolean(eventOrForm && eventOrForm.preventDefault);
       if (isSubmission) eventOrForm.preventDefault();
@@ -107,6 +106,7 @@
       var renderedVersion = -1;
       var lastRender = 0;
       var failed = false;
+      var renderHeaders = {"X-Requested-With": "XMLHttpRequest"};
 
       function failSearch(error) {
         if (activeSearch !== controller || controller.signal.aborted || error.name === "AbortError") return;
@@ -143,7 +143,7 @@
         renderInFlight = true;
         renderedVersion = resultVersion;
         lastRender = Date.now();
-        renderPromise = fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
+        renderPromise = fetch(url, {headers: renderHeaders, signal: controller.signal})
           .then(function(response) {
             if (!response.ok) throw new Error("Could not load snapshot results");
             return response.text();
@@ -205,8 +205,10 @@
       // The cache key is membership filters plus user; pages and sort reuse it.
       // Stream chunks only say "new result count"; the page fetch reads IDs from cache.
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
-      fetch(streamUrl, {signal: controller.signal})
+      fetch(streamUrl, {headers: {"X-ArchiveBox-Search-Page": "first"}, signal: controller.signal})
         .then(async function(response) {
+          var token = response.headers.get("X-ArchiveBox-Search-Page");
+          if (token) renderHeaders["X-ArchiveBox-Search-Page"] = token;
           if (response.status === 204) return renderNow();
           if (response.status === 400) throw new Error(await response.text());
           if (!response.ok || !response.body || !(response.headers.get("Content-Type") || "").startsWith("text/plain")) {
@@ -225,11 +227,13 @@
                 count = parseInt(count.trim(), 10);
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
               });
-              if (lines.length) renderSoon();
+              if (lines.length && resultVersion > 0 && !result.done) renderSoon();
               if (!result.done) return read();
               // A resumed later page needs settled pagination, even if the last
               // count matches a provisional first-page render.
-              renderedVersion = -1;
+              // SQL waves contain the ordered page plus its lookahead. An
+              // unchanged final count already has the correct pagination.
+              if (!token) renderedVersion = -1;
               // Keep the progress state until the final table is actually installed.
               // The stream can finish while an earlier wave is still rendering.
               return renderNow().then(function() {

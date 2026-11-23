@@ -6,9 +6,10 @@ import json
 import threading
 import time
 from copy import copy
+from itertools import batched
 from queue import Empty, Full, Queue
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -27,6 +28,41 @@ URL_PREFIX_SEARCH_LIMIT = 500
 # writes so a retired producer cannot replace newer membership for its key.
 _search_cache_lock = threading.Lock()
 _search_cache_owners: dict[str, object] = {}
+
+
+def ranked_page_ids(scope, ids, *, start, size):
+    """Keep provider order and recheck current visibility without sorting the whole cache in SQL."""
+    page = []
+    for batch in batched(ids, 512):
+        valid = {pk.hex: pk for pk in scope.filter(pk__in=batch).order_by().values_list("pk", flat=True)}
+        for snapshot_id in batch:
+            if snapshot_id not in valid:
+                continue
+            if start:
+                start -= 1
+                continue
+            page.append(valid[snapshot_id])
+            if len(page) == size:
+                return page
+    return page
+
+
+def sql_page_key(request, url, token):
+    # A page belongs to one search, user, sort, and submission. Never put its
+    # bounded IDs in the membership cache shared by exports or other pages.
+    target = urlsplit(url)
+    scope = sorted(QueryDict(target.query).lists())
+    payload = json.dumps([str(request.user.pk), target.path, scope, token])
+    return "abx:sql-page:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def streamed_page_ids(request):
+    token = request.headers.get("X-ArchiveBox-Search-Page")
+    if token and len(token) == 32:
+        state = cache.get(sql_page_key(request, request.get_full_path(), token))
+        if state is not None:
+            return [UUID(pk) for pk in state["ids"]]
+    return None
 
 
 def get_admin_search_cache_key(request, url: str | None = None) -> str:
@@ -315,12 +351,14 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
         provider.close()
 
 
-def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name, public=False):
+def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name, public=False, page_request=None):
     """Stream Snapshot search progress and cache matching IDs for a list view."""
     if not query:
         return StreamingHttpResponse((), content_type="text/plain")
 
     search = None
+    page_query = None
+    page_token = None
     if search_mode == "query":
         from archivebox.search.interpreter import SnapshotSearch
 
@@ -328,10 +366,22 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             search = SnapshotSearch(base_queryset, query, config=config, public=public, streaming=True)
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
-        if search.sql_queryset() is not None:
-            # The list view can page this query in SQL. Materializing matching
-            # IDs here would scan the whole scope before the requested page.
+        page_query = search.sql_queryset()
+    elif search_mode == "url" and page_request:
+        page_query = base_queryset.filter(url_search_q(query.strip()))
+
+    if page_query is not None:
+        if not page_request:
             return HttpResponse(status=204)
+        request, list_url = page_request
+        page_token = uuid4().hex
+        cache_key = sql_page_key(request, list_url, page_token)
+    elif page_request:
+        # Mixed queries use provider rank unless the user chose a column.
+        if "o" not in QueryDict(urlsplit(page_request[1]).query):
+            base_queryset = base_queryset.order_by()
+            if search is not None:
+                search.scope = base_queryset
 
     async def snapshot_ids():
         seen = set()
@@ -340,7 +390,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         last_sent_at = time.monotonic()
         stream_max_delay = 0.05
         stream_padding = " " * 4096
-        queue = Queue(maxsize=8)
+        queue = Queue(maxsize=256)
         stop_event = threading.Event()
         owner = object()
         with _search_cache_lock:
@@ -364,19 +414,33 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                 except Full:
                     continue
 
-        def publish_count(done=False):
-            nonlocal last_sent, last_sent_at
-            cache_results(done)
-            last_sent = len(ids)
-            last_sent_at = time.monotonic()
-            emit(f"{last_sent}{stream_padding}\n")
+        def next_batch():
+            # A producer may find several rows then block on remote storage.
+            # Flush on the consumer clock even when no next match arrives.
+            batch = []
+            try:
+                batch.append(queue.get(timeout=stream_max_delay))
+                while len(batch) < queue.maxsize:
+                    batch.append(queue.get_nowait())
+            except Empty:
+                pass
+            return batch
 
         def run_search():
             iterator = None
-            completed = False
             try:
                 close_old_connections()
-                if search is not None:
+                if page_query is not None:
+                    from archivebox.misc.paginators import iter_snapshot_page
+
+                    iterator = iter_snapshot_page(
+                        page_query.values_list("pk", flat=True),
+                        base_queryset=base_queryset.model.objects.using(base_queryset.db).values_list("pk", flat=True),
+                        start=0,
+                        size=config.SNAPSHOTS_PER_PAGE + 1,
+                        chunk_size=1,
+                    )
+                elif search is not None:
                     search.stop_event = stop_event
                     iterator = search.stream()
                 else:
@@ -388,13 +452,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                     if not snapshot_id or snapshot_id in seen:
                         continue
                     seen.add(snapshot_id)
-                    ids.append(snapshot_id)
-                    if len(ids) == 1 or time.monotonic() - last_sent_at >= stream_max_delay:
-                        publish_count()
-                if not stop_event.is_set():
-                    completed = True
-                    if len(ids) != last_sent:
-                        publish_count(done=True)
+                    emit(snapshot_id)
             except BaseException as err:
                 emit(err)
             finally:
@@ -403,7 +461,6 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                         iterator.close()
                     except AttributeError:
                         pass
-                cache_results(completed)
                 close_old_connections()
                 emit(None)
 
@@ -412,23 +469,28 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             yield f"0{stream_padding}\n"
             heartbeat = time.monotonic()
             while True:
-                try:
-                    item = await asyncio.to_thread(queue.get, True, 0.1)
-                except Empty:
-                    # No new match can be normal for minutes. Keep intermediaries
-                    # and the provisional membership cache alive without a table redraw.
-                    if time.monotonic() - heartbeat >= 10:
-                        with _search_cache_lock:
-                            if _search_cache_owners.get(cache_key) is owner:
-                                cache.touch(cache_key, SEARCH_RESULT_CACHE_TTL)
-                        heartbeat = time.monotonic()
-                        yield "\n"
-                    continue
-                if item is None:
+                done = False
+                for item in await asyncio.to_thread(next_batch):
+                    if isinstance(item, BaseException):
+                        raise item
+                    if item is None:
+                        done = True
+                    else:
+                        ids.append(item)
+                now = time.monotonic()
+                if done or (len(ids) != last_sent and (not last_sent or now - last_sent_at >= stream_max_delay)):
+                    cache_results(done)
+                    if len(ids) != last_sent:
+                        last_sent, last_sent_at = len(ids), now
+                        yield f"{last_sent}{stream_padding}\n"
+                if done:
                     break
-                if isinstance(item, BaseException):
-                    raise item
-                yield item
+                if now - heartbeat >= 10:
+                    with _search_cache_lock:
+                        if _search_cache_owners.get(cache_key) is owner:
+                            cache.touch(cache_key, SEARCH_RESULT_CACHE_TTL)
+                    heartbeat = now
+                    yield "\n"
         finally:
             stop_event.set()
             with _search_cache_lock:
@@ -436,6 +498,8 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                     del _search_cache_owners[cache_key]
 
     response = StreamingHttpResponse(snapshot_ids(), content_type="text/plain")
+    if page_token:
+        response["X-ArchiveBox-Search-Page"] = page_token
     response["X-Accel-Buffering"] = "no"
     return response
 
@@ -450,7 +514,7 @@ def stream_target_matches(request, search_url, query, mode):
     ) == mode
 
 
-def snapshot_view_scope(request, list_url, *, model_admin=None):
+def snapshot_view_scope(request, list_url, *, model_admin=None, ordered=False):
     """Use the list's own filters for both matching and value suggestions."""
     target = urlsplit(list_url)
     filtered = copy(request)
@@ -463,7 +527,8 @@ def snapshot_view_scope(request, list_url, *, model_admin=None):
 
         view = PublicIndexView()
         view.setup(filtered)
-        return view.get_queryset().defer(None).select_related(None).order_by()
+        qs = view.get_queryset().defer(None).select_related(None)
+        return qs.order_by(*view.ordering, "pk") if ordered else qs.order_by()
 
     # SnapshotAdmin uses the current request to render columns. A per-request
     # copy keeps simultaneous streams and keystrokes off the shared admin object.
@@ -471,7 +536,12 @@ def snapshot_view_scope(request, list_url, *, model_admin=None):
     scoped_admin.request = filtered
     filtered._archivebox_search_filter_only = True
     qs = scoped_admin.get_changelist_instance(filtered).queryset
-    return qs if "o" in filtered.GET else qs.order_by()
+    return qs if ordered or "o" in filtered.GET else qs.order_by()
+
+
+def wants_streamed_page(request, list_url):
+    params = QueryDict(urlsplit(list_url).query)
+    return request.headers.get("X-ArchiveBox-Search-Page") == "first" and not any(k in params for k in ("all", "page", "p"))
 
 
 def admin_snapshot_search_stream_view(model_admin, request):
@@ -483,7 +553,8 @@ def admin_snapshot_search_stream_view(model_admin, request):
     search_url = request.GET.get("search_url") or request.get_full_path()
     if not stream_target_matches(request, search_url, query, search_mode):
         return HttpResponseBadRequest("Search expression and result URL disagree.", content_type="text/plain")
-    base_queryset = snapshot_view_scope(request, search_url, model_admin=model_admin)
+    ordered = wants_streamed_page(request, search_url)
+    base_queryset = snapshot_view_scope(request, search_url, model_admin=model_admin, ordered=ordered)
 
     return snapshot_search_stream_response(
         query,
@@ -492,6 +563,7 @@ def admin_snapshot_search_stream_view(model_admin, request):
         config=config,
         cache_key=get_admin_search_cache_key(request, search_url),
         thread_name="admin-snapshot-search-stream",
+        page_request=(request, search_url) if ordered else None,
     )
 
 
@@ -508,7 +580,8 @@ def public_snapshot_search_stream_view(request):
     search_url = request.GET.get("search_url") or request.get_full_path()
     if not stream_target_matches(request, search_url, query, search_mode):
         return HttpResponseBadRequest("Search expression and result URL disagree.", content_type="text/plain")
-    base_queryset = snapshot_view_scope(request, search_url)
+    ordered = wants_streamed_page(request, search_url)
+    base_queryset = snapshot_view_scope(request, search_url, ordered=ordered)
 
     return snapshot_search_stream_response(
         query,
@@ -518,4 +591,5 @@ def public_snapshot_search_stream_view(request):
         cache_key=get_public_search_cache_key(request, search_url),
         thread_name="public-snapshot-search-stream",
         public=True,
+        page_request=(request, search_url) if ordered else None,
     )

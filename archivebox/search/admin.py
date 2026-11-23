@@ -1,7 +1,5 @@
 __package__ = "archivebox.search"
 
-from itertools import batched
-
 from django.contrib import admin
 from django.contrib.admin.views.main import ChangeList
 from django.db.models import Case, Expression, IntegerField, Value, When
@@ -13,7 +11,7 @@ from archivebox.search.config import (
     get_search_mode_options,
 )
 from archivebox.search.query import query_search_index, url_search_q
-from archivebox.search.views import get_cached_admin_search_state
+from archivebox.search.views import get_cached_admin_search_state, ranked_page_ids
 
 
 class CachedSearchRank(Expression):
@@ -36,19 +34,7 @@ def cached_search_rank_page(request, *, start, size):
     scope = getattr(request, "_archivebox_search_rank_scope", None)
     if scope is None or "o" in request.GET:
         return None
-    page = []
-    for batch in batched(request._archivebox_search_ranks, 512):
-        valid = {pk.hex: pk for pk in scope.filter(pk__in=batch).order_by().values_list("pk", flat=True)}
-        for snapshot_id in batch:
-            if snapshot_id not in valid:
-                continue
-            if start:
-                start -= 1
-                continue
-            page.append(valid[snapshot_id])
-            if len(page) == size:
-                return page
-    return page
+    return ranked_page_ids(scope, request._archivebox_search_ranks, start=start, size=size)
 
 
 class SearchResultsChangeList(ChangeList):
