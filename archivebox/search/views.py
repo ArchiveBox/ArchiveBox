@@ -14,7 +14,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connections
 from django.db.models import Q
-from django.http import HttpResponseBadRequest, HttpResponseForbidden, QueryDict, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
 from archivebox.search.config import get_search_mode, get_search_mode_base
 from archivebox.misc.util import equivalent_urls
@@ -328,6 +328,10 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             search = SnapshotSearch(base_queryset, query, config=config, public=public, streaming=True)
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
+        if search.sql_queryset() is not None:
+            # The list view can page this query in SQL. Materializing matching
+            # IDs here would scan the whole scope before the requested page.
+            return HttpResponse(status=204)
 
     async def snapshot_ids():
         seen = set()

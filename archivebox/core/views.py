@@ -1523,6 +1523,7 @@ class PublicIndexView(ListView):
     model = Snapshot
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
     paginator_class = AcceleratedPaginator
+    public_search_uses_sql = False
 
     def get_paginate_by(self, queryset):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1589,8 +1590,9 @@ class PublicIndexView(ListView):
         if query:
             state = self.__dict__.get("public_search_state")
             mode = get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config)
+            direct = mode == "url" or self.public_search_uses_sql
             requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
-            if mode != "url" and (state is None or not state.get("done")):
+            if not direct and (state is None or not state.get("done")):
                 # An expired/in-flight search has not established its page count.
                 # Render a provisional first page without changing the requested
                 # URL; the stream settles that original page when complete.
@@ -1598,9 +1600,9 @@ class PublicIndexView(ListView):
                     paginator = self.get_paginator(queryset, page_size, allow_empty_first_page=True)
                     page = paginator.page(1)
                     return paginator, page, page.object_list, page.has_other_pages()
-            if mode != "url" or requested == "last":
+            if not direct or requested == "last":
                 pagination = super().paginate_queryset(queryset, page_size)
-                if mode == "url":
+                if direct:
                     self.public_snapshot_count = pagination[0].count
                 return pagination
 
@@ -1615,7 +1617,20 @@ class PublicIndexView(ListView):
         except (ValueError, TypeError) as err:
             raise Http404(f"Invalid page ({page_number}): {err}") from err
 
-        if query:
+        if self.public_search_uses_sql:
+            # Reuse the chronological index probe for broad metadata matches.
+            # SQLite can otherwise choose the visibility index and sort all
+            # qualifying rows for the first page. Fetch display fields afterward.
+            start = (page_number - 1) * page_size
+            page_ids = snapshot_page(
+                queryset.values_list("pk", flat=True),
+                base_queryset=Snapshot.objects.values_list("pk", flat=True),
+                start=start,
+                size=page_size + 1,
+            )
+            by_id = {snapshot.pk: snapshot for snapshot in queryset.filter(pk__in=page_ids).order_by()}
+            snapshots = [by_id[pk] for pk in page_ids if pk in by_id]
+        elif query:
             # URL searches need only the requested rows and one lookahead;
             # counting all LIKE matches first scans the collection twice.
             start = (page_number - 1) * page_size
@@ -1652,8 +1667,9 @@ class PublicIndexView(ListView):
         search_mode_backend = get_search_mode_backend(search_mode, config=runtime_config)
         query = self.request.GET.get("q", default="").strip()
         public_search_state = self.__dict__.get("public_search_state")
+        uses_membership_cache = query and search_mode != "url" and not self.public_search_uses_sql
         public_search_pending = bool(
-            query and search_mode != "url" and (public_search_state is None or not public_search_state.get("done")),
+            uses_membership_cache and (public_search_state is None or not public_search_state.get("done")),
         )
         context = {
             **super().get_context_data(**kwargs),
@@ -1686,7 +1702,7 @@ class PublicIndexView(ListView):
             and search_mode_backend
             and context["paginator"].count == 0,
         )
-        context["public_snapshot_count"] = context["paginator"].count if query and search_mode != "url" else self.public_snapshot_count
+        context["public_snapshot_count"] = context["paginator"].count if uses_membership_cache else self.public_snapshot_count
         count = context["public_snapshot_count"]
         context["public_page_count"] = (
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
@@ -1776,8 +1792,16 @@ class PublicIndexView(ListView):
         if not query:
             return qs
 
-        if get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config) == "url":
+        search_mode = get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config)
+        if search_mode == "url":
             return qs.filter(url_search_q(query))
+        if search_mode == "query":
+            from archivebox.search.interpreter import sql_snapshot_search
+
+            filtered = sql_snapshot_search(qs, query, public=True)
+            if filtered is not None:
+                self.public_search_uses_sql = True
+                return filtered.order_by(*self.ordering, "pk")
 
         cached_state = get_cached_public_search_state(self.request)
         self.public_search_state = cached_state

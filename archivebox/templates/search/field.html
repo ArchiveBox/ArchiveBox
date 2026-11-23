@@ -1,7 +1,7 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'search/field.css' %}">
 <div class="abx-search-field" data-operators="{{ operators }}" data-suggestions="{% url 'search-suggestions' %}" data-icons="{% static 'search/icons.svg' %}">
-<input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" aria-label="Search snapshots" placeholder="Search snapshots…">
+<input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" enterkeyhint="search" aria-label="Search snapshots" placeholder="Search snapshots…">
 
       <div class="abx-query-control enhanced">
         <span class="abx-query-icon"><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}#search"></use></svg></span>

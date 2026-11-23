@@ -207,6 +207,7 @@
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
       fetch(streamUrl, {signal: controller.signal})
         .then(async function(response) {
+          if (response.status === 204) return renderNow();
           if (response.status === 400) throw new Error(await response.text());
           if (!response.ok || !response.body || !(response.headers.get("Content-Type") || "").startsWith("text/plain")) {
             throw new Error("Unexpected snapshot search stream response");

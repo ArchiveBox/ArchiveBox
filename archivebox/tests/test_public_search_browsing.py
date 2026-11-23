@@ -1,4 +1,5 @@
 from urllib.parse import urlencode
+from datetime import datetime, timezone
 
 import pytest
 from asgiref.sync import async_to_sync
@@ -20,6 +21,31 @@ def complete(client, params):
         return b"".join([chunk async for chunk in response.streaming_content])
 
     async_to_sync(consume)()
+
+
+def test_public_date_search_paginates_without_stream_cache(client, crawl):
+    Machine.from_json({"config": {"PUBLIC_INDEX": True, "SNAPSHOTS_PER_PAGE": 50}})
+    snapshots = [
+        Snapshot.objects.create(
+            crawl=crawl,
+            url=f"https://date.example/{i}",
+            timestamp=str(1900101000 + i),
+            bookmarked_at=datetime(2025 if i == 0 else 2026, 1, 1, 0, i, tzinfo=timezone.utc),
+            config={"PERMISSIONS": "private" if i == 52 else "public"},
+        )
+        for i in range(53)
+    ]
+    public = snapshots[1:-1]
+
+    params = {"q": "after:2026"}
+    first = client.get("/public/", params, HTTP_HOST=HOST)
+    second = client.get("/public/", {**params, "page": "2"}, HTTP_HOST=HOST)
+    assert first.status_code == second.status_code == 200
+    assert not first.context["public_search_stream_pending"]
+    assert not second.context["public_search_stream_pending"]
+    assert [snapshot.pk for snapshot in first.context["object_list"]] == [snapshot.pk for snapshot in reversed(public[1:])]
+    assert [snapshot.pk for snapshot in second.context["object_list"]] == [public[0].pk]
+    assert cache.get(get_public_search_cache_key(first.wsgi_request)) is None
 
 
 def test_public_completed_search_pages_expiry_and_scope(client, crawl):

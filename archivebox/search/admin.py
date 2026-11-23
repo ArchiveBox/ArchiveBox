@@ -111,6 +111,13 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
             request._archivebox_search_complete = True
             return queryset.filter(url_search_q(search_term)), False
         if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
+            if search_mode == "query":
+                from archivebox.search.interpreter import sql_snapshot_search
+
+                filtered = sql_snapshot_search(queryset, search_term)
+                if filtered is not None:
+                    request._archivebox_search_complete = True
+                    return filtered, False
             state = get_cached_admin_search_state(request)
             request._archivebox_search_complete = bool(state and state.get("done"))
             if state is not None:

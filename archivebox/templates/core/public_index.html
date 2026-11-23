@@ -603,10 +603,6 @@
             min-width: 0;
         }
 
-        .public-snapshot-toolbar input[type="submit"] {
-            display: none;
-        }
-
         #table-bookmarks {
             min-width: 0;
         }
@@ -882,6 +878,7 @@
                 streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
                 fetch(streamUrl, {signal: controller.signal})
                     .then(async function(response) {
+                        if (response.status === 204) return renderNow()
                         if (!response.ok) throw new Error(response.status === 400 ? await response.text() : 'Search could not finish.')
                         const reader = response.body.getReader()
                         const decoder = new TextDecoder()

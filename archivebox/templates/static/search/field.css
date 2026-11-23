@@ -76,10 +76,14 @@
 .abx-search-field:not([data-ready]) .enhanced {display:none;}
 .abx-search-field .feedback:empty {display:none;}
 
-.abx-search-standalone { margin: 0; padding: 1rem; color-scheme: light dark; background: Canvas; font: 1rem system-ui, sans-serif; }
+.abx-search-standalone { margin: 0; padding: 1rem; color-scheme: light; background: Canvas; font: 1rem system-ui, sans-serif; }
 .abx-search-standalone form { display: flex; align-items: flex-start; gap: .5rem; max-width: 54rem; margin: 0 auto; }
 .abx-search-standalone .query { min-height: 44px; }
 .abx-search-standalone button[type=submit] { min-height: 44px; padding-inline: 1rem; border: 1px solid #9a3051; border-radius: 4px; color: white; background: #a62d54; font: inherit; cursor: pointer; }
+@media (max-width: 600px), (pointer: coarse) {
+  .abx-search-standalone button[type=submit],
+  .public-snapshot-toolbar input[type=submit] { display: none; }
+}
 @media (max-width: 420px) { .abx-search-standalone { padding: .65rem; } }
 
 /* Legacy toolbar styles reserve a single input row. Nested expressions wrap,

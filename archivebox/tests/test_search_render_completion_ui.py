@@ -49,7 +49,7 @@ def test_search_waits_for_final_table(live_server, admin_user, crawl, browser_ru
                 ],
             },
         )
-        page.locator('#changelist-search [role="combobox"]').fill("meta:rendercompletion")
+        page.locator('#changelist-search [role="combobox"]').fill("rendercompletion")
         with page.expect_event(
             "requestfinished",
             predicate=lambda request: "/search-stream/" in request.url,

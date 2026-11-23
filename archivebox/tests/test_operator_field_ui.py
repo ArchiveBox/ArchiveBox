@@ -52,9 +52,20 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
         expect(page.locator('[role="option"] .suggestion-name')).to_have_text(["tags:"])
         field.press("Tab")
         expect(hidden).to_have_value("tags:")
+        suggestion_prefixes = []
+
+        def record_suggestion_request(request):
+            from urllib.parse import parse_qs
+
+            params = parse_qs(urlsplit(request.url).query)
+            if params.get("operator") == ["tags"] and "prefix" in params:
+                suggestion_prefixes.extend(params["prefix"])
+
+        page.on("request", record_suggestion_request)
         field.press_sequentially("ABC")
         page.get_by_role("option", name="ABC:DEF", exact=True).tap()
         expect(hidden).to_have_value('tags:"ABC:DEF" ')
+        assert suggestion_prefixes == ["ABC"]
 
         # The admin stream replaces the form. Count viewport listeners through
         # Chromium's debugger to detect a retained editor after each render.
@@ -77,6 +88,83 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
         page.wait_for_function("original => !original.isConnected", arg=original)
         expect(field).to_be_visible()
         assert viewport_listener_count() == before
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_standalone_mobile_search_submits_from_keyboard(live_server, crawl, browser_runtime):
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config.update(BASE_URL=f"http://archivebox.localhost:{port}", PUBLIC_INDEX=True)
+    machine.save(update_fields=["config"])
+    Snapshot.objects.create(crawl=crawl, url="https://example.org", title="Mobile keyboard", config={"PERMISSIONS": "public"})
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        url = f"http://web.archivebox.localhost:{port}/public/search-field/"
+        desktop = browser.new_page()
+        desktop.goto(url)
+        expect(desktop.get_by_role("button", name="Search", exact=True)).to_be_visible()
+        for width in (320, 430, 844):
+            phone = browser.new_page(viewport={"width": width, "height": 400}, is_mobile=True, has_touch=True, color_scheme="dark")
+            phone.goto(url)
+            expect(phone.locator('button[type="submit"]')).to_be_hidden()
+            editor = phone.get_by_role("combobox", name="Search snapshots")
+            expect(editor).to_have_attribute("enterkeyhint", "search")
+            expect(phone.locator(".abx-query-control")).to_have_css("background-color", "rgb(255, 255, 255)")
+            editor.fill('title:"Mobile keyboard"')
+            editor.press("Enter")
+            expect(phone.get_by_role("link", name="Mobile keyboard", exact=True)).to_be_visible()
+            phone.close()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(("query", "stream_status"), [("after:2026", 204), ("after:2026 AND sortable", 200)])
+def test_sort_search_results_by_column(live_server, admin_user, crawl, browser_runtime, query, stream_status):
+    from datetime import datetime, timezone
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    for title, year in (("Sortable Zebra", 2027), ("Sortable Alpha", 2026), ("Sortable Earlier", 2025)):
+        snapshot = Snapshot.objects.create(crawl=crawl, url=f"https://example.org/{year}", title=title)
+        Snapshot.objects.filter(pk=snapshot.pk).update(bookmarked_at=datetime(year, 6, 1, tzinfo=timezone.utc))
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
+        page.locator("[name=username]").fill(admin_user.username)
+        page.locator("[name=password]").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        field = page.get_by_role("combobox", name="Search snapshots")
+        field.fill(query)
+        with page.expect_response(lambda response: "/search-stream/" in response.url) as stream:
+            field.press("Enter")
+        assert stream.value.status == stream_status
+        titles = page.locator("#result_list td.field-title_str .status-fetched")
+        expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
+        expect(titles).to_have_count(2)
+        search_requests_after_sort = []
+        page.on("request", lambda request: search_requests_after_sort.append(request.url) if "/search-stream/" in request.url else None)
+        column = page.locator("#result_list th.column-title_str .text a")
+        column.click()
+        expect(titles).to_have_text(["Sortable Alpha", "Sortable Zebra"])
+        column.click()
+        expect(titles).to_have_text(["Sortable Zebra", "Sortable Alpha"])
+        assert not search_requests_after_sort
         browser.close()
 
 

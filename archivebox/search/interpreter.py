@@ -13,6 +13,7 @@ from itertools import batched, islice
 from pathlib import Path
 from subprocess import SubprocessError
 
+from django.core.exceptions import ValidationError
 from django.db.models import Case, Q, Value, When
 
 from archivebox.config.common import get_config
@@ -43,6 +44,14 @@ MAX_SECONDS = 8.0
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
 STALL_SECONDS = 30.0
+
+
+def sql_snapshot_search(scope, query, *, public=False):
+    """Return a lazy metadata queryset, or defer external work and syntax errors to the stream."""
+    try:
+        return SnapshotSearch(scope, query, public=public).sql_queryset()
+    except (ValueError, ValidationError):
+        return None
 
 
 class SnapshotSearch:
@@ -99,8 +108,9 @@ class SnapshotSearch:
         return True
 
     def queryset(self):
-        if len(self.sql) == len(self.terms):
-            return self.scope.filter(sql_bounds(self.tree, self.sql)[1])
+        queryset = self.sql_queryset()
+        if queryset is not None:
+            return queryset
         # Forms, exports and REST pagination require a queryset; the SSE path
         # consumes stream() directly and publishes before expensive reads finish.
         ids = list(self.stream())
@@ -111,6 +121,11 @@ class SnapshotSearch:
             qs = qs.order_by(Case(*(When(pk=pk, then=Value(i)) for i, pk in enumerate(head)), default=Value(len(head))), "pk")
         qs.search_partial = self.partial
         return qs
+
+    def sql_queryset(self):
+        if len(self.sql) == len(self.terms):
+            return self.scope.filter(sql_bounds(self.tree, self.sql)[1])
+        return None
 
     def admit(self, pk):
         if self.streaming:

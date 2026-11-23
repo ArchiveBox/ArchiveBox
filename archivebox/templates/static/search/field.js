@@ -179,6 +179,7 @@
       return tokens(query).find(t => at >= t.start && at <= t.end) || {start:at,end:at,raw:'',value:'',neg:''};
     }
     let paintedTerms = [];
+    let paintedSelection;
     let hoveredStart = null;
     function showScope(pos = selection()) {
       const source = paintedTerms.find(token => token.start === hoveredStart && token.scope)
@@ -197,6 +198,7 @@
       }
     }
     function paint(pos = selection()) {
+      paintedSelection = pos;
       const pieces = [];
       let offset = 0;
       const low = Math.min(pos.anchor, pos.focus);
@@ -283,43 +285,83 @@
       return matches.slice(0,8).map(value => ({label:value,detail:'',icon:op.icon,
         replacement:token.neg+token.key+':'+[...prior,quote(value, forceQuotes || (listFields.has(token.key) && value.includes(',')))].join(','),operator:false}));
     }
+    let menuFrame;
     function fitMenu() {
       // An embedding host controls an iframe's height; only a top-level field
       // can size its menu from the visual viewport above the software keyboard.
-      if (menu.hidden || window.self !== window.top) return;
-      const viewport = window.visualViewport;
-      const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-      const room = bottom - options.getBoundingClientRect().top - menu.querySelector('.menu-foot').offsetHeight - 10;
-      options.style.setProperty('--menu-room', Math.max(60, Math.floor(room)) + 'px');
+      if (menuFrame || menu.hidden || window.self !== window.top) return;
+      menuFrame = requestAnimationFrame(() => {
+        menuFrame = null;
+        if (menu.hidden || !root.isConnected) return;
+        const viewport = window.visualViewport;
+        const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+        const room = bottom - options.getBoundingClientRect().top - menu.querySelector('.menu-foot').offsetHeight - 10;
+        options.style.setProperty('--menu-room', Math.max(60, Math.floor(room)) + 'px');
+      });
+    }
+    let menuTimer;
+    let requestKey = '', controller;
+    function abortSuggestions() {
+      if (!controller) return;
+      controller.abort();
+      controller = null;
+      requestKey = '';
+    }
+    function hideMenu() {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      editor.setAttribute('aria-expanded','false');
+      editor.removeAttribute('aria-activedescendant');
+    }
+    function scheduleMenu() {
+      // Keep text, badges, and the caret responsive while typing. Rebuild
+      // suggestions only after a pause, and hide rows for the old operand.
+      abortSuggestions();
+      hideMenu();
+      selected = -1;
+      clearTimeout(menuTimer);
+      menuTimer = setTimeout(() => showMenu(), 150);
     }
     function showMenu(reset = true) {
-      if (!focused || composing || !menuOpen) { menu.hidden = true; editor.setAttribute('aria-expanded','false'); editor.removeAttribute('aria-activedescendant'); return; }
-      const wholeToken = activeToken();
-      const prefix = query.slice(wholeToken.start,selection().focus);
+      clearTimeout(menuTimer);
+      menuTimer = null;
+      if (!focused || composing || !menuOpen || !root.isConnected) {
+        abortSuggestions();
+        hideMenu();
+        return;
+      }
+      const pos = selection();
+      const wholeToken = activeToken(pos);
+      const prefix = query.slice(wholeToken.start,pos.focus);
       const token = tokens(prefix)[0] || {raw:'',value:'',neg:''};
       const parts = completionParts(token);
       suggestValues(token, parts);
+      const previous = reset ? undefined : suggestions[selected]?.replacement;
       suggestions = completions(token, wholeToken, parts);
-      if (reset) selected = -1;
+      selected = suggestions.findIndex(suggestion => suggestion.replacement === previous);
       menu.hidden = suggestions.length === 0;
       editor.setAttribute('aria-expanded',String(!menu.hidden));
       root.querySelector('.menu-label').textContent = lookup[token.key] ? lookup[token.key].description : 'Narrow your search';
       options.innerHTML = suggestions.map((s,i) => `<button type="button" class="suggestion cursor-interaction" role="option" id="${hidden.id}-option-${i}" data-index="${i}" aria-selected="${i===selected}">${icon(s.icon)}<span class="suggestion-name">${esc(s.label)}</span><span class="suggestion-detail">${esc(s.detail)}</span></button>`).join('');
-      if (selected >= 0) editor.setAttribute('aria-activedescendant',hidden.id+'-option-'+selected); else editor.removeAttribute('aria-activedescendant');
-
       fitMenu();
       if (reset) options.scrollTop = 0;
+      selectSuggestion(selected);
+    }
+    function selectSuggestion(index) {
+      options.children[selected]?.setAttribute('aria-selected','false');
+      selected = index;
       const active = options.children[selected];
       if (active) {
+        active.setAttribute('aria-selected','true');
+        editor.setAttribute('aria-activedescendant',active.id);
         const row = active.getBoundingClientRect(), box = options.getBoundingClientRect();
         if (row.top < box.top) options.scrollTop += row.top - box.top;
         else if (row.bottom > box.bottom) options.scrollTop += row.bottom - box.bottom;
-      }
+      } else editor.removeAttribute('aria-activedescendant');
     }
-    let requestKey = '', timer, controller;
-    function suggestValues(token, parts) {
+    async function suggestValues(token, parts) {
       const op = lookup[token.key];
-      if (!op) {clearTimeout(timer); controller?.abort(); requestKey=''; return;}
+      if (!op) { abortSuggestions(); return; }
       const needle = parts.typed;
       // The sidebar and Django filters already live in the list URL. Only
       // list editors inherit them; the separate Smart Folder builder has its own scope.
@@ -328,20 +370,26 @@
       const view = root.closest('.snapshot-library #changelist-search') && params.size ? location.pathname + '?' + params : '';
       const key = JSON.stringify([op.key,needle,view]);
       if (key === requestKey) return;
-      requestKey=key; op.values=[]; clearTimeout(timer); controller?.abort();
-      timer=setTimeout(async () => {
-        if (!root.isConnected) return;
-        controller=new AbortController();
+      abortSuggestions();
+      requestKey = key;
+      op.values = [];
+      const request = controller = new AbortController();
+      try {
         const url=new URL(root.dataset.suggestions, location.href);
         if (view) url.searchParams.set('search_url',view);
         url.searchParams.set('operator',op.key); url.searchParams.set('prefix',needle);
-        try {
-          const response=await fetch(url,{signal:controller.signal});
-          if (!response.ok) return;
-          const {values}=await response.json();
-          if (requestKey===key && focused && root.isConnected) { op.values=values; showMenu(false); }
-        } catch (error) { if (error.name !== 'AbortError') console.debug('Search suggestions unavailable'); }
-      },120);
+        const response=await fetch(url,{signal:request.signal});
+        if (!response.ok) return;
+        const {values}=await response.json();
+        if (controller === request && focused && menuOpen && root.isConnected) {
+          op.values = values;
+          showMenu(false);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') console.debug('Search suggestions unavailable');
+      } finally {
+        if (controller === request) controller = null;
+      }
     }
     function record(pos) {
       // Visiting an old bookmarked mode URL still runs its original query.
@@ -355,7 +403,7 @@
     function change(text,pos) {
       history[historyIndex] = {text:query,...selection()};
       query = text; editor.focus(); focused = true; feedback.textContent = '';
-      paint(pos); record(pos); menuOpen = true; showMenu();
+      paint(pos); record(pos); menuOpen = true; scheduleMenu();
     }
     function choose(index) {
       const suggestion = suggestions[index]; if (!suggestion) return;
@@ -397,16 +445,19 @@
     editor.addEventListener('input',() => {
       if (composing) return;
       const pos = selection(); query = editor.textContent.replace(/[\r\n]/g,' ');
-      feedback.textContent = ''; paint(pos); record(pos); menuOpen = true; showMenu();
+      feedback.textContent = ''; paint(pos); record(pos); menuOpen = true; scheduleMenu();
     });
     // Replacing text nodes mid-composition would drop the mobile keyboard's
     // provisional text. Repaint once the IME commits it and the caret is stable.
-    editor.addEventListener('compositionstart',() => { composing = true; });
+    editor.addEventListener('compositionstart',() => { composing = true; showMenu(); });
     editor.addEventListener('compositionend',() => { composing = false; editor.dispatchEvent(new Event('input')); });
     function selectionChanged() {
       if (!focused || rendering || composing) return;
       const sel = window.getSelection(); if (!editor.contains(sel?.anchorNode)) return;
-      paint();
+      // Restoring the caret after a synchronous edit also fires selectionchange.
+      // Its decorations are already up to date.
+      const pos = selection();
+      if (pos.anchor !== paintedSelection?.anchor || pos.focus !== paintedSelection?.focus) paint(pos);
     }
     activeEditors.set(editor, {selectionChanged, fitMenu});
     editor.addEventListener('click',e => {
@@ -431,11 +482,19 @@
       if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); undo(1); return; }
       if (e.key === 'Escape') { e.preventDefault(); menuOpen = false; showMenu(); return; }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault(); menuOpen = true; showMenu(false);
-        if (suggestions.length) selected = (selected+(e.key==='ArrowDown'?1:-1)+suggestions.length)%suggestions.length;
-        showMenu(false); return;
+        e.preventDefault();
+        if (menu.hidden) { menuOpen = true; showMenu(); }
+        if (suggestions.length) {
+          const current = selected < 0 && e.key === 'ArrowUp' ? 0 : selected;
+          selectSuggestion((current + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length);
+        }
+        return;
       }
-      if (e.key === 'Tab' && !menu.hidden && suggestions.length) { e.preventDefault(); choose(selected < 0 ? 0 : selected); return; }
+      if (e.key === 'Tab') {
+        if (menuTimer) showMenu();
+        if (!menu.hidden && suggestions.length) { e.preventDefault(); choose(selected < 0 ? 0 : selected); }
+        return;
+      }
       if (e.key === 'Enter') { e.preventDefault(); if (!menu.hidden && selected >= 0) choose(selected); else submit(); return; }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
         // Leave caret movement, word movement, and Shift selection native.
