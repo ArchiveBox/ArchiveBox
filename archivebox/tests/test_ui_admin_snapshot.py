@@ -2429,4 +2429,14 @@ def test_snapshot_folder_action_is_one_native_button_menu(admin_client, snapshot
     assert 'class="actions-folder"' not in html
     assert html.count('name="folder_destination"') == 1
     assert 'class="action-folder-select" aria-label="Move to folder"' in html
-    assert f'value="{folder.pk}"' in html
+    assert 'data-picker="folder" data-picker-destination="true"' in html
+    # The native menu searches the bounded picker API instead of embedding
+    # every collection folder into each snapshot list response.
+    assert f'value="{folder.pk}"' not in html
+    choices = admin_client.get(
+        "/api/v1/core/folders/autocomplete/",
+        {"q": "Research", "destination": "true"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert choices.status_code == 200
+    assert choices.json()["choices"] == [{"id": str(folder.pk), "name": "Research"}]
