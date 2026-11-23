@@ -362,6 +362,38 @@ def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_u
     assert response.context["domains"][0]["snapshot_count"] == 2
 
 
+def test_domain_cache_refresh_error_releases_statistics_lock(admin_user, tmp_path):
+    from pathlib import Path
+
+    from django.core.cache import cache, caches
+    from django.test import override_settings
+
+    from archivebox.config import CONSTANTS
+    from archivebox.domains.views import _domain_rows
+    from archivebox.progressmonitor.collection import _refresh_lock
+
+    create_pages(admin_user, ["https://shared.example/"])
+    with override_settings(
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": str(tmp_path)}},
+    ):
+        expected = _domain_rows()
+        assert expected[0]["snapshot_count"] == 1
+        refresh_key = f"domain-summary:{CONSTANTS.COLLECTION_ID}:refresh"
+        cache.delete(refresh_key)
+        # A real malformed cache entry makes FileBasedCache.add fail while the
+        # previously cached summary remains readable, including when run as root.
+        Path(caches["default"]._key_to_file(refresh_key)).mkdir()
+        assert not _refresh_lock.locked()
+        try:
+            with CaptureQueriesContext(connection) as queries:
+                assert _domain_rows() == expected
+            assert not queries
+            assert _refresh_lock.acquire(blocking=False)
+        finally:
+            if _refresh_lock.locked():
+                _refresh_lock.release()
+
+
 def test_domain_summary_later_pages_seek_id_range(admin_user):
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
     pages = Snapshot.objects.bulk_create(
