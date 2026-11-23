@@ -9,6 +9,113 @@ from playwright.sync_api import expect, sync_playwright
 
 
 @pytest.mark.django_db(transaction=True)
+def test_offscreen_progress_backs_off_and_resumes(admin_user, live_server, browser_runtime):
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1200, "height": 600})
+        page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.wait_for_url("**/admin/")
+        # The native clients reparent this same monitor. Give the live admin
+        # panel a scroll container so this test works with a sticky header too.
+        page.locator("#progress-monitor").evaluate("""monitor => {
+            const viewport = document.createElement('div');
+            viewport.id = 'progress-test-viewport';
+            viewport.style.cssText = 'position:fixed;inset:10vh 0 auto;z-index:10000;height:40vh;overflow-y:auto';
+            const spacer = document.createElement('div');
+            spacer.style.height = '100vh';
+            document.body.append(viewport);
+            viewport.append(monitor, spacer);
+        }""")
+        viewport = page.locator("#progress-test-viewport")
+        toggle = page.locator("#progress-collapse")
+        polls = []
+        page.on("request", lambda r: polls.append(r.url) if urlsplit(r.url).path == "/progress.json" else None)
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+        with page.expect_response(lambda r: urlsplit(r.url).path == "/progress.json" and "tree=0" not in r.url) as full:
+            pass
+        assert "active_crawls" in full.value.json()
+        polls.clear()
+        with page.expect_response(lambda r: "background=1" in r.url, timeout=9000) as passive:
+            viewport.evaluate("el => el.scrollTop = el.scrollHeight")
+        assert "active_crawls" not in passive.value.json()
+        page.wait_for_timeout(5200)
+        assert polls == [passive.value.url]
+        with page.expect_response(lambda r: urlsplit(r.url).path == "/progress.json" and "tree=0" not in r.url) as resumed:
+            viewport.evaluate("el => el.scrollTop = 0")
+        assert "active_crawls" in resumed.value.json()
+        with page.expect_response(lambda r: "tree=0" in r.url) as collapsed:
+            toggle.click()
+        assert "active_crawls" not in collapsed.value.json()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_compact_progress_header_reveals_overflow_on_expand(admin_user, live_server, browser_runtime, tmp_path):
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 320, "height": 700}, is_mobile=True, has_touch=True)
+        page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        header = page.locator("#progress-monitor .header-bar")
+        toggle = header.locator("#progress-collapse")
+        badges = header.locator(".metric-badge:visible")
+        expect(header.locator("#metric-status")).to_contain_text("queued")
+        if toggle.get_attribute("aria-expanded") == "true":
+            toggle.click()
+
+        for width in (320, 390, 768, 1280, 320):
+            page.set_viewport_size({"width": width, "height": 700})
+            header.screenshot(path=str(tmp_path / f"progress-header-{width}.png"))
+            compact = badges.evaluate_all("els => els.map(el => el.id)")
+            boxes = badges.evaluate_all("els => els.map(el => el.getBoundingClientRect().toJSON())")
+            assert compact[0] == "metric-status"
+            assert max(b["top"] for b in boxes) - min(b["top"] for b in boxes) <= 1
+            assert boxes[-1]["right"] <= toggle.bounding_box()["x"]
+
+            header.tap(position={"x": 2, "y": 2})
+            expect(toggle).to_have_attribute("aria-expanded", "true")
+            expanded = badges.evaluate_all("els => els.map(el => el.id)")
+            assert compact == expanded[: len(compact)]
+            if width == 320:
+                assert len(compact) < len(expanded)
+                expect(header.locator("#metric-web")).to_be_visible()
+                header.screenshot(path=str(tmp_path / "progress-header-expanded.png"))
+            if width == 1280:
+                assert compact == expanded
+            header.locator("#metric-status").tap()
+            expect(toggle).to_have_attribute("aria-expanded", "true")
+            header.tap(position={"x": 2, "y": 2})
+            expect(toggle).to_have_attribute("aria-expanded", "false")
+
+        toggle.focus()
+        toggle.press("Enter")
+        expect(toggle).to_have_attribute("aria-expanded", "true")
+        page.locator("#progress-monitor .progress-content").tap(position={"x": 2, "y": 2})
+        expect(toggle).to_have_attribute("aria-expanded", "false")
+        page.reload()
+        expect(toggle).to_have_attribute("aria-expanded", "false")
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_empty_snapshot_preserves_progress_details_preference(snapshot, live_server, browser_runtime, tmp_path):
     from archivebox.machine.models import Machine
 

@@ -27,7 +27,7 @@ def system_metrics_path():
     return Path(get_config(resolve_plugins=False).TMP_DIR) / "progress-system-metrics.json"
 
 
-def progress_metrics(user, *, crawl_id=None, snapshot_id=None):
+def progress_metrics(user, *, crawl_id=None, snapshot_id=None, system_only=False):
     """Keep authorization scope in the cache key; never disclose host stats to guests."""
     if not (user.is_staff or user.is_superuser):
         return None
@@ -35,12 +35,18 @@ def progress_metrics(user, *, crawl_id=None, snapshot_id=None):
     key = f"progress-metrics:{owner_id}:{crawl_id}:{snapshot_id}"
     try:
         summary = cache.get(key)
+        # A background tab can keep the inexpensive OS gauges fresh without
+        # starting throughput queries (or one sampler per owner).
+        sample = cache.get("progress-system-metrics") if system_only else summary
+        if system_only and sample:
+            summary = {**(summary or {}), "system": sample}
     except Exception:
         # Optional telemetry must not break capture progress when its cache fails.
         return None
-    if (summary is None or time() - summary["sampled_at"] >= REFRESH_SECONDS) and _refresh_lock.acquire(blocking=False):
+    if (sample is None or time() - sample["sampled_at"] >= REFRESH_SECONDS) and _refresh_lock.acquire(blocking=False):
         try:
-            refresh_due = cache.add(f"{key}:refresh", True, timeout=REFRESH_SECONDS)
+            refresh_key = "progress-system-metrics" if system_only else key
+            refresh_due = cache.add(f"{refresh_key}:refresh", True, timeout=REFRESH_SECONDS)
         except Exception:
             refresh_due = False
         if not refresh_due:
@@ -52,20 +58,21 @@ def progress_metrics(user, *, crawl_id=None, snapshot_id=None):
                 close_old_connections()
                 from archivebox.core.models import Snapshot
 
-                now = timezone.now()
-                # Existing downloaded_at index bounds this to one hour, not the
-                # archive's lifetime. Finish SQL before any OS/filesystem work.
-                scope = Snapshot.objects.filter(downloaded_at__gte=now - timedelta(hours=1), downloaded_at__lte=now)
-                if owner_id is not None:
-                    scope = scope.filter(crawl__created_by_id=owner_id)
-                if crawl_id:
-                    scope = scope.filter(crawl_id=crawl_id)
-                if snapshot_id:
-                    scope = scope.filter(pk=snapshot_id)
-                throughput = scope.aggregate(
-                    last_hour=Count("downloaded_at"),
-                    last_30_minutes=Count("downloaded_at", filter=Q(downloaded_at__gte=now - timedelta(minutes=30))),
-                )
+                if not system_only:
+                    now = timezone.now()
+                    # Existing downloaded_at index bounds this to one hour, not the
+                    # archive's lifetime. Finish SQL before any OS/filesystem work.
+                    scope = Snapshot.objects.filter(downloaded_at__gte=now - timedelta(hours=1), downloaded_at__lte=now)
+                    if owner_id is not None:
+                        scope = scope.filter(crawl__created_by_id=owner_id)
+                    if crawl_id:
+                        scope = scope.filter(crawl_id=crawl_id)
+                    if snapshot_id:
+                        scope = scope.filter(pk=snapshot_id)
+                    throughput = scope.aggregate(
+                        last_hour=Count("downloaded_at"),
+                        last_30_minutes=Count("downloaded_at", filter=Q(downloaded_at__gte=now - timedelta(minutes=30))),
+                    )
                 system = cache.get("progress-system-metrics")
                 if system is None or time() - system["sampled_at"] >= REFRESH_SECONDS:
                     system = get_live_system_stats(CONSTANTS.DATA_DIR)
@@ -79,6 +86,8 @@ def progress_metrics(user, *, crawl_id=None, snapshot_id=None):
                             json.dump(system, stream)
                     except OSError:
                         logging.getLogger(__name__).warning("Could not publish system metrics", exc_info=True)
+                if system_only:
+                    return
                 cache.set(
                     key,
                     {"sampled_at": time(), "throughput": throughput, "system": system},

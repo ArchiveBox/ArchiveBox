@@ -243,3 +243,59 @@ def test_queue_eta_from_real_completion_rate(admin_user, crawl, live_server, bro
             expect(page.locator("#orchestrator-text")).to_have_text(f"0 - {label}")
         finally:
             browser.close()
+
+
+def test_monitor_poll_shares_tree_and_keeps_background_queries_cheap(client, admin_user, crawl, snapshot):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from django.contrib.auth import get_user_model
+    from django.db import connections
+    from django.test import Client
+    from archivebox.core.models import Snapshot
+
+    cache.clear()
+    client.force_login(admin_user)
+    with CaptureQueriesContext(connection) as cold:
+        heartbeat = client.get("/progress.json", {"poll": 1, "background": 1}, HTTP_HOST=ADMIN_TEST_HOST).json()
+    assert heartbeat["is_admin"] and "orchestrator_running" in heartbeat
+    assert "active_crawls" not in heartbeat and "snapshots_queued" not in heartbeat
+    assert all("core_archiveresult" not in q["sql"] and "COUNT(" not in q["sql"].upper() for q in cold)
+    barrier = Barrier(10)
+
+    def poll(_):
+        viewer = Client()
+        viewer.cookies.update(client.cookies)
+        try:
+            barrier.wait()
+            with CaptureQueriesContext(connection) as queries:
+                response = viewer.get("/progress.json", {"poll": 1}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            return response.content, any("core_archiveresult" in q["sql"] for q in queries)
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        samples = list(pool.map(poll, range(10)))
+    assert sum(built for body, built in samples) == 1
+    assert len({body for body, built in samples}) == 1
+    full = json.loads(samples[0][0])
+    assert str(crawl.pk) in {c["id"] for c in full["active_crawls"]}
+    with CaptureQueriesContext(connection) as warm:
+        compact = client.get("/progress.json", {"tree": 0, "poll": 1}, HTTP_HOST=ADMIN_TEST_HOST).json()
+    assert compact["snapshots_queued"] == full["snapshots_queued"]
+    assert "active_crawls" not in compact
+    assert all("core_archiveresult" not in q["sql"] and "COUNT(" not in q["sql"].upper() for q in warm)
+    staff = Client()
+    staff.force_login(get_user_model().objects.create_user(username="other-progress-viewer", is_staff=True))
+    scoped = staff.get("/progress.json", {"poll": 1}, HTTP_HOST=ADMIN_TEST_HOST).json()
+    assert scoped["active_crawls"] == [] and scoped["snapshots_queued"] == 0
+    # The same URL must recheck current snapshot permissions even on a cache hit.
+    Snapshot.objects.filter(pk=snapshot.pk).update(config={**snapshot.config, "PERMISSIONS": "public"})
+    guest = Client()
+    params = {"poll": 1, "snapshot_id": str(snapshot.pk)}
+    public = guest.get("/progress.json", params, HTTP_HOST=ADMIN_TEST_HOST)
+    assert public.status_code == 200 and not public.json()["is_admin"]
+    Snapshot.objects.filter(pk=snapshot.pk).update(config={**snapshot.config, "PERMISSIONS": "private"})
+    assert guest.get("/progress.json", params, HTTP_HOST=ADMIN_TEST_HOST).status_code == 403
+    cache.clear()

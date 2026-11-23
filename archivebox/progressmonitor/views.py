@@ -1,9 +1,11 @@
 __package__ = "archivebox.progressmonitor"
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
+from threading import Lock
 from typing import Literal
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED
@@ -97,6 +99,99 @@ def _process_label(cmd: list | None) -> tuple[str, str, str, str]:
     return _hook_details(name, plugin=parent.rpartition("/")[2] or "setup")
 
 
+# Django's progress caches are process-local. Concurrent tabs must share a
+# cold sample too: get_or_set evaluates the expensive callback in every thread.
+# Fixed lock stripes bound memory even when many different snapshots are open.
+_poll_locks = tuple(Lock() for _ in range(64))
+# Trees can acquire a header lock while building. Separate the lock pools so
+# two simultaneous views of different snapshots cannot deadlock on a collision.
+_header_locks = tuple(Lock() for _ in range(64))
+_runner_lock = Lock()
+
+
+def _runner():
+    from archivebox.machine.models import Machine, Process
+
+    machine = Machine.current_readonly()
+    machine_id = machine.id if machine is not None else None
+    orchestrator_proc = (
+        Process.objects.filter(
+            machine_id=machine_id,
+            process_type=Process.TypeChoices.ORCHESTRATOR,
+            status=Process.StatusChoices.RUNNING,
+        )
+        .only("pid", "started_at", "machine_id", "env", "cmd", "status")
+        .order_by("-started_at")
+        .first()
+        if machine_id is not None
+        else None
+    )
+    # A stopped runner cannot reconcile its own stale row. Validate only
+    # this one candidate using the existing PID/start-time/namespace guard;
+    # leave historical process rows and remote namespace semantics intact.
+    orchestrator_running = bool(orchestrator_proc and orchestrator_proc.is_running)
+    return machine_id, orchestrator_proc.pid if orchestrator_running else None
+
+
+def _sampled_runner():
+    # One PID/namespace check per worker per 15s, even for ten different
+    # authorized scopes. The runner identity is machine-wide.
+    with _runner_lock:
+        return cache.get_or_set("progress-runner", _runner, timeout=15)
+
+
+def _add_telemetry(payload, request, *, background=False):
+    if not payload["is_admin"]:
+        return
+    if request.GET.get("metrics") == "1" or request.GET.get("collection") == "1":
+        from archivebox.progressmonitor.collection import collection_summary
+
+        payload["collection"] = collection_summary(request.user, refresh=not background)
+    if request.GET.get("metrics") == "1":
+        from archivebox.progressmonitor.metrics import progress_metrics
+
+        payload["metrics"] = progress_metrics(request.user, system_only=background)
+
+
+def _poll_summary(request, scope, snapshot, is_admin, header_key, background):
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Process
+
+    # An offscreen tab can read the latest header, but must never cause a count,
+    # hook/process inventory, or output lookup just to keep that header warm.
+    machine_id, pid = _sampled_runner()
+    header = cache.get(header_key)
+    if header is None and not background:
+        with _header_locks[hash(header_key) % len(_header_locks)]:
+            header = cache.get(header_key)
+            if header is None:
+                snapshots = Snapshot.objects.all()
+                if not is_admin:
+                    snapshots = snapshots.filter(pk=snapshot.pk)
+                elif not request.user.is_superuser:
+                    snapshots = snapshots.filter(crawl__created_by=request.user)
+                queued = snapshots.filter(status=Snapshot.StatusChoices.QUEUED).count()
+                # STARTED rows can outlive their workers. Only detail polling
+                # attributes individual processes to captures. Show an unknown
+                # active count when hooks might exist, rather than guessing.
+                possible_workers = snapshots.filter(status=Snapshot.StatusChoices.STARTED).exists()
+                if possible_workers and is_admin and request.user.is_superuser:
+                    possible_workers = Process.objects.filter(
+                        machine_id=machine_id,
+                        status=Process.StatusChoices.RUNNING,
+                        process_type__in=(Process.TypeChoices.HOOK, Process.TypeChoices.BINARY),
+                    ).exists()
+                header = {
+                    "snapshots_queued": queued,
+                    "snapshots_active": None if possible_workers else 0,
+                }
+                cache.set(header_key, header, timeout=15)
+    payload = {"is_admin": is_admin, "scope": scope, "server_time": timezone.now().isoformat(), **(header or {})}
+    payload.update(orchestrator_running=pid is not None, orchestrator_pid=pid)
+    _add_telemetry(payload, request, background=background)
+    return JsonResponse(payload)
+
+
 def live_progress_view(request, *, authorized_snapshot=None):
     """Read-only live progress; keep the server-side request below 100 ms.
 
@@ -108,10 +203,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
     in this one-second polling path; expensive totals belong off the request.
     """
     started = time.perf_counter()
+    detail_lock = None
+    detail_key = None
     try:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.machine.models import Machine, Process
+        from archivebox.machine.models import Process
 
         snapshot_id_filter = (request.GET.get("snapshot_id") or "").strip().replace("-", "")
         crawl_id_filter = (request.GET.get("crawl_id") or "").strip().replace("-", "")
@@ -125,7 +222,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 _uuid.UUID(snapshot_id_filter)
             except (TypeError, ValueError):
                 return JsonResponse({"error": "Invalid snapshot_id"}, status=400)
-            scoped_snapshot = Snapshot.objects.filter(id=snapshot_id_filter).select_related("crawl").first()
+            scoped_snapshot = Snapshot.objects.filter(id=snapshot_id_filter).only("id", "permissions", "status", "crawl_id", "url").first()
             authorized_snapshot_id = str(getattr(authorized_snapshot, "id", "")).replace("-", "")
             if scoped_snapshot is None or (
                 authorized_snapshot_id != str(scoped_snapshot.id).replace("-", "") and not can_view_snapshot(request, scoped_snapshot)
@@ -139,6 +236,42 @@ def live_progress_view(request, *, authorized_snapshot=None):
         else:
             if not is_admin:
                 return JsonResponse({"error": "Permission denied"}, status=403)
+
+        scope = {
+            "snapshot_id": str(scoped_snapshot.pk) if scoped_snapshot is not None else "",
+            "snapshot_status": scoped_snapshot.status if scoped_snapshot is not None else "",
+            "crawl_id": crawl_id_filter,
+        }
+        # The monitor accepts a short-lived sample. Authorization (including
+        # snapshot visibility) is always checked before reusing any response.
+        if request.GET.get("poll") == "1":
+            audience = (
+                ("all" if request.user.is_superuser else f"owner-{request.user.pk}") if is_admin else f"snapshot-{scope['snapshot_id']}"
+            )
+            header_key = f"progress-header:{audience}"
+            if request.GET.get("tree") == "0" or request.GET.get("background") == "1":
+                response = _poll_summary(request, scope, scoped_snapshot, is_admin, header_key, request.GET.get("background") == "1")
+                response["Server-Timing"] = f"progress;dur={(time.perf_counter() - started) * 1000:.1f}"
+                return response
+            # Rendered URLs depend on the origin. Different owners, expanded
+            # buckets, and scoped snapshot states must never share a tree.
+            key_parts = (
+                audience,
+                request.scheme,
+                request.get_host(),
+                *scope.values(),
+                request.GET.get("more_snapshots", ""),
+                request.GET.get("metrics"),
+                request.GET.get("collection"),
+            )
+            detail_key = "progress-tree:" + sha256(repr(key_parts).encode()).hexdigest()
+            detail_lock = _poll_locks[hash(detail_key) % len(_poll_locks)]
+            detail_lock.acquire()
+            cached = cache.get(detail_key)
+            if cached is not None:
+                response = HttpResponse(cached, content_type="application/json")
+                response["Server-Timing"] = f"progress;dur={(time.perf_counter() - started) * 1000:.1f}"
+                return response
 
         request_config = request.archivebox_config
         now = timezone.now()
@@ -232,66 +365,44 @@ def live_progress_view(request, *, authorized_snapshot=None):
             rel = f"{path}?v={int(now.timestamp())}&after={started_at.timestamp()}"
             return f"{api_base}{rel}" if api_base else rel
 
-        machine = Machine.current_readonly()
-        machine_id = machine.id if machine is not None else None
-        orchestrator_proc = (
-            Process.objects.filter(
-                machine_id=machine_id,
-                process_type=Process.TypeChoices.ORCHESTRATOR,
-                status=Process.StatusChoices.RUNNING,
+        machine_id, orchestrator_pid = _sampled_runner() if detail_key else _runner()
+        orchestrator_running = orchestrator_pid is not None
+
+        def count_header():
+            # Global, crawl and snapshot panels all show the same header for
+            # an admin. Scope the expensive aggregates by what they may see,
+            # independently of which tree or overflow bucket they opened.
+            crawl_counts = Crawl.status_counts(header_crawl_scope, (Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED))
+            recent = header_crawl_scope.filter(created_at__gte=now - timedelta(days=1)).count()
+            queued = header_snapshot_scope.filter(status=Snapshot.StatusChoices.QUEUED).count()
+            # Queued results use the status index. Started results are reached via
+            # the existing unique process_id index from running processes, so stale
+            # interrupted results never require snapshot/crawl joins on every poll.
+            result_counts = list(
+                header_archiveresult_scope.filter(
+                    Q(status=ArchiveResult.StatusChoices.QUEUED)
+                    | Q(
+                        status=ArchiveResult.StatusChoices.STARTED,
+                        process_id__in=Process.objects.filter(status=Process.StatusChoices.RUNNING).order_by().values("pk"),
+                    ),
+                )
+                .order_by()
+                .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
+                .annotate(count=Count("*")),
             )
-            .only("pid", "started_at", "machine_id", "env", "cmd", "status")
-            .order_by("-started_at")
-            .first()
-            if machine_id is not None
-            else None
-        )
-        # A stopped runner cannot reconcile its own stale row. Validate only
-        # this one candidate using the existing PID/start-time/namespace guard;
-        # leave historical process rows and remote namespace semantics intact.
-        orchestrator_running = bool(orchestrator_proc and orchestrator_proc.is_running)
-        orchestrator_pid = orchestrator_proc.pid if orchestrator_running else None
+            return crawl_counts, recent, queued, result_counts
 
-        # Get model counts by status
-        crawl_status_counts = Crawl.status_counts(
-            header_crawl_scope,
-            (Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED),
-        )
-        crawls_queued = crawl_status_counts.get(Crawl.StatusChoices.QUEUED, 0)
-        crawls_active = crawl_status_counts.get(Crawl.StatusChoices.STARTED, 0)
-
-        # Get recent crawls (last 24 hours)
-        from datetime import timedelta
-
-        one_day_ago = now - timedelta(days=1)
+        if detail_key:
+            with _header_locks[hash(header_key) % len(_header_locks)]:
+                counts = cache.get_or_set(f"{header_key}:counts", count_header, timeout=5)
+        else:
+            counts = count_header()
+        crawl_counts, crawls_recent, snapshots_queued, result_counts = counts
+        crawls_queued = crawl_counts.get(Crawl.StatusChoices.QUEUED, 0)
+        crawls_active = crawl_counts.get(Crawl.StatusChoices.STARTED, 0)
         paused_crawl_cutoff = now - timedelta(hours=12)
-        crawls_recent = header_crawl_scope.filter(created_at__gte=one_day_ago).count()
-
-        # Active captures are counted from live hook processes below.
-        snapshot_status_counts = Snapshot.status_counts(header_snapshot_scope, (Snapshot.StatusChoices.QUEUED,))
-        snapshots_queued = snapshot_status_counts.get(Snapshot.StatusChoices.QUEUED, 0)
-        snapshots_active = snapshot_status_counts.get(Snapshot.StatusChoices.STARTED, 0)
-
         download_plugin_names, indexing_plugin_names = _live_progress_plugin_names()
-        result_statuses = (
-            ArchiveResult.StatusChoices.QUEUED,
-            ArchiveResult.StatusChoices.STARTED,
-        )
-        # Queued results use the status index. Started results are reached via
-        # the existing unique process_id index from running processes, so stale
-        # interrupted results never require snapshot/crawl joins on every poll.
-        result_counts = list(
-            header_archiveresult_scope.filter(
-                Q(status=ArchiveResult.StatusChoices.QUEUED)
-                | Q(
-                    status=ArchiveResult.StatusChoices.STARTED,
-                    process_id__in=Process.objects.filter(status=Process.StatusChoices.RUNNING).order_by().values("pk"),
-                ),
-            )
-            .order_by()
-            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
-            .annotate(count=Count("*")),
-        )
+        result_statuses = (ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED)
         archiveresult_status_counts = {
             status: sum(row["count"] for row in result_counts if row["status"] == status) for status in result_statuses
         }
@@ -1048,11 +1159,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         payload = {
             "is_admin": is_admin,
-            "scope": {
-                "snapshot_id": str(scoped_snapshot.id) if scoped_snapshot is not None else "",
-                "snapshot_status": scoped_snapshot.status if scoped_snapshot is not None else "",
-                "crawl_id": crawl_id_filter,
-            },
+            "scope": scope,
             "orchestrator_running": orchestrator_running,
             "orchestrator_pid": orchestrator_pid,
             "total_workers": total_workers,
@@ -1069,23 +1176,20 @@ def live_progress_view(request, *, authorized_snapshot=None):
             "indexing_queued": indexing_queued,
             "server_time": timezone.now().isoformat(),
         }
+        if detail_key:
+            cache.set(header_key, {k: v for k, v in payload.items() if k not in ("is_admin", "scope", "server_time")}, timeout=15)
         if include_tree:
             payload["active_crawls"] = active_crawls
             payload["hidden_crawls"] = hidden_crawls
-        if is_admin and (request.GET.get("collection") == "1" or request.GET.get("metrics") == "1"):
-            from archivebox.progressmonitor.collection import collection_summary
-
-            payload["collection"] = collection_summary(request.user)
-        if is_admin and request.GET.get("metrics") == "1":
-            from archivebox.progressmonitor.metrics import progress_metrics
-
-            payload["metrics"] = progress_metrics(request.user)
+        _add_telemetry(payload, request)
         try:
             import ujson
 
             response = HttpResponse(ujson.dumps(payload), content_type="application/json")
         except ImportError:
             response = JsonResponse(payload)
+        if detail_key:
+            cache.set(detail_key, response.content, timeout=2)
         # The view's own time per poll, readable in browser devtools on any deployment.
         response["Server-Timing"] = f"progress;dur={(time.perf_counter() - started) * 1000:.1f}"
         return response
@@ -1113,3 +1217,6 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
             error_payload["traceback"] = traceback.format_exc()
         return JsonResponse(error_payload, status=500)
+    finally:
+        if detail_lock is not None:
+            detail_lock.release()

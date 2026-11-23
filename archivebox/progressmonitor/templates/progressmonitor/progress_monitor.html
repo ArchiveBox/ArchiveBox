@@ -37,11 +37,9 @@
         position: sticky;
         top: 0;
         z-index: 10;
-    }
-    #progress-monitor.collapsed .header-bar {
         cursor: pointer;
     }
-    #progress-monitor .header-left {
+    #progress-monitor .metric-strip {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -49,6 +47,17 @@
         min-width: 0;
         font-size: 12px;
         font-variant-numeric: tabular-nums;
+    }
+    #progress-monitor.collapsed .metric-strip {
+        flex-wrap: nowrap;
+        overflow: clip;
+    }
+    #progress-monitor.collapsed .metric-badge {
+        flex: none;
+        max-width: none;
+    }
+    #progress-monitor.collapsed .metric-badge.overflows-strip {
+        visibility: hidden;
     }
     #progress-monitor .header-right {
         display: flex;
@@ -72,6 +81,8 @@
         background: rgba(139, 148, 158, 0.04);
         white-space: nowrap;
         cursor: help;
+        position: relative;
+        z-index: 1;
     }
     #progress-monitor .metric-badge svg {
         width: 14px;
@@ -134,6 +145,13 @@
         border-radius: 6px;
         font-size: 11px;
         transition: all 0.2s;
+    }
+    /* Let a touch anywhere on the header background hit the real button.
+       Badges sit above it so their metric tooltips remain accessible. */
+    #progress-monitor .toggle-btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
     }
     #progress-monitor .toggle-btn:hover {
         background: #21262d;
@@ -222,6 +240,7 @@
         box-shadow: 0 12px 34px rgba(1, 4, 9, 0.4), 0 0 0 1px rgba(88, 166, 255, 0.12);
     }
     #progress-monitor .screencast-panel.visible {
+        min-height: 1px;
         display: block;
     }
     #progress-monitor .screencast-frame {
@@ -866,7 +885,7 @@
             align-items: flex-start;
             gap: 8px;
         }
-        #progress-monitor .header-left {
+        #progress-monitor .metric-strip {
             flex: 1;
             min-width: 0;
         }
@@ -949,7 +968,11 @@
             align-items: start;
             padding: 7px 8px;
         }
-        #progress-monitor .header-left {
+        #progress-monitor.collapsed .header-bar {
+            align-items: center;
+            padding-block: 4px;
+        }
+        #progress-monitor .metric-strip {
             gap: 6px 10px;
         }
         #progress-monitor .header-right {
@@ -1034,7 +1057,7 @@
      data-progress-scope="{{ progress_scope|default:'global' }}"
      data-auto-expand="{% if progress_auto_expand %}1{% else %}0{% endif %}">
     <div class="header-bar">
-        <div class="header-left">
+        <div class="metric-strip">
             <div class="orchestrator-status metric-badge" id="metric-status" tabindex="0">
                 <svg class="status-icon" id="orchestrator-dot" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
                 <span id="orchestrator-text">Loading status…</span>
@@ -1531,6 +1554,10 @@
             `;
             return;
         }
+        // Give the preview a layout box before the first image is requested;
+        // otherwise a panel below the visible tree could keep fetching frames.
+        screencastPanel.classList.add('visible');
+        if (!frameOnScreen) return;
         const snapshot = target.snapshot;
         const adminUrl = snapshot.admin_url || `/admin/core/snapshot/${snapshot.id || 'unknown'}/change/`;
         const linkUrl = snapshot.screencast_link || snapshot.view_url || adminUrl;
@@ -1539,6 +1566,7 @@
         const newUrl = snapshot.screencast_url;
         const snapshotKey = `${target.crawl?.id || ''}|${snapshot.id || ''}`;
         screencastPanel.dataset.desiredFrameKey = snapshotKey;
+        screencastPanel.dataset.frameUrl = newUrl;
 
         if (screencastPanel.dataset.mode !== 'frame' && !screencastPanel.querySelector('.screencast-frame img')?.getAttribute('src')) {
             if (screencastPanel.dataset.pendingFrameSrc) return;
@@ -1551,7 +1579,7 @@
                     if (screencastPanel.dataset.pendingFrameSrc !== newUrl) return;
                     delete screencastPanel.dataset.pendingFrameSrc;
                     delete screencastPanel.dataset.pendingFrameKey;
-                    if (screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
+                    if (!detailsVisible() || !frameOnScreen || screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
                     screencastPanel.dataset.mode = 'frame';
                     screencastPanel.dataset.key = '';
                     screencastPanel.dataset.currentFrameSrc = newUrl;
@@ -1610,7 +1638,7 @@
             img.style.opacity = '1';
             screencastPanel.classList.add('visible');
         }
-        loadScreencastFrame(newUrl, snapshotKey);
+        if (screencastPanel.dataset.currentFrameKey !== snapshotKey) loadScreencastFrame(newUrl, snapshotKey);
     }
 
     // Swap in the next frame only once it has decoded, so the panel never flashes.
@@ -1625,7 +1653,7 @@
                 if (screencastPanel.dataset.pendingFrameSrc !== newUrl) return;
                 delete screencastPanel.dataset.pendingFrameSrc;
                 delete screencastPanel.dataset.pendingFrameKey;
-                if (screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
+                if (!detailsVisible() || !frameOnScreen || screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
                 const currentImg = screencastPanel.querySelector('.screencast-frame img');
                 if (!currentImg) return;
                 nextFrame.alt = '';
@@ -2025,6 +2053,17 @@
         const serverMs = Date.parse(data.server_time || '');
         if (Number.isFinite(serverMs)) serverClockOffsetMs = serverMs - Date.now();
         updateMetrics(data);
+        if (pollMode === 'summary' && data.is_admin) {
+            // On a cold server the first request starts the shared sampler.
+            // Pick up that first sample promptly, then use the slower cadence.
+            if (firstSampleRetries > 0 && (!data.metrics || !data.collection)) {
+                firstSampleRetries--;
+                setPollingDelay(2000);
+            } else {
+                firstSampleRetries = 0;
+                setPollingDelay(progressEndpoint.searchParams.has('snapshot_id') ? 2000 : 5000);
+            }
+        }
         idleMessage.style.color = '';
 
         // Calculate if there's activity
@@ -2032,16 +2071,17 @@
                            data.crawls_queued > 0 || data.crawls_active > 0 ||
                            data.snapshots_queued > 0 || data.snapshots_active > 0 ||
                            data.archiveresults_queued > 0 || data.archiveresults_active > 0;
-        if (hasActivity) {
-            idleTicks = 0;
-            if (pollDelayMs !== 1000) {
-                setPollingDelay(1000);
-            }
-        } else {
-            idleTicks += 1;
-            if (idleTicks > 5 && pollDelayMs !== 10000) {
-                setPollingDelay(10000);
-            }
+        if (data.active_crawls && detailsVisible()) {
+            idleTicks = hasActivity ? 0 : idleTicks + 1;
+            setPollingDelay(idleTicks > 5 ? 10000 : 2000);
+        }
+        // A passive poll can have fresh runner status without a queue sample.
+        const status = document.getElementById('metric-status');
+        if (data.snapshots_queued == null) {
+            setOrchestratorState(data.orchestrator_running ? 'idle' : 'stopped', data.orchestrator_running ? 'Runner online' : 'Runner stopped');
+            status.title = 'Runner status from the latest background check.';
+            status.setAttribute('aria-label', status.textContent.trim());
+            return;
         }
 
         // Reuse the existing progress counts; no additional polling or queries.
@@ -2056,7 +2096,7 @@
             setOrchestratorState('idle', 'Idle');
         }
 
-        const count = value => Number(value || 0).toLocaleString();
+        const count = value => value == null ? '—' : Number(value).toLocaleString();
         const hourlyRate = data.metrics?.throughput?.last_hour;
         let queueEta = '';
         if (data.snapshots_queued > 0 && Number.isFinite(hourlyRate) && hourlyRate > 0
@@ -2070,15 +2110,17 @@
             queueEta = ` (~${parts.join(' ')})`;
         }
         document.getElementById('orchestrator-text').textContent = `${count(data.snapshots_active)} - ${count(data.snapshots_queued)} queued${queueEta}`;
-        const status = document.getElementById('metric-status');
         status.title = `${hasWorkers ? 'Running' : data.orchestrator_running ? 'Idle' : 'Runner stopped'}. Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawl Jobs: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
+        if (data.total_workers == null) {
+            status.title = `${data.orchestrator_running ? 'Runner online' : 'Runner stopped'}. ${count(data.snapshots_queued)} queued. Expand for live worker counts.`;
+        }
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
         metricBadge('indexing', `Indexing ${count(data.indexing_active)}${data.indexing_queued ? ` · ${count(data.indexing_queued)} queued` : ''}`,
             `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);
         document.getElementById('metric-indexing').hidden = !(data.indexing_active || data.indexing_queued);
 
         // Collapsed polls omit the tree (tree=0); keep the hidden DOM as-is.
-        if (!data.active_crawls) return;
+        if (!data.active_crawls || !detailsVisible()) return;
 
         updateScreencastPanel(data);
 
@@ -2109,6 +2151,18 @@
 
     const progressEndpoint = new URL(monitor.dataset.progressEndpoint || '/progress.json', window.location.href);
     progressEndpoint.searchParams.set('metrics', '1');
+    progressEndpoint.searchParams.set('poll', '1');
+    const detailPanel = monitor.querySelector('.progress-content');
+    let onScreen = false;
+    let detailOnScreen = false;
+    let pollMode;
+    let frameOnScreen = false;
+    let awayTimer = null;
+    let backgroundPolling = false;
+    let firstSampleRetries = 2;
+    function detailsVisible() {
+        return onScreen && detailOnScreen && !isCollapsed && !document.hidden;
+    }
     let progressRequestInFlight = false;
     let expandedSnapshotBucket = '';
     let expansionFocus = null;
@@ -2122,15 +2176,16 @@
         }
         // Slow responses must not let the one-second timer queue more work
         // against the same endpoint. Release after errors too so polling recovers.
-        if (progressRequestInFlight) return;
+        if (progressRequestInFlight || (pollMode === 'away' && !backgroundPolling)) return;
         progressRequestInFlight = true;
         const requestStarted = performance.now();
         let httpStatus = null;
         // Bypass the browser cache before transmission: identical live polls in
         // other tabs can otherwise wait on its entry lock despite no-store responses.
-        const omittedTree = isCollapsed;
+        const omittedTree = !detailsVisible();
         const requestedBucket = expandedSnapshotBucket;
         const requestUrl = new URL(progressEndpoint);
+        if (backgroundPolling) requestUrl.searchParams.set('background', '1');
         if (omittedTree) requestUrl.searchParams.set('tree', '0');
         else if (requestedBucket) requestUrl.searchParams.set('more_snapshots', requestedBucket);
         fetch(requestUrl, { credentials: 'same-origin', cache: 'no-store' })
@@ -2157,7 +2212,9 @@
                 // An empty live snapshot has no cards to update. Load its final
                 // server-rendered results once, without interrupting opened files.
                 const emptySnapshot = document.getElementById('snapshot-empty-state');
-                if (emptySnapshot && ['queued', 'started', 'paused'].includes(emptySnapshot.dataset.snapshotState)
+                // A background heartbeat may see completion too. Wait for the
+                // first visible poll before navigating and loading replay outputs.
+                if (pollMode !== 'away' && !document.hidden && emptySnapshot && ['queued', 'started', 'paused'].includes(emptySnapshot.dataset.snapshotState)
                     && data.scope?.snapshot_status === 'sealed'
                     && data.scope.snapshot_id.replace(/-/g, '') === progressEndpoint.searchParams.get('snapshot_id')?.replace(/-/g, '')) {
                     stopPolling();
@@ -2191,21 +2248,21 @@
             .finally(() => {
                 progressRequestInFlight = false;
                 // Expanded while a tree-less poll was in flight: load the tree now.
-                if (!isCollapsed && pollInterval && (omittedTree || requestedBucket !== expandedSnapshotBucket)) fetchProgress();
+                if (detailsVisible() && pollInterval && (omittedTree || requestedBucket !== expandedSnapshotBucket)) fetchProgress();
             });
     }
 
     // CDP frames arrive faster than the JSON poll. Refresh the visible frame
     // on its own cheap timer (one local file read per request), never while
     // collapsed, hidden, or still waiting on the previous frame.
-    const screencastFrameMs = 250;
+    const screencastFrameMs = 1000;
     const screencastFrameInterval = setInterval(() => {
         if (!monitor.isConnected) {
             clearInterval(screencastFrameInterval);
             return;
         }
-        if (isCollapsed || document.hidden || screencastPanel.dataset.mode !== 'frame') return;
-        const currentSrc = screencastPanel.dataset.currentFrameSrc;
+        if (!detailsVisible() || !frameOnScreen || screencastPanel.dataset.mode !== 'frame') return;
+        const currentSrc = screencastPanel.dataset.frameUrl;
         if (!currentSrc || screencastPanel.dataset.currentFrameKey !== screencastPanel.dataset.desiredFrameKey) return;
         const nextUrl = new URL(currentSrc, window.location.href);
         nextUrl.searchParams.set('v', Date.now().toString());
@@ -2226,6 +2283,7 @@
     }
 
     function setPollingDelay(ms) {
+        if (pollDelayMs === ms) return;
         pollDelayMs = ms;
         if (pollInterval) {
             clearInterval(pollInterval);
@@ -2233,19 +2291,35 @@
         }
     }
 
+    const metricStrip = monitor.querySelector('.metric-strip');
+    const metricBadges = metricStrip.querySelectorAll('.metric-badge');
+    function fitMetricBadges() {
+        if (!isCollapsed) return;
+        // Keep overflow badges in layout so a shorter live value or a wider
+        // viewport can reveal them again. Visibility also removes their tab stops.
+        const strip = metricStrip.getBoundingClientRect();
+        for (const badge of metricBadges) {
+            const box = badge.getBoundingClientRect();
+            badge.classList.toggle('overflows-strip', box.right > strip.right || box.left < strip.left);
+        }
+    }
+    const badgeObserver = new ResizeObserver(fitMetricBadges);
+    badgeObserver.observe(metricStrip);
+    metricBadges.forEach(badge => badgeObserver.observe(badge));
+
     function setCollapsedState(collapsed) {
         isCollapsed = collapsed;
         if (isCollapsed) {
             monitor.classList.add('collapsed');
             collapseBtn.textContent = 'Details';
             collapseBtn.setAttribute('aria-expanded', 'false');
+            fitMetricBadges();
         } else {
             monitor.classList.remove('collapsed');
             collapseBtn.textContent = 'Hide';
             collapseBtn.setAttribute('aria-expanded', 'true');
-            // Collapsed polls skipped the tree; load it now, not on the next tick.
-            if (pollInterval) fetchProgress();
         }
+        visibilityChanged();
     }
 
     function setActionButtonState(btn, busy) {
@@ -2278,18 +2352,16 @@
         });
     }
 
-    // Collapse toggle
-    collapseBtn.addEventListener('click', function(event) {
-        event.stopPropagation();
+    function toggleDetails() {
         rememberCollapsed(!isCollapsed);
         setCollapsedState(!isCollapsed);
-    });
-    monitor.querySelector('.header-bar').addEventListener('click', function(event) {
-        if (event.target.closest('button, a, input, select, textarea, [role="button"], .metric-badge')) return;
-        if (isCollapsed) {
-            rememberCollapsed(false);
-            setCollapsedState(false);
-        }
+    }
+    collapseBtn.addEventListener('click', toggleDetails);
+    monitor.addEventListener('click', function(event) {
+        // Only blank surfaces toggle. Badges retain their tooltips and the
+        // crawl tree, preview and action buttons handle their own interactions.
+        if (event.target.matches('.progress-content, .tree-container, #crawl-tree, .idle-message, #progress-monitor')
+            && collapseBtn.getClientRects().length) toggleDetails();
     });
 
     crawlTree.addEventListener('click', function(event) {
@@ -2332,23 +2404,62 @@
     // Apply initial state
     setCollapsedState(isCollapsed);
 
-    // Start polling when page loads
-    startPolling();
+    function resumeVisiblePolling() {
+        clearTimeout(awayTimer);
+        awayTimer = null;
+        backgroundPolling = false;
+        idleTicks = 0;
+        stopPolling();
+        // A replay waiting on its snapshot needs prompt completion updates even
+        // with details closed. Its status is one authorized primary-key lookup.
+        pollDelayMs = detailsVisible() || progressEndpoint.searchParams.has('snapshot_id') ? 2000 : 5000;
+        startPolling();
+    }
+
+    function visibilityChanged() {
+        const mode = detailsVisible() ? 'detail' : onScreen && isCollapsed && !document.hidden ? 'summary' : 'away';
+        if (mode === pollMode) return;
+        pollMode = mode;
+        if (mode !== 'detail') delete screencastPanel.dataset.desiredFrameKey;
+        if (mode !== 'away') {
+            resumeVisiblePolling();
+        } else if (!awayTimer && !backgroundPolling) {
+            // Stop detail work immediately. Brief scrolls/tab switches need
+            // no replacement request; sustained absences get a cheap heartbeat.
+            stopPolling();
+            awayTimer = setTimeout(() => {
+                awayTimer = null;
+                backgroundPolling = true;
+                pollDelayMs = 30000;
+                startPolling();
+            }, 5000);
+        }
+    }
+
+    const viewportObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+            const visible = entry.isIntersecting && entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0;
+            if (entry.target === screencastPanel) frameOnScreen = visible;
+            else if (entry.target === detailPanel) detailOnScreen = visible;
+            else onScreen = visible;
+        }
+        visibilityChanged();
+    }, { threshold: [0, 0.001] });
+    viewportObserver.observe(monitor);
+    viewportObserver.observe(detailPanel);
+    viewportObserver.observe(screencastPanel);
+    document.addEventListener('visibilitychange', visibilityChanged);
     const durationInterval = setInterval(() => {
         if (!monitor.isConnected) {
+            badgeObserver.disconnect();
+            viewportObserver.disconnect();
+            document.removeEventListener('visibilitychange', visibilityChanged);
+            clearTimeout(awayTimer);
+            stopPolling();
             clearInterval(durationInterval);
             return;
         }
-        updateDurationBadges();
+        if (detailsVisible()) updateDurationBadges();
     }, 1000);
-
-    // Pause polling when tab is hidden
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            stopPolling();
-        } else {
-            startPolling();
-        }
-    });
 })();
 </script>

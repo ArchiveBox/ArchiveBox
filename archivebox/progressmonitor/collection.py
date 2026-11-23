@@ -68,7 +68,7 @@ def crawl_summary(crawl_id, *, snapshot_id=None):
     return summary
 
 
-def collection_summary(user, *, public=False):
+def collection_summary(user, *, public=False, refresh=True):
     """Return cached totals immediately and, when due, start one refresh.
 
     Public pages need no extra AJAX/polling for these totals: an ordinary later
@@ -80,7 +80,7 @@ def collection_summary(user, *, public=False):
     summary = cache.get(key)
     # A separate connection cannot count this transaction's uncommitted rows
     # and may block on its writes. Leave the next committed request to refresh.
-    if connections["default"].in_atomic_block:
+    if not refresh or connections["default"].in_atomic_block:
         return summary
     # Even indexed COUNT/SUM aggregates scan the index. Never make HTTP wait for
     # that scan on a large collection. Serve stale totals while one worker refreshes;
