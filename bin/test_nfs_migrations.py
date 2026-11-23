@@ -6,6 +6,7 @@ No server/export provisioning is performed by this script.
 """
 
 import argparse
+from contextlib import closing
 import ctypes
 import hashlib
 import json
@@ -222,7 +223,9 @@ Path({str(plan)!r}).write_text(json.dumps(rows))
             assert db.execute("SELECT COUNT(*) FROM core_archiveresult").fetchone()[0] == 24
             assert db.execute("SELECT COUNT(*) FROM core_archiveresult WHERE output_size>0 AND output_files!='{}'").fetchone()[0] == 24
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-    command(["check"])
+    with closing(sqlite3.connect(f"{(collection / 'index.sqlite3').absolute().as_uri()}?mode=ro", uri=True)) as db:
+        assert db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
     report = {
         "seed": args.seed,
         "snapshots": len(rows),

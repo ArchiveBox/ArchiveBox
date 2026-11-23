@@ -31,7 +31,6 @@ def test_snapshot_reversed_domain_migration(tmp_path):
         assert "reversed_domain" not in columns
         assert "snapshot_reversed_domain_idx" not in indexes
 
-    # The normal migration command checks a standalone SQLite connection too.
     run("init")
     with closing(sqlite3.connect(tmp_path / "index.sqlite3")) as db:
         assert schema(db) == ({**columns, "reversed_domain": 3}, {*indexes, "snapshot_reversed_domain_idx"})

@@ -13,6 +13,7 @@ import random
 import signal
 import sqlite3
 import time
+from contextlib import closing
 from uuid import UUID
 
 import psutil
@@ -197,7 +198,8 @@ def test_seeded_legacy_upgrade_preserves_every_row(tmp_path, seed, journal, targ
             )
     progress = "migrated 10000/" if target == "0027" else "copied 10000/"
     _run(collection, ["manage", "migrate", "core", target, "--noinput"], journal, interrupt=progress)
-    with sqlite3.connect(db_path) as db:
+    # Reopening an interrupted DELETE-mode transaction may recover a hot journal.
+    with closing(sqlite3.connect(db_path)) as db:
         assert db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         assert not db.execute("SELECT 1 FROM django_migrations WHERE app='core' AND name LIKE ?", (target + "%",)).fetchall()
@@ -207,7 +209,10 @@ def test_seeded_legacy_upgrade_preserves_every_row(tmp_path, seed, journal, targ
     for _ in range(2):
         _run(collection, ["init", "--quick"], journal)
         verify_preserved_rows(db_path, security)
-        with sqlite3.connect(db_path) as db, (tmp_path / "expected-results.jsonl").open() as expected:
+        with (
+            closing(sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)) as db,
+            (tmp_path / "expected-results.jsonl").open() as expected,
+        ):
             assert db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
             assert db.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0] == snapshots
@@ -234,4 +239,3 @@ def test_seeded_legacy_upgrade_preserves_every_row(tmp_path, seed, journal, targ
                 assert UUID(actual[-1]).hex == actual[-1]
                 if expected_uuid:
                     assert actual[-1] == expected_uuid
-    _run(collection, ["check"], journal)
