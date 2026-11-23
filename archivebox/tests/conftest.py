@@ -1161,6 +1161,13 @@ def start_archivebox_server(
 
     log_path = cwd / log_name if log_name else None
     log = log_path.open("w", encoding="utf-8") if log_path else None
+    worker_log_path = cwd / "logs" / "worker_uvicorn.log"
+    previous_worker_log = None
+    if not daemonize:
+        try:
+            previous_worker_log = worker_log_path.stat()
+        except FileNotFoundError:
+            pass
     proc = run_archivebox_cmd(
         args,
         cwd=cwd,
@@ -1189,6 +1196,23 @@ def start_archivebox_server(
         if not re.search(r"Worker worker_uvicorn: started RUNNING \(pid \d+,", output):
             time.sleep(0.1)
             continue
+        # The foreground log follows worker output from EOF and can miss a
+        # fast startup. Read only the new native worker log for this listener.
+        try:
+            with worker_log_path.open("rb") as worker_log:
+                current_log = os.fstat(worker_log.fileno())
+                if previous_worker_log and (
+                    (current_log.st_dev, current_log.st_ino) == (previous_worker_log.st_dev, previous_worker_log.st_ino)
+                    and current_log.st_size >= previous_worker_log.st_size
+                ):
+                    worker_log.seek(previous_worker_log.st_size)
+                startup_log = worker_log.read()
+        except FileNotFoundError:
+            startup_log = b""
+        _, listening, after_bind = startup_log.rpartition(f"Uvicorn running on socket ('127.0.0.1', {port})".encode())
+        if not listening or b"Application startup complete." not in after_bind:
+            time.sleep(0.1)
+            continue
         try:
             assert_port_open("127.0.0.1", port, timeout=0.25)
             break
@@ -1197,7 +1221,9 @@ def start_archivebox_server(
     else:
         output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
         raise AssertionError(f"ArchiveBox server did not open port {port} within 30 seconds:\n{output}")
-    response = get_http_response(port, host=f"127.0.0.1:{port}", path="/health/", timeout=5)
+    remaining = deadline - time.monotonic()
+    assert remaining > 0, f"ArchiveBox server did not become ready on port {port} within 30 seconds"
+    response = get_http_response(port, host=f"127.0.0.1:{port}", path="/health/", timeout=min(5, remaining))
     assert response.status_code == 200 and response.headers.get("X-ArchiveBox-Health") == "OK", response.text
     return proc
 
