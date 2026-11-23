@@ -100,7 +100,7 @@ def test_domains_name_browses_saved_site_and_count_lists_snapshots(admin_client,
     root = saved_site[0][0]
     root.config = {**root.config, "PERMISSIONS": permissions}
     root.save(update_fields=["config"])
-    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", {"table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     row = next(row for row in response.context["domains"] if row["domain"] == "ycombinator.com")
     assert row["root_id"] == root.pk

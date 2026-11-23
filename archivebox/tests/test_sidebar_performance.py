@@ -157,7 +157,10 @@ def test_domains_page_paginates_grouped_snapshots(admin_client, admin_user):
     def fetch(query="", **params):
         response = admin_client.get("/admin/domains/" + query, params or None, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        return response.context
+        assert response.context["domain_table_loading"]
+        table = admin_client.get("/admin/domains/" + response.context["domain_table_url"], HTTP_HOST=ADMIN_TEST_HOST)
+        assert table.status_code == 200
+        return table.context
 
     first = fetch()
     assert [row["domain"] for row in first["domains"]] == [f"site{i:03}.com" for i in range(50)]
@@ -182,14 +185,19 @@ def test_domains_page_bounds_capture_metadata_and_defers_global_totals(admin_cli
         [Snapshot(crawl=crawl, url=f"https://example.com/post/{i}", timestamp=str(1917800000 + i)) for i in range(300)],
     )
     with CaptureQueriesContext(connection) as queries:
-        response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+        initial = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert initial.status_code == 200 and initial.context["domain_table_loading"]
+    assert not any('FROM "core_snapshot"' in query["sql"] for query in queries)
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get("/admin/domains/" + initial.context["domain_table_url"], HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert response.context["domain_total"] is None
     row = response.context["domains"][0]
     assert row["domain"] == "example.com" and row["totals_limited"]
     assert 0 < row["snapshot_count"] < 300
-    metadata_sql = [query["sql"] for query in queries if 'AS "crawl__persona_id"' in query["sql"]]
+    metadata_sql = [query["sql"] for query in queries if 'AS "_page_domain"' in query["sql"]]
     assert len(metadata_sql) == 1 and f"LIMIT {row['snapshot_count'] + 1}" in metadata_sql[0]
+    assert 'JOIN "crawls_crawl"' not in metadata_sql[0]
     with CaptureQueriesContext(connection) as queries:
         sorted_page = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert sorted_page.status_code == 200 and sorted_page.context["domain_table_loading"]

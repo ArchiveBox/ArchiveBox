@@ -186,7 +186,7 @@ def test_native_library_failed_wacz_and_screenshot_still_yield_owned_app_replay(
     assert response.status_code == 200 and b"A digital field journal" in response.content
     assert snapshots.filter(permissions="public").count() == 4
     assert snapshots.filter(url=source["homepage"], archiveresult__output_size__gt=1024).exists()
-    domains = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    domains = admin_client.get("/admin/domains/", {"table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert domains.status_code == 200
     assert b'aria-label="Actions for field-notes.example"' in domains.content
     assert b'aria-label="Actions for design-notes.example"' in domains.content

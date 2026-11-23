@@ -89,17 +89,17 @@
 </script>
 <div id="domains-table"{% if domain_table_loading %} data-url="{{ domain_table_url }}" aria-busy="true"{% endif %}>
   {% if domain_table_loading %}
-    <p role="status">Loading domains…</p>
-    <noscript><p><a href="{{ domain_table_url }}">Open the domain list</a></p></noscript>
+    <p role="status" hidden>Loading domains…</p>
   {% else %}
     {% include "domains/table.html" %}
   {% endif %}
 </div>
+{% if domain_table_loading %}<noscript><p><a href="{{ domain_table_url }}">View domains</a></p></noscript>{% endif %}
 <script type="module">
 import {startSnapshotExport} from "{% static 'exports.js' %}";
 function initializeDomainTable() {
   const form = document.getElementById('changelist-form');
-  const actionsUrl = form.action;
+  const actionsUrl = new URL(form.getAttribute('action'), location.href).href;
   const selectAcross = form.elements.select_across;
   const selected = () => [...form.querySelectorAll('.action-select:checked')].map(input => input.value);
 
@@ -147,13 +147,14 @@ function initializeDomainTable() {
       alert('Select at least one domain.');
       return;
     }
-    form.action = url.href;
+    form.setAttribute('action', url.href);
     selectAcross.value = '1';
   });
 }
 
 const table = document.getElementById('domains-table');
 if (table.dataset.url) {
+  table.querySelector('[role="status"]').hidden = false;
   document.addEventListener('DOMContentLoaded', async () => {
     try {
       const response = await fetch(table.dataset.url, {credentials: 'same-origin'});
@@ -161,9 +162,9 @@ if (table.dataset.url) {
       table.innerHTML = await response.text();
       const rows = table.querySelectorAll('#result_list input.action-select');
       if (rows.length) window.Actions(rows);
+      initializeDomainTable();
       window.archiveboxInitAdminChangelist();
       window.archiveboxInitDomainRows(table);
-      initializeDomainTable();
     } catch (error) {
       const status = table.querySelector('[role="status"]') || document.createElement('p');
       status.setAttribute('role', 'status');

@@ -165,7 +165,7 @@ def index(request):
     field = fields[ordering.lstrip("-")]
     descending = ordering.startswith("-")
     fragment = request.GET.get("table") == "1"
-    loading = field != "domain" and not fragment
+    loading = not fragment
     domain_total = domain_page = previous_url = next_url = None
     if loading:
         domains = ()
@@ -188,71 +188,72 @@ def index(request):
 
         previous_url = page_url(page.previous_page_number()) if page.has_previous() else None
         next_url = page_url(page.next_page_number()) if page.has_next() else None
-    ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
-    captures = {
-        str(snapshot.pk): snapshot
-        for snapshot in Snapshot.objects.filter(pk__in=ids)
-        .select_related("crawl", "crawl__created_by")
-        .only("id", "url", "timestamp", "fs_version", "permissions", "bookmarked_at", "created_at", "crawl__created_by__username")
-        .prefetch_related(
-            Prefetch(
-                "archiveresult_set",
-                queryset=ArchiveResult.objects.filter(
-                    snapshot_id__in={row["root_id"] for row in domains},
-                    plugin__in=get_snapshot_role_names("list_icon"),
-                    status=ArchiveResult.StatusChoices.SUCCEEDED,
-                ).only("id", "snapshot_id", "plugin", "status", "output_str", "output_files"),
-            ),
-        )
-    }
-    # Captures may have been deleted since the metadata refresh. Their stale
-    # display totals are harmless, but must not turn the next page into a 500.
-    domains = [row.copy() for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
-    persona_ids = {pk for row in domains for pk in row.get("persona_ids", ())}
-    personas = {
-        pk: {"name": name, "url": reverse("admin:personas_persona_change", args=[pk])}
-        for pk, name in Persona.objects.filter(pk__in=persona_ids).values_list("pk", "name")
-    }
-    snapshot_admin = copy(archivebox_admin._registry[Snapshot])
-    snapshot_admin.request = request
-    config = get_request_config(request)
-    for row in domains:
-        latest = captures[str(row["newest_id"])]
-        earliest = captures[str(row["oldest_id"])]
-        root = captures[str(row["root_id"])]
-        snapshot_url = reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]})
-        original = urlsplit(root.url)
-        domain_url = build_snapshot_detail_url(root.archive_path_from_db, request=request) + "?header=collapsed"
-        # Original-domain replay already rewrites saved links without changing
-        # capture bytes. Private captures keep the trusted detail-page auth flow.
-        if (
-            config.USES_SUBDOMAIN_ROUTING
-            and get_snapshot_permissions(root) == PERMISSIONS_PUBLIC
-            and original.hostname
-            and ":" not in original.hostname
-            and original.hostname not in {"admin", "web", "api"}
-            and not is_snapshot_subdomain(original.hostname)
-            and original.port is None
-        ):
-            domain_url = build_original_url(
-                original.hostname,
-                original.path + ("?" + original.query if original.query else ""),
-                request=request,
-            )
-        row.update(
-            {
-                "domain_url": domain_url,
-                "snapshot_url": snapshot_url,
-                "delete_snapshots_url": snapshot_url + "#delete-snapshots",
-                "personas": sorted(
-                    (personas[pk] for pk in row.get("persona_ids", ()) if pk in personas),
-                    key=lambda item: item["name"].casefold(),
+    if domains:
+        ids = {row[key] for row in domains for key in ("oldest_id", "newest_id", "root_id") if row[key]}
+        captures = {
+            str(snapshot.pk): snapshot
+            for snapshot in Snapshot.objects.filter(pk__in=ids)
+            .select_related("crawl", "crawl__created_by")
+            .only("id", "url", "timestamp", "fs_version", "permissions", "bookmarked_at", "created_at", "crawl__created_by__username")
+            .prefetch_related(
+                Prefetch(
+                    "archiveresult_set",
+                    queryset=ArchiveResult.objects.filter(
+                        snapshot_id__in={row["root_id"] for row in domains},
+                        plugin__in=get_snapshot_role_names("list_icon"),
+                        status=ArchiveResult.StatusChoices.SUCCEEDED,
+                    ).only("id", "snapshot_id", "plugin", "status", "output_str", "output_files"),
                 ),
-                "oldest_url": build_snapshot_detail_url(earliest.archive_path_from_db, request=request),
-                "newest_url": build_snapshot_detail_url(latest.archive_path_from_db, request=request),
-                "favicon": snapshot_admin._get_favicon_data(root),
-            },
-        )
+            )
+        }
+        # Captures may have been deleted since the metadata refresh. Their stale
+        # display totals are harmless, but must not turn the next page into a 500.
+        domains = [row.copy() for row in domains if all(str(row[key]) in captures for key in ("oldest_id", "newest_id", "root_id"))]
+        persona_ids = {pk for row in domains for pk in row.get("persona_ids", ())}
+        personas = {
+            pk: {"name": name, "url": reverse("admin:personas_persona_change", args=[pk])}
+            for pk, name in Persona.objects.filter(pk__in=persona_ids).values_list("pk", "name")
+        }
+        snapshot_admin = copy(archivebox_admin._registry[Snapshot])
+        snapshot_admin.request = request
+        config = get_request_config(request)
+        for row in domains:
+            latest = captures[str(row["newest_id"])]
+            earliest = captures[str(row["oldest_id"])]
+            root = captures[str(row["root_id"])]
+            snapshot_url = reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]})
+            original = urlsplit(root.url)
+            domain_url = build_snapshot_detail_url(root.archive_path_from_db, request=request) + "?header=collapsed"
+            # Original-domain replay already rewrites saved links without changing
+            # capture bytes. Private captures keep the trusted detail-page auth flow.
+            if (
+                config.USES_SUBDOMAIN_ROUTING
+                and get_snapshot_permissions(root) == PERMISSIONS_PUBLIC
+                and original.hostname
+                and ":" not in original.hostname
+                and original.hostname not in {"admin", "web", "api"}
+                and not is_snapshot_subdomain(original.hostname)
+                and original.port is None
+            ):
+                domain_url = build_original_url(
+                    original.hostname,
+                    original.path + ("?" + original.query if original.query else ""),
+                    request=request,
+                )
+            row.update(
+                {
+                    "domain_url": domain_url,
+                    "snapshot_url": snapshot_url,
+                    "delete_snapshots_url": snapshot_url + "#delete-snapshots",
+                    "personas": sorted(
+                        (personas[pk] for pk in row.get("persona_ids", ()) if pk in personas),
+                        key=lambda item: item["name"].casefold(),
+                    ),
+                    "oldest_url": build_snapshot_detail_url(earliest.archive_path_from_db, request=request),
+                    "newest_url": build_snapshot_detail_url(latest.archive_path_from_db, request=request),
+                    "favicon": snapshot_admin._get_favicon_data(root),
+                },
+            )
     headers = []
     for key, label in (
         ("domain", "Domain"),
@@ -283,6 +284,7 @@ def index(request):
         ("overwrite_snapshots", "Reset and retry"),
         ("delete_selected", "Delete"),
     ]
+    table_params = {"q": query, "o": ordering, "page": request.GET.get("page"), "cursor": request.GET.get("cursor"), "table": "1"}
     return render(
         request,
         "domains/table.html" if fragment else "domains/index.html",
@@ -292,7 +294,7 @@ def index(request):
             "form": form,
             "domains": domains,
             "domain_table_loading": loading,
-            "domain_table_url": "?" + urlencode({"q": query, "o": ordering, "page": request.GET.get("page", ""), "table": "1"}),
+            "domain_table_url": "?" + urlencode({key: value for key, value in table_params.items() if value}),
             "domain_total": domain_total,
             "domain_page": domain_page,
             "domain_previous_url": previous_url,

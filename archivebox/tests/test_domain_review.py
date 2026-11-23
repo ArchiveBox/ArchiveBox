@@ -80,7 +80,7 @@ def test_domain_delete_link_uses_native_confirmation(admin_client, crawl):
 
     selected = Snapshot.objects.create(crawl=crawl, url="https://example.com/delete-confirmation")
     unrelated = Snapshot.objects.create(crawl=crawl, url="https://other.example/keep")
-    page = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    page = admin_client.get("/admin/domains/", {"table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     path = next(row["snapshot_url"] for row in page.context["domains"] if row["domain"] == "example.com")
     assert (path + "#delete-snapshots").encode() in page.content
     response = admin_client.post(

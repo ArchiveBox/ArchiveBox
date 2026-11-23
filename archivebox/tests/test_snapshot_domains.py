@@ -163,7 +163,7 @@ def test_domain_name_opens_root_capture_and_count_opens_filtered_list(admin_clie
     pages = create_pages(admin_user, ["https://example.com/", "http://deep.sub.example.com/article", "https://other.com/"])
     pages[0].config = {"PERMISSIONS": "private"}
     pages[0].save(update_fields=["config"])
-    response = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get("/admin/domains/", {"table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     row = next(row for row in response.context["domains"] if row["domain"] == "example.com")
 
     class DomainLinks(HTMLParser):

@@ -83,7 +83,7 @@ def test_sidebar_modes_and_public_scope(admin_client, sidebar_data):
 
 @pytest.mark.django_db(transaction=True)
 def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_path):
-    from urllib.parse import urlsplit
+    from urllib.parse import parse_qs, urlsplit
 
     from playwright.sync_api import expect, sync_playwright
 
@@ -250,6 +250,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=domains")
         sidebar.get_by_role("link", name="Add domain", exact=True).click()
         expect(page).to_have_url(f"{origin}/admin/domains/")
+        expect(page.locator("#domains-table[data-url] #result_list")).to_be_visible()
         page.get_by_role("link", name="Newest Snapshot", exact=True).click()
         expect(page).to_have_url(f"{origin}/admin/domains/?o=newest")
         expect(page.locator("#domains-table[data-url] #result_list")).to_be_visible()
@@ -281,12 +282,18 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         with page.expect_download() as bulk_export:
             page.get_by_role("combobox", name="Export selected domains").select_option("csv")
         assert bulk_export.value.suggested_filename.endswith(".csv")
+        assert parse_qs(urlsplit(bulk_export.value.url).query)["domain"] == ["*.djangoproject.com"]
         django_row.get_by_role("button", name="Actions for djangoproject.com", exact=True).press("ArrowDown")
         menu = page.get_by_role("menu", name="djangoproject.com")
         expect(menu).to_be_visible()
         assert menu.locator("[data-export-format]").evaluate_all("links => links.map(link => link.href)") == sidebar_exports
         page.screenshot(path=str(evidence / "admin-domain-actions.png"))
         menu.get_by_role("menuitem", name="Delete snapshots", exact=True).click()
+        expect(page.get_by_role("main", name="Confirm snapshot deletion")).to_be_visible()
+        expect(page.get_by_text("Queue exactly 2 selected snapshots for deletion?", exact=False)).to_be_visible()
+        page.goto(f"{origin}/admin/domains/")
+        page.get_by_role("checkbox", name="Select djangoproject.com").check()
+        page.locator('button[data-admin-action="delete_selected"]').click()
         expect(page.get_by_role("main", name="Confirm snapshot deletion")).to_be_visible()
         expect(page.get_by_text("Queue exactly 2 selected snapshots for deletion?", exact=False)).to_be_visible()
         page.goto(f"{origin}/admin/core/snapshot/?sidebar=tags")

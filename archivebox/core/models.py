@@ -656,7 +656,7 @@ class SnapshotQuerySet(PagedQuerySet):
         if after:
             keys = keys.filter(**{"reversed_domain__lt" if descending else "reversed_domain__gt": after})
         previous_keys = {"reversed_domain__gte" if descending else "reversed_domain__lte": after}
-        for key in keys._distinct_domain_keys(descending).iterator(chunk_size=512):
+        for key in keys._distinct_domain_keys(descending).iterator(chunk_size=limit + 1):
             domain, scope = group_domain_key(key)
             if domain in choices or domain in open_groups or needle not in domain.casefold():
                 continue
@@ -771,7 +771,7 @@ class SnapshotQuerySet(PagedQuerySet):
             sample = (
                 captures.order_by()
                 .annotate(_page_domain=Value(name, output_field=models.TextField()))
-                .values_list("_page_domain", *self._domain_summary_fields)[: per_group_limit + 1]
+                .values_list("_page_domain", *self._domain_summary_fields[:-1], "crawl_id")[: per_group_limit + 1]
             )
             compiler = sample.query.get_compiler(using=alias)
             sql, params = compiler.as_sql()
@@ -787,9 +787,14 @@ class SnapshotQuerySet(PagedQuerySet):
             for name, *capture in compiler.apply_converters(cursor, converters):
                 samples[name].append(capture)
 
+        # Joining Crawl inside the probes can make SQLite start from Crawl and
+        # scan snapshots in crawl order. Load personas after the domain index
+        # has selected the bounded set of captures.
+        crawl_ids = {capture[-1] for captures in samples.values() for capture in captures}
+        personas = dict(Crawl.objects.using(alias).filter(pk__in=crawl_ids).values_list("pk", "persona_id"))
         summaries = {}
         for name, captures in samples.items():
-            unique = {capture[0]: capture for capture in captures[:per_group_limit]}
+            unique = {capture[0]: (*capture[:-1], personas.get(capture[-1])) for capture in captures[:per_group_limit]}
             for row in self._summarize_domain_rows(unique.values()):
                 if row["domain"] == name:
                     row["totals_limited"] = len(captures) > per_group_limit

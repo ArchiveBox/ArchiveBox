@@ -17,7 +17,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 def test_main_domain_export_options_validate_server_directory(admin_client, saved_site, format):
     from archivebox.machine.models import Process
 
-    page = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
+    page = admin_client.get("/admin/domains/", {"table": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert page.status_code == 200
     assert page.content.count(f'<option value="{format}">'.encode()) == 1
     # The shared per-domain menu offers the same portable formats as the sidebar.
