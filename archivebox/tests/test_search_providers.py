@@ -160,6 +160,35 @@ def test_sqlite_native_rank_explicit_sort_and_quoted_colons(crawl):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_stream_resumes_metadata_windows_after_a_full_first_page(crawl):
+    # The first window has no matches. The next one exceeds a page; SQL
+    # must resume after it without dropping its tail or emitting it twice.
+    rows = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                id=UUID(int=i + 1),
+                crawl=crawl,
+                url=f"https://reports.example/{i}",
+                timestamp=str(1802000000 + i),
+                title="research" if 70 <= i <= 345 else "other",
+            )
+            for i in range(350)
+        ],
+    )
+    indexed = rows[-1]
+    output(indexed, "readability/article.txt", "planetary")
+    run_hook(indexed, "search_backend_sqlite", "--snapshot-id", str(indexed.pk), SEARCH_BACKEND_SQLITE_ENABLED="true")
+    excluded = rows[99]
+    scope = Snapshot.objects.filter(crawl=crawl).exclude(pk=excluded.pk).order_by()
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite"})
+    search = SnapshotSearch(scope, "planetary OR title:research", config=config, streaming=True)
+    hits = list(search.stream())
+    expected = {row.pk for row in rows if row.title == "research" and row.pk != excluded.pk} | {indexed.pk}
+    assert set(hits) == expected and len(hits) == len(expected)
+    assert not search.usage["bytes"]
+
+
+@pytest.mark.django_db(transaction=True)
 def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
     import shlex
     import time
@@ -188,7 +217,7 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
 
             hit = Snapshot.objects.create(crawl=crawl, url="https://papers.example/indexed")
             missing = Snapshot.objects.create(crawl=crawl, url="https://papers.example/missing")
-            output(hit, "article/content.txt", "interstellar")
+            output(hit, "article/content.txt", "interstellar magnetosphere")
             run_hook(hit, "search_backend_sonic", "--snapshot-id", str(hit.pk), **settings)
             # Only Sonic can find this word once the extraction is unavailable.
             (hit.output_dir / "article/content.txt").rename(tmp_path / "indexed-source.txt")
@@ -206,6 +235,9 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
                 "deep:diskneedle OR interstellar",
                 "(deep:diskneedle AND title:missing) OR interstellar",
                 "(absentlexeme OR interstellar) AND domain:papers.example",
+                "interstellar AND magnetosphere",
+                "magnetosphere AND (interstellar OR deep:diskneedle)",
+                "interstellar AND ~title:missing",
             ):
                 plan = SnapshotSearch(scope.order_by(), expression, config=config, streaming=True)
                 stream = plan.stream()
@@ -214,6 +246,7 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
                     assert plan.usage["bytes"] == 0
                 finally:
                     stream.close()
+            assert not list(SnapshotSearch(scope.exclude(pk=hit.pk), "magnetosphere AND interstellar", config=config).stream())
             # Neither source alone proves an AND, and a hit outside the
             # active scope never authorizes reading its directory.
             output(hit, "dom/content.txt", "diskneedle")

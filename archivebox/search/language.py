@@ -13,7 +13,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast, Coalesce
 from django.db.models.lookups import IRegex, Regex
 
-from archivebox.core.models import ArchiveResult, SnapshotQuerySet, SnapshotTag
+from archivebox.core.models import ArchiveResult, SnapshotQuerySet, SnapshotTag, Tag
 
 
 @dataclass(frozen=True)
@@ -264,14 +264,22 @@ class ConfigContains(Func):
         return f"EXISTS ({sql})", (*lhs_params, *rhs_params)
 
 
+def matching_tag_assignments(value, *, match_case=None):
+    # Test the substring against distinct tag names, then follow indexed IDs.
+    tags = Tag.objects.filter(substring("name", value, match_case=match_case)).order_by().values("pk")
+    return SnapshotTag.objects.filter(tag_id__in=tags)
+
+
 def text_metadata(term, *, public):
     # These are positive witnesses for ordinary or quoted text. An absent
     # metadata match still leaves the configured index free to confirm the row.
     fields = ["title", "url", "timestamp", "crawl__created_by__username"]
     if not public:
         fields.extend(("notes", "crawl__notes", "crawl__label"))
-    tags = SnapshotTag.objects.filter(substring("tag__name", term.value)).values("snapshot_id")
-    return reduce(or_, (substring(f, term.value) for f in fields)) | Q(pk__in=tags)
+    # A candidate page already has snapshot IDs. Probe their assignments
+    # instead of materializing every matching assignment in the collection.
+    tags = matching_tag_assignments(term.value).filter(snapshot_id=OuterRef("pk"))
+    return reduce(or_, (substring(f, term.value) for f in fields)) | Q(Exists(tags))
 
 
 def sql_leaf(term, db, *, rules=None, stack=(), public=False):
@@ -328,10 +336,7 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
         if f == "tags":
             return reduce(
                 and_,
-                (
-                    Q(pk__in=SnapshotTag.objects.filter(substring("tag__name", s, match_case=match_case)).values("snapshot_id"))
-                    for s in parts
-                ),
+                (Q(pk__in=matching_tag_assignments(s, match_case=match_case).values("snapshot_id")) for s in parts),
             )
         if f == "plugins":
             return reduce(

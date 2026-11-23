@@ -9,7 +9,7 @@ import time
 import threading
 from collections import Counter, defaultdict
 from functools import cached_property
-from itertools import batched, islice
+from itertools import batched, chain, islice
 from pathlib import Path
 from queue import Empty, SimpleQueue
 from subprocess import SubprocessError
@@ -470,17 +470,25 @@ class SnapshotSearch:
                 # page of that small candidate stream before probing the index.
                 quick = certain & Q(pk__in=self.witnesses(narrow)[:PAGE_SIZE])
             race = self.streaming and words and isinstance(certain, Q) and not connections[self.scope.db].in_atomic_block
-            witnesses_exhausted = False
+            witness_pages = self.witness_pages(certain, narrow) if race else None
             if race and FIRST_PAGE_SLOTS.acquire(blocking=False):
-                witnesses_exhausted = yield from self.first_screen(qs, flags, words, quick, certain, confirmed)
+                yield from self.first_screen(qs, flags, words, quick, witness_pages, confirmed)
+                # A disconnected stream can leave a worker finishing its last
+                # bounded SELECT. Only resume its iterator after normal completion.
+                if not self.active():
+                    return
             else:
-                # Both speculative slots can be occupied by stalled providers.
-                # Give local proofs a page before queuing another slow lookup.
-                prefix = certain if race else quick
-                if isinstance(prefix, Q):
-                    for pk in self.witnesses(prefix)[:PAGE_SIZE].iterator(chunk_size=1):
+                if isinstance(quick, Q):
+                    for pk in self.witnesses(quick)[:PAGE_SIZE].iterator(chunk_size=1):
                         confirmed.add(pk)
                         yield pk
+                if witness_pages is not None:
+                    # Busy workers should not force a collection-wide scan
+                    # ahead of a responsive index. Try one bounded DB page.
+                    for pk in next(witness_pages, ()):
+                        if pk not in confirmed:
+                            confirmed.add(pk)
+                            yield pk
                 for pk in self.indexed_hits(qs, flags, words):
                     if pk not in confirmed:
                         confirmed.add(pk)
@@ -488,13 +496,13 @@ class SnapshotSearch:
             if isinstance(certain, Q):
                 # Each SQL witness is sufficient on its own. Do not repeat
                 # expensive "possible" predicates, such as inspecting JSON keys.
-                if not witnesses_exhausted:
-                    witnesses = self.witnesses(certain)
-                    if confirmed:
-                        witnesses = witnesses.exclude(pk__in=confirmed)
-                    for pk in witnesses.iterator(chunk_size=1):
-                        if not self.active():
-                            return
+                witnesses = (
+                    chain.from_iterable(witness_pages) if witness_pages is not None else self.witnesses(certain).iterator(chunk_size=1)
+                )
+                for pk in witnesses:
+                    if not self.active():
+                        return
+                    if pk not in confirmed:
                         yield pk
                 qs = qs.exclude(certain)
             if confirmed:
@@ -551,7 +559,26 @@ class SnapshotSearch:
         # and return the first row without building a temporary sort table.
         return self.scope.filter(predicate).order_by().values_list("pk", flat=True)
 
-    def first_screen(self, qs, flags, words, quick, certain, confirmed):
+    def witness_pages(self, certain, narrow):
+        # A sparse WHERE ... LIMIT 64 can keep the DB busy for seconds after
+        # a tab disconnects, starving the next search. Keyset windows give
+        # cancellation a turn even when the database finds *zero* matches.
+        candidates = self.scope.order_by("pk").values_list("pk", flat=True)
+        if isinstance(narrow, Q):
+            candidates = candidates.filter(narrow)
+        size = PAGE_SIZE
+        cursor = None
+        while self.active():
+            ids = list((candidates.filter(pk__gt=cursor) if cursor else candidates)[:size])
+            if not ids:
+                return
+            yield list(self.witnesses(certain).filter(pk__in=ids))
+            if len(ids) < size:
+                return
+            cursor = ids[-1]
+            size = PAGE_SIZE * 4
+
+    def first_screen(self, qs, flags, words, quick, witness_pages, confirmed):
         """Publish independent proofs as they arrive; disk fallback never runs in these lanes."""
         # At most two SQL prefixes and 500 postings can be enqueued. A
         # bounded blocking put here could hold a database cursor behind HTTP.
@@ -560,10 +587,7 @@ class SnapshotSearch:
         index_ready = threading.Event()
         quick_ready = threading.Event()
 
-        exhausted = False
-
         def sql_hits():
-            nonlocal exhausted
             try:
                 if isinstance(quick, Q):
                     yield from self.witnesses(quick)[:PAGE_SIZE].iterator(chunk_size=1)
@@ -572,12 +596,15 @@ class SnapshotSearch:
             # A broad SQL scan can monopolize I/O. Give a responsive index
             # first chance, but a stalled one cannot hold back database matches.
             index_ready.wait(0.075)
-            if not closed.is_set() and self.active():
-                count = 0
-                for pk in self.witnesses(certain)[:PAGE_SIZE].iterator(chunk_size=1):
-                    yield pk
-                    count += 1
-                exhausted = count < PAGE_SIZE
+            count = 0
+            while not closed.is_set() and self.active() and count < PAGE_SIZE:
+                page = next(witness_pages, None)
+                if page is None:
+                    break
+                yield from page
+                count += len(page)
+                if index_ready.is_set():
+                    break
 
         def index_hits():
             quick_ready.wait(0.025)
@@ -588,7 +615,15 @@ class SnapshotSearch:
 
         # Workers use separate Django connections. Do not borrow a transaction
         # or leave a cursor open while a consumer waits on a plugin or a socket.
-        finished = threading.Barrier(2, action=FIRST_PAGE_SLOTS.release)
+        unfinished = 2
+        finish_lock = threading.Lock()
+
+        def finished():
+            nonlocal unfinished
+            with finish_lock:
+                unfinished -= 1
+                if not unfinished:
+                    FIRST_PAGE_SLOTS.release()
 
         def produce(source):
             try:
@@ -602,11 +637,13 @@ class SnapshotSearch:
             finally:
                 connections.close_all()
                 events.put(None)
-                finished.wait()
+                finished()
 
+        started = 0
         try:
             for source in (sql_hits, index_hits):
                 threading.Thread(target=produce, args=(source,), name="search-first-page", daemon=True).start()
+                started += 1
             ended = 0
             while ended < 2 and self.active():
                 try:
@@ -622,7 +659,9 @@ class SnapshotSearch:
                     yield item
         finally:
             closed.set()
-        return exhausted
+            # A worker that could not start cannot release its share.
+            for _ in range(2 - started):
+                finished()
 
     def indexed_hits(self, qs, flags, words):
         if not words or not self.backend or self.backend.config.search_scan:
@@ -652,7 +691,7 @@ class SnapshotSearch:
                 postings = lookup(word.value, environ=self.env, timeout=timeout)
             except (ImportError, OSError, RuntimeError, ValueError) as err:
                 logger.warning("In-process search unavailable: %s", type(err).__name__)
-        confirmed_word = word if postings is not None else None
+        confirmed_word = postings is not None
         if not self.active():
             return
         if postings is None:
@@ -666,24 +705,65 @@ class SnapshotSearch:
             )
         visited = set()
         try:
-            for batch in batched(islice(postings, limit), PAGE_SIZE):
+            bounded = islice(postings, limit)
+            # Start verifying a handful before decoding all the output-file
+            # metadata for a full index page. Command-only providers retain
+            # larger batches to amortize their candidate subprocess startup.
+            first = tuple(islice(bounded, 8)) if confirmed_word else ()
+            batches = batched(bounded, PAGE_SIZE)
+            if first:
+                batches = chain((first,), batches)
+            for batch in batches:
                 ids = dict.fromkeys(pk for item in batch if (pk := normalize_search_result_id(item)) and pk not in visited)
                 visited.update(ids)
-                by_id = {row.pk.hex: row for row in qs.select_related(None).only("pk").filter(pk__in=ids)}
-                if by_id:
+                if confirmed_word:
+                    yield from self.confirm_postings(ids, word)
+                else:
+                    by_id = {row.pk.hex: row for row in qs.select_related(None).only("pk").filter(pk__in=ids)}
                     self.hinted_ids.update(row.pk for row in by_id.values())
-                    if confirmed_word:
-                        self.word_hits[word].update(by_id)
-                    yield from self.page([by_id[pk] for pk in ids if pk in by_id], flags, index_only=True, confirmed_word=confirmed_word)
+                    yield from self.page([by_id[pk] for pk in ids if pk in by_id], flags, index_only=True)
                 if not self.active():
                     break
-        except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
             logger.warning("Search postings unavailable: %s", type(err).__name__)
         finally:
             if close := getattr(postings, "close", None):
                 close()
 
-    def page(self, page, flags, *, index_only=False, confirmed_word=None):
+    def confirm_postings(self, ids, word):
+        # A confirmed posting makes its word true in the whole expression.
+        # Simplifying first avoids touching tags, output JSON, or the disk to
+        # prove branches that can no longer affect this candidate's membership.
+        groups = defaultdict(list)
+        for pk in ids:
+            known = tuple(term for term, hits in self.word_hits.items() if term != word and pk in hits)
+            groups[known].append(pk)
+        matches = {}
+        for known, group in groups.items():
+            expr = simplify(self.tree, dict.fromkeys((*known, word), True))
+            certain, possible = (expr, expr) if isinstance(expr, bool) else sql_bounds(expr, self.sql, self.evidence)
+            if possible is False:
+                continue
+            rows = self.scope.filter(pk__in=group).order_by()
+            if isinstance(possible, Q):
+                rows = rows.filter(possible)
+            # The scope and any remaining SQL-only condition are checked in
+            # one query. Unknowns can use this posting with a later index or
+            # file result, but must not appear in the stream until confirmed.
+            if certain == possible:
+                proven = Value(True)
+            elif isinstance(certain, Q):
+                proven = Case(When(certain, then=Value(True)), default=Value(False))
+            else:
+                proven = Value(certain)
+            for pk, hit in rows.values_list("pk", proven):
+                self.hinted_ids.add(pk)
+                self.word_hits[word].add(pk.hex)
+                if hit:
+                    matches[pk.hex] = pk
+        yield from (matches[pk] for pk in ids if pk in matches)
+
+    def page(self, page, flags, *, index_only=False):
         pending, rows = {}, {}
         for snap in page:
             pk = snap.pk.hex
@@ -694,10 +774,6 @@ class SnapshotSearch:
                 yield snap.pk
             elif expr is not False:
                 rows[pk], pending[pk] = snap, expr
-        if index_only and confirmed_word is not None:
-            # A later posting or the normal candidate pass verifies remaining
-            # operands. Keep an unrelated slow provider out of this fast lane.
-            return
         for disk in (False, True):
             if not pending or not self.active():
                 break

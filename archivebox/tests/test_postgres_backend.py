@@ -212,7 +212,7 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    result = run_archivebox_cmd(["add", "--index-only", test_url], cwd=tmp_path, env=env, timeout=300)
+    result = run_archivebox_cmd(["add", "--index-only", "--tag", "Research-Reports", test_url], cwd=tmp_path, env=env, timeout=300)
     assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Add failed: {result.stderr}\n{result.stdout}"
     run_queued_crawls(tmp_path, env)
@@ -231,6 +231,11 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Search failed: {result.stderr}"
     assert "example.com/abx-postgres-test" in result.stdout, f"Added URL missing from search output:\n{result.stdout}"
+    # The tag is a substring filter and independently proves the loose word
+    # through its association. Also compile the sibling JSONB file predicate.
+    result = run_archivebox_cmd(["search", "tags:research (reports OR filetype:pdf)"], cwd=tmp_path, env=env, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert test_url in result.stdout
 
     result = run_archivebox_cmd(
         ["remove", "--yes", "--delete", "--filter-type=exact", test_url],
