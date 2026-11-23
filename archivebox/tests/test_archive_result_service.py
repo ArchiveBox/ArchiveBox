@@ -14,6 +14,7 @@ from abx_dl.orchestrator import create_bus
 from abx_dl.output_files import OutputFile
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
 from archivebox.tests.conftest import install_real_binary
+from archivebox.tests.conftest import _set_test_source_pythonpath
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -77,6 +78,7 @@ def _run_shipped_snapshot_hook(
         "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
         **(env or {}),
     }
+    _set_test_source_pythonpath(hook_env)
     assert prepare_script_exec_plan(hook_path, env=hook_env), f"Could not prepare shipped hook {hook_path}"
     output_dir = Path(snapshot.output_dir) / plugin
     output_dir.mkdir(parents=True, exist_ok=True)
