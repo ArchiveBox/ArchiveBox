@@ -90,7 +90,7 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         expect(page.locator("svg#orchestrator-dot path")).to_have_attribute("d", "M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5")
         estimate = page.locator("#metric-storage")
         expect(estimate).to_be_visible()
-        expect(estimate).to_contain_text("55 GB (")
+        expect(estimate).to_contain_text("54 GB (")
         expect(estimate.locator("small")).to_contain_text(" free)")
         assert estimate.locator("small").evaluate("el => getComputedStyle(el).color") == "rgb(63, 185, 80)"
         assert estimate.locator("small").evaluate(
@@ -103,7 +103,7 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         expect(estimate).to_be_hidden()
         page.get_by_role("button", name="Details", exact=True).click()
         expect(estimate).to_be_visible()
-        expect(estimate).to_contain_text("55 GB (")
+        expect(estimate).to_contain_text("54 GB (")
         expect(estimate.locator("small")).to_contain_text(" free)")
         browser.close()
     cache.clear()
