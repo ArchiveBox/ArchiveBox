@@ -12,8 +12,24 @@ from archivebox.core.routes_util import build_snapshot_detail_url, get_snapshot_
 from archivebox.machine.models import Machine
 
 
+ASSISTANT_AGENTS = [
+    "Perplexity-User/1.0",
+    "Google-Agent",
+    "Google-GeminiNotebook",
+    "ChatGPT-User/1.0",
+    "Claude-User/1.0",
+    "meta-externalfetcher/1.1",
+    "MistralAI-User/1.0",
+    "Amzn-User/1.0",
+    "Claude-Agent/1.0",
+    "Kimi-User/1.0",
+    "Google-NotebookLM",
+]
+
+
 @pytest.mark.django_db(transaction=True)
-def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapshot, live_server):
+def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapshot, live_server, client):
+    django_client = client
     machine = Machine.current()
     machine.config = {
         **machine.config,
@@ -45,10 +61,8 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         for host in ("admin.archivebox.localhost", "web.archivebox.localhost", snapshot_host):
             robots = client.get(f"{live_server.url}/robots.txt", headers={"Host": host}, timeout=10)
             assert robots.status_code == 200
-            assert robots.text.startswith("User-agent: *\nDisallow: /\n")
-            assert "Allow: /dom/output.html$\n" in robots.text
-            assert "Allow: /readability/content.html$\n" in robots.text
-            assert "singlefile" not in robots.text
+            assert robots.text.startswith("User-agent: *\nAllow: /\n")
+            assert "Disallow:" not in robots.text
             assert robots.text.count("User-agent:") == 1
             assert "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n" in robots.text
 
@@ -89,31 +103,68 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         assert detail.status_code == 200
         assert detail.headers["X-Robots-Tag"] == "noindex, follow"
 
+        for agent in ASSISTANT_AGENTS:
+            detail = client.get(
+                f"{live_server.url}{detail_url.path}",
+                headers={"Host": detail_url.netloc, "User-Agent": agent},
+                timeout=10,
+            )
+            assert detail.status_code == 200, agent
+            assert detail.headers["X-Robots-Tag"] == "noindex, follow"
+            assert '<meta name="robots" content="noindex, follow">' in detail.text
+            preview = client.get(
+                f"{live_server.url}/wget/index.html?preview=1",
+                headers={"Host": snapshot_host, "User-Agent": agent},
+                timeout=10,
+            )
+            assert preview.status_code == 200, agent
+            assert preview.headers["X-Robots-Tag"] == "noindex, follow"
+
+        # The live_server fixture intercepts /static outside Django middleware.
+        # Exercise the application's real static route for its UA cache policy.
+        asset = django_client.get("/static/typography.css", HTTP_HOST=detail_url.netloc)
+        assert asset.status_code == 200
+        assert "User-Agent" in asset.headers["Vary"]
+        asset.close()
+        training_asset = django_client.get(
+            "/static/typography.css",
+            HTTP_HOST=detail_url.netloc,
+            HTTP_USER_AGENT="GPTBot/1.4",
+        )
+        assert training_asset.status_code == 403
+
+        snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
+        snapshot.save(update_fields=["config"])
+        for agent in ASSISTANT_AGENTS:
+            private = client.get(
+                f"{live_server.url}{detail_url.path}",
+                headers={"Host": detail_url.netloc, "User-Agent": agent},
+                allow_redirects=False,
+                timeout=10,
+            )
+            assert private.status_code in {302, 403, 404}, agent
+
 
 @pytest.mark.parametrize(
     "user_agent",
     [
         "meta-externalagent/1.1",
         "meta-webindexer/1.1",
+        "NotChatGPT-User/1.0",
+        "Claude-User-Search/1.0",
+        "Google-Agent-Training/1.0",
         "Mediapartners-Google",
         "APIs-Google",
         "Google-Safety",
-        "meta-externalfetcher/1.1",
         "facebookexternalhit/1.1",
         "GPTBot/1.3",
         "OAI-SearchBot/1.3",
         "OAI-AdsBot/1.0",
-        "ChatGPT-User/1.0",
         "ClaudeBot/1.0",
-        "Claude-User/1.0",
-        "Claude-Agent/1.0",
         "KimiBot/1.0",
         "Kimi-SearchBot/1.0",
-        "Kimi-User/1.0",
         "Googlebot/2.1",
         "GoogleOther",
-        "Google-Agent",
-        "Google-GeminiNotebook",
         "FeedFetcher-Google",
         "bingbot/2.0",
         "BingPreview/1.0",
@@ -122,8 +173,6 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         "YisouSpider",
         "Bytespider",
         "Amazonbot/0.1",
-        "Amzn-User/1.0",
-        "Perplexity-User/1.0",
         "MistralAI-Training/1.0",
         "Applebot/0.1",
         "CCBot/2.0",
@@ -180,7 +229,7 @@ def test_crawlers_are_refused_before_database_or_replay_work(client, user_agent)
     ],
 )
 def test_crawler_allowlist_does_not_admit_derived_or_lookalike_paths(client, path):
-    response = client.get(path, HTTP_HOST="snap-123456789abc.archivebox.localhost", HTTP_USER_AGENT="GPTBot/1.3")
+    response = client.get(path, HTTP_HOST="snap-123456789abc.archivebox.localhost", HTTP_USER_AGENT="FutureCrawler/1.0")
     assert response.status_code == 403
 
 
@@ -189,9 +238,7 @@ def test_crawler_allowlist_does_not_admit_derived_or_lookalike_paths(client, pat
 @pytest.mark.parametrize(
     "crawler_agent",
     [
-        "GPTBot/1.3",
-        "ClaudeBot/1.0",
-        "MistralAI-Training/1.0",
+        *ASSISTANT_AGENTS,
         "FutureCrawler/1.0",
         "Googlebot/2.1",
         "bingbot/2.0",
@@ -204,8 +251,6 @@ def test_crawler_allowlist_does_not_admit_derived_or_lookalike_paths(client, pat
         "MistralAI-Index/1.0",
         "ChatGPT-User/1.0",
         "Claude-User/1.0",
-        "meta-externalagent/1.1",
-        "CCBot/2.0",
         "NotGPTBot/1.0",
         "GPTBot-Search/1.0",
         "ClaudeBot-Search/1.0",
@@ -313,8 +358,32 @@ def test_crawler_refusal_uses_async_django_handler(async_client):
     response = asyncio.run(
         async_client.get(
             "/singlefile/?download=zip",
-            headers={"user-agent": "Claude-User/1.0"},
+            headers={"user-agent": "FutureCrawler/1.0"},
         ),
     )
     assert response.status_code == 403
     assert response["X-Robots-Tag"] == "noindex, follow"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "GPTBot/1.4",
+        "ClaudeBot/1.0",
+        "MistralAI-Training/1.0",
+        "meta-externalagent/1.1",
+        "CCBot/2.0",
+        "Mozilla/5.0 (compatible; GPTBot/1.4; +https://openai.com/gptbot)",
+        "gptbot/1.4",
+        "ChatGPT-User/1.0 GPTBot/1.4",
+    ],
+)
+@pytest.mark.parametrize("path", ["/dom/output.html", "/readability/content.html?raw=1", "/wget/?files=1&download=zip"])
+@pytest.mark.parametrize("method", ["get", "head"])
+def test_training_crawlers_are_refused_before_database_work(client, user_agent, path, method):
+    # No DB access is permitted by this test, including for otherwise allowed outputs.
+    response = getattr(client, method)(path, HTTP_HOST="snap-123456789abc.archivebox.localhost", HTTP_USER_AGENT=user_agent)
+    assert response.status_code == 403
+    assert response["X-Robots-Tag"] == "noindex, follow"
+    assert response["Cache-Control"] == "private, no-store"
+    assert "User-Agent" in response["Vary"]

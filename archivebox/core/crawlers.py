@@ -1,4 +1,4 @@
-"""Keep automated crawlers on explicitly declared, inexpensive saved HTML."""
+"""Allow user-directed assistants while limiting bulk crawlers and training."""
 
 import re
 from inspect import iscoroutinefunction
@@ -9,6 +9,18 @@ from django.utils.decorators import sync_and_async_middleware
 
 from archivebox.plugins.discovery import get_plugin_catalog
 
+
+# Content signals express usage policy; reject known training/dataset fetchers
+# at request time without confusing them with each provider's user assistants.
+TRAINING_USER_AGENT = re.compile(
+    r"(?<![\w-])(?:GPTBot|ClaudeBot|MistralAI-Training|meta-externalagent|CCBot)(?=/|[\s;)]|$)",
+    re.IGNORECASE,
+)
+ASSISTANT_USER_AGENT = re.compile(
+    r"(?<![\w-])(?:Perplexity-User|Google-Agent|Google-GeminiNotebook|Google-NotebookLM|"
+    r"ChatGPT-User|Claude-User|Claude-Agent|meta-externalfetcher|MistralAI-User|Amzn-User|Kimi-User)(?=/|[\s;)]|$)",
+    re.IGNORECASE,
+)
 
 # Crawler families and user-triggered fetchers documented by their operators.
 # Generic bot/spider/crawler identifiers cover additional self-declared robots;
@@ -40,12 +52,8 @@ def CrawlerMiddleware(get_response):
     suffix = "(?:" + "|".join(re.escape(path) for path in outputs) + ")" if outputs else r"(?!)"
     direct_path = re.compile(rf"^/{suffix}$")
     snapshot_path = re.compile(rf"^/(?:{'|'.join(PREFIXES[1:])}){suffix}$")
-    robots = "User-agent: *\nDisallow: /\n"
+    robots = "User-agent: *\nAllow: /\n"
     robots += "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n"
-    robots += "Allow: /robots.txt$\nAllow: /static/\nAllow: /favicon.ico$\n"
-    for output in outputs:
-        for prefix in ("", "snapshot/*/", "*/*/*/*/"):
-            robots += f"Allow: /{prefix}{output}$\nAllow: /{prefix}{output}?raw=1$\n"
 
     def inspect(request):
         if request.path == "/robots.txt":
@@ -55,12 +63,14 @@ def CrawlerMiddleware(get_response):
         if request.path in {"/health", "/health/"}:
             return None, False
         user_agent = request.META.get("HTTP_USER_AGENT", "")
+        is_training = bool(TRAINING_USER_AGENT.search(user_agent))
+        is_assistant = not is_training and bool(ASSISTANT_USER_AGENT.search(user_agent))
         is_crawler = bool(CRAWLER_USER_AGENT.search(user_agent))
-        if request.path == "/favicon.ico" or request.path.startswith("/static/"):
+        if not is_training and (request.path == "/favicon.ico" or request.path.startswith("/static/")):
             if not is_crawler or (
                 request.method in {"GET", "HEAD"} and not {"download", "preview", "thumbnail", "files"}.intersection(request.GET)
             ):
-                return None, False
+                return None, True
         safe_path = bool(
             snapshot_path.fullmatch(request.path) or (SNAPSHOT_HOST.match(request.get_host()) and direct_path.fullmatch(request.path)),
         )
@@ -70,12 +80,12 @@ def CrawlerMiddleware(get_response):
             and ("_abx_rev" not in request.GET or len(request.GET.getlist("_abx_rev")) == 1)
         )
         safe = safe_path and safe_query and request.method in {"GET", "HEAD"}
-        if not is_crawler:
+        if not is_training and (not is_crawler or (is_assistant and not safe)):
             # Human replay responses must not be cached and served to blocked bots.
             return None, True
-        if not safe:
+        if is_training or not safe:
             response = HttpResponseForbidden(
-                "Crawlers may only request declared static HTML outputs.\n",
+                "AI training crawlers are not permitted.\n" if is_training else "Crawlers may only request declared static HTML outputs.\n",
                 content_type="text/plain",
             )
             response["X-Robots-Tag"] = "noindex, follow"

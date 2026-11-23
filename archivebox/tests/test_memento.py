@@ -275,7 +275,7 @@ def test_crawler_raw_memento_links_do_not_load_manifests(client, captures):
     content = b"<!doctype html><title>Saved DOM</title><p>Original saved bytes</p>"
     output.write_bytes(content)
     with CaptureQueriesContext(connection) as queries:
-        response = fetch(client, build_snapshot_url(str(snapshot.id), path), HTTP_USER_AGENT="GPTBot/1.3")
+        response = fetch(client, build_snapshot_url(str(snapshot.id), path), HTTP_USER_AGENT="ChatGPT-User/1.0")
     assert response.status_code == 200
     assert response["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
     links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(response["Link"])}
