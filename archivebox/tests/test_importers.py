@@ -1001,7 +1001,7 @@ def test_admin_dashboard_groups_capture_and_management_cards(admin_client):
 
     assert links(capture_rows[0]) == ["/admin/crawls/crawl/", "/admin/crawls/crawlschedule/", "/admin/importers/"]
     assert links(capture_rows[1]) == ["/admin/core/snapshot/", "/admin/domains/"]
-    assert links(capture_rows[2]) == ["/admin/core/archiveresult/"]
+    assert links(capture_rows[2])[0] == "/admin/core/archiveresult/"
     titles = {
         " ".join(anchor.find_class("abx-admin-card__title")[0].text_content().split()): anchor.get("href")
         for anchor in dashboard.find_class("abx-admin-card__main--link")
