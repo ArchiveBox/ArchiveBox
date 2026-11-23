@@ -37,6 +37,64 @@ def test_only_admin_thumbnail_defers_card_navigation(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("view", ["admin", "public"])
+def test_missing_favicon_card_reveals_existing_hostname_initial(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}", "PUBLIC_INDEX": True}
+    machine.save(update_fields=["config"])
+    for host, available in (("missing.example", False), ("available.example", True)):
+        saved = Snapshot.objects.create(url=f"https://{host}/", title=host, crawl=snapshot.crawl, config={"PERMISSIONS": "public"})
+        content = b'<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" fill="green"/></svg>'
+        if available:
+            output = saved.output_dir / "favicon/favicon.svg"
+            output.parent.mkdir(parents=True)
+            output.write_bytes(content)
+        ArchiveResult.objects.create(
+            snapshot=saved,
+            plugin="favicon",
+            status="succeeded",
+            output_str="favicon.svg",
+            output_files={"favicon.svg": {"size": len(content), "mimetype": "image/svg+xml"}},
+        )
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        if view == "admin":
+            origin = f"http://admin.archivebox.localhost:{port}"
+            page.goto(f"{origin}/admin/login/")
+            page.locator('[name="username"]').fill(admin_user.username)
+            page.locator('[name="password"]').fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            target = f"{origin}/admin/core/snapshot/"
+        else:
+            target = f"http://archivebox.localhost:{port}/public/"
+        page.goto(target)
+        broken = page.get_by_role("img", name="Preview of missing.example", exact=True)
+        broken.scroll_into_view_if_needed()
+        expect(broken.frame_locator("iframe").locator(".favicon-thumbnail")).to_have_count(0)
+        expect(broken.locator(".snapshot-thumbnail-initial")).to_have_text("M")
+        overlay = broken.locator(':scope > span[aria-hidden="true"]')
+        assert overlay.evaluate("node => getComputedStyle(node).backgroundColor") == "rgba(0, 0, 0, 0)"
+        working = page.get_by_role("img", name="Preview of available.example", exact=True)
+        working.scroll_into_view_if_needed()
+        icon = working.frame_locator("iframe").locator(".favicon-thumbnail img")
+        expect(icon).to_be_visible()
+        expect(icon).to_have_js_property("naturalWidth", 28)
+        page.screenshot(path=str(tmp_path / f"{view}-favicon-fallback.png"))
+        assert not errors
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user, live_server, browser_runtime):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright, expect
