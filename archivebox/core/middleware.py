@@ -170,7 +170,12 @@ def CacheControlMiddleware(get_response):
         if (
             getattr(request, "archivebox_cache_policy", None)
             and response.status_code in (200, 206, 304)
-            and (request.GET.get("download") == "zip" or request.GET.get("preview") or request.GET.get("files"))
+            and (
+                request.GET.get("download") == "zip"
+                or request.GET.get("preview")
+                or request.GET.get("thumbnail")
+                or request.GET.get("files")
+            )
         ):
             # Derived views/downloads can trigger filesystem scans or rendering.
             # Keep raw artifacts' policy intact; these are crawler hints only.

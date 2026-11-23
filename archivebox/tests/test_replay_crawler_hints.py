@@ -60,7 +60,7 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
         assert listing.status_code == 200
         assert listing.headers.get("X-Robots-Tag") == "noindex, nofollow"
 
-        for suffix in ("index.html?preview=1", "index.html?preview=thumbnail", "image.svg?preview=1&raw=1"):
+        for suffix in ("index.html?preview=1", "index.html?preview=thumbnail", "index.html?thumbnail=1", "image.svg?preview=1&raw=1"):
             preview = client.get(f"{live_server.url}/wget/{suffix}", timeout=10)
             assert preview.status_code == 200, preview.text[:500]
             assert preview.headers.get("X-Robots-Tag") == "noindex, nofollow"
