@@ -60,7 +60,6 @@ class SearchResultsChangeList(ChangeList):
         self.search_mode_backend = get_search_mode_backend(self.search_mode, config=request.archivebox_config)
         super().__init__(request, *args, **kwargs)
         self.embedded_changelist = request.GET.get("_embedded") == "crawl"
-        self.search_partial = getattr(request, "_archivebox_search_partial", False)
         self.search_stream_complete = bool(getattr(request, "_archivebox_search_complete", False))
 
     def get_results(self, request):
@@ -114,7 +113,6 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
         if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
             state = get_cached_admin_search_state(request)
             request._archivebox_search_complete = bool(state and state.get("done"))
-            request._archivebox_search_partial = bool(state and state.get("partial"))
             if state is not None:
                 cached_ids = state.get("ids") or []
                 if not cached_ids:

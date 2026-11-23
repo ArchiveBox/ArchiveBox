@@ -8,17 +8,18 @@ import json
 import os
 import stat
 import sys
+import time
 from contextlib import ExitStack
 from pathlib import Path
 
 
-def read_links(root, relatives, byte_limit, file_limit):
+def read_links(root, relatives, byte_limit, file_limit, streaming=False):
     links = set()
     complete, observed = True, False
     usage = {"bytes": 0, "files": 0}
     directory = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     for relative in relatives:
-        if usage["files"] >= file_limit or usage["bytes"] >= byte_limit:
+        if not streaming and (usage["files"] >= file_limit or usage["bytes"] >= byte_limit):
             complete = False
             break
         parts = Path(relative).parts
@@ -39,6 +40,31 @@ def read_links(root, relatives, byte_limit, file_limit):
                     complete = False
                     continue
                 observed = True
+                if streaming:
+                    # Keep the file open between windows. Do not restart at
+                    # byte zero or buffer a whole outgoing-link manifest.
+                    heartbeat = start = time.monotonic()
+                    size = 0
+                    # Bound a malformed record with no newline independently
+                    # from the length of a valid many-record manifest.
+                    while line := stream.readline((4 << 20) + 1):
+                        if len(line) > 4 << 20:
+                            raise ValueError("Outlink record exceeds 4 MiB")
+                        size += len(line)
+                        if time.monotonic() - heartbeat >= 2:
+                            print(json.dumps({"progress": True}), flush=True)
+                            heartbeat = time.monotonic()
+                        if size >= 4 << 20:
+                            time.sleep(max(0, start + 1 - time.monotonic()))
+                            start, size = time.monotonic(), 0
+                        try:
+                            url = json.loads(line).get("url")
+                        except (AttributeError, ValueError):
+                            complete = False
+                            continue
+                        if isinstance(url, str) and url.lower().startswith(("http://", "https://")):
+                            print(json.dumps(url))
+                    continue
                 data = stream.read(min(512 << 10, byte_limit - usage["bytes"]))
                 usage["bytes"] += len(data)
                 if info.st_size > len(data):

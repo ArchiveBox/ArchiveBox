@@ -325,7 +325,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         from archivebox.search.interpreter import SnapshotSearch
 
         try:
-            search = SnapshotSearch(base_queryset, query, config=config, public=public)
+            search = SnapshotSearch(base_queryset, query, config=config, public=public, streaming=True)
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
 
@@ -389,9 +389,6 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                         publish_count()
                 if not stop_event.is_set():
                     completed = True
-                    if search and search.partial:
-                        cache_results(True)
-                        emit("partial\n")
                     if len(ids) != last_sent:
                         publish_count(done=True)
             except BaseException as err:
@@ -409,10 +406,19 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         try:
             threading.Thread(target=run_search, name=thread_name, daemon=True).start()
             yield f"0{stream_padding}\n"
+            heartbeat = time.monotonic()
             while True:
                 try:
                     item = await asyncio.to_thread(queue.get, True, 0.1)
                 except Empty:
+                    # No new match can be normal for minutes. Keep intermediaries
+                    # and the provisional membership cache alive without a table redraw.
+                    if time.monotonic() - heartbeat >= 10:
+                        with _search_cache_lock:
+                            if _search_cache_owners.get(cache_key) is owner:
+                                cache.touch(cache_key, SEARCH_RESULT_CACHE_TTL)
+                        heartbeat = time.monotonic()
+                        yield "\n"
                     continue
                 if item is None:
                     break

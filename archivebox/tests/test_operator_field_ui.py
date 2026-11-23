@@ -187,14 +187,66 @@ def test_editor_searches_only_within_active_view(live_server, admin_user, crawl,
         expect(rows).to_have_count(len(expected))
         assert {k: v for k, v in parse_qs(urlsplit(page.url).query).items() if k in params} == {k: [v] for k, v in params.items()}
         if surface == "public":
-            # A missing outlink artifact yields partial results. Its explanation
-            # must wrap below the search field, even beside a long expression.
+            # A missing outlink artifact cannot keep the stream busy after all
+            # candidates have been visited.
             page.set_viewport_size({"width": 320, "height": 640})
             long_query = " OR ".join(["(title:Match AND ~title:Wrong)"] * 7 + ["linksto:missing.example"])
             editor.fill(long_query)
             editor.press("Escape")
             editor.press("Enter")
-            expect(page.locator(".public-search-partial")).to_be_visible()
+            expect(rows).to_have_count(1)
+            expect(page.locator(".public-snapshot-toolbar")).not_to_have_attribute("aria-busy", "true")
+            expect(page.get_by_text("Showing confirmed matches", exact=False)).to_have_count(0)
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             assert editor.evaluate("el => el.scrollHeight > el.clientHeight && el.scrollWidth <= el.clientWidth")
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, browser_runtime):
+    from uuid import UUID
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+    from archivebox.crawls.models import Crawl
+    from django.contrib.auth import get_user_model
+
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", PUBLIC_INDEX="true", BASE_URL="http://archivebox.localhost")
+    server.wait_for_workers(("worker_uvicorn",))
+    port = server.port
+    with use_archivebox_db(server.data_dir):
+        owner = get_user_model().objects.create_user(username="stream-reader")
+        crawl = Crawl.objects.create(urls="https://scoped.example", created_by=owner, status="sealed", retry_at=None)
+        for i in range(15):
+            snap = Snapshot.objects.create(
+                id=UUID(int=i + 1),
+                crawl=crawl,
+                status="sealed",
+                retry_at=None,
+                url=f"https://scoped.example/{i}",
+                title="Early metadata" if i == 0 else "Late content" if i == 14 else f"Unmatched {i}",
+                config={"PERMISSIONS": "public"},
+            )
+        path = snap.output_dir / "dom" / "late.txt"
+        path.parent.mkdir(parents=True)
+        with path.open("wb") as stream:
+            # Sparse fixture. At 4 MiB/window the final text arrives after the
+            # old eight-second whole-query deadline, with no hits along the way.
+            stream.seek(42 << 20)
+            stream.write(b"sunrise")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}/public/")
+        editor = page.locator("#changelist-search [role=combobox]")
+        editor.fill("title:Early OR deep:sunrise")
+        editor.press("Escape")
+        editor.press("Enter")
+        rows = page.locator("#table-bookmarks tbody tr")
+        expect(rows.filter(has_text="Early metadata")).to_be_visible()
+        bar = page.get_by_role("progressbar", name="Searching snapshots")
+        expect(bar).to_be_visible()
+        expect(rows.filter(has_text="Late content")).to_be_visible(timeout=30000)
+        expect(bar).to_be_hidden()
+        expect(rows).to_have_count(2)
         browser.close()

@@ -6,6 +6,7 @@ import math
 import subprocess
 import sys
 import time
+import threading
 from collections import Counter, defaultdict
 from functools import cached_property
 from itertools import batched, islice
@@ -38,10 +39,14 @@ PAGE_SIZE = 64
 DISK_LIMITS = {"files": 96, "entries": 512, "bytes": 4 << 20}
 MAX_SNAPSHOTS = 12
 MAX_SECONDS = 8.0
+# Only external work competes for these slots. A missing or slow mounted drive
+# must not block ordinary metadata searches or multiply disk load per browser.
+EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
+STALL_SECONDS = 30.0
 
 
 class SnapshotSearch:
-    def __init__(self, scope, query, *, config=None, stop_event=None, rules=None, stack=(), public=False):
+    def __init__(self, scope, query, *, config=None, stop_event=None, rules=None, stack=(), public=False, streaming=False):
         self.scope = scope
         self.tree = parse(query)
         self.terms = tuple(dict.fromkeys(leaves(self.tree)))
@@ -52,6 +57,7 @@ class SnapshotSearch:
         self.sql = {t: q for t in self.terms if (q := sql_leaf(t, scope.db, rules=rules, stack=stack, public=public)) is not None}
         self.text = {t: text_metadata(t, public=public) for t in self.terms if t.field in {"word", "literal"}}
         self.config = config
+        self.streaming = streaming
         self.stop_event = stop_event
         self.partial = False
         self.usage = Counter()
@@ -87,7 +93,7 @@ class SnapshotSearch:
     def active(self):
         if self.stop_event and self.stop_event.is_set():
             return False
-        if time.monotonic() >= self.deadline:
+        if not self.streaming and time.monotonic() >= self.deadline:
             self.partial = True
             return False
         return True
@@ -107,6 +113,8 @@ class SnapshotSearch:
         return qs
 
     def admit(self, pk):
+        if self.streaming:
+            return True
         if pk not in self.read_ids and len(self.read_ids) >= MAX_SNAPSHOTS:
             return False
         self.read_ids.add(pk)
@@ -115,6 +123,60 @@ class SnapshotSearch:
     @cached_property
     def link_paths(self):
         return [Path(p.name, p.manifest["outlinks_path"]) for p in get_plugin_catalog().values() if p.manifest.get("outlinks_path")]
+
+    def command_records(self, command, payload, *, env=None):
+        from abx_dl.execution import iter_plugin_command
+
+        if not self.streaming:
+            lines = iter_plugin_command(
+                command,
+                stdin=[json.dumps(payload)],
+                cwd=CONSTANTS.DATA_DIR,
+                env=env,
+                stop_event=self.stop_event,
+                timeout=max(0.01, self.deadline - time.monotonic()),
+            )
+            try:
+                for line in lines:
+                    yield json.loads(line)
+            finally:
+                lines.close()
+            return
+
+        while not EXTERNAL_SLOTS.acquire(timeout=0.1):
+            if not self.active():
+                return
+        last_activity = time.monotonic()
+        cancellation = self.stop_event
+
+        class ScanCancellation:
+            def is_set(self):
+                if cancellation and cancellation.is_set():
+                    return True
+                if time.monotonic() - last_activity > STALL_SECONDS:
+                    raise TimeoutError("The search provider stopped responding")
+                return False
+
+        try:
+            lines = iter_plugin_command(
+                command,
+                stdin=[json.dumps(payload)],
+                cwd=CONSTANTS.DATA_DIR,
+                env=env,
+                stop_event=ScanCancellation(),
+                timeout=None,
+            )
+            try:
+                for line in lines:
+                    last_activity = time.monotonic()
+                    record = json.loads(line)
+                    if isinstance(record, dict) and record.get("progress") is True:
+                        continue
+                    yield record
+            finally:
+                lines.close()
+        finally:
+            EXTERNAL_SLOTS.release()
 
     def links(self, snapshot):
         if snapshot.pk in self.link_cache:
@@ -133,6 +195,25 @@ class SnapshotSearch:
             "byte_limit": DISK_LIMITS["bytes"] - self.usage["bytes"],
             "file_limit": DISK_LIMITS["files"] - self.usage["files"],
         }
+        if self.streaming:
+            # A connected search reads beyond the preview limits. Keep the
+            # helper cancellable even if the mounted archive stops responding.
+            from abx_dl.models import PluginCommand
+
+            reader = Path(__file__).with_name("outlinks.py")
+            command = PluginCommand(name="outlinks", plugin_name="archivebox", path=Path(sys.executable), args=["-I", str(reader)])
+            records = self.command_records(command, {**payload, "streaming": True})
+            urls, complete = set(), False
+            try:
+                for item in records:
+                    if isinstance(item, str):
+                        urls.add(item)
+                    else:
+                        complete = item["complete"]
+            finally:
+                records.close()
+            self.link_cache[snapshot.pk] = urls, complete
+            return urls, complete
         try:
             worker = subprocess.run(
                 [sys.executable, "-I", str(Path(__file__).with_name("outlinks.py"))],
@@ -150,20 +231,32 @@ class SnapshotSearch:
         return self.link_cache[snapshot.pk]
 
     def sources(self, term):
-        return (
+        qs = (
             self.scope.filter(substring("url", term.value))
             .filter(Q(url__istartswith="http://") | Q(url__istartswith="https://"))
             .select_related("crawl__created_by")
-            .order_by("pk")[: MAX_SNAPSHOTS + 1]
+            .order_by("pk")
         )
+        if not self.streaming:
+            yield from qs[: MAX_SNAPSHOTS + 1]
+            return
+        cursor = None
+        while self.active():
+            page = list((qs.filter(pk__gt=cursor) if cursor else qs)[:PAGE_SIZE])
+            if not page:
+                return
+            yield from page
+            cursor = page[-1].pk
 
     def target_batches(self, term):
         seen, complete = set(), True
         for index, snapshot in enumerate(self.sources(term)):
-            if index == MAX_SNAPSHOTS or not self.active():
+            if (not self.streaming and index == MAX_SNAPSHOTS) or not self.active():
                 complete = False
                 break
             links, done = self.links(snapshot)
+            if self.streaming:
+                self.link_cache.pop(snapshot.pk, None)
             complete &= done
             new = links - seen
             seen.update(new)
@@ -191,11 +284,14 @@ class SnapshotSearch:
                         arguments={"query": term.value, "search_mode": "contents"},
                         env=self.env,
                         cwd=CONSTANTS.DATA_DIR,
-                        timeout=max(0.01, self.deadline - time.monotonic()),
+                        timeout=MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
                         stop_event=self.stop_event,
                     )
                     try:
-                        self.legacy_hits[term] = {str(pk).replace("-", ""): 1 / rank for rank, pk in enumerate(islice(iterator, 500), 1)}
+                        self.legacy_hits[term] = {
+                            str(pk).replace("-", ""): 1 / rank
+                            for rank, pk in enumerate(iterator if self.streaming else islice(iterator, 500), 1)
+                        }
                     finally:
                         iterator.close()
                 for pk in rows:
@@ -218,27 +314,20 @@ class SnapshotSearch:
             return
         admitted = {candidate["id"] for candidate in candidates}
         payload = {
+            "streaming": self.streaming,
             "terms": [{"key": k, "mode": t.field, "value": t.value} for k, t in keys.items()],
             "candidates": candidates,
             "limits": {
-                **{k: max(0, v - self.usage[k]) for k, v in DISK_LIMITS.items()},
-                "seconds": max(0.01, self.deadline - time.monotonic()),
+                **{k: v if self.streaming else max(0, v - self.usage[k]) for k, v in DISK_LIMITS.items()},
+                "seconds": MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
                 "per_file": 512 << 10,
             },
         }
         if disk:
             payload["archive_root"] = str(CONSTANTS.ARCHIVE_DIR)
-        iterator = iter_plugin_command(
-            command,
-            stdin=[json.dumps(payload)],
-            env=self.env,
-            cwd=CONSTANTS.DATA_DIR,
-            timeout=payload["limits"]["seconds"],
-            stop_event=self.stop_event,
-        )
+        iterator = self.command_records(command, payload, env=self.env)
         try:
-            for line in iterator:
-                record = json.loads(line)
+            for record in iterator:
                 pk = str(record["id"]).replace("-", "")
                 if pk not in admitted:
                     continue
@@ -275,7 +364,10 @@ class SnapshotSearch:
         if not ordered and isinstance(certain, Q):
             # Confirmed SQL results can stream immediately. Exclude that same
             # predicate below so those snapshots never reach an external reader.
-            yield from qs.filter(certain).order_by("pk").values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
+            for pk in qs.filter(certain).order_by("pk").values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE):
+                if self.stop_event and self.stop_event.is_set():
+                    return
+                yield pk
             qs = qs.exclude(certain)
         flags = {f"_abx_filter_{i}": term for i, term in enumerate((*self.sql, *self.text))}
         predicates = self.sql | self.text
@@ -318,7 +410,7 @@ class SnapshotSearch:
                     arguments={"query": self.tree.value, "search_mode": "contents"},
                     env=self.env,
                     cwd=CONSTANTS.DATA_DIR,
-                    timeout=max(0.01, self.deadline - time.monotonic()),
+                    timeout=MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
                     stop_event=self.stop_event,
                 )
                 visited = set()
@@ -368,6 +460,8 @@ class SnapshotSearch:
                 # branches were already delivered by the initial metadata wave.
                 self.partial = True
                 break
+            if self.streaming:
+                self.link_cache.clear()
             cursor = page[-1].pk
             offset += PAGE_SIZE
 
@@ -417,6 +511,8 @@ class SnapshotSearch:
                         else:
                             pending[pk] = expr
                 except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
+                    if self.streaming and (disk or not backend.config.search_fallback):
+                        raise
                     logger.warning("Search provider %s unavailable: %s", backend.name, type(err).__name__)
             # Reorder only confirmed hits in this index page. Never hold file
             # hits for ranking or move a result the browser already received.

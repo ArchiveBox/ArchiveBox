@@ -133,3 +133,29 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)
+
+
+def test_connected_search_reaches_late_snapshots_and_file_tails(crawl):
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep"})
+    snapshots = []
+    for i in range(16):
+        snap = Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://scan.example/{i}")
+        output(snap, "dom/output.html", "available")
+        snapshots.append(snap)
+    # Cross both the 12-snapshot preview and the 512 KiB read boundary.
+    # Place part of a UTF-8 literal on either side of the chunk boundary.
+    (snapshots[-1].output_dir / "dom/output.html").write_bytes(b"x" * (512 * 1024 - 1) + "éclipse".encode())
+    scope = Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).order_by("pk")
+    search = SnapshotSearch(scope, 'deep:"éclipse"', config=config, streaming=True)
+    assert list(search.stream()) == [snapshots[-1].pk]
+    assert not search.partial
+
+
+def test_connected_reverse_links_visit_late_sources_and_manifest_tail(crawl):
+    sources = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://sources.example/{i}") for i in range(15)]
+    target = Snapshot.objects.create(crawl=crawl, url="https://late.example/end")
+    entry = json.dumps({"url": target.url}) + "\n"
+    output(sources[-1], "parse_html_urls/urls.jsonl", (json.dumps({"url": "https://early.example"}) + "\n") * 18000 + entry)
+    scope = Snapshot.objects.filter(crawl=crawl)
+    assert list(SnapshotSearch(scope, "linkedfrom:sources.example", streaming=True).stream()) == [target.pk]
+    assert list(SnapshotSearch(scope, "linksto:late.example", streaming=True).stream()) == [sources[-1].pk]

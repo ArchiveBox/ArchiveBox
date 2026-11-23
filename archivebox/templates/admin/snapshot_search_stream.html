@@ -19,7 +19,11 @@
         status.setAttribute('aria-live', 'polite');
         toolbar.after(status);
       }
-      if (status.textContent !== 'Searching…') status.textContent = 'Searching…';
+      if (!status.querySelector('progress')) {
+        var bar = document.createElement('progress');
+        bar.setAttribute('aria-label', 'Searching snapshots');
+        status.replaceChildren(bar, ' Searching…');
+      }
       status.hidden = false;
       form.setAttribute('aria-busy', 'true');
     }
@@ -102,15 +106,23 @@
       var renderPromise = Promise.resolve();
       var renderedVersion = -1;
       var lastRender = 0;
+      var failed = false;
 
       function failSearch(error) {
         if (activeSearch !== controller || controller.signal.aborted || error.name === "AbortError") return;
+        failed = true;
         controller.abort();
         clearTimeout(pendingRender);
         clearSearchLoading(controller);
         if (searchMessage?.isConnected) {
           searchMessage.removeAttribute("data-search-pending");
           searchMessage.textContent = error.message || "Search could not finish.";
+        } else {
+          var status = document.querySelector("#changelist .archivebox-search-stream-status");
+          if (status) {
+            status.textContent = error.message || "Search could not finish.";
+            status.hidden = false;
+          }
         }
       }
 
@@ -207,6 +219,7 @@
               buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done});
               var lines = buffer.split("\n");
               buffer = lines.pop();
+              lines = lines.filter(line => line.trim());
               lines.forEach(function(count) {
                 count = parseInt(count.trim(), 10);
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
@@ -215,7 +228,7 @@
               if (!result.done) return read();
               // A resumed later page needs settled pagination, even if the last
               // count matches a provisional first-page render.
-              if (!isSubmission && listUrl.searchParams.has("p")) renderedVersion = -1;
+              renderedVersion = -1;
               // Keep the progress state until the final table is actually installed.
               // The stream can finish while an earlier wave is still rendering.
               return renderNow().then(function() {
@@ -227,7 +240,7 @@
         })
         .catch(failSearch)
         .finally(function() {
-          clearSearchLoading(controller);
+          if (!failed) clearSearchLoading(controller);
           if (activeSearch === controller) activeSearch = null;
         });
     }

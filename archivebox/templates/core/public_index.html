@@ -154,10 +154,7 @@
         color: #64748b;
         font-size: 12px;
     }
-    /* A partial-result explanation can be longer than the query. Give it a
-       separate line so it cannot squeeze the editor or widen a phone viewport. */
-    .public-library .public-snapshot-toolbar:has(.public-search-partial) { flex-wrap: wrap; }
-    .public-snapshot-count:has(.public-search-partial) { flex-basis: 100%; }
+
 
     .public-snapshot-table-wrap {
         width: 100%;
@@ -696,9 +693,8 @@
             {% endcomment %}
             <div class="public-snapshot-count">
                 {% if public_search_stream_pending %}
-                    <span class="archivebox-search-stream-status" role="status" aria-live="polite">Searching...</span>
+                    <span class="archivebox-search-stream-status" role="status" aria-live="polite"><progress aria-label="Searching snapshots"></progress> Searching...</span>
                 {% else %}
-                    {% if public_search_partial %}<span class="public-search-partial" role="status">Showing confirmed matches. Some archive contents could not be checked within the search limits.</span>{% endif %}
                     {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }}{% endif %}
                     <span>(page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %})</span>
                 {% endif %}
@@ -783,7 +779,12 @@
                     if (count) count.appendChild(status)
                     else toolbar.appendChild(status)
                 }
-                status.textContent = text || 'Searching...'
+                if (!status.querySelector('progress')) {
+                    const bar = document.createElement('progress')
+                    bar.setAttribute('aria-label', 'Searching snapshots')
+                    status.replaceChildren(bar, document.createTextNode(''))
+                }
+                status.lastChild.textContent = ' ' + (text || 'Searching...')
                 status.hidden = false
                 toolbar.setAttribute('aria-busy', 'true')
             }
@@ -839,6 +840,7 @@
                 const controller = new AbortController()
                 activeSearch = controller
                 setSearchLoading(controller, 'Searching...')
+                let failed = false
                 let resultVersion = 0
 
                 function buildListUrl() {
@@ -891,6 +893,7 @@
                             buffer = lines.pop()
                             let shouldRender = false
                             lines.forEach(function(count) {
+                                if (!count.trim()) return
                                 count = parseInt(count.trim(), 10)
                                 if (Number.isFinite(count)) {
                                     resultVersion = count
@@ -908,12 +911,17 @@
                     })
                     .catch(function(error) {
                         if (error.name !== 'AbortError' && !controller.signal.aborted) {
-                            const cell = document.querySelector('.public-search-empty')
-                            if (cell) cell.textContent = error.message
+                            failed = true
+                            clearSearchLoading(controller)
+                            const message = document.querySelector('.public-search-empty') || document.querySelector('.public-snapshot-toolbar .archivebox-search-stream-status')
+                            if (message) {
+                                message.textContent = error.message
+                                message.hidden = false
+                            }
                         }
                     })
                     .finally(function() {
-                        clearSearchLoading(controller)
+                        if (!failed) clearSearchLoading(controller)
                         if (activeSearch === controller) activeSearch = null
                     })
             }

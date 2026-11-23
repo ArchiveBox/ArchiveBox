@@ -51,7 +51,6 @@
     {% if key != search_var and key != "search_mode" and key != "p" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}
 {% endfor %}
 </div>
-{% if cl.search_partial %}<p role="status">Showing confirmed matches. Some archive contents could not be checked within the search limits.</p>{% endif %}
 {% if cl.search_help_text %}
 <br class="clear">
 <div class="help" id="searchbar_helptext">{{ cl.search_help_text }}</div>

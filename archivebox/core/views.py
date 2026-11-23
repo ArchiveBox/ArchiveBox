@@ -1665,7 +1665,6 @@ class PublicIndexView(ListView):
             "search_mode": search_mode,
             "search_mode_options": get_search_mode_options(config=runtime_config),
             "public_search_stream_pending": public_search_pending,
-            "public_search_partial": bool(public_search_state and public_search_state.get("partial")),
             "folder_tree": self.folder_tree,
             "selected_folder": self.selected_folder,
             "folder_breadcrumbs": self.folder_breadcrumbs,
