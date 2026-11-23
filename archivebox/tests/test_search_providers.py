@@ -106,6 +106,34 @@ def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):
     assert not list(SnapshotSearch(scope.exclude(pk=parent.pk), "linkedfrom:example.org").stream())
 
 
+def test_provider_failure_logs_real_command_and_stderr(crawl, caplog, tmp_path):
+    snapshot = Snapshot.objects.create(crawl=crawl, url="https://reports.example/unindexed")
+    output(snapshot, "readability/article.txt", "magnetosphere")
+    index = tmp_path / "search.sqlite3"
+    run_hook(
+        snapshot,
+        "search_backend_sqlite",
+        "--snapshot-id",
+        str(snapshot.pk),
+        SEARCH_BACKEND_SQLITE_ENABLED="true",
+        SEARCH_BACKEND_SQLITE_DB=str(index),
+    )
+    assert index.stat().st_size > 100
+    # Damage a real hook-created index. Its provider must report the SQLite
+    # failure while leaving the unreadable document unknown to the host.
+    with index.open("r+b") as stream:
+        stream.truncate(100)
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite", "SEARCH_BACKEND_SQLITE_DB": str(index)})
+    search = SnapshotSearch(Snapshot.objects.filter(pk=snapshot.pk), '"Missing Needle"', config=config)
+    assert list(search.stream()) == []
+    assert search.partial
+    errors = [record for record in caplog.records if "Search provider search_backend_sqlite unavailable" in record.getMessage()]
+    assert len(errors) == 1
+    assert "search.py" in errors[0].getMessage()
+    assert "sqlite3.DatabaseError" in errors[0].getMessage()
+    assert errors[0].exc_info
+
+
 def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl):
     first = Snapshot.objects.create(crawl=crawl, url="https://reports.example/one")
     capped = Snapshot.objects.create(crawl=crawl, url="https://reports.example/two")

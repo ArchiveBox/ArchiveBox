@@ -725,7 +725,10 @@ class SnapshotSearch:
                 if not self.active():
                     break
         except (ImportError, OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
-            logger.warning("Search postings unavailable: %s", type(err).__name__)
+            stderr = getattr(err, "stderr", "") or ""
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode(errors="replace")
+            logger.warning("Search postings unavailable: %s\n%s", err, stderr, exc_info=True)
         finally:
             if close := getattr(postings, "close", None):
                 close()
@@ -812,7 +815,10 @@ class SnapshotSearch:
                 except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
                     if self.streaming and (disk or not backend.config.search_fallback):
                         raise
-                    logger.warning("Search provider %s unavailable: %s", backend.name, type(err).__name__)
+                    stderr = getattr(err, "stderr", "") or ""
+                    if isinstance(stderr, bytes):
+                        stderr = stderr.decode(errors="replace")
+                    logger.warning("Search provider %s unavailable: %s\n%s", backend.name, err, stderr, exc_info=True)
             # Reorder only confirmed hits in this index page. Never hold file
             # hits for ranking or move a result the browser already received.
             yield from (pk for _, pk in sorted(ranked, key=lambda match: -match[0]))
