@@ -362,8 +362,31 @@ class SnapshotChangeList(SearchResultsChangeList):
             for obj in self.result_list:
                 obj.search_rank = search_ranks[obj.pk.hex]
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
+        if summary is None and not self.result_count_exact and not self.queryset.query.where:
+            from archivebox.misc.db import approximate_row_counts
+            from archivebox.progressmonitor.collection import collection_summary
+            from django.db import connections
+
+            # The background list count may still be cold. Reuse the existing
+            # collection sample or planner statistics for an unfiltered list;
+            # neither requires scanning snapshots on the request thread.
+            collection = collection_summary(request.user, refresh=False) if request.user.is_superuser else None
+            estimate = (
+                collection["snapshots"]
+                if collection
+                else approximate_row_counts(connections[self.queryset.db]).get(Snapshot._meta.db_table)
+            )
+            if estimate is not None:
+                summary = {"count": estimate}
         self.display_result_count = max(observed, summary["count"]) if summary else count
         self.result_count_cached = summary is not None
+        if self.result_count_exact or self.result_count_cached:
+            display_paginator = AcceleratedPaginator(range(self.display_result_count), self.list_per_page)
+            self.display_num_pages = display_paginator.num_pages
+            self.display_page_links = [
+                {"number": number, "url": self.get_query_string({"p": number}, remove=["all"]) if isinstance(number, int) else None}
+                for number in display_paginator.get_elided_page_range(self.page_num, on_each_side=2, on_ends=1)
+            ]
         self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
         self._attach_archiveresult_summaries()
