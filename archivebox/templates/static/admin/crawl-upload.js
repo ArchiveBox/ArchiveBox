@@ -30,8 +30,10 @@
         }
     }
     function accepts(event) {
-        return Array.from(event.dataTransfer?.types || []).some(type =>
-            ['Files', 'text/plain', 'text/uri-list', 'text/html'].includes(type));
+        const types = Array.from(event.dataTransfer?.types || []);
+        // Folder links can carry a native URL alongside the library's move data.
+        if (types.includes('application/x-archivebox-folder') || types.includes('application/x-archivebox-snapshots')) return false;
+        return types.some(type => ['Files', 'text/plain', 'text/uri-list', 'text/html'].includes(type));
     }
     async function openAdd(files, text = '') {
         if (busy) return;
