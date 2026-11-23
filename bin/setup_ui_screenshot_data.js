@@ -170,7 +170,14 @@ async function main() {
       }
       featureViews.push({name: 'Domain capture options', url: clone.moreOptionsUrl, path: '/add/', source: 'archivebox/templates/core/add.html'});
       featureViews.push({name: 'Domains', url: `${adminBaseUrl}/admin/domains/`, path: '/admin/domains/', source: 'archivebox/domains/views.py'}, {name: 'Add domain', url: `${adminBaseUrl}/admin/domains/?add=1`, path: '/admin/domains/?add=1', source: 'archivebox/domains/templates/domains/index.html'}, clone);
-      fs.writeFileSync(checkpoint, JSON.stringify({adminBaseUrl, crawlId: process.env.UI_LIBRARY_CRAWL_ID, profile: path.resolve(process.env.SCREENSHOT_USER_DATA_DIR), featureViews, library, clone}));
+      // The folder export and its linked-story navigation use owned recordings.
+      // Keep the native HN captures and standalone story replay independent.
+      const folderReplayFile = `${viewsFile}.folder-replay.json`;
+      runWorker(['manage', 'shell', '--no-imports', '-c',
+        'import json, os; from pathlib import Path; from archivebox.core.gallery_replay_fixture import prepare_folder; Path(os.environ["UI_GALLERY_FOLDER_REPLAY"]).write_text(json.dumps(prepare_folder()))',
+      ], {UI_GALLERY_FOLDER_REPLAY: folderReplayFile});
+      const folderReplay = JSON.parse(fs.readFileSync(folderReplayFile, 'utf8'));
+      fs.writeFileSync(checkpoint, JSON.stringify({adminBaseUrl, crawlId: process.env.UI_LIBRARY_CRAWL_ID, profile: path.resolve(process.env.SCREENSHOT_USER_DATA_DIR), featureViews, clone, folderReplay}));
       return;
     }
     // Reopen the same authenticated persona after the fixture owner starts a
@@ -179,13 +186,14 @@ async function main() {
     if (prepared.adminBaseUrl !== adminBaseUrl || prepared.crawlId !== process.env.UI_LIBRARY_CRAWL_ID || prepared.profile !== path.resolve(process.env.SCREENSHOT_USER_DATA_DIR)) {
       throw new Error('Gallery preparation belongs to a different server, crawl, or persona');
     }
-    const {featureViews, library, clone} = prepared;
+    const {featureViews, clone, folderReplay} = prepared;
     featureViews.push(...await require('../archivebox/domains/gallery.js').replayViews(page, clone));
     featureViews.push(...await require('../archivebox/domains/gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     featureViews.push(...await require('../archivebox/domains/wacz_gallery.js').exportViews(page, clone, path.join(path.dirname(viewsFile), 'site-exports'), process.env.UI_SITE_EXPORT_BASE_URL));
     const waczGallery = require('../archivebox/domains/wacz_gallery.js');
     const exportDirectory = path.join(path.dirname(viewsFile), 'site-exports');
-    featureViews.push(...await waczGallery.folderViews(page, library.url, source, exportDirectory, process.env.UI_SITE_EXPORT_BASE_URL));
+    const folderReplayUrl = `${adminBaseUrl}/admin/core/snapshot/?${new URLSearchParams({folder: folderReplay.folder_id})}`;
+    featureViews.push(...await waczGallery.folderViews(page, folderReplayUrl, folderReplay, exportDirectory, process.env.UI_SITE_EXPORT_BASE_URL));
     const story = source.stories[0];
     featureViews.push(await waczGallery.storyView(page, adminBaseUrl, story, exportDirectory, process.env.UI_SITE_EXPORT_BASE_URL, source.replay_urls[story]));
     fs.writeFileSync(viewsFile, featureViews.map(view => [view.name, view.url, view.path, view.source, view.mode || ''].join('|')).join('\n') + '\n');

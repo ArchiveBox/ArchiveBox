@@ -181,6 +181,17 @@ def prepare():
     }
 
 
+def prepare_folder():
+    """Use owned linked recordings to exercise actual folder export and replay."""
+    from archivebox.core.models import Folder, Snapshot
+
+    source = prepare()
+    folder = Folder.objects.create(name="Folder replay fixture")
+    snapshots = Snapshot.objects.filter(crawl_id=source["crawl_id"])
+    Folder.move_snapshots(snapshots, folder.pk, notify=False)
+    return {**source, "folder_id": str(folder.pk)}
+
+
 def prepare_site_navigation(crawl_id, site_directory):
     """Fill missing capture roles for the disposable, app-owned local site."""
     from archivebox.core.models import ArchiveResult, Snapshot

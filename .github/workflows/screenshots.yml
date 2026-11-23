@@ -95,6 +95,13 @@ jobs:
           enable-cache: false
       - name: Install locked gallery dependencies
         run: uv sync --no-cache --frozen
+      # All public recipes use this same managed Chrome bootstrap.
+      - name: Restore verified Noble font archive
+        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/noble-font-archive
+          key: noble-font-v1-0.9.45-8-496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
       - name: Install the matching Chrome sandbox helper
         run: |
           # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
@@ -104,6 +111,8 @@ jobs:
               sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
             fi
           fi
+          sudo apt-get update
+          bash .github/ci_stage_noble_font.sh --lazy
           chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
           import json
           import os
@@ -141,9 +150,7 @@ jobs:
           echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
 
       - name: Install screenshot display dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb xauth poppler-utils
+        run: sudo apt-get install -y xvfb xauth poppler-utils
 
       - name: Capture native public recipe
         run: |
