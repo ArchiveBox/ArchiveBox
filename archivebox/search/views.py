@@ -32,7 +32,7 @@ def get_admin_search_cache_key(request, url: str | None = None) -> str:
     """Key membership by user, route and filters, not page or display ordering."""
     target = urlsplit(url or request.get_full_path())
     params = QueryDict(target.query, mutable=True)
-    for key in ("o", "p"):
+    for key in ("o", "p", "sidebar"):
         params.pop(key, None)
     # Preserve each key's value order: repeated values may be meaningful to
     # filters. Sorting keys only makes equivalent URL parameter order stable.
@@ -52,7 +52,8 @@ def get_public_search_cache_key(request, url: str | None = None) -> str:
     """Share public membership across pages, retaining route, mode and scope."""
     target = urlsplit(url or request.get_full_path())
     params = QueryDict(target.query, mutable=True)
-    params.pop("page", None)
+    for key in ("page", "sidebar"):
+        params.pop(key, None)
     payload = json.dumps(
         {
             "path": target.path,

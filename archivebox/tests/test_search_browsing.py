@@ -127,6 +127,13 @@ def test_completed_meta_search_sort_and_page_reuse(admin_client, crawl, size):
     rows = list(sorted_page.context["cl"].queryset)
     assert [s.title for s in rows] == sorted(s.title for s in snapshots)
     assert rows[0].pk != first.context["cl"].result_list[0].pk
+    for sidebar in ("tags", "domains"):
+        switched = admin_client.get(path, {**params, "o": "4", "sidebar": sidebar}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert switched.status_code == 200
+        assert switched.context["sidebar_mode"] == sidebar
+        assert switched.context["cl"].search_stream_complete
+        assert [row.pk for row in switched.context["cl"].result_list] == [row.pk for row in rows[:50]]
+        assert b"var initialForm =" not in switched.content
     multi = admin_client.get(path, {**params, "o": "-4.5"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert multi.context["cl"].search_stream_complete
     assert [s.title for s in multi.context["cl"].result_list] == sorted((s.title for s in snapshots), reverse=True)[:50]
@@ -155,7 +162,8 @@ def test_search_key_preserves_user_mode_and_multivalue_filters(admin_client, adm
         return get_admin_search_cache_key(request, "/admin/core/snapshot/?" + query)
 
     expected = key("q=amazon.com&search_mode=meta&tag=a&tag=b")
-    assert expected == key("tag=a&tag=b&search_mode=meta&q=amazon.com&o=4&p=2")
+    assert expected == key("tag=a&tag=b&search_mode=meta&q=amazon.com&o=4&p=2&sidebar=domains")
+    assert expected != key("q=amazon.com&search_mode=meta&tag=a&tag=b&domain=amazon.com")
     assert expected != key("q=amazon.com&search_mode=meta&tag=b&tag=a")
     assert expected != key("q=amazon.com&search_mode=contents&tag=a&tag=b")
     assert expected != key("q=amazon.com&search_mode=meta&tag=a")

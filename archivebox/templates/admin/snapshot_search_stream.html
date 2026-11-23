@@ -116,7 +116,8 @@
 
       function buildListUrl() {
         var url = new URL(window.location.href);
-        for (var pair of formData.entries()) url.searchParams.set(pair[0], pair[1]);
+        url.searchParams.set("q", query);
+        url.searchParams.set("search_mode", mode);
         if (isSubmission) url.searchParams.delete("p");
         return url;
       }
@@ -145,13 +146,7 @@
               // refresh is in flight. New matches inherit an all-results selection.
               var selectedIds = new Set(Array.from(currentMain.querySelectorAll('input.action-select:checked'), function(input) { return input.value; }));
               var selectAcross = currentMain.querySelector('input.select-across')?.value === '1';
-              document.querySelectorAll('a[data-export-format]').forEach(function(link) {
-                var menu = link.closest('.folder-menu');
-                var nextGroup = menu ? doc.getElementById(menu.id) : doc;
-                var selector = (menu ? '' : '.snapshot-export-links:not(.snapshot-export-menu) ') + 'a[data-export-format="' + link.dataset.exportFormat + '"]';
-                var nextLink = nextGroup && nextGroup.querySelector(selector);
-                if (nextLink) link.setAttribute('href', nextLink.getAttribute('href'));
-              });
+              window.archiveboxRefreshLibraryExportLinks?.(doc);
               currentMain.replaceWith(nextMain);
               var actionCheckboxes = nextMain.querySelectorAll("tr input.action-select");
               if (window.Actions && actionCheckboxes.length) window.Actions(actionCheckboxes);

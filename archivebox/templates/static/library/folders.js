@@ -1,3 +1,44 @@
+function setSidebarEntryExport(link, menu) {
+  const base = link.dataset.exportBase ??= link.getAttribute('href');
+  if (!menu.dataset.entryValue) return;
+  const url = new URL(base, location.href);
+  url.searchParams.set(menu.dataset.entryFilter, menu.dataset.entryValue);
+  link.href = url.href;
+}
+
+window.archiveboxRefreshLibraryExportLinks = doc => {
+  document.querySelectorAll('a[data-export-format]').forEach(link => {
+    const menu = link.closest('.folder-menu');
+    const format = 'a[data-export-format="' + link.dataset.exportFormat + '"]';
+    const nextLink = menu
+      ? doc.getElementById(menu.id)?.querySelector(format)
+      : doc.querySelector('.snapshot-export-links:not(.snapshot-export-menu) ' + format);
+    if (nextLink) {
+      link.setAttribute('href', nextLink.getAttribute('href'));
+      if (menu?.dataset.entryFilter) {
+        link.dataset.exportBase = nextLink.getAttribute('href');
+        setSidebarEntryExport(link, menu);
+      }
+    } else if (menu?.closest('.folder-row')) {
+      // This branch may have been loaded independently with sidebar pagination.
+      // Only q and search_mode change during a streamed result refresh.
+      const currentView = doc.getElementById('snapshot-export-menu-sidebar')?.querySelector(format);
+      if (!currentView) return;
+      const url = new URL(link.href);
+      const next = new URL(currentView.getAttribute('href'), location.href);
+      for (const key of ['q', 'search_mode']) {
+        if (next.searchParams.has(key)) url.searchParams.set(key, next.searchParams.get(key));
+        else url.searchParams.delete(key);
+      }
+      link.href = url.href;
+    }
+  });
+  document.querySelectorAll('[data-sidebar-mode-link]').forEach(link => {
+    const next = doc.querySelector('[data-sidebar-mode-link="' + link.dataset.sidebarModeLink + '"]');
+    if (next) link.setAttribute('href', next.getAttribute('href'));
+  });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const sidebar = document.querySelector('.folder-sidebar');
   const dialog = document.querySelector('#folder-dialog');
@@ -426,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const menu = document.getElementById(id);
       if (menu.dataset.initialized) return;
       menu.dataset.initialized = 'true';
-      const exports = [...menu.querySelectorAll('[data-export-format]')].map(link => [link, link.href]);
+      const exports = menu.querySelectorAll('[data-export-format]');
       const deleteActions = [
         [menu.querySelector('[data-entry-delete-tag]'), 'deleteTagUrl'],
         [menu.querySelector('[data-entry-delete-snapshots]'), 'deleteSnapshotsUrl'],
@@ -438,11 +479,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = trigger.closest('.library-entry');
         if (!entry) return;
         menu.setAttribute('aria-label', entry.dataset.name);
-        for (const [link, base] of exports) {
-          const url = new URL(base);
-          url.searchParams.set(menu.dataset.entryFilter, entry.dataset.filterValue);
-          link.href = url.href;
-        }
+        menu.dataset.entryValue = entry.dataset.filterValue;
+        exports.forEach(link => setSidebarEntryExport(link, menu));
         const rename = menu.querySelector('[data-entry-rename]');
         if (rename) rename.href = entry.dataset.renameUrl;
         const merge = menu.querySelector('[data-sidebar-tag-merge]');
@@ -945,6 +983,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const mobileViewport = matchMedia('(max-width: 767px)');
   let desktopHidden = false;
   let mobileCollapsed = true;
+  // Mode links navigate normally; carry only the next destination's narrow
+  // expansion in this tab, independently of the saved desktop preference.
+  const modeDestinationKey = 'archivebox.sidebar-mode-destination';
+  try {
+    const modeDestination = sessionStorage.getItem(modeDestinationKey);
+    sessionStorage.removeItem(modeDestinationKey);
+    if (mobileViewport.matches && modeDestination === location.pathname + location.search) mobileCollapsed = false;
+  } catch (_) {}
+  sidebar.querySelector('#library-mode-menu')?.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link || !mobileViewport.matches || event.defaultPrevented || event.button !== 0 ||
+        event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    try {sessionStorage.setItem(modeDestinationKey, link.pathname + link.search);} catch (_) {}
+  });
   let sidebarDwellTimer = null;
   function clearSidebarDwell() {
     clearTimeout(sidebarDwellTimer);

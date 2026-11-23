@@ -14,28 +14,42 @@ from django.views.decorators.http import require_GET
 from django.views.decorators.cache import never_cache
 
 from archivebox.config.common import get_request_config
+from archivebox.core.exports import normalize_export_query
 from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.core.routes_util import build_snapshot_export_urls
 from archivebox.core.tag_colors import tag_color_style
 from archivebox.core.tag_util import _tag_snapshot_memberships
-from archivebox.search.config import get_search_mode
 
 from archivebox.uuid_compat import compact_uuid
 
 SIDEBAR_PAGE_SIZE = 100
 DOMAIN_SIDEBAR_PAGE_SIZE = 50
+SIDEBAR_SCOPES = {"folders": "folder", "tags": "tag", "domains": "domain"}
+
+
+def _sidebar_view_filters(request):
+    filters = normalize_export_query(request.GET)
+    for key in ("cursor", "sidebar_q", "parent"):
+        filters.pop(key, None)
+    return filters
 
 
 def sidebar_context(request, *, public=False, folder_tree=None):
     mode = request.GET.get("sidebar", "folders")
-    if mode not in {"folders", "tags", "domains"}:
+    if mode not in SIDEBAR_SCOPES:
         mode = "folders"
-    export_filters = request.GET.copy()
-    for key in ("tag", "domain", "folder", "cursor", "sidebar_q", "parent"):
-        export_filters.pop(key, None)
+    export_filters = _sidebar_view_filters(request)
+    mode_queries = {}
+    for option in SIDEBAR_SCOPES:
+        query = export_filters.copy()
+        if option != "folders":
+            query["sidebar"] = option
+        mode_queries[option] = query.urlencode()
+    export_filters.pop(SIDEBAR_SCOPES[mode], None)
     return {
+        "sidebar_mode_queries": mode_queries,
         "sidebar_mode": mode,
         "sidebar_label": {"folders": "All folders", "tags": "Tags", "domains": "Domains"}[mode],
         "sidebar_search_label": {"folders": "Find a folder", "tags": "Find a tag", "domains": "Find a domain"}[mode],
@@ -177,15 +191,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                 )
             by_id.update((folder.pk, folder) for folder in ancestors)
             pending = {folder.parent_id for folder in ancestors if folder.parent_id} - by_id.keys()
-        if public:
-            export_filters = {
-                "q": request.GET.get("q", ""),
-                "search_mode": get_search_mode(request.GET.get("search_mode"), config=get_request_config(request)),
-            }
-        else:
-            export_filters = request.GET.copy()
-            for key in ("sidebar_q", "cursor", "parent"):
-                export_filters.pop(key, None)
+        export_filters = _sidebar_view_filters(request)
         for folder in by_id.values():
             path, ancestor = [], folder
             while ancestor:
@@ -227,7 +233,7 @@ def sidebar_view(request, *, public=False):
     elif not request.user.has_perm("core.view_snapshot"):
         raise PermissionDenied
     mode = request.GET.get("sidebar", "folders")
-    if mode not in {"folders", "tags", "domains"}:
+    if mode not in SIDEBAR_SCOPES:
         return JsonResponse({"error": "Invalid sidebar mode"}, status=400)
     try:
         context = sidebar_page(request, mode=mode, public=public)

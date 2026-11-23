@@ -109,7 +109,10 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   .folder-sidebar.is-collapsed .folder-current:empty{display:none}
   .folder-sidebar.is-collapsed .folder-section-heading{border-bottom:0}
   .folder-sidebar.is-collapsed .folder-section-heading>.icon-button:not(.folder-mobile-toggle){display:none}
-  .folder-tree{max-height:40dvh}
+  /* Leave room for the heading, pinned actions and one row in short landscape viewports. */
+  .snapshot-library>.folder-sidebar{box-sizing:border-box;max-height:max(25dvh,124px)}
+  .snapshot-library>.folder-sidebar>*{flex-shrink:0}
+  .snapshot-library>.folder-sidebar>.folder-tree{min-height:0;flex-shrink:1}
   .snapshot-library:has(>.folder-sidebar.is-collapsed) .snapshot-list-exports{display:block}
   .folder-sidebar.is-collapsed>:not(.folder-section-heading){display:none!important}
   .folder-sidebar a.library-link{font-size:13px}

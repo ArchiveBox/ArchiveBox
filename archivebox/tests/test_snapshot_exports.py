@@ -211,6 +211,99 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
         browser.close()
 
 
+def test_sidebar_exports_follow_live_search_filters_and_order(live_server, admin_user, browser_runtime, settings):
+    from urllib.parse import parse_qs, urlsplit
+    from playwright.sync_api import sync_playwright, expect
+
+    from archivebox.machine.models import Machine
+
+    base_url = f"http://archivebox.localhost:{urlsplit(live_server.url).port}"
+    settings.CONFIG = settings.CONFIG.model_copy(update={"BASE_URL": base_url})
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": base_url}
+    machine.save(update_fields=["config"])
+    folder = Folder.objects.create(name="Export Research", created_by=admin_user)
+    crawl = Crawl.objects.create(urls="https://export.example/", created_by=admin_user)
+    for path, title, status, tagged in (
+        ("z", "quartzneedle Zulu", Snapshot.StatusChoices.SEALED, True),
+        ("a", "quartzneedle Alpha", Snapshot.StatusChoices.SEALED, True),
+        ("queued", "quartzneedle Queued", Snapshot.StatusChoices.QUEUED, True),
+        ("untagged", "quartzneedle Untagged", Snapshot.StatusChoices.SEALED, False),
+        ("nomatch", "Other result", Snapshot.StatusChoices.SEALED, True),
+    ):
+        snapshot = Snapshot.objects.create(
+            url=f"https://export.example/{path}",
+            title=title,
+            crawl=crawl,
+            folder=folder,
+            status=status,
+        )
+        if tagged:
+            snapshot.save_tags(["export tag"])
+    tag_id = str(Snapshot.objects.get(url="https://export.example/a").tags.get(name="export tag").pk)
+    selection = {"folder": str(folder.pk), "tag": tag_id, "domain": "export.example", "snapshot_status": "sealed"}
+    expected = ["quartzneedle Alpha", "quartzneedle Zulu"]
+    admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        page.goto(f"{admin_url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        assert page.goto(f"{admin_url}/admin/core/snapshot/?{urlencode(selection)}").status == 200
+        sort_link = page.locator("th.column-title_str .text a")
+        with page.expect_navigation():
+            sort_link.click()
+        assert parse_qs(urlsplit(page.url).query)["o"]
+
+        previous_query = None
+        for i, (mode, label, trigger) in enumerate(
+            (("folders", "All folders", "Export Research"), ("tags", "Tags", "export tag"), ("domains", "Domains", "export.example")),
+        ):
+            if i:
+                page.get_by_role("button", name="Choose sidebar view").click()
+                with page.expect_navigation():
+                    page.locator("#library-mode-menu").get_by_role("menuitem", name=label, exact=True).click()
+            expect(page.locator("#folder-sidebar")).to_have_attribute("data-mode", mode)
+            if previous_query:
+                params = parse_qs(urlsplit(page.url).query)
+                assert params["q"] == [previous_query]
+                assert params["o"]
+                assert all(params.get(key) == [value] for key, value in selection.items())
+
+            # Re-submit via the real stream on every mode, after its menu was initialized.
+            query = ("quartzneedle", "Quartzneedle", "QUARTZNEEDLE")[i]
+            page.locator('#changelist-search [name="search_mode"]').select_option("meta")
+            page.locator('#changelist-search [name="q"]').fill(query)
+            page.locator('#changelist-search [name="q"]').press("Enter")
+            expect(page.locator("#result_list tbody .field-title_str")).to_contain_text(expected)
+            expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
+
+            footer = page.locator("#snapshot-export-menu-sidebar")
+            page.locator('#folder-sidebar button[popovertarget="snapshot-export-menu-sidebar"]').click()
+            expect(footer).to_be_visible()
+            page.keyboard.press("Escape")
+            menu = page.locator(f"#folder-menu-{folder.pk}" if mode == "folders" else "#library-entry-menu")
+            entry_button = page.get_by_role("button", name=f"Actions for {trigger}", exact=True)
+            page.locator(".folder-row,.library-entry").filter(has=entry_button).hover()
+            entry_button.click()
+            expect(menu).to_be_visible()
+            for group in (footer, page.locator("#snapshot-export-menu-list"), menu):
+                link = group.locator('a[data-export-format="jsonl"]')
+                params = parse_qs(urlsplit(link.get_attribute("href")).query)
+                assert {key: params[key] for key in selection} == {key: [value] for key, value in selection.items()}
+                assert params["q"] == [query]
+                assert params["search_mode"] == ["meta"]
+                assert params["sort"] == ["title,-created_at,-id"]
+                assert "o" not in params and "api_key" not in params
+                response = page.request.get(link.evaluate("node => node.href"))
+                assert response.status == 200
+                assert [json.loads(line)["title"] for line in response.text().splitlines()] == expected
+            page.keyboard.press("Escape")
+        browser.close()
+
+
 @pytest.mark.parametrize("format", ["rss", "csv", "jsonl"])
 def test_smart_folder_exports_keep_visibility_and_extra_filters(client, api_headers, api_admin_user, format):
     from archivebox.tests.test_smart_folders import leaf
@@ -301,17 +394,31 @@ def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_u
     from archivebox.api.auth import get_or_create_api_token
 
     crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
+    folder = Folder.objects.create(name="RFC feeds", created_by=admin_user)
     snapshots = {
-        visibility: Snapshot.objects.create(url=f"https://example.com/{visibility}", crawl=crawl, config={"PERMISSIONS": visibility})
+        visibility: Snapshot.objects.create(
+            url=f"https://example.com/{visibility}",
+            title=f"rssneedle {visibility}",
+            crawl=crawl,
+            folder=folder,
+            config={"PERMISSIONS": visibility},
+        )
         for visibility in ("public", "unlisted", "private")
     }
-    response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    # o=4 is the signed-in Title header; the rendered feed must use a stable field sort instead.
+    filters = {"folder": str(folder.pk), "q": "rssneedle", "search_mode": "meta", "o": "4"}
+    response = admin_client.get("/admin/core/snapshot/", filters, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     body = response.content.decode()
     urls = {format: unescape(url) for url, format in re.findall(r'href="([^"]+)" data-export-format="(rss|rss_public)"', body)}
     assert set(urls) == {"rss", "rss_public"}
     for url in urls.values():
-        assert "api_key" not in parse_qs(urlsplit(url).query)
+        params = parse_qs(urlsplit(url).query)
+        assert "api_key" not in params
+        assert params["folder"] == [str(folder.pk)]
+        assert params["q"] == ["rssneedle"]
+        assert params["search_mode"] == ["meta"]
+        assert params["sort"] == ["title,-id"]
     external_reader = Client()
     feed = admin_client.get(urls["rss"], HTTP_HOST=ADMIN_TEST_HOST)
     assert feed.status_code == 200
@@ -334,6 +441,39 @@ def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_u
     assert exported_body_ids(body, "rss") == {str(snapshot.pk) for snapshot in snapshots.values()}
     token.delete()
     assert external_reader.get(urls["rss"], **headers).status_code == 401
+
+    # A copied href is a live query, not a frozen result or session-bearing URL.
+    added = Snapshot.objects.create(
+        url="https://example.com/a",
+        title="rssneedle added",
+        crawl=crawl,
+        folder=folder,
+        config={"PERMISSIONS": "public"},
+    )
+    Snapshot.objects.create(
+        url="https://example.com/nonmatch",
+        title="Another title",
+        crawl=crawl,
+        folder=folder,
+        config={"PERMISSIONS": "public"},
+    )
+    Snapshot.objects.create(
+        url="https://elsewhere.example/match",
+        title="rssneedle outside the folder",
+        crawl=crawl,
+        config={"PERMISSIONS": "public"},
+    )
+    for http_client, href, ordered in (
+        (admin_client, urls["rss"], [added, snapshots["private"], snapshots["public"], snapshots["unlisted"]]),
+        (admin_client, urls["rss_public"], [added, snapshots["public"]]),
+        (external_reader, urls["rss"], [added, snapshots["public"]]),
+    ):
+        feed = http_client.get(href, HTTP_HOST=ADMIN_TEST_HOST)
+        assert feed.status_code == 200
+        assert "no-store" in feed["Cache-Control"]
+        assert [item.findtext("guid") for item in ElementTree.fromstring(feed.getvalue()).findall("./channel/item")] == [
+            str(snapshot.pk) for snapshot in ordered
+        ]
 
 
 def test_folder_export_defaults_to_configured_content_search(admin_client, admin_user, cached_abxpkg_lib_dir):

@@ -54,6 +54,13 @@ def test_public_completed_search_pages_expiry_and_scope(client, crawl):
     assert len(set(found)) == 65
     assert set(found) == {row.pk for row in rows}
     assert private.pk not in found
+    for sidebar in ("tags", "domains"):
+        switched = client.get("/public/", {**params, "sidebar": sidebar, "page": "2"}, HTTP_HOST=HOST)
+        assert switched.status_code == 200
+        assert switched.context["sidebar_mode"] == sidebar
+        assert not switched.context["public_search_stream_pending"]
+        assert [row.pk for row in switched.context["object_list"]] == [row.pk for row in second.context["object_list"]]
+        assert b"const initialForm =" not in switched.content
     folder = Folder.objects.create(name="Other public scope")
     Snapshot.objects.create(url="https://unrelated.example/", crawl=crawl, folder=folder, config={"PERMISSIONS": "public"})
     scoped = client.get("/public/", {**params, "folder": str(folder.pk)}, HTTP_HOST=HOST)
@@ -91,7 +98,8 @@ def test_public_cache_key_preserves_membership_scope(client):
         return get_public_search_cache_key(request, "/public/?" + query)
 
     expected = key("q=site&search_mode=meta&folder=7&tag=a&tag=b")
-    assert expected == key("tag=a&tag=b&folder=7&search_mode=meta&q=site&page=2")
+    assert expected == key("tag=a&tag=b&folder=7&search_mode=meta&q=site&page=2&sidebar=domains")
+    assert expected != key("q=site&search_mode=meta&folder=7&tag=a&tag=b&domain=example.com")
     assert expected != key("q=site&search_mode=meta&folder=8&tag=a&tag=b")
     assert expected != key("q=site&search_mode=contents&folder=7&tag=a&tag=b")
     assert expected != key("q=site&search_mode=meta&folder=7&tag=b&tag=a")
