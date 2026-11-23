@@ -303,7 +303,7 @@ class ArchiveBoxHost:
             "cursor": cursor,
         }
 
-    def domain_favicons(self, request, domains):
+    def domain_favicons(self, request, domains, *, preferred=None):
         """Archived favicons from a bounded set of recent captures per domain."""
         from django.core.cache import cache
         from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
@@ -311,7 +311,15 @@ class ArchiveBoxHost:
 
         self._require_collection_admin(request)
         icons = {}
+        preferred = {str(snapshot): domain for domain, snapshot in (preferred or {}).items() if domain in domains[:30]}
+        if preferred:
+            for result in favicon_results().filter(snapshot_id__in=list(preferred)).order_by("-pk"):
+                domain = preferred[str(result.snapshot_id)]
+                if domain not in icons and (icon := snapshot_favicon_data(result.snapshot_id, [result], request=request)):
+                    icons[domain] = icon["url"]
         for domain in domains[:30]:
+            if domain in icons:
+                continue
             if not domain or len(domain) > 253:
                 continue
             key = f"domain-icon:{request.get_host()}:{domain}"
@@ -467,6 +475,33 @@ class ArchiveBoxHost:
             )
         }
         return {"records": records, "cursor": cursor, "output_dirs": directories}
+
+    def download_reporters(self, request, plugins):
+        """Identify plugins that can report completed download measurements."""
+        from archivebox.plugins.discovery import get_plugin_presentation_module
+
+        self._require_collection_admin(request)
+        return {
+            name: report
+            for name in list(dict.fromkeys(plugins))[:128]
+            if (report := getattr(get_plugin_presentation_module(name), "completed_downloads", None)) is not None
+        }
+
+    def process_log_tails(self, request, ids):
+        """Read bounded stderr tails for a page of completed local processes."""
+        from django.db.models import Value
+        from django.db.models.functions import Greatest, Length, Substr
+
+        from archivebox.machine.models import Machine, Process
+
+        self._require_collection_admin(request)
+        size = 65536
+        return {
+            str(pk): tail
+            for pk, tail in Process.objects.filter(machine=Machine.current_readonly(), pk__in=ids[:128], status="exited")
+            .annotate(tail=Substr("stderr", Greatest(Length("stderr") - size + 1, Value(1)), size))
+            .values_list("pk", "tail")
+        }
 
     def group_domains(self, request, hosts):
         """Group a bounded set of hostnames using the collection's offline PSL."""
