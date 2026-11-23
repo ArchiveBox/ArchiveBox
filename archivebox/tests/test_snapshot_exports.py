@@ -147,7 +147,7 @@ def test_list_exports_reuse_query_and_writers_with_native_cli_filters(initialize
 @pytest.mark.parametrize("view", ["admin", "public"])
 def test_streamed_search_updates_live_export_links(live_server, admin_user, browser_runtime, settings, view):
     import re
-    from urllib.parse import parse_qs, urlsplit
+    from urllib.parse import parse_qs, quote_plus, urlsplit
     from playwright.sync_api import sync_playwright, expect
     from archivebox.machine.models import Machine
 
@@ -184,11 +184,13 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
         menu = page.locator(f"#folder-menu-{parent.pk}")
         menu_link = menu.locator('a[data-export-format="jsonl"]')
         existing_link = menu_link.element_handle()
-        for query in ("quartzneedle", "zirconneedle"):
-            page.locator('#changelist-search [name="search_mode"]').select_option("meta")
-            page.locator('#changelist-search [name="q"]').fill(query)
-            page.locator('#changelist-search [name="q"]').press("Enter")
-            expect(menu_link).to_have_attribute("href", re.compile(r"[?&]q=" + query + r"(?:&|$)"))
+        for term in ("quartzneedle", "zirconneedle"):
+            query = f"title:{term}"
+            field = page.locator('#changelist-search [role="combobox"]')
+            field.fill(query)
+            field.press("Escape")
+            field.press("Enter")
+            expect(menu_link).to_have_attribute("href", re.compile(r"[?&]q=" + re.escape(quote_plus(query)) + r"(?:&|$)"))
             assert existing_link.evaluate("node => node.isConnected")
             page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
             page.get_by_role("button", name="Actions for Research", exact=True).click()
@@ -196,7 +198,7 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             for link in page.locator("a[data-export-format]").all():
                 parsed = parse_qs(urlsplit(link.get_attribute("href")).query)
                 assert parsed.get("q") == [query], link.evaluate("node => node.outerHTML")
-                assert parsed["search_mode"] == ["meta"]
+                assert parsed["search_mode"] == ["query"]
             parsed = parse_qs(urlsplit(menu_link.get_attribute("href")).query)
             assert parsed["folder"] == [str(parent.pk)]
             ordinary = page.locator('.folder-actions a[data-export-format="jsonl"]').first
@@ -206,7 +208,7 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
                 "async node => { const response = await fetch(node.href); return {status: response.status, text: await response.text()}; }",
             )
             assert response["status"] == 200
-            assert [json.loads(line)["title"] for line in response["text"].splitlines()] == [query]
+            assert [json.loads(line)["title"] for line in response["text"].splitlines()] == [term]
             page.keyboard.press("Escape")
         browser.close()
 
@@ -273,10 +275,11 @@ def test_sidebar_exports_follow_live_search_filters_and_order(live_server, admin
                 assert all(params.get(key) == [value] for key, value in selection.items())
 
             # Re-submit via the real stream on every mode, after its menu was initialized.
-            query = ("quartzneedle", "Quartzneedle", "QUARTZNEEDLE")[i]
-            page.locator('#changelist-search [name="search_mode"]').select_option("meta")
-            page.locator('#changelist-search [name="q"]').fill(query)
-            page.locator('#changelist-search [name="q"]').press("Enter")
+            query = ("title:quartzneedle", 'title:"quartzneedle"', "title:quartzneedle OR title:zirconneedle")[i]
+            field = page.locator('#changelist-search [role="combobox"]')
+            field.fill(query)
+            field.press("Escape")
+            field.press("Enter")
             expect(page.locator("#result_list tbody .field-title_str")).to_contain_text(expected)
             expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
 
@@ -294,7 +297,7 @@ def test_sidebar_exports_follow_live_search_filters_and_order(live_server, admin
                 params = parse_qs(urlsplit(link.get_attribute("href")).query)
                 assert {key: params[key] for key in selection} == {key: [value] for key, value in selection.items()}
                 assert params["q"] == [query]
-                assert params["search_mode"] == ["meta"]
+                assert params["search_mode"] == ["query"]
                 assert params["sort"] == ["title,-created_at,-id"]
                 assert "o" not in params and "api_key" not in params
                 response = page.request.get(link.evaluate("node => node.href"))
@@ -594,7 +597,7 @@ def test_private_feed_links_do_not_use_stored_keys(admin_client, admin_user, sur
     assert len(key_queries) <= 2
 
 
-def test_public_folder_export_links_keep_default_content_search(admin_user, cached_abxpkg_lib_dir, settings):
+def test_public_folder_export_links_keep_query_and_configured_content_search(admin_user, cached_abxpkg_lib_dir, settings):
     from django.test import Client
     from urllib.parse import parse_qs, urlsplit
     from archivebox.machine.models import Machine
@@ -631,7 +634,9 @@ def test_public_folder_export_links_keep_default_content_search(admin_user, cach
     assert [snapshot.pk for snapshot in response.context["object_list"]] == [snapshots[0].pk]
     exported_folder = next(entry for entry in response.context["sidebar_folder_tree"] if entry.pk == folder.pk)
     url = exported_folder.export_urls["jsonl"]
-    assert parse_qs(urlsplit(url).query)["search_mode"] == ["deep:ripgrep"]
+    params = parse_qs(urlsplit(url).query)
+    assert params["search_mode"] == ["query"]
+    assert params["q"] == [query["q"]]
     exported = client.get(url, HTTP_HOST=API_TEST_HOST)
     assert exported.status_code == 200
     assert exported_ids(exported, "jsonl") == {str(snapshots[0].pk)}
@@ -720,3 +725,52 @@ def test_exports_preserve_named_filter_last_value_and_invalid_status(admin_clien
     exported = admin_client.get(f"/admin/core/snapshot/export.jsonl?{query}", HTTP_HOST=ADMIN_TEST_HOST)
     assert exported.status_code == 200
     assert [json.loads(line)["id"] for line in exported.getvalue().splitlines()] == expected == [str(snapshots[1].pk)]
+
+
+def test_saved_operator_export_urls_refresh_results_and_preserve_public_scope(client, admin_user, tmp_path):
+    from urllib.parse import parse_qs, urlsplit
+
+    from django.core.management import call_command
+    from django.test import Client
+
+    from archivebox.core.routes_util import build_snapshot_export_urls
+
+    crawl = Crawl.objects.create(urls="https://solarcity.com/", created_by=admin_user)
+
+    def capture(title, url, tag, visibility="public"):
+        snapshot = Snapshot.objects.create(url=url, title=title, crawl=crawl, config={"PERMISSIONS": visibility})
+        snapshot.save_tags([tag])
+        return snapshot
+
+    alpha = capture("Alpha", "https://solarcity.com/a", "solar-pv")
+    zulu = capture("Zulu", "https://solarcity.com/z", "solar")
+    capture("Draft", "https://solarcity.com/d", "solar", "private")
+    capture("Other domain", "https://other.example/a", "solar")
+    capture("Other tag", "https://solarcity.com/b", "lunar")
+    params = {"q": "tags:solar site:solarcity.com", "sort": "-title,id", "public_only": "1"}
+    urls = build_snapshot_export_urls(params, api=True)
+    for key in ("csv", "rss_public", "html_zip"):
+        assert parse_qs(urlsplit(urls[key]).query) == {k: [v] for k, v in params.items()}
+    expected = [str(zulu.pk), str(alpha.pk)]
+    csv_response = client.get(urls["csv"], HTTP_HOST=API_TEST_HOST)
+    assert csv_response.status_code == 200
+    assert [row["id"] for row in csv.DictReader(io.StringIO(csv_response.getvalue().decode()))] == expected
+
+    def read_feed():
+        response = Client().get(urls["rss_public"], HTTP_HOST=API_TEST_HOST)
+        assert response.status_code == 200
+        return [item.findtext("guid") for item in ElementTree.fromstring(response.getvalue()).findall("./channel/item")]
+
+    assert read_feed() == expected
+    zip_response = client.get(urls["html_zip"], HTTP_HOST=API_TEST_HOST)
+    assert zip_response.status_code == 200
+    assert zip_response.json()["count"] == len(expected)
+    # The same query string drives the existing site-export job. Inspect the
+    # archive's manifest because the HTTP GET only estimates the job size.
+    destination = tmp_path / "exported-site"
+    call_command("site_export", query=urlsplit(urls["html_zip"]).query, public_only=True, format="html_zip", destination=str(destination))
+    with zipfile.ZipFile(destination / "site.zip") as bundle:
+        assert [json.loads(line)["id"] for line in bundle.read("index.jsonl").splitlines()] == expected
+
+    delta = capture("Delta", "https://solarcity.com/new", "SOLAR power")
+    assert read_feed() == [str(zulu.pk), str(delta.pk), str(alpha.pk)]

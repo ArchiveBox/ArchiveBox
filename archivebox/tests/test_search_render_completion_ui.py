@@ -49,13 +49,12 @@ def test_search_waits_for_final_table(live_server, admin_user, crawl, browser_ru
                 ],
             },
         )
-        page.locator('select[name="search_mode"]').select_option("meta")
-        page.locator('#changelist-search input[name="q"]').fill("rendercompletion")
+        page.locator('#changelist-search [role="combobox"]').fill("meta:rendercompletion")
         with page.expect_event(
             "requestfinished",
             predicate=lambda request: "/search-stream/" in request.url,
         ):
-            page.locator('#changelist-search input[name="q"]').press("Enter")
+            page.locator('#changelist-search [role="combobox"]').press("Enter")
         expect(page.locator("#changelist-search")).to_have_attribute("aria-busy", "true")
         expect(page.locator("#result_list input.action-select")).to_have_count(1)
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")

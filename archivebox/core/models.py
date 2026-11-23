@@ -929,7 +929,7 @@ class SnapshotQuerySet(PagedQuerySet):
         query = kwargs.get("query")
         if isinstance(query, (list, tuple)):
             query = " ".join(str(part) for part in query)
-        query = (query or (" ".join(filter_patterns) if kwargs.get("search") else "")).strip()
+        query = (query or (" ".join(filter_patterns) if kwargs.get("search") or filter_type == "query" else "")).strip()
 
         field_names = {field.name for field in self.model._meta.get_fields()}
         field_names.update(field.attname for field in self.model._meta.fields)
@@ -957,6 +957,7 @@ class SnapshotQuerySet(PagedQuerySet):
         if kwargs.get("after") is not None:
             queryset = queryset.filter(bookmarked_at__gt=datetime.fromtimestamp(float(kwargs["after"]), tz=UTC))
 
+        partial = False
         if query:
             queryset = apply_snapshot_search(
                 queryset,
@@ -967,6 +968,7 @@ class SnapshotQuerySet(PagedQuerySet):
                 skip_backend_when_metadata_satisfies_limit=True,
                 include_metadata_for_forced_backend=True,
             )
+            partial = getattr(queryset, "search_partial", False)
         elif filter_patterns:
             queryset = queryset.filter_by_patterns(list(filter_patterns), filter_type)
 
@@ -979,6 +981,7 @@ class SnapshotQuerySet(PagedQuerySet):
         if limit is not None and limit > 0:
             queryset = queryset[:limit]
 
+        queryset.search_partial = partial
         return queryset
 
     # =========================================================================

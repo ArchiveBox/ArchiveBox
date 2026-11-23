@@ -26,6 +26,7 @@ from archivebox.core.views import (
     HealthCheckView,
 )
 from archivebox.progressmonitor.views import live_progress_view
+from archivebox.search.fields import field_page, suggestions
 from archivebox.search.views import public_snapshot_search_stream_view
 from archivebox.plugins.discovery import get_plugin_apps
 from archivebox.plugins.host import host
@@ -51,6 +52,8 @@ urlpatterns = [
     path("admin/rules/", include("archivebox.api.webhook_urls")),
     re_path(r"^admin/webhooks/(?P<suffix>.*)$", legacy_rules_redirect),
     path("admin/domains/", include("archivebox.domains.urls")),
+    path("public/search-field/", field_page, name="search-field"),
+    path("public/search-suggestions/", suggestions, name="search-suggestions"),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),
     path("public.html", RedirectView.as_view(url="/public/"), name="public-index-html"),

@@ -1,0 +1,141 @@
+    /* Match static/library/folders.css: compact controls, 4px corners,
+       system typography, neutral borders, and ArchiveBox's burgundy accent.
+       In the app, reuse its CSS variables and toolbar classes directly. */
+    .abx-search-field { position:relative; flex:1 1 auto; min-width:0; color-scheme:light dark; }
+    .abx-search-field {
+      --abx-bg: light-dark(#fff,#202125); --abx-fg: light-dark(#1d2939,#ededf0);
+      --abx-muted: light-dark(#667085,#a9adb8); --abx-line: light-dark(#d0d5dd,#464951);
+      --abx-soft: light-dark(#f7f8fa,#2a2c31); --abx-accent: light-dark(#a51c50,#f291b4);
+      --abx-chip: light-dark(#eeedf8,#353448); --abx-chip-ink: light-dark(#504d70,#dcdaef);
+      --abx-logic: light-dark(#475467,#c1c6d1); --abx-logic-bg: light-dark(#edf0f4,#33363e);
+      --abx-exact: light-dark(#245787,#9ec9f5); --abx-exact-bg: light-dark(#eaf3fb,#25384d);
+      --abx-exclude: light-dark(#9c4329,#f6aa91); --abx-exclude-bg: light-dark(#fbeee8,#493028);
+      white-space: normal; text-align: start;
+      font: 14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color: var(--abx-fg); width: 100%; margin: 0 auto; min-width: 0;
+    }
+    .abx-search-field * { box-sizing: border-box; }
+    .abx-search-field .abx-query-control { display: flex; align-items: stretch; min-height: 38px; border: 1px solid var(--abx-line); border-radius: 4px; background: var(--abx-bg); }
+    .abx-search-field .abx-query-control:focus-within { border-color: var(--abx-accent); box-shadow: 0 0 0 2px color-mix(in srgb,var(--abx-accent) 12%,transparent); }
+    .abx-search-field .abx-query-icon { display: grid; place-items: center; padding: 0 10px; border-right: 1px solid var(--abx-line); background: var(--abx-soft); color: var(--abx-muted); border-radius: 3px 0 0 3px; }
+    .abx-search-field svg { width: 15px; height: 15px; vertical-align: -2px; }
+    .abx-search-field .query { flex: 1; min-width: 0; padding: 7px 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; max-height: min(13rem, 32dvh); overflow-y: auto; outline-offset: 2px; }
+    /* The surrounding control owns the visible focus ring, as in admin.css. */
+    .abx-search-field .query:focus { outline: none; }
+    .abx-search-field .query:empty::before { content: attr(data-placeholder); color: var(--abx-muted); pointer-events: none; }
+    .abx-search-field .filter-badge { display: inline-block; max-inline-size: 100%; vertical-align: baseline; line-height: 1.4; border-radius: 4px; background: var(--abx-chip); color: var(--abx-chip-ink); padding: 0 4px; }
+    .abx-search-field .host-filter { color: light-dark(#305e60,#b6dddd); background: light-dark(#e1f1ef,#284345); }
+    .abx-search-field .filter-badge .badge-icon { display: inline-block; width: 19px; height: 15px; vertical-align: text-bottom; user-select: none; pointer-events: none; }
+    .abx-search-field .filter-badge .badge-icon svg { display: block; transform: translateY(-1px); }
+    .abx-search-field .boolean { color: var(--abx-logic); background: var(--abx-logic-bg); padding: 1px 4px; border-radius: 3px; font-size: .85em; font-weight: 600; }
+    .abx-search-field .alternative-separator { color: var(--abx-bg); background: var(--abx-logic); }
+    .abx-search-field .and-group {
+      background: light-dark(#f3f6fa,#292e38); box-shadow: inset 0 0 0 1px light-dark(#d6dee8,#485365); border-radius: 5px;
+      padding: 3px 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    .abx-search-field .group-mark { color: var(--abx-logic); font-weight: 600; }
+    .abx-search-field .scope-boundary { background: var(--abx-exact-bg); color: var(--abx-exact); border-radius: 2px; }
+    .abx-search-field .exact { color: var(--abx-exact); background: var(--abx-exact-bg); }
+    .abx-search-field .excluded { color: var(--abx-exclude); background: var(--abx-exclude-bg); border-radius: 3px; }
+    .abx-search-field .in-scope { text-decoration: underline; text-decoration-color: var(--abx-exact); text-underline-offset: 3px; }
+    .abx-search-field .in-exclusion-scope { text-decoration-color: var(--abx-exclude); }
+    .abx-search-field button { font: inherit; color: inherit; }
+    .abx-search-field .abx-query-clear { align-self: center; display: grid; place-items: center; border: 0; border-radius: 3px; background: transparent; color: var(--abx-muted); width: 30px; height: 30px; margin-right: 3px; }
+    .abx-search-field .abx-query-clear:hover { background: var(--abx-soft); }
+    .abx-search-field .suggestions { margin-top: 5px; border: 1px solid var(--abx-line); border-radius: 5px; background: var(--abx-bg); box-shadow: 0 5px 14px light-dark(#17243b14,#00000030); overflow: hidden; }
+    .abx-search-field .menu-label { padding: 7px 11px 4px; color: var(--abx-muted); font-size: 12px; }
+    .abx-search-field .suggestion { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 11px; min-height: 34px; border: 0; text-align: left; background: transparent; }
+    .abx-search-field .suggestion[aria-selected="true"], .abx-search-field .suggestion:hover { background: var(--abx-chip); }
+    .abx-search-field .suggestion > svg { flex: 0 0 15px; color: var(--abx-muted); }
+    .abx-search-field [role="listbox"] { max-height: min(18rem, var(--menu-room, 18rem)); overflow-y: auto; overscroll-behavior: contain; }
+    .abx-search-field .suggestion-name { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+    .abx-search-field .suggestion-detail { color: var(--abx-muted); font-size: 12px; margin-left: auto; text-align: right; }
+    .abx-search-field .menu-foot { display: flex; flex-wrap: wrap; gap: 3px 14px; border-top: 1px solid var(--abx-line); background: var(--abx-soft); padding: 6px 11px; color: var(--abx-muted); font-size: 11px; }
+    .abx-search-field .feedback { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; color: var(--abx-muted); font-size: 12px; overflow-wrap: anywhere; }
+    .abx-search-field .feedback:not(:empty) { margin: 6px 1px 0; }
+    .abx-search-field .match-count { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--abx-fg); }
+    .abx-search-field .precedence-hint { margin: 5px 1px 0; color: var(--abx-muted); font-size: 12px; }
+    .abx-search-field [hidden] { display: none !important; }
+    @container (max-width: 450px) {
+      .abx-search-field .suggestion { gap: 7px; }
+      .abx-search-field .suggestion-detail { max-width: 54%; }
+      .abx-search-field .abx-query-icon { padding: 0 6px; }
+      .abx-search-field .query { padding-inline: 7px; }
+    }
+    .abx-search-field .touch-tip { display: none; }
+    @media (pointer: coarse) {
+      .abx-search-field .query { font-size: 16px; min-height: 44px; }
+      .abx-search-field .suggestion { min-height: 44px; }
+      .abx-search-field .abx-query-clear { width: 44px; height: 44px; flex-shrink: 0; }
+      .abx-search-field .key-tip { display: none; }
+      .abx-search-field .touch-tip { display: inline; }
+    }
+
+.abx-search-field .suggestions {position:absolute; top:100%; left:0; width:100%; z-index:1001;}
+.abx-search-field [hidden] {display:none !important;}
+.abx-search-field:not([data-ready]) .enhanced {display:none;}
+.abx-search-field .feedback:empty {display:none;}
+
+.abx-search-standalone { margin: 0; padding: 1rem; color-scheme: light dark; background: Canvas; font: 1rem system-ui, sans-serif; }
+.abx-search-standalone form { display: flex; align-items: flex-start; gap: .5rem; max-width: 54rem; margin: 0 auto; }
+.abx-search-standalone .query { min-height: 44px; }
+.abx-search-standalone button[type=submit] { min-height: 44px; padding-inline: 1rem; border: 1px solid #9a3051; border-radius: 4px; color: white; background: #a62d54; font: inherit; cursor: pointer; }
+@media (max-width: 420px) { .abx-search-standalone { padding: .65rem; } }
+
+/* Legacy toolbar styles reserve a single input row. Nested expressions wrap,
+   so let the editor determine the toolbar height and keep the next row below it. */
+.public-library .public-snapshot-toolbar:has(.abx-search-field),
+body.model-snapshot.change-list .snapshot-library #changelist #toolbar:has(.abx-search-field) {
+  height: auto;
+}
+
+@media (min-width: 768px) {
+  /* Use the same control and toolbar dimensions as the neighboring library
+     buttons. A wrapped expression can still expand beyond the single-row size. */
+  .snapshot-library #changelist-search .abx-query-control {
+    min-height: var(--library-control-size);
+  }
+  .snapshot-library #changelist-search .query {
+    padding-block: 3px;
+    min-height: calc(var(--library-control-size) - 2px);
+    line-height: 1.5;
+    align-content: center;
+  }
+  .snapshot-library #changelist-search .abx-query-clear {
+    height: calc(var(--library-control-size) - 2px);
+  }
+  .snapshot-library > .folder-sidebar > .folder-section-heading {
+    height: var(--search-toolbar-height, var(--library-toolbar-height));
+  }
+}
+
+/* Result links lift their hit areas above neighboring cells. While editing,
+   raise the toolbar as a unit so they cannot steal taps inside the listbox. */
+body.model-snapshot.change-list #content .snapshot-library #changelist #toolbar:has(.suggestions:not([hidden])) {
+  z-index: 10;
+}
+
+html[data-theme="light"] .abx-search-field { color-scheme: light; }
+html[data-theme="dark"] .abx-search-field { color-scheme: dark; }
+
+@media (max-width: 600px) {
+  /* Give the editor the first line; the view/filter buttons share the
+     second with Django’s selection counts instead of squeezing the caret. */
+  body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container > div:has(.abx-search-field):not(:has(.action-buttons:not([hidden]))) {
+    grid-template-areas: "toolbar toolbar" "results results" "footer footer" !important;
+  }
+  body.model-snapshot.change-list .snapshot-library #changelist #toolbar .changelist-toolbar-row:has(.abx-search-field) {
+    flex-wrap: wrap;
+  }
+  body.model-snapshot.change-list .snapshot-library #changelist #toolbar #changelist-search:has(.abx-search-field) {
+    order: -1;
+    flex-basis: 100%;
+  }
+  body.model-snapshot.change-list #content .snapshot-library #changelist .changelist-form-container > div:has(.abx-search-field):not(:has(.action-buttons:not([hidden]))) #changelist-form .action-summary {
+    grid-area: toolbar !important;
+    width: max-content !important;
+    justify-self: end !important;
+    align-self: end !important;
+    z-index: 2;
+  }
+}

@@ -152,9 +152,19 @@ document.addEventListener('DOMContentLoaded', () => {
         while (members.length>2) members.splice(0,2,{op:node.op,rules:members.slice(0,2)});
         return {...node,rules:members};
       }
-      const {limit: savedLimit, sort: savedSort, ...predicate} = schema.rules || {};
+      const {limit: savedLimit, sort: savedSort, query: savedQuery = '', ...predicate} = schema.rules || {};
       let limit = savedLimit ?? '', sort = savedSort || '-created_at';
-      let rules = normalize(schema.rules ? predicate : {op:'AND', rules:[defaultRule()]});
+      const queryInput = folderForm.elements.folder_query;
+      const advanced = layout.querySelector('.folder-advanced');
+      let rules = predicate.field || predicate.op ? normalize(predicate) : null;
+      // Keep saved manual predicates intact. Opening or closing Advanced only
+      // changes their presentation; it must never change folder membership.
+      advanced.open = !!rules;
+      layout.querySelector('.folder-query').hidden = schema.container;
+      queryInput.value = savedQuery;
+      queryInput.dispatchEvent(new Event('archivebox:load'));
+      queryInput.oninput = serialize;
+      queryInput.onchange = serialize;
       const specs = new Map(schema.fields.map(field => [field.name, field]));
       const relationLookups = new Set(['exact', 'in', 'isnull', 'present']);
       const labels = new Map(Object.entries(schema.related_selected || {}).map(([model, choices]) =>
@@ -192,7 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
           return node.op!=='NOT' && children.length===1 ? children[0] : {...node,rules:children};
         }
         const options = {...(limit !== '' ? {limit:Number(limit)} : {}), ...(sort !== '-created_at' ? {sort} : {})};
-        folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify({...compact(rules), ...options}) : '';
+        const query = queryInput.value.trim();
+        const predicate = {...(rules ? compact(rules) : {}), ...(query ? {query} : {})};
+        folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify({...predicate, ...options}) : '';
         schedulePreview();
       }
       function input(type, value, label, change) {
@@ -394,9 +406,14 @@ document.addEventListener('DOMContentLoaded', () => {
         options.replaceChildren(); options.hidden=layout.hidden;
         dialog.classList.toggle('has-rules', !layout.hidden);
         if (!layout.hidden) {
-          const group=rules.op==='NOT' ? rules.rules[0] : rules;
-          if (!group.op && !schema.container) rules={op:'AND',rules:[rules]};
-          root.append(renderNode(rules,value => {rules=value;}));
+          if (rules) {
+            const group=rules.op==='NOT' ? rules.rules[0] : rules;
+            if (!group.op && !schema.container) rules={op:'AND',rules:[rules]};
+            root.append(renderNode(rules,value => {rules=value;}));
+            if (!schema.container) root.append(button('Remove advanced rules', () => {rules=null;render();}));
+          } else {
+            root.append(button('+ Rule', () => {rules={op:'AND',rules:[defaultRule()]};render();}));
+          }
           if (schema.container) root.querySelectorAll('input,select,button').forEach(control => control.disabled=true);
           function option(label, control) {
             const wrapper=element('label','folder-option',label); wrapper.append(control); options.append(wrapper);
@@ -1096,7 +1113,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let visible = widths.length;
         if (full > width) {
           let used = fixed;
-          visible = 0;
+          // Keep a readable first label, even when its full text alone is wider
+          // than the column. The flex item ellipsizes and +N counts only siblings.
+          visible = Math.min(widths.length, 1);
           for (let i = 0; i < widths.length - 1; i++) {
             used += widths[i] + (i ? pillGap : 0);
             const hidden = widths.length - i - 1;

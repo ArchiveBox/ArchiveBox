@@ -580,7 +580,7 @@ async function main() {
         const header = rect('.folder-section-heading');
         const toolbar = rect('.public-snapshot-toolbar,#changelist #toolbar');
         const toggle = rect('.folder-mobile-toggle');
-        const search = rect('.public-search-input,#changelist .search-input-wrap');
+        const search = rect('#changelist-search .abx-query-control');
         const column = library.querySelector('#table-bookmarks thead th,#result_list thead th');
         const style = column && getComputedStyle(column);
         return {headerTop:header.top, toolbarTop:toolbar.top, headerBottom:header.bottom, toolbarBottom:toolbar.bottom, toggleCenter:toggle.top + toggle.height / 2, searchCenter:search.top + search.height / 2, borderTop:style?.borderTopWidth, borderBottom:style?.borderBottomWidth};

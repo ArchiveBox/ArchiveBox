@@ -11,9 +11,10 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connections
 from django.db.models import Q
-from django.http import HttpResponseForbidden, QueryDict, StreamingHttpResponse
+from django.http import HttpResponseBadRequest, HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
 from archivebox.search.config import get_search_mode, get_search_mode_base
 from archivebox.misc.util import equivalent_urls
@@ -36,12 +37,14 @@ def get_admin_search_cache_key(request, url: str | None = None) -> str:
         params.pop(key, None)
     # Preserve each key's value order: repeated values may be meaningful to
     # filters. Sorting keys only makes equivalent URL parameter order stable.
+    if params.get("search_mode") == "query":
+        params.pop("search_mode")
     payload = json.dumps(
         {
             "user": str(request.user.pk or "anon"),
             "path": target.path,
             "params": sorted((key, params.getlist(key)) for key in params),
-            "mode": get_search_mode(params.get("search_mode"), config=request.archivebox_config),
+            "mode": get_search_mode(params.get("search_mode") or "query", config=request.archivebox_config),
         },
         sort_keys=True,
     )
@@ -54,11 +57,13 @@ def get_public_search_cache_key(request, url: str | None = None) -> str:
     params = QueryDict(target.query, mutable=True)
     for key in ("page", "sidebar"):
         params.pop(key, None)
+    if params.get("search_mode") == "query":
+        params.pop("search_mode")
     payload = json.dumps(
         {
             "path": target.path,
             "params": sorted((key, params.getlist(key)) for key in params),
-            "mode": get_search_mode(params.get("search_mode"), config=request.archivebox_config),
+            "mode": get_search_mode(params.get("search_mode") or "query", config=request.archivebox_config),
         },
         sort_keys=True,
     )
@@ -247,7 +252,7 @@ def iter_meta_search_ids(query, queryset):
 def normalize_search_result_id(snapshot_id) -> str | None:
     """Return a compact Snapshot ID string from a search provider result."""
     snapshot_id = str(snapshot_id).strip().lower().replace("-", "")
-    if len(snapshot_id) != 32:
+    if len(snapshot_id) != 32 or any(char not in "0123456789abcdef" for char in snapshot_id):
         return None
     return snapshot_id
 
@@ -293,6 +298,11 @@ def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05)
 def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None):
     """Yield filtered Snapshot IDs from the selected search provider."""
     search_mode_base = get_search_mode_base(search_mode, config=config)
+    if search_mode_base == "query":
+        from archivebox.search.interpreter import SnapshotSearch
+
+        yield from SnapshotSearch(base_queryset, query, config=config, stop_event=stop_event).stream()
+        return
     if search_mode_base == "url":
         provider = base_queryset.filter(url_search_q(query.strip())).values_list("pk", flat=True).iterator(chunk_size=1000)
     elif search_mode_base == "meta":
@@ -305,10 +315,19 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
         provider.close()
 
 
-def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name):
+def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name, public=False):
     """Stream Snapshot search progress and cache matching IDs for a list view."""
     if not query:
         return StreamingHttpResponse((), content_type="text/plain")
+
+    search = None
+    if search_mode == "query":
+        from archivebox.search.interpreter import SnapshotSearch
+
+        try:
+            search = SnapshotSearch(base_queryset, query, config=config, public=public)
+        except (ValueError, ValidationError) as err:
+            return HttpResponseBadRequest(str(err), content_type="text/plain")
 
     async def snapshot_ids():
         seen = set()
@@ -327,7 +346,11 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         def cache_results(done):
             with _search_cache_lock:
                 if _search_cache_owners.get(cache_key) is owner:
-                    cache.set(cache_key, {"ids": list(ids), "done": done}, SEARCH_RESULT_CACHE_TTL)
+                    cache.set(
+                        cache_key,
+                        {"ids": list(ids), "done": done, "partial": bool(search and search.partial)},
+                        SEARCH_RESULT_CACHE_TTL,
+                    )
 
         def emit(item):
             while not stop_event.is_set():
@@ -349,7 +372,11 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             completed = False
             try:
                 close_old_connections()
-                iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config, stop_event=stop_event)
+                if search is not None:
+                    search.stop_event = stop_event
+                    iterator = search.stream()
+                else:
+                    iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config, stop_event=stop_event)
                 for snapshot_id in iterator:
                     if stop_event.is_set():
                         break
@@ -362,6 +389,9 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                         publish_count()
                 if not stop_event.is_set():
                     completed = True
+                    if search and search.partial:
+                        cache_results(True)
+                        emit("partial\n")
                     if len(ids) != last_sent:
                         publish_count(done=True)
             except BaseException as err:
@@ -400,33 +430,50 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
     return response
 
 
+def stream_target_matches(request, search_url, query, mode):
+    # The client includes its list URL to preserve filters and pagination.
+    # Never let a producer fill a different expression's membership cache.
+    params = QueryDict(urlsplit(search_url).query)
+    return (params.get("q") or "").strip() == query and get_search_mode(
+        params.get("search_mode") or "query",
+        config=request.archivebox_config,
+    ) == mode
+
+
+def snapshot_view_scope(request, list_url, *, model_admin=None):
+    """Use the list's own filters for both matching and value suggestions."""
+    target = urlsplit(list_url)
+    filtered = copy(request)
+    filtered.path = filtered.path_info = target.path
+    filtered.GET = QueryDict(target.query, mutable=True)
+    for key in ("q", "search_mode", "p", "page", "search_url"):
+        filtered.GET.pop(key, None)
+    if model_admin is None:
+        from archivebox.core.views import PublicIndexView
+
+        view = PublicIndexView()
+        view.setup(filtered)
+        return view.get_queryset().defer(None).select_related(None).order_by()
+
+    # SnapshotAdmin uses the current request to render columns. A per-request
+    # copy keeps simultaneous streams and keystrokes off the shared admin object.
+    scoped_admin = copy(model_admin)
+    scoped_admin.request = filtered
+    filtered._archivebox_search_filter_only = True
+    qs = scoped_admin.get_changelist_instance(filtered).queryset
+    return qs if "o" in filtered.GET else qs.order_by()
+
+
 def admin_snapshot_search_stream_view(model_admin, request):
     """Stream admin Snapshot search progress and cache matching IDs."""
     query = (request.GET.get("q") or "").strip()
     config = request.archivebox_config
-    search_mode = get_search_mode(request.GET.get("search_mode"), config=config)
+    search_mode = get_search_mode(request.GET.get("search_mode") or "query", config=config)
 
     search_url = request.GET.get("search_url") or request.get_full_path()
-    target_url = urlsplit(search_url)
-    target_get = QueryDict(target_url.query, mutable=True)
-    for key in ("q", "search_mode", "p", "search_url"):
-        target_get.pop(key, None)
-
-    filter_request = copy(request)
-    filter_request.path = target_url.path or request.path
-    filter_request.path_info = target_url.path or request.path_info
-    filter_request.GET = target_get
-    filter_request.archivebox_config = config
-    filter_request._archivebox_search_filter_only = True
-
-    # Build the same filtered base queryset the changelist uses, but with the
-    # search params stripped. The stream intersects each wave with this queryset
-    # before writing IDs into the short-lived cache consumed by the changelist.
-    current_request = model_admin.__dict__.get("request")
-    try:
-        base_queryset = model_admin.get_changelist_instance(filter_request).queryset
-    finally:
-        model_admin.request = current_request
+    if not stream_target_matches(request, search_url, query, search_mode):
+        return HttpResponseBadRequest("Search expression and result URL disagree.", content_type="text/plain")
+    base_queryset = snapshot_view_scope(request, search_url, model_admin=model_admin)
 
     return snapshot_search_stream_response(
         query,
@@ -441,17 +488,17 @@ def admin_snapshot_search_stream_view(model_admin, request):
 def public_snapshot_search_stream_view(request):
     """Stream public Snapshot search progress and cache matching IDs."""
     from archivebox.config.common import get_request_config
-    from archivebox.core.models import Snapshot
-    from archivebox.core.permissions import public_snapshots_queryset
 
     config = getattr(request, "archivebox_config", None) or get_request_config(request, resolve_plugins=False)
     if not request.user.is_authenticated and not config.PUBLIC_INDEX:
         return HttpResponseForbidden("Public index is disabled")
 
     query = (request.GET.get("q") or "").strip()
-    search_mode = get_search_mode(request.GET.get("search_mode"), config=config)
+    search_mode = get_search_mode(request.GET.get("search_mode") or "query", config=config)
     search_url = request.GET.get("search_url") or request.get_full_path()
-    base_queryset = public_snapshots_queryset(Snapshot.objects.all())
+    if not stream_target_matches(request, search_url, query, search_mode):
+        return HttpResponseBadRequest("Search expression and result URL disagree.", content_type="text/plain")
+    base_queryset = snapshot_view_scope(request, search_url)
 
     return snapshot_search_stream_response(
         query,
@@ -460,4 +507,5 @@ def public_snapshot_search_stream_view(request):
         config=config,
         cache_key=get_public_search_cache_key(request, search_url),
         thread_name="public-snapshot-search-stream",
+        public=True,
     )

@@ -51,10 +51,17 @@ def check_snapshot_list_tag_layout(browser, origin, admin_user, few_tag):
     narrow_demand = read_widths()
 
     navigate()
-    for width in (2560, 1920, 1440, 1100):
+    for width in (2560, 1920, 1440, 1160, 1100):
         page.set_viewport_size({"width": width, "height": 1000})
         expect(row("Crowded").locator(".library-tags-toggle")).to_be_visible()
         page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+        if width == 1100:
+            expect(page.locator("#result_list thead")).to_be_hidden()
+            expect(row("Crowded").locator(".tag-pill:visible")).to_have_count(2)
+            expect(row("Crowded").locator(".library-tags-toggle")).to_have_text("+16")
+            expect(row("Few").locator(".tag-pill:visible")).to_have_count(2)
+            assert page.locator("#changelist-form > .results").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+            continue
         cols = read_widths()
         tag_width, title_width = cols["column-tags_inline"], cols["column-title_str"]
         assert tag_width <= 0.4 * (tag_width + title_width) + 2
@@ -70,14 +77,14 @@ def check_snapshot_list_tag_layout(browser, origin, admin_user, few_tag):
         if few_shown < 2:
             expect(row("Few").locator(".library-tags-toggle")).to_have_text(f"+{2 - few_shown}")
         expect(row("Empty").locator(".library-tags-toggle")).to_be_hidden()
-        if width == 1100:
+        if width == 1160:
             short_shown = row("Short").locator(".tag-pill:visible").count()
             assert short_shown == 1
             expect(row("Short").locator(".library-tags-toggle")).to_have_text("+9")
         crowded = row("Crowded")
         pills = crowded.locator(".tag-pill:visible")
         count = pills.count()
-        assert 0 <= count < 18
+        assert 1 <= count < 18
         if width >= 1920:
             assert count > 2
         if width == 2560:

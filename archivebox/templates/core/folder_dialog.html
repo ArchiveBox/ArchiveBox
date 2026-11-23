@@ -1,3 +1,4 @@
+{% load search_field %}
 <dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form data-delete-url="{% url 'admin:core_folder_remove' %}" data-rules-url="{% url 'admin:core_folder_rules' %}" method="post" action="{% url 'admin:core_folder_save' %}">{% csrf_token %}
   <div class="folder-dialog-heading"><div class="folder-dialog-heading-copy"><h2 id="folder-dialog-title">New folder</h2><p id="folder-dialog-subtitle" class="folder-dialog-subtitle" hidden>Automatically updates based on the rules you define below.</p></div><button type="button" class="folder-dialog-close icon-button" aria-label="Close">×</button></div>
   <input type="hidden" name="folder_id" value="">
@@ -10,8 +11,15 @@
   <input type="hidden" name="rules" value="">
   <div class="folder-rule-layout" hidden>
     <section class="folder-rule-panel" aria-labelledby="folder-rules-title">
-      <h3 id="folder-rules-title">Rules</h3>
-      <div class="folder-rules"></div>
+      <div class="folder-query">
+        <h3 id="folder-rules-title">Search</h3>
+        {% search_field "" "folder_query" "folder-search" %}
+        <p class="help">Use database fields such as <code>tags:</code>, <code>title:</code> or <code>meta:</code>. Saved folders need complete results for moves and webhooks. Full-text, file and link searches are available in Snapshot search.</p>
+      </div>
+      <details class="folder-advanced"><summary>Advanced rules</summary>
+        <p class="help">Snapshots must match both the search and these rules.</p>
+        <div class="folder-rules"></div>
+      </details>
     </section>
     <section class="folder-match-panel" aria-labelledby="folder-matches-title">
       <h3 id="folder-matches-title">Matching snapshots</h3>

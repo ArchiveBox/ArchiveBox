@@ -1588,7 +1588,7 @@ class PublicIndexView(ListView):
         query = self.request.GET.get("q", default="").strip()
         if query:
             state = self.__dict__.get("public_search_state")
-            mode = get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config)
+            mode = get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config)
             requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
             if mode != "url" and (state is None or not state.get("done")):
                 # An expired/in-flight search has not established its page count.
@@ -1648,7 +1648,7 @@ class PublicIndexView(ListView):
         runtime_config = self.__dict__.get("runtime_config")
         if runtime_config is None:
             self.runtime_config = runtime_config = get_request_config(self.request, resolve_plugins=False)
-        search_mode = get_search_mode(self.request.GET.get("search_mode"), config=runtime_config)
+        search_mode = get_search_mode(self.request.GET.get("search_mode") or "query", config=runtime_config)
         search_mode_backend = get_search_mode_backend(search_mode, config=runtime_config)
         query = self.request.GET.get("q", default="").strip()
         public_search_state = self.__dict__.get("public_search_state")
@@ -1665,6 +1665,7 @@ class PublicIndexView(ListView):
             "search_mode": search_mode,
             "search_mode_options": get_search_mode_options(config=runtime_config),
             "public_search_stream_pending": public_search_pending,
+            "public_search_partial": bool(public_search_state and public_search_state.get("partial")),
             "folder_tree": self.folder_tree,
             "selected_folder": self.selected_folder,
             "folder_breadcrumbs": self.folder_breadcrumbs,
@@ -1776,7 +1777,7 @@ class PublicIndexView(ListView):
         if not query:
             return qs
 
-        if get_search_mode(self.request.GET.get("search_mode"), config=self.request.archivebox_config) == "url":
+        if get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config) == "url":
             return qs.filter(url_search_q(query))
 
         cached_state = get_cached_public_search_state(self.request)
@@ -1785,6 +1786,8 @@ class PublicIndexView(ListView):
             cached_ids = cached_state.get("ids") or []
             if not cached_ids:
                 return qs.none()
+            if self.selected_folder and any(f.is_smart and str(f.pk) == self.selected_folder for f in self.folder_tree):
+                return qs.filter(pk__in=cached_ids).order_by(*self.ordering)
             search_rank = Case(
                 *(When(pk=snapshot_id, then=Value(index)) for index, snapshot_id in enumerate(cached_ids)),
                 output_field=IntegerField(),

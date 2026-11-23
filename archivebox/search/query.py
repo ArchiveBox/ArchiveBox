@@ -240,6 +240,7 @@ def apply_snapshot_search(
     ordering: list[str] | tuple[str, ...] | None = None,
     max_results: int | None = None,
     skip_backend_when_metadata_satisfies_limit: bool = False,
+    public: bool = False,
     include_metadata_for_forced_backend: bool = False,
     include_id_matches: bool = False,
 ) -> QuerySet:
@@ -247,6 +248,11 @@ def apply_snapshot_search(
     query = (query or "").strip()
     if not query:
         return base_queryset
+
+    if not search_mode or search_mode == "query":
+        from archivebox.search.interpreter import SnapshotSearch
+
+        return SnapshotSearch(base_queryset, query, config=config, public=public).queryset()
 
     config = config or get_config()
     search_mode = get_search_mode(search_mode, config=config)

@@ -248,30 +248,28 @@ def test_snapshot_metadata_search_includes_notes_crawl_fields_username_and_confi
 
 
 class TestAdminSnapshotSearch:
-    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client, admin_user):
+    def test_admin_operator_field_with_configured_ripgrep(self, client, admin_user):
         Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
-        assert response.context["cl"].search_mode == "deep:ripgrep"
-        assert b'name="search_mode"' in response.content
-        assert b'<option value="contents">deep</option>' in response.content
-        assert b">contents<" not in response.content
-        assert b'value="deep:ripgrep"' in response.content
-        assert b">deep:ripgrep<" in response.content
+        assert response.context["cl"].search_mode == "query"
+        assert b'role="combobox" aria-label="Search snapshots"' in response.content
+        assert b'data-suggestions="/public/search-suggestions/' in response.content
+        assert b'<select name="search_mode"' not in response.content
 
-    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_sqlite(self, client, admin_user):
+    def test_admin_operator_field_with_configured_sqlite(self, client, admin_user):
         Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "sqlite"}})
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
-        assert response.context["cl"].search_mode == "deep:sqlite"
+        assert response.context["cl"].search_mode == "query"
 
-    def test_admin_search_mode_selector_stays_checked_after_search(self, client, admin_user, crawl):
+    def test_explicit_legacy_mode_survives_operator_form_render(self, client, admin_user, crawl):
         from archivebox.core.models import Snapshot
 
         Snapshot.objects.create(
@@ -290,7 +288,7 @@ class TestAdminSnapshotSearch:
         assert response.status_code == 200
         assert response.context["cl"].search_mode == "contents"
         assert b'id="changelist"' in response.content
-        assert b"search-mode-contents" in response.content
+        assert b'name="search_mode" value="contents"' in response.content
 
     def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(
         self,
@@ -320,7 +318,7 @@ class TestAdminSnapshotSearch:
 
         assert response.status_code == 200
         assert response.context["cl"].search_mode.startswith("deep")
-        assert b"search-mode-deep" in response.content
+        assert b'name="search_mode" value="deep"' in response.content
         assert str(fulltext_snapshot.id).encode() in response.content
         assert [(snapshot.pk, snapshot.search_rank) for snapshot in response.context["cl"].result_list] == [(fulltext_snapshot.pk, 0)]
         assert b'class="search-rank-0"' in response.content
@@ -482,18 +480,16 @@ class TestPublicIndexSearch:
         assert b"matching snapshots..." in response.content
         assert b"No snapshots found." not in response.content
 
-    def test_public_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client):
+    def test_public_operator_field_with_configured_ripgrep(self, client):
         Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
 
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
-        assert response.context["search_mode"] == "deep:ripgrep"
-        assert b'name="search_mode"' in response.content
-        assert b'<option value="contents">deep</option>' in response.content
-        assert b">contents<" not in response.content
-        assert b'value="deep:ripgrep"' in response.content
-        assert b">deep:ripgrep<" in response.content
+        assert response.context["search_mode"] == "query"
+        assert b'role="combobox" aria-label="Search snapshots"' in response.content
+        assert b'data-suggestions="/public/search-suggestions/' in response.content
+        assert b'<select name="search_mode"' not in response.content
 
     def test_public_search_uses_streamed_metadata_order(
         self,
@@ -1210,7 +1206,7 @@ class TestSearchBackendsE2E:
             )
             assert public_default.status_code == 200
             assert "archivebox-search-stream-status" in public_default.text
-            assert 'value="deep:sonic" selected' in public_default.text
+            assert 'role="combobox" aria-label="Search snapshots"' in public_default.text
             assert "No snapshots found." not in public_default.text
             assert "127.0.0.1" in public_default.text
 
@@ -1221,7 +1217,7 @@ class TestSearchBackendsE2E:
             )
             assert admin_default.status_code == 200
             assert "archivebox-search-stream-status" in admin_default.text
-            assert 'value="deep:sonic" selected' in admin_default.text
+            assert 'role="combobox" aria-label="Search snapshots"' in admin_default.text
             assert "127.0.0.1" in admin_default.text
 
             for surface_name, host, stream_path, list_path, requester in (
@@ -1274,7 +1270,7 @@ class TestSearchBackendsE2E:
                     assert initial_page.status_code == 200
                     assert "archivebox-search-stream-status" in initial_page.text
                     assert query in initial_page.text
-                    assert f'value="{search_mode}" selected' in initial_page.text
+                    assert f'name="search_mode" value="{search_mode}"' in initial_page.text
                     assert initial_page_elapsed < 1.0, (surface_name, search_mode, initial_page_elapsed)
 
                     stream_started = time.monotonic()

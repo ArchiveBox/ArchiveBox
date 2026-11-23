@@ -239,6 +239,9 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 }
 .snapshot-library #result_list.library-tag-fit td.field-tags_inline .tags-inline-editor {
   display: block;
+  /* The measured track sets the budget. An ellipsized first label must not
+     raise the table's intrinsic minimum and steal width back from Title. */
+  contain: inline-size;
   margin: 0;
 }
 .snapshot-library #result_list.library-tag-fit td.field-tags_inline .tag-editor-inline {
@@ -255,7 +258,8 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   overflow: hidden;
 }
 .snapshot-library #result_list.library-tag-fit .tag-pills-inline:not(.library-tags-expanded) .tag-pill {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .snapshot-library #result_list.library-tag-fit .tag-pills-inline .tag-pill[hidden] {
   display: none;
@@ -303,3 +307,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 
 .folder-sidebar .library-tag-name[hidden],.folder-sidebar .folder-search-toggle[hidden]{display:none}
 .folder-sidebar .library-add[aria-expanded=true] svg{transform:rotate(45deg)}
+
+.folder-advanced{margin-top:1rem}
+.folder-advanced>summary{cursor:pointer;font-weight:600}
+.folder-query[hidden]{display:none}

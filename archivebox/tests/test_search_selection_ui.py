@@ -52,9 +52,8 @@ def test_search_waves_preserve_selection(live_server, browser_runtime, admin_use
                 ],
             },
         )
-        page.locator('select[name="search_mode"]').select_option("meta")
-        page.locator('#changelist-search input[name="q"]').fill("streamselection")
-        page.locator('#changelist-search input[name="q"]').press("Enter")
+        page.locator('#changelist-search [role="combobox"]').fill("meta:streamselection")
+        page.locator('#changelist-search [role="combobox"]').press("Enter")
         checkboxes = page.locator("#result_list input.action-select")
         expect(checkboxes).to_have_count(50)
         old_row = page.locator("#result_list tbody tr").first.element_handle()

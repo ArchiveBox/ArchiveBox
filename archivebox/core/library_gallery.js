@@ -288,6 +288,8 @@ async function prepareSmartFolder(page, adminBaseUrl, crawlId, source) {
     await page.click('#library-create-menu .folder-new[data-smart]');
     await page.waitForSelector('#folder-dialog[open] .folder-save:not([disabled])');
     await page.type('#folder-name',name);
+    await page.click('.folder-advanced > summary');
+    await page.click('.folder-rules > button');
     await page.select('.rule-condition select[aria-label="Field"]','domain');
     await page.select('.rule-condition select[aria-label="Comparison"]','iendswith');
     await page.type('.rule-condition input[aria-label="Value"]',new URL(source.homepage).hostname);
