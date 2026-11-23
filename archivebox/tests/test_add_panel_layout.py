@@ -3,7 +3,7 @@
 from urllib.parse import urlsplit
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 from archivebox.machine.models import Machine
 
@@ -56,4 +56,7 @@ def test_add_filter_panel_tracks_native_textarea_resize(live_server, browser_run
             assert toolbar["y"] >= header["y"]
             assert toolbar["y"] + toolbar["height"] <= header["y"] + header["height"], f"Toolbar outside header at {width}px"
             assert toolbar["x"] + toolbar["width"] <= width
+        editor.fill("\n".join(f"https://example.com/{i}" for i in range(101)))
+        expect(page.locator("#detected-urls-summary")).to_have_text(">100 total")
+        assert page.locator(".detected-url-item").count() == 100
         browser.close()

@@ -91,7 +91,6 @@
                                 <div id="detected-urls-list" class="detected-urls-list">
                                     <div class="detected-urls-empty">Paste URLs, markdown, JSON, or prose to preview matches here.</div>
                                 </div>
-                                <p id="url-preview-note" class="help-text" hidden>Preview limited to the first 100 URLs or 50 KB. All input will be imported.</p>
                             </aside>
                         </div>
                         {% if form.url.errors %}
@@ -971,7 +970,7 @@
                     urlHighlightLayer.innerHTML = html.join('');
                 }
 
-                function renderDetectedURLs(matches) {
+                function renderDetectedURLs(matches, hasMore = false) {
                     if (!matches.length) {
                         detectedURLsSummary.textContent = 'No URLs yet';
                         detectedURLsList.innerHTML = '<div class="detected-urls-empty">Paste URLs, markdown, JSON, or prose to preview matches here.</div>';
@@ -989,7 +988,7 @@
                     if (summary.allowlisted) summaryParts.push(`${summary.allowlisted} allowed`);
                     if (summary.denied) summaryParts.push(`${summary.denied} denied`);
                     if (summary.limited) summaryParts.push(`${summary.limited} over limit`);
-                    summaryParts.push(`${summary.total} total`);
+                    summaryParts.push(`${hasMore && summary.total === 100 ? '>' : ''}${summary.total} total`);
                     detectedURLsSummary.textContent = summaryParts.join(' • ');
 
                     detectedURLsList.innerHTML = matches.map(match => {
@@ -1092,12 +1091,40 @@
                     urlHighlightLayer.scrollLeft = urlTextarea.scrollLeft;
                 }
 
-                function updateURLPreview() {
+                let previewRequest;
+                let previewInput;
+                let previewResult;
+                async function updateURLPreview() {
                     // Preview work must stay bounded even for multi-megabyte
                     // exports. The textarea is submitted unchanged to the CLI.
                     const text = urlTextarea.value;
+                    let parsed = null;
+                    if (text) {
+                        if (previewInput !== text) {
+                            previewRequest?.abort();
+                            previewRequest = new AbortController();
+                            previewInput = text;
+                            const body = new FormData();
+                            body.set('url', text);
+                            body.set('preview', '1');
+                            body.set('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                            previewResult = fetch(location.pathname, {method: 'POST', body, signal: previewRequest.signal})
+                                .then(response => {if (!response.ok) throw new Error('Could not preview URLs.'); return response.json();});
+                        }
+                        try { parsed = await previewResult; }
+                        catch (error) {
+                            if (error.name !== 'AbortError' && urlTextarea.value === text) detectedURLsSummary.textContent = error.message;
+                            return;
+                        }
+                        if (urlTextarea.value !== text) return;
+                    } else {
+                        previewRequest?.abort();
+                        previewInput = '';
+                    }
                     const previewText = text.slice(0, 50000);
-                    const previewMatches = extractURLs(previewText, 101).filter(match => text.length <= 50000 || match.end < previewText.length);
+                    const previewMatches = parsed?.format
+                        ? parsed.urls.map(url => ({url}))
+                        : extractURLs(previewText, 101).filter(match => text.length <= 50000 || match.end < previewText.length);
                     const truncated = text.length > 50000 || previewMatches.length > 100;
                     const matches = previewMatches.slice(0, 100).map((match, index) => ({
                         ...match,
@@ -1110,10 +1137,9 @@
                     const count = matches.length;
                     urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} ${truncated ? 'in preview' : 'detected'}`;
                     urlCounter.className = count > 0 ? 'url-counter url-counter-positive' : 'url-counter';
-                    document.getElementById('url-preview-note').hidden = !truncated;
                     // Avoid duplicating the full input in a highlighted DOM tree.
-                    renderHighlightLayer(text.length > 50000 ? '' : text, matches);
-                    renderDetectedURLs(limitedMatches);
+                    renderHighlightLayer(text.length > 50000 || parsed?.format ? '' : text, matches);
+                    renderDetectedURLs(limitedMatches, previewMatches.length > 100);
                     syncHighlightScroll();
                 }
 

@@ -1875,9 +1875,24 @@ class AddView(UserPassesTestMixin, FormView):
         return get_request_config(self.request).PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
     def post(self, request: HttpRequest, *args: object, **kwargs: object):
+        handler = self.preview_input if request.POST.get("preview") == "1" else super().post
         if request.user.is_authenticated:
-            return csrf_protect(super().post)(request, *args, **kwargs)
-        return super().post(request, *args, **kwargs)
+            return csrf_protect(handler)(request, *args, **kwargs)
+        return handler(request, *args, **kwargs)
+
+    def preview_input(self, request, *args, **kwargs):
+        from itertools import islice
+        from django.http import JsonResponse
+        from abx_plugins.plugins.parse_jsonl_urls.bookmarks import bookmark_input_format, iter_json_records, json_object_to_entry
+
+        text = request.POST.get("url", "")
+        input_format = bookmark_input_format(text)
+        entries = (
+            (entry for record in iter_json_records(text) if isinstance(record, dict) and (entry := json_object_to_entry(record)))
+            if input_format
+            else ()
+        )
+        return JsonResponse({"format": input_format, "urls": [entry["url"] for entry in islice(entries, 101)]})
 
     def _can_override_crawl_config(self) -> bool:
         user = self.request.user

@@ -5,6 +5,83 @@ from archivebox.tests.test_cli_add_1 import write_import_format_files
 
 
 @pytest.mark.django_db(transaction=True)
+def test_archivebox_exports_roundtrip_through_add(initialized_archive, browser_runtime, tmp_path, admin_user, httpserver):
+    from datetime import datetime, timezone
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.exports import write_snapshot_metadata
+    from archivebox.core.models import Snapshot, Tag
+    from archivebox.tests.conftest import (
+        cli_env,
+        create_admin_and_token,
+        get_free_port,
+        run_queued_crawls,
+        start_archivebox_server,
+        stop_server,
+    )
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+    from archivebox.tests.test_ui_add_view_runtime import _stop_worker
+
+    originals = []
+    source_crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    for index, path in enumerate(("/Research/", "/a,b", "/quoted")):
+        httpserver.expect_request(path).respond_with_data("Imported page", content_type="text/plain")
+        snapshot = Snapshot.objects.create(
+            crawl=source_crawl,
+            url=httpserver.url_for(path).replace("localhost", "127.0.0.1"),
+            title=f'Research {index}, "quoted"\nsecond line',
+            bookmarked_at=datetime(2020, 1, index + 1, 12, 34, 56, 123456, tzinfo=timezone.utc),
+        )
+        names = [f"topic-{index}", "reading list", 'quotes "preserved"']
+        snapshot.tags.set([Tag.objects.get_or_create(name=name)[0] for name in names])
+        originals.append({"url": snapshot.url, "title": snapshot.title, "bookmarked_at": snapshot.bookmarked_at, "tags": set(names)})
+    files = []
+    for format in ("csv", "jsonl"):
+        source = tmp_path / f"snapshots.{format}"
+        with source.open("w", newline="") as output:
+            write_snapshot_metadata(Snapshot.objects.filter(crawl=source_crawl), format, output)
+        files.append(source)
+    port = get_free_port()
+    env = cli_env(server=True, port=port, PLUGINS="parse_jsonl_urls,parse_txt_urls", ONLY_NEW="False", URL_DENYLIST="")
+    create_admin_and_token(initialized_archive)
+    try:
+        start_archivebox_server(initialized_archive, port=port, env=env)
+        _stop_worker(initialized_archive, "worker_runner")
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+            try:
+                page = browser.new_page()
+                base = f"http://admin.archivebox.localhost:{port}"
+                page.goto(f"{base}/admin/login/?next=/add/")
+                page.locator('[name="username"]').fill("apitestadmin")
+                page.locator('[name="password"]').fill("testpass123")
+                page.get_by_role("button", name="Log in", exact=True).click()
+                for source in files:
+                    page.goto(base + "/add/")
+                    with page.expect_file_chooser() as chooser:
+                        page.get_by_role("button", name="Upload", exact=True).click()
+                    chooser.value.set_files(source)
+                    expect(page.locator(".detected-url-value")).to_have_text([item["url"] for item in originals])
+                    page.locator("#id_url_filters_only_new").uncheck()
+                    page.locator("#submit").click()
+                    page.wait_for_url("**/admin/crawls/crawl/*/change/")
+            finally:
+                browser.close()
+    finally:
+        stop_server(initialized_archive)
+    run_queued_crawls(initialized_archive, env=env)
+    with use_archivebox_db(initialized_archive):
+        assert Crawl.objects.count() == len(files)
+        for crawl in Crawl.objects.all():
+            assert crawl.snapshot_set.count() == len(originals)
+            for original in originals:
+                snapshot = crawl.snapshot_set.get(url=original["url"])
+                assert snapshot.title == original["title"]
+                assert snapshot.bookmarked_at == original["bookmarked_at"]
+                assert set(snapshot.tags.values_list("name", flat=True)) == original["tags"]
+
+
+@pytest.mark.django_db(transaction=True)
 def test_large_csv_upload_preserves_full_input(live_server, admin_user, browser_runtime, settings, tmp_path):
     from time import perf_counter
     from urllib.parse import urlsplit
@@ -47,6 +124,8 @@ def test_large_csv_upload_preserves_full_input(live_server, admin_user, browser_
             chooser.value.set_files(source)
             page.wait_for_url("**/add/")
             expect(page.locator("#url-upload-status")).to_have_text("File text added.")
+            expect(page.locator(".detected-url-item")).to_have_count(100)
+            expect(page.locator("#detected-urls-summary")).to_have_text(">100 total")
             elapsed = perf_counter() - started
             print(f"CSV upload: {source.stat().st_size:,} bytes, {elapsed:.2f}s to preview")
             assert elapsed < 5, f"Large CSV preview took {elapsed:.2f}s"

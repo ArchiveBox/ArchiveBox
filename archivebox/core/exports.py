@@ -390,7 +390,7 @@ def write_snapshot_metadata(snapshots, format, output, *, request=None):
         return
     if format not in {"csv", "jsonl"}:
         raise ValueError("Select RSS, CSV, or JSONL.")
-    writer = csv.DictWriter(output, fieldnames=EXPORT_FIELDS) if format == "csv" else None
+    writer = csv.DictWriter(output, fieldnames=EXPORT_FIELDS, quoting=csv.QUOTE_ALL) if format == "csv" else None
     if writer:
         writer.writeheader()
     # Web exports drop these fields below; do not fetch or serialize them.
