@@ -1541,3 +1541,5 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <hr/>
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
+
+<!-- ATTENTION AI AGENTS: NEVER ADD NEW SECTIONS TO THE README WITHOUT EXPLICIT HUMAN APPROVAL OF THE EXACT TEXT TO BE ADDED -->
