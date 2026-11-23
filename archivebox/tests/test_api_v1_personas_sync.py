@@ -217,3 +217,218 @@ def test_sync_preserves_browser_storage_above_old_request_limit(client, api_head
     assert response.status_code == 200, response.content[:500]
     persona = Persona.objects.get(pk=response.json()["persona"]["id"])
     assert json.loads((persona.path / "auth.json").read_text()) == auth
+
+
+def test_sync_light_and_indexeddb_updates_preserve_omitted_state_and_explicit_clears(client, api_headers):
+    from archivebox.personas.models import Persona
+
+    identity = {"extension_persona_id": "split-browser-state", "name": "split-browser-state"}
+    cookies_txt = "# Netscape HTTP Cookie File\nexample.com\tFALSE\t/\tTRUE\t0\tsession\tfirst-session\n"
+    cookies = [{"domain": "example.com", "name": "session", "value": "first-session", "path": "/", "httpOnly": True, "sameSite": "Lax"}]
+    database = {"name": "saved-state", "version": 1, "stores": [{"name": "entries", "records": [{"key": 1, "value": "preserved"}]}]}
+    original = {
+        "cookies": cookies,
+        "origins": [
+            {"origin": "https://example.com", "localStorage": [{"name": "account", "value": "first"}], "indexedDB": [database]},
+            {"origin": "https://removed.example", "localStorage": [], "indexedDB": [database]},
+        ],
+        "tabs": [{"url": "https://example.com/tab", "sessionStorage": [{"name": "tab", "value": "kept"}]}],
+    }
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "settings": {"user_agent": "PersonaBrowser/1.0", "color_scheme": "dark"},
+            "cookies_txt": cookies_txt,
+            "auth_json": original,
+        },
+    )
+    assert response.status_code == 200, response.content
+    persona = Persona.objects.get(pk=response.json()["persona"]["id"])
+    auth_path = persona.path / "auth.json"
+    light_origin = {"origin": "https://example.com", "localStorage": [{"name": "account", "value": "updated"}]}
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "auth_json": {"origins": [light_origin]},
+        },
+    )
+    assert response.status_code == 200, response.content
+    saved = json.loads(auth_path.read_text())
+    assert saved == {**original, "origins": [{**light_origin, "indexedDB": [database]}]}
+    assert response.json()["cookies_file_written"] is False
+    assert (persona.path / "cookies.txt").read_text() == cookies_txt
+
+    replacement = {**database, "version": 2}
+    rejected = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "settings": {"color_scheme": "invalid"},
+            "auth_json": {"origins": [{"origin": light_origin["origin"], "indexedDB": [replacement]}]},
+        },
+    )
+    assert rejected.status_code == 422, rejected.content
+    assert json.loads(auth_path.read_text()) == saved
+    assert (persona.path / "cookies.txt").read_text() == cookies_txt
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "auth_json": {"origins": [{"origin": light_origin["origin"], "indexedDB": [replacement]}]},
+        },
+    )
+    assert response.status_code == 200, response.content
+    assert json.loads(auth_path.read_text()) == {**saved, "origins": [{**light_origin, "indexedDB": [replacement]}]}
+    assert (persona.path / "cookies.txt").read_text() == cookies_txt
+    persona.refresh_from_db()
+    assert persona.config["CHROME_USER_AGENT"] == "PersonaBrowser/1.0"
+    assert persona.config["BROWSER_COLOR_SCHEME"] == "dark"
+
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "auth_json": {"origins": [{"origin": light_origin["origin"], "indexedDB": []}]},
+        },
+    )
+    assert response.status_code == 200, response.content
+    assert json.loads(auth_path.read_text()) == {**saved, "origins": [{**light_origin, "indexedDB": []}]}
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "auth_json": {"origins": [], "tabs": []},
+        },
+    )
+    assert response.status_code == 200, response.content
+    assert json.loads(auth_path.read_text()) == {"cookies": cookies, "origins": [], "tabs": []}
+
+
+@pytest.mark.parametrize("origins", [None, {}, [{}], [None], [{"origin": []}], [{"origin": "https://example.com", "indexedDB": None}]])
+def test_sync_rejects_malformed_origins_before_any_artifact_changes(client, api_headers, origins):
+    from archivebox.personas.models import Persona
+
+    identity = {"extension_persona_id": "invalid-origin-state", "name": "invalid-origin-state"}
+    created = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "cookies_txt": "preserved-cookie-file",
+            "auth_json": {"cookies": []},
+        },
+    )
+    assert created.status_code == 200
+    persona = Persona.objects.get(pk=created.json()["persona"]["id"])
+    config = persona.config.copy()
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "settings": {"language": "changed"},
+            "cookies_txt": "changed",
+            "auth_json": {"origins": origins},
+        },
+    )
+    assert response.status_code == 422, response.content
+    assert (persona.path / "cookies.txt").read_text() == "preserved-cookie-file"
+    assert json.loads((persona.path / "auth.json").read_text()) == {"cookies": []}
+    persona.refresh_from_db()
+    assert persona.config == config
+
+
+@pytest.mark.parametrize("contents", ["not-json", "[]", "null"])
+def test_sync_preserves_corrupt_saved_artifact_until_explicit_clear(client, api_headers, contents):
+    from archivebox.personas.models import Persona
+
+    identity = {"extension_persona_id": "corrupt-saved-state", "name": "corrupt-saved-state"}
+    created = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "cookies_txt": "preserved-cookie-file",
+            "auth_json": {},
+        },
+    )
+    assert created.status_code == 200
+    persona = Persona.objects.get(pk=created.json()["persona"]["id"])
+    config = persona.config.copy()
+    (persona.path / "auth.json").write_text(contents)
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "settings": {"language": "changed"},
+            "cookies_txt": "changed",
+            "auth_json": {"cookies": []},
+        },
+    )
+    assert response.status_code == 409, response.content
+    assert (persona.path / "cookies.txt").read_text() == "preserved-cookie-file"
+    assert (persona.path / "auth.json").read_text() == contents
+    persona.refresh_from_db()
+    assert persona.config == config
+    cleared = api_client_request(client, "post", "/api/v1/personas/sync", headers=api_headers, payload={**identity, "auth_json": {}})
+    assert cleared.status_code == 200, cleared.content
+    assert json.loads((persona.path / "auth.json").read_text()) == {}
+
+
+@pytest.mark.parametrize("prior_origins", [None, [{}, None, {"origin": ["invalid"]}]])
+def test_sync_updates_origins_with_malformed_legacy_entries(client, api_headers, prior_origins):
+    from archivebox.personas.models import Persona
+
+    identity = {"extension_persona_id": "legacy-origin-state", "name": "legacy-origin-state"}
+    created = api_client_request(client, "post", "/api/v1/personas/sync", headers=api_headers, payload=identity)
+    assert created.status_code == 200
+    persona = Persona.objects.get(pk=created.json()["persona"]["id"])
+    database = {"name": "preserved", "stores": []}
+    valid_origin = {"origin": "https://example.com", "indexedDB": [database]}
+    if isinstance(prior_origins, list):
+        prior_origins.append(valid_origin)
+    (persona.path / "auth.json").write_text(json.dumps({"cookies": [], "origins": prior_origins}))
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        headers=api_headers,
+        payload={
+            **identity,
+            "auth_json": {"origins": [{"origin": valid_origin["origin"], "localStorage": []}]},
+        },
+    )
+    assert response.status_code == 200, response.content
+    expected_origin = {"origin": valid_origin["origin"], "localStorage": []}
+    if isinstance(prior_origins, list):
+        expected_origin["indexedDB"] = [database]
+    assert json.loads((persona.path / "auth.json").read_text()) == {"cookies": [], "origins": [expected_origin]}

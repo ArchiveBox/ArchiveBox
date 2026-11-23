@@ -11,7 +11,8 @@ from django.http import HttpRequest
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import paginate
-from pydantic import Field
+from pydantic import Field, field_validator
+from atomicwrites import atomic_write
 
 from archivebox.api.v1_core import CustomPagination
 from archivebox.personas.importers import validate_persona_name
@@ -39,6 +40,21 @@ class PersonaSyncSchema(Schema):
     settings: PersonaBrowserSettingsSchema = Field(default_factory=PersonaBrowserSettingsSchema)
     cookies_txt: str = ""
     auth_json: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("auth_json")
+    @classmethod
+    def validate_auth_origins(cls, auth):
+        if "origins" not in auth:
+            return auth
+        if not isinstance(auth["origins"], list):
+            raise ValueError("auth_json.origins must be a list")
+        for entry in auth["origins"]:
+            if not isinstance(entry, dict) or not isinstance(entry.get("origin"), str) or not entry["origin"]:
+                raise ValueError("Each auth_json origin must have a nonempty origin string")
+            for field in ("localStorage", "sessionStorage", "indexedDB"):
+                if field in entry and not isinstance(entry[field], list):
+                    raise ValueError(f"auth_json origin {field} must be a list")
+        return auth
 
 
 class PersonaSchema(Schema):
@@ -131,6 +147,24 @@ def get_personas(request: HttpRequest):
     return Persona.objects.all().order_by("name")
 
 
+def _merge_synced_auth(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    if not incoming:
+        return {}  # An explicitly empty auth artifact still means clear all.
+    merged = {**existing, **incoming}
+    if "origins" in incoming:
+        previous_origins = existing.get("origins", [])
+        previous = (
+            {entry["origin"]: entry for entry in previous_origins if isinstance(entry, dict) and isinstance(entry.get("origin"), str)}
+            if isinstance(previous_origins, list)
+            else {}
+        )
+        # Membership/order follows the submitted list, so removed domains stay
+        # removed. Omitted fields on a retained origin preserve saved IndexedDB
+        # during light sync; explicit empty arrays clear just that field.
+        merged["origins"] = [{**previous.get(entry["origin"], {}), **entry} for entry in incoming["origins"]]
+    return merged
+
+
 @router.post("/sync", response=PersonaSyncResponseSchema, url_name="sync_persona")
 def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
     """
@@ -138,7 +172,10 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
 
     The extension sends browser settings plus portable auth artifacts. The server
     keeps browser override settings in Persona.config and writes cookies.txt /
-    auth.json into the persona directory for extractors to consume.
+    auth.json into the persona directory for extractors to consume. Omitted
+    auth fields are preserved; an empty auth object clears the artifact. A
+    supplied origins list replaces membership while retaining omitted fields
+    of each matching origin, allowing light and IndexedDB sync independently.
     """
     name = payload.name.strip()
     is_valid, error_message = validate_persona_name(name)
@@ -156,6 +193,20 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
         if request.user.is_authenticated:
             persona.created_by = request.user
 
+    auth = None
+    if "auth_json" in payload.model_fields_set:
+        existing = {}
+        if payload.auth_json:
+            try:
+                existing = json.loads((persona.path / "auth.json").read_text())
+            except FileNotFoundError:
+                pass
+            except (json.JSONDecodeError, UnicodeDecodeError) as err:
+                raise HttpError(409, "Existing persona auth.json is invalid; repair it or explicitly clear it before syncing") from err
+            if not isinstance(existing, dict):
+                raise HttpError(409, "Existing persona auth.json must contain an object")
+        auth = _merge_synced_auth(existing, payload.auth_json)
+
     persona.config = {
         **(persona.config or {}),
         **browser_settings_to_config(payload.extension_persona_id, payload.settings),
@@ -165,13 +216,14 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
 
     cookies_written = False
     if "cookies_txt" in payload.model_fields_set:
-        (persona.path / "cookies.txt").write_text(payload.cookies_txt)
+        with atomic_write(persona.path / "cookies.txt", overwrite=True, encoding="utf-8") as stream:
+            stream.write(payload.cookies_txt)
         cookies_written = True
 
-    auth_written = False
-    if "auth_json" in payload.model_fields_set:
-        (persona.path / "auth.json").write_text(json.dumps(payload.auth_json, indent=2, sort_keys=True) + "\n")
-        auth_written = True
+    auth_written = auth is not None
+    if auth_written:
+        with atomic_write(persona.path / "auth.json", overwrite=True, encoding="utf-8") as stream:
+            stream.write(json.dumps(auth, indent=2, sort_keys=True) + "\n")
 
     return {
         "success": True,
