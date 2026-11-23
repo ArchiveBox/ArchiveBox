@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, Exists, OuterRef, F, Value
@@ -373,6 +374,13 @@ class RuleQuery:
                                 item = int(amount)
                             if lookup != "has_key":
                                 item = field.clean(item, None)
+                                if (
+                                    isinstance(field, models.DateTimeField)
+                                    and item is not None
+                                    and settings.USE_TZ
+                                    and timezone.is_naive(item)
+                                ):
+                                    item = timezone.make_aware(item, timezone.get_default_timezone())
                             if lookup in {"icontains", "istartswith", "iendswith"} and not item:
                                 raise ValueError
                             cleaned.append(item)

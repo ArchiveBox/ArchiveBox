@@ -64,6 +64,25 @@ def test_invalid_rules_rejected():
             RuleQuery().compile(rule)
 
 
+@pytest.mark.filterwarnings("error:DateTimeField .* received a naive datetime:RuntimeWarning")
+@pytest.mark.parametrize("value", ["2026-01-01", "2026-01-01T00:00:00", "2026-01-01T01:00:00+01:00"])
+def test_date_rules_use_timezone_aware_boundaries(admin_user, value):
+    from datetime import datetime, timezone
+
+    crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
+    before = Snapshot.objects.create(
+        url="https://example.com/before",
+        crawl=crawl,
+        bookmarked_at=datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+    )
+    after = Snapshot.objects.create(url="https://example.com/after", crawl=crawl, bookmarked_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    for lookup in ("gte", "exact"):
+        rule = leaf("bookmarked_at", lookup, value)
+        folder = Folder.objects.create(name=f"Dates {lookup}", rules=rule)
+        assert list(Folder.select_snapshots(Snapshot.objects.all(), folder.pk)) == [after]
+        assert not Folder.select_snapshots(Snapshot.objects.all(), folder.pk).filter(pk=before.pk).exists()
+
+
 def test_youtube_size_and_related_negation(admin_user):
     from archivebox.core.models import ArchiveResult
 
