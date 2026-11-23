@@ -18,13 +18,23 @@
 #content .importers .form-card .actions>button[type=submit]{margin-top:0}
 .importers .failure-screens{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.importers .failure-screens figure{margin:0;max-width:640px}.importers .failure-screens figcaption{font-size:12px;margin-bottom:6px}.importers .failure-screens img{display:block;width:100%;max-height:400px;object-fit:contain;object-position:left top;border:1px solid #dce3eb;border-radius:6px}.importers td .failure-screens figure{width:240px}
 .importer-heading .muted{margin:0 0 16px;font-size:13px}
-.importer-properties{display:flex;flex-wrap:wrap;gap:12px 24px;margin:14px 0 0;padding:12px 0;border-block:1px solid #dce3eb}
-.importer-properties>div{display:flex;align-items:center;flex-wrap:wrap;gap:4px 7px;max-width:100%}
-.importer-properties dt{display:inline-flex;align-items:center;gap:5px}
+.importer-properties{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,.7fr) minmax(0,1.6fr);gap:16px 24px;margin:16px 0 0;padding:14px 0;border-block:1px solid #dce3eb}
+.importer-properties>div{min-width:0}
+.importer-properties dt{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;line-height:1.4}
 .importer-properties dt svg{width:15px;height:15px;flex:none}
-.importer-properties dd{min-width:0;max-width:100%}
-.importer-properties .tag-pill{max-width:100%;white-space:normal}
+.importer-properties dd{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 6px;margin:6px 0 0;font-size:14px;font-weight:500;line-height:1.4}
+.importer-properties :is(.tag-pill,.importer-property-value){display:inline-flex;align-items:center;min-height:28px;max-width:100%}
+.importer-properties .tag-pill{padding:3px 9px;font:inherit;white-space:normal}
+.importer-property-detail{flex-basis:100%;color:#64748b;font-size:12px;font-weight:400}
+#content .importer-property-detail a{text-underline-offset:2px}
 #content .importer-properties .tag-pill a.tag-link{color:inherit;text-decoration:none}
+@media(max-width:900px){
+    .importer-properties{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .importer-property-tags{grid-column:span 2}
+}
+@media(max-width:560px){
+    .importer-properties{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
+}
 .importer-history-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .importers .importer-history-heading h2{margin:0}
 .importers .importer-history-heading .actions{width:auto}

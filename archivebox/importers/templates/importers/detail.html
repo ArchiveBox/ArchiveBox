@@ -23,34 +23,39 @@
 <dl class="importer-properties">
   <div>
     <dt><svg aria-hidden="true"><use href="{{ icons }}#user"/></svg>Persona</dt>
-    <dd>{% if source.persona_id %}<span class="tag-pill"><a class="tag-link" href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }}</a></span>{% else %}Server defaults{% endif %}</dd>
-  </div>
-  {% if source.account.id or definition.auth == "persona" %}
-    <div>
-      <dt><svg aria-hidden="true"><use href="{{ icons }}#lock"/></svg>Account</dt>
-      <dd>{% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a Dry Run or import{% endif %}</dd>
-    </div>
-  {% endif %}
-  {% if settings_links %}
-    <div>
-      <dt><svg aria-hidden="true"><use href="{{ icons }}#link"/></svg>Settings</dt>
-      <dd>{% include "importers/settings_links.html" %}</dd>
-    </div>
-  {% endif %}
-  <div>
-    <dt><svg aria-hidden="true"><use href="{{ icons }}#calendar"/></svg>Schedule</dt>
-    <dd>{{ source.schedule|default:"Manual" }}{% if source.next_run_at %} · Next {{ source.next_run_at|date:"M j, H:i" }}{% elif not source.enabled %} · Paused{% endif %}</dd>
-  </div>
-  <div>
-    <dt><svg aria-hidden="true"><use href="{{ icons }}#database"/></svg>Batch size</dt>
-    <dd>{{ source.limit }}</dd>
+    <dd>
+      {% if source.persona_id %}
+        <span class="tag-pill"><a class="tag-link" href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }}</a></span>
+      {% else %}<span class="importer-property-value">Server defaults</span>{% endif %}
+      {% if source.account.id or definition.auth == "persona" %}
+        <span class="importer-property-detail">Account · {% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a run{% endif %}</span>
+      {% endif %}
+      {% if settings_links %}<span class="importer-property-detail">{% include "importers/settings_links.html" %}</span>{% endif %}
+    </dd>
   </div>
   <div>
     <dt><svg aria-hidden="true"><use href="{{ icons }}#folder"/></svg>Folder</dt>
-    <dd>{% if source.folder_id %}{% folder_display_name source.folder.name as folder_display %}<span class="tag-pill"><a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?folder={{ source.folder_id }}">{% if folder_display.0 %}{{ folder_display.0 }} {% endif %}{{ folder_display.1 }}</a></span>{% else %}Unfiled{% endif %}</dd>
+    <dd>
+      {% if source.folder_id %}
+        {% folder_display_name source.folder.name as folder_display %}
+        <span class="tag-pill"><a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?folder={{ source.folder_id }}">{% if folder_display.0 %}{{ folder_display.0 }} {% endif %}{{ folder_display.1 }}</a></span>
+      {% else %}<span class="importer-property-value">Unfiled</span>{% endif %}
+    </dd>
+  </div>
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#calendar"/></svg>Schedule</dt>
+    <dd>
+      <span class="importer-property-value">{{ source.schedule|default:"Manual"|capfirst }}</span>
+      {% if source.next_run_at %}<span class="importer-property-detail">Next {{ source.next_run_at|date:"M j, H:i" }}</span>
+      {% elif not source.enabled %}<span class="importer-property-detail">Paused</span>{% endif %}
+    </dd>
+  </div>
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#database"/></svg>Batch size</dt>
+    <dd><span class="importer-property-value">{{ source.limit }} item{{ source.limit|pluralize }}</span></dd>
   </div>
   {% if source_tags %}
-    <div>
+    <div class="importer-property-tags">
       <dt><svg aria-hidden="true"><use href="{{ icons }}#tag"/></svg>Tags</dt>
       <dd class="tag-pills-inline">{% for name, id in source_tags %}<span class="tag-pill" data-tag="{{ name }}" style="{{ name|tag_color_style }}">{% if id %}<a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?tags__id__exact={{ id }}">{{ name }}</a>{% else %}{{ name }}{% endif %}</span>{% endfor %}</dd>
     </div>
