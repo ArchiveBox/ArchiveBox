@@ -4,9 +4,12 @@
 <html lang="en">
     <head>
     {% include "core/typography.html" %}
+    {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
         <meta charset="utf-8">
         <title>{{title}}</title>
         <link rel="canonical" href="{{ url }}">
+        <link rel="original" href="{{ url }}">
+        <meta name="robots" content="noindex, follow">
         {% plugin_ui "snapshot_head" %}
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
@@ -245,13 +248,15 @@
                 white-space: nowrap;
             }
             .header-top .header-url { display: flex; gap: 0; padding: 0; }
-            .header-page-link, .header-page-metadata { display: contents; }
+            .header-page-link { display: contents; }
+            .header-page-metadata { display: flex; flex: 11 1 0; min-width: 0; align-items: center; gap: 6px; }
             .header-url-location { display: flex; align-items: center; flex: 1; min-width: 0; }
             .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; }
             .header-top .header-url-text { flex: 9 1 0; min-width: 40px; max-width: max-content; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
-            .header-title-text { flex: 11 1 0; min-width: 0; max-width: max-content; color: #efc9d8; font-size: 12px; }
-            .header-tags { display: block; flex: 0 0 auto; min-width: 0; max-width: 30%; }
+            .header-title-text { flex: 1 1 0; min-width: 0; max-width: max-content; color: #efc9d8; font-size: 12px; }
+            .header-tags { --snapshot-header-desktop-tags: 1; display: block; flex: 0 0 auto; min-width: 0; max-width: var(--snapshot-header-tag-budget, 40%); }
             .header-tags > summary { display: flex; align-items: center; gap: 4px; height: 20px; overflow: hidden; }
+            .header-top .header-tags > summary > .tag-pill { flex: none; }
             .header-tags .header-tags-more { flex: 0 0 auto; padding: 0 3px; font-size: 10px; }
             .header-tags [hidden] { display: none !important; }
             .header-tags > .header-tags-measuring > .tag-pill[hidden] { display: block !important; }
@@ -319,10 +324,9 @@
                 .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
                 .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
                 .header-title-text { flex: 0 1 auto; max-width: 50%; font-size: 12px; }
-                .header-tags { --snapshot-header-mobile-tags: 1; flex: 1 1 0; max-width: none; }
+                .header-tags { --snapshot-header-desktop-tags: 0; flex: 1 1 0; max-width: none; }
                 .header-tags > summary { justify-content: flex-end; }
                 .header-tags .snapshot-variants-list { max-width: calc(100cqi - 54px); }
-                .header-top .header-tags > summary > .tag-pill { flex: none; }
                 .header-text-dot { display: none; }
                 .header-url-actions { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; }
                 .header-capture-row { grid-column: 3; grid-row: 3; justify-content: flex-end; max-width: 45vw; }
@@ -392,10 +396,9 @@
             html.archivebox-ios-phone .header-top { display: grid; grid-template-columns: minmax(0, 1fr) 32px; column-gap: 6px; padding-right: 0 !important; }
             html.archivebox-ios-phone .header-top > .header-toggle { position: static; width: auto; min-height: 44px; margin-block: -5px; }
             html.archivebox-ios-phone .header-top .header-title-text { flex: 0 1 auto; max-width: 50%; }
-            html.archivebox-ios-phone .header-top .header-tags { --snapshot-header-mobile-tags: 1; flex: 1 1 0; max-width: none; }
+            html.archivebox-ios-phone .header-top .header-tags { --snapshot-header-desktop-tags: 0; flex: 1 1 0; max-width: none; }
             html.archivebox-ios-phone .header-top .header-tags > summary { justify-content: flex-end; }
             html.archivebox-ios-phone .header-top .header-tags .snapshot-variants-list { max-width: calc(100cqi - 54px); }
-            html.archivebox-ios-phone .header-top .header-tags > summary > .tag-pill { flex: none; }
             html.archivebox-ios-phone .header-top .header-nav { grid-template-columns: minmax(0, 1fr) auto !important; }
             html.archivebox-ios-phone .header-top .header-url,
             html.archivebox-ios-phone .header-top .header-url-location,
@@ -1295,7 +1298,7 @@
                             </a>
                             {% endif %}
                                 {% if not STATIC_EXPORT %}
-                                <a class="header-url-action header-url-download" href="{% snapshot_zip_url snapshot %}" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
+                                <button type="button" class="header-url-action header-url-download" data-zip-path="{% snapshot_url snapshot %}" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
                                 {% endif %}
                                     <span class="header-status" title="Snapshot output counts">
                                 {% if num_outputs or num_failures %}
@@ -1308,7 +1311,7 @@
                                 {% if not STATIC_EXPORT %}
                                     <span class="header-download-size"><span class="desktop-size">{{size}}</span><span class="mobile-size">{{size}}</span></span>
                                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M3 13v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
-                                </a>
+                                </button>
                                 {% endif %}
                                 </div>
                             </div>
@@ -1876,9 +1879,13 @@
                 const summary = document.querySelector('.header-tags > summary')
                 if (!summary) return
                 const details = summary.parentElement
+                const row = details.parentElement
+                const title = row.querySelector('.header-title-text')
+                const separators = row.querySelectorAll('.header-text-dot')
                 const pills = [...summary.querySelectorAll('.tag-pill')]
                 const counter = summary.querySelector('.header-tags-more')
                 let lastWidth
+                let lastDesktop
 
                 function showPills(count) {
                     for (const [index, pill] of pills.entries()) pill.hidden = index >= count
@@ -1888,18 +1895,27 @@
 
                 function fitPills(fontsReady = false) {
                     const style = getComputedStyle(summary)
-                    if (style.getPropertyValue('--snapshot-header-mobile-tags').trim() !== '1') {
-                        if (lastWidth !== undefined) showPills(Math.min(2, pills.length))
-                        lastWidth = undefined
-                        return
+                    const desktop = style.getPropertyValue('--snapshot-header-desktop-tags').trim() === '1'
+                    const rowWidth = row.clientWidth
+                    if (rowWidth === lastWidth && desktop === lastDesktop && !fontsReady) return
+                    lastWidth = rowWidth
+                    lastDesktop = desktop
+                    if (desktop) {
+                        const rowGap = parseFloat(getComputedStyle(row).columnGap) || 0
+                        const decorationWidth = [...separators].reduce((width, dot) => width + dot.getBoundingClientRect().width, 0)
+                            + rowGap * (row.childElementCount - 1)
+                        // Share the title/tag row 60/40 when both need space.
+                        // A short title lends its unused share without losing text.
+                        const budget = Math.max(rowWidth * 0.4, rowWidth - title.scrollWidth - decorationWidth)
+                        details.style.setProperty('--snapshot-header-tag-budget', `${budget}px`)
                     }
-                    const available = summary.clientWidth
-                    if (available === lastWidth && !fontsReady) return
-                    lastWidth = available
                     const gap = parseFloat(style.columnGap) || 0
+                    // The desktop disclosure is sized by its visible pills.
+                    // Expose all pills for one measurement of its width cap.
                     summary.classList.add('header-tags-measuring')
                     counter.hidden = false
                     counter.textContent = `+${pills.length}`
+                    const available = summary.clientWidth
                     const counterWidth = counter.getBoundingClientRect().width
                     const widths = pills.map(pill => pill.getBoundingClientRect().width)
                     const total = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1)
@@ -1918,7 +1934,7 @@
                 }
 
                 // Observe only the fixed metadata row, not the content we fit.
-                new ResizeObserver(() => fitPills()).observe(details.parentElement)
+                new ResizeObserver(() => fitPills()).observe(row)
                 document.fonts.ready.then(() => fitPills(true))
             }
 

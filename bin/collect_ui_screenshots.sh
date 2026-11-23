@@ -11,6 +11,7 @@ set -o pipefail
 export UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$REPO_DIR/bin${PYTHONPATH:+:$PYTHONPATH}"
 DATA_DIR="${UI_SCREENSHOT_DATA_DIR:-$REPO_DIR/data}"
 OUTPUT_DIR="${UI_SCREENSHOT_OUTPUT_DIR:-$REPO_DIR/docs/screenshots}"
 PUBLIC_OUTPUT_DIR="${UI_SCREENSHOT_PUBLIC_OUTPUT_DIR:-$REPO_DIR/publicsite/screenshots}"
@@ -123,7 +124,7 @@ PYSTOP
             if [[ -f "$DATA_DIR/index.sqlite3" ]]; then
                 if ! (
                     cd "$DATA_DIR"
-                    UI_SCREENSHOT_GENERATOR="$REPO_DIR/bin/generate_ui_screenshot_gallery.py" \
+                    UI_SCREENSHOT_GENERATOR="$REPO_DIR/bin/screenshot_gallery_helpers.py" \
                     UI_SCREENSHOT_CHROME_DIAGNOSTICS="$diagnostics_dir/chrome-lifecycle.json" \
                     UI_SCREENSHOT_NAVIGATION_DIAGNOSTICS="$diagnostics_dir/navigation.json" \
                     UI_SCREENSHOT_DATA_DIR="$DATA_DIR" \
@@ -196,7 +197,7 @@ else
 fi
 
 PLUGIN_SCREENSHOT_PLAN="$CAPTURE_ROOT/plugin-screenshots.json"
-uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan >"$PLUGIN_SCREENSHOT_PLAN"
+uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" plugin-plan >"$PLUGIN_SCREENSHOT_PLAN"
 PLUGIN_ENABLED_CONFIG=()
 while IFS= read -r enabled_config; do
     [[ -z "$enabled_config" ]] || PLUGIN_ENABLED_CONFIG+=("$enabled_config")
@@ -382,7 +383,7 @@ classify_missing_plugin_output() {
         UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_EXPECT_PLUGIN="$plugin" UI_SCREENSHOT_DEFAULT_VIEW="$default_view" \
             uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c '
 import os
-from archivebox.core.library_screenshots import native_plugin_output_unavailable
+from screenshot_gallery_helpers import native_plugin_output_unavailable
 raise SystemExit(not native_plugin_output_unavailable(
     os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"],
     default_view=os.environ["UI_SCREENSHOT_DEFAULT_VIEW"] == "1",
@@ -418,7 +419,7 @@ PYUNAVAILABLE
 run_gallery_add() {
     local plugin_names="$1" source_url="$2"
     cd "$DATA_DIR"
-    exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" \
+    exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" \
         capture-add "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" "$plugin_names" "$source_url"
 }
 
@@ -468,9 +469,9 @@ add_supplementary_template_capture() {
         SCREENSHOT_SNAPSHOT_HEADER=collapsed \
         SCREENSHOT_WIDTH=1600 \
         SCREENSHOT_HEIGHT=1000 \
-        node "$REPO_DIR/bin/take_screenshot.js" "$snapshot_view_url" "$CAPTURE_ROOT/${plugin_names}-output-discovery.png" >"$discovery_report"
+        node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$snapshot_view_url" "$CAPTURE_ROOT/${plugin_names}-output-discovery.png" >"$discovery_report"
 
-    uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate "$discovery_report" "$snapshot_view_path"
+    uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" validate "$discovery_report" "$snapshot_view_path"
 
     local supplementary_plugin output_plugin discovered_preview_url capture_mode
     for supplementary_plugin in "${supplementary_plugins[@]}"; do
@@ -543,7 +544,7 @@ if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; pri
         uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" "$SCOPED_GALLERY_OPT_INS" <<'PYIMPORTERS'
 import json, sys
 from pathlib import Path
-from archivebox.importers.gallery import prepare
+from screenshot_gallery_helpers import prepare_importers
 
 def mark_unavailable(name):
     print(f"::warning title=Native importer screenshot unavailable::{name}", file=sys.stderr)
@@ -551,7 +552,7 @@ def mark_unavailable(name):
         print(name, file=outcomes)
 
 plan = json.load(open(sys.argv[2]))
-print("\n".join(prepare(sys.argv[1], plan["importer_views"], capture_opt_ins=plan["capture_opt_ins"] if sys.argv[4] == "1" else None,
+print("\n".join(prepare_importers(sys.argv[1], plan["importer_views"], capture_opt_ins=plan["capture_opt_ins"] if sys.argv[4] == "1" else None,
                         on_unavailable=mark_unavailable if sys.argv[3] else None)))
 PYIMPORTERS
     ) >"$CAPTURE_ROOT/importer-views.txt"
@@ -565,7 +566,7 @@ if [[ -n "$PLUGIN_VIEWS" ]]; then
         CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
         SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
         SCREENSHOT_LOGIN_USERNAME="$USERNAME" SCREENSHOT_LOGIN_PASSWORD="$PASSWORD" \
-        node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
+        node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 fi
 
 while IFS='|' read -r config_name config_path config_source config_mode; do
@@ -732,7 +733,7 @@ PY
                     SCREENSHOT_SCROLL_SELECTOR='label:has(#archivebox-setup-archivedotorg:checked)' \
                     SCREENSHOT_REQUIRE_IN_FRAME_SELECTOR='label:has(#archivebox-setup-archivedotorg:checked)' \
                     SCREENSHOT_HOST_RESOLVER_RULES="$SETUP_HOST_RESOLVER_RULES" \
-                    node "$REPO_DIR/bin/take_screenshot.js" "$SETUP_BASE_URL/admin/login/?next=/admin/" "$screenshot_path" >"$capture_dir/report.json"
+                    node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$SETUP_BASE_URL/admin/login/?next=/admin/" "$screenshot_path" >"$capture_dir/report.json"
                 url="$SETUP_BASE_URL/admin/"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
@@ -760,7 +761,7 @@ PY
                     SCREENSHOT_VARIANTS_JSON="$live_variants" \
                     SCREENSHOT_REQUIRE_LIVE_PROGRESS=1 \
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
-                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                    node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
             fi
@@ -793,7 +794,7 @@ PY
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     SCREENSHOT_WAIT_SELECTOR="$wait_for_selector" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
-                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json" || capture_status=$?
+                    node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$url" "$screenshot_path" >"$capture_dir/report.json" || capture_status=$?
                 if [[ "$capture_status" != 0 ]]; then
                     if [[ "$capture_status" == 42 && -n "$UNAVAILABLE_OUT" ]] && \
                         uv run --no-project python -c 'import json,sys; raise SystemExit(sys.argv[2] not in json.load(open(sys.argv[1]))["owned_views"])' \
@@ -805,7 +806,7 @@ PY
                 fi
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
-                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" validate \
                     "$capture_dir/report.json" "$expected_path"
             fi
         fi
@@ -818,7 +819,7 @@ PY
         UI_SCREENSHOT_NAME="$name" UI_SCREENSHOT_URL="$url" UI_SCREENSHOT_SOURCE="$source" \
             UI_SCREENSHOT_FILENAME="$filename" UI_SCREENSHOT_PROFILE="$profile" \
             UI_SCREENSHOT_TIMING_REPORT="$timing_report_path" \
-            uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" append \
+            uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" append \
                 "$MANIFEST_FILE" "$OUTPUT_DIR/$filename"
     done <<<"$CAPTURE_PROFILES"
 
@@ -834,14 +835,14 @@ PY
             SCREENSHOT_WIDTH=1600 \
             SCREENSHOT_HEIGHT=1000 \
             SCREENSHOT_COLLAPSE_FILTERS=1 \
-            node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
+            node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 
         (
             cd "$DATA_DIR"
             UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
                 UI_LIBRARY_WEBHOOK_IDS_FILE="$CAPTURE_ROOT/webhook-ids.json" \
                 uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import json, os; from pathlib import Path; from archivebox.api.webhook_screenshots import prepare; ids=prepare(os.environ["UI_LIBRARY_ADMIN_URL"], os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"]); Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).write_text(json.dumps(ids))'
+                'import json, os; from pathlib import Path; from screenshot_gallery_helpers import prepare_webhooks; ids=prepare_webhooks(os.environ["UI_LIBRARY_ADMIN_URL"], os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"]); Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).write_text(json.dumps(ids))'
         )
         echo "[*] Capturing Hacker News and current top stories with automatic tag and summary plugins"
         (
@@ -849,7 +850,7 @@ PY
             OPENCODE_ENABLED=True UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_EVIDENCE_DIR="$CAPTURE_ROOT" \
                 UI_SCREENSHOT_AI_MODEL="${UI_SCREENSHOT_AI_MODEL:-openai/gpt-5.4-mini}" \
                 uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from archivebox.core.library_screenshots import prepare; prepare(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
+                'import os; from screenshot_gallery_helpers import prepare_library; prepare_library(os.environ["UI_LIBRARY_EVIDENCE_DIR"], model=os.environ["UI_SCREENSHOT_AI_MODEL"])'
         )
         while IFS= read -r ai_view; do
             [[ -z "$ai_view" ]] || VIEWS+=("$ai_view")
@@ -863,7 +864,7 @@ PY
         SITE_EXPORT_PORT="$(uv run --no-sync --project "$REPO_DIR" python -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
         (
             cd "$DATA_DIR"
-            exec uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/serve_ui_screenshot_exports.py" "$SITE_EXPORT_PORT" \
+            exec uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/screenshot_gallery_helpers.py" serve-exports "$SITE_EXPORT_PORT" \
                 --directory "$CAPTURE_ROOT/site-exports"
         ) >"$CAPTURE_ROOT/site-export-server.log" 2>&1 &
         SITE_EXPORT_SERVER_PID=$!
@@ -878,7 +879,7 @@ PY
                 UI_SITE_EXPORT_BASE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/" \
                 CREATE_API_TOKEN="$CREATE_API_TOKEN" \
                 CREATE_WEBHOOK="$CREATE_WEBHOOK" \
-                node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME" "$gallery_phase"
+                node "$REPO_DIR/bin/screenshot_gallery_helpers.js" setup "$ADMIN_BASE_URL" "$USERNAME" "$gallery_phase"
             if [[ "$gallery_phase" == prepare ]]; then
                 # The real UI has warmed process-local Domains metadata before
                 # the foreground capture. Begin verification in a fresh serving
@@ -914,7 +915,7 @@ PY
             UI_LIBRARY_ADMIN_URL="$ADMIN_BASE_URL" UI_LIBRARY_USERNAME="$USERNAME" UI_LIBRARY_PASSWORD="$PASSWORD" \
                 UI_LIBRARY_WEBHOOK_VIEWS_FILE="$CAPTURE_ROOT/webhook-views.txt" UI_LIBRARY_WEBHOOK_IDS_FILE="$CAPTURE_ROOT/webhook-ids.json" \
                 uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import json, os; from pathlib import Path; from archivebox.api.webhook_screenshots import gallery_entries, verify_actions; base=os.environ["UI_LIBRARY_ADMIN_URL"]; ids=json.loads(Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).read_text()); verify_actions(base, os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"], ids); Path(os.environ["UI_LIBRARY_WEBHOOK_VIEWS_FILE"]).write_text("\n".join(gallery_entries(base, ids))+"\n")'
+                'import json, os; from pathlib import Path; from screenshot_gallery_helpers import gallery_entries, verify_actions; base=os.environ["UI_LIBRARY_ADMIN_URL"]; ids=json.loads(Path(os.environ["UI_LIBRARY_WEBHOOK_IDS_FILE"]).read_text()); verify_actions(base, os.environ["UI_LIBRARY_USERNAME"], os.environ["UI_LIBRARY_PASSWORD"], ids); Path(os.environ["UI_LIBRARY_WEBHOOK_VIEWS_FILE"]).write_text("\n".join(gallery_entries(base, ids))+"\n")'
         )
         while IFS= read -r webhook_view; do
             [[ -z "$webhook_view" ]] || VIEWS+=("$webhook_view")
@@ -999,7 +1000,7 @@ PY
             SCREENSHOT_SNAPSHOT_HEADER=expanded \
             SCREENSHOT_WIDTH=1600 \
             SCREENSHOT_HEIGHT=1000 \
-            node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
+            node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_PLAN="$PLUGIN_SCREENSHOT_PLAN" UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
             'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); overrides=json.load(open(os.environ["UI_SCREENSHOT_PLAN"]))["overrides"]; print("\n".join("{}\t{}\t{}".format(output["plugin"], output["outputPath"], "wait-replay:microbial ballistics" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"] if output["plugin"] not in overrides))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
@@ -1011,7 +1012,7 @@ PY
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
         if [[ -n "$UNAVAILABLE_OUT" ]]; then
-            uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+            uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" validate \
                 "$SNAPSHOT_DISCOVERY_REPORT" "$LIVE_SNAPSHOT_VIEW_PATH"
             absent_default_outputs="$CAPTURE_ROOT/absent-default-outputs.txt"
             uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$SNAPSHOT_DISCOVERY_REPORT" <<'PYABSENT' >"$absent_default_outputs"
@@ -1033,7 +1034,7 @@ PYABSENT
         # Report malformed partitioning as capture failure, never as an empty
         # process substitution and a best-effort gallery.
         supplementary_recipes="$CAPTURE_ROOT/supplementary-recipes.txt"
-        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/assemble_screenshot_gallery.py" recipes \
+        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/screenshot_gallery_helpers.py" recipes \
             "$PLUGIN_SCREENSHOT_PLAN" "$SPLIT_PUBLIC" >"$supplementary_recipes"
         while IFS='|' read -r example_plugins example_url; do
             [[ -z "$example_plugins" ]] && continue
@@ -1051,14 +1052,14 @@ render_outcomes=()
 if [[ "$MAX_VIEWS" == 0 && -z "$PLUGIN_VIEWS" && "$SPLIT_PUBLIC" != 1 ]]; then
     if [[ -n "$UNAVAILABLE_OUT" ]]; then
         outcome_report="$CAPTURE_ROOT/recipe-outcomes.json"
-        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/assemble_screenshot_gallery.py" whole-outcomes \
+        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/screenshot_gallery_helpers.py" whole-outcomes \
             "$MANIFEST_FILE" "$UNAVAILABLE_OUT" "$outcome_report"
         render_outcomes=("$outcome_report")
     fi
 else
     export UI_SCREENSHOT_ALLOW_PARTIAL=1
 fi
-uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
+uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" build \
     "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html" ${render_outcomes[@]+"${render_outcomes[@]}"}
 
 if [[ -n "$MANIFEST_OUT" ]]; then

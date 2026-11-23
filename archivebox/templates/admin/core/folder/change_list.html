@@ -1,6 +1,8 @@
 {% extends "admin/change_list.html" %}
+{% load static core_tags %}
 {% block object-tools-items %}
-<li><a href="{% url 'admin:core_folder_export' 'csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">CSV</a></li>
-<li><a href="{% url 'admin:core_folder_export' 'jsonl' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">JSONL</a></li>
+<script type="module" src="{% static 'exports.js' %}"></script>
+<li>{% url 'admin:core_folder_export' 'csv' as export_url %}{% snapshot_export_action export_url 'csv' as action %}<a tabindex="0" role="link" data-export-format="csv" data-export-route="{{ action.route }}" data-export-query="{{ request.GET.urlencode }}">CSV</a></li>
+<li>{% url 'admin:core_folder_export' 'jsonl' as export_url %}{% snapshot_export_action export_url 'jsonl' as action %}<a tabindex="0" role="link" data-export-format="jsonl" data-export-route="{{ action.route }}" data-export-query="{{ request.GET.urlencode }}">JSONL</a></li>
 {{ block.super }}
 {% endblock %}

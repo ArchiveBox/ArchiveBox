@@ -7,6 +7,7 @@
 {% if results %}
 <div class="results">
 <table id="result_list">
+{% if not cl.retained_rows %}
 {% if cl.opts.model_name == "snapshot" %}
 <colgroup>
   <col>
@@ -39,13 +40,14 @@
 </th>{% endfor %}
 </tr>
 </thead>
+{% endif %}
 <tbody>
 {% for result in results %}
 {% if result.form and result.form.non_field_errors %}
     <tr><td colspan="{{ result|length }}">{{ result.form.non_field_errors }}</td></tr>
 {% endif %}
 {% with row_obj=cl.result_list|index:forloop.counter0 %}
-<tr{% if row_obj and row_obj.search_rank is not None %} class="search-rank-{{ row_obj.search_rank }}"{% endif %}>{% for item in result %}{{ item }}{% endfor %}</tr>
+<tr{% if cl.opts.model_name == "snapshot" %} data-snapshot-id="{{ row_obj.pk }}"{% endif %}{% if row_obj and row_obj.search_rank is not None %} class="search-rank-{{ row_obj.search_rank }}"{% endif %}>{% for item in result %}{{ item }}{% endfor %}</tr>
 {% endwith %}
 {% endfor %}
 </tbody>

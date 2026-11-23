@@ -31,8 +31,8 @@ jobs:
 
       - name: Apply reviewed diagnostic selector to the collector
         run: |
-          git apply --check bin/diagnose_protected_canva.patch
-          git apply bin/diagnose_protected_canva.patch
+          git apply --check .github/fixtures/diagnose_protected_canva.patch
+          git apply .github/fixtures/diagnose_protected_canva.patch
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -190,7 +190,7 @@ jobs:
       - name: Summarize protected Canva with allowlisted fields
         if: '!cancelled()'
         run: |
-          uv run --no-sync python bin/summarize_canva_gallery.py "$RUNNER_TEMP/canva-private"
+          uv run --no-sync python bin/screenshot_gallery_helpers.py summarize-canva "$RUNNER_TEMP/canva-private"
 
       - name: Upload sanitized Canva evidence only
         if: '!cancelled()'

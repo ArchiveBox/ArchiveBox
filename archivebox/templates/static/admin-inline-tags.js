@@ -188,6 +188,14 @@
         document.addEventListener('keydown', handleInputKeydown);
         document.addEventListener('focusin', handleInputFocus);
         document.addEventListener('focusout', handleInputBlur);
+        document.addEventListener('archivebox:tag-deleted', function(event) {
+            const id = String(event.detail);
+            document.querySelectorAll(`.tag-editor-inline .tag-pill[data-tag-id="${CSS.escape(id)}"]`).forEach(pill => {
+                const editor = pill.closest('.tag-editor-inline');
+                setTags(editor, parseTags(editor).filter(tag => String(tag.id) !== id));
+                pill.remove();
+            });
+        });
     }
 
     if (document.readyState === 'loading') {

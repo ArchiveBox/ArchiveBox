@@ -3,7 +3,7 @@ from collections import Counter
 from django.core.management.base import BaseCommand, CommandError
 
 from archivebox.core.models import Snapshot
-from archivebox.services.collection_dedupe import deduplicate_sealed
+from archivebox.core.collection_dedupe import deduplicate_sealed
 
 
 class Command(BaseCommand):

@@ -7,10 +7,12 @@ from urllib.parse import quote
 
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
-from django.contrib.admin.options import ActionLocation, IS_POPUP_VAR
+from django.contrib.admin.options import ActionLocation, IS_POPUP_VAR, TO_FIELD_VAR
+from django.contrib.admin.utils import unquote
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import OperationalError, connection
+from django.db import OperationalError, connection, router, transaction
 from django.http import HttpRequest, HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse, QueryDict
 from django.db.models import CharField, Prefetch
 from django.db.models.functions import Cast
@@ -192,6 +194,65 @@ class TagAdmin(BaseModelAdmin):
             self.log_change(request, tag, [{"changed": {"fields": ["name"]}}])
         return JsonResponse({"name": tag.name})
 
+    def _can_delete_tags(self, request, tags):
+        _, _, perms_needed, protected = self.get_deleted_objects(tags, request)
+        if perms_needed:
+            raise PermissionDenied
+        if protected:
+            self.message_user(request, "The selected tags are still in use by protected records.", level=messages.ERROR)
+        return not protected
+
+    def delete_view(self, request, object_id, extra_context=None):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        wants_json = request.headers.get("Accept") == "application/json"
+        to_field = request.POST.get(TO_FIELD_VAR, request.GET.get(TO_FIELD_VAR))
+        if to_field and not self.to_field_allowed(request, to_field):
+            raise DisallowedModelAdminToField(f"The field {to_field} cannot be referenced.")
+        with transaction.atomic(using=router.db_for_write(self.model)):
+            tag = self.get_object(request, unquote(object_id), to_field)
+            if not self.has_delete_permission(request, tag):
+                raise PermissionDenied
+            if tag is None:
+                if wants_json:
+                    return JsonResponse({"error": "Tag not found."}, status=404)
+                return self._get_obj_does_not_exist_redirect(request, self.opts, object_id)
+            if not self._can_delete_tags(request, [tag]):
+                if wants_json:
+                    return JsonResponse({"error": "The tag is still in use by protected records."}, status=409)
+                return self._redirect_to_changelist()
+            tag_pk = tag.pk
+            obj_id = tag.serializable_value(to_field or self.opts.pk.attname)
+            name = str(tag)
+            self.log_deletions(request, [tag])
+            self.delete_model(request, tag)
+
+        if wants_json:
+            return JsonResponse({"deleted": True})
+        response = self.response_delete(request, name, obj_id)
+        path, _, query = request.POST.get("return_to", "").partition("?")
+        if IS_POPUP_VAR in request.POST:
+            return response
+        if path in {reverse("admin:core_snapshot_changelist"), reverse("admin:grid")}:
+            filters = QueryDict(query, mutable=True)
+            for key in ("tag", "tags__id__exact"):
+                if filters.get(key) == str(tag_pk):
+                    filters.pop(key)
+                    filters.pop("p", None)
+            return HttpResponseRedirect(f"{path}?{filters.urlencode()}" if filters else path)
+        if not self.has_change_permission(request) and self.has_view_permission(request):
+            return self._redirect_to_changelist()
+        return response
+
+    @admin.action(permissions=["delete"], description="Delete selected tags")
+    def delete_selected(self, request, queryset):
+        with transaction.atomic(using=queryset.db):
+            count = len(queryset)
+            if count and self._can_delete_tags(request, queryset):
+                self.log_deletions(request, queryset)
+                self.delete_queryset(request, queryset)
+                self.message_user(request, f"Deleted {count} {'tag' if count == 1 else 'tags'}.", level=messages.SUCCESS)
+
     def get_fieldsets(self, request: HttpRequest, obj: Tag | None = None):
         return self.fieldsets if obj else self.add_fieldsets
 
@@ -346,6 +407,7 @@ class TagAdmin(BaseModelAdmin):
                 "tag_search_api_url": reverse("api-1:search_tags"),
                 "tag_similar_cards": similar_tag_cards,
                 "tag_similar_query": current_name,
+                "delete_with_post": True,
                 "snapshot_export_urls": build_snapshot_export_urls({"tag": obj.pk}) if obj else {},
             },
         )

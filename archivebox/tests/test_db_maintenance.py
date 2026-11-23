@@ -1,15 +1,29 @@
 """Planner maintenance refreshes useful statistics without rescanning idle history."""
 
 import pytest
+import sqlite3
 from django.db import connection
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
+@pytest.fixture
+def empty_database(tmp_path):
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    with use_archivebox_db(tmp_path):
+        yield
+
+
+@pytest.mark.parametrize("queried", [False, True], ids=["unqueried", "queried"])
+def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_database, queried):
     from archivebox.misc.db import run_db_optimize
 
     statements = []
+    # Before 3.46, optimize considers only tables used by this connection.
+    # The newer all-tables bit also covers unqueried tables; older SQLite
+    # ignores that bit while retaining its useful queried-table maintenance.
+    expects_analysis = queried or sqlite3.sqlite_version_info >= (3, 46, 0)
     with connection.cursor() as cursor:
         cursor.execute("CREATE TABLE maintenance_items (id INTEGER PRIMARY KEY, category TEXT, label TEXT)")
         cursor.execute("CREATE INDEX maintenance_category ON maintenance_items(category)")
@@ -17,6 +31,9 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
             "INSERT INTO maintenance_items(category, label) VALUES (%s, %s)",
             [(f"category-{index % 10}", f"item-{index}") for index in range(200)],
         )
+        if queried:
+            cursor.execute("SELECT id FROM maintenance_items WHERE category = %s LIMIT 1", ("category-0",))
+            assert cursor.fetchone() is not None
         cursor.execute("PRAGMA analysis_limit")
         original_limit = cursor.fetchone()[0]
         cursor.execute("PRAGMA busy_timeout")
@@ -26,8 +43,13 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
         run_db_optimize()
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
-            initial_count = int(cursor.fetchone()[0].split()[0])
-        assert initial_count >= 200
+            initial_stat = cursor.fetchone()
+        if expects_analysis:
+            assert initial_stat is not None
+            initial_count = int(initial_stat[0].split()[0])
+            assert initial_count >= 200
+        else:
+            assert initial_stat is None
 
         statements.clear()
         run_db_optimize()
@@ -41,12 +63,22 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
         run_db_optimize()
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
-            assert int(cursor.fetchone()[0].split()[0]) > initial_count * 10
+            grown_stat = cursor.fetchone()
+            if expects_analysis:
+                assert grown_stat is not None
+                assert int(grown_stat[0].split()[0]) > initial_count * 10
+            else:
+                assert grown_stat is None
             cursor.execute("CREATE INDEX maintenance_label ON maintenance_items(label)")
         run_db_optimize()
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_label'")
-            assert int(cursor.fetchone()[0].split()[0]) >= 20000
+            new_index_stat = cursor.fetchone()
+            if expects_analysis:
+                assert new_index_stat is not None
+                assert int(new_index_stat[0].split()[0]) >= 20000
+            else:
+                assert new_index_stat is None
             cursor.execute("SELECT COUNT(*) FROM maintenance_items")
             assert cursor.fetchone()[0] == 20000
             cursor.execute("PRAGMA analysis_limit")

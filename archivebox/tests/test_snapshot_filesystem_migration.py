@@ -160,7 +160,7 @@ PREVIOUS_FS_VERSION = "0.9.4"
 def test_rescan_moves_hyphenated_previous_layout_dirs_into_db_paths(snapshot):
     """`update --rescan` makes disk match what request handlers read from the DB."""
     from archivebox.cli.archivebox_update import process_all_db_snapshots
-    from archivebox.cli.rescan import rescan_snapshots
+    from archivebox.core.rescan import rescan_snapshots
 
     current_dir, crawl_dir, legacy_dir, legacy_crawl_dir = _store_previous_layout_in_hyphenated_dirs(snapshot)
 
@@ -185,7 +185,7 @@ def test_hyphenated_previous_layout_serves_until_lazy_migration_moves_it(snapsho
     the existing scheduled maintenance migrates it to the canonical path."""
     from archivebox.cli.archivebox_update import run_scheduled_maintenance
     from archivebox.core.routes_util import get_snapshot_host
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
     from archivebox.tests.conftest import WEB_TEST_HOST
     from archivebox.tests.test_search import consume_streaming_response
 

@@ -171,7 +171,7 @@ def test_snapshot_metadata_http_exports_project_only_exported_fields(serialized_
     snapshot.permissions = "public"
     snapshot.save(update_fields=["permissions"])
 
-    # Derive the exact legacy HTTP body without changing the backup record shape.
+    # Preserve the exact quoted HTTP export bytes without changing backup records.
     queryset = Snapshot.objects.filter(pk=snapshot.pk)
     with CaptureQueriesContext(connection) as backup_queries:
         backup_record = next(iter_snapshot_json(queryset))
@@ -181,7 +181,7 @@ def test_snapshot_metadata_http_exports_project_only_exported_fields(serialized_
     exported = {field: backup_record[field] for field in EXPORT_FIELDS}
     expected = io.StringIO()
     if format == "csv":
-        writer = csv.DictWriter(expected, fieldnames=EXPORT_FIELDS)
+        writer = csv.DictWriter(expected, fieldnames=EXPORT_FIELDS, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         writer.writerow(exported)
     else:

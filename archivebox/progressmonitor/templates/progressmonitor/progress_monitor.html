@@ -1098,6 +1098,9 @@
 
     let pollInterval = null;
     let pollDelayMs = 1000;
+    let latestMetrics = null;
+    let latestCollection = null;
+    let renderedMetricsSample = null;
     // Hook and capture timings come from the server's clock. Measure elapsed
     // time against it, not the browser's, which may run ahead or behind.
     let serverClockOffsetMs = 0;
@@ -2007,43 +2010,59 @@
         return dot;
     }
 
-    function metricBadge(name, text, tooltip, stale = false) {
+    function metricBadge(name, text, tooltip, stale = false, sampleTimes = []) {
         const el = document.getElementById(`metric-${name}`);
         if (!el) return;
         el.querySelector('.metric-text').textContent = text;
         el.title = tooltip;
         el.setAttribute('aria-label', `${text}. ${tooltip}`);
         el.classList.toggle('stale', stale);
+        if (sampleTimes.some(Boolean)) el.dataset.sampleTimes = JSON.stringify(sampleTimes.filter(Boolean));
     }
+
+    function updateSampleAge(event) {
+        const badge = event.target.closest('.metric-badge');
+        if (!badge?.dataset.sampleTimes) return;
+        const times = JSON.parse(badge.dataset.sampleTimes);
+        let index = 0;
+        badge.title = badge.title.replace(/Sampled \d+ seconds ago/g, () => `Sampled ${Math.max(0, Math.round(serverNowMs() / 1000 - times[index++]))} seconds ago`);
+        badge.setAttribute('aria-label', `${badge.querySelector('.metric-text').textContent}. ${badge.title}`);
+    }
+    monitor.addEventListener('pointerover', updateSampleAge);
+    monitor.addEventListener('focusin', updateSampleAge);
 
     function updateMetrics(data) {
         const telemetry = document.getElementById('progress-telemetry');
         telemetry.hidden = !data.is_admin;
         if (!data.is_admin) return;
         const metrics = data.metrics;
-        const shortNumber = value => Number(value.toFixed(1)).toLocaleString();
-        const gb = (value, compact = false) => value == null ? '—' : value >= 1e12 ? `${shortNumber(value / 1e12)} TB` : `${Number((value / 1e9).toFixed(compact ? (value < 10e9 ? 1 : 0) : 2))} GB`;
-        const age = ts => ts ? Math.max(0, Math.round(Date.now() / 1000 - ts)) : null;
-        const sampled = ts => ts ? `Sampled ${age(ts)} seconds ago; refreshes about once a minute.` : 'Waiting for a background sample.';
+        const age = ts => ts ? Math.max(0, Math.round(serverNowMs() / 1000 - ts)) : null;
         const stale = !metrics || age(metrics.sampled_at) > 180;
-        const rate = metrics?.throughput;
-        metricBadge('throughput', rate ? `${rate.last_hour} URLs/hr${rate.last_hour ? ` ~${shortNumber(60 / rate.last_hour)}min/ea` : ''}` : 'URLs/hr —',
-            rate ? `${rate.last_30_minutes} finished in the last 30 minutes. Rolling hour for this view; minutes/snapshot is the completion interval, not individual capture duration. Partial captures count; cancelled snapshots without a completion time do not. ${sampled(metrics.sampled_at)}` : sampled(null), stale);
         const system = metrics?.system || {};
         const systemStale = !system.sampled_at || age(system.sampled_at) > 180;
+        const sample = [metrics?.sampled_at, system.sampled_at, data.collection?.sampled_at, stale, systemStale].join(':');
+        // Samples change about once a minute. Keep their DOM and formatting
+        // between capture polls; refresh relative age when a badge is inspected.
+        if (sample === renderedMetricsSample) return;
+        renderedMetricsSample = sample;
+        const shortNumber = value => Number(value.toFixed(1)).toLocaleString();
+        const gb = (value, compact = false) => value == null ? '—' : value >= 1e12 ? `${shortNumber(value / 1e12)} TB` : `${Number((value / 1e9).toFixed(compact ? (value < 10e9 ? 1 : 0) : 2))} GB`;
+        const sampled = ts => ts ? `Sampled ${age(ts)} seconds ago; refreshes about once a minute.` : 'Waiting for a background sample.';
+        const rate = metrics?.throughput;
+        metricBadge('throughput', rate ? `${rate.last_hour} URLs/hr${rate.last_hour ? ` ~${shortNumber(60 / rate.last_hour)}min/ea` : ''}` : 'URLs/hr —',
+            rate ? `${rate.last_30_minutes} finished in the last 30 minutes. Rolling hour for this view; minutes/snapshot is the completion interval, not individual capture duration. Partial captures count; cancelled snapshots without a completion time do not. ${sampled(metrics.sampled_at)}` : sampled(null), stale, [metrics?.sampled_at]);
         const available = system.container_memory_available_bytes == null ? system.memory_available_bytes : Math.min(system.memory_available_bytes, system.container_memory_available_bytes);
         metricBadge('resources', `${system.load_avg && system.cpu_count > 0 ? `${Math.round(100 * system.load_avg[0] / system.cpu_count)}%` : '—'} · RAM ${gb(available, true)}`,
-            `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. Percentage is 1-minute load / core count, not CPU utilization; 100% means load equals the number of cores. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale);
+            `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. Percentage is 1-minute load / core count, not CPU utilization; 100% means load equals the number of cores. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale, [system.sampled_at]);
         const io = system.io;
         metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${shortNumber(io.mean_io_ms)}ms`}` : 'I/O —',
-            io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
+            io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale, [system.sampled_at]);
         const archiveBytes = data.collection?.bytes;
-        const archiveSize = archiveBytes == null ? '' : archiveBytes >= 1024 ** 4
-            ? `${(Math.ceil(archiveBytes * 10 / 1024 ** 4) / 10).toFixed(1)} TB`
-            : `${Math.ceil(archiveBytes / 1024 ** 3)} GB`;
+        const archiveUnit = archiveBytes > 0 ? Math.min(4, Math.floor(Math.log(archiveBytes) / Math.log(1024))) : 0;
+        const archiveSize = archiveBytes == null ? '' : `${shortNumber(archiveBytes / 1024 ** archiveUnit)} ${['B', 'KB', 'MB', 'GB', 'TB'][archiveUnit]}`;
         const freeSpace = `(${gb(system.disk_free_bytes, true)} free)`;
         metricBadge('storage', `${archiveSize || '—'} ${freeSpace}`,
-            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)}`, systemStale);
+            `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)}`, systemStale, [data.collection?.sampled_at, system.sampled_at]);
         const freeSpaceLabel = document.createElement('small');
         freeSpaceLabel.textContent = freeSpace;
         document.querySelector('#metric-storage .metric-text').replaceChildren(`${archiveSize || '—'} `, freeSpaceLabel);
@@ -2052,6 +2071,14 @@
     function updateProgress(data) {
         const serverMs = Date.parse(data.server_time || '');
         if (Number.isFinite(serverMs)) serverClockOffsetMs = serverMs - Date.now();
+        if (data.is_admin) {
+            latestMetrics = data.metrics || latestMetrics;
+            latestCollection = data.collection || latestCollection;
+            data.metrics = latestMetrics;
+            data.collection = latestCollection;
+        } else {
+            latestMetrics = latestCollection = renderedMetricsSample = null;
+        }
         updateMetrics(data);
         if (pollMode === 'summary' && data.is_admin) {
             // On a cold server the first request starts the shared sampler.
@@ -2150,7 +2177,6 @@
     }
 
     const progressEndpoint = new URL(monitor.dataset.progressEndpoint || '/progress.json', window.location.href);
-    progressEndpoint.searchParams.set('metrics', '1');
     progressEndpoint.searchParams.set('poll', '1');
     const detailPanel = monitor.querySelector('.progress-content');
     let onScreen = false;
@@ -2185,6 +2211,8 @@
         const omittedTree = !detailsVisible();
         const requestedBucket = expandedSnapshotBucket;
         const requestUrl = new URL(progressEndpoint);
+        const sampledAt = Math.min(latestMetrics?.sampled_at || 0, latestCollection?.sampled_at || 0);
+        if (!sampledAt || serverNowMs() / 1000 - sampledAt >= 60) requestUrl.searchParams.set('metrics', '1');
         if (backgroundPolling) requestUrl.searchParams.set('background', '1');
         if (omittedTree) requestUrl.searchParams.set('tree', '0');
         else if (requestedBucket) requestUrl.searchParams.set('more_snapshots', requestedBucket);

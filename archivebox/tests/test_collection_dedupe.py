@@ -14,7 +14,7 @@ from archivebox.core.models import Snapshot
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 
 @pytest.mark.django_db(transaction=True)

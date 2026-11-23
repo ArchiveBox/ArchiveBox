@@ -119,7 +119,7 @@ def test_run_snapshot_seals_descendant_when_crawl_max_size_is_reached(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com",

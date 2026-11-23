@@ -56,7 +56,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
 import django
 django.setup()
 from archivebox.crawls.models import Crawl
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 crawl = Crawl.objects.get()
 runner = CrawlRunner(crawl, show_progress=False)
 try:

@@ -7,12 +7,12 @@ import pytest
 import yaml
 
 from archivebox.config.common import get_config
-from archivebox.core.library_screenshots import library_capture_plugins
+from screenshot_gallery_helpers import library_capture_plugins
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
 from archivebox.plugins.discovery import get_enabled_plugins
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 
 class CaptureFailed(Exception):

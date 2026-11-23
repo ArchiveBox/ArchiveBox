@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from django.utils import timezone
 from rich.console import Console
+
+logger = logging.getLogger(__name__)
 
 
 def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str | None = None) -> dict[str, int]:
@@ -60,8 +64,8 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
                 if type(count) is not int or count < 0:
                     raise ValueError("Recovery command must return a nonnegative processes_orphaned count")
                 cleaned["plugin_processes_orphaned"] += count
-            except (OSError, ValueError, subprocess.SubprocessError) as error:
-                recovery_console.print(f"Plugin {plugin} recovery failed: {error}", style="red", markup=False)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                logger.exception("Plugin %s recovery failed", plugin)
 
     running_hook_processes = Process.objects.filter(
         archiveresult__snapshot_id=OuterRef("pk"),
@@ -80,11 +84,13 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
 
     # Broken lock repair: QUEUED rows with retry_at=NULL are invisible to the
     # queue. Set only the scheduling field so the runner owns the next tick.
-    cleaned["crawls_queued_without_retry_at"] = Crawl.objects.filter(
-        status=Crawl.StatusChoices.QUEUED,
-        retry_at__isnull=True,
-        **crawl_filter,
-    ).update(retry_at=now, modified_at=now)
+    # A completed collection can have huge Crawl payloads and no queued rows.
+    # SQLite's all-one-status statistics favor a table scan once retry_at is
+    # included. Check the covering status index before acquiring a write lock
+    # and reading those payload pages; do not cache this across recovery passes.
+    queued_crawls = Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED, **crawl_filter)
+    if queued_crawls.exists():
+        cleaned["crawls_queued_without_retry_at"] = queued_crawls.filter(retry_at__isnull=True).update(retry_at=now, modified_at=now)
     cleaned["snapshots_queued_without_retry_at"] = Snapshot.objects.filter(
         status=Snapshot.StatusChoices.QUEUED,
         retry_at__isnull=True,
@@ -167,26 +173,29 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
     # lease. Recovery only unlocks scheduling; the runner owns any subsequent
     # lifecycle transition, including sealing rows whose children/results
     # are already final.
-    recoverable_started_crawls = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED).filter(
-        Q(retry_at__isnull=True) | Q(retry_at__gt=now),
-        **crawl_filter,
-    )
+    # Earlier extension recovery may have reopened a crawl in this same pass.
+    # Check now, rather than reusing a status sample taken before those writes.
+    started_crawls = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED, **crawl_filter)
+    if started_crawls.exists():
+        recoverable_started_crawls = started_crawls.filter(
+            Q(retry_at__isnull=True) | Q(retry_at__gt=now),
+        )
 
-    due_started_crawls = recoverable_started_crawls.annotate(has_due_child=Exists(due_child_snapshots)).filter(has_due_child=True)
-    cleaned["crawls_started_with_due_snapshots"] = due_started_crawls.update(retry_at=now, modified_at=now)
-    future_started_crawls = recoverable_started_crawls.annotate(
-        has_active_child=Exists(active_child_snapshots),
-        has_due_child=Exists(due_child_snapshots),
-        next_child_retry=next_future_child_retry,
-    ).filter(has_active_child=True, has_due_child=False)
-    cleaned["crawls_started_waiting_on_future_snapshots"] = future_started_crawls.update(
-        retry_at=Coalesce("next_child_retry", Value(now)),
-        modified_at=now,
-    )
-    finished_started_crawls = recoverable_started_crawls.annotate(has_active_child=Exists(active_child_snapshots)).filter(
-        has_active_child=False,
-    )
-    cleaned["crawls_started_without_active_snapshots"] = finished_started_crawls.update(retry_at=now, modified_at=now)
+        due_started_crawls = recoverable_started_crawls.annotate(has_due_child=Exists(due_child_snapshots)).filter(has_due_child=True)
+        cleaned["crawls_started_with_due_snapshots"] = due_started_crawls.update(retry_at=now, modified_at=now)
+        future_started_crawls = recoverable_started_crawls.annotate(
+            has_active_child=Exists(active_child_snapshots),
+            has_due_child=Exists(due_child_snapshots),
+            next_child_retry=next_future_child_retry,
+        ).filter(has_active_child=True, has_due_child=False)
+        cleaned["crawls_started_waiting_on_future_snapshots"] = future_started_crawls.update(
+            retry_at=Coalesce("next_child_retry", Value(now)),
+            modified_at=now,
+        )
+        finished_started_crawls = recoverable_started_crawls.annotate(has_active_child=Exists(active_child_snapshots)).filter(
+            has_active_child=False,
+        )
+        cleaned["crawls_started_without_active_snapshots"] = finished_started_crawls.update(retry_at=now, modified_at=now)
 
     repair_messages = {
         "processes_stale_running": (

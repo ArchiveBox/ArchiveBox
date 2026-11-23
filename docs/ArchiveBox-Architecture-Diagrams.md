@@ -3,7 +3,7 @@
 This page is a map of the current execution and persistence paths. The implementation lives primarily in:
 
 - `archivebox/cli/` for CLI entry points
-- `archivebox/services/runner.py` for crawl and snapshot execution
+- `archivebox/workers/runner.py` for crawl and snapshot execution
 - `archivebox/crawls/models.py` for the `Crawl` model and its atomic queue transitions
 - `archivebox/core/models.py` for `Snapshot`, `ArchiveResult`, and Snapshot queue transitions
 - `archivebox/services/` for bus event projectors

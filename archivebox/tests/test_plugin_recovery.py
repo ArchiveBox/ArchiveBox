@@ -11,6 +11,51 @@ from archivebox.plugins.discovery import get_plugin_catalog
 from archivebox.tests.conftest import cli_env, resolve_abxpkg_chrome_env, run_archivebox_cmd, wait_for_pid_to_disappear
 
 
+def test_recovery_logs_real_plugin_failure_with_traceback(initialized_archive):
+    script = """
+import json
+import logging
+import os
+from archivebox.config.constants import CONSTANTS
+from archivebox.core.recovery_util import recover_orchestrator_state
+
+(CONSTANTS.USERS_DIR / 'recovery-test' / 'crawls').mkdir(parents=True, exist_ok=True)
+# Invalid provider selection fails in the real abxpkg CLI on every platform.
+# A missing/broken package library can instead produce a successful no-op
+# recovery when Chrome has no available Node runtime.
+os.environ['ABXPKG_BINPROVIDERS'] = 'unsupported-recovery-provider'
+records = []
+class Capture(logging.Handler):
+    def emit(self, record):
+        records.append(record)
+handler = Capture()
+logger = logging.getLogger('archivebox.core.recovery_util')
+logger.addHandler(handler)
+try:
+    result = recover_orchestrator_state(include_plugins=True)
+finally:
+    logger.removeHandler(handler)
+assert result['plugin_processes_orphaned'] == 0, result
+assert len(records) == 1, [(record.name, record.getMessage()) for record in records]
+record = records[0]
+assert record.levelno == logging.ERROR
+assert record.getMessage() == 'Plugin chrome recovery failed'
+assert record.exc_info is not None and record.exc_info[2] is not None
+assert record.exc_info[0].__name__ == 'CalledProcessError'
+assert record.exc_info[1].returncode == 2
+assert 'unknown provider name(s): unsupported-recovery-provider' in record.exc_info[1].stderr, record.exc_info[1].stderr
+print(json.dumps(result))
+"""
+    result = run_archivebox_cmd(
+        ["shell", "-c", script],
+        cwd=initialized_archive,
+        env=cli_env(),
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout.splitlines()[-1])["plugin_processes_orphaned"] == 0
+
+
 def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, cached_abxpkg_lib_dir):
     assert get_plugin_catalog().command("chrome", "recover") is not None
     plugin = get_plugin_catalog()["chrome"]

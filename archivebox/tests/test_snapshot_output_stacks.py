@@ -586,6 +586,8 @@ def test_snapshot_header_tags_overflow_without_hiding_url(snapshot, live_server,
             visible_items = summary.locator(".tag-pill:visible, .header-tags-more:visible")
             last = visible_items.last.bounding_box()
             assert abs(last["x"] + last["width"] - bounds["x"] - bounds["width"]) <= 1
+            if width >= 768:
+                assert summary.evaluate("el => el.clientWidth <= el.closest('.header-page-metadata').clientWidth * 0.4 + 1")
             if len(tag_names) == 2 and width >= 768:
                 assert pills.count() == 2
             if pills.count() < len(tag_names):
@@ -622,9 +624,10 @@ def test_mobile_snapshot_header_fits_short_title_tags_and_keeps_output_toggle_se
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
     machine.save(update_fields=["config"])
     snapshot.permissions = "public"
-    snapshot.title = "PyPy"
-    snapshot.save(update_fields=["permissions", "title"])
-    tags = ("code", "interpreter", "python", "runtime", "reference", "tools", "compiler", "stdlib", "programming")
+    snapshot.title = "Download"
+    snapshot.url = "https://example.com/OpenWebTextCorpus"
+    snapshot.save(update_fields=["permissions", "title", "url"])
+    tags = ("dataset-curation", "deduplication", "documents", "language", "modeling", "nlp", "openwebtext", "training")
     snapshot.tags.set([Tag.objects.create(name=name) for name in tags])
 
     with sync_playwright() as playwright:
@@ -632,19 +635,25 @@ def test_mobile_snapshot_header_fits_short_title_tags_and_keeps_output_toggle_se
             executable_path=str(browser_runtime["chrome_binary"]),
             args=browser_runtime["chrome_args"],
         )
-        page = browser.new_page(viewport={"width": 1280, "height": 844})
+        page = browser.new_page(viewport={"width": 1062, "height": 844})
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
         summary = page.locator(".header-tags > summary")
         pills = summary.locator(".tag-pill:visible")
-        expect(pills).to_have_count(2)
+        expect(pills.nth(2)).to_be_visible()
+        assert page.locator(".header-title-text").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+        assert page.locator(".header-url-text").evaluate("el => el.scrollWidth <= el.clientWidth + 1")
+        counter = summary.locator(".header-tags-more")
+        page.set_viewport_size({"width": 2200, "height": 844})
+        expect(pills).to_have_count(len(tags))
+        expect(counter).to_be_hidden()
         page.set_viewport_size({"width": 440, "height": 844})
         if native_app:
             page.evaluate(
                 "document.documentElement.classList.add('archivebox-native-app', 'archivebox-ios-app', 'archivebox-ios-phone')",
             )
+        page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
         expect(pills.nth(2)).to_be_visible()
         assert all(pill.evaluate("el => el.scrollWidth <= el.clientWidth + 1") for pill in pills.all())
-        counter = summary.locator(".header-tags-more")
         expect(counter).to_have_text(f"+{len(tags) - pills.count()}")
         assert counter.is_visible()
 
@@ -1205,6 +1214,8 @@ def test_responsive_header_and_expanded_stack_scroll_with_page(
             == f"https://web.archive.org/web/{snapshot.url}"
         )
         assert page.locator("#snapshot-output-browser").is_visible()
+        assert page.locator('a[href*="download=zip"]').count() == 0
+        assert actions.get_by_role("button", name="Download snapshot ZIP", exact=True).count() == 1
         with page.expect_download() as download_info:
             actions.locator(".header-url-download .header-status").click()
         archive_path = tmp_path / "snapshot.zip"

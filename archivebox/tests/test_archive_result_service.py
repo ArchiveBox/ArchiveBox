@@ -14,6 +14,7 @@ from abx_dl.orchestrator import create_bus
 from abx_dl.output_files import OutputFile
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
 from archivebox.tests.conftest import install_real_binary
+from archivebox.tests.conftest import _set_test_source_pythonpath
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -77,6 +78,7 @@ def _run_shipped_snapshot_hook(
         "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
         **(env or {}),
     }
+    _set_test_source_pythonpath(hook_env)
     assert prepare_script_exec_plan(hook_path, env=hook_env), f"Could not prepare shipped hook {hook_path}"
     output_dir = Path(snapshot.output_dir) / plugin
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -148,7 +150,7 @@ def _run_real_title_crawl(url: str, lib_dir: Path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner, run_install
+    from archivebox.workers.runner import CrawlRunner, run_install
 
     run_install(plugin_names=["title"])
     crawl = Crawl.objects.create(
@@ -665,7 +667,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
     from archivebox.machine.models import Binary, NetworkInterface
     from archivebox.machine.models import Process as MachineProcess
     from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
-    from archivebox.services.runner import run_install
+    from archivebox.workers.runner import run_install
     from abx_dl.services.process_service import ProcessService as DlProcessService
 
     lib_dir = cached_abxpkg_lib_dir

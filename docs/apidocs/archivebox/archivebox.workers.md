@@ -23,6 +23,8 @@ archivebox.workers.management
 :maxdepth: 1
 
 archivebox.workers.models
+archivebox.workers.resource_admission
+archivebox.workers.runner
 archivebox.workers.http_server
 archivebox.workers.apps
 archivebox.workers.admin

@@ -84,7 +84,7 @@ def test_provider_hook_env_obeys_real_dependency_graph(admin_user, tmp_path):
     from archivebox.machine.models import Machine
     from archivebox.personas.models import Persona
     from archivebox.plugins.discovery import get_plugin_catalog
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     machine = Machine.current()
     machine.config = dict.fromkeys((*PROVIDER_KEYS, "EXA_SEARCH_API_KEY"), "synthetic-machine-marker")

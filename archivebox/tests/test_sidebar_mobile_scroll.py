@@ -69,7 +69,7 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
                 expect(toggle).to_have_attribute("aria-expanded", "true")
                 row_sel = ".folder-row" if mode == "folders" else ".library-entry"
                 rows = tree.locator(row_sel)
-                counts = (50, 100, 106) if mode == "domains" else (100, 107 if mode == "folders" else 106)
+                counts = {"folders": (50, 107), "tags": (100, 106), "domains": (50, 100, 106)}[mode]
                 expect(rows).to_have_count(counts[0])
                 box = nav.bounding_box()
                 tree_metrics = tree.evaluate("el => [el.clientHeight, el.scrollHeight]")

@@ -189,7 +189,7 @@ def test_replay_server_timing_preserves_saved_response(live_server, captures):
     original = (snapshot.output_dir / path).read_bytes()
     with requests.Session() as session:
         session.trust_env = False
-        response = session.get(live_server.url + url.path, headers={"Host": url.netloc}, timeout=10)
+        response = session.get(live_server.url + url.path + "?raw=1", headers={"Host": url.netloc}, timeout=10)
     assert response.status_code == 200
     assert response.content == original
     assert response.headers["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
@@ -235,6 +235,76 @@ def test_memento_existing_routes(client, captures):
     response = fetch(client, output_url)
     assert response.status_code == 200
     assert response["Memento-Datetime"] == http_date(first.downloaded_at.timestamp())
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("dated", [False, True])
+@pytest.mark.parametrize("representation", ["detail", "raw", "viewer", "redirect", "card"])
+def test_capture_representations_link_original_canonical(client, captures, dated, representation):
+    snapshot = captures[0]
+    if not dated:
+        snapshot.downloaded_at = None
+        snapshot.save(update_fields=["downloaded_at"])
+    output = "singlefile/singlefile.html"
+    urls = {
+        "detail": capture_url(snapshot),
+        "raw": build_snapshot_url(str(snapshot.id), output) + "?raw=1",
+        "viewer": build_snapshot_url(str(snapshot.id), output) + "?preview=1",
+        "redirect": capture_url(snapshot) + "/" + output,
+        "card": build_snapshot_url(str(snapshot.id), f"_card/{snapshot.archiveresult_set.get(plugin='singlefile').pk}"),
+    }
+    response = fetch(client, urls[representation])
+    assert response.status_code == (302 if representation == "redirect" else 200)
+    links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(response.get("Link", ""))}
+    assert links["canonical"] == links["original"] == snapshot.url
+    assert links["timemap"] == capture_url(snapshot) + "?format=link"
+    assert urlsplit(links["timegate"]).path == "/archive/" + quote(snapshot.url, safe=":/")
+    if dated and representation != "redirect":
+        assert response["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
+    else:
+        assert "Memento-Datetime" not in response
+    response.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawler_raw_memento_links_do_not_load_manifests(client, captures):
+    snapshot = captures[0]
+    path = "dom/output.html"
+    output = snapshot.output_dir / path
+    output.parent.mkdir()
+    content = b"<!doctype html><title>Saved DOM</title><p>Original saved bytes</p>"
+    output.write_bytes(content)
+    with CaptureQueriesContext(connection) as queries:
+        response = fetch(client, build_snapshot_url(str(snapshot.id), path), HTTP_USER_AGENT="ChatGPT-User/1.0")
+    assert response.status_code == 200
+    assert response["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
+    links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(response["Link"])}
+    assert links["original"] == links["canonical"] == snapshot.url
+    assert links["timemap"] == capture_url(snapshot) + "?format=link"
+    assert "enclosure" not in links
+    assert not any('"core_archiveresult"' in query["sql"] for query in queries)
+    assert b"".join(response.streaming_content) == content
+    response.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_wacz_viewer_has_capture_headers_but_bundle_has_no_capture_date(client, captures, archive_files):
+    snapshot = captures[0]
+    url = build_snapshot_url(str(snapshot.id), "webrecorder/capture.wacz")
+    viewer = fetch(client, url + "?preview=1")
+    assert viewer.status_code == 200
+    assert viewer["Content-Type"].startswith("text/html")
+    assert viewer["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
+    links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(viewer["Link"])}
+    assert links["canonical"] == links["original"] == snapshot.url
+    assert links["timemap"] == capture_url(snapshot) + "?format=link"
+    download = fetch(client, url + "?raw=1")
+    assert download.status_code == 200
+    assert "Memento-Datetime" not in download
+    links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(download["Link"])}
+    assert links["canonical"] == links["original"] == snapshot.url
+    assert b"".join(download.streaming_content) == archive_files["capture.wacz"]
+    download.close()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -355,6 +425,8 @@ def test_memento_excludes_application_and_auxiliary_files(client, captures):
         response = fetch(client, build_snapshot_url(str(snapshot.id), path) + "?files=1")
         assert response.status_code == 200
         assert "Memento-Datetime" not in response
+        links = {link["rel"]: link["url"] for link in requests.utils.parse_header_links(response["Link"])}
+        assert links["canonical"] == links["original"] == snapshot.url
     response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/missing.html"))
     assert response.status_code == 404
     assert "Memento-Datetime" not in response
@@ -420,7 +492,7 @@ def test_raw_output_enclosures_only_resolve_archive_paths(client, captures, arch
     try:
         sys.setprofile(observe)
         with CaptureQueriesContext(connection) as queries:
-            response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/singlefile.html"))
+            response = fetch(client, build_snapshot_url(str(snapshot.id), "singlefile/singlefile.html") + "?raw=1")
     finally:
         sys.setprofile(previous_profile)
     assert response.status_code == 200
@@ -527,7 +599,7 @@ def test_timemap_projects_paths_and_preserves_legacy_manifests(captures, archive
         response = timemap_response(request, snapshot)
     assert response.status_code == 200
     assert response.content.decode() == ",\n".join(links) + "\n"
-    assert response["Link"] == ", ".join(links[:3])
+    assert response["Link"] == ", ".join(links[:4])
     assert response["Cache-Control"] == "private, no-store"
     assert response["Content-Type"].startswith("application/link-format")
     assert len(queries) == 2

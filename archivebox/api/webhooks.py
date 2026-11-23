@@ -113,7 +113,7 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
         if method in {"FOLDER_ENTERED", "FOLDER_LEFT"}:
             hooks = hooks.filter(Q(folder_id=metadata["folder_id"]) | Q(any_folder=True))
         if method in TAG_EVENTS:
-            hooks = hooks.filter(Q(tag_id=metadata["tag_id"]) | Q(any_tag=True))
+            hooks = hooks.filter(relationship__in=["*", str(metadata["tag_id"])])
         if method in RELATIONSHIP_EVENTS:
             hooks = hooks.filter(relationship__in=["", metadata.get("relationship", "")])
         hooks = list(hooks)

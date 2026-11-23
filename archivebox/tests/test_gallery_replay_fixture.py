@@ -5,20 +5,21 @@ import zipfile
 import pytest
 from warcio.archiveiterator import ArchiveIterator
 
-from archivebox.core.gallery_replay_fixture import prepare
+from screenshot_gallery_helpers import prepare_folder
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 
 @pytest.mark.django_db(transaction=True)
 def test_gallery_replay_fixture(admin_client, tmp_path):
-    from archivebox.core.models import Folder, Snapshot
+    from archivebox.core.exports import get_export_queryset
+    from archivebox.core.models import Folder
     from archivebox.domains.exports import write_wacz_site
 
-    fixture = prepare()
-    snapshots = Snapshot.objects.filter(crawl_id=fixture["crawl_id"])
-    folder = Folder.objects.create(name=fixture["title"])
+    fixture = prepare_folder()
+    folder = Folder.objects.get(pk=fixture["folder_id"])
+    snapshots = get_export_queryset({"folder": str(folder.pk)}, public_only=False)
+    assert set(map(str, snapshots.values_list("crawl_id", flat=True))) == {fixture["crawl_id"]}
     assert snapshots.count() == 4
-    Folder.move_snapshots(snapshots, folder.pk, notify=False)
     response = admin_client.get("/admin/core/snapshot/", {"folder": str(folder.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert b"A digital field journal" in response.content
@@ -41,7 +42,7 @@ def test_gallery_replay_fixture(admin_client, tmp_path):
 def test_clone_fixture_preserves_existing_recording_and_fills_linked_page(crawl, tmp_path):
     from pathlib import Path
 
-    from archivebox.core.gallery_replay_fixture import prepare_site_navigation
+    from screenshot_gallery_helpers import prepare_site_navigation
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.domains.exports import write_wacz_site
 
@@ -53,7 +54,7 @@ def test_clone_fixture_preserves_existing_recording_and_fills_linked_page(crawl,
     old = snapshot.output_dir / "archivewebpage/archivewebpage.wacz"
     old.parent.mkdir(parents=True)
     # A valid already saved recording is preserved across repeated fallback calls.
-    from archivebox.core.gallery_replay_fixture import write_recording
+    from screenshot_gallery_helpers import write_recording
 
     write_recording(old, homepage, "Field Notes", (directory / "index.html").read_bytes())
     old_bytes = old.read_bytes()

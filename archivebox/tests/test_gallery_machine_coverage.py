@@ -11,7 +11,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-GENERATOR = ROOT / "bin/generate_ui_screenshot_gallery.py"
+GENERATOR = ROOT / "bin/screenshot_gallery_helpers.py"
 
 
 @pytest.mark.parametrize("missing_profile", [None, "all", "desktop", "tablet", "mobile"])

@@ -230,6 +230,25 @@ class RuleQuery:
         self.cache[key] = query
         return query
 
+    def named_folders(self, value, stack, *, public=False):
+        from archivebox.core.models import Folder
+        from archivebox.search.language import literal_pattern
+
+        by_id = {folder.pk: folder for folder in self.folders.values()}
+        candidates = Folder.tree(public=True) if public else by_id.values()
+        pattern = literal_pattern(value)
+        result = Q(pk__in=[])
+        for folder in candidates:
+            # An ancestor in a breadcrumb is not an extra match. A parent's
+            # rules and limit determine which descendants belong to that folder.
+            matches = str(folder.pk) == value or pattern.search(folder.name)
+            if not matches and " / " in value:
+                label = " / ".join(folder.path_parts(by_id))
+                matches = any(match.end() > len(label) - len(folder.name) for match in pattern.finditer(label))
+            if matches:
+                result |= self.folder(folder.pk, stack)
+        return result
+
     def advanced_term(self, field, lookup, text, stack):
         """Decode the builder's typed values, then apply its existing allowlist and cleaning."""
         spec = self.specs.get(field, {})

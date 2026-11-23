@@ -7,16 +7,13 @@ on:
     branches: [dev]
     paths:
       - '.github/workflows/screenshots.yml'
-      - 'bin/take_screenshot.js'
-      - 'bin/setup_ui_screenshot_data.js'
+      - 'bin/screenshot_gallery_helpers.js'
       - 'archivebox/api/**'
       - 'archivebox/domains/**'
-      - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'
       - 'bin/collect_ui_screenshots.sh'
-      - 'bin/assemble_screenshot_gallery.py'
-      - 'bin/generate_ui_screenshot_gallery.py'
+      - 'bin/screenshot_gallery_helpers.py'
       - 'archivebox/templates/**'
       - 'archivebox/core/templatetags/core_tags.py'
   schedule:
@@ -95,6 +92,13 @@ jobs:
           enable-cache: false
       - name: Install locked gallery dependencies
         run: uv sync --no-cache --frozen
+      # All public recipes use this same managed Chrome bootstrap.
+      - name: Restore verified Noble font archive
+        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/noble-font-archive
+          key: noble-font-v1-0.9.45-8-496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
       - name: Install the matching Chrome sandbox helper
         run: |
           # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
@@ -104,6 +108,8 @@ jobs:
               sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
             fi
           fi
+          sudo apt-get update
+          bash .github/ci_stage_noble_font.sh --lazy
           chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
           import json
           import os
@@ -141,9 +147,7 @@ jobs:
           echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
 
       - name: Install screenshot display dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb xauth poppler-utils
+        run: sudo apt-get install -y xvfb xauth poppler-utils
 
       - name: Capture native public recipe
         run: |
@@ -174,7 +178,7 @@ jobs:
         env:
           PUBLIC_RECIPE: ${{ matrix.lane }}
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py pack "$PUBLIC_RECIPE" \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py pack "$PUBLIC_RECIPE" \
             "$RUNNER_TEMP/public-recipe-capture.jsonl" "$RUNNER_TEMP/public-recipe-png" "$RUNNER_TEMP/public-recipe-bundle" \
             --unavailable "$RUNNER_TEMP/public-recipe-unavailable.txt"
 
@@ -403,7 +407,7 @@ jobs:
       - name: Validate and package the native base captures
         if: inputs.plugin_revision == ''
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py pack base \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py pack base \
             "$RUNNER_TEMP/base-capture.jsonl" publicsite/screenshots "$RUNNER_TEMP/base-bundle" \
             --unavailable "$RUNNER_TEMP/base-unavailable.txt"
 
@@ -545,14 +549,14 @@ jobs:
           path: ${{ runner.temp }}/gallery-captures
       - name: Assemble and render the complete gallery
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py merge \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py merge \
             "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl" \
             --recipe-outcomes-out "$RUNNER_TEMP/recipe-outcomes.json"
           # All required views still pass strict rendering. Only the exact
           # plugin-owned views explicitly reported as unavailable may be absent.
           mkdir -p publicsite/screenshots
           cp "$RUNNER_TEMP/screenshots/"*.png publicsite/screenshots/
-          env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/generate_ui_screenshot_gallery.py build \
+          env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/screenshot_gallery_helpers.py build \
             "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html \
             "$RUNNER_TEMP/recipe-outcomes.json"
 

@@ -19,7 +19,7 @@ from archivebox.core.models import Snapshot, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Binary, Machine
 from archivebox.personas.models import Persona
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 from archivebox.workers.models import RETRY_AT_MAX
 
 pytestmark = pytest.mark.django_db

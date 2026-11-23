@@ -1,11 +1,3 @@
-function setSidebarEntryExport(link, menu) {
-  const base = link.dataset.exportBase ??= link.getAttribute('href');
-  if (!menu.dataset.entryValue) return;
-  const url = new URL(base, location.href);
-  url.searchParams.set(menu.dataset.entryFilter, menu.dataset.entryValue);
-  link.href = url.href;
-}
-
 window.archiveboxRefreshLibraryExportLinks = doc => {
   document.querySelectorAll('a[data-export-format]').forEach(link => {
     const menu = link.closest('.folder-menu');
@@ -14,24 +6,21 @@ window.archiveboxRefreshLibraryExportLinks = doc => {
       ? doc.getElementById(menu.id)?.querySelector(format)
       : doc.querySelector('.snapshot-export-links:not(.snapshot-export-menu) ' + format);
     if (nextLink) {
-      link.setAttribute('href', nextLink.getAttribute('href'));
-      if (menu?.dataset.entryFilter) {
-        link.dataset.exportBase = nextLink.getAttribute('href');
-        setSidebarEntryExport(link, menu);
-      }
+      link.dataset.exportRoute = nextLink.dataset.exportRoute;
+      link.dataset.exportQuery = nextLink.dataset.exportQuery;
     } else if (menu?.closest('.folder-row')) {
-      // This branch may have been loaded independently with sidebar pagination.
-      // Only q and search_mode change during a streamed result refresh.
+      // Independently paginated branches retain their scope during streamed search.
       const currentView = doc.getElementById('snapshot-export-menu-sidebar')?.querySelector(format);
       if (!currentView) return;
-      const url = new URL(link.href);
-      const next = new URL(currentView.getAttribute('href'), location.href);
+      const query = new URLSearchParams(link.dataset.exportQuery);
+      const next = new URLSearchParams(currentView.dataset.exportQuery);
       for (const key of ['q', 'search_mode']) {
-        if (next.searchParams.has(key)) url.searchParams.set(key, next.searchParams.get(key));
-        else url.searchParams.delete(key);
+        if (next.has(key)) query.set(key, next.get(key));
+        else query.delete(key);
       }
-      link.href = url.href;
+      link.dataset.exportQuery = query.toString();
     }
+    if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);
   });
   document.querySelectorAll('[data-sidebar-mode-link]').forEach(link => {
     const next = doc.querySelector('[data-sidebar-mode-link="' + link.dataset.sidebarModeLink + '"]');
@@ -67,7 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = button.closest('.folder-row');
       const label = picker?.value === parentId ? picker.selectedOptions[0]?.text :
         row?.dataset.folderId === parentId ? row.querySelector('.folder-link')?.title : null;
-      for (const option of Array.from(parent.options).slice(1)) option.remove();
+      for (const option of Array.from(parent.options)) {
+        if (option.value && !option.dataset.pickerCommand) option.remove();
+      }
       if (parentId && label) window.ArchiveBoxPicker.selectChoice(parent, parentId, label);
       parent.dataset.pickerExclude = button.dataset.id || '';
       document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
@@ -77,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else dialog.setAttribute('aria-describedby', subtitle.id);
       dialog.querySelector('.folder-form-error').textContent = '';
       dialog.showModal();
-      (moving ? parentPicker.input : folderForm.elements.name).focus();
+      (moving ? parent : folderForm.elements.name).focus();
       const kind = dialog.querySelector('#folder-kind');
       kind.disabled = true;
       folderForm.querySelector('[type=submit]').disabled = true;
@@ -495,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!entry) return;
         menu.setAttribute('aria-label', entry.dataset.name);
         menu.dataset.entryValue = entry.dataset.filterValue;
-        exports.forEach(link => setSidebarEntryExport(link, menu));
+        exports.forEach(link => {if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);});
         const rename = menu.querySelector('[data-entry-rename]');
         if (rename) rename.href = entry.dataset.renameUrl;
         const merge = menu.querySelector('[data-sidebar-tag-merge]');
@@ -504,7 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!action) continue;
           const url = entry.dataset[key];
           action.hidden = !url;
-          if (url) action.href = url;
+          if (action.form) action.form.action = url || '';
+          else if (url) action.href = url;
           else action.removeAttribute('href');
         }
         if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);
@@ -918,6 +910,34 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPage(more, true);
     }, 25);
   }
+  const deleteTagForm = sidebar.querySelector('#library-tag-delete-form');
+  deleteTagForm?.addEventListener('submit', async event => {
+    const menu = deleteTagForm.closest('.folder-menu');
+    const tagId = menu.dataset.entryValue;
+    deleteTagForm.elements.return_to.value = location.pathname + location.search;
+    const filters = new URLSearchParams(location.search);
+    if (['tag', 'tags__id__exact'].some(key => filters.get(key) === tagId)) return;
+    event.preventDefault();
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      const response = await fetch(deleteTagForm.action, {
+        method: 'POST',
+        body: new FormData(deleteTagForm),
+        headers: {Accept: 'application/json'},
+        credentials: 'same-origin',
+      });
+      if (!response.ok || !(await response.json()).deleted) throw new Error('Could not delete tag.');
+      menu.hidePopover();
+      document.dispatchEvent(new CustomEvent('archivebox:tag-deleted', {detail: tagId}));
+      status.textContent = 'Tag deleted.';
+      searchSidebar();
+    } catch {
+      status.textContent = 'Could not delete tag.';
+    } finally {
+      button.disabled = false;
+    }
+  });
   search.addEventListener('input', () => {
     if (sidebarQuery || search.value.trim()) searchSidebar();
   });
@@ -1026,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   try {desktopHidden = localStorage.getItem('archivebox.sidebar-hidden') === 'true';} catch (_) {}
   function viewportChanged() {
+    const reopenToggle = document.querySelector('.folder-sidebar-reopen');
     if (mobileViewport.matches) clearSidebarDwell();
     const hidden = mobileViewport.matches ? mobileCollapsed : desktopHidden;
     // The mobile CSS owns the breakpoint. Preserve its state on desktop so a
@@ -1049,14 +1070,15 @@ document.addEventListener('DOMContentLoaded', () => {
       try {localStorage.setItem('archivebox.sidebar-hidden', 'true');} catch (_) {}
     }
     viewportChanged();
-    if (!mobileViewport.matches) reopenToggle.focus();
+    if (!mobileViewport.matches) document.querySelector('.folder-sidebar-reopen').focus();
   });
   function showDesktopSidebar() {
     desktopHidden = false;
     try {localStorage.setItem('archivebox.sidebar-hidden', 'false');} catch (_) {}
     viewportChanged();
   }
-  reopenToggle.addEventListener('click', () => {
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.folder-sidebar-reopen')) return;
     showDesktopSidebar();
     mobileToggle.focus();
   });
@@ -1067,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Compact cards retain their two-pill cap. The native table fits actual
   // one-line pill widths to the shared Title + Tags space.
   const cleanupTagRows = [];
+  let refreshSearchTags;
   function initializeTagRows() {
     cleanupTagRows.splice(0).forEach(cleanup => cleanup());
     const table = form?.querySelector('#result_list');
@@ -1172,7 +1195,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function scheduleFit() {
       if (!frame) frame = requestAnimationFrame(fitTableTags);
     }
-    form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
+    const bindings = new Map();
+    function bindPills(pills) {
       const editor = pills.closest('.tag-editor-inline');
       const cell = pills.closest('td.field-tags_inline');
       const inTable = cell && cell.closest('table') === table;
@@ -1189,10 +1213,25 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.addEventListener('focusin', update);
         editor.addEventListener('focusout', update);
       }
-      cleanupTagRows.push(() => observer.disconnect());
+      bindings.set(pills, () => observer.disconnect());
       updateCompactBadges(row);
-    });
-    if (rows.length) {
+    }
+    form?.querySelectorAll('.tag-pills-inline').forEach(bindPills);
+    cleanupTagRows.push(() => bindings.forEach(disconnect => disconnect()));
+    refreshSearchTags = added => {
+      for (const [pills, disconnect] of bindings) {
+        if (!pills.isConnected) {
+          disconnect();
+          bindings.delete(pills);
+        }
+      }
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (!rows[i].pills.isConnected) rows.splice(i, 1);
+      }
+      for (const row of added) row.querySelectorAll('.tag-pills-inline').forEach(bindPills);
+      if (table && rows.length) scheduleFit();
+    };
+    if (table) {
       let lastWidth;
       const observer = new ResizeObserver(([entry]) => {
         const width = entry.contentRect.width;
@@ -1258,8 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') clearSidebarDwell();
   });
-  function initializeSnapshotDragging() {
-    form?.querySelectorAll('input.action-select').forEach(checkbox => {
+  function initializeSnapshotDragging(root = form) {
+    root?.querySelectorAll('input.action-select').forEach(checkbox => {
       const row = checkbox.closest('tr,.card');
       if (!row) return;
       row.draggable = true;
@@ -1402,7 +1441,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initializeDropTargets(sidebar.querySelectorAll('.folder-drop-target'));
   let initializedForm;
-  window.archiveboxInitLibraryRows = () => {
+  window.archiveboxInitLibraryRows = added => {
+    if (added && form === initializedForm) {
+      refreshSearchTags?.(added);
+      for (const row of added) {
+        initializeSnapshotDragging(row);
+        window.ArchiveBoxPicker.initialize(row);
+      }
+      return;
+    }
+    viewportChanged();
     form = document.querySelector('#changelist-form');
     if (form !== initializedForm) {
       initializedForm = form;

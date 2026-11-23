@@ -206,8 +206,8 @@ def test_newest_crawl_runs_before_older_queued_and_started_crawls(initialized_ar
 
     result = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert all(url in result.stdout for url in (old_url, queued_url, newest_url))
-    assert result.stdout.index(newest_url) < result.stdout.index(queued_url) < result.stdout.index(old_url), result.stdout
+    assert all(url in result.stderr for url in (old_url, queued_url, newest_url))
+    assert result.stderr.index(newest_url) < result.stderr.index(queued_url) < result.stderr.index(old_url), result.stderr
     with use_archivebox_db(initialized_archive):
         assert (
             Snapshot.objects.filter(
@@ -375,7 +375,7 @@ def test_busy_crawl_does_not_report_snapshot_progress(initialized_archive):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import _run_due_snapshot_id
+    from archivebox.workers.runner import _run_due_snapshot_id
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
     with use_archivebox_db(initialized_archive):

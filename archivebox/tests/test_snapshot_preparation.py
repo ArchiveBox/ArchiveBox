@@ -12,7 +12,7 @@ from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 from archivebox.tests.test_archive_result_service import _cleanup_machine_process_rows, _create_snapshot, _run_shipped_snapshot_hook
 
 pytestmark = pytest.mark.django_db(transaction=True)

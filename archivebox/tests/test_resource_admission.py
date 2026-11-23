@@ -4,14 +4,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from archivebox.services.resource_admission import ResourceAdmission, disk_backed_swap_free_bytes
+from archivebox.machine.detect import cgroup_paths
+from archivebox.workers.resource_admission import ResourceAdmission, disk_backed_swap_free_bytes
 
 
 def test_cpu_and_io_admission_uses_visible_cgroup_pressure():
     admission = ResourceAdmission()
     admission.resource_pressure()
     for resource in ("cpu", "io"):
-        scoped_sources = {str(path / f"{resource}.pressure") for path in admission.cgroup_paths()}
+        scoped_sources = {str(path / f"{resource}.pressure") for path in cgroup_paths()}
         observed_scoped = scoped_sources.intersection(admission._stalls)
         if observed_scoped:
             assert f"/proc/pressure/{resource}" not in admission._stalls
@@ -288,7 +289,8 @@ import sys
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.core.settings")
 import django
 django.setup()
-from archivebox.services.resource_admission import ResourceAdmission
+from archivebox.machine.detect import cgroup_paths
+from archivebox.workers.resource_admission import ResourceAdmission
 admission = ResourceAdmission()
 print(json.dumps(admission.process_tree_memory()), flush=True)
 sys.stdin.readline()

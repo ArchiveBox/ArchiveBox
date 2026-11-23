@@ -56,7 +56,7 @@ jobs:
           git ls-files -z 'publicsite/screenshots/*.png' | while IFS= read -r -d '' image; do
             mv "$image" "$RUNNER_TEMP/manual-screenshots/"
           done
-          uv run --no-project python bin/restore_site_screenshots.py publicsite/screenshots
+          uv run --no-project python bin/screenshot_gallery_helpers.py restore publicsite/screenshots
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Keep manually captured screenshots
@@ -122,7 +122,7 @@ jobs:
           gallery_path.write_text(gallery)
           PY
       - name: Render current gallery layout without recapturing images
-        run: uv run --no-project python bin/generate_ui_screenshot_gallery.py refresh publicsite/screenshots/index.html
+        run: uv run --no-project python bin/screenshot_gallery_helpers.py refresh publicsite/screenshots/index.html
       - name: Assemble website with the local base components
         run: uv run --no-project python .github/pages/site.py render _site --source publicsite
       # END REPOSITORY-SPECIFIC BUILD

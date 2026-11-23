@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
-from archivebox.services.runner import CrawlRunner, run_crawl
+from archivebox.workers.runner import CrawlRunner, run_crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 

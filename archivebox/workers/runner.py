@@ -22,7 +22,6 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 from rich.console import Console
-from rich.text import Text
 
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 from abx_dl.events import (
@@ -60,7 +59,7 @@ from abxbus import BaseEvent
 from abxbus.event_bus import EventBus, get_current_event, in_handler_context
 from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
 
-from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
+from archivebox.workers.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
 
 from archivebox.config.common import (
     RUNTIME_REPORTING_CONFIG_KEYS,
@@ -79,13 +78,13 @@ from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
 from archivebox.crawls.locks import crawl_lifecycle_lock
 
-from .archive_result_service import ArchiveResultService
-from .binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cache_to_db
-from .crawl_service import CrawlService
-from .machine_service import MachineService
-from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService
-from .tag_service import TagService
+from archivebox.services.archive_result_service import ArchiveResultService
+from archivebox.services.binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cache_to_db
+from archivebox.services.crawl_service import CrawlService
+from archivebox.services.machine_service import MachineService
+from archivebox.services.process_service import ProcessService as PersistedProcessService
+from archivebox.services.snapshot_service import SnapshotService
+from archivebox.services.tag_service import TagService
 
 
 def _bus_name(prefix: str, identifier: str) -> str:
@@ -97,40 +96,23 @@ def _runner_short_id(identifier) -> str:
     return str(identifier).replace("-", "")[-8:]
 
 
-def _runner_label(value: str, *, reserve: int) -> str:
-    width = max(24, shutil.get_terminal_size(fallback=(120, 40)).columns - reserve)
-    value = " ".join(str(value or "").split())
-    if len(value) <= width:
-        return value
-    return f"{value[: max(0, width - 3)]}..."
-
-
 def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: str = "STARTED") -> None:
     crawl_id = crawl.id if crawl is not None else crawl_id
-    line = Text()
-    line.append(f"[Crawl#{_runner_short_id(crawl_id)}]", style="cyan bold")
-    line.append(" ")
+    prefix = f"[Crawl#{_runner_short_id(crawl_id)}]"
     if snapshot is not None:
-        line.append(f"[Snapshot#{_runner_short_id(snapshot.id)}]", style="magenta bold")
-        line.append(" ")
-    status_styles = {
-        "STARTED": "green bold",
-        "SEALED": "blue bold",
-        "PAUSED": "yellow bold",
-    }
-    line.append(f"[{status}]", style=status_styles.get(status, "white bold"))
-    line.append(" ")
-    prefix_width = len(line.plain)
-    if snapshot is not None:
+        prefix += f" [Snapshot#{_runner_short_id(snapshot.id)}]"
         label = snapshot.url
     elif crawl is not None:
-        label = (crawl.label or "").strip()
-        if not label:
-            label = (crawl.urls or "").partition("\n")[0].strip() or str(crawl_id)
+        label = (crawl.label or "").strip() or (crawl.urls or "").partition("\n")[0].strip() or str(crawl_id)
     else:
         label = str(crawl_id)
-    line.append(_runner_label(label, reserve=prefix_width))
-    Console(highlight=False).print(line)
+    logging.getLogger(__name__).info(
+        "%s [%s] %s",
+        prefix,
+        status,
+        " ".join(str(label).split()),
+        extra={"crawl_id": str(crawl_id), "snapshot_id": str(snapshot.id) if snapshot is not None else None},
+    )
 
 
 def create_bus(*, config: ArchiveBoxBaseConfig | dict[str, Any] | None = None, **kwargs: Any) -> EventBus:
@@ -1167,10 +1149,8 @@ class CrawlRunner:
                     "snapshot_id": str(snapshot.id),
                 },
             )
-            from archivebox.services.cache_candidates import cache_candidates
-
             normalized_config = normalize_runtime_config(config)
-            normalized_config["CACHE_CANDIDATES"] = json.dumps(cache_candidates(snapshot) if create_outputs else [])
+            normalized_config["CACHE_CANDIDATES"] = json.dumps(snapshot.cache_candidates() if create_outputs else [])
             configured_plugins = parse_plugin_selection(normalized_config.get("PLUGINS"))
             if configured_plugins is not None:
                 selected_plugin_names = set(self.catalog.select(configured_plugins))
@@ -1381,7 +1361,7 @@ class CrawlRunner:
             except ValidationError as err:
                 if snapshot["status"] != "sealed":
                     await sync_to_async(snapshot["_snapshot"].seal, thread_sensitive=True)()
-                print(f"[X] Refusing to archive invalid Snapshot URL {snapshot['url']!r}: {err}", file=sys.stderr)
+                logging.getLogger(__name__).warning("Refusing to archive invalid Snapshot URL %r: %s", snapshot["url"], err)
                 return
             if snapshot["status"] == "sealed" and not self.selected_plugins and not snapshot["retry_plugins"]:
                 await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id)
@@ -1530,7 +1510,7 @@ class CrawlRunner:
                 # canonical write. Nothing may rewrite its outputs after the
                 # terminal projection has released its lease.
                 if snapshot["status"] != "sealed" and not completed_snapshot.error and config.get("HASHES_COLLECTION_DEDUP") is True:
-                    from archivebox.services.collection_dedupe import deduplicate_sealed
+                    from archivebox.core.collection_dedupe import deduplicate_sealed
 
                     await asyncio.to_thread(deduplicate_sealed, snapshot_id)
                 if snapshot["status"] != "sealed" and self.process_discovered_snapshots_inline:

@@ -11,7 +11,7 @@ from django.utils import timezone
 from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
-from archivebox.services.runner import _higher_priority_crawl_waiting, _next_queued_crawl_snapshot_id
+from archivebox.workers.runner import _higher_priority_crawl_waiting, _next_queued_crawl_snapshot_id
 
 
 @pytest.mark.django_db

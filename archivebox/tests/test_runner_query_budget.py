@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def test_idle_runner_checks_each_empty_queue_once():
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
 
     with CaptureQueriesContext(connection) as queries:
         assert run_pending_crawls(daemon=False) == 0
@@ -49,7 +49,7 @@ def test_schedule_last_run_reads_timestamp_without_crawl_intake():
 def test_idle_queue_check_does_not_hide_new_scoped_snapshot_work():
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
     from archivebox.workers.models import RETRY_AT_MAX
 
     crawl = Crawl.objects.create(urls="https://example.com/paused", status=Crawl.StatusChoices.PAUSED, retry_at=None)

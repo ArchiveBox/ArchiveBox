@@ -5,7 +5,6 @@ from contextlib import contextmanager
 import os
 
 from django.db import transaction
-from django.db.models import Q
 from signal_webhooks.handlers import default_hook_handler
 from signal_webhooks.settings import webhook_settings
 from signal_webhooks.typing import SignalChoices
@@ -63,7 +62,7 @@ def snapshot_tag_rules(signal, tag_ids=None):
 
     rules = get_webhook_model().objects.filter(ref=reference_for_model(Snapshot), signal=signal, enabled=True)
     if tag_ids is not None:
-        rules = rules.filter(Q(tag_id__in=tag_ids) | Q(any_tag=True))
+        rules = rules.filter(relationship__in=["*", *map(str, tag_ids)])
     return rules
 
 
@@ -73,10 +72,10 @@ def emit_snapshot_tag_events(snapshot, signal, tag_ids):
 
     if not tag_ids or action_in_progress():
         return
-    scopes = set(snapshot_tag_rules(signal, tag_ids).values_list("tag_id", flat=True))
+    scopes = set(snapshot_tag_rules(signal, tag_ids).values_list("relationship", flat=True))
     if not scopes:
         return
-    tags = list(Tag.objects.filter(pk__in=tag_ids if None in scopes else scopes).order_by("pk").values_list("pk", "name"))
+    tags = list(Tag.objects.filter(pk__in=tag_ids if "*" in scopes else scopes).order_by("pk").values_list("pk", "name"))
     for tag_id, tag_name in tags:
         emit_event(snapshot, signal, tag_id=tag_id, tag_name=tag_name)
 
@@ -104,10 +103,12 @@ def snapshot_tag_deleted(sender, instance, origin, **kwargs):
 
 
 def before_tag_delete(sender, instance, **kwargs):
-    # Specific subscriptions are deleted with their tag. Capture the links
-    # once for wildcard subscriptions while the tag and its name still exist.
+    # The selector is stored in relationship, so retirement is explicit.
+    from archivebox.core.models import Snapshot
+
+    get_webhook_model().objects.filter(ref=reference_for_model(Snapshot), signal__in=TAG_EVENTS, relationship=str(instance.pk)).delete()
     instance.__dict__.pop("_untagged_snapshots", None)
-    if not action_in_progress() and snapshot_tag_rules("UNTAGGED").filter(any_tag=True).exists():
+    if not action_in_progress() and snapshot_tag_rules("UNTAGGED").filter(relationship="*").exists():
         instance._untagged_snapshots = list(instance.snapshot_set.values_list("pk", flat=True))
 
 
@@ -299,8 +300,13 @@ def register_lifecycle_signals():
 
     webhook_event.connect(explicit_event, weak=False, dispatch_uid="archivebox.webhook.explicit")
 
-    def before_save(sender, instance, raw=False, **kwargs):
+    def before_save(sender, instance, raw=False, update_fields=None, **kwargs):
         if raw or action_in_progress() or not getattr(sender, "webhook_status_events", {}):
+            return
+        # Heartbeats and metadata saves cannot persist a status transition.
+        # Apart from wasting a SELECT, comparing their in-memory status can
+        # emit an event for a change that was explicitly excluded from the save.
+        if update_fields is not None and "status" not in update_fields:
             return
         instance._webhook_previous_status = (
             None if instance._state.adding else sender.objects.filter(pk=instance.pk).values_list("status", flat=True).first()

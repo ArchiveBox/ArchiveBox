@@ -7,7 +7,9 @@ from django.test import RequestFactory
 pytestmark = pytest.mark.django_db
 
 
-def test_native_folder_picker_paths_and_destination_filters(admin_user):
+def test_native_folder_picker_paths_and_destination_filters(admin_user, admin_client):
+    from django.core.exceptions import ValidationError
+    from archivebox.api.models import OutboundWebhook
     from archivebox.core.models import Folder
     from archivebox.core.forms import AddLinkForm
     from archivebox.crawls.admin import CrawlAdminForm
@@ -27,22 +29,33 @@ def test_native_folder_picker_paths_and_destination_filters(admin_user):
     crawl = CrawlAdminForm()
     importer = ImporterSourceForm(definition=get_importer("importer_rss", "feed"))
     for form in (add, crawl, importer):
-        choices = list(form.fields["folder"].choices)
-        labels = dict(choices)
+        empty = str(form["folder"])
+        assert all(str(pk) not in empty for pk in expected)
         for pk, label in expected.items():
-            assert labels[pk] == label
-        assert choices[0][0] == ""
+            selected = form.fields["folder"].widget.render("folder", pk)
+            assert f'value="{pk}" selected>{label}</option>' in selected
+            assert all(str(other_pk) not in selected for other_pk in expected if other_pk != pk)
         assert form.fields["folder"].clean(str(child.pk)).pk == child.pk
+        with pytest.raises(ValidationError, match="valid choice"):
+            form.fields["folder"].clean(str(smart.pk))
     assert list(add.fields["folder"].choices)[0] == ("", "No folder")
     assert list(crawl.fields["folder"].choices)[0] == ("", "No folder")
-    assert smart.pk not in dict(add.fields["folder"].choices)
-    assert smart.pk not in dict(crawl.fields["folder"].choices)
-    assert smart.pk in dict(importer.fields["folder"].choices)
+    choices = admin_client.get("/api/v1/core/folders/autocomplete/", {"q": "Papers", "destination": "true"})
+    assert choices.status_code == 200
+    assert {row["id"]: row["name"] for row in choices.json()["choices"]} == {str(pk): label for pk, label in expected.items()}
     importer.cleaned_data = {"folder": smart}
-    from django.core.exceptions import ValidationError
-
     with pytest.raises(ValidationError, match="regular folder"):
         importer.clean_folder()
+    assert editor_data()["folders"] == []
+    OutboundWebhook.objects.create(
+        name="Selected folder paths",
+        ref="archivebox.core.models.Snapshot",
+        signal="UPDATE",
+        folder=child,
+        actions=[{"type": "folder", "folder_id": str(other.pk)}],
+        enabled=False,
+        created_by=admin_user,
+    )
     schema = {row["id"]: row["name"] for row in editor_data()["folders"]}
     assert all(schema[str(pk)] == label for pk, label in expected.items())
     request.user = AnonymousUser()

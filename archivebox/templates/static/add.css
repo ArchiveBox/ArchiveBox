@@ -376,6 +376,16 @@ select {
   grid-template-rows: subgrid;
 }
 
+.url-workbench:has(.url-editor-shell[hidden]) .url-editor-column {
+  display: block;
+  grid-row: auto;
+}
+
+.url-workbench:has(.url-editor-shell[hidden]) .detected-urls-panel {
+  grid-area: auto;
+  height: 240px;
+}
+
 .url-file-dragover {
   outline: 2px dashed #417690;
   outline-offset: 6px;

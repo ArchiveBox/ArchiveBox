@@ -10,12 +10,12 @@ from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 
 @pytest.fixture
 def fresh_memory_history():
-    from archivebox.services.resource_admission import resource_admission
+    from archivebox.workers.resource_admission import resource_admission
 
     previous = resource_admission.observed_snapshot_cost
     resource_admission.observed_snapshot_cost = None
@@ -107,7 +107,7 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path, he
     # A separate one-snapshot crawl guarantees an isolated heavier sample.
     # Depending on a fourth fast parser to fall into its own batch races the
     # same adaptive admission that this integration test must keep enabled.
-    from archivebox.services.resource_admission import resource_admission
+    from archivebox.workers.resource_admission import resource_admission
 
     learned_before_heavy = resource_admission.observed_snapshot_cost
     heavy_crawl = Crawl.objects.create(
@@ -171,7 +171,7 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path, he
 
 @pytest.mark.django_db(transaction=True)
 def test_zero_net_growth_warmup_uses_measured_process_tree_baseline(crawl):
-    from archivebox.services.resource_admission import resource_admission
+    from archivebox.workers.resource_admission import resource_admission
 
     snapshot = Snapshot.objects.create(crawl=crawl, url="https://example.com/measured-warmup")
     runner = CrawlRunner(crawl, show_progress=False)
@@ -228,8 +228,8 @@ def test_zero_net_growth_warmup_uses_measured_process_tree_baseline(crawl):
 def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots, requirement):
     import psutil
     from django.utils import timezone
-    from archivebox.services.runner import defer_crawl_for_resources
-    from archivebox.services.resource_admission import resource_admission
+    from archivebox.workers.runner import defer_crawl_for_resources
+    from archivebox.workers.resource_admission import resource_admission
 
     crawl = Crawl.objects.create(
         urls="https://archivebox.io/tests/memory-admission",

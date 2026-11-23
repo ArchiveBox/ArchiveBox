@@ -5,6 +5,27 @@ style.rel = 'stylesheet';
 style.href = new URL('exports.css', import.meta.url).href;
 document.head.append(style);
 
+window.archiveboxExportURL = link => {
+  const format = link.dataset.exportFormat === 'rss_public' ? 'rss' : link.dataset.exportFormat;
+  const url = new URL(link.dataset.exportRoute.replace('{format}', format), location.href);
+  url.search = link.dataset.exportQuery;
+  const menu = link.closest('[data-entry-filter]');
+  if (menu?.dataset.entryValue) url.searchParams.set(menu.dataset.entryFilter, menu.dataset.entryValue);
+  return url.href;
+};
+
+// Publish links only after an explicit interaction. Open menus retain native
+// copy-link, modified-click and keyboard behavior without inviting prefetchers.
+function activateExport(link) {
+  if (link) link.href = window.archiveboxExportURL(link);
+}
+document.addEventListener('beforetoggle', event => {
+  if (event.newState === 'open') event.target.querySelectorAll('a[data-export-format]').forEach(activateExport);
+}, true);
+for (const type of ['pointerdown', 'focusin', 'keydown']) {
+  document.addEventListener(type, event => activateExport(event.target.closest('a[data-export-format]')));
+}
+
 async function jsonResponse(response) {
   if (!response.ok) {
     const type = response.headers.get('content-type') || '';
@@ -105,7 +126,9 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
 
 document.addEventListener('click', event => {
   const link = event.target.closest('a[data-export-format]');
-  if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (!link) return;
+  activateExport(link);
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   link.closest('[popover]')?.hidePopover();
   if (!archiveFormats.has(link.dataset.exportFormat)) return;
   event.preventDefault();

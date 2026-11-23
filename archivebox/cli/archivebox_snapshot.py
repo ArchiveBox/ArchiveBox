@@ -95,6 +95,8 @@ def create_snapshots(
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
 
+    if status not in Snapshot.StatusChoices.values:
+        raise click.BadParameter(f"Invalid snapshot status: {status}", param_hint="--status")
     created_by_id = created_by_id or get_or_create_system_user_pk()
     is_tty = sys.stdout.isatty()
 
@@ -152,7 +154,11 @@ def create_snapshots(
                         "depth": depth,
                         "status": status,
                     }
-                    snapshot = Snapshot.from_json(snapshot_record, overrides={"created_by_id": created_by_id, "crawl": crawl})
+                    snapshot = Snapshot.from_json(
+                        snapshot_record,
+                        overrides={"created_by_id": created_by_id, "crawl": crawl},
+                        queue_for_extraction=False,
+                    )
                     if snapshot:
                         created_snapshots.append(snapshot)
                         if not is_tty:
@@ -168,7 +174,7 @@ def create_snapshots(
                     record["status"] = status
                 record["depth"] = record.get("depth", depth)
 
-                snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id})
+                snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id}, queue_for_extraction=False)
                 if snapshot:
                     created_snapshots.append(snapshot)
                     if not is_tty:

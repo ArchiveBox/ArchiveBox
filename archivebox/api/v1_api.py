@@ -2,13 +2,14 @@ __package__ = "archivebox.api"
 
 
 from io import StringIO
+import logging
 from functools import lru_cache
 from typing import Any
 from traceback import format_exception
 from contextlib import redirect_stdout, redirect_stderr
 
 from django.http import HttpRequest, HttpResponse
-from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, PermissionDenied
+from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, PermissionDenied, SuspiciousOperation
 from django.contrib.auth.models import User
 
 from ninja import NinjaAPI, Swagger
@@ -119,8 +120,17 @@ def generic_exception_handler(request, err):
     status = 503
     if isinstance(err, (ObjectDoesNotExist, EmptyResultSet, PermissionDenied)):
         status = 404
+    elif isinstance(err, SuspiciousOperation):
+        # Preserve Django's bad-request semantics, including oversized bodies.
+        status = 400
 
-    print("".join(format_exception(err)))
+    logging.getLogger(__name__).log(
+        logging.WARNING if status == 404 else logging.ERROR,
+        "API request failed: %s",
+        type(err).__name__,
+        exc_info=(type(err), err, err.__traceback__),
+        extra={"request": request, "status_code": status},
+    )
 
     return api.create_response(
         request,

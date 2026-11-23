@@ -38,7 +38,12 @@ def _links(request, snapshot, relation="timemap"):
     # Encode nested query/fragment delimiters so the lookup keeps the original URL.
     gate = build_web_url("/archive/" + quote(snapshot.url, safe=":/"), request=request)
     timemap = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request) + "?format=link"
-    return [f'<{original}>; rel="original"', f'<{gate}>; rel="timegate"', f'<{timemap}>; rel="{relation}"; type="application/link-format"']
+    return [
+        f'<{original}>; rel="original"',
+        f'<{gate}>; rel="timegate"',
+        f'<{timemap}>; rel="{relation}"; type="application/link-format"',
+        f'<{original}>; rel="canonical"',
+    ]
 
 
 def _archive_type(path):
@@ -75,23 +80,36 @@ def _enclosures(request, snapshot):
                     yield f'<{url}>; rel="enclosure"; type="{mime}"; anchor="{anchor}"'
 
 
-def add_memento_headers(request, snapshot, response, path="", primary=True):
-    if (mime := _archive_type(path)) and not response.get("Content-Type", "").startswith("text/html"):
+def add_memento_headers(request, snapshot, response, path="", primary=True, *, enclosures=True):
+    archive_viewer = (mime := _archive_type(path)) and response.get("Content-Type", "").startswith("text/html")
+    bundle = mime and not archive_viewer
+    if bundle:
         # gzip is the saved file format, not HTTP content coding: range offsets
         # must address compressed bytes. Whole bundles are not individual Mementos.
         response["Content-Type"] = mime
         response.headers.pop("Content-Encoding", None)
+    if response.status_code not in (200, 206, 301, 302, 303, 304, 307, 308):
         return response
-    if primary and snapshot.downloaded_at and snapshot.output_size and response.status_code in (200, 206, 304):
+    links = [response.get("Link"), *_links(request, snapshot)]
+    if (
+        (primary or archive_viewer)
+        and not bundle
+        and snapshot.downloaded_at
+        and snapshot.output_size
+        and response.status_code in (200, 206, 304)
+    ):
         # Persisted completion time, never request/bookmark time (RFC 7089 4.5.6).
         response["Memento-Datetime"] = http_date(snapshot.downloaded_at.timestamp())
-        response["Link"] = ", ".join(filter(None, [response.get("Link"), *_links(request, snapshot), *_enclosures(request, snapshot)]))
+        if enclosures:
+            links.extend(_enclosures(request, snapshot))
+    response["Link"] = ", ".join(filter(None, links))
     return response
 
 
 def timemap_response(request, snapshot):
     # Link format is required by https://www.rfc-editor.org/rfc/rfc7089.html#section-5
-    links = _links(request, snapshot, relation="self")
+    navigation = _links(request, snapshot, relation="self")
+    links = list(navigation)
     # TimeMaps need replay identities and enclosure manifests, never capture logs
     # or whole Crawl input lists duplicated across every joined capture.
     captures = (
@@ -116,10 +134,10 @@ def timemap_response(request, snapshot):
         url = build_snapshot_detail_url(capture.archive_path_from_db, request=request)
         links.append(f'<{url}>; rel="memento"; datetime="{http_date(capture.downloaded_at.timestamp())}"')
         links.extend(_enclosures(request, capture))
-    if len(links) == 3:
+    if len(links) == len(navigation):
         raise Http404
     response = HttpResponse(",\n".join(links) + "\n", content_type="application/link-format")
-    response["Link"] = ", ".join(links[:3])
+    response["Link"] = ", ".join(navigation)
     response["Cache-Control"] = "private, no-store"  # Membership and visibility can change.
     return response
 

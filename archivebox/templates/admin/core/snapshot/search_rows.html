@@ -1,0 +1,12 @@
+{% load admin_list core_tags %}
+<div id="content-main">
+  {% if cl.snapshot_is_grid_view %}
+    {% snapshots_grid additions %}
+  {% elif additions.result_list %}
+    {% result_list additions %}
+  {% else %}
+    <table id="result_list"><tbody></tbody></table>
+  {% endif %}
+  {% if actions_selection_counter %}{% include "admin/action_summary.html" %}{% endif %}
+  {% include "admin/core/snapshot/pagination.html" %}
+</div>

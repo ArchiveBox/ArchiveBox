@@ -704,7 +704,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         """
         Execute binary installation through the ArchiveBox binary runner.
         """
-        from archivebox.services.runner import run_binary
+        from archivebox.workers.runner import run_binary
 
         run_binary(str(self.id))
 

@@ -573,7 +573,8 @@ class TestPublicIndexSearch:
 
         assert response.status_code == 200
         assert b"replaceRegionFromDocument(doc, '.public-snapshot-count')" in response.content
-        assert b"replaceRegionFromDocument(doc, '#table-bookmarks tbody')" in response.content
+        assert b"syncSearchRows(document.querySelector('#table-bookmarks tbody')" in response.content
+        assert b"replaceRegionFromDocument(doc, '#table-bookmarks tbody')" not in response.content
         assert b"currentList.replaceWith(nextList)" not in response.content
 
     def test_public_search_stream_populates_public_results_cache(self, client, public_snapshot):

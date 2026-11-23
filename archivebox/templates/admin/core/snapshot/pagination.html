@@ -1,7 +1,14 @@
 {% load core_tags %}
 <p class="paginator">
   {% if cl.previous_page_url %}<a href="{{ cl.previous_page_url }}">Previous</a>{% endif %}
-  <span class="this-page">{{ cl.page_num }}</span>
+  {% if cl.display_page_links %}
+    {% for link in cl.display_page_links %}
+      {% if link.number == cl.page_num %}<span class="this-page" aria-current="page">{{ link.number }}</span>
+      {% elif link.url %}<a href="{{ link.url }}" aria-label="Page {{ link.number }}">{{ link.number }}</a>
+      {% else %}<span>{{ link.number }}</span>{% endif %}
+    {% endfor %}
+  {% else %}<span class="this-page">{{ cl.page_num }}</span>{% endif %}
   {% if cl.next_page_url %}<a href="{{ cl.next_page_url }}">Next</a>{% endif %}
+  {% if cl.display_num_pages %}<span>Page {{ cl.page_num }} of {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_num_pages|intcomma }}</span> · {% endif %}
   {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %} {{ cl.opts.verbose_name_plural|lower }}
 </p>

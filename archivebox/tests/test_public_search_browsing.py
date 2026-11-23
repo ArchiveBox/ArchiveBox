@@ -47,6 +47,23 @@ def test_public_date_search_paginates_without_stream_cache(client, crawl):
     assert [snapshot.pk for snapshot in second.context["object_list"]] == [public[0].pk]
     assert cache.get(get_public_search_cache_key(first.wsgi_request)) is None
 
+    # The live field paints a few fully hydrated rows first. A follow-up
+    # fetch must return the same ordered page as the normal list URL.
+    from lxml import html
+
+    def table_rows(response):
+        doc = html.fromstring(response.content.decode(response.charset))
+        return [html.tostring(row, with_tail=False) for row in doc.xpath('//table[@id="table-bookmarks"]/tbody/tr')]
+
+    full_rows = table_rows(first)
+    for phase, expected in (("preview", full_rows[:8]), ("rows", full_rows)):
+        fragment = client.get("/public/", params, HTTP_HOST=HOST, HTTP_X_ARCHIVEBOX_SEARCH_FRAGMENT=phase)
+        assert table_rows(fragment) == expected
+        assert b'class="public-pagination"' in fragment.content and b"data-export-format" in fragment.content
+        assert b'id="changelist-search"' not in fragment.content and b"<head>" not in fragment.content
+        assert fragment.has_header("X-ArchiveBox-Search-More-Rows") == (phase == "preview")
+        assert "X-ArchiveBox-Search-Fragment" in fragment["Vary"]
+
 
 def test_public_completed_search_pages_expiry_and_scope(client, crawl):
     Machine.from_json({"config": {"PUBLIC_INDEX": True, "SNAPSHOTS_PER_PAGE": 50}})
@@ -80,6 +97,11 @@ def test_public_completed_search_pages_expiry_and_scope(client, crawl):
     assert len(set(found)) == 65
     assert set(found) == {row.pk for row in rows}
     assert private.pk not in found
+    fragment = client.get("/public/", params, HTTP_HOST=HOST, HTTP_X_ARCHIVEBOX_SEARCH_FRAGMENT="rows")
+    assert fragment["X-ArchiveBox-Search-Count"] == "65"
+    assert fragment["X-ArchiveBox-Search-Page-Filled"] == "1"
+    last_page = client.get("/public/", {**params, "page": "2"}, HTTP_HOST=HOST, HTTP_X_ARCHIVEBOX_SEARCH_FRAGMENT="rows")
+    assert not last_page.has_header("X-ArchiveBox-Search-Page-Filled")
     for sidebar in ("tags", "domains"):
         switched = client.get("/public/", {**params, "sidebar": sidebar, "page": "2"}, HTTP_HOST=HOST)
         assert switched.status_code == 200
@@ -193,3 +215,21 @@ def test_public_search_actual_http_next_and_expired_page(live_server, crawl):
     assert len({r.pk for r in rows if r.url in url_page.text}) == 15
     assert "const initialForm =" not in url_page.text
     session.close()
+
+
+def test_fragment_cursor_rechecks_public_page_before_retaining_rows(client, crawl):
+    Machine.from_json({"config": {"PUBLIC_INDEX": True}})
+    first = Snapshot.objects.create(crawl=crawl, title="Before", url="https://cursor.example/1", config={"PERMISSIONS": "public"})
+    params = {"q": "domain:cursor.example"}
+    headers = {"X-ArchiveBox-Search-Fragment": "rows", "X-ArchiveBox-Search-Rows": "start"}
+    initial = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert f'data-snapshot-id="{first.pk}"' in initial.text
+    headers["X-ArchiveBox-Search-Rows"] = initial["X-ArchiveBox-Search-Rows"]
+    unchanged = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert unchanged["X-ArchiveBox-Search-Retained"] == "1" and "data-snapshot-id=" not in unchanged.text
+    first.config["PERMISSIONS"] = "private"
+    first.save(update_fields=["config"])
+    second = Snapshot.objects.create(crawl=crawl, title="After", url="https://cursor.example/2", config={"PERMISSIONS": "public"})
+    changed = client.get("/public/", params, headers=headers, HTTP_HOST=HOST)
+    assert changed["X-ArchiveBox-Search-Retained"] == "0"
+    assert f'data-snapshot-id="{second.pk}"' in changed.text and f'data-snapshot-id="{first.pk}"' not in changed.text

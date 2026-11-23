@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from signal_webhooks.utils import model_from_reference
 
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.models import Folder, Snapshot
+from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.widgets import TagEditorWidget
 from archivebox.plugins.discovery import get_plugin_catalog
 
@@ -34,7 +34,19 @@ def webhook_admin(view):
     return wrapped
 
 
-def webhook_data(hook):
+def tag_scope(hook):
+    if hook.signal not in TAG_EVENTS:
+        return None
+    scope = hook.relationship
+    return int(scope) if scope.isascii() and scope.isdecimal() else scope or None
+
+
+def webhook_data(hook, tag_names=None):
+    tag_id = tag_scope(hook)
+    if type(tag_id) is int:
+        tag_name = tag_names.get(tag_id) if tag_names is not None else Tag.objects.filter(pk=tag_id).values_list("name", flat=True).first()
+    else:
+        tag_name = None
     # The existing encrypted auth_token stays server-side, including when editing
     # a legacy HTTP-only webhook. It must never become a browser-side API preset.
     actions = hook.actions or (
@@ -47,8 +59,8 @@ def webhook_data(hook):
         "signal": hook.signal,
         "enabled": hook.enabled,
         "folder_id": "*" if hook.any_folder else str(hook.folder_id) if hook.folder_id else None,
-        "tag_id": "*" if hook.any_tag else hook.tag_id,
-        "tag_name": hook.tag.name if hook.tag_id else None,
+        "tag_id": tag_id,
+        "tag_name": tag_name,
         "relationship": (hook.relationship or "*") if hook.signal in RELATIONSHIP_EVENTS else None,
         "actions": actions,
         "stop_processing": hook.stop_processing,
@@ -63,7 +75,10 @@ def webhook_data(hook):
 
 
 def editor_data():
-    hooks = [webhook_data(hook) for hook in OutboundWebhook.objects.select_related("tag").order_by("created_at", "pk")]
+    rules = list(OutboundWebhook.objects.order_by("created_at", "pk"))
+    tag_ids = {scope for hook in rules if type(scope := tag_scope(hook)) is int}
+    tag_names = dict(Tag.objects.filter(pk__in=tag_ids).values_list("pk", "name"))
+    hooks = [webhook_data(hook, tag_names) for hook in rules]
     folder_ids = {hook["folder_id"] for hook in hooks if hook["folder_id"] not in (None, "*")}
     folder_ids.update(
         action["folder_id"] for hook in hooks for action in hook["actions"] if action.get("type") == "folder" and action.get("folder_id")
@@ -123,22 +138,31 @@ def submitted_webhook(request):
     if "auth_token" in payload and not isinstance(payload["auth_token"], str):
         raise ValidationError("auth_token must be a string.")
     hook = get_object_or_404(OutboundWebhook, pk=payload["id"]) if payload.get("id") else OutboundWebhook(created_by=request.user)
-    for field in allowed - {"id", "auth_token", "clear_auth_token"}:
+    previous_signal = hook.signal
+    for field in allowed - {"id", "auth_token", "clear_auth_token", "tag_id", "relationship"}:
         if field in payload:
             value = payload[field]
             if field == "folder_id":
                 hook.any_folder = value == "*"
                 value = None if hook.any_folder else value
-            elif field == "tag_id":
-                if value not in (None, "*") and (type(value) is not int or value <= 0):
-                    raise ValidationError("Choose an existing tag or Any tag.")
-                hook.any_tag = value == "*"
-                value = None if hook.any_tag else value
-            elif field == "relationship":
-                if value is not None and not isinstance(value, str):
-                    raise ValidationError("Relationship must be a string.")
-                value = "" if value in (None, "*") else value
             setattr(hook, field, value)
+    if "relationship" in payload:
+        value = payload["relationship"]
+        if value is not None and not isinstance(value, str):
+            raise ValidationError("Relationship must be a string.")
+        if hook.signal not in TAG_EVENTS:
+            hook.relationship = "" if value in (None, "*") else value
+        elif value not in (None, ""):
+            raise ValidationError("Choose a tag for a tag event.")
+    if hook.signal != previous_signal and (hook.signal in TAG_EVENTS) != (previous_signal in TAG_EVENTS):
+        if hook.signal in TAG_EVENTS or "relationship" not in payload:
+            hook.relationship = ""
+    if "tag_id" in payload:
+        value = payload["tag_id"]
+        if value is not None and (hook.signal not in TAG_EVENTS or (value != "*" and (type(value) is not int or value <= 0))):
+            raise ValidationError("Choose an existing tag or Any tag for a tag event.")
+        if hook.signal in TAG_EVENTS:
+            hook.relationship = "" if value is None else str(value)
     if payload.get("relationship") == "*" and hook.signal not in RELATIONSHIP_EVENTS:
         raise ValidationError("Choose a relationship for a relationship event only.")
     if payload.get("clear_auth_token"):
@@ -185,13 +209,14 @@ def preview(request):
         metadata = {}
         if hook.folder_id:
             metadata["folder_id"] = str(hook.folder_id)
-        if hook.tag_id and hook.signal in TAG_EVENTS:
+        tag_id = tag_scope(hook)
+        if type(tag_id) is int:
             if hook.signal == "TAGGED":
-                candidates = candidates.filter(tags=hook.tag_id)
+                candidates = candidates.filter(tags=tag_id)
             else:
-                candidates = candidates.exclude(tags=hook.tag_id)
-            metadata.update(tag_id=hook.tag_id, tag_name=hook.tag.name)
-        if hook.relationship:
+                candidates = candidates.exclude(tags=tag_id)
+            metadata.update(tag_id=tag_id, tag_name=Tag.objects.filter(pk=tag_id).values_list("name", flat=True).first())
+        if hook.signal in RELATIONSHIP_EVENTS and hook.relationship:
             metadata["relationship"] = hook.relationship
         objects = [
             {

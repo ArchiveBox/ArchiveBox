@@ -287,7 +287,7 @@ def delete_crawl(request: HttpRequest, crawl_id: str):
     crawl.cancel()
 
     from archivebox.crawls.locks import crawl_lifecycle_lock
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
 
     with crawl_lifecycle_lock(crawl_id_str):
         run_pending_crawls(crawl_id=crawl_id_str, daemon=False)

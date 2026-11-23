@@ -10,16 +10,16 @@ from pathlib import Path
 import pytest
 
 from archivebox.config.common import get_config
-from archivebox.core.library_screenshots import gallery_persona_config
+from screenshot_gallery_helpers import gallery_persona_config
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
 from archivebox.plugins.discovery import get_enabled_plugins
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 
 ROOT = Path(__file__).resolve().parents[2]
-GENERATOR = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")
+GENERATOR = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
 
 
 @pytest.mark.django_db(transaction=True)
@@ -106,7 +106,7 @@ def test_gallery_add_uses_native_cli_error_and_restores_disposable_config(initia
     assert native.returncode == 2
     for scoped in ("0", "1"):
         captured = subprocess.run(
-            [sys.executable, str(ROOT / "bin/generate_ui_screenshot_gallery.py"), "capture-add", str(path), scoped, "tlsnotary", argv[-1]],
+            [sys.executable, str(ROOT / "bin/screenshot_gallery_helpers.py"), "capture-add", str(path), scoped, "tlsnotary", argv[-1]],
             cwd=initialized_archive,
             capture_output=True,
             text=True,

@@ -11,7 +11,7 @@ def main():
     django.setup()
     from django.test import RequestFactory
     from django.http import Http404
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.misc.serve_static import serve_static_with_byterange_support

@@ -2,7 +2,7 @@
 <section class="cards">
   {% for card in results %}
     {% with obj=card.snapshot %}
-      <div class="card{% if obj.status == 'started' %} archiving{% endif %}">
+      <div data-snapshot-id="{{ obj.pk }}" class="card{% if obj.status == 'started' %} archiving{% endif %}">
         <div class="card-info">
           <div class="card-title" title="{{ obj.title|default:obj.domain }}">
             <a href="{% snapshot_detail_url obj %}">

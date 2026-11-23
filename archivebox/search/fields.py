@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.urls import reverse
+from django.db.models import Case, Exists, OuterRef, When
 
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render
@@ -13,9 +14,15 @@ from django.views.decorators.http import require_GET
 
 from archivebox.config.common import get_request_config
 from archivebox.core.domain_grouping import domain_authority_from_key
-from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.core.permissions import discoverable_snapshots_queryset, is_admin_user
 from archivebox.search.language import literal_pattern, substring
+
+
+def snapshot_plugin_choices():
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    return sorted(name for name, plugin in get_plugin_catalog().items() if plugin.filter_hooks("Snapshot"))
 
 
 @never_cache
@@ -60,8 +67,31 @@ def suggestions(request):
 
     if key in ("tags", "tag"):
         values = choices(scope.filter(tags__isnull=False), "tags__name")
+    elif key == "folder":
+        if is_admin_user(request):
+            folders = Folder.objects.matching_name(prefix).only("name", "position", "parent")[:20]
+            values = [choice["name"] for choice in Folder.picker_choices(folders)]
+        else:
+            values = [label for _, label in Folder.path_choices(Folder.tree(public=True)) if literal_pattern(prefix).search(label)][:20]
     elif key == "plugins":
-        values = choices(ArchiveResult.objects.filter(snapshot_id__in=scope.values("pk"), status="succeeded"), "plugin")
+        names = [name for name in snapshot_plugin_choices() if literal_pattern(prefix).search(name)]
+        if is_admin_user(request) and not list_url:
+            values = names
+        else:
+            # Probe the plugin index and stop at the first visible success.
+            # DISTINCT over all matching archive results delayed completions on
+            # large collections. A low-cardinality status index can likewise
+            # walk most of the collection before hitting a rare plugin.
+            visible = ArchiveResult.objects.filter(
+                Exists(scope.filter(pk=OuterRef("snapshot_id"))),
+                Case(When(status="succeeded", then=True), default=False),
+            )
+            values = []
+            for name in names:
+                if visible.filter(plugin=name).exists():
+                    values.append(name)
+                    if len(values) == 12:
+                        break
     elif key in ("owner", "title", "status", "permissions"):
         field = "crawl__created_by__username" if key == "owner" else key
         values = choices(scope.filter(**{field + "__isnull": False}), field)

@@ -20,7 +20,7 @@ def test_live_capture_starts_when_its_view_is_dequeued():
     assert script[launch:pid].rstrip().endswith("&")
     helper_start = script.index("run_gallery_add() {")
     helper = script[helper_start : script.index("\n}", helper_start)]
-    assert 'exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py"' in helper
+    assert 'exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py"' in helper
     assert 'capture-add "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" "$plugin_names" "$source_url"' in helper
     assert script.count("EXAMPLE_CAPTURE_STARTED_AT=") == 1
     assert "Snapshot View (capture in progress)|||archivebox/templates/core/snapshot.html|live-progress" in script
@@ -30,7 +30,7 @@ def test_live_capture_starts_when_its_view_is_dequeued():
 
 
 def test_every_live_viewport_keeps_the_same_real_progress_gate():
-    screenshot = (ROOT / "bin/take_screenshot.js").read_text()
+    screenshot = (ROOT / "bin/screenshot_gallery_helpers.js").read_text()
     capture = screenshot[screenshot.index("const capture = async") : screenshot.index("if (variants.length)")]
     assert "waitForLiveProgress(page, liveProgressDeadline, screencastResponses)" in capture
     assert capture.index("waitForLiveProgress(") < capture.index("await page.screenshot(")

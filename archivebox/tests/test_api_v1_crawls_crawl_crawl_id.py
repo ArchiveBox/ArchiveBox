@@ -58,7 +58,7 @@ print("stopped")
 
 
 def seed_paused_crawl(client, cwd: Path, api_token: str, url: str, tag: str) -> tuple[str, str]:
-    from archivebox.services.runner import run_due_snapshot
+    from archivebox.workers.runner import run_due_snapshot
 
     with use_archivebox_db(cwd):
         response = api_client_request(
@@ -188,7 +188,7 @@ def test_crawl_pause_resume_api_leaves_archiveresult_facts_unchanged(
         )
         assert crawl_response.status_code == 200, crawl_response.content.decode()
         crawl_id = json.loads(crawl_response.content.decode())["id"]
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         active_response = api_client_request(
             client,
@@ -496,7 +496,7 @@ def test_update_index_only_leaves_paused_snapshot_on_normal_lifecycle_path(clien
 
 
 def test_crawl_cancel_api_defers_cleanup_to_runner(client, api_admin_user, api_headers):
-    from archivebox.services.runner import run_due_crawl
+    from archivebox.workers.runner import run_due_crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com",

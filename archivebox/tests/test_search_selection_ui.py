@@ -1,5 +1,6 @@
 """Real streamed search refreshes preserve the user's bulk selection."""
 
+import shutil
 from uuid import UUID
 
 import pytest
@@ -10,9 +11,10 @@ import pytest
 def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runtime, across):
     from playwright.sync_api import expect, sync_playwright
 
-    from archivebox.core.models import Snapshot
+    from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.tests.test_orm_helpers import use_archivebox_db
+    from archivebox.tests.test_snapshot_output_stacks import IMAGE_FIXTURE
     from django.contrib.auth import get_user_model
 
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", BASE_URL="http://archivebox.localhost")
@@ -38,6 +40,17 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
                     # time to make a selection before the final table arrives.
                     stream.seek((6 if index == 60 else 22) << 20)
                     stream.write(b"late-match")
+            else:
+                path = snap.output_dir / "screenshot" / "screenshot.png"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(IMAGE_FIXTURE, path)
+                ArchiveResult.objects.create(
+                    snapshot=snap,
+                    plugin="screenshot",
+                    status="succeeded",
+                    output_str="screenshot.png",
+                    output_files={"screenshot.png": {"size": path.stat().st_size, "mimetype": "image/png"}},
+                )
 
     admin_url = f"http://admin.archivebox.localhost:{server.port}"
     with sync_playwright() as playwright:
@@ -56,15 +69,20 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
             checkboxes = page.locator("#result_list input.action-select")
             expect(checkboxes).to_have_count(50)
             old_row = page.locator("#result_list tbody tr").first.element_handle()
+            preview = page.locator("#result_list tbody tr").first.locator(".snapshot-thumbnail iframe")
+            expect(preview).to_have_count(1)
+            frame = preview.element_handle()
+            window = frame.evaluate_handle("el => el.contentWindow")
             selected_id = checkboxes.first.input_value()
             if across:
                 page.locator(".action-total-select").click()
                 expect(page.locator("input.select-across")).to_have_value("1")
             else:
                 checkboxes.first.check()
-            page.wait_for_function("row => !row.isConnected", arg=old_row)
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
         page.wait_for_load_state("networkidle")
+        assert old_row.evaluate("row => row.isConnected")
+        assert frame.evaluate("(el, original) => el.isConnected && el.contentWindow === original", window)
         expect(page.locator(f'input.action-select[value="{selected_id}"]')).to_be_checked()
         expect(page.locator("input.action-select:checked")).to_have_count(50 if across else 1)
         expect(page.locator("input.select-across")).to_have_value("1" if across else "0")

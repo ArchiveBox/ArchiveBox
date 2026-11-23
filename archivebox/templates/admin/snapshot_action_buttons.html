@@ -26,6 +26,7 @@
             {% elif value == 'move_to_folder' %}
               <span class="action-folder-wrapper">
                 {% include "core/record_picker.html" with name="folder_destination" css_class="action-folder-select" label="Move to folder" kind="folder" destination=True placeholder="Move to folder" empty_label="No folder" %}
+                <span class="button" aria-hidden="true">{% include "admin/action_icon.html" with action=value %}<span class="action-folder-label">Move to folder</span><span aria-hidden="true">▾</span></span>
               </span>
             {% elif value == 'merge_tags' %}
               <button type="button" class="button" data-tag-merge-open aria-haspopup="dialog" disabled>Merge Tags</button>

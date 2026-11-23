@@ -3,6 +3,7 @@ __package__ = "archivebox.workers"
 import csv
 import errno
 import json
+import logging
 import os
 import shlex
 import shutil
@@ -24,7 +25,6 @@ from django.db import DatabaseError
 from supervisor.xmlrpc import SupervisorTransport
 
 from archivebox.config import CONSTANTS
-from archivebox.config.common import rprint as print
 from archivebox.config.paths import SUPERVISORD_SOCKET_FILENAME, get_or_create_working_tmp_dir
 from archivebox.config.permissions import ARCHIVEBOX_USER
 from archivebox.core.shutdown_util import (
@@ -36,8 +36,9 @@ from archivebox.core.shutdown_util import (
     wait_popen_and_kill_children,
     wait_psutil_and_kill_children,
 )
-from archivebox.misc.logging import STDERR
 from archivebox.misc.logging_util import pretty_path
+
+logger = logging.getLogger(__name__)
 
 LOG_FILE_NAME = "supervisord.log"
 CONFIG_FILE_NAME = "supervisord.conf"
@@ -60,7 +61,7 @@ def _shell_join(args: list[str]) -> str:
 
 
 def _warn_background_cleanup(context: str, err: BaseException) -> None:
-    STDERR.print(f"[yellow][!] {context}: {err!s}[/yellow]")
+    logger.warning("%s: %s", context, err, exc_info=err)
 
 
 def _read_cgroup_limit(path: Path) -> int | None:
@@ -111,12 +112,15 @@ def _require_available_memory(operation: str, idle_message: str, available_bytes
 
     available_mib = available_bytes // (1024 * 1024)
     required_mib = required_bytes // (1024 * 1024)
-    STDERR.print(f"[red][X] Not enough available memory to {operation} safely.[/red]")
-    STDERR.print(
-        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before this operation.",
+    logger.error(
+        "Not enough available memory to %s safely. Available RAM + swap: %s MiB; "
+        "at least %s MiB must be free before this operation. %s "
+        "Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.",
+        operation,
+        available_mib,
+        required_mib,
+        idle_message.strip(),
     )
-    STDERR.print(idle_message)
-    STDERR.print("    Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.")
     raise SystemExit(1)
 
 
@@ -286,7 +290,7 @@ def _stop_older_supervisord_processes(*, current_pid: int, current_started_at: f
         try:
             if proc.create_time() >= current_started_at:
                 continue
-            print(f"[🦸‍♂️] Stopping older supervisord process (pid={proc.pid})...")
+            logger.info(f"[🦸‍♂️] Stopping older supervisord process (pid={proc.pid})...")
             children = proc.children(recursive=True)
             proc.terminate()
             for child in children:
@@ -679,14 +683,14 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
 
     procs_by_name = {}
     for worker_name, (_worker, lazy) in desired.items():
-        print(f"[🦸‍♂️] Supervisord syncing subprocess worker: {worker_name}...")
+        logger.info(f"[🦸‍♂️] Supervisord syncing subprocess worker: {worker_name}...")
         for _ in range(25):
             proc = get_worker(supervisor, worker_name)
             if proc is None:
                 time.sleep(0.2)
                 continue
             if proc["statename"] == "RUNNING":
-                print(f"     - Worker {worker_name}: already {proc['statename']} ({proc['description']})")
+                logger.info(f"     - Worker {worker_name}: already {proc['statename']} ({proc['description']})")
                 procs_by_name[worker_name] = proc
                 break
             if not lazy:
@@ -696,17 +700,17 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
                     bind_host, bind_port = target
                     stop_stale_service_processes(_worker, supervisor_pid=supervisor.getPID())
                     if is_port_in_use(bind_host, bind_port):
-                        print(
-                            f"[yellow][*] Cannot bind {bind_host}:{bind_port}; "
-                            f"skipping {worker_name}. Do you have another service already running on that port?[/yellow]",
+                        logger.warning(
+                            f"[*] Cannot bind {bind_host}:{bind_port}; "
+                            f"skipping {worker_name}. Do you have another service already running on that port?",
                         )
                         procs_by_name[worker_name] = proc
                         break
                 supervisor.startProcessGroup(worker_name, True)
                 proc = supervisor.getProcessInfo(worker_name)
-                print(f"     - Worker {worker_name}: started {proc['statename']} ({proc['description']})")
+                logger.info(f"     - Worker {worker_name}: started {proc['statename']} ({proc['description']})")
             else:
-                print(f"     - Worker {worker_name}: configured {proc['statename']} ({proc['description']})")
+                logger.info(f"     - Worker {worker_name}: configured {proc['statename']} ({proc['description']})")
             procs_by_name[worker_name] = proc
             break
         else:
@@ -727,21 +731,21 @@ def get_existing_supervisord_process(*, quiet: bool = False):
         if current_state["statename"] == "RUNNING":
             pid = server.supervisor.getPID()
             if not quiet:
-                print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{pretty_path(SOCK_FILE)}.")
+                logger.info(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{pretty_path(SOCK_FILE, color=False)}.")
             return server.supervisor
     except FileNotFoundError:
         return None
     except Fault as err:
         if err.faultCode == 6 and "SHUTDOWN_STATE" in str(err):
             if not quiet:
-                print(f"[🦸‍♂️] Supervisord is already shutting down via unix://{pretty_path(SOCK_FILE)}.")
+                logger.info(f"[🦸‍♂️] Supervisord is already shutting down via unix://{pretty_path(SOCK_FILE, color=False)}.")
             return None
         if not quiet:
-            print(f"Error connecting to existing supervisord: {err!s}")
+            logger.exception(f"Error connecting to existing supervisord: {err!s}")
         return None
     except _SUPERVISORD_ERRORS as e:
         if not quiet:
-            print(f"Error connecting to existing supervisord: {e!s}")
+            logger.exception(f"Error connecting to existing supervisord: {e!s}")
         return None
 
 
@@ -809,7 +813,7 @@ def stop_existing_supervisord_process():
         if owner_proc.ppid() > 1:
             continue
         try:
-            print(f"[🦸‍♂️] Stopping older ArchiveBox runtime owner (pid={owner_proc.pid})...")
+            logger.info(f"[🦸‍♂️] Stopping older ArchiveBox runtime owner (pid={owner_proc.pid})...")
             owner_proc.terminate()
             try:
                 owner_proc.wait(timeout=min(stop_grace_seconds, 5))
@@ -844,9 +848,9 @@ def stop_existing_supervisord_process():
                     time.sleep(0.2)
         except Fault as err:
             if err.faultCode != 6 or "SHUTDOWN_STATE" not in str(err):
-                print(f"Error stopping supervisord workers: {err!s}")
+                logger.exception(f"Error stopping supervisord workers: {err!s}")
         except _SUPERVISORD_ERRORS as err:
-            print(f"Error stopping supervisord workers: {err!s}")
+            logger.exception(f"Error stopping supervisord workers: {err!s}")
 
         try:
             supervisor.shutdown()
@@ -855,7 +859,7 @@ def stop_existing_supervisord_process():
             if err.faultCode == 6 and "SHUTDOWN_STATE" in str(err):
                 supervisor_shutdown_requested = True
             else:
-                print(f"Error shutting down supervisord: {err!s}")
+                logger.exception(f"Error shutting down supervisord: {err!s}")
         except _SUPERVISORD_ERRORS:
             supervisor_shutdown_requested = True
 
@@ -863,7 +867,7 @@ def stop_existing_supervisord_process():
         # First try to stop via the global proc reference
         if _supervisord_proc and _supervisord_proc.poll() is None:
             try:
-                print(f"[🦸‍♂️] Stopping supervisord process (pid={_supervisord_proc.pid})...")
+                logger.info(f"[🦸‍♂️] Stopping supervisord process (pid={_supervisord_proc.pid})...")
                 try:
                     psutil_proc = psutil.Process(_supervisord_proc.pid)
                     children = psutil_proc.children(recursive=True)
@@ -891,7 +895,7 @@ def stop_existing_supervisord_process():
 
         for process, proc in live_supervisord:
             try:
-                print(f"[🦸‍♂️] Stopping older supervisord process (pid={proc.pid})...")
+                logger.info(f"[🦸‍♂️] Stopping older supervisord process (pid={proc.pid})...")
                 children = proc.children(recursive=True)
                 if not supervisor_shutdown_requested or supervisor is None or proc.pid != supervisor_pid:
                     proc.terminate()
@@ -929,7 +933,7 @@ def stop_own_supervisord_process(*, record_exit: bool = True):
 
     stopped_pid = _supervisord_proc.pid
     try:
-        print(f"[🦸‍♂️] Stopping supervisord process (pid={stopped_pid})...")
+        logger.info(f"[🦸‍♂️] Stopping supervisord process (pid={stopped_pid})...")
         try:
             psutil_proc = psutil.Process(stopped_pid)
             children = psutil_proc.children(recursive=True)
@@ -1001,13 +1005,12 @@ def start_new_supervisord_process(daemonize=False):
     PID_FILE = SOCK_FILE.parent / PID_FILE_NAME
     stop_grace_seconds = configured_stopwaitsecs(tuple(_desired_supervisord_workers.values()))
 
-    print(f"[🦸‍♂️] Supervisord starting{' in background' if daemonize else ''}...")
-    pretty_log_path = pretty_path(LOG_FILE)
-    print(f"    > Writing supervisord logs to: {pretty_log_path}")
-    print(f"    > Writing task worker logs to: {pretty_log_path.replace('supervisord.log', 'worker_*.log')}")
-    print(f"    > Using supervisord config file: {pretty_path(CONFIG_FILE)}")
-    print(f"    > Using supervisord UNIX socket: {pretty_path(SOCK_FILE)}")
-    print()
+    logger.info(f"[🦸‍♂️] Supervisord starting{' in background' if daemonize else ''}...")
+    pretty_log_path = pretty_path(LOG_FILE, color=False)
+    logger.info(f"    > Writing supervisord logs to: {pretty_log_path}")
+    logger.info(f"    > Writing task worker logs to: {pretty_log_path.replace('supervisord.log', 'worker_*.log')}")
+    logger.info(f"    > Using supervisord config file: {pretty_path(CONFIG_FILE, color=False)}")
+    logger.info(f"    > Using supervisord UNIX socket: {pretty_path(SOCK_FILE, color=False)}")
 
     # clear out existing stale state files
     shutil.rmtree(WORKERS_DIR, ignore_errors=True)
@@ -1202,7 +1205,7 @@ def run_runner_worker(
                 supervisor.signalProcess(name, "SIGINT")
                 if not interactive_interrupts:
                     abort_forwarded = True
-                print("[yellow][*] Forwarding Ctrl+C to the active crawl hook...[/yellow]")
+                logger.info("[*] Forwarding Ctrl+C to the active crawl hook...")
             if keep_running is not None and not keep_running():
                 try:
                     proc = get_worker(supervisor, name)
@@ -1439,15 +1442,13 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
             f.seek(0, 2)  # Go to end
 
             file_handles.append((log_path, f))
-            print(f"    [tailing {log_path.name}]")
+            logger.info(f"    [tailing {log_path.name}]")
         except OSError as e:
-            sys.stderr.write(f"Warning: Could not open {log_path}: {e}\n")
+            logger.warning("Could not open %s: %s", log_path, e, exc_info=True)
 
     if not file_handles:
-        sys.stderr.write("No log files could be opened\n")
+        logger.warning("No log files could be opened")
         return
-
-    print()
 
     # Log display needs a short refresh interval, but each ownership check
     # queries the database and validates OS processes. Check leadership once
@@ -1459,13 +1460,13 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
             now = time.monotonic()
             if keep_running is not None and now >= next_ownership_check:
                 if not keep_running():
-                    print("\n[newer ArchiveBox process is now running the orchestrator and server]")
+                    logger.info("[newer ArchiveBox process is now running the orchestrator and server]")
                     return "transferred"
                 next_ownership_check = time.monotonic() + 1.0
 
             # Check if the monitored process has exited
             if proc is not None and proc.poll() is not None:
-                print(f"\n[server process exited with code {proc.returncode}]")
+                logger.info(f"[server process exited with code {proc.returncode}]")
                 return "exited"
 
             had_output = False
@@ -1482,7 +1483,8 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
                     # Strip ANSI codes if present (supervisord does this but just in case)
                     line_clean = re.sub(r"\x1b\[[0-9;]*m", "", line.rstrip())
                     if line_clean:
-                        print(line_clean)
+                        sys.stderr.write(line_clean + "\n")
+                        sys.stderr.flush()
 
             # Small sleep to avoid busy-waiting (only when no output)
             if not had_output:
@@ -1617,7 +1619,7 @@ def stop_stale_service_processes(worker, *, supervisor_pid: int | None) -> None:
     if not stale:
         return
     target = f"{host}:{port}" if host and port else ", ".join(identity)
-    print(f"[yellow][*] Taking over stale {service['label']} service(s) using {target}...[/yellow]")
+    logger.info(f"[*] Taking over stale {service['label']} service(s) using {target}...")
     for proc in {proc.pid: proc for proc in stale}.values():
         _terminate_process_tree(proc)
 
@@ -1660,16 +1662,14 @@ def start_server_workers(
             )
             component_list = format_runtime_components(components)
             if resumed_from_pid:
-                print(
-                    "[yellow][*] Other newer archivebox process "
-                    f"(pid={resumed_from_pid}) exited, taking over {component_list} in this process again...[/yellow]",
+                logger.info(
+                    "[*] Other newer archivebox process "
+                    f"(pid={resumed_from_pid}) exited, taking over {component_list} in this process again...",
                 )
             else:
-                print(f"[*] Starting {component_list} in this process (pid={os.getpid()})...")
+                logger.info(f"[*] Starting {component_list} in this process (pid={os.getpid()})...")
 
-            print()
             sync_supervisord_workers(supervisor, workers, prune=True)
-            print()
 
             if daemonize:
                 return None
@@ -1684,8 +1684,7 @@ def start_server_workers(
                 raise_if_shutdown_requested()
                 connections.close_all()
                 # Tail worker logs while supervisord runs.
-                sys.stdout.write("Tailing worker logs (Ctrl+C to stop)...\n\n")
-                sys.stdout.flush()
+                logger.info("Tailing worker logs (Ctrl+C to stop)...")
                 tail_result = tail_multiple_worker_logs(
                     log_files=log_files,
                     follow=True,
@@ -1694,11 +1693,11 @@ def start_server_workers(
                 )
             except (KeyboardInterrupt, OSError):
                 if not shutdown_state.signal_name:
-                    print("\n[🛑] Got CTRL+C, stopping gracefully...")
+                    logger.info("[🛑] Got CTRL+C, stopping gracefully...")
             except SystemExit:
                 pass
             except BaseException as e:
-                STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping gracefully...")
+                logger.exception("Got %s exception, stopping gracefully...", e.__class__.__name__)
         finally:
             if not daemonize:
                 signal_shutdown_requested = bool(shutdown_state and shutdown_state.signal_name)

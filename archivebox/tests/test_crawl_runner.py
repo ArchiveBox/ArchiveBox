@@ -14,7 +14,7 @@ pytestmark = pytest.mark.django_db
 
 
 def test_runner_measures_active_growth_without_crediting_idle_memory(crawl):
-    from archivebox.services.runner import CrawlRunner, resource_admission
+    from archivebox.workers.runner import CrawlRunner, resource_admission
 
     runner = CrawlRunner(crawl)
     baseline = resource_admission.process_tree_memory()
@@ -50,7 +50,7 @@ def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     title = "界" * 70000 + " $(touch injected) `touch injected`"
     crawl = Crawl.objects.create(urls="https://example.com", created_by_id=get_or_create_system_user_pk())
@@ -75,7 +75,7 @@ def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     runner = CrawlRunner(crawl)
     runner.load_run_state()
@@ -92,7 +92,7 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
     from abx_dl.events import CrawlAbortEvent, CrawlEvent
 
     crawl = Crawl.objects.create(
@@ -141,7 +141,7 @@ def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     persona = Persona(name="RuntimePersona")
     persona.save()
@@ -188,7 +188,7 @@ def test_snapshot_payload_uses_snapshot_chrome_dirs_when_snapshot_isolated():
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     persona = Persona(name="SnapshotRuntimePersona")
     persona.save()
@@ -238,7 +238,7 @@ def test_ensure_background_runner_does_not_start_duplicate_orchestrator():
 
     import psutil
     from archivebox.machine.models import Machine, Process
-    from archivebox.services.runner import ensure_background_runner
+    from archivebox.workers.runner import ensure_background_runner
     from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
     from django.utils import timezone
 
@@ -261,7 +261,7 @@ def test_ensure_background_runner_does_not_start_duplicate_orchestrator():
 
 @pytest.mark.django_db(transaction=True)
 def test_ensure_background_runner_does_not_spawn_runner_without_supervisord():
-    from archivebox.services.runner import ensure_background_runner
+    from archivebox.workers.runner import ensure_background_runner
     from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
 
     stop_existing_supervisord_process()
@@ -275,7 +275,7 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
     from abx_dl.events import CrawlEvent, MachineEvent
     from abx_dl.orchestrator import create_bus
     from abxbus.event_bus import in_handler_context
-    from archivebox.services import runner as runner_module
+    from archivebox.workers import runner as runner_module
 
     bus = create_bus(name="test_runner_task_context_clears_inherited_abxbus_handler_context")
     observations = []
@@ -450,7 +450,7 @@ def test_crawl_start_event_does_not_reschedule_sealed_parent_until_explicit_requ
     # retry_at, runs cleanup, and clears retry_at — that's how the
     # ``retry_at != None`` invariant the handler intentionally preserves
     # eventually drains to ``None``.
-    from archivebox.services.runner import run_due_crawl
+    from archivebox.workers.runner import run_due_crawl
 
     assert run_due_crawl(crawl, lock_seconds=10) is True
     crawl.refresh_from_db()
@@ -576,7 +576,7 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.machine.models import Machine
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     resolved_lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
     assert resolved_lib_dir == hermetic_lib_dir, f"ABXPKG_LIB_DIR override not applied: {resolved_lib_dir!r} != {hermetic_lib_dir!r}"
@@ -641,7 +641,7 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -726,7 +726,7 @@ def test_crawl_runner_fails_one_snapshot_and_still_runs_the_next(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com/first\nhttps://example.com/broken\nhttps://example.com/next",
@@ -770,7 +770,7 @@ def test_crawl_setup_failure_preserves_unattempted_snapshots(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com/first\nhttps://example.com/second",
@@ -802,7 +802,7 @@ def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
     from abx_dl.events import CrawlEvent, CrawlSetupEvent, InstallEvent
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -834,7 +834,7 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
     from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     persona = Persona.objects.create(
         name="RuntimeConfig",
@@ -912,7 +912,7 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path, war
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.machine.models import Binary, Machine
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
     from django.utils import timezone
 
     if warm_cache:
@@ -983,7 +983,7 @@ def test_sealed_crawl_does_not_create_discovered_snapshots():
 def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
-    from archivebox.services import runner as runner_module
+    from archivebox.workers import runner as runner_module
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1007,7 +1007,7 @@ def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
 def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
-    from archivebox.services import runner as runner_module
+    from archivebox.workers import runner as runner_module
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1096,7 +1096,7 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
 @pytest.mark.django_db(transaction=True)
 def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
     from archivebox.machine.models import Binary, Machine
-    from archivebox.services import runner as runner_module
+    from archivebox.workers import runner as runner_module
 
     binary = Binary.objects.create(
         machine=Machine.current(),
@@ -1427,8 +1427,8 @@ def test_deferred_snapshot_releases_owned_lease(crawl):
     from django.utils import timezone
 
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import run_due_snapshot
-    from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS
+    from archivebox.workers.runner import run_due_snapshot
+    from archivebox.workers.resource_admission import RESOURCE_RECHECK_SECONDS
 
     reserve = psutil.virtual_memory().total + psutil.swap_memory().total + 1
     crawl.status = crawl.StatusChoices.STARTED
@@ -1467,7 +1467,7 @@ def test_resource_deferral_preserves_unowned_snapshot_lease(crawl, change):
     from django.utils import timezone
 
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import defer_crawl_for_resources
+    from archivebox.workers.runner import defer_crawl_for_resources
 
     crawl.status = crawl.StatusChoices.STARTED
     crawl.save()

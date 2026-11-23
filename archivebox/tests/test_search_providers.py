@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -12,8 +13,21 @@ from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.models import Snapshot
 from archivebox.search.interpreter import SnapshotSearch
+from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def ripgrep_search_config(cached_abxpkg_lib_dir):
+    # Resolve the real test dependency before the query's search budget starts.
+    binary_env = resolve_abxpkg_binary_env(
+        cached_abxpkg_lib_dir,
+        deps_from=Path(get_plugins_dir()) / "search_backend_ripgrep" / "config.json",
+    )
+    ripgrep = Path(binary_env["RIPGREP_BINARY"])
+    assert ripgrep.is_file()
+    return get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep", "RIPGREP_BINARY": str(ripgrep)})
 
 
 def output(snapshot, path, text):
@@ -106,21 +120,48 @@ def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):
     assert not list(SnapshotSearch(scope.exclude(pk=parent.pk), "linkedfrom:example.org").stream())
 
 
-def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl):
+def test_provider_failure_logs_real_command_and_stderr(crawl, caplog, tmp_path):
+    snapshot = Snapshot.objects.create(crawl=crawl, url="https://reports.example/unindexed")
+    output(snapshot, "readability/article.txt", "magnetosphere")
+    index = tmp_path / "search.sqlite3"
+    run_hook(
+        snapshot,
+        "search_backend_sqlite",
+        "--snapshot-id",
+        str(snapshot.pk),
+        SEARCH_BACKEND_SQLITE_ENABLED="true",
+        SEARCH_BACKEND_SQLITE_DB=str(index),
+    )
+    assert index.stat().st_size > 100
+    # Damage a real hook-created index. Its provider must report the SQLite
+    # failure while leaving the unreadable document unknown to the host.
+    with index.open("r+b") as stream:
+        stream.truncate(100)
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite", "SEARCH_BACKEND_SQLITE_DB": str(index)})
+    search = SnapshotSearch(Snapshot.objects.filter(pk=snapshot.pk), '"Missing Needle"', config=config)
+    assert list(search.stream()) == []
+    assert search.partial
+    errors = [record for record in caplog.records if "Search provider search_backend_sqlite unavailable" in record.getMessage()]
+    assert len(errors) == 1
+    assert "search.py" in errors[0].getMessage()
+    assert "sqlite3.DatabaseError" in errors[0].getMessage()
+    assert errors[0].exc_info
+
+
+def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl, ripgrep_search_config):
     first = Snapshot.objects.create(crawl=crawl, url="https://reports.example/one")
     capped = Snapshot.objects.create(crawl=crawl, url="https://reports.example/two")
     outside = Snapshot.objects.create(crawl=crawl, url="https://unrelated.example/")
     output(first, "dom/output.html", "Orbit Alpha:Beta")
     output(capped, "dom/output.html", "x" * (512 * 1024) + "Orbit Alpha:Beta")
     output(outside, "dom/output.html", "Orbit Alpha:Beta")
-    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep"})
     scope = Snapshot.objects.filter(pk__in=[first.pk, capped.pk, outside.pk])
-    search = SnapshotSearch(scope, 'domain:reports.example (deep:"Orbit" AND deep:"Alpha:Beta")', config=config)
+    search = SnapshotSearch(scope, 'domain:reports.example (deep:"Orbit" AND deep:"Alpha:Beta")', config=ripgrep_search_config)
     assert list(search.stream()) == [first.pk]
     assert search.partial
     assert search.usage["bytes"] == len("Orbit Alpha:Beta") + 512 * 1024
     assert search.usage["files"] == 2
-    negative = SnapshotSearch(scope, 'domain:reports.example ~deep:"Heavy"', config=config)
+    negative = SnapshotSearch(scope, 'domain:reports.example ~deep:"Heavy"', config=ripgrep_search_config)
     assert list(negative.stream()) == [first.pk]
     assert negative.partial
 
@@ -144,7 +185,51 @@ def test_sqlite_native_rank_explicit_sort_and_quoted_colons(crawl):
     assert list(SnapshotSearch(scope, '"ABC:DEF"', config=config).stream()) == [strong.pk]
     assert list(SnapshotSearch(scope, '~"ABC:DEF"', config=config).stream()) == [weak.pk]
 
+    # The index returns its confirmed ranked hits without waiting for a broad
+    # metadata scan; a row with only metadata must still arrive exactly once.
+    unindexed.title = "galaxy"
+    unindexed.save(update_fields=["title"])
+    assert list(SnapshotSearch(scope, "galaxy", config=config).stream()) == [strong.pk, weak.pk, unindexed.pk]
+    for query in ("domain:papers.example galaxy", "(galaxy OR title:galaxy) AND domain:papers.example"):
+        hits = list(SnapshotSearch(scope, query, config=config).stream())
+        assert sorted(hits) == [weak.pk, strong.pk, unindexed.pk]
+    assert list(SnapshotSearch(scope.order_by("pk"), "domain:papers.example galaxy", config=config).stream()) == [
+        weak.pk,
+        strong.pk,
+        unindexed.pk,
+    ]
 
+
+@pytest.mark.django_db(transaction=True)
+def test_stream_resumes_metadata_windows_after_a_full_first_page(crawl):
+    # The first window has no matches. The next one exceeds a page; SQL
+    # must resume after it without dropping its tail or emitting it twice.
+    rows = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                id=UUID(int=i + 1),
+                crawl=crawl,
+                url=f"https://reports.example/{i}",
+                timestamp=str(1802000000 + i),
+                title="research" if 70 <= i <= 345 else "other",
+            )
+            for i in range(350)
+        ],
+    )
+    indexed = rows[-1]
+    output(indexed, "readability/article.txt", "planetary")
+    run_hook(indexed, "search_backend_sqlite", "--snapshot-id", str(indexed.pk), SEARCH_BACKEND_SQLITE_ENABLED="true")
+    excluded = rows[99]
+    scope = Snapshot.objects.filter(crawl=crawl).exclude(pk=excluded.pk).order_by()
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite"})
+    search = SnapshotSearch(scope, "planetary OR title:research", config=config, streaming=True)
+    hits = list(search.stream())
+    expected = {row.pk for row in rows if row.title == "research" and row.pk != excluded.pk} | {indexed.pk}
+    assert set(hits) == expected and len(hits) == len(expected)
+    assert not search.usage["bytes"]
+
+
+@pytest.mark.django_db(transaction=True)
 def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
     import shlex
     import time
@@ -173,7 +258,7 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
 
             hit = Snapshot.objects.create(crawl=crawl, url="https://papers.example/indexed")
             missing = Snapshot.objects.create(crawl=crawl, url="https://papers.example/missing")
-            output(hit, "article/content.txt", "interstellar")
+            output(hit, "article/content.txt", "interstellar magnetosphere")
             run_hook(hit, "search_backend_sonic", "--snapshot-id", str(hit.pk), **settings)
             # Only Sonic can find this word once the extraction is unavailable.
             (hit.output_dir / "article/content.txt").rename(tmp_path / "indexed-source.txt")
@@ -183,13 +268,96 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             negative = SnapshotSearch(scope, "domain:papers.example ~interstellar", config=config)
             assert list(negative.stream()) == []
             assert negative.partial
+
+            # A slow disk branch is never required to publish a Boolean result
+            # already established by an index or metadata, even when it comes first.
+            output(missing, "dom/large.txt", "unrelated " * 550_000 + "diskneedle")
+            for expression in (
+                "deep:diskneedle OR interstellar",
+                "(deep:diskneedle AND title:missing) OR interstellar",
+                "(absentlexeme OR interstellar) AND domain:papers.example",
+                "interstellar AND magnetosphere",
+                "magnetosphere AND (interstellar OR deep:diskneedle)",
+                "interstellar AND ~title:missing",
+            ):
+                plan = SnapshotSearch(scope.order_by(), expression, config=config, streaming=True)
+                stream = plan.stream()
+                try:
+                    assert next(stream) == hit.pk
+                    assert plan.usage["bytes"] == 0
+                finally:
+                    stream.close()
+            assert not list(SnapshotSearch(scope.exclude(pk=hit.pk), "magnetosphere AND interstellar", config=config).stream())
+            # Neither source alone proves an AND, and a hit outside the
+            # active scope never authorizes reading its directory.
+            output(hit, "dom/content.txt", "diskneedle")
+            plan = SnapshotSearch(scope.order_by(), "interstellar AND deep:diskneedle", config=config, streaming=True)
+            stream = plan.stream()
+            try:
+                assert next(stream) == hit.pk
+                assert plan.usage["bytes"] > 0
+            finally:
+                stream.close()
+
+            from concurrent.futures import ThreadPoolExecutor
+            from itertools import islice
+            import signal
+            import threading
+            from django.db import connections
+
+            # Stop the real index process mid-test. A slow index must not
+            # prevent an independent SQL proof from filling the viewport.
+            fast = Snapshot.objects.bulk_create(
+                [
+                    Snapshot(crawl=crawl, url=f"https://fast.example/{i}", title="screenful", timestamp=str(1800000000 + i))
+                    for i in range(70)
+                ],
+            )
+            expected = {row.pk for row in fast}
+            for expression in (
+                "domain:fast.example OR interstellar",
+                "interstellar OR title:screenful",
+                "domain:fast.example AND (screenful OR interstellar)",
+                "(domain:fast.example AND ~title:missing) OR (interstellar AND deep:tail)",
+            ):
+                cancelled = threading.Event()
+
+                def screen():
+                    try:
+                        plan = SnapshotSearch(
+                            Snapshot.objects.filter(crawl=crawl).order_by(),
+                            expression,
+                            config=config,
+                            streaming=True,
+                            stop_event=cancelled,
+                        )
+                        stream = plan.stream()
+                        try:
+                            rows = list(islice(stream, 51))
+                            assert plan.usage["bytes"] == 0
+                            return rows
+                        finally:
+                            cancelled.set()
+                            stream.close()
+                    finally:
+                        connections.close_all()
+
+                daemon.send_signal(signal.SIGSTOP)
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    result = pool.submit(screen)
+                    try:
+                        rows = result.result(timeout=3)
+                        assert len(set(rows)) == 51 and set(rows) <= expected
+                    finally:
+                        cancelled.set()
+                        daemon.send_signal(signal.SIGCONT)
+
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)
 
 
-def test_connected_search_reaches_late_snapshots_and_file_tails(crawl):
-    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep"})
+def test_connected_search_reaches_late_snapshots_and_file_tails(crawl, ripgrep_search_config):
     snapshots = []
     for i in range(16):
         snap = Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://scan.example/{i}")
@@ -199,7 +367,7 @@ def test_connected_search_reaches_late_snapshots_and_file_tails(crawl):
     # Place part of a UTF-8 literal on either side of the chunk boundary.
     (snapshots[-1].output_dir / "dom/output.html").write_bytes(b"x" * (512 * 1024 - 1) + "éclipse".encode())
     scope = Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).order_by("pk")
-    search = SnapshotSearch(scope, 'deep:"éclipse"', config=config, streaming=True)
+    search = SnapshotSearch(scope, 'deep:"éclipse"', config=ripgrep_search_config, streaming=True)
     assert list(search.stream()) == [snapshots[-1].pk]
     assert not search.partial
 

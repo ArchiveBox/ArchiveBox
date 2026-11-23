@@ -47,6 +47,22 @@ def ranked_page_ids(scope, ids, *, start, size):
     return page
 
 
+def search_row_cursor(rows, previous):
+    """Acknowledge an ordered page prefix without storing browser state on the server."""
+    # Validate against current, permission-filtered rows. A new sort, removed
+    # permission or changed prefix gets an authoritative replacement page.
+    # A long-running disk scan can resume even after a server cache expires.
+    digest = hashlib.sha256()
+    retained = 0
+    length = 0
+    head, _, signature = previous.partition(".")
+    for length, row in enumerate(rows, 1):
+        digest.update(row.pk.bytes)
+        if str(length) == head and digest.hexdigest() == signature:
+            retained = length
+    return retained, f"{length}.{digest.hexdigest()}"
+
+
 def sql_page_key(request, url, token):
     # A page belongs to one search, user, sort, and submission. Never put its
     # bounded IDs in the membership cache shared by exports or other pages.
@@ -351,7 +367,18 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
         provider.close()
 
 
-def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name, public=False, page_request=None):
+def snapshot_search_stream_response(
+    query,
+    base_queryset,
+    *,
+    search_mode,
+    config,
+    cache_key,
+    thread_name,
+    public=False,
+    page_request=None,
+    report_work=False,
+):
     """Stream Snapshot search progress and cache matching IDs for a list view."""
     if not query:
         return StreamingHttpResponse((), content_type="text/plain")
@@ -468,6 +495,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             threading.Thread(target=run_search, name=thread_name, daemon=True).start()
             yield f"0{stream_padding}\n"
             heartbeat = time.monotonic()
+            last_work, work_sent_at = None, 0
             while True:
                 done = False
                 for item in await asyncio.to_thread(next_batch):
@@ -483,6 +511,13 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                     if len(ids) != last_sent:
                         last_sent, last_sent_at = len(ids), now
                         yield f"{last_sent}{stream_padding}\n"
+                # File workers already know their current batch. Opt in on this
+                # stream so older clients still receive only numeric match counts.
+                if report_work and search and not done and now - work_sent_at >= 0.5:
+                    work = search.archive_batch
+                    if work[1] and work != last_work:
+                        yield f"batch {work[0]} {work[1]}\n"
+                        last_work, work_sent_at = work, now
                 if done:
                     break
                 if now - heartbeat >= 10:
@@ -564,6 +599,7 @@ def admin_snapshot_search_stream_view(model_admin, request):
         cache_key=get_admin_search_cache_key(request, search_url),
         thread_name="admin-snapshot-search-stream",
         page_request=(request, search_url) if ordered else None,
+        report_work=request.headers.get("X-ArchiveBox-Search-Progress") == "1",
     )
 
 
@@ -592,4 +628,5 @@ def public_snapshot_search_stream_view(request):
         thread_name="public-snapshot-search-stream",
         public=True,
         page_request=(request, search_url) if ordered else None,
+        report_work=request.headers.get("X-ArchiveBox-Search-Progress") == "1",
     )

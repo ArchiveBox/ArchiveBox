@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
+from django.utils.cache import patch_vary_headers
 from django.utils.translation import gettext
 from django.db.models import Count, Prefetch
 from django import forms
@@ -29,7 +30,7 @@ from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
-from archivebox.search.views import admin_snapshot_search_stream_view, streamed_page_ids
+from archivebox.search.views import admin_snapshot_search_stream_view, search_row_cursor, streamed_page_ids
 from archivebox.search.query import apply_snapshot_filters
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
@@ -256,15 +257,15 @@ class SnapshotChangeList(SearchResultsChangeList):
             resolver_name == "grid" or request.path.rstrip("/").endswith("/grid")
         )
 
-    def _attach_archiveresult_summaries(self):
-        if not self.result_list:
+    def _attach_archiveresult_summaries(self, snapshots):
+        if not snapshots:
             return
 
         # Progress counts, file icons, favicons and thumbnails come from plain
         # rows plus the few manifest entries their links need: responses/wget
         # manifests hold thousands of entries (see list_results_util).
-        list_results = load_snapshot_list_results(self.result_list)
-        for obj in self.result_list:
+        list_results = load_snapshot_list_results(snapshots)
+        for obj in snapshots:
             summary = list_results[obj.pk]
             counts = summary.status_counts + summary.unnamed_status_counts
             total = sum(counts.values())
@@ -306,14 +307,32 @@ class SnapshotChangeList(SearchResultsChangeList):
         queryset_ids = self.queryset.values_list("pk", flat=True)
         root_ids = self.root_queryset.values_list("pk", flat=True)
         streamed_ids = streamed_page_ids(request)
-        domain_count = None
+        indexed_count = None
         if (
             streamed_ids is None
             and request.GET.get("domain")
             and (not self.query or getattr(request, "_archivebox_search_complete", False))
         ):
             # Reuse the exact indexed count to choose the smaller paging scope.
-            domain_count = self.queryset.order_by().values("pk").count()
+            indexed_count = self.queryset.order_by().values("pk").count()
+        elif streamed_ids is None and not self.root_queryset.query.where and not self.queryset.query.is_empty():
+            scope = {key for key, value in request.GET.items() if value and key not in {"p", "sidebar"}}
+            if scope == {"tag"}:
+                from archivebox.core.tag_util import annotate_tag_snapshot_counts
+
+                # The unique membership rows give the exact total through the
+                # existing tag index, without visiting every Snapshot row.
+                indexed_count = (
+                    annotate_tag_snapshot_counts(Tag.objects.filter(pk=request.GET["tag"])).values_list("num_snapshots", flat=True).first()
+                    or 0
+                )
+            elif scope == {"folder"}:
+                folder_id = request.GET["folder"]
+                folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
+                if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
+                    # Regular-folder membership is covered by the folder index.
+                    # Smart folders and combined filters retain async counts.
+                    indexed_count = self.queryset.order_by().values("folder_id").count()
 
         def read_page(offset, limit):
             if streamed_ids is not None:
@@ -321,7 +340,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             cached_page = cached_search_rank_page(request, start=offset, size=limit)
             if cached_page is not None:
                 return cached_page
-            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=domain_count)
+            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=indexed_count)
 
         page_ids = read_page(0 if self.show_all else start, size + 1)
         if self.show_all and len(page_ids) > size:
@@ -338,10 +357,8 @@ class SnapshotChangeList(SearchResultsChangeList):
         observed = start + len(page_ids)
         self.result_count_exact = len(page_ids) <= size
         count = observed
-        if domain_count is not None:
-            # Domain equality/ranges use the reversed-domain index. Count the
-            # complete filtered scope, including any additional admin filters.
-            count = domain_count
+        if indexed_count is not None:
+            count = indexed_count
             self.result_count_exact = True
         # Other queries retain the lookahead lower bound for next/previous links.
         self.queryset.query._archivebox_count_hint = count
@@ -362,11 +379,38 @@ class SnapshotChangeList(SearchResultsChangeList):
             for obj in self.result_list:
                 obj.search_rank = search_ranks[obj.pk.hex]
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
+        if summary is None and not self.result_count_exact and not self.queryset.query.where:
+            from archivebox.misc.db import approximate_row_counts
+            from archivebox.progressmonitor.collection import collection_summary
+            from django.db import connections
+
+            # The background list count may still be cold. Reuse the existing
+            # collection sample or planner statistics for an unfiltered list;
+            # neither requires scanning snapshots on the request thread.
+            collection = collection_summary(request.user, refresh=False) if request.user.is_superuser else None
+            estimate = (
+                collection["snapshots"]
+                if collection
+                else approximate_row_counts(connections[self.queryset.db]).get(Snapshot._meta.db_table)
+            )
+            if estimate is not None:
+                summary = {"count": estimate}
         self.display_result_count = max(observed, summary["count"]) if summary else count
         self.result_count_cached = summary is not None
+        if self.result_count_exact or self.result_count_cached:
+            display_paginator = AcceleratedPaginator(range(self.display_result_count), self.list_per_page)
+            self.display_num_pages = display_paginator.num_pages
+            self.display_page_links = [
+                {"number": number, "url": self.get_query_string({"p": number}, remove=["all"]) if isinstance(number, int) else None}
+                for number in display_paginator.get_elided_page_range(self.page_num, on_each_side=2, on_ends=1)
+            ]
         self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
-        self._attach_archiveresult_summaries()
+        previous = request.headers.get("X-ArchiveBox-Search-Rows")
+        self.retained_rows = 0
+        if previous and self.query and request.method == "GET" and request.GET.get("_embedded") != "crawl":
+            self.retained_rows, self.row_cursor = search_row_cursor(self.result_list, previous)
+        self._attach_archiveresult_summaries(self.result_list[self.retained_rows :])
 
 
 class SnapshotAdminForm(forms.ModelForm):
@@ -696,7 +740,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET, request=request)
         try:
             try:
-                return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+                response = super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+                patch_vary_headers(response, ("X-ArchiveBox-Search-Rows",))
+                cl = (getattr(response, "context_data", None) or {}).get("cl")
+                if cl and hasattr(cl, "row_cursor"):
+                    response["X-ArchiveBox-Search-Rows"] = cl.row_cursor
+                    if cl.retained_rows:
+                        # Actions and pagination use the entire page. Only the
+                        # table/grid renderer receives the newly arrived suffix.
+                        additions = copy(cl)
+                        additions.result_list = cl.result_list[cl.retained_rows :]
+                        response.context_data["additions"] = additions
+                        response.template_name = "admin/core/snapshot/search_rows.html"
+                        response["X-ArchiveBox-Search-Retained"] = str(cl.retained_rows)
+                return response
             except Exception as e:
                 self.message_user(request, f"Error occurred while loading the page: {str(e)} {request.GET} {request.POST}")
                 return super().changelist_view(request, GLOBAL_CONTEXT)
@@ -999,7 +1056,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def admin_actions(self, obj):
         summary_url = self.get_snapshot_view_url(obj)
         files_url = self.get_snapshot_files_url(obj)
-        zip_url = self.get_snapshot_zip_url(obj)
+        zip_url = self.get_snapshot_zip_url(obj).split("?", 1)[0]
         redo_failed_url = f"/admin/core/snapshot/{obj.pk}/redo-failed/"
         return format_html(
             """
@@ -1016,15 +1073,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📁 All files
                 </a>
-                <a class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="{}"
+                <button type="button" class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   data-zip-path="{}"
                    data-loading-label="Preparing..."
                    onclick="return window.archiveboxHandleZipClick(this, event);"
                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd';"
                    onmouseout="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe';">
                     <span class="archivebox-zip-spinner" aria-hidden="true"></span>
                     <span class="archivebox-zip-label">⬇ Download Zip</span>
-                </a>
+                </button>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
                    target="_blank"

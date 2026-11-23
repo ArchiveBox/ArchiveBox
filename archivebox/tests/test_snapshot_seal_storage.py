@@ -10,7 +10,7 @@ from abx_dl.events import ProcessStartedEvent
 from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 pytestmark = pytest.mark.django_db(transaction=True)
 

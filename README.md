@@ -638,14 +638,6 @@ echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox a
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage) page for documentation and examples.
 
-Use `archivebox add --parser=jsonl --plugins=wget < bookmarks.jsonl` for structured imports, or set `"parser": "jsonl"` in a `POST /api/v1/cli/add` request whose `urls` list contains the import text. `json` also accepts a JSON object or array. These modes take each record's URL field as a complete URL, preserving its metadata without extracting additional URLs from its path or query. `parser` selects how the input is read; `plugins` independently selects how each resulting page is captured. Text/auto parsing still discovers embedded URLs in ambiguous input. Duplicate records for the same URL retain the richest supplied metadata and combine complementary tags.
-
-It also includes a built-in scheduled import feature with `archivebox schedule`, handled by the same orchestrator that powers `archivebox server`, so you can pull in URLs from RSS feeds and websites regularly without a separate cron container.
-
-Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Schedules preserve explicitly submitted filters, plugin selection, limits, and custom config; each new run resolves current defaults for settings left unspecified.
-
-`CRAWL_DISCOVERY_PLUGINS=parse_html_urls` restricts child URL discovery to the named plugin's saved `urls.jsonl`; comma-separated names select multiple sources, and the default empty value accepts every source. Other plugins still run and preserve their outputs. This setting leaves explicit seeds unchanged and combines with `URL_ALLOWLIST`, `URL_DENYLIST`, depth limits, and `ONLY_NEW` when admitting children.
-
 <br/>
 
 
@@ -1332,6 +1324,13 @@ The production HTTP server honors `WEB_CONCURRENCY` (default `1`). For example,
 the listener, each with its own Python interpreter and Django connections.
 Size this against available CPU and memory; the capture orchestrator is separate.
 
+Identified crawlers may fetch only exact saved HTML paths declared by plugins in
+`crawler_output_paths` (currently DOM and Readability), after normal access checks.
+Generated previews, exports, directory listings, and other archive routes return
+403 to those crawlers before database or archive storage work. `robots.txt` advertises
+the same inexpensive outputs; ordinary browsers and manual CLI downloads keep their
+existing URLs. User-agent identification is advisory, not an authentication boundary.
+
 #### 2. Option B: Build the docker container and use that for development instead
 
 ```bash
@@ -1535,39 +1534,4 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
 
-### Folders, importers, and query exports
-
-`archivebox folder` provides `create`, `get`, `list`, `update`, `delete`, `rules`,
-and `move-snapshots`. Smart folders are native Folder records with a JSON `rules`
-tree; `folder rules` describes the supported fields, operators, and ordering.
-Updates validate cycles and rule references through the same model as the UI.
-Deleting a folder preserves captures. Folder lists support `--format csv|tsv|json|jsonl`.
-
-```bash
-archivebox folder create Reading
-archivebox folder create News --rules '{"field":"domain","lookup":"exact","value":"news.ycombinator.com"}'
-archivebox folder list --format csv
-archivebox list --folder-id FOLDER_UUID --format jsonl
-archivebox list --export-query 'folder=FOLDER_UUID&q=research&search_mode=meta' --format html_zip --output /absolute/path/export
-archivebox list --export-query 'folder=FOLDER_UUID' --format wacz --output /absolute/path/wacz-export
-```
-
-The authenticated REST API exposes `/api/v1/core/folders` (GET/POST),
-`/api/v1/core/folder/{id}` (GET/PATCH/DELETE), `/api/v1/core/folders/rules` (GET),
-and `/api/v1/core/folders/move-snapshots` (POST). Lists accept `format=csv|tsv|jsonl|json`.
-Snapshot lists accept `folder_id` for regular and smart membership. Snapshot and
-Crawl PATCH accept `folder_id`, including explicit `null` to clear it.
-
-Snapshot metadata exports use `/api/v1/core/snapshots/export/{format}`;
-POST to the same route starts a static ZIP or unified WACZ job. Export filters
-accept the snapshot view query string (including folder, search, domain, tags,
-and visibility); `folder_id`, `search`, and `status` also accept API spellings.
-Job responses include status, download, and cancellation URLs. ZIP/WACZ exports
-preserve the existing permission checks and native Process lifecycle.
-CSV/JSONL snapshot records include folder, owner, and persona IDs alongside names.
-Snapshot REST responses expose `persona_name`; `persona` contains the same value.
-
-`archivebox importer` exposes source CRUD, catalog discovery, queued actions, and
-run history. See [Importers](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/importers/README.md) for commands and REST
-endpoints. MCP exposes `folder` and `importer` as native action tools; snapshot
-export options are available through its existing `snapshot` list action.
+<!-- ATTENTION AI AGENTS: NEVER ADD NEW SECTIONS TO THE README WITHOUT EXPLICIT HUMAN APPROVAL OF THE EXACT TEXT TO BE ADDED -->

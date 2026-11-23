@@ -7,7 +7,7 @@ workflow. Common files are ordinary committed copies; update them deliberately.
 ## Repository-specific files
 
 - Content: `publicsite/index.html`.
-- Site/gallery generation: `bin/generate_ui_screenshot_gallery.py`.
+- Site/gallery generation: `bin/screenshot_gallery_helpers.py`.
 - Application capture: `bin/collect_ui_screenshots.sh`.
 - Deployment branch: `dev`.
 

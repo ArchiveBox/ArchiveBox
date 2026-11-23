@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def test_bulk_snapshot_delete_keeps_rows_until_worker_verifies_files(client, admin_user, crawl):
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
 
     snapshots = [Snapshot.objects.create(url=f"https://example.com/delete/{i}", crawl=crawl) for i in range(2)]
     output_dirs = [snapshot.output_dir for snapshot in snapshots]
@@ -74,7 +74,7 @@ def test_snapshot_delete_preserves_rows_when_real_filesystem_cleanup_fails(snaps
         assert Snapshot.objects.filter(pk=snapshot_id, status="deleting").exists()
         assert ArchiveResult.objects.filter(pk=result.pk).exists()
         assert saved_file.is_file()
-        from archivebox.services.runner import run_pending_crawls
+        from archivebox.workers.runner import run_pending_crawls
 
         run_pending_crawls(maintenance_only=True)
         assert Snapshot.objects.filter(pk=snapshot_id, status="deleting").exists()
@@ -252,7 +252,7 @@ def running_wget_projection(snapshot, blocking_http_server):
 
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import run_due_snapshot
+    from archivebox.workers.runner import run_due_snapshot
 
     now = timezone.now()
     Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now, modified_at=now)
@@ -1791,7 +1791,7 @@ class TestAdminSnapshotListView:
     def test_archive_now_completes_new_captures_without_mutating_original(self, client, admin_user, snapshot, recursive_test_site):
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_crawl
+        from archivebox.workers.runner import run_crawl
 
         snapshot.url = recursive_test_site["root_url"] + "#original-fragment"
         snapshot.status = "sealed"
@@ -2429,4 +2429,14 @@ def test_snapshot_folder_action_is_one_native_button_menu(admin_client, snapshot
     assert 'class="actions-folder"' not in html
     assert html.count('name="folder_destination"') == 1
     assert 'class="action-folder-select" aria-label="Move to folder"' in html
-    assert f'value="{folder.pk}"' in html
+    assert 'data-picker="folder" data-picker-destination="true"' in html
+    # The native menu searches the bounded picker API instead of embedding
+    # every collection folder into each snapshot list response.
+    assert f'value="{folder.pk}"' not in html
+    choices = admin_client.get(
+        "/api/v1/core/folders/autocomplete/",
+        {"q": "Research", "destination": "true"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert choices.status_code == 200
+    assert choices.json()["choices"] == [{"id": str(folder.pk), "name": "Research"}]

@@ -82,7 +82,7 @@ def test_empty_duplicate_crawl_does_not_prepare_persona_runtime(initialized_arch
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.personas.models import Persona
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         parser = PARSER_VALUE
         url = 'https://example.com/already-archived'
@@ -464,7 +464,7 @@ def test_crawl_runner_respects_chrome_isolation_config(initialized_archive):
         django.setup()
 
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         crawl_default = Crawl.objects.create(urls='https://example.com')
         runner_default = CrawlRunner(crawl_default)
@@ -577,7 +577,7 @@ def test_get_config_resolves_parent_scopes_for_snapshot_runtime(initialized_arch
         from archivebox.crawls.models import Crawl
         from archivebox.machine.models import Machine
         from archivebox.personas.models import Persona
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         CONSTANTS.CONFIG_FILE.write_text('[ARCHIVING_CONFIG]\\nTIMEOUT=11\\nCHROME_BINARY=file-chrome\\n')
 

@@ -43,7 +43,7 @@ def test_gallery_retains_navigation_and_cooldown_without_credentials(tmp_path):
             },
         ),
     )
-    generator = runpy.run_path(str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"))
+    generator = runpy.run_path(str(REPO_ROOT / "bin/screenshot_gallery_helpers.py"))
     output = tmp_path / "navigation.json"
     generator["write_navigation_diagnostics"](tmp_path, output)
     serialized = output.read_text()
@@ -148,7 +148,7 @@ def test_gallery_classifies_persisted_chrome_stderr_without_disclosing_values(tm
         exit_code=1,
         stderr="Page crashed!",
     )
-    generator = runpy.run_path(str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"))
+    generator = runpy.run_path(str(REPO_ROOT / "bin/screenshot_gallery_helpers.py"))
     output = tmp_path / "chrome-lifecycle.json"
     generator["write_chrome_lifecycle_diagnostics"](output)
     serialized = output.read_text()
@@ -188,7 +188,7 @@ def test_gallery_chrome_diagnostics_bound_process_history(tmp_path):
             for _ in range(129)
         ],
     )
-    generator = runpy.run_path(str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"))
+    generator = runpy.run_path(str(REPO_ROOT / "bin/screenshot_gallery_helpers.py"))
     output = tmp_path / "chrome-lifecycle.json"
     generator["write_chrome_lifecycle_diagnostics"](output)
     report = json.loads(output.read_text())
@@ -196,3 +196,51 @@ def test_gallery_chrome_diagnostics_bound_process_history(tmp_path):
     assert report["processes_omitted"] is True
     assert report["classifications"]["unexpected_target_close"] == 128
     assert report["classifications"]["renderer_crashed"] == 0
+
+
+def test_replay_url_diagnostics():
+    urls = [
+        "https://user:password@example.com/story?token=secret#private",
+        "http://localhost/replay/w/id/mp_/https://user:password@example.com/story?token=secret#private",
+        "data:text/html,secret",
+        "not a URL",
+        "https://example.com/" + "a" * 2000,
+    ]
+    output = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "const {safeReplayUrl} = require(process.argv[1]); console.log(JSON.stringify(process.argv.slice(2).map(safeReplayUrl)));",
+            str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
+            *urls,
+        ],
+        text=True,
+    )
+    assert json.loads(output) == [
+        "https://example.com/story",
+        "http://localhost/replay/w/id/mp_/https://example.com/story",
+        None,
+        None,
+        urls[-1][:1024],
+    ]
+
+
+def test_missing_replay_frame_diagnostics():
+    output = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "require(process.argv[1]).replayFailureDetails(null, process.argv[2], process.argv[3], []).then(data => console.log(JSON.stringify(data)));",
+            str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
+            "https://example.com/?secret=x",
+            "https://example.com/",
+        ],
+        text=True,
+    )
+    assert json.loads(output) == {
+        "story": "https://example.com/",
+        "replay": "https://example.com/",
+        "frame": None,
+        "unavailable": True,
+        "failures": [],
+    }

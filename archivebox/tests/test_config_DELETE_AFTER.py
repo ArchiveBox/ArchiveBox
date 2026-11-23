@@ -239,7 +239,7 @@ def test_delete_after_real_add_page_and_rest_create_paths(client, recursive_test
     assert ui_crawl.config["DELETE_AFTER"] == "2h"
     assert set(ui_crawl.config["PLUGINS"].split(",")) == {"wget", "hashes"}
     assert ui_crawl.delete_at is not None
-    from archivebox.services.runner import run_due_crawl
+    from archivebox.workers.runner import run_due_crawl
 
     assert run_due_crawl(ui_crawl, lock_seconds=10)
     ui_snapshot = ui_crawl.snapshot_set.get(url=ui_url)

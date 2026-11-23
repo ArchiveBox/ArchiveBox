@@ -5,10 +5,10 @@ import asyncio
 import pytest
 
 from archivebox.api.models import OutboundWebhook
-from archivebox.core.library_screenshots import homepage_capture_budget
+from screenshot_gallery_helpers import homepage_capture_budget
 from archivebox.core.models import Folder, Snapshot
 from archivebox.crawls.models import Crawl
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 
 @pytest.mark.django_db(transaction=True)

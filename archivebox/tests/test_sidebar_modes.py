@@ -194,7 +194,8 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         expect(menu.get_by_role("menuitem", name="Delete snapshots", exact=True)).to_be_visible()
         assert menu.locator(".library-delete:visible").all_text_contents() == ["Delete tag", "Delete snapshots"]
         tag_delete = menu.get_by_role("menuitem", name="Delete tag", exact=True)
-        assert tag_delete.get_attribute("href") == f"/admin/core/tag/{python_tag_id}/delete/"
+        assert tag_delete.evaluate("(button) => new URL(button.form.action).pathname") == f"/admin/core/tag/{python_tag_id}/delete/"
+        assert tag_delete.evaluate("(button) => button.form.method") == "post"
         assert "tag=" in menu.get_by_role("menuitem", name="CSV", exact=True).get_attribute("href")
         page.screenshot(path=str(evidence / "tag-actions.png"))
         page.keyboard.press("Escape")

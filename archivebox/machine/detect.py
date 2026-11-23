@@ -20,6 +20,21 @@ DATA_DIR = Path(os.getcwd()).resolve()
 _live_io_sample = None
 
 
+def cgroup_paths() -> list[Path]:
+    root = Path("/sys/fs/cgroup")
+    paths = [root]
+    try:
+        for line in Path("/proc/self/cgroup").read_text().splitlines():
+            if line.startswith("0::"):
+                current = root / line[3:].lstrip("/")
+                if current.is_dir() and current.is_relative_to(root):
+                    paths = [current, *[parent for parent in current.parents if parent.is_relative_to(root)]]
+                break
+    except OSError:
+        pass
+    return paths
+
+
 def get_live_system_stats(data_dir: Path) -> dict[str, Any]:
     """Cheap OS counters for the background progress sampler, never a request probe.
 
@@ -37,9 +52,7 @@ def get_live_system_stats(data_dir: Path) -> dict[str, Any]:
     try:
         memory = psutil.virtual_memory()
         stats.update(memory_available_bytes=memory.available, memory_total_bytes=memory.total)
-        from archivebox.services.resource_admission import ResourceAdmission
-
-        for path in ResourceAdmission.cgroup_paths():
+        for path in cgroup_paths():
             try:
                 limit = int((path / "memory.max").read_text())
                 used = int((path / "memory.current").read_text())

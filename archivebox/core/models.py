@@ -3646,6 +3646,94 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         except (OSError, TypeError, ValueError):
             return {}
 
+    def cache_candidates(self) -> list[dict[str, str]]:
+        """Return scoped snapshot paths for hooks using a time-bounded database lookup."""
+        from contextlib import ExitStack
+        from time import monotonic
+        from django.db import connections
+
+        result = []
+        deadline = monotonic() + 0.1
+        try:
+            parsed = urlsplit(self.url)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname or len(self.url) > 8192:
+                return []
+            alias = self._state.db
+            db = connections[alias]
+            scoped = (
+                Snapshot.objects.using(alias)
+                .filter(
+                    status="sealed",
+                    crawl__created_by_id=self.crawl.created_by_id,
+                    crawl__persona_id=self.crawl.persona_id,
+                    permissions=self.permissions,
+                )
+                .exclude(pk=self.pk)
+                .select_related("crawl__created_by")
+                .only("url", "timestamp", "bookmarked_at", "created_at", "fs_version", "crawl__created_by__username")
+                .order_by("-created_at", "-pk")
+            )
+            seen = set()
+            size = 0
+            with ExitStack() as stack, db.cursor() as cursor:
+                if db.vendor == "sqlite":
+                    raw = db.connection
+                    busy = cursor.execute("PRAGMA busy_timeout").fetchone()[0]
+                    cursor.execute("PRAGMA busy_timeout=0")
+                    stack.callback(raw.execute, f"PRAGMA busy_timeout={int(busy)}")
+                    stack.enter_context(transaction.atomic(using=alias))
+                    raw.set_progress_handler(lambda: int(monotonic() >= deadline), 500)
+                    stack.callback(raw.set_progress_handler, None, 0)
+                elif db.vendor == "postgresql":
+                    stack.enter_context(transaction.atomic(using=alias))
+                else:
+                    return []
+
+                def collect(rows, limit):
+                    nonlocal size
+                    remaining = int((deadline - monotonic()) * 1000)
+                    if remaining < 1:
+                        raise TimeoutError
+                    if db.vendor == "postgresql":
+                        cursor.execute(f"SET LOCAL statement_timeout = '{remaining}ms'")
+                    for row in rows[:limit]:
+                        if row.pk in seen or len(row.url) > 8192:
+                            continue
+                        path = row.get_storage_path_for_version(row.fs_version).relative_to(CONSTANTS.DATA_DIR)
+                        if ".." in path.parts:
+                            continue
+                        hint = {"url": row.url, "snapdir": str(path), "created_at": row.created_at.isoformat()}
+                        size += len(json.dumps(hint))
+                        if size > 32000:
+                            raise OverflowError
+                        seen.add(row.pk)
+                        result.append(hint)
+
+                collect(scoped.filter(url=self.url), 20)
+                root = f"{parsed.scheme}://{parsed.netloc}"
+                path = parsed.path.rstrip("/")
+                if not (parsed.query or parsed.fragment):
+                    path = path.rpartition("/")[0]
+                parents = []
+                while len(parents) < 16:
+                    parents.append(root + path)
+                    if not path:
+                        break
+                    path = path.rpartition("/")[0]
+                for parent in parents:
+                    collect(scoped.filter(url__in=(parent, parent + "/")).exclude(url=self.url), 1)
+                for parent in parents:
+                    prefix = parent + "/"
+                    descendants = scoped.filter(url__startswith=prefix).exclude(url__in=(self.url, prefix))
+                    if db.vendor == "sqlite":
+                        # Binary range uses the normal URL index even with case-insensitive LIKE.
+                        descendants = descendants.filter(url__gte=prefix, url__lt=parent + "0")
+                    collect(descendants, 1)
+        except Exception:
+            # A timeout, unavailable database or unusable historical row only drops hints.
+            pass
+        return result
+
     def storage_path_candidates(self) -> tuple[Path, ...]:
         """Return the existing layout choices in precedence order, without touching storage."""
         current = self.get_storage_path_for_version(self.fs_version)
@@ -3967,7 +4055,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Args:
             record: Dict with 'url' (for create) or 'id' (for patch), plus other fields
             overrides: Dict with 'crawl', 'snapshot' (parent), 'created_by_id'
-            queue_for_extraction: If True, sets status=QUEUED and retry_at (default: True)
+            queue_for_extraction: If True, queues extraction (default). If False,
+                an explicit record status is applied through the normal lifecycle.
 
         Returns:
             Snapshot instance or None
@@ -3981,6 +4070,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         config = get_config()
 
         overrides = overrides or {}
+        explicit_status = record.get("status") if not queue_for_extraction else None
+        if explicit_status is not None and explicit_status not in Snapshot.StatusChoices.values:
+            raise ValueError(f"Invalid snapshot status: {explicit_status}")
+
+        def apply_explicit_status(snapshot):
+            if explicit_status == Snapshot.StatusChoices.SEALED:
+                snapshot.cancel()
+            elif explicit_status == Snapshot.StatusChoices.PAUSED:
+                snapshot.pause()
+            elif explicit_status in Snapshot.RUNNABLE_STATES:
+                if explicit_status == Snapshot.StatusChoices.QUEUED and snapshot.is_paused:
+                    snapshot.resume()
+                else:
+                    snapshot.update_and_requeue(status=explicit_status, retry_at=timezone.now())
 
         # If 'id' is provided, lookup and patch that specific snapshot
         snapshot_id = record.get("id")
@@ -3992,7 +4095,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 update_fields = []
                 for field_name, value in record.items():
                     # Skip internal fields
-                    if field_name in ("id", "type"):
+                    if field_name in ("id", "type") or (explicit_status is not None and field_name in ("status", "retry_at")):
                         continue
 
                     # Skip if field doesn't exist on model
@@ -4011,6 +4114,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if update_fields:
                     snapshot.save(update_fields=update_fields + ["modified_at"])
 
+                apply_explicit_status(snapshot)
                 return snapshot
             except Snapshot.DoesNotExist:
                 # ID not found, fall through to create-by-URL logic
@@ -4032,6 +4136,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         import sys
 
         record_crawl_id = record.get("crawl_id")
+        if not crawl and record_crawl_id:
+            crawl = Crawl.objects.get(pk=record_crawl_id)
         if record_crawl_id and crawl and str(crawl.id) != str(record_crawl_id):
             rprint(
                 f"[yellow]⚠️  Snapshot.from_json crawl mismatch: record has crawl_id={record_crawl_id}, overrides has crawl={crawl.id}[/yellow]",
@@ -4046,7 +4152,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             else:
                 # Auto-create a single-URL crawl
                 from archivebox.config import CONSTANTS
-                from archivebox.crawls.models import Crawl
 
                 timestamp_str = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
                 sources_file = CONSTANTS.SOURCES_DIR / f"{timestamp_str}__auto_crawl.txt"
@@ -4088,6 +4193,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         except (TypeError, ValueError, OSError):
             created_at = None
 
+        created = snapshot is None
         if snapshot:
             # Update existing snapshot
             if title and (not snapshot.title or len(title) > len(snapshot.title or "")):
@@ -4105,6 +4211,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 "title": title,
                 "crawl": crawl,
             }
+            if explicit_status is not None:
+                # Persist the initial state before the runner can claim this row.
+                create_kwargs["status"] = explicit_status
+                create_kwargs["retry_at"] = (
+                    None
+                    if explicit_status == Snapshot.StatusChoices.SEALED
+                    else RETRY_AT_MAX
+                    if explicit_status == Snapshot.StatusChoices.PAUSED
+                    else timezone.now()
+                )
             if "folder_id" in record:
                 create_kwargs["folder_id"] = Folder.destination(record["folder_id"])
             if bookmarked_at:
@@ -4144,6 +4260,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if update_fields:
             snapshot.save(update_fields=update_fields + ["modified_at"])
 
+        if not created:
+            apply_explicit_status(snapshot)
         snapshot.ensure_crawl_symlink()
 
         return snapshot

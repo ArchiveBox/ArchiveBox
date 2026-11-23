@@ -555,6 +555,7 @@ def _seed_archive(data_dir: Path) -> dict[str, object]:
                                   status: response.status,
                                   url: response.url,
                                   sample: text.slice(0, 120),
+                                  title: new DOMParser().parseFromString(text, "text/html").title,
                                 };
                               } catch (error) {
                                 results[label] = {
@@ -1013,7 +1014,7 @@ def test_server_security_modes_in_chrome(
             assert "control plane disabled" in probe_results["admin"]["sample"].lower()
             assert "control plane disabled" in probe_results["api"]["sample"].lower()
         elif mode == "danger-onedomain-fullreplay":
-            assert "ArchiveBox" in probe_results["admin"]["sample"]
+            assert probe_results["admin"]["title"].endswith(" | ArchiveBox")
             assert "swagger" in probe_results["api"]["sample"].lower()
 
 

@@ -70,6 +70,7 @@ def test_folder_picker_moves_snapshot_at_mobile_width(live_server, browser_runti
             page.get_by_role("button", name="Log in", exact=True).click()
             page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
             picker = page.locator('.record-picker:has(select[name="folder_destination"])')
+            picker.get_by_role("combobox").select_option(label="Find a folder…")
             picker.get_by_role("searchbox").fill("Reading")
             choices = picker.locator("select")
             expect(choices.locator(f'option[value="{destination.pk}"]')).to_have_text("👩🏽‍💻 Research / 📚 Reading")

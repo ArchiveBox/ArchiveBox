@@ -136,7 +136,7 @@ def test_server_config_stays_available_without_entering_crawl_or_snapshot_runtim
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.machine.models import Machine
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
     import asyncio
 
     user = _user("config-boundaries-admin")

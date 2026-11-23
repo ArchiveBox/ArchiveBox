@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.api.webhook_screenshots import gallery_entries
+from screenshot_gallery_helpers import gallery_entries
 
 
 @pytest.mark.parametrize("label", ["Rule actions", "Rule event input", "Rule scripts", "Webhook process logs"])
@@ -19,7 +19,7 @@ def test_rule_gallery_validates_exact_editor_url(tmp_path, label):
     )
     expected_rule_id = rule_ids[2] if label in {"Rule scripts", "Webhook process logs"} else rule_ids[0]
     wrong_rule_id = rule_ids[1]
-    validator = Path(__file__).resolve().parents[2] / "bin/generate_ui_screenshot_gallery.py"
+    validator = Path(__file__).resolve().parents[2] / "bin/screenshot_gallery_helpers.py"
     report = tmp_path / "report.json"
 
     def validate(final_url):

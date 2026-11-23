@@ -15,7 +15,7 @@ from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Process
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
 from archivebox.tests.test_archive_result_service import _cleanup_machine_process_rows
 

@@ -118,7 +118,7 @@ from archivebox.search.config import (
     get_search_mode_options,
 )
 from archivebox.search.query import url_search_q
-from archivebox.search.views import get_cached_public_search_state, ranked_page_ids, streamed_page_ids
+from archivebox.search.views import get_cached_public_search_state, ranked_page_ids, search_row_cursor, streamed_page_ids
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -478,7 +478,7 @@ class SnapshotView(View):
                         query = request.META.get("QUERY_STRING")
                         if query:
                             target_path = f"{target_path}?{query}"
-                        return redirect(target_path)
+                        return add_memento_headers(request, snapshot, redirect(target_path))
 
                     if request.GET.get("files"):
                         target_path = _files_index_target(snapshot, archivefile)
@@ -489,6 +489,7 @@ class SnapshotView(View):
                             show_indexes=True,
                             is_archive_replay=True,
                         )
+                        add_memento_headers(request, snapshot, response, primary=False)
                     elif archivefile in ("", "index.html"):
                         # Both the canonical extensionless URL and the legacy
                         # index.html URL render the live Django snapshot page.
@@ -498,8 +499,7 @@ class SnapshotView(View):
                         query = request.META.get("QUERY_STRING")
                         if query:
                             target = f"{target}?{query}"
-                        return redirect(target)
-                    response["Link"] = ", ".join(filter(None, [response.get("Link"), f'<{snapshot.url}>; rel="canonical"']))
+                        return add_memento_headers(request, snapshot, redirect(target))
                     return response
                 except Snapshot.DoesNotExist:
                     snapshots = discoverable_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
@@ -675,7 +675,7 @@ class SnapshotView(View):
         query = request.META.get("QUERY_STRING")
         if query:
             target_path = f"{target_path}?{query}"
-        return redirect(target_path)
+        return add_memento_headers(request, snapshot, redirect(target_path))
 
 
 class SnapshotPathView(View):
@@ -796,7 +796,7 @@ class SnapshotPathView(View):
             query = request.META.get("QUERY_STRING")
             if query:
                 target = f"{target}?{query}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         archivefile = path or "index.html"
         if archivefile != "index.html" and not request.GET.get("files"):
@@ -804,17 +804,18 @@ class SnapshotPathView(View):
             query = request.META.get("QUERY_STRING")
             if query:
                 target = f"{target}?{query}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         if request.GET.get("files"):
             target_path = _files_index_target(snapshot, archivefile)
-            return serve_static_with_byterange_support(
+            response = serve_static_with_byterange_support(
                 request,
                 target_path,
                 document_root=snapshot.output_dir,
                 show_indexes=True,
                 is_archive_replay=True,
             )
+            return add_memento_headers(request, snapshot, response, primary=False)
 
         if archivefile == "index.html":
             return SnapshotView.render_live_index(request, snapshot)
@@ -1084,11 +1085,13 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
             f"</style>{CARD_OVERFLOW_STYLE}{render_to_string('core/typography.html')}</head><body>"
             f"{fragment}</body></html>"
         )
-    response = HttpResponse(card_html, content_type="text/html; charset=utf-8")
+    from archivebox.plugins.discovery import add_replay_document_metadata
+
+    response = HttpResponse(add_replay_document_metadata(card_html, snapshot.url), content_type="text/html; charset=utf-8")
     response.headers["Content-Security-Policy"] = _trusted_snapshot_frame_csp(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
-    return response
+    return add_memento_headers(request, snapshot, response)
 
 
 def _has_original_domain_replay_cookie(request: HttpRequest, domain: str) -> bool:
@@ -1244,9 +1247,26 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
     snapshot._runtime_config = request_config
 
+    if request.__dict__.get("archivebox_crawler_raw"):
+        # Host authorization has already selected this snapshot. A declared
+        # crawler output needs only its saved file, never manifests or fallbacks.
+        request.archivebox_output_revision = ""
+        response = serve_static_with_byterange_support(
+            request,
+            rel_path,
+            document_root=snapshot.output_dir,
+            is_archive_replay=True,
+        )
+        return add_memento_headers(request, snapshot, response, path=rel_path, enclosures=False)
+
     if rel_path.startswith("replay/") or rel_path == "replay":
         response = serve_plugin_replay_asset(rel_path, request_config, HttpResponse)
         if response is not None:
+            if response.get("Content-Type", "").startswith("text/html"):
+                from archivebox.plugins.discovery import add_replay_document_metadata
+
+                response.content = add_replay_document_metadata(response.content.decode(response.charset), snapshot.url)
+                return add_memento_headers(request, snapshot, response, primary=False)
             return response
 
     if rel_path == "progress.json":
@@ -1275,7 +1295,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
             target = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
         return SnapshotView.render_live_index(request, snapshot)
 
     if not rel_path or rel_path.endswith("/"):
@@ -1304,12 +1324,14 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     request.archivebox_output_revision = f"{hashes_result['id'].hex}-{hashes_result['modified_at'].isoformat()}" if has_hashes else ""
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
-    # Only the primary representation describes the page; logs and helper assets do not.
+    # All replay pages identify their source; only the primary representation is a Memento.
     if plugin_preview is not None:
-        return (
-            add_memento_headers(request, snapshot, plugin_preview)
-            if archive_result and rel_path == archive_result.embed_path()
-            else plugin_preview
+        return add_memento_headers(
+            request,
+            snapshot,
+            plugin_preview,
+            path=rel_path,
+            primary=bool(archive_result and rel_path == archive_result.embed_path()),
         )
 
     for candidate_path in (rel_path, *fallback_relpaths):
@@ -1477,7 +1499,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
             target = build_snapshot_url(str(snapshot.id), snapshot_path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
     show_indexes = bool(request.GET.get("files"))
     if match:
         snapshot, replay_root, rel_to_root = match
@@ -1485,12 +1507,14 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         request.archivebox_snapshot = snapshot
         response = _serve_replay_path(request, Path(snapshot.output_dir), replay_root, str(rel_to_root), show_indexes)
         if response is not None:
-            return response
+            return add_memento_headers(request, snapshot, response, path=str(rel_to_root), primary=False)
 
     if root_match:
+        request.archivebox_snapshot_url = root_match[0].url
+        request.archivebox_snapshot = root_match[0]
         response = _serve_replay_path(request, Path(root_match[0].output_dir), replay_root, rel_path, show_indexes)
         if response is not None:
-            return response
+            return add_memento_headers(request, root_match[0], response, path=rel_path, primary=False)
 
     if requested_root_index and not show_indexes:
         if snapshots:
@@ -1522,7 +1546,7 @@ class SnapshotHostView(View):
             target = build_snapshot_url(str(snapshot.id), path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
-            return redirect(target)
+            return add_memento_headers(request, snapshot, redirect(target))
 
         return _serve_snapshot_replay(request, snapshot, path)
 
@@ -1579,6 +1603,15 @@ class PublicIndexView(ListView):
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
     paginator_class = AcceleratedPaginator
     public_search_uses_sql = False
+    search_fragment = None
+
+    def get_template_names(self):
+        templates = super().get_template_names()
+        if self.search_fragment:
+            # Themes can opt into the same fragment; a full custom template
+            # still works with the browser's existing DOM region selectors.
+            return [f"{self.template_name}#search-results", *templates]
+        return templates
 
     def get_paginate_by(self, queryset):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1766,7 +1799,6 @@ class PublicIndexView(ListView):
         }
         from archivebox.core.sidebar import sidebar_context
 
-        context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
         context["show_search_index_hint"] = bool(
             query
             and not public_search_pending
@@ -1779,9 +1811,27 @@ class PublicIndexView(ListView):
         context["public_page_count"] = (
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
         )
-        snapshots = list(context.get("object_list") or ())
+        context["search_fragment"] = self.search_fragment
+        objects = context.get("object_list")
+        self.preview_has_more = False
+        if self.search_fragment == "preview":
+            # Plugin icons and thumbnails are the expensive part of each row.
+            # Hydrate enough to paint immediately; keep pagination and scope
+            # intact for the full page that follows on the same URL.
+            snapshots = list(objects[:9]) if objects is not None else []
+            self.preview_has_more = len(snapshots) > 8
+            snapshots = snapshots[:8]
+        else:
+            snapshots = list(objects or ())
         from archivebox.core.list_results_util import load_snapshot_list_results
 
+        previous = self.request.headers.get("X-ArchiveBox-Search-Rows")
+        if self.search_fragment and previous:
+            self.retained_rows, self.row_cursor = search_row_cursor(snapshots, previous)
+            context["search_retained"] = self.retained_rows
+            snapshots = snapshots[self.retained_rows :]
+        if not context.get("search_retained"):
+            context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         if snapshots:
             for snapshot_id, tag_name in (
@@ -1819,6 +1869,13 @@ class PublicIndexView(ListView):
             snapshot._public_list_icon_paths = summary.succeeded_paths(list_icon_plugins)
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
+        if self.search_fragment and hasattr(self, "public_rank_scope"):
+            # The provider appends IDs in discovery order. Once page one and
+            # its lookahead exist, later hits only change the displayed count.
+            # A Smart Folder's explicit ordering can still insert earlier rows.
+            self.first_ranked_page_filled = (
+                not self.preview_has_more and self.request.GET.get("page", "1") == "1" and context["page_obj"].has_next()
+            )
         return context
 
     def get_queryset(self, **kwargs):
@@ -1892,7 +1949,19 @@ class PublicIndexView(ListView):
         if self.request.user.is_authenticated:
             return redirect("/admin/core/snapshot/")
         if get_request_config(self.request).PUBLIC_INDEX:
+            phase = self.request.headers.get("X-ArchiveBox-Search-Fragment")
+            self.search_fragment = phase if phase in {"preview", "rows"} and self.request.GET.get("q") else None
             response = super().get(*args, **kwargs)
+            patch_vary_headers(response, ("X-ArchiveBox-Search-Fragment", "X-ArchiveBox-Search-Rows"))
+            if hasattr(self, "row_cursor"):
+                response["X-ArchiveBox-Search-Rows"] = self.row_cursor
+                response["X-ArchiveBox-Search-Retained"] = str(self.retained_rows)
+            if self.preview_has_more:
+                response["X-ArchiveBox-Search-More-Rows"] = "1"
+            if self.search_fragment and (state := self.__dict__.get("public_search_state")) is not None:
+                response["X-ArchiveBox-Search-Count"] = str(len(state["ids"]))
+            if getattr(self, "first_ranked_page_filled", False):
+                response["X-ArchiveBox-Search-Page-Filled"] = "1"
             return response
         else:
             return _admin_login_redirect_or_forbidden(self.request)

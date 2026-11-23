@@ -1,0 +1,32 @@
+{% load i18n core_tags %}
+<span class="action-summary" data-count-exact="{{ cl.result_count_exact|yesno:'true,false' }}" data-page-count="{{ cl.result_list|length }}" data-result-count="{{ cl.result_count }}" data-full-result-count="{{ cl.full_result_count|default:cl.result_count }}">
+  <span class="action-selected-count">
+    <span class="action-selected-current">0</span>
+    /
+    <a class="action-page-select" href="#" title="{% translate "Select all rows on this page" %}">{{ cl.result_list|length|intcomma }}</a>
+    selected
+  </span>
+  <span class="action-counter hidden" data-actions-icnt="{{ cl.result_list|length }}" style="display: none !important;" aria-hidden="true">{{ selection_note }}</span>
+  <span class="action-total-count">
+    {% if cl.display_result_count != None %}
+      <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %}</a> total
+    {% elif cl.full_result_count and cl.full_result_count != cl.result_count %}
+      <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{{ cl.result_count|intcomma }}</a>
+      filtered /
+      <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.full_result_count|intcomma }}</a>
+      total
+    {% else %}
+      <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.result_count|intcomma }}</a>
+      total
+    {% endif %}
+  </span>
+  {% if cl.opts.model_name == 'snapshot' %}<span class="snapshot-across-options"{% if cl.result_count == cl.result_list|length %} hidden{% endif %}>{% endif %}
+  {% if cl.opts.model_name == 'snapshot' or cl.result_count != cl.result_list|length %}
+  <span class="all hidden">{% if cl.opts.model_name == 'snapshot' %}All matching snapshots selected{% elif cl.display_result_count != None %}All matching rows selected{% else %}{{ selection_note_all }}{% endif %}</span>
+  <span class="question hidden">
+      <a role="button" href="#" title="{% translate "Click here to select the objects across all pages" %}">{% if cl.opts.model_name == 'snapshot' %}Select all matching snapshots{% elif cl.display_result_count != None %}Select all matching rows{% else %}{% blocktranslate with cl.result_count as total_count %}Select all {{ total_count }} {{ module_name }}{% endblocktranslate %}{% endif %}</a>
+  </span>
+  <span class="clear hidden"><a role="button" href="#">{% translate "Clear selection" %}</a></span>
+  {% endif %}
+  {% if cl.opts.model_name == 'snapshot' %}</span>{% endif %}
+</span>

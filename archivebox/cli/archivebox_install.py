@@ -179,7 +179,7 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
         print("[+] Running plugin installer via abx-dl bus...")
         print()
 
-        from archivebox.services.runner import run_install
+        from archivebox.workers.runner import run_install
 
         run_install(plugin_names=install_plugin_names or None)
 

@@ -213,7 +213,6 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
     assert "Add subfolder" in html
     from html import unescape
     from urllib.parse import parse_qs, urlsplit
-    import re
 
     response = admin_client.get(
         "/admin/core/snapshot/",
@@ -221,7 +220,9 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
-    links = re.findall(r'<a href="([^"]+)" data-export-format="([^"]+)"', menu)
+    from archivebox.tests.export_helpers import export_action_urls
+
+    links = export_action_urls(menu)
     assert {format for _, format in links} == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}
     for url, _format in links:
         parameters = parse_qs(urlsplit(unescape(url)).query)

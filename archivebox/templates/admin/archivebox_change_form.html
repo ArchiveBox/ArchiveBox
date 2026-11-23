@@ -27,6 +27,7 @@ Context inputs used by the toolbar:
 Each action dict may set:
   label, icon, title           - visible text
   url                          - href for anchor buttons
+  button                       - if true, renders <button type=button> for JS actions
   submit_name                  - if set, renders <button type=submit name=...>
   formaction, formmethod       - optional POST target for submit buttons
   onclick                      - inline handler
@@ -206,8 +207,8 @@ Each action dict may set:
           {% endfor %}
         </div>
       </details>
-    {% elif action.submit_name or action.formaction %}
-      <button type="submit"
+    {% elif action.submit_name or action.formaction or action.button %}
+      <button type="{% if action.button %}button{% else %}submit{% endif %}"
               form="{{ opts.model_name }}_form"
               {% if action.submit_name %}name="{{ action.submit_name }}"{% endif %}
               {% if action.formaction %}formaction="{{ action.formaction }}"{% endif %}
@@ -261,7 +262,11 @@ Each action dict may set:
 
   {% if original and has_delete_permission %}
     {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+    {% if delete_with_post %}
+    <button class="ab-btn ab-btn-danger" type="submit" form="{{ opts.model_name }}_form" formmethod="post" formaction="{% add_preserved_filters delete_url %}" formnovalidate title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</button>
+    {% else %}
     <a class="ab-btn ab-btn-danger" role="button" href="{{ delete_url }}" title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</a>
+    {% endif %}
   {% endif %}
 
   {% if opts.model_name == 'machine' or opts.model_name == 'persona' %}

@@ -168,6 +168,7 @@ SETTINGS_LOGGING = {
         "outbound_webhooks": {
             "()": CustomOutboundWebhookLogFormatter,
             "datefmt": "[%Y-%m-%d %H:%M:%S]",
+            "format": "%(name)s %(message)s" if sys.stderr.isatty() else "%(asctime)s %(levelname)s %(name)s %(message)s",
         },
     },
     "filters": {
@@ -215,14 +216,21 @@ SETTINGS_LOGGING = {
             "filename": ERROR_LOG,
             "maxBytes": 1024 * 1024 * 25,  # 25 MB
             "backupCount": 10,
-            "formatter": "rich",
+            "formatter": "plain",
             "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
         },
         "outbound_webhooks": {
-            "class": "rich.logging.RichHandler",
-            "markup": False,
-            "enable_link_path": False,
-            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
+            **(
+                {
+                    "class": "rich.logging.RichHandler",
+                    "markup": False,
+                    "enable_link_path": False,
+                    "rich_tracebacks": False,
+                    "console": STDERR,
+                }
+                if sys.stderr.isatty()
+                else {"class": "logging.StreamHandler", "stream": "ext://sys.stderr"}
+            ),
             "formatter": "outbound_webhooks",
         },
         # "mail_admins": {

@@ -30,11 +30,12 @@
     const precedenceHint = root.querySelector('.precedence-hint');
 
     const operators = JSON.parse(root.dataset.operators);
-    for (const op of operators) op.values = [];
+    for (const op of operators) op.values = op.choices || [];
     const lookup = {__proto__: null, ...Object.fromEntries(operators.flatMap(op => [op.key,...(op.aliases || [])].map(key => [key,op])))};
     const listFields = new Set(['tags','plugins','filetype']);
     const literalFields = new Set(['meta','deep']);
-    const freeFields = new Set(['tags','plugins','owner','status','permissions','title','linksto','linkedfrom','domain','site','after','before','bookmarked', ...literalFields]);
+    const freeSuggestions = new Set(['title','linksto','linkedfrom','after','before','bookmarked', ...literalFields]);
+    const freeFields = new Set(['tags','plugins','folder','owner','status','permissions','title','linksto','linkedfrom','domain','site','after','before','bookmarked', ...literalFields]);
     const quotedText = /^"(?:\\.|[^"\\])+"$/;
     const tagList = /^(?:"(?:\\.|[^"\\])+"|[^",\s]+)(?:,(?:"(?:\\.|[^"\\])+"|[^",\s]+))*$/;
     const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -49,7 +50,8 @@
       const sel = window.getSelection();
       if (!sel || !editor.contains(sel.anchorNode) || !editor.contains(sel.focusNode)) return {anchor:query.length,focus:query.length};
       const offset = (node,n) => { const r = document.createRange(); r.selectNodeContents(editor); r.setEnd(node,n); return r.toString().length; };
-      return {anchor:offset(sel.anchorNode,sel.anchorOffset),focus:offset(sel.focusNode,sel.focusOffset)};
+      const anchor = offset(sel.anchorNode,sel.anchorOffset);
+      return {anchor,focus:sel.isCollapsed ? anchor : offset(sel.focusNode,sel.focusOffset)};
     }
     function restore(pos) {
       const point = offset => {
@@ -197,7 +199,10 @@
         element.classList.toggle('scope-boundary', !!boundary);
       }
     }
+    let paintTimer;
     function paint(pos = selection()) {
+      clearTimeout(paintTimer);
+      paintTimer = null;
       paintedSelection = pos;
       const pieces = [];
       let offset = 0;
@@ -280,9 +285,10 @@
       const matches = op.values.filter(v => normalize(v).includes(prefix) && !prior.includes(v));
       // Keep the spelling the user typed available: choosing the canonical
       // mixed-case spelling can change which archived records match.
-      if (prefix && freeFields.has(token.key) && !matches.includes(typed)) matches.unshift(typed);
+      // Inventory choices (plugins, folders, tags, etc.) must actually exist.
+      if (prefix && freeSuggestions.has(token.key) && !matches.includes(typed)) matches.unshift(typed);
       const forceQuotes = literalFields.has(token.key) || operand.startsWith('"');
-      return matches.slice(0,8).map(value => ({label:value,detail:'',icon:op.icon,
+      return (op.key === 'plugins' ? matches : matches.slice(0,8)).map(value => ({label:value,detail:'',icon:op.icon,
         replacement:token.neg+token.key+':'+[...prior,quote(value, forceQuotes || (listFields.has(token.key) && value.includes(',')))].join(','),operator:false}));
     }
     let menuFrame;
@@ -361,7 +367,7 @@
     }
     async function suggestValues(token, parts) {
       const op = lookup[token.key];
-      if (!op) { abortSuggestions(); return; }
+      if (!op || op.choices) { abortSuggestions(); return; }
       const needle = parts.typed;
       // The sidebar and Django filters already live in the list URL. Only
       // list editors inherit them; the separate Smart Folder builder has its own scope.
@@ -444,15 +450,27 @@
     });
     editor.addEventListener('input',() => {
       if (composing) return;
-      const pos = selection(); query = editor.textContent.replace(/[\r\n]/g,' ');
-      feedback.textContent = ''; paint(pos); record(pos); menuOpen = true; scheduleMenu();
+      // Let the browser paint its own edit first. Replacing badge nodes here
+      // also rebuilds the selection and queues mutation observers before paint.
+      query = editor.textContent.replace(/[\r\n]/g,' ');
+      hidden.value = query;
+      clear.hidden = !query;
+      if (feedback.firstChild) feedback.replaceChildren();
+      // beforeinput captures the real selection before the next edit or undo.
+      record({anchor:query.length,focus:query.length});
+      clearTimeout(paintTimer);
+      paintTimer = setTimeout(() => {
+        paintTimer = null;
+        if (!composing && root.isConnected) paint();
+      }, 120);
+      menuOpen = true; scheduleMenu();
     });
     // Replacing text nodes mid-composition would drop the mobile keyboard's
     // provisional text. Repaint once the IME commits it and the caret is stable.
     editor.addEventListener('compositionstart',() => { composing = true; showMenu(); });
     editor.addEventListener('compositionend',() => { composing = false; editor.dispatchEvent(new Event('input')); });
     function selectionChanged() {
-      if (!focused || rendering || composing) return;
+      if (!focused || rendering || composing || paintTimer) return;
       const sel = window.getSelection(); if (!editor.contains(sel?.anchorNode)) return;
       // Restoring the caret after a synchronous edit also fires selectionchange.
       // Its decorations are already up to date.

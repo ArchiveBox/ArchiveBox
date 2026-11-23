@@ -10,7 +10,7 @@ def test_pending_snapshots_keep_creation_order_when_timestamps_tie(crawl):
     from django.utils import timezone
 
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     submitted_at = timezone.now()
     snapshots = [
@@ -48,7 +48,7 @@ def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_tes
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls=recursive_test_site["root_url"],
@@ -152,7 +152,7 @@ def test_recovery_restarts_interrupted_captures_from_scratch(cached_abxpkg_lib_d
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.core.recovery_util import recover_orchestrator_state
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     now = timezone.now()
     crawl = Crawl.objects.create(
@@ -212,7 +212,7 @@ def test_recovery_restarts_repeated_interruptions_without_inferring_attempts(cac
     from archivebox.crawls.models import Crawl
 
     from archivebox.core.models import ArchiveResult
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     now = timezone.now()
     crawl = Crawl.objects.create(
@@ -462,7 +462,7 @@ def test_running_crawl_consumes_explicit_sealed_plugin_requests(cached_abxpkg_li
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
     from abx_dl.events import SnapshotCompletedEvent
     from asgiref.sync import sync_to_async
 

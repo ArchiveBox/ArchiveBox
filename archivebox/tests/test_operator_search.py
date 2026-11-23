@@ -116,3 +116,31 @@ def test_cli_query_and_explicit_sort(initialized_archive):
         )
         assert result.returncode == 0, result.stderr
         assert [obj["title"] for obj in json.loads(result.stdout)] == ["Panels", "Atlas"]
+
+
+def test_folder_search_uses_tree_membership_and_public_picker(client, crawl):
+    from django.core.exceptions import ValidationError
+    from archivebox.core.models import Folder
+    from archivebox.core.smart_folders import RuleQuery
+    from archivebox.machine.models import Machine
+
+    Machine.from_json({"config": {"PUBLIC_INDEX": True}})
+    parent = Folder.objects.create(name="Papers")
+    child = Folder.objects.create(name="Some folder name", parent=parent)
+    hidden = Folder.objects.create(name="Private research")
+    row = Snapshot.objects.create(
+        crawl=crawl,
+        folder=child,
+        title="Study",
+        url="https://example.org/paper",
+        config={"PERMISSIONS": "public"},
+    )
+    Snapshot.objects.create(crawl=crawl, folder=hidden, title="Diary", url="https://example.org/private", config={"PERMISSIONS": "private"})
+    smart = Folder.objects.create(name="Recent studies", rules={"query": 'folder:"Some folder name" AND title:Study', "limit": 1})
+    for value in [child.name, "Papers / Some folder name", parent.name, smart.name, str(child.pk)]:
+        plan = SnapshotSearch(Snapshot.objects.all(), f'folder:"{value}"')
+        assert list(plan.sql_queryset().values_list("pk", flat=True)) == [row.pk]
+    choices = client.get(reverse("search-suggestions"), {"operator": "folder"}, HTTP_HOST=WEB_TEST_HOST).json()["values"]
+    assert "Papers / Some folder name" in choices and smart.name in choices and hidden.name not in choices
+    with pytest.raises(ValidationError, match="cycle"):
+        RuleQuery().compile({"query": 'folder:"Recent studies"'}, stack=(str(smart.pk),))

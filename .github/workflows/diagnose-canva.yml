@@ -109,7 +109,7 @@ jobs:
           TIMEOUT=60 CHROME_HEADLESS=false CHROME_LOG_SUBPROCESS_OUTPUT=true \
           xvfb-run -a bash -euo pipefail <<'PUBLIC' >"$public_root/capture.log" 2>&1
         cd "$PUBLIC_ROOT/data"
-        python "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan > "$PUBLIC_ROOT/plan.json"
+        python "$REPO_DIR/bin/screenshot_gallery_helpers.py" plugin-plan > "$PUBLIC_ROOT/plan.json"
         archivebox init --quick
         mapfile -t enabled < <(python -c 'import json,sys; print("\n".join(f"{p.upper()}_ENABLED=True" for p in json.load(open(sys.argv[1]))["enabled"]))' "$PUBLIC_ROOT/plan.json")
         archivebox config --set "${enabled[@]}"

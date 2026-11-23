@@ -273,7 +273,7 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
         snapshot_id = json.loads(create_response.content.decode())["id"]
         snapshot = Snapshot.objects.get(id=snapshot_id)
         from archivebox.config.common import get_config
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         lib_dir = get_config().ABXPKG_LIB_DIR
         snapshot.output_dir.mkdir(parents=True, exist_ok=True)

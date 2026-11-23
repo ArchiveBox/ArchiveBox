@@ -1,5 +1,6 @@
 """Exercise the actual mobile editor, including remounts after a streamed search."""
 
+import re
 from urllib.parse import urlsplit
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtime):
     from playwright.sync_api import expect, sync_playwright
 
-    from archivebox.core.models import Snapshot, Tag
+    from archivebox.core.models import Folder, Snapshot, Tag
     from archivebox.machine.models import Machine
 
     port = urlsplit(live_server.url).port
@@ -18,6 +19,8 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
     machine.save(update_fields=["config"])
     tagged = Snapshot.objects.create(url="https://example.org/one", title="Tagged page", crawl=crawl)
     tagged.tags.add(Tag.objects.create(name="ABC:DEF", created_by=admin_user))
+    research = Folder.objects.create(name="Research")
+    Folder.objects.create(name="Field notes", parent=research, rules={"query": "title:Tagged"})
     Snapshot.objects.create(url="https://example.org/two", title="Other page", crawl=crawl)
 
     with sync_playwright() as playwright:
@@ -62,7 +65,16 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
                 suggestion_prefixes.extend(params["prefix"])
 
         page.on("request", record_suggestion_request)
+        # Observe the handler after ArchiveBox has seen the native input event.
+        # Decoration must never detach the text node the browser just edited.
+        field.evaluate("""el => {
+            window.keptTypingNode = [];
+            let node;
+            el.addEventListener('input', () => { node = getSelection().focusNode; }, true);
+            el.addEventListener('input', () => window.keptTypingNode.push(node.isConnected));
+        }""")
         field.press_sequentially("ABC")
+        assert page.evaluate("window.keptTypingNode") == [True, True, True]
         page.get_by_role("option", name="ABC:DEF", exact=True).tap()
         expect(hidden).to_have_value('tags:"ABC:DEF" ')
         assert suggestion_prefixes == ["ABC"]
@@ -80,6 +92,16 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
                 },
             )["result"]["value"]
 
+        # Catalog completion works before the first successful capture by this
+        # plugin. Typing a prefix must not invent a plugin of that name.
+        saved_query = hidden.input_value()
+        field.fill("plugins:paper")
+        expect(page.locator('[role="option"] .suggestion-name')).to_have_text(["papersdl"])
+        field.fill("folder:Field")
+        page.get_by_role("option", name="Research / Field notes").tap()
+        expect(hidden).to_have_value('folder:"Research / Field notes" ')
+        field.fill(saved_query)
+        field.press("Escape")
         before = viewport_listener_count()
         original = field.element_handle()
         field.press("Enter")
@@ -292,10 +314,14 @@ def test_editor_searches_only_within_active_view(live_server, admin_user, crawl,
 
 
 @pytest.mark.django_db(transaction=True)
-def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, browser_runtime):
+@pytest.mark.parametrize("view", ["public", "list", "grid"])
+def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, browser_runtime, view):
+    import shutil
     from uuid import UUID
+
     from playwright.sync_api import expect, sync_playwright
-    from archivebox.core.models import Snapshot
+    from archivebox.tests.test_snapshot_output_stacks import IMAGE_FIXTURE
+    from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.tests.test_orm_helpers import use_archivebox_db
     from archivebox.crawls.models import Crawl
     from django.contrib.auth import get_user_model
@@ -304,7 +330,7 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
     server.wait_for_workers(("worker_uvicorn",))
     port = server.port
     with use_archivebox_db(server.data_dir):
-        owner = get_user_model().objects.create_user(username="stream-reader")
+        owner = get_user_model().objects.create_superuser(username="stream-reader", password="testpassword")
         crawl = Crawl.objects.create(urls="https://scoped.example", created_by=owner, status="sealed", retry_at=None)
         for i in range(15):
             snap = Snapshot.objects.create(
@@ -316,6 +342,17 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
                 title="Early metadata" if i == 0 else "Late content" if i == 14 else f"Unmatched {i}",
                 config={"PERMISSIONS": "public"},
             )
+            if i == 0:
+                image = snap.output_dir / "screenshot" / "screenshot.png"
+                image.parent.mkdir(parents=True)
+                shutil.copyfile(IMAGE_FIXTURE, image)
+                ArchiveResult.objects.create(
+                    snapshot=snap,
+                    plugin="screenshot",
+                    status="succeeded",
+                    output_str="screenshot.png",
+                    output_files={"screenshot.png": {"size": image.stat().st_size, "mimetype": "image/png"}},
+                )
         path = snap.output_dir / "dom" / "late.txt"
         path.parent.mkdir(parents=True)
         with path.open("wb") as stream:
@@ -326,16 +363,75 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page()
-        page.goto(f"http://web.archivebox.localhost:{port}/public/")
+        if view == "public":
+            page.goto(f"http://web.archivebox.localhost:{port}/public/")
+            rows = page.locator("#table-bookmarks tbody tr[data-snapshot-id]")
+        else:
+            origin = f"http://admin.archivebox.localhost:{port}"
+            page.goto(f"{origin}/admin/login/")
+            page.locator("#id_username").fill(owner.username)
+            page.locator("#id_password").fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            path = "/admin/core/snapshot/grid/" if view == "grid" else "/admin/core/snapshot/"
+            page.goto(origin + path)
+            rows = page.locator(".cards > .card" if view == "grid" else "#result_list tbody tr[data-snapshot-id]")
         editor = page.locator("#changelist-search [role=combobox]")
+        fragments = []
+        page.on(
+            "response",
+            lambda response: (
+                fragments.append(response)
+                if response.request.headers.get("x-requested-with") == "XMLHttpRequest" and "q=" in response.url
+                else None
+            ),
+        )
+        original_editor = editor.element_handle()
         editor.fill("title:Early OR deep:sunrise")
         editor.press("Escape")
         editor.press("Enter")
-        rows = page.locator("#table-bookmarks tbody tr")
-        expect(rows.filter(has_text="Early metadata")).to_be_visible()
-        bar = page.get_by_role("progressbar", name="Searching snapshots")
+        expect(rows).to_have_count(1)
+        first = rows.filter(has_text="Early metadata")
+        frame = first.locator("iframe")
+        expect(frame).to_be_visible()
+        # Observe the live result container itself. A same-looking replacement
+        # would discard focus, text selection and native preview state.
+        first_row = first.element_handle()
+        removals = first_row.evaluate_handle("""row => {
+            const removed = [];
+            new MutationObserver(records => {
+                for (const record of records) removed.push(...record.removedNodes);
+            }).observe(row.parentElement, {childList: true});
+            return removed;
+        }""")
+        original = frame.element_handle()
+        browsing_context = original.evaluate_handle("el => el.contentWindow")
+        target = frame.get_attribute("src")
+        repeat_requests = []
+        page.on("request", lambda request: repeat_requests.append(request.url) if request.url.endswith(target) else None)
+        bar = page.get_by_role("progressbar", name="Snapshots checked in this archive batch")
         expect(bar).to_be_visible()
+        expect(bar).to_have_attribute("max", "14")
+        expect(bar).to_have_attribute("value", "13")
+        expect(page.locator(".archivebox-search-stream-status:visible")).to_have_text("Searching...")
         expect(rows.filter(has_text="Late content")).to_be_visible(timeout=30000)
-        expect(bar).to_be_hidden()
+        expect(page.locator(".archivebox-search-stream-status:visible")).to_have_count(0)
         expect(rows).to_have_count(2)
+        assert original.evaluate("(el, previous) => el.isConnected && el.contentWindow === previous", browsing_context)
+        assert first_row.evaluate("row => row.isConnected && row === row.parentElement.firstElementChild")
+        assert removals.evaluate("removed => removed.length") == 0
+        assert not repeat_requests
+        bodies = [response.text() for response in fragments]
+        for row in rows.all():
+            row_id = row.get_attribute("data-snapshot-id")
+            assert sum(f'data-snapshot-id="{row_id}"' in body for body in bodies) == 1
+
+        assert len(bodies) >= 2
+        assert all("changelist-search" not in body and "folder-sidebar" not in body for body in bodies[1:])
+        if view == "public":
+            assert original_editor.evaluate("el => el.isConnected")
+        if view == "grid":
+            late = rows.filter(has_text="Late content")
+            expect(late).to_have_attribute("draggable", "true")
+            late.get_by_role("checkbox").check()
+            expect(late).to_have_class(re.compile("selected-card"))
         browser.close()

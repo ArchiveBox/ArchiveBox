@@ -669,10 +669,12 @@
 {% endblock %}
 
 {% block body %}
+    {% partialdef search-results inline %}
     <div class="snapshot-library public-library">
-        {% include "core/folder_sidebar.html" %}
+        {% if not search_retained %}{% include "core/folder_sidebar.html" %}{% endif %}
     <div id="content-main" class="public-snapshot-list">
         <div class="public-snapshot-toolbar">
+            {% if not search_fragment %}
             {% include "core/folder_context.html" %}
             <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
                 {% for key, values in request.GET.lists %}{% if key != "q" and key != "search_mode" and key != "page" and key != "p" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}{% endfor %}
@@ -680,6 +682,7 @@
                 {% if request.GET.search_mode %}<input type="hidden" name="search_mode" value="{{ request.GET.search_mode }}">{% endif %}
                 <input type="submit" value="Search">
             </form>
+            {% endif %}
             {% comment %}
                 Missing/stale totals are intentional on large collections: show rows
                 immediately and let a later normal reload pick up the cached count.
@@ -689,14 +692,14 @@
             {% endcomment %}
             <div class="public-snapshot-count">
                 {% if public_search_stream_pending %}
-                    <span class="archivebox-search-stream-status" role="status" aria-live="polite"><progress aria-label="Searching snapshots"></progress> Searching...</span>
+                    <span class="archivebox-search-stream-status" role="status" aria-live="polite"><progress value="0" max="{{ paginator.per_page }}" aria-label="Matches found for first page"></progress> Searching...</span>
                 {% else %}
                     {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }}{% endif %}
                     <span>(page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %})</span>
                 {% endif %}
             </div>
         </div>
-        {% plugin_icon_sprite %}
+        {% if not search_fragment %}{% plugin_icon_sprite %}{% endif %}
         <div class="public-snapshot-table-wrap">
             <table id="table-bookmarks" aria-label="Archived snapshots">
                 <thead>
@@ -713,7 +716,7 @@
                 <tbody>
                     {% for link in object_list %}
                         {% snapshot_index_row link %}
-                    {% empty %}
+                    {% empty %}{% if not search_retained %}
                         <tr>
                             <td colspan="7" class="public-search-empty">
                                 {% if public_search_stream_pending %}
@@ -726,11 +729,11 @@
                                 {% endif %}
                             </td>
                         </tr>
-                    {% endfor %}
+                    {% endif %}{% endfor %}
                 </tbody>
             </table>
         </div>
-        {% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}
+        {% if not search_retained %}{% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}{% endif %}
         <div class="public-pagination" role="navigation" aria-label="Snapshot pages">
             Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
             <br>
@@ -754,14 +757,16 @@
         </div>
     </div>
     </div>
+    {% endpartialdef %}
     <script>
         (function() {
             if (window.archiveboxPublicSearchStreamReady) return
             window.archiveboxPublicSearchStreamReady = true
 
+            {% include "includes/search_stream.js" %}
             let activeSearch = null
 
-            function setSearchLoading(controller, text) {
+            function setSearchLoading(controller) {
                 if (activeSearch !== controller) return
                 const toolbar = document.querySelector('.public-snapshot-toolbar')
                 if (!toolbar) return
@@ -775,13 +780,7 @@
                     if (count) count.appendChild(status)
                     else toolbar.appendChild(status)
                 }
-                if (!status.querySelector('progress')) {
-                    const bar = document.createElement('progress')
-                    bar.setAttribute('aria-label', 'Searching snapshots')
-                    status.replaceChildren(bar, document.createTextNode(''))
-                }
-                status.lastChild.textContent = ' ' + (text || 'Searching...')
-                status.hidden = false
+                controller.progress.show(status)
                 toolbar.setAttribute('aria-busy', 'true')
             }
 
@@ -795,6 +794,11 @@
             }
 
             function clearStaleSearchResults(mode) {
+                // The previous page's total (often zero) says nothing about
+                // this query. Keep the live status until its own rows arrive.
+                const count = document.querySelector('.public-snapshot-count')
+                const status = count?.querySelector('.archivebox-search-stream-status')
+                if (status) count.replaceChildren(status)
                 const tbody = document.querySelector('#table-bookmarks tbody')
                 if (tbody) {
                     const cell = document.createElement('td')
@@ -833,11 +837,15 @@
                 if (activeSearch) activeSearch.abort()
 
                 const controller = new AbortController()
+                controller.progress = searchProgress({{ paginator.per_page }})
                 activeSearch = controller
-                setSearchLoading(controller, 'Searching...')
+                setSearchLoading(controller)
                 let failed = false
                 let resultVersion = 0
-                const renderHeaders = {'X-Requested-With': 'XMLHttpRequest'}
+                let renderedCount = -1
+                let firstPageFilled = false
+                let exportsUpdated = false
+                const renderHeaders = {'X-Requested-With': 'XMLHttpRequest', 'X-ArchiveBox-Search-Rows': 'start'}
 
                 function buildListUrl() {
                     const url = new URL(window.location.href)
@@ -853,22 +861,38 @@
                 function replaceRegionFromDocument(doc, selector) {
                     const next = doc.querySelector(selector)
                     const current = document.querySelector(selector)
-                    if (next && current) current.innerHTML = next.innerHTML
+                    if (next && current && !next.isEqualNode(current)) current.replaceChildren(...next.childNodes)
                 }
 
-                async function renderNow() {
+                async function renderNow(preview = false) {
                     const url = buildListUrl()
-                    const response = await fetch(url, {headers: renderHeaders, signal: controller.signal})
+                    const headers = {...renderHeaders, 'X-ArchiveBox-Search-Fragment': preview ? 'preview' : 'rows'}
+                    const response = await fetch(url, {headers, signal: controller.signal})
                     if (!response.ok) throw new Error('Could not load snapshot results')
                     const html = await response.text()
-                    const doc = new DOMParser().parseFromString(html, 'text/html')
+                    const doc = searchFragment(html)
                     if (controller.signal.aborted) return
-                    window.archiveboxRefreshLibraryExportLinks?.(doc)
-                    replaceRegionFromDocument(doc, '.public-snapshot-count')
+                    if (!exportsUpdated) {
+                        window.archiveboxRefreshLibraryExportLinks?.(doc)
+                        exportsUpdated = true
+                    }
+                    if (!doc.querySelector('.public-snapshot-count .archivebox-search-stream-status')) {
+                        replaceRegionFromDocument(doc, '.public-snapshot-count')
+                    }
                     replaceRegionFromDocument(doc, '#table-bookmarks thead th:nth-child(3)')
-                    replaceRegionFromDocument(doc, '#table-bookmarks tbody')
+                    syncSearchRows(document.querySelector('#table-bookmarks tbody'), doc.querySelector('#table-bookmarks tbody'), Number(response.headers.get('X-ArchiveBox-Search-Retained')))
+                    renderHeaders['X-ArchiveBox-Search-Rows'] = response.headers.get('X-ArchiveBox-Search-Rows') || 'start'
                     replaceRegionFromDocument(doc, '.public-pagination')
-                    setSearchLoading(controller, resultVersion ? 'Searching... ' + resultVersion + ' found' : 'Searching...')
+                    // The server may already have rendered a later count than
+                    // the stream chunk that triggered this fetch. A full,
+                    // append-only first page can keep its rows until completion.
+                    renderedCount = Math.max(resultVersion, Number(response.headers.get('X-ArchiveBox-Search-Count')) || 0)
+                    firstPageFilled = response.headers.has('X-ArchiveBox-Search-Page-Filled')
+                    setSearchLoading(controller)
+                    // More rows may already be confirmed while the next disk
+                    // match takes minutes. Fill the page without waiting for
+                    // another progress event; keep the preview on screen meanwhile.
+                    if (preview && response.headers.has('X-ArchiveBox-Search-More-Rows')) await renderNow()
                 }
 
                 const listUrl = buildListUrl()
@@ -878,7 +902,7 @@
                 streamUrl.searchParams.set('q', query)
                 streamUrl.searchParams.set('search_mode', mode)
                 streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
-                fetch(streamUrl, {headers: {'X-ArchiveBox-Search-Page': 'first'}, signal: controller.signal})
+                fetch(streamUrl, {headers: {'X-ArchiveBox-Search-Page': 'first', 'X-ArchiveBox-Search-Progress': '1'}, signal: controller.signal})
                     .then(async function(response) {
                         const token = response.headers.get('X-ArchiveBox-Search-Page')
                         if (token) renderHeaders['X-ArchiveBox-Search-Page'] = token
@@ -887,7 +911,6 @@
                         const reader = response.body.getReader()
                         const decoder = new TextDecoder()
                         let buffer = ''
-                        let renderedCount = -1
                         async function read() {
                             const result = await reader.read()
                             buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done})
@@ -895,7 +918,7 @@
                             buffer = lines.pop()
                             let shouldRender = false
                             lines.forEach(function(count) {
-                                if (!count.trim()) return
+                                if (!count.trim() || controller.progress.work(count.trim())) return
                                 count = parseInt(count.trim(), 10)
                                 if (Number.isFinite(count)) {
                                     resultVersion = count
@@ -905,10 +928,13 @@
                                     shouldRender = true
                                 }
                             })
-                            setSearchLoading(controller, resultVersion ? 'Searching... ' + resultVersion + ' found' : 'Searching...')
-                            if ((shouldRender || result.done) && (!token || renderedCount !== resultVersion)) {
-                                await renderNow()
-                                renderedCount = resultVersion
+                            controller.progress.count(resultVersion)
+                            if (result.done) controller.progress.finishing()
+                            const needsRows = shouldRender && !firstPageFilled && resultVersion > renderedCount
+                            // A final mixed-search refresh settles the count and navigation,
+                            // including a later page that began with provisional results.
+                            if (needsRows || (result.done && (!token || renderedCount < resultVersion))) {
+                                await renderNow(renderedCount < 0 && shouldRender && !result.done)
                             }
                             if (!result.done) return read()
                         }

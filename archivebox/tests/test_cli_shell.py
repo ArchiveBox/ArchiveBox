@@ -88,8 +88,8 @@ def test_cli_logs_do_not_pad_to_an_artificial_terminal_width(initialized_archive
             "shell",
             "-c",
             "import logging; from archivebox.misc.logging import STDERR; "
-            "logging.getLogger('archivebox.services.runner').warning('Capture admission deferred: io stalls'); "
-            "logging.getLogger('archivebox.services.runner').info('Snapshot admission complete'); "
+            "logging.getLogger('archivebox.workers.runner').warning('Capture admission deferred: io stalls'); "
+            "logging.getLogger('archivebox.workers.runner').info('Snapshot admission complete'); "
             f"STDERR.print({long_url!r})",
         ],
         cwd=initialized_archive,
@@ -113,7 +113,7 @@ def test_piped_logs_keep_error_messages_and_tracebacks_copyable(initialized_arch
         "try:\n"
         "    Path.cwd().mkdir()\n"
         "except FileExistsError:\n"
-        f"    logging.getLogger('archivebox.services.runner').exception('Cannot save capture output: %s', {long_url!r})\n"
+        f"    logging.getLogger('archivebox.workers.runner').exception('Cannot save capture output: %s', {long_url!r})\n"
     )
     result = run_archivebox_cmd(
         ["shell", "-c", script],

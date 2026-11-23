@@ -11,6 +11,8 @@ from pathlib import Path
 
 import psutil
 
+from archivebox.machine.detect import cgroup_paths
+
 
 RESOURCE_RECHECK_SECONDS = 2.0
 # Scheduling policy, not a minimum-RAM claim: stop increasing extraction
@@ -94,24 +96,9 @@ class ResourceAdmission:
         self._concurrency = 1
         self._last_growth = float("-inf")
 
-    @staticmethod
-    def cgroup_paths() -> list[Path]:
-        root = Path("/sys/fs/cgroup")
-        paths = [root]
-        try:
-            for line in Path("/proc/self/cgroup").read_text().splitlines():
-                if line.startswith("0::"):
-                    current = root / line[3:].lstrip("/")
-                    if current.is_dir() and current.is_relative_to(root):
-                        paths = [current, *[parent for parent in current.parents if parent.is_relative_to(root)]]
-                    break
-        except OSError:
-            pass
-        return paths
-
     def snapshot_limit(self, configured: int) -> int:
         cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
-        for path in self.cgroup_paths():
+        for path in cgroup_paths():
             try:
                 quota, period = (path / "cpu.max").read_text().split()
                 if quota != "max":
@@ -219,7 +206,7 @@ class ResourceAdmission:
         host_available = host_ram_available + host_swap_free
 
         available = host_available
-        for path in self.cgroup_paths():
+        for path in cgroup_paths():
             try:
                 memory_max = (path / "memory.max").read_text().strip()
                 if memory_max == "max":
@@ -321,7 +308,7 @@ class ResourceAdmission:
             return self._reason
         self._checked_at = now
         reasons = []
-        cgroups = self.cgroup_paths()
+        cgroups = cgroup_paths()
         for path in cgroups:
             try:
                 cpu_stat = dict(line.split() for line in (path / "cpu.stat").read_text().splitlines())

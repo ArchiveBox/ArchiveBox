@@ -1,5 +1,5 @@
 import pytest
-from django.db import connection
+from django.db import connection, transaction
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 
@@ -104,18 +104,28 @@ def test_public_folder_tree_seeks_index_with_skewed_assignments(admin_user):
             for index in range(1_000)
         ],
     )
-    if connection.vendor == "sqlite":
-        with connection.cursor() as cursor:
-            cursor.execute("ANALYZE core_snapshot")
+    try:
+        with transaction.atomic():
+            if connection.vendor == "sqlite":
+                with connection.cursor() as cursor:
+                    cursor.execute("ANALYZE core_snapshot")
 
-    with CaptureQueriesContext(connection) as queries:
-        assert [entry.pk for entry in Folder.tree(public=True)] == [folder.pk]
+            with CaptureQueriesContext(connection) as queries:
+                assert [entry.pk for entry in Folder.tree(public=True)] == [folder.pk]
 
-    if connection.vendor == "sqlite":
-        with connection.cursor() as cursor:
-            cursor.execute("EXPLAIN QUERY PLAN " + queries[0]["sql"])
-            details = [row[-1] for row in cursor.fetchall()]
-        assert any("SEARCH" in line and "snapshot_folder_public_idx" in line for line in details), details
+            if connection.vendor == "sqlite":
+                with connection.cursor() as cursor:
+                    cursor.execute("EXPLAIN QUERY PLAN " + queries[0]["sql"])
+                    details = [row[-1] for row in cursor.fetchall()]
+                assert any("SEARCH" in line and "snapshot_folder_public_idx" in line for line in details), details
+            transaction.set_rollback(True)
+    finally:
+        if connection.vendor == "sqlite":
+            # Rolling back sqlite_stat1 does not reload SQLite's in-memory
+            # estimates. Restore the prior planner state as well, so later
+            # collections cannot inherit this deliberately skewed fixture.
+            with connection.cursor() as cursor:
+                cursor.execute("ANALYZE sqlite_schema")
 
 
 @override_settings(PUBLIC_INDEX=True)
