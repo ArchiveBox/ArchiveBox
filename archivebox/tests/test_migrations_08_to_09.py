@@ -1076,8 +1076,18 @@ def test_each_declared_filesystem_hop_preserves_outputs(migration_08_data, fs_ve
     assert result.returncode == 0, result.stderr
 
     snapshot = original_data["snapshots"][0]
+    result = run_archivebox_migration_cmd(
+        work_dir,
+        [
+            "manage",
+            "shell",
+            "-c",
+            "from archivebox.core.models import Snapshot; "
+            f"assert Snapshot.objects.filter(pk={snapshot['id']!r}).update(fs_version={fs_version!r}) == 1",
+        ],
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
     with sqlite3.connect(db_path) as connection:
-        connection.execute("UPDATE core_snapshot SET fs_version = ? WHERE id = ?", (fs_version, snapshot["id"]))
         username, bookmarked_at = connection.execute(
             """
             SELECT u.username, s.bookmarked_at

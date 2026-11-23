@@ -18,8 +18,10 @@ def test_main_domain_export_options_validate_server_directory(admin_client, save
     from archivebox.machine.models import Process
 
     page = admin_client.get("/admin/domains/", HTTP_HOST=ADMIN_TEST_HOST)
-    # Each format is offered in both the bulk and per-domain export dropdowns.
-    assert page.content.count(f'<option value="{format}">'.encode()) == 2
+    assert page.status_code == 200
+    assert page.content.count(f'<option value="{format}">'.encode()) == 1
+    # The shared per-domain menu offers the same portable formats as the sidebar.
+    assert (f'data-export-format="{format}"'.encode() in page.content) == (format in {"html_zip", "wacz"})
     response = admin_client.post(
         f"/admin/core/snapshot/export.{format}",
         {"directory": "relative/path"},

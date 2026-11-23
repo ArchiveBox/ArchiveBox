@@ -76,7 +76,11 @@ async function prepare(page, adminBaseUrl, crawlId, librarySource) {
   if (!message.includes(`Moved ${rows.length} snapshot(s)`)) throw new Error('Dragging the checked captures did not save their folder.');
   const result = {name: 'Nested snapshot folders', url: `${adminBaseUrl}/admin/core/snapshot/?folder=${parent}`, path: `/admin/core/snapshot/?folder=${parent}`, source: 'archivebox/core/admin_snapshots.py', addUrl: `${adminBaseUrl}/add/?${new URLSearchParams({folder: child, url: homepage})}`};
   await page.goto(result.url, {waitUntil: 'domcontentloaded'});
-  if (!await page.$('.folder-sidebar a.library-link[href="/admin/domains/"]')) throw new Error('Folder sidebar has no Domains link.');
+  await page.click('.library-mode-toggle');
+  await page.waitForSelector('#library-mode-menu:popover-open');
+  const domains = await page.$eval('#library-mode-menu a[href$="?sidebar=domains"]', node => node.textContent.trim());
+  if (domains !== 'Domains') throw new Error('The sidebar view menu omitted Domains.');
+  await page.keyboard.press('Escape');
   if (!await page.$('.folder-sidebar a[aria-current="page"]')) throw new Error('Saved folder filter is not selected.');
   if (await page.$('.library-context,.library-breadcrumbs')) throw new Error('The removed folder header is still present.');
   if (!await page.$('#toolbar .folder-sidebar-reopen')) throw new Error('The folder restore control is outside the snapshot toolbar.');
@@ -194,8 +198,8 @@ async function openFolderMenu(page) {
 module.exports.openFolderMenu = openFolderMenu;
 
 async function openImportMenu(page) {
-  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
   if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
+  if (await page.$('.folder-mobile-toggle[aria-expanded="false"]')) await page.click('.folder-mobile-toggle');
   let id;
   for (const button of await page.$$('.library-import-toggle')) {
     if (!await button.boundingBox()) continue;
@@ -211,23 +215,27 @@ async function openImportMenu(page) {
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,links:[...node.querySelectorAll('a')].map(link=>({text:link.textContent,href:link.getAttribute('href')}))};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
-  const expected = ['From Browser History / Bookmarks', 'From RSS or Social Media'];
-  if (await page.$('.library-secondary a[href="/admin/domains/"]')) expected.push('Clone an entire site');
-  expected.push('Watch a site for changes', 'Other options...');
+  const expected = ['From Browser History / Bookmarks', 'From RSS or Social Media', 'Clone an entire site', 'Watch a site for changes', 'Other options...'];
   if (JSON.stringify(menu.links.map(link => link.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
+  if (menu.links.find(link => link.text === 'Clone an entire site').href !== '/admin/domains/') throw new Error('Site import does not open Domains.');
 }
 module.exports.openImportMenu = openImportMenu;
 
 async function openFolderSearch(page) {
-  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
   if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
-  if (await page.$('.folder-search[hidden]')) {
+  if (await page.$('.folder-mobile-toggle[aria-expanded="false"]')) await page.click('.folder-mobile-toggle');
+  if (await page.$('#folder-search[hidden]')) {
     const height = await page.$eval('.folder-section-heading', node => node.getBoundingClientRect().height);
     await page.click('.folder-search-toggle');
     if (await page.$eval('.folder-section-heading', node => node.getBoundingClientRect().height) !== height) throw new Error('Folder search changed the heading height.');
     const name = await page.$eval('.folder-row', node => node.dataset.folderName);
-    await page.type('.folder-search', name);
+    await page.type('#folder-search', name);
   }
+  await page.waitForFunction(() => {
+    const term = document.querySelector('#folder-search').value;
+    return term && document.querySelector('.library-load-status').hidden &&
+      [...document.querySelectorAll('.folder-row:not([hidden])')].some(row => row.dataset.folderName === term);
+  });
   if (!await page.$eval('.folder-section-label', node => node.hidden)) throw new Error('Folder search did not replace its label.');
   const aligned = await page.evaluate(() => {
     const box = selector => document.querySelector(selector).getBoundingClientRect();
@@ -235,7 +243,7 @@ async function openFolderSearch(page) {
     const root = document.querySelector('.folder-row[data-parent-id=""]:not([hidden])');
     const icon = [...root.querySelectorAll('.folder-toggle>svg,.folder-toggle>.folder-title-emoji,.folder-link>svg,.folder-link>.folder-title-emoji')].find(node => node.getClientRects().length);
     const rootIcon = icon.getBoundingClientRect(), rootText = root.querySelector('.folder-link>span:not(.folder-title-emoji)').getBoundingClientRect();
-    const input = box('.folder-search'), toggle = box('.folder-search-toggle');
+    const input = box('#folder-search'), toggle = box('.folder-search-toggle');
     return {
       left: input.x - rootIcon.x,
       labelCenter: rootIcon.y + rootIcon.height / 2 - rootText.y - rootText.height / 2,
