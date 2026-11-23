@@ -11,14 +11,17 @@ from collections import Counter, defaultdict
 from functools import cached_property
 from itertools import batched, islice
 from pathlib import Path
+from queue import Empty, SimpleQueue
 from subprocess import SubprocessError
 
 from django.core.exceptions import ValidationError
+from django.db import close_old_connections, connections
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Case, Q, Value, When
 
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
-from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
 from archivebox.search.backends import get_available_backends, get_backend, search_backend_command_env
 from archivebox.search.language import (
     Term,
@@ -44,6 +47,39 @@ MAX_SECONDS = 8.0
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
 STALL_SECONDS = 30.0
+# Only the first screen needs speculative concurrency. More simultaneous
+# viewers still execute the same complete plan without additional threads.
+FIRST_PAGE_SLOTS = threading.BoundedSemaphore(2)
+
+
+def indexed_predicate(model, predicate):
+    """Recognize direct B-tree probes in a compiled Django Q, regardless of operator name."""
+    for part in predicate.children:
+        if isinstance(part, Q):
+            if not indexed_predicate(model, part):
+                return False
+        elif isinstance(part, tuple) and isinstance(part[0], str):
+            field_name, _, lookup = part[0].partition("__")
+            if lookup not in ("", "exact", "in", "gt", "gte", "lt", "lte", "range"):
+                return False
+            try:
+                field = model._meta.pk if field_name == "pk" else model._meta.get_field(field_name)
+            except FieldDoesNotExist:
+                return False
+            if not (field.primary_key or field.unique or field.db_index):
+                return False
+        else:
+            return False
+    return bool(predicate.children)
+
+
+def positive_words(node, negated=False):
+    if isinstance(node, Term):
+        if not negated and node.field == "word" and not has_uppercase(node.value):
+            yield node
+        return
+    for child in node.args:
+        yield from positive_words(child, negated != (node.op == "not"))
 
 
 def sql_snapshot_search(scope, query, *, public=False):
@@ -85,6 +121,8 @@ class SnapshotSearch:
         self.link_cache = {}
         self.reverse = {}
         self.legacy_hits = {}
+        self.word_hits = defaultdict(set)
+        self.hinted_ids = set()
         self.deadline = None
 
     @cached_property
@@ -398,20 +436,6 @@ class SnapshotSearch:
         if isinstance(possible, Q):
             qs = qs.filter(possible)
         ordered = bool(qs.query.order_by)
-        if not ordered and isinstance(certain, Q):
-            # Confirmed SQL results can stream immediately. Exclude that same
-            # predicate below so those snapshots never reach an external reader.
-            for pk in qs.filter(certain).order_by("pk").values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE):
-                if self.stop_event and self.stop_event.is_set():
-                    return
-                yield pk
-            qs = qs.exclude(certain)
-        if isinstance(self.tree, Term) and self.tree.field == "linkedfrom" and not ordered:
-            for targets in self.target_batches(self.tree):
-                for batch in batched(targets, 256):
-                    yield from qs.filter(url__in=batch).values_list("pk", flat=True)
-            self.partial |= not self.reverse[self.tree][1]
-            return
         flags = {f"_abx_filter_{i}": term for i, term in enumerate((*self.sql, *self.evidence))}
         predicates = self.sql | self.evidence
         qs = qs.annotate(**{name: Case(When(predicates[t], then=Value(True)), default=Value(False)) for name, t in flags.items()})
@@ -431,48 +455,62 @@ class SnapshotSearch:
                 "crawl__created_by__username",
             )
         )
-        if (
-            not ordered
-            and isinstance(self.tree, Term)
-            and self.tree.field == "word"
-            and not has_uppercase(self.tree.value)
-            and self.backend
-            and not self.backend.config.search_scan
-        ):
-            # Query existing postings before arbitrary UUID pages. Treat these as
-            # hints: the scoped command verifies each candidate and supplies scores.
-            from archivebox.search.views import normalize_search_result_id
-            from abx_dl.execution import iter_plugin_command
-
-            command = get_plugin_catalog().command(self.backend.name, "search")
-            if not qs.exists():
-                return
-            if command and self.active():
-                postings = iter_plugin_command(
-                    command,
-                    arguments={"query": self.tree.value, "search_mode": "contents"},
-                    env=self.env,
-                    cwd=CONSTANTS.DATA_DIR,
-                    timeout=MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
-                    stop_event=self.stop_event,
-                )
-                visited = set()
-                try:
-                    for batch in batched(islice(postings, 500), PAGE_SIZE):
-                        ids = [pk for item in batch if (pk := normalize_search_result_id(item)) and pk not in visited]
-                        by_id = {row.pk.hex: row for row in qs.filter(pk__in=ids)}
-                        page = [by_id[pk] for pk in dict.fromkeys(ids) if pk in by_id]
-                        visited.update(by_id)
-                        if page:
-                            yield from self.page(page, flags)
+        if not ordered:
+            # Postings are a small, ranked starting set. A selective term can
+            # have dozens of indexed hits while evaluating a broad SQL operand
+            # against every snapshot (e.g. enumerating output filenames) is slow.
+            # Check the original expression and scope, then continue the normal
+            # plan for everything the index did not confirm.
+            confirmed = set()
+            words = tuple(dict.fromkeys(positive_words(self.tree)))
+            quick, narrow = sql_bounds(self.tree, {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)})
+            if not isinstance(quick, Q) and isinstance(narrow, Q) and isinstance(certain, Q):
+                # An indexed restriction can be necessary without being
+                # sufficient (e.g. domain AND text). Check metadata for one
+                # page of that small candidate stream before probing the index.
+                quick = certain & Q(pk__in=self.witnesses(narrow)[:PAGE_SIZE])
+            race = self.streaming and words and isinstance(certain, Q) and not connections[self.scope.db].in_atomic_block
+            witnesses_exhausted = False
+            if race and FIRST_PAGE_SLOTS.acquire(blocking=False):
+                witnesses_exhausted = yield from self.first_screen(qs, flags, words, quick, certain, confirmed)
+            else:
+                # Both speculative slots can be occupied by stalled providers.
+                # Give local proofs a page before queuing another slow lookup.
+                prefix = certain if race else quick
+                if isinstance(prefix, Q):
+                    for pk in self.witnesses(prefix)[:PAGE_SIZE].iterator(chunk_size=1):
+                        confirmed.add(pk)
+                        yield pk
+                for pk in self.indexed_hits(qs, flags, words):
+                    if pk not in confirmed:
+                        confirmed.add(pk)
+                        yield pk
+            if isinstance(certain, Q):
+                # Each SQL witness is sufficient on its own. Do not repeat
+                # expensive "possible" predicates, such as inspecting JSON keys.
+                if not witnesses_exhausted:
+                    witnesses = self.witnesses(certain)
+                    if confirmed:
+                        witnesses = witnesses.exclude(pk__in=confirmed)
+                    for pk in witnesses.iterator(chunk_size=1):
                         if not self.active():
-                            break
-                except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
-                    logger.warning("Search postings unavailable: %s", type(err).__name__)
-                finally:
-                    postings.close()
-                if visited:
-                    qs = qs.exclude(pk__in=visited)
+                            return
+                        yield pk
+                qs = qs.exclude(certain)
+            if confirmed:
+                qs = qs.exclude(pk__in=confirmed)
+            # Some index candidates still need another source (word AND deep,
+            # for example). Visit those before unrelated arbitrary UUID pages.
+            if remaining := self.hinted_ids - confirmed:
+                for batch in batched(remaining, PAGE_SIZE):
+                    yield from self.page(list(qs.filter(pk__in=batch)), flags)
+                qs = qs.exclude(pk__in=remaining)
+        if isinstance(self.tree, Term) and self.tree.field == "linkedfrom" and not ordered:
+            for targets in self.target_batches(self.tree):
+                for batch in batched(targets, 256):
+                    yield from qs.filter(url__in=batch).values_list("pk", flat=True)
+            self.partial |= not self.reverse[self.tree][1]
+            return
         if ordered:
             if not qs.totally_ordered:
                 qs = qs.order_by(*qs.query.order_by, "pk")
@@ -508,16 +546,158 @@ class SnapshotSearch:
             cursor = page[-1].pk
             offset += PAGE_SIZE
 
-    def page(self, page, flags):
+    def witnesses(self, predicate):
+        # No sort is requested in this lane. Let the DB walk its chosen index
+        # and return the first row without building a temporary sort table.
+        return self.scope.filter(predicate).order_by().values_list("pk", flat=True)
+
+    def first_screen(self, qs, flags, words, quick, certain, confirmed):
+        """Publish independent proofs as they arrive; disk fallback never runs in these lanes."""
+        # At most two SQL prefixes and 500 postings can be enqueued. A
+        # bounded blocking put here could hold a database cursor behind HTTP.
+        events = SimpleQueue()
+        closed = threading.Event()
+        index_ready = threading.Event()
+        quick_ready = threading.Event()
+
+        exhausted = False
+
+        def sql_hits():
+            nonlocal exhausted
+            try:
+                if isinstance(quick, Q):
+                    yield from self.witnesses(quick)[:PAGE_SIZE].iterator(chunk_size=1)
+            finally:
+                quick_ready.set()
+            # A broad SQL scan can monopolize I/O. Give a responsive index
+            # first chance, but a stalled one cannot hold back database matches.
+            index_ready.wait(0.075)
+            if not closed.is_set() and self.active():
+                count = 0
+                for pk in self.witnesses(certain)[:PAGE_SIZE].iterator(chunk_size=1):
+                    yield pk
+                    count += 1
+                exhausted = count < PAGE_SIZE
+
+        def index_hits():
+            quick_ready.wait(0.025)
+            try:
+                yield from self.indexed_hits(qs, flags, words)
+            finally:
+                index_ready.set()
+
+        # Workers use separate Django connections. Do not borrow a transaction
+        # or leave a cursor open while a consumer waits on a plugin or a socket.
+        finished = threading.Barrier(2, action=FIRST_PAGE_SLOTS.release)
+
+        def produce(source):
+            try:
+                close_old_connections()
+                for pk in source():
+                    if closed.is_set() or not self.active():
+                        break
+                    events.put(pk)
+            except Exception as exc:
+                events.put(exc)
+            finally:
+                connections.close_all()
+                events.put(None)
+                finished.wait()
+
+        try:
+            for source in (sql_hits, index_hits):
+                threading.Thread(target=produce, args=(source,), name="search-first-page", daemon=True).start()
+            ended = 0
+            while ended < 2 and self.active():
+                try:
+                    item = events.get(timeout=0.05)
+                except Empty:
+                    continue
+                if isinstance(item, Exception):
+                    raise item
+                if item is None:
+                    ended += 1
+                elif item not in confirmed:
+                    confirmed.add(item)
+                    yield item
+        finally:
+            closed.set()
+        return exhausted
+
+    def indexed_hits(self, qs, flags, words):
+        if not words or not self.backend or self.backend.config.search_scan:
+            return
+        # Spread a bounded set of early postings across Boolean alternatives;
+        # a rare or empty first operand must not starve the next OR branch.
+        for word in words:
+            if not self.active():
+                return
+            yield from self.word_postings(qs, flags, word, 500 // len(words))
+
+    def word_postings(self, qs, flags, word, limit):
+        from abx_dl.execution import iter_plugin_command
+        from archivebox.search.views import normalize_search_result_id
+
+        command = get_plugin_catalog().command(self.backend.name, "search")
+        if not command:
+            return
+        timeout = MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic())
+        # Some providers can answer a word in one cheap call inside the web
+        # worker. Its positives need no second subprocess to verify the same
+        # term. Legacy search commands supply hints for candidate verification.
+        lookup = getattr(get_plugin_app(self.backend.name), "search_word_hits", None)
+        postings = None
+        if lookup:
+            try:
+                postings = lookup(word.value, environ=self.env, timeout=timeout)
+            except (ImportError, OSError, RuntimeError, ValueError) as err:
+                logger.warning("In-process search unavailable: %s", type(err).__name__)
+        confirmed_word = word if postings is not None else None
+        if not self.active():
+            return
+        if postings is None:
+            postings = iter_plugin_command(
+                command,
+                arguments={"query": word.value, "search_mode": "contents"},
+                env=self.env,
+                cwd=CONSTANTS.DATA_DIR,
+                timeout=timeout,
+                stop_event=self.stop_event,
+            )
+        visited = set()
+        try:
+            for batch in batched(islice(postings, limit), PAGE_SIZE):
+                ids = dict.fromkeys(pk for item in batch if (pk := normalize_search_result_id(item)) and pk not in visited)
+                visited.update(ids)
+                by_id = {row.pk.hex: row for row in qs.select_related(None).only("pk").filter(pk__in=ids)}
+                if by_id:
+                    self.hinted_ids.update(row.pk for row in by_id.values())
+                    if confirmed_word:
+                        self.word_hits[word].update(by_id)
+                    yield from self.page([by_id[pk] for pk in ids if pk in by_id], flags, index_only=True, confirmed_word=confirmed_word)
+                if not self.active():
+                    break
+        except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
+            logger.warning("Search postings unavailable: %s", type(err).__name__)
+        finally:
+            if close := getattr(postings, "close", None):
+                close()
+
+    def page(self, page, flags, *, index_only=False, confirmed_word=None):
         pending, rows = {}, {}
         for snap in page:
             pk = snap.pk.hex
             values = {term: getattr(snap, name) for name, term in flags.items() if term in self.sql or getattr(snap, name)}
+            values.update((term, True) for term, ids in self.word_hits.items() if pk in ids)
             expr = simplify(self.tree, values)
             if expr is True:
                 yield snap.pk
             elif expr is not False:
                 rows[pk], pending[pk] = snap, expr
+        if index_only and confirmed_word is not None:
+            # A later posting or the normal candidate pass verifies remaining
+            # operands. Keep an unrelated slow provider out of this fast lane.
+            return
         for disk in (False, True):
             if not pending or not self.active():
                 break
@@ -560,6 +740,10 @@ class SnapshotSearch:
             # Reorder only confirmed hits in this index page. Never hold file
             # hits for ranking or move a result the browser already received.
             yield from (pk for _, pk in sorted(ranked, key=lambda match: -match[0]))
+            if index_only:
+                # Unknowns remain eligible for verification in the regular
+                # page pass. Do not start disk I/O while delivering index hits.
+                return
             if not disk:
                 outgoing = [rows[pk] for pk, expr in pending.items() if any(term.field == "linksto" for term in leaves(expr))]
                 for snapshot, urls, done in self.link_rows(outgoing):
@@ -599,4 +783,5 @@ class SnapshotSearch:
                         del pending[pk]
                     else:
                         pending[pk] = expr
-        self.partial |= bool(pending)
+        if not index_only:
+            self.partial |= bool(pending)

@@ -144,7 +144,22 @@ def test_sqlite_native_rank_explicit_sort_and_quoted_colons(crawl):
     assert list(SnapshotSearch(scope, '"ABC:DEF"', config=config).stream()) == [strong.pk]
     assert list(SnapshotSearch(scope, '~"ABC:DEF"', config=config).stream()) == [weak.pk]
 
+    # The index returns its confirmed ranked hits without waiting for a broad
+    # metadata scan; a row with only metadata must still arrive exactly once.
+    unindexed.title = "galaxy"
+    unindexed.save(update_fields=["title"])
+    assert list(SnapshotSearch(scope, "galaxy", config=config).stream()) == [strong.pk, weak.pk, unindexed.pk]
+    for query in ("domain:papers.example galaxy", "(galaxy OR title:galaxy) AND domain:papers.example"):
+        hits = list(SnapshotSearch(scope, query, config=config).stream())
+        assert sorted(hits) == [weak.pk, strong.pk, unindexed.pk]
+    assert list(SnapshotSearch(scope.order_by("pk"), "domain:papers.example galaxy", config=config).stream()) == [
+        weak.pk,
+        strong.pk,
+        unindexed.pk,
+    ]
 
+
+@pytest.mark.django_db(transaction=True)
 def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
     import shlex
     import time
@@ -183,6 +198,86 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             negative = SnapshotSearch(scope, "domain:papers.example ~interstellar", config=config)
             assert list(negative.stream()) == []
             assert negative.partial
+
+            # A slow disk branch is never required to publish a Boolean result
+            # already established by an index or metadata, even when it comes first.
+            output(missing, "dom/large.txt", "unrelated " * 550_000 + "diskneedle")
+            for expression in (
+                "deep:diskneedle OR interstellar",
+                "(deep:diskneedle AND title:missing) OR interstellar",
+                "(absentlexeme OR interstellar) AND domain:papers.example",
+            ):
+                plan = SnapshotSearch(scope.order_by(), expression, config=config, streaming=True)
+                stream = plan.stream()
+                try:
+                    assert next(stream) == hit.pk
+                    assert plan.usage["bytes"] == 0
+                finally:
+                    stream.close()
+            # Neither source alone proves an AND, and a hit outside the
+            # active scope never authorizes reading its directory.
+            output(hit, "dom/content.txt", "diskneedle")
+            plan = SnapshotSearch(scope.order_by(), "interstellar AND deep:diskneedle", config=config, streaming=True)
+            stream = plan.stream()
+            try:
+                assert next(stream) == hit.pk
+                assert plan.usage["bytes"] > 0
+            finally:
+                stream.close()
+
+            from concurrent.futures import ThreadPoolExecutor
+            from itertools import islice
+            import signal
+            import threading
+            from django.db import connections
+
+            # Stop the real index process mid-test. A slow index must not
+            # prevent an independent SQL proof from filling the viewport.
+            fast = Snapshot.objects.bulk_create(
+                [
+                    Snapshot(crawl=crawl, url=f"https://fast.example/{i}", title="screenful", timestamp=str(1800000000 + i))
+                    for i in range(70)
+                ],
+            )
+            expected = {row.pk for row in fast}
+            for expression in (
+                "domain:fast.example OR interstellar",
+                "interstellar OR title:screenful",
+                "domain:fast.example AND (screenful OR interstellar)",
+                "(domain:fast.example AND ~title:missing) OR (interstellar AND deep:tail)",
+            ):
+                cancelled = threading.Event()
+
+                def screen():
+                    try:
+                        plan = SnapshotSearch(
+                            Snapshot.objects.filter(crawl=crawl).order_by(),
+                            expression,
+                            config=config,
+                            streaming=True,
+                            stop_event=cancelled,
+                        )
+                        stream = plan.stream()
+                        try:
+                            rows = list(islice(stream, 51))
+                            assert plan.usage["bytes"] == 0
+                            return rows
+                        finally:
+                            cancelled.set()
+                            stream.close()
+                    finally:
+                        connections.close_all()
+
+                daemon.send_signal(signal.SIGSTOP)
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    result = pool.submit(screen)
+                    try:
+                        rows = result.result(timeout=3)
+                        assert len(set(rows)) == 51 and set(rows) <= expected
+                    finally:
+                        cancelled.set()
+                        daemon.send_signal(signal.SIGCONT)
+
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)

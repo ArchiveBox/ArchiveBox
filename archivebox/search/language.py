@@ -207,6 +207,11 @@ def sql_bounds(node, sql, text=None):
         parts = [v for v in seq if isinstance(v, Q)]
         return reduce(or_ if decisive else and_, parts) if parts else not decisive
 
+    # For an AND, test cheap positive text witnesses before a restrictive
+    # file/relationship predicate. SQLite evaluates correlated EXISTS clauses
+    # in WHERE order; a failed text check can skip all output JSON for that row.
+    if node.op == "and":
+        bounds.sort(key=lambda pair: pair[1] is not True)
     return tuple(combine(col) for col in zip(*bounds))
 
 
