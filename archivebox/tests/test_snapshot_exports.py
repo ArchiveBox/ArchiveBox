@@ -16,7 +16,7 @@ from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST, API_TEST_HOST, run_archivebox_cmd
 from archivebox.tests.test_orm_helpers import use_archivebox_db
-from archivebox.tests.test_export_helpers import export_action_urls
+from archivebox.tests.export_helpers import export_action_urls
 
 pytestmark = pytest.mark.django_db(transaction=True)
 

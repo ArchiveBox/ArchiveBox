@@ -220,7 +220,7 @@ def test_nested_folders_filter_and_export(admin_client, admin_user):
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     menu = response.content.decode().split(f'id="folder-menu-{parent.pk}"', 1)[1].split("</div>", 1)[0]
-    from archivebox.tests.test_export_helpers import export_action_urls
+    from archivebox.tests.export_helpers import export_action_urls
 
     links = export_action_urls(menu)
     assert {format for _, format in links} == {"rss", "rss_public", "csv", "jsonl", "html_zip", "wacz"}

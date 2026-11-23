@@ -2,7 +2,7 @@
 
 import pytest
 from urllib.parse import parse_qs, urlsplit
-from archivebox.tests.test_export_helpers import export_action_urls
+from archivebox.tests.export_helpers import export_action_urls
 from django.urls import reverse
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST

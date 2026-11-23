@@ -1,4 +1,4 @@
-"""Inspect export action descriptors in real server-rendered HTML."""
+"""Shared assertions for export descriptors in real server-rendered HTML."""
 
 from lxml.html import fromstring
 

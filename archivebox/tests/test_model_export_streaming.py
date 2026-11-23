@@ -53,7 +53,7 @@ def test_api_model_export_empty_json_remains_downloadable(client, api_headers):
 
 def test_model_export_actions_create_links_only_on_interaction(live_server, admin_user, browser_runtime):
     from playwright.sync_api import expect, sync_playwright
-    from archivebox.tests.test_export_helpers import export_action_urls
+    from archivebox.tests.export_helpers import export_action_urls
 
     folder = Folder.objects.create(name="Export selection", created_by=admin_user)
     source = ImporterSource.objects.create(name="Export feed", plugin="feeds", feed="rss", created_by=admin_user, folder=folder)
