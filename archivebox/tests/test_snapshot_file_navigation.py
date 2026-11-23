@@ -61,8 +61,9 @@ def test_snapshot_file_navigation(snapshot, live_server, browser_runtime, surfac
         page.go_back()
         expect(page).to_have_url(nested_url)
         expect(files.locator(".directory-title")).to_have_text(f"ytdlp/{nested.name}/")
+        expect(files.locator('a[href*="download=zip"]')).to_have_count(0)
         with page.expect_download() as downloaded:
-            files.get_by_role("link", name="⬇ Download Zip", exact=True).click()
+            files.get_by_role("button", name="⬇ Download Zip", exact=True).press("Enter")
         assert downloaded.value.failure() is None
         with zipfile.ZipFile(downloaded.value.path()) as archive:
             assert archive.namelist() == ["Nested-3A-caf/note.txt"]
