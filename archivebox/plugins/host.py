@@ -303,6 +303,33 @@ class ArchiveBoxHost:
             "cursor": cursor,
         }
 
+    def domain_favicons(self, request, domains):
+        """Archived favicons from a bounded set of recent captures per domain."""
+        from django.core.cache import cache
+        from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
+        from archivebox.core.models import Snapshot
+
+        self._require_collection_admin(request)
+        icons = {}
+        for domain in domains[:30]:
+            if not domain or len(domain) > 253:
+                continue
+            key = f"domain-icon:{request.get_host()}:{domain}"
+            favicon = cache.get(key)
+            if favicon is None:
+                try:
+                    scope = domain if ":" in domain or "[" in domain else f"*.{domain}"
+                    candidates = Snapshot.objects.filter_by_domain(scope).order_by("-pk").values("pk")[:16]
+                    result = favicon_results().filter(snapshot_id__in=candidates).order_by("-pk").first()
+                except ValueError:
+                    continue
+                icon = snapshot_favicon_data(result.snapshot_id, [result], request=request) if result else None
+                favicon = icon["url"] if icon else ""
+                cache.set(key, favicon, 300)
+            if favicon:
+                icons[domain] = favicon
+        return icons
+
     def snapshot_records(self, request, *, domain, after=None, limit=16):
         """A short keyset page of capture metadata and discovery relationships."""
         from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
@@ -391,6 +418,7 @@ class ArchiveBoxHost:
             "status",
             "process_type",
             "worker_type",
+            "cmd__0",
             "started_at",
             "ended_at",
             "exit_code",
