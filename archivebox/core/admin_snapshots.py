@@ -315,9 +315,14 @@ class SnapshotChangeList(SearchResultsChangeList):
             raise IncorrectLookupParameters
         observed = start + len(page_ids)
         self.result_count_exact = len(page_ids) <= size
-        # Django's paginator needs only a lower bound for next/previous links.
-        # It must never scan the full query just to render the first page.
-        self.queryset.query._archivebox_count_hint = observed
+        count = observed
+        if request.GET.get("domain") and (not self.query or getattr(request, "_archivebox_search_complete", False)):
+            # Domain equality/ranges use the reversed-domain index. Count the
+            # complete filtered scope, including any additional admin filters.
+            count = self.queryset.order_by().values("pk").count()
+            self.result_count_exact = True
+        # Other queries retain the lookahead lower bound for next/previous links.
+        self.queryset.query._archivebox_count_hint = count
         super().get_results(request)
         # Keep wide snapshot columns and related rows out of the full sort and
         # OFFSET scan, as on the public index. Preserve the selected order while
@@ -335,7 +340,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             for obj in self.result_list:
                 obj.search_rank = search_ranks[obj.pk.hex]
         summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
-        self.display_result_count = max(observed, summary["count"]) if summary else observed
+        self.display_result_count = max(observed, summary["count"]) if summary else count
         self.result_count_cached = summary is not None
         self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None

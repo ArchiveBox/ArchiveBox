@@ -156,6 +156,59 @@ def test_native_snapshot_and_persona_admin_domain_filters(admin_client, admin_us
     assert list(personas.context["cl"].queryset.values_list("pk", flat=True)) == [included.pk]
 
 
+def test_domain_counts_are_exact_on_first_page_and_after_writes(admin_client, admin_user):
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://claude.ai/")
+    pages = Snapshot.objects.bulk_create(
+        [
+            Snapshot(crawl=crawl, url=f"https://{'chat.' if index % 2 else ''}claude.ai/{index}", timestamp=str(1920000000 + index))
+            for index in range(79)
+        ],
+    )
+    create_pages(admin_user, ["https://notclaude.ai/", "https://claude.ai.evil.test/", "https://claude.ai:8080/"])
+
+    def check(expected):
+        domains = admin_client.get("/admin/domains/", {"table": "1", "q": "claude.ai"}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert domains.status_code == 200
+        row = next(row for row in domains.context["domains"] if row["domain"] == "claude.ai")
+        assert row["snapshot_count"] == expected
+        assert f">{expected}</a></td>" in domains.content.decode()
+        for page_number in (1, 2):
+            with CaptureQueriesContext(connection) as queries:
+                response = admin_client.get(
+                    "/admin/core/snapshot/",
+                    {"domain": "*.claude.ai", "p": page_number},
+                    HTTP_HOST=ADMIN_TEST_HOST,
+                )
+            assert response.status_code == 200
+            cl = response.context["cl"]
+            assert cl.result_count_exact and not cl.result_count_cached
+            assert cl.display_result_count == cl.result_count == cl.paginator.count == expected
+            assert len(cl.result_list) == (50 if page_number == 1 else expected - 50)
+            count_sql = [query["sql"] for query in queries if "COUNT(*)" in query["sql"] and '"reversed_domain"' in query["sql"]]
+            assert len(count_sql) == 1
+            if connection.vendor == "sqlite":
+                with connection.cursor() as cursor:
+                    cursor.execute("EXPLAIN QUERY PLAN " + count_sql[0])
+                    plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                assert "snapshot_reversed_domain_idx" in plan, plan
+                assert "SCAN core_snapshot" not in plan, plan
+
+    check(79)
+    Snapshot.objects.filter(pk=pages[-1].pk).update(url="https://other.example/")
+    check(78)
+    Snapshot.objects.filter(pk=pages[-2].pk).delete()
+    check(77)
+    Snapshot.objects.filter(pk__in=[page.pk for page in pages[:60]]).update(status=Snapshot.StatusChoices.SEALED)
+    response = admin_client.get(
+        "/admin/core/snapshot/",
+        {"domain": "*.claude.ai", "status__exact": "sealed"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assert response.context["cl"].display_result_count == 60
+    assert response.context["cl"].result_count_exact
+
+
 def test_domain_name_opens_root_capture_and_count_opens_filtered_list(admin_client, admin_user):
     from html.parser import HTMLParser
     from archivebox.core.routes_util import build_snapshot_detail_url
@@ -353,7 +406,7 @@ def test_stale_domain_metadata_refresh_does_not_block_page(admin_client, admin_u
     with CaptureQueriesContext(connection) as queries:
         response = admin_client.get("/admin/domains/", stats, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert response.context["domains"][0]["snapshot_count"] == 1
+    assert response.context["domains"][0]["snapshot_count"] == 2
     assert not any('AS "crawl__persona_id"' in query["sql"] for query in queries)
     for thread in threads():
         if thread.name == "domain-summary":

@@ -27,6 +27,7 @@ from .scope import crawl_site_scope, normalize_site_scope
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.list_results_util import favicon_results, snapshot_favicon_data
 from archivebox.core.models import Snapshot
+from archivebox.core.domain_grouping import domain_key_from_url
 from archivebox.progressmonitor.collection import _refresh_lock
 from archivebox.core.permissions import PERMISSIONS_PUBLIC, get_snapshot_permissions
 from archivebox.core.routes_util import build_original_url, build_snapshot_detail_url, build_snapshot_export_urls, is_snapshot_subdomain
@@ -215,6 +216,14 @@ def index(request):
             latest = captures[str(row["newest_id"])]
             earliest = captures[str(row["oldest_id"])]
             root = captures[str(row["root_id"])]
+            try:
+                matches = Snapshot.objects.filter_by_domain(row["scope"])
+            except ValueError:
+                # Match the legacy-host fallback used by domain_page_summary.
+                matches = Snapshot.objects.filter(reversed_domain=domain_key_from_url(root.url))
+            # Counts use the domain index even when other metadata is sampled
+            # or cached. Keep the number identical to the linked snapshot scope.
+            row["snapshot_count"] = matches.count()
             snapshot_url = reverse("admin:core_snapshot_changelist") + "?" + urlencode({"domain": row["scope"]})
             original = urlsplit(root.url)
             domain_url = build_snapshot_detail_url(root.archive_path_from_db, request=request) + "?header=collapsed"

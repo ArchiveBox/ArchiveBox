@@ -7,6 +7,44 @@ from playwright.sync_api import expect, sync_playwright
 
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Machine
+from archivebox.core.models import Snapshot
+
+
+@pytest.mark.django_db(transaction=True)
+def test_domain_counts_match_before_and_after_pagination(live_server, browser_runtime, admin_user):
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    crawl = Crawl.objects.create(urls="https://claude.ai/", created_by=admin_user)
+    Snapshot.objects.bulk_create(
+        [Snapshot(crawl=crawl, url=f"https://claude.ai/{index}", timestamp=str(1921000000 + index)) for index in range(79)],
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/domains/")
+            page.locator('[name="username"]').fill(admin_user.username)
+            page.locator('[name="password"]').fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            count = page.locator('.field-count a[href*="claude.ai"]')
+            expect(count).to_have_text("79")
+            count.click()
+            paginator = page.locator(".paginator").last
+            expect(paginator).to_contain_text("79 snapshots")
+            expect(paginator).not_to_contain_text("+")
+            expect(paginator).not_to_contain_text("≈")
+            paginator.get_by_role("link", name="Next", exact=True).click()
+            expect(paginator).to_contain_text("79 snapshots")
+            expect(paginator.get_by_role("link", name="Next", exact=True)).to_have_count(0)
+            paginator.get_by_role("link", name="Previous", exact=True).click()
+            expect(paginator).to_contain_text("79 snapshots")
+        finally:
+            browser.close()
 
 
 @pytest.mark.django_db(transaction=True)

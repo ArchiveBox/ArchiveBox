@@ -198,9 +198,9 @@ def test_domains_page_bounds_capture_metadata_and_defers_global_totals(admin_cli
     assert response.context["domain_total"] is None
     row = response.context["domains"][0]
     assert row["domain"] == "example.com" and row["totals_limited"]
-    assert 0 < row["snapshot_count"] < 300
+    assert row["snapshot_count"] == 300
     metadata_sql = [query["sql"] for query in queries if 'AS "_page_domain"' in query["sql"]]
-    assert len(metadata_sql) == 1 and f"LIMIT {row['snapshot_count'] + 1}" in metadata_sql[0]
+    assert len(metadata_sql) == 1 and "LIMIT 65" in metadata_sql[0]
     assert 'JOIN "crawls_crawl"' not in metadata_sql[0]
     with CaptureQueriesContext(connection) as queries:
         sorted_page = admin_client.get("/admin/domains/", {"o": "-count"}, HTTP_HOST=ADMIN_TEST_HOST)
