@@ -98,11 +98,71 @@ def test_filtered_page_totals_keep_their_scope_and_new_pages(admin_client, crawl
     assert parse_qs(urlsplit(changelist.next_page_url).query) == {"p": ["4"], "status__exact": ["sealed"]}
 
 
-def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, admin_user, paginated_snapshots):
+@pytest.mark.parametrize("scope", ["folder", "unfiled", "tag"])
+def test_plain_scope_counts_use_existing_membership_indexes(admin_client, crawl, paginated_snapshots, scope):
+    from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
+
+    if scope == "folder":
+        selected = Folder.objects.create(name="Selected folder")
+        Snapshot.objects.update(folder=selected)
+    elif scope == "tag":
+        selected = Tag.objects.create(name="Selected tag")
+        SnapshotTag.objects.bulk_create([SnapshotTag(snapshot_id=pk, tag=selected) for pk in Snapshot.objects.values_list("pk", flat=True)])
+    else:
+        selected = Folder.objects.create(name="Other folder")
+    Snapshot.objects.create(
+        url="https://example.org/outside-scope",
+        timestamp="1900800000",
+        crawl=crawl,
+        status="sealed",
+        folder=selected if scope == "unfiled" else None,
+    )
+    params = {"folder": "unfiled"} if scope == "unfiled" else {scope: str(selected.pk)}
+    params["sidebar"] = "tags" if scope == "tag" else "folders"
+    with CaptureQueriesContext(connection) as queries:
+        response = admin_client.get(reverse("admin:core_snapshot_changelist"), params, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    changelist = response.context_data["cl"]
+    assert changelist.display_result_count == 123
+    assert changelist.result_count_exact
+    assert changelist.display_num_pages == 3
+    assert parse_qs(urlsplit(changelist.display_page_links[-1]["url"]).query) == {
+        "p": ["3"],
+        **{key: [value] for key, value in params.items()},
+    }
+    tables = (Snapshot._meta.db_table, SnapshotTag._meta.db_table)
+    counts = [
+        query["sql"] for query in queries if "COUNT(" in query["sql"].upper() and any(f'"{table}"' in query["sql"] for table in tables)
+    ]
+    assert len(counts) == 1, counts
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("EXPLAIN QUERY PLAN " + counts[0])
+            plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+        assert "SEARCH" in plan and "COVERING INDEX" in plan, plan
+        assert "SCAN core_snapshot" not in plan, plan
+    if scope == "tag":
+        assert '"core_snapshot"' not in counts[0], "Count indexed membership rows without fetching each snapshot"
+
+
+@pytest.mark.parametrize("scope", [None, "folder", "tag"])
+def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, admin_user, crawl, paginated_snapshots, scope):
     from playwright.sync_api import expect, sync_playwright
+    from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
     from archivebox.machine.models import Machine
     from archivebox.progressmonitor.collection import collection_summary
 
+    params = {}
+    if scope == "folder":
+        selected = Folder.objects.create(name="Browser folder")
+        Snapshot.objects.update(folder=selected)
+        params = {"folder": str(selected.pk)}
+    elif scope == "tag":
+        selected = Tag.objects.create(name="Browser tag")
+        SnapshotTag.objects.bulk_create([SnapshotTag(snapshot_id=pk, tag=selected) for pk in Snapshot.objects.values_list("pk", flat=True)])
+        params = {"tag": str(selected.pk)}
+    if scope:
+        Snapshot.objects.create(url="https://example.org/not-selected", timestamp="1900900000", crawl=crawl, status="sealed")
     port = urlsplit(live_server.url).port
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
@@ -114,7 +174,7 @@ def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, ad
         if thread.name == "collection-summary":
             thread.join(timeout=10)
             assert not thread.is_alive()
-    assert collection_summary(admin_user, refresh=False)["snapshots"] == 123
+    assert collection_summary(admin_user, refresh=False)["snapshots"] == (124 if scope else 123)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page()
@@ -123,10 +183,13 @@ def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, ad
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
+        if params:
+            page.goto(f"{admin_url}/admin/core/snapshot/?{scope}={params[scope]}")
         expect(page.locator("input.action-select")).to_have_count(50)
         expect(page.locator(".paginator")).to_contain_text("123 snapshots")
         page.get_by_role("link", name="Page 3", exact=True).click()
-        page.wait_for_url("**/admin/core/snapshot/?p=3")
+        page.wait_for_url(lambda url: parse_qs(urlsplit(url).query).get("p") == ["3"])
+        assert parse_qs(urlsplit(page.url).query) == {"p": ["3"], **{key: [value] for key, value in params.items()}}
         expect(page.locator("input.action-select")).to_have_count(23)
         expect(page.locator(".paginator")).to_contain_text("Page 3 of 3")
         expect(page.locator(".paginator").get_by_role("link", name="Next", exact=True)).to_have_count(0)

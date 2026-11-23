@@ -306,14 +306,32 @@ class SnapshotChangeList(SearchResultsChangeList):
         queryset_ids = self.queryset.values_list("pk", flat=True)
         root_ids = self.root_queryset.values_list("pk", flat=True)
         streamed_ids = streamed_page_ids(request)
-        domain_count = None
+        indexed_count = None
         if (
             streamed_ids is None
             and request.GET.get("domain")
             and (not self.query or getattr(request, "_archivebox_search_complete", False))
         ):
             # Reuse the exact indexed count to choose the smaller paging scope.
-            domain_count = self.queryset.order_by().values("pk").count()
+            indexed_count = self.queryset.order_by().values("pk").count()
+        elif streamed_ids is None and not self.root_queryset.query.where and not self.queryset.query.is_empty():
+            scope = {key for key, value in request.GET.items() if value and key not in {"p", "sidebar"}}
+            if scope == {"tag"}:
+                from archivebox.core.tag_util import annotate_tag_snapshot_counts
+
+                # The unique membership rows give the exact total through the
+                # existing tag index, without visiting every Snapshot row.
+                indexed_count = (
+                    annotate_tag_snapshot_counts(Tag.objects.filter(pk=request.GET["tag"])).values_list("num_snapshots", flat=True).first()
+                    or 0
+                )
+            elif scope == {"folder"}:
+                folder_id = request.GET["folder"]
+                folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
+                if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
+                    # Regular-folder membership is covered by the folder index.
+                    # Smart folders and combined filters retain async counts.
+                    indexed_count = self.queryset.order_by().values("folder_id").count()
 
         def read_page(offset, limit):
             if streamed_ids is not None:
@@ -321,7 +339,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             cached_page = cached_search_rank_page(request, start=offset, size=limit)
             if cached_page is not None:
                 return cached_page
-            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=domain_count)
+            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=indexed_count)
 
         page_ids = read_page(0 if self.show_all else start, size + 1)
         if self.show_all and len(page_ids) > size:
@@ -338,10 +356,8 @@ class SnapshotChangeList(SearchResultsChangeList):
         observed = start + len(page_ids)
         self.result_count_exact = len(page_ids) <= size
         count = observed
-        if domain_count is not None:
-            # Domain equality/ranges use the reversed-domain index. Count the
-            # complete filtered scope, including any additional admin filters.
-            count = domain_count
+        if indexed_count is not None:
+            count = indexed_count
             self.result_count_exact = True
         # Other queries retain the lookahead lower bound for next/previous links.
         self.queryset.query._archivebox_count_hint = count
