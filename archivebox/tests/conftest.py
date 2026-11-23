@@ -1,5 +1,6 @@
 """archivebox/tests/conftest.py - Pytest fixtures for CLI tests."""
 
+import errno
 import os
 import json
 import re
@@ -1500,20 +1501,34 @@ def init_archive(cwd: Path) -> None:
 
 
 def get_free_port() -> int:
-    # Binding port zero only proves availability now. Another pytest worker can
-    # receive that same port before either service starts. Claim it atomically
-    # for this session while the socket is still bound, across all workers and
-    # helper subprocesses; the session cleanup removes these small markers.
+    # After the probe closes, the kernel can reuse an ephemeral port for an
+    # outgoing connection before our test server binds it. Reserve outside that
+    # range and keep the atomic claim across pytest workers and subprocesses.
+    ephemeral_range = Path("/proc/sys/net/ipv4/ip_local_port_range")
+    ephemeral_first, ephemeral_last = map(int, ephemeral_range.read_text().split()) if sys.platform == "linux" else (49152, 65535)
     PORT_ALLOCATION_DIR.mkdir(parents=True, exist_ok=True)
-    while True:
+    # Chromium blocks some otherwise bindable service ports through 10080.
+    first_port = 16384
+    before = range(first_port, ephemeral_first)
+    after = range(max(first_port, ephemeral_last + 1), 65536)
+    port_count = len(before) + len(after)
+    start = secrets.randbelow(port_count) if port_count else 0
+    for offset in range(port_count):
+        index = (start + offset) % port_count
+        port = before[index] if index < len(before) else after[index - len(before)]
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = sock.getsockname()[1]
+            try:
+                sock.bind(("127.0.0.1", port))
+            except OSError as error:
+                if error.errno in (errno.EADDRINUSE, errno.EACCES):
+                    continue
+                raise
             try:
                 (PORT_ALLOCATION_DIR / str(port)).touch(exist_ok=False)
             except FileExistsError:
                 continue
             return port
+    raise RuntimeError("No test server port available outside the kernel ephemeral range")
 
 
 def stop_server(cwd: Path) -> None:

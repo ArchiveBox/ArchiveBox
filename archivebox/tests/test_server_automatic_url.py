@@ -1,10 +1,28 @@
 """Exercise automatic server addressing through real HTTP login pages."""
 
 import re
+import socket
+from pathlib import Path
 
 import requests
 
-from .conftest import cli_env, get_free_port, run_archivebox_cmd, start_archivebox_server, stop_archivebox_process
+from .conftest import PORT_ALLOCATION_DIR, cli_env, get_free_port, run_archivebox_cmd, start_archivebox_server, stop_archivebox_process
+
+
+def test_allocated_server_ports_avoid_kernel_ephemeral_ports():
+    kernel_range = Path("/proc/sys/net/ipv4/ip_local_port_range")
+    lower, upper = map(int, kernel_range.read_text().split()) if kernel_range.exists() else (49152, 65535)
+    port = get_free_port()
+    assert 16384 <= port <= 65535
+    assert not lower <= port <= upper
+    assert (PORT_ALLOCATION_DIR / str(port)).is_file()
+    assert get_free_port() != port  # The session keeps a claim after closing its bind probe.
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", port))
+        listener.listen()
+        with socket.create_connection(listener.getsockname(), timeout=2) as client:
+            assert lower <= client.getsockname()[1] <= upper
 
 
 def test_safe_single_domain_login_does_not_require_base_url(tmp_path):
