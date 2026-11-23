@@ -9,8 +9,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-        <link rel="stylesheet" href="{% static 'admin.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+        <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}">
         <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        <link rel="stylesheet" href="{% static 'admin.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";

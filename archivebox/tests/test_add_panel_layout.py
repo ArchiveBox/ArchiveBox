@@ -49,4 +49,11 @@ def test_add_filter_panel_tracks_native_textarea_resize(live_server, browser_run
         page.set_viewport_size({"width": 390, "height": 844})
         assert panel.bounding_box()["y"] > editor.bounding_box()["y"]
         assert panel.bounding_box()["height"] >= 240
+        for width in (390, 556, 768, 1024, 1600):
+            page.set_viewport_size({"width": width, "height": 900})
+            header = page.locator("#header").bounding_box()
+            toolbar = page.locator("#user-tools").bounding_box()
+            assert toolbar["y"] >= header["y"]
+            assert toolbar["y"] + toolbar["height"] <= header["y"] + header["height"], f"Toolbar outside header at {width}px"
+            assert toolbar["x"] + toolbar["width"] <= width
         browser.close()
