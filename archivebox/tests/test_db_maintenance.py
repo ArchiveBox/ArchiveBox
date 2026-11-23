@@ -6,7 +6,15 @@ from django.db import connection
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
+@pytest.fixture
+def empty_database(tmp_path):
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    with use_archivebox_db(tmp_path):
+        yield
+
+
+def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_database):
     from archivebox.misc.db import run_db_optimize
 
     statements = []
@@ -17,6 +25,9 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only():
             "INSERT INTO maintenance_items(category, label) VALUES (%s, %s)",
             [(f"category-{index % 10}", f"item-{index}") for index in range(200)],
         )
+        # Older SQLite only considers tables this connection has queried.
+        cursor.execute("SELECT id FROM maintenance_items WHERE category = %s LIMIT 1", ("category-0",))
+        cursor.fetchone()
         cursor.execute("PRAGMA analysis_limit")
         original_limit = cursor.fetchone()[0]
         cursor.execute("PRAGMA busy_timeout")
