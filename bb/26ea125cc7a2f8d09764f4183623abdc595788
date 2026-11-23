@@ -1,0 +1,21 @@
+archivebox/core/sidebar.py
+  s_ea615ec0b76fae::t_3236daeb2373d7 7,28,78-79,81,92-97,115
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_3236daeb2373d7 28,137-142,229,231-233,236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb26ea125cc7a2f8d09764f4183623abdc595788",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
