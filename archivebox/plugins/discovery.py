@@ -306,6 +306,14 @@ def get_plugin_apps() -> dict[str, ModuleType]:
     return {name: app for name in get_plugin_catalog() if (app := get_plugin_app(name)) is not None}
 
 
+def register_plugin_eventbus(bus, config) -> None:
+    """Offer each application plugin the bus; plugins own registration policy."""
+    for app in get_plugin_apps().values():
+        register = getattr(app, "register_eventbus", None)
+        if register is not None:
+            register(bus, config)
+
+
 def get_snapshot_file_inventory(snapshot_dir: Path, *, verify: bool = False) -> dict[str, dict[str, Any]] | None:
     """Read the first available declared inventory without rescanning outputs."""
     seen = set()

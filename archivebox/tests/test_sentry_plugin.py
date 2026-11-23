@@ -2,6 +2,9 @@
 
 import gzip
 import json
+import os
+import subprocess
+import sys
 from io import BytesIO
 
 import pytest
@@ -14,6 +17,24 @@ from archivebox.tests.conftest import (
 )
 
 
+def test_standalone_bus_ignores_sentry_configuration():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, asyncio; from abx_dl.orchestrator import create_bus; "
+            "bus = create_bus(); assert not bus.middlewares; asyncio.run(bus.destroy()); "
+            "assert 'abx_plugins.plugins.sentry.runtime' not in sys.modules; "
+            "assert not any(n.startswith(('sentry_sdk', 'opentelemetry')) for n in sys.modules)",
+        ],
+        env={**os.environ, "SENTRY_ENABLED": "true", "SENTRY_DSN": "http://public@127.0.0.1:1/1"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 @pytest.mark.parametrize("dsn", ["", "http://public@127.0.0.1:1/1"])
 def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_port):
     result = run_archivebox_cmd(
@@ -22,8 +43,8 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
             "shell",
             "-c",
             "import sys, asyncio; from django.apps import apps; from django.conf import settings; "
-            "from abx_dl.orchestrator import create_bus; from archivebox.plugins.discovery import get_plugin_catalog; "
-            "bus = create_bus(config=settings.CONFIG.model_dump(mode='json'), catalog=get_plugin_catalog()); "
+            "from abx_dl.orchestrator import create_bus; from archivebox.plugins.discovery import register_plugin_eventbus; "
+            "bus = create_bus(); register_plugin_eventbus(bus, settings.CONFIG.model_dump(mode='json')); "
             "assert not bus.middlewares; asyncio.run(bus.destroy()); "
             "assert apps.get_app_config('abx_sentry').name == 'abx_plugins.plugins.sentry'; "
             "assert 'abx_plugins.plugins.sentry.runtime' not in sys.modules; "
