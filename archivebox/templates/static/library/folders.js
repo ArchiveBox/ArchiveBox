@@ -891,7 +891,15 @@ document.addEventListener('DOMContentLoaded', () => {
       button = document.createElement('button'); button.type = 'button';
       button.className = 'library-child-more'; button.textContent = 'Load more';
       button.dataset.parent = row.dataset.folderId;
-      row.after(button);
+      button.dataset.cursor = row.dataset.childrenNext || '';
+      let branchEnd = row;
+      for (let next = row.nextElementSibling; next?.classList.contains('folder-row'); next = next.nextElementSibling) {
+        let parent = next.dataset.parentId;
+        while (parent && parent !== row.dataset.folderId) parent = rowsById.get(parent)?.dataset.parentId;
+        if (!parent) break;
+        branchEnd = next;
+      }
+      branchEnd.after(button);
       button.addEventListener('click', () => loadPage(button));
       observer.observe(button);
     }

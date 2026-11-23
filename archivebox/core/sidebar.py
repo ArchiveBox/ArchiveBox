@@ -1,6 +1,6 @@
 """Bounded, keyset-paginated navigation shared by the two snapshot libraries."""
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from urllib.parse import urlencode
 
 from django.core import signing
@@ -26,6 +26,7 @@ from archivebox.uuid_compat import compact_uuid
 
 SIDEBAR_PAGE_SIZE = 100
 DOMAIN_SIDEBAR_PAGE_SIZE = 50
+INITIAL_FOLDER_PAGE_SIZE = 50
 SIDEBAR_SCOPES = {"folders": "folder", "tags": "tag", "domains": "domain"}
 
 
@@ -167,6 +168,27 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             last = folders[-1]
             next_key = [last.position, last.name, str(last.pk)]
 
+        preload = folder_tree is not None and not (term or parent or cursor)
+        children = defaultdict(list)
+        preloaded_ids = set()
+        if preload:
+            for folder in folder_tree:
+                children[folder.parent_id].append(folder)
+            for siblings in children.values():
+                siblings.sort(key=lambda folder: (folder.position, folder.name, str(folder.pk)))
+            queue = deque(children[None])
+            folders = []
+            while queue and len(folders) < INITIAL_FOLDER_PAGE_SIZE:
+                folder = queue.popleft()
+                folders.append(folder)
+                queue.extend(children[folder.pk])
+            preloaded_ids = {folder.pk for folder in folders}
+            roots = [folder for folder in folders if not folder.parent_id]
+            next_key = None
+            if len(roots) < len(children[None]):
+                last = roots[-1]
+                next_key = [last.position, last.name, str(last.pk)]
+
         def folder_by_id(pk):
             if loaded_by_id is not None:
                 return loaded_by_id.get(pk)
@@ -198,6 +220,18 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             pending = {folder.parent_id for folder in ancestors if folder.parent_id} - by_id.keys()
         export_filters = _sidebar_view_filters(request)
         for folder in by_id.values():
+            if preload:
+                siblings = children[folder.pk]
+                included = [child for child in siblings if child.pk in preloaded_ids]
+                folder.sidebar_children_loaded = len(included) == len(siblings)
+                folder.sidebar_children_next = ""
+                if included and not folder.sidebar_children_loaded:
+                    last = included[-1]
+                    folder.sidebar_children_next = signing.dumps(
+                        [mode, term, str(folder.pk), last.position, last.name, str(last.pk)],
+                        salt="library-sidebar",
+                        compress=True,
+                    )
             path, ancestor = [], folder
             while ancestor:
                 path.insert(0, ancestor.name)
@@ -206,15 +240,18 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             folder.path_label = " / ".join(path)
             export_filters["folder"] = str(folder.pk)
             folder.export_urls = build_snapshot_export_urls(export_filters, api=public, request=request)
-        if term or (reveal and not parent):
+        if preload or term or (reveal and not parent):
             # Search and selected branches include ancestors before their leaves.
             folders = []
 
+            visible_children = defaultdict(list)
+            for folder in by_id.values():
+                visible_children[folder.parent_id].append(folder)
+            for siblings in visible_children.values():
+                siblings.sort(key=lambda item: (item.position, item.name, str(item.pk)))
+
             def append_children(parent_id):
-                for folder in sorted(
-                    (item for item in by_id.values() if item.parent_id == parent_id),
-                    key=lambda item: (item.position, item.name, str(item.pk)),
-                ):
+                for folder in visible_children[parent_id]:
                     folders.append(folder)
                     append_children(folder.pk)
 

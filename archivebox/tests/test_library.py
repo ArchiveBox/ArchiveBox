@@ -88,14 +88,57 @@ def test_initial_folder_sidebar_reuses_picker_tree_and_limits_roots(admin_client
         initial = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
     assert initial.status_code == 200
     assert sum('FROM "core_folder"' in query["sql"] for query in queries) == 1
-    assert len(initial.context["sidebar_folder_tree"]) == 100
+    assert len(initial.context["sidebar_folder_tree"]) == 50
     response = admin_client.get("/admin/core/snapshot/", {"folder": selected.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     visible = response.context["sidebar_folder_tree"]
-    assert len(visible) == 102
+    assert len(visible) == 52
     assert [folder.pk for folder in visible[-2:]] == [roots[-1].pk, selected.pk]
     assert response.context["sidebar_next"]
     assert len(response.context["folder_choices"]) == 107
+
+
+def test_initial_folder_sidebar_preloads_breadth_first(admin_client):
+    from archivebox.core.models import Folder
+    from archivebox.core.smart_folders import CHILDREN_RULES
+
+    existing = list(Folder.objects.all())
+    roots = [Folder.objects.create(name=f"Root {i}", position=i, rules=CHILDREN_RULES) for i in range(2)]
+    children = [
+        Folder.objects.create(name=f"Child {i:02}", parent=roots[i % 2], position=i, rules=CHILDREN_RULES)
+        for i in range(48 - len(existing))
+    ]
+    grandchild = Folder.objects.create(name="Grandchild", parent=children[0])
+    response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    rows = response.context["sidebar_folder_tree"]
+    assert {row.pk for row in rows} == {row.pk for row in existing + roots + children}
+    assert grandchild.pk not in {row.pk for row in rows}
+    positions = {row.pk: i for i, row in enumerate(rows)}
+    assert all(not row.parent_id or positions[row.parent_id] < positions[row.pk] for row in rows)
+    assert all(row.sidebar_children_loaded for row in rows if row.pk in {root.pk for root in roots})
+    assert not next(row for row in rows if row.pk == children[0].pk).sidebar_children_loaded
+
+
+def test_preloaded_folder_children_continue_without_gaps(admin_client):
+    import re
+
+    from archivebox.core.models import Folder
+
+    root = Folder.objects.create(name="Parent")
+    children = Folder.objects.bulk_create([Folder(name=f"Child {i:03}", parent=root, position=i) for i in range(205)])
+    response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    rows = response.context["sidebar_folder_tree"]
+    seen = [str(row.pk) for row in rows if row.parent_id == root.pk]
+    cursor = next(row for row in rows if row.pk == root.pk).sidebar_children_next
+    assert cursor
+    while cursor:
+        page = admin_client.get("/admin/core/snapshot/sidebar/", {"parent": str(root.pk), "cursor": cursor}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert page.status_code == 200
+        seen.extend(re.findall(r'<div class="folder-row[^\"]*" data-folder-id="([^"]+)"', page.json()["html"]))
+        cursor = page.json()["next"]
+    assert seen == [str(child.pk) for child in children]
 
 
 def test_folder_path_choices_and_admin_foreign_keys(admin_client, snapshot):

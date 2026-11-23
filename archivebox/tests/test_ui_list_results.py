@@ -251,6 +251,7 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
     snapshot.status = "sealed"
     snapshot.save()
     results = [save_output(snapshot, plugin) for plugin in ("git", "headers", "singlefile", "wget")]
+    results.append(save_output(snapshot, "readability", filename="replacement.html"))
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),

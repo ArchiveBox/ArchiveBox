@@ -69,7 +69,8 @@ def test_sidebar_cursors_search_and_parent_order(admin_client, admin_user):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, browser_runtime):
+@pytest.mark.parametrize("smart", [False, True])
+def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, browser_runtime, smart):
     from urllib.parse import urlsplit
 
     from playwright.sync_api import expect, sync_playwright
@@ -80,14 +81,18 @@ def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, b
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
     machine.save(update_fields=["config"])
-    root = Folder.objects.create(name="Research")
-    branch = Folder.objects.create(name="Archives", parent=root)
-    Folder.objects.create(name="Field notes", parent=branch)
+    rules = {"field": "url", "lookup": "icontains", "value": "example"} if smart else None
+    root = Folder.objects.create(name="Research", rules=rules)
+    branch = Folder.objects.create(name="Archives", parent=root, rules=rules)
+    nested = Folder.objects.create(name="Notebooks", parent=branch, rules=rules)
+    Folder.objects.create(name="Field notes", parent=nested, rules=rules)
 
     origin = live_server.url.replace("localhost", "admin.archivebox.localhost")
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        sidebar_requests = []
+        page.on("request", lambda request: sidebar_requests.append(request.url) if "/sidebar/" in request.url else None)
         page.goto(f"{origin}/admin/login/?next=/admin/core/snapshot/")
         page.locator('[name="username"]').fill(admin_user.username)
         page.locator('[name="password"]').fill("testpassword")
@@ -96,10 +101,12 @@ def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, b
         leaf = tree.get_by_role("link", name="Field notes", exact=True)
         tree.get_by_role("button", name="Expand Research", exact=True).click()
         tree.get_by_role("button", name="Expand Archives", exact=True).click()
+        tree.get_by_role("button", name="Expand Notebooks", exact=True).click()
         expect(leaf).to_be_visible()
 
         page.reload()
         expect(leaf).to_be_visible()
+        assert not sidebar_requests, sidebar_requests
 
         row = tree.locator(f'.folder-row[data-folder-id="{root.pk}"]')
         row.hover()
@@ -118,7 +125,7 @@ def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, b
         sidebar.get_by_role("button", name="Close sidebar search", exact=True).click()
         expect(leaf).to_be_visible()
         assert page.evaluate("JSON.parse(localStorage.getItem('archivebox.folder-expansion'))") == {
-            "expanded": [str(root.pk), str(branch.pk)],
+            "expanded": [str(root.pk), str(branch.pk), str(nested.pk)],
             "collapsed": [],
         }
 
