@@ -1,6 +1,6 @@
 --- a/bin/collect_ui_screenshots.sh
 +++ b/bin/collect_ui_screenshots.sh
-@@ -19,6 +19,14 @@
+@@ -20,6 +20,14 @@
  MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
  # Select gallery coverage only; captures still run every configured plugin.
  PLUGIN_VIEWS="${UI_SCREENSHOT_PLUGINS:-}"
@@ -15,7 +15,7 @@
  MANIFEST_OUT="${UI_SCREENSHOT_MANIFEST_OUT:-}"
  SPLIT_PUBLIC="${UI_SCREENSHOT_SPLIT_PUBLIC:-0}"
  if [[ "$SPLIT_PUBLIC" == 1 && ( "$MANIFEST_OUT" != /* || -n "$PLUGIN_VIEWS" || "$MAX_VIEWS" != 0 ) ]]; then
-@@ -386,6 +394,11 @@
+@@ -440,6 +448,11 @@
          cat "$capture_log" >&2
          exit 1
      fi
@@ -24,10 +24,10 @@
 +        # summary, never this raw diagnostic log.
 +        cp "$capture_log" "$UI_SCREENSHOT_CANVA_DIAGNOSTIC_DIR/capture.log"
 +    fi
-     stop_background_runner
- 
-     local snapshot_record
-@@ -450,14 +463,21 @@
+     local timing_label=""
+     if [[ "$plugin_names" =~ ^[a-z0-9_]+(,[a-z0-9_]+)*$ ]]; then
+         timing_label="$plugin_names"
+@@ -531,14 +544,21 @@
  
  if [[ -n "$PLUGIN_VIEWS" ]]; then
      VIEWS=()
@@ -35,26 +35,28 @@
 +    if [[ "$DIAGNOSE_CANVA" == 1 ]]; then
 +        TARGETED_PLAN="$CAPTURE_ROOT/canva-diagnostic-plan.json"
 +        UI_SCREENSHOT_PLUGINS=canva uv run --no-sync --project "$REPO_DIR" \
-+            "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" plugin-plan >"$TARGETED_PLAN"
++            "$REPO_DIR/bin/screenshot_gallery_helpers.py" plugin-plan >"$TARGETED_PLAN"
 +    fi
 +    targeted_recipes="$CAPTURE_ROOT/targeted-recipes.txt"
-+    uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/assemble_screenshot_gallery.py" recipes \
++    uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/screenshot_gallery_helpers.py" recipes \
 +        "$TARGETED_PLAN" 0 >"$targeted_recipes"
      while IFS='|' read -r example_plugins example_url; do
          [[ -z "$example_plugins" ]] || add_supplementary_template_capture "$example_plugins" "$example_url"
 -    done < <(uv run --no-cache --project "$REPO_DIR" python -c \
 -        'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
 -        "$PLUGIN_SCREENSHOT_PLAN")
-+    done <"$targeted_recipes"
- fi
- 
+-fi
+-
 -if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
++    done <"$targeted_recipes"
++fi
++
 +if [[ "$DIAGNOSE_CANVA" != 1 && "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
      (
          cd "$DATA_DIR"
-         uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" <<'PYIMPORTERS'
-@@ -479,12 +499,14 @@
-         node "$REPO_DIR/bin/take_screenshot.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
+         uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" "$SCOPED_GALLERY_OPT_INS" <<'PYIMPORTERS'
+@@ -569,12 +589,14 @@
+         node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
  fi
  
 -while IFS='|' read -r config_name config_path config_source config_mode; do

@@ -375,7 +375,7 @@ def test_busy_crawl_does_not_report_snapshot_progress(initialized_archive):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import _run_due_snapshot_id
+    from archivebox.workers.runner import _run_due_snapshot_id
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
     with use_archivebox_db(initialized_archive):

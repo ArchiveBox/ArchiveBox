@@ -21,7 +21,7 @@ def test_persona_cookie_policy_admin_to_hook_environment(admin_client, admin_use
     from archivebox.personas.models import Persona
     from archivebox.machine.models import Machine
     from archivebox.plugins.discovery import get_plugin_catalog
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     key = "ARCHIVEWEBPAGE_STRIP_COOKIES"
     assert get_config()[key] is True

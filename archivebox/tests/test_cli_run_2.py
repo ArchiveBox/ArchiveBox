@@ -151,7 +151,7 @@ class TestRecoverOrchestratorState:
         from archivebox.core.models import Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -280,7 +280,7 @@ class TestRecoverOrchestratorState:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         old = timezone.now() - timedelta(hours=13)
         crawl = Crawl.objects.create(
@@ -335,7 +335,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -370,7 +370,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
         from archivebox.workers.models import RETRY_AT_MAX
 
         crawl = Crawl.objects.create(
@@ -407,7 +407,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
         from archivebox.workers.models import RETRY_AT_MAX
 
         paused_crawl = Crawl.objects.create(
@@ -727,7 +727,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -765,7 +765,7 @@ class TestRecoverOrchestratorState:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com/extension-upload",
@@ -820,7 +820,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com/legacy-fast-finalize",
@@ -863,7 +863,7 @@ class TestRecoverOrchestratorState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com/legacy-parent-sealed",
@@ -1037,7 +1037,7 @@ class TestRecoverOrchestratorState:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com",

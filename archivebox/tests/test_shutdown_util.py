@@ -206,7 +206,7 @@ def test_crawl_runner_daemon_signal_exits_before_async_cleanup():
 
         from archivebox.crawls.models import Crawl
         from archivebox.core.shutdown_util import foreground_shutdown_signals
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         runner = CrawlRunner(
             Crawl(urls="https://example.com", created_by_id=uuid.uuid4()),

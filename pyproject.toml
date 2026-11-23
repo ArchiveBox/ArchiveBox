@@ -260,6 +260,7 @@ ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,
 skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*,docs/apidocs/*"
 
 [tool.pytest.ini_options]
+pythonpath = ["bin"]
 testpaths = [ "archivebox/tests" ]
 timeout = 600
 timeout_method = "thread"

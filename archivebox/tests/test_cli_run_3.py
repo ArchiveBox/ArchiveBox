@@ -538,7 +538,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_pending_crawls
+        from archivebox.workers.runner import run_pending_crawls
 
         crawl = Crawl.objects.create(
             urls="https://example.com/retention-repair",
@@ -575,7 +575,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_pending_crawls
+        from archivebox.workers.runner import run_pending_crawls
 
         now = timezone.now()
         crawl = Crawl.objects.create(
@@ -604,7 +604,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_pending_crawls
+        from archivebox.workers.runner import run_pending_crawls
 
         now = timezone.now()
         crawl = Crawl.objects.create(
@@ -673,7 +673,7 @@ class TestRunDueCrawlState:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.machine.models import Machine, NetworkInterface, Process
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         now = timezone.now()
         os_proc = psutil.Process(os.getpid())
@@ -728,7 +728,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -757,7 +757,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         future = timezone.now() + timedelta(hours=1)
         crawl = Crawl.objects.create(
@@ -787,7 +787,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         future = timezone.now() + timedelta(minutes=5)
         crawl = Crawl.objects.create(
@@ -815,7 +815,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -1217,7 +1217,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         future = timezone.now() + timedelta(days=1)
         crawl = Crawl.objects.create(
@@ -1240,7 +1240,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import CrawlRunner
+        from archivebox.workers.runner import CrawlRunner
 
         future = timezone.now() + timedelta(days=1)
         crawl = Crawl.objects.create(
@@ -1264,7 +1264,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         now = timezone.now()
         crawl = Crawl.objects.create(
@@ -1298,7 +1298,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import _higher_priority_crawl_waiting
+        from archivebox.workers.runner import _higher_priority_crawl_waiting
 
         # Recovery unlocks an interrupted capture with retry_at=now. Queued
         # children keep their original (older) retry_at, so retry_at order
@@ -1333,7 +1333,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         # first once the outer scheduler picks work (oldest STARTED first).
         assert _higher_priority_crawl_waiting(str(running.id), []) is False
         assert _higher_priority_crawl_waiting(str(interrupted.id), []) is False
-        from archivebox.services.runner import _first_due_id
+        from archivebox.workers.runner import _first_due_id
 
         due_started = Snapshot.objects.filter(retry_at__lte=timezone.now(), status=Snapshot.StatusChoices.STARTED)
         assert _first_due_id(due_started) == Snapshot.objects.get(crawl=interrupted).id
@@ -1346,7 +1346,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import _higher_priority_crawl_waiting, _next_queued_crawl_snapshot_id
+        from archivebox.workers.runner import _higher_priority_crawl_waiting, _next_queued_crawl_snapshot_id
 
         # Newest-first picks which submission goes next; it must not also
         # reverse an imported URL list so its last line is captured first.
@@ -1396,7 +1396,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import _higher_priority_crawl_waiting
+        from archivebox.workers.runner import _higher_priority_crawl_waiting
 
         now = timezone.now()
         running = Crawl.objects.create(
@@ -1434,7 +1434,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl, run_due_snapshot
+        from archivebox.workers.runner import run_due_crawl, run_due_snapshot
 
         now = timezone.now()
         past = now - timedelta(minutes=5)
@@ -1556,7 +1556,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_crawl
+        from archivebox.workers.runner import run_due_crawl
 
         now = timezone.now()
         crawl = Crawl.objects.create(

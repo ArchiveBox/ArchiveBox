@@ -30,7 +30,7 @@ def test_gallery_settings_capture_includes_the_surrounding_page(admin_user, live
     result = subprocess.run(
         [
             str(browser_runtime["node_binary"]),
-            str(REPO_ROOT / "bin/take_screenshot.js"),
+            str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
             f"http://admin.archivebox.localhost:{port}{path}",
             str(output),
         ],
@@ -291,7 +291,7 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
             ),
             "SELECTION": selection,
             "SCREENSHOT_CARD_ID": str(screenshot_result.id),
-            "SCREENSHOT_SCRIPT": str(REPO_ROOT / "bin/take_screenshot.js"),
+            "SCREENSHOT_SCRIPT": str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
             "SNAPSHOT_URL": f"http://web.{hostname}:{port}{snapshot.get_absolute_url()}/index.html"
             + ("#singlefile/content.html" if selection == "explicit" else ""),
             "SCREENSHOT_PATH": str(tmp_path / "cards.png"),
@@ -312,7 +312,7 @@ def test_gallery_failure_retains_native_request_state_without_query_data(live_se
     result = subprocess.run(
         [
             str(browser_runtime["node_binary"]),
-            str(REPO_ROOT / "bin/take_screenshot.js"),
+            str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
             f"{live_server.url}/?gallery_secret=never-retain#private-fragment",
             str(output),
         ],
@@ -394,8 +394,8 @@ const gallery = require(process.env.LIBRARY_GALLERY);
                 "NODE_PATH": str(browser_runtime["node_path"]),
                 "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
                 "CHROME_ARGS": json.dumps(browser_runtime["chrome_args"]),
-                "LIBRARY_GALLERY": str(REPO_ROOT / "archivebox/core/library_gallery.js"),
-                "PREPARE_HELPER": "prepare" if view == "nested" else "prepareSmartFolder",
+                "LIBRARY_GALLERY": str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
+                "PREPARE_HELPER": "prepareLibrary" if view == "nested" else "prepareSmartFolder",
                 "ADMIN_URL": admin_url,
                 "LOGIN_USERNAME": admin_user.username,
                 "CRAWL_ID": str(snapshot.crawl_id),
@@ -414,7 +414,7 @@ const gallery = require(process.env.LIBRARY_GALLERY);
     capture = subprocess.run(
         [
             str(browser_runtime["node_binary"]),
-            str(REPO_ROOT / "bin/take_screenshot.js"),
+            str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
             admin_url + target,
             str(output),
         ],
@@ -459,7 +459,7 @@ const gallery = require(process.env.LIBRARY_GALLERY);
                 "--project",
                 str(REPO_ROOT),
                 "python",
-                str(REPO_ROOT / "bin/generate_ui_screenshot_gallery.py"),
+                str(REPO_ROOT / "bin/screenshot_gallery_helpers.py"),
                 "validate",
                 str(report),
                 expected_path,
@@ -509,7 +509,7 @@ def test_gallery_only_reports_unavailable_for_a_declared_model_error(browser_run
         for name, width, height in (("model.png", 1600, 1000), ("tablet.png", 1024, 1366), ("mobile.png", 390, 844))
     ]
     result = subprocess.run(
-        [str(browser_runtime["node_binary"]), str(REPO_ROOT / "bin/take_screenshot.js"), httpserver.url_for(path), str(output)],
+        [str(browser_runtime["node_binary"]), str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"), httpserver.url_for(path), str(output)],
         env={
             **os.environ,
             "NODE_PATH": str(browser_runtime["node_path"]),

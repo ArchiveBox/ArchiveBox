@@ -15,7 +15,7 @@ from archivebox.base_models.models import get_or_create_system_user_pk
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.services.archive_result_service import ArchiveResultService
-from archivebox.services.runner import CrawlRunner, run_install
+from archivebox.workers.runner import CrawlRunner, run_install
 
 
 @pytest.mark.django_db(transaction=True)

@@ -41,7 +41,7 @@ def test_snapshot_payload_includes_candidate_hints(admin_user):
     import json
     from asgiref.sync import async_to_sync
     from archivebox.config.constants import CONSTANTS
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     origin = "https://example.test"
     crawl = Crawl.objects.create(created_by=admin_user, urls=origin)

@@ -32,7 +32,7 @@ def schedule(
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.crawls.schedule_util import validate_schedule
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
 
     from archivebox.core.models import Folder
 

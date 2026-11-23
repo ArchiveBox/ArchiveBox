@@ -29,8 +29,8 @@ archivebox.core.signals
 archivebox.core.admin_archiveresults
 archivebox.core.admin_tags
 archivebox.core.models
+archivebox.core.rescan
 archivebox.core.list_results_util
-archivebox.core.library_screenshots
 archivebox.core.admin_users
 archivebox.core.asgi
 archivebox.core.admin_folders

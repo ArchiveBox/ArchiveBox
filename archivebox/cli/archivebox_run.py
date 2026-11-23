@@ -93,7 +93,7 @@ def process_stdin_records() -> int:
     from archivebox.crawls.models import Crawl
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Binary
-    from archivebox.services.runner import run_binary, run_crawl
+    from archivebox.workers.runner import run_binary, run_crawl
 
     records = list(read_stdin())
     is_tty = sys.stdout.isatty()
@@ -253,7 +253,7 @@ def run_runner(
     from archivebox.core.takeover_util import enter_single_runner_gate, standby_until_foreground_runner_needed
     from archivebox.core.recovery_util import recover_orchestrator_state
     from abx_dl.services.crawl_lifecycle_service import SnapshotAttemptError
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.workers.runner import run_pending_crawls
 
     Machine.current()
     current = Process.current()
@@ -401,7 +401,7 @@ def main(
 
         if binary_id:
             try:
-                from archivebox.services.runner import run_binary
+                from archivebox.workers.runner import run_binary
 
                 run_binary(binary_id)
                 sys.exit(0)
@@ -435,7 +435,7 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Process
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import run_due_snapshot
+    from archivebox.workers.runner import run_due_snapshot
     from django.utils import timezone
 
     current = Process.current()

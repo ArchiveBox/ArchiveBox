@@ -63,7 +63,7 @@ def test_runner_lifecycle_uses_terminal_aware_logging(initialized_archive, termi
             assert process.returncode == 0, stderr
             stdout.seek(0)
             assert "[Crawl#" not in stdout.read()
-        assert "archivebox.services.runner" in stderr
+        assert "archivebox.workers.runner" in stderr
         assert "[Crawl#" in re.sub(r"\x1b\[[0-9;]*m", "", stderr)
         if terminal:
             assert "\x1b[" in stderr

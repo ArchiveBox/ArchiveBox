@@ -27,7 +27,6 @@ archivebox.api.v1_core
 archivebox.api.apps
 archivebox.api.webhook_events
 archivebox.api.admin
-archivebox.api.webhook_screenshots
 archivebox.api.v1_folders
 archivebox.api.v1_personas
 archivebox.api.webhooks

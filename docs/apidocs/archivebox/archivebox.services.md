@@ -14,8 +14,6 @@
 :maxdepth: 1
 
 archivebox.services.binary_service
-archivebox.services.resource_admission
-archivebox.services.runner
 archivebox.services.process_service
 archivebox.services.crawl_service
 archivebox.services.tag_service

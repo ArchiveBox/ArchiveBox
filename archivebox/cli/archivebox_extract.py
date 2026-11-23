@@ -69,7 +69,7 @@ def _run_snapshot_requests(requested: dict[str, set[str]], *, wait: bool, show_p
     from rich import print as rprint
 
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     snapshots = {str(snapshot.id): snapshot for snapshot in Snapshot.objects.filter(id__in=requested).select_related("crawl")}
     if not snapshots:

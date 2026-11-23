@@ -162,7 +162,7 @@ def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_c
     assert run.status == ImporterRun.Status.SUCCEEDED, run.message
     assert source.checkpoint
     assert run.crawl.status == Crawl.StatusChoices.QUEUED
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     run_crawl(str(run.crawl_id), selected_plugins=["title", "wget"])
     snapshots = list(run.crawl.snapshot_set.all())
@@ -583,7 +583,7 @@ def test_real_feed_categories_reach_only_their_snapshot(admin_client, import_sit
     from archivebox.core.models import Tag
     from archivebox.importers.models import ImporterSource
     from archivebox.importers.service import run_next_importer
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     root, url = import_site
     (root / "untagged.html").write_text("<html><title>Untagged article</title><body>Other content.</body></html>")
@@ -774,6 +774,7 @@ def test_browser_request_carries_existing_account_pin(admin_client, action, chec
     assert response.status_code == 302
     run = source.runs.get()
     assert run.request["expected_account"] == source.account
+    assert run.action == run.request["action"] == ("import" if action == "import" else "preview")
     assert run.request["checkpoint"] == (source.checkpoint if action == "import" else {})
     source.refresh_from_db()
     assert source.account["id"] == "opaque:ExactCase"

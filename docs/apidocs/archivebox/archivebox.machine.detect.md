@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`cgroup_paths <archivebox.machine.detect.cgroup_paths>`
+  - ```{autodoc2-docstring} archivebox.machine.detect.cgroup_paths
+    :summary:
+    ```
 * - {py:obj}`get_live_system_stats <archivebox.machine.detect.get_live_system_stats>`
   - ```{autodoc2-docstring} archivebox.machine.detect.get_live_system_stats
     :summary:
@@ -119,6 +123,13 @@
 ```{autodoc2-docstring} archivebox.machine.detect._live_io_sample
 ```
 
+````
+
+````{py:function} cgroup_paths() -> list[pathlib.Path]
+:canonical: archivebox.machine.detect.cgroup_paths
+
+```{autodoc2-docstring} archivebox.machine.detect.cgroup_paths
+```
 ````
 
 ````{py:function} get_live_system_stats(data_dir: pathlib.Path) -> dict[str, typing.Any]

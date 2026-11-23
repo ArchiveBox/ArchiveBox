@@ -3,9 +3,9 @@ name: Documentation build
 on:
   push:
     branches: [dev, main]
-    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/generate_ui_screenshot_gallery.py', '.github/workflows/docs-build.yml']
+    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/screenshot_gallery_helpers.py', '.github/workflows/docs-build.yml']
   pull_request:
-    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/generate_ui_screenshot_gallery.py', '.github/workflows/docs-build.yml']
+    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/screenshot_gallery_helpers.py', '.github/workflows/docs-build.yml']
   workflow_dispatch:
 
 permissions:

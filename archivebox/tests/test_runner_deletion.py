@@ -131,7 +131,7 @@ def test_deletion_releases_database_before_filesystem_io(initialized_archive, en
                 from archivebox.base_models.models import get_or_create_system_user_pk
                 from archivebox.core.models import ArchiveResult, Snapshot
                 from archivebox.crawls.models import Crawl
-                from archivebox.services.runner import run_pending_crawls
+                from archivebox.workers.runner import run_pending_crawls
 
                 # DELETE mode exposes both read-cursor and transaction locks.
                 with connection.cursor() as cursor:

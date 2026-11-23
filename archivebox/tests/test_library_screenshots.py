@@ -17,7 +17,7 @@ from archivebox.core.models import ArchiveResult
     ],
 )
 def test_gallery_warns_for_terminal_native_plugin_failure(snapshot, capsys, message):
-    from archivebox.core.library_screenshots import validate_ai_result
+    from screenshot_gallery_helpers import validate_ai_result
 
     tags_before = list(snapshot.tags.values_list("pk", flat=True))
     result = ArchiveResult.objects.create(snapshot=snapshot, plugin="autotag", status="failed", output_str=message)
@@ -31,7 +31,7 @@ def test_gallery_warns_for_terminal_native_plugin_failure(snapshot, capsys, mess
 @pytest.mark.django_db
 @pytest.mark.parametrize("message", ["OpenCode exited with status 1:", "Invalid API key", "Malformed provider output"])
 def test_gallery_does_not_infer_availability_from_provider_message(snapshot, message):
-    from archivebox.core.library_screenshots import validate_ai_result
+    from screenshot_gallery_helpers import validate_ai_result
 
     ArchiveResult.objects.create(snapshot=snapshot, plugin="autotag", status="failed", output_str=message)
     assert validate_ai_result(snapshot, "autotag") is False
@@ -39,7 +39,7 @@ def test_gallery_does_not_infer_availability_from_provider_message(snapshot, mes
 
 @pytest.mark.django_db
 def test_gallery_requires_result_and_accepts_success(snapshot, capsys):
-    from archivebox.core.library_screenshots import validate_ai_result
+    from screenshot_gallery_helpers import validate_ai_result
 
     with pytest.raises(RuntimeError, match="no terminal autotag result"):
         validate_ai_result(snapshot, "autotag")
@@ -50,7 +50,7 @@ def test_gallery_requires_result_and_accepts_success(snapshot, capsys):
 
 @pytest.mark.django_db
 def test_gallery_features_complete_captures_and_retains_blocked_results(crawl, tmp_path):
-    from archivebox.core.library_screenshots import native_library_source, select_gallery_snapshots
+    from screenshot_gallery_helpers import native_library_source, select_gallery_snapshots
     from archivebox.core.models import Snapshot
 
     fixture = Path(__file__).parent / "fixtures"
@@ -115,7 +115,7 @@ def test_gallery_features_complete_captures_and_retains_blocked_results(crawl, t
 
 @pytest.mark.django_db
 def test_native_plugin_outcomes_are_scoped_to_opened_snapshots_and_exact_owner(snapshot):
-    from archivebox.core.library_screenshots import native_plugin_output_unavailable
+    from screenshot_gallery_helpers import native_plugin_output_unavailable
     from archivebox.core.models import Snapshot
 
     plugin = "future_output"
@@ -142,7 +142,7 @@ def test_native_library_failed_wacz_and_screenshot_still_yield_owned_app_replay(
     from types import SimpleNamespace
 
     from warcio.archiveiterator import ArchiveIterator
-    from archivebox.core import library_screenshots as gallery
+    import screenshot_gallery_helpers as gallery
     from archivebox.core.models import Folder, Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.domains.exports import write_wacz_site
@@ -168,7 +168,7 @@ def test_native_library_failed_wacz_and_screenshot_still_yield_owned_app_replay(
                 ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin, status="failed")
 
     monkeypatch.setattr(gallery, "subprocess", SimpleNamespace(run=failed_native_crawl))
-    crawl_id = gallery.prepare(evidence)
+    crawl_id = gallery.prepare_library(evidence)
     native_records = json.loads((evidence / "hacker-news-captures.json").read_text())
     assert native_records and all(
         not row["eligible"] and row["results"] == {"archivewebpage": "failed", "screenshot": "failed"} for row in native_records

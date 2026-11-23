@@ -207,7 +207,7 @@ def test_import_to_folder_completion_payload(client, api_headers, tmp_path):
     from archivebox.importers.models import ImporterRun
     from archivebox.importers.service import run_next_importer
     from archivebox.machine.models import Process
-    from archivebox.services.runner import run_crawl
+    from archivebox.workers.runner import run_crawl
 
     site = tmp_path / "site"
     site.mkdir()
@@ -285,6 +285,10 @@ def test_folder_and_importer_ui_downloads(live_server, admin_user, browser_runti
         picker.locator('[name="folder"]').select_option(str(folder.pk))
         page.get_by_role("button", name="Save importer", exact=True).click()
         expect(page.get_by_role("link", name="UI exports", exact=True)).to_be_visible()
+        for label in ("Reset learned code", "Reset progress", "Delete importer"):
+            button = page.get_by_role("button", name=label, exact=True)
+            expect(button).to_be_visible()
+            expect(button.locator("xpath=ancestor::details")).to_have_count(0)
         assert page.goto(f"{origin}/admin/importers/").status == 200
         with page.expect_download() as download:
             page.get_by_role("link", name="CSV", exact=True).click()

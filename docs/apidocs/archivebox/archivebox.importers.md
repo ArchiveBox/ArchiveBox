@@ -28,7 +28,6 @@ archivebox.importers.models
 archivebox.importers.diagnostics
 archivebox.importers.apps
 archivebox.importers.forms
-archivebox.importers.gallery
 archivebox.importers.urls
 archivebox.importers.views
 ```

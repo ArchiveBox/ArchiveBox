@@ -10,7 +10,7 @@ def test_wayback_uses_persisted_snapshot_permissions(permissions, wayback_server
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
     from abx_dl.events import MachineEvent
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com/privacy-regression",
@@ -76,7 +76,7 @@ def test_wayback_refreshes_persisted_privacy_before_hooks(wayback_server):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com/privacy-change",
@@ -107,7 +107,7 @@ def test_prepared_payload_reloads_persisted_permissions():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     crawl = Crawl.objects.create(urls="https://example.com/reload", created_by_id=get_or_create_system_user_pk())
     snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})

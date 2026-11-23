@@ -59,7 +59,7 @@ from abxbus import BaseEvent
 from abxbus.event_bus import EventBus, get_current_event, in_handler_context
 from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
 
-from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
+from archivebox.workers.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
 
 from archivebox.config.common import (
     RUNTIME_REPORTING_CONFIG_KEYS,
@@ -78,13 +78,13 @@ from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
 from archivebox.crawls.locks import crawl_lifecycle_lock
 
-from .archive_result_service import ArchiveResultService
-from .binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cache_to_db
-from .crawl_service import CrawlService
-from .machine_service import MachineService
-from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService
-from .tag_service import TagService
+from archivebox.services.archive_result_service import ArchiveResultService
+from archivebox.services.binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cache_to_db
+from archivebox.services.crawl_service import CrawlService
+from archivebox.services.machine_service import MachineService
+from archivebox.services.process_service import ProcessService as PersistedProcessService
+from archivebox.services.snapshot_service import SnapshotService
+from archivebox.services.tag_service import TagService
 
 
 def _bus_name(prefix: str, identifier: str) -> str:

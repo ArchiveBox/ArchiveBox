@@ -50,7 +50,8 @@ def test_gallery_native_site_navigation(initialized_archive, browser_runtime):
             "--project",
             str(REPO),
             "python",
-            str(REPO / "bin/serve_ui_screenshot_exports.py"),
+            str(REPO / "bin/screenshot_gallery_helpers.py"),
+            "serve-exports",
             str(static_port),
             "--directory",
             str(exports),
@@ -79,17 +80,17 @@ const [repo, base, staticBase, directory, phase] = process.argv.slice(2);
     await page.type('#id_username', process.env.DJANGO_SUPERUSER_USERNAME);
     await page.type('#id_password', process.env.DJANGO_SUPERUSER_PASSWORD);
     await Promise.all([page.waitForNavigation(), page.click('input[type="submit"]')]);
-    const gallery = require(path.join(repo, 'archivebox/domains/gallery.js'));
+    const gallery = require(path.join(repo, 'bin/screenshot_gallery_helpers.js'));
     const cloneFile = path.join(directory, '../clone.json');
     if (phase === 'capture') {
-      const clone = await gallery.prepare(page, base, new URL('site-navigation/index.html', staticBase).href);
+      const clone = await gallery.prepareDomain(page, base, new URL('site-navigation/index.html', staticBase).href);
       fs.writeFileSync(cloneFile, JSON.stringify(clone));
     } else {
       const clone = JSON.parse(fs.readFileSync(cloneFile));
       const views = [
         ...await gallery.replayViews(page, clone),
-        ...await gallery.exportViews(page, clone, directory, staticBase),
-        ...await require(path.join(repo, 'archivebox/domains/wacz_gallery.js')).exportViews(page, clone, directory, staticBase),
+        ...await gallery.domainExportViews(page, clone, directory, staticBase),
+        ...await gallery.waczExportViews(page, clone, directory, staticBase),
       ];
       fs.writeFileSync(path.join(directory, '../replay-proof.json'), JSON.stringify(views, null, 2));
       await page.screenshot({path: path.join(directory, '../wacz-navigation.png')});

@@ -29,7 +29,7 @@ from archivebox.crawls.models import Crawl
 from archivebox.importers.models import ImporterSource
 from archivebox.importers.service import run_next_importer
 from archivebox.plugins.discovery import get_plugin_catalog
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 user = get_user_model().objects.create_superuser(username="reader-test", password="readwise-test-password")
 client = Client(HTTP_HOST="admin.archivebox.localhost:5797")

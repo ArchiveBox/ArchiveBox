@@ -39,7 +39,7 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
     decisions = [
         (datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc), int(adaptive), int(active), int(slots), int(cost), int(available))
         for stamp, adaptive, active, slots, cost, available in re.findall(
-            r"\[([^]\n]+)\] INFO archivebox.services.resource_admission Snapshot admission decision: "
+            r"\[([^]\n]+)\] INFO archivebox.workers.resource_admission Snapshot admission decision: "
             r"configured=3 adaptive=(\d+) active=(\d+) slots=(\d+) observed_cost=(\d+) available=(\d+)(?: active_memory=(?:None|\d+))? pressure=none$",
             stderr,
             re.M,
@@ -79,8 +79,8 @@ def test_serialized_recovery_requires_matching_observed_evidence(invalid, active
         # Same strict evidence contract for the active-pressure branch, whose
         # native cgroup regression proves it can deny without the idle warning.
         stderr = re.sub(
-            r"WARNING archivebox.services.runner (Capture admission deferred[^\n]+)",
-            r"WARNING archivebox.services.resource_admission \1 (active=1 slots=0 adaptive=1)",
+            r"WARNING archivebox.workers.runner (Capture admission deferred[^\n]+)",
+            r"WARNING archivebox.workers.resource_admission \1 (active=1 slots=0 adaptive=1)",
             stderr,
         )
     crawl_id = "06ad71db64ea72bb80002740d5283a00"
@@ -182,7 +182,7 @@ def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(
     measurements = [
         datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
         for stamp in re.findall(
-            r"\[([^]\n]+)\] INFO archivebox.services.runner Snapshot admission: concurrency limit=3, observed memory cost=[1-9]\d* bytes",
+            r"\[([^]\n]+)\] INFO archivebox.workers.runner Snapshot admission: concurrency limit=3, observed memory cost=[1-9]\d* bytes",
             result.stderr,
         )
     ]

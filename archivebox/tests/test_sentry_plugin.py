@@ -106,7 +106,7 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
             "shell",
             "-c",
             "import sys, asyncio; from django.apps import apps; from django.conf import settings; "
-            "from archivebox.services.runner import create_bus; "
+            "from archivebox.workers.runner import create_bus; "
             "from archivebox.core.asgi import application; "
             "bus = create_bus(config=settings.CONFIG); "
             "assert not bus.middlewares; asyncio.run(bus.destroy()); "
@@ -352,7 +352,7 @@ import asyncio
 from django.contrib.auth import get_user_model
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
-from archivebox.services.runner import CrawlRunner
+from archivebox.workers.runner import CrawlRunner
 
 user, _ = get_user_model().objects.get_or_create(username='sentry-acceptance')
 for enabled in [False, True]:

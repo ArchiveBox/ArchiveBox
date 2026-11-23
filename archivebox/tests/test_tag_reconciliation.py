@@ -81,7 +81,7 @@ def test_tag_edits_survive_maintenance(client, api_admin_user, api_headers, edit
     elif maintenance == "reconcile":
         snapshot.reconcile_with_index()
     else:
-        from archivebox.cli.rescan import rescan_snapshots
+        from archivebox.core.rescan import rescan_snapshots
 
         rescan_snapshots()
     assert set(snapshot.tags.values_list("name", flat=True)) == expected

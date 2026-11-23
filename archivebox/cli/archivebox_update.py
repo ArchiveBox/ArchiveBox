@@ -308,7 +308,7 @@ def update(
         with foreground_shutdown_signals(), foreground_parent_watchdog():
             while True:
                 if rescan:
-                    from archivebox.cli.rescan import reconcile_known_snapshots, rescan_snapshots
+                    from archivebox.core.rescan import reconcile_known_snapshots, rescan_snapshots
 
                     if is_filtered_update:
                         snapshots = _build_filtered_snapshots_queryset(
@@ -394,7 +394,7 @@ def update(
                             run_scoped_runner()
 
                 if do_index:
-                    from archivebox.cli.rescan import reconcile_known_snapshots
+                    from archivebox.core.rescan import reconcile_known_snapshots
 
                     snapshots = _build_filtered_snapshots_queryset(
                         filter_patterns=filter_patterns,
@@ -737,7 +737,7 @@ def process_all_db_snapshots(
         updated = 0
         for snapshot in batch:
             if migrate:
-                from archivebox.services.runner import run_snapshot_maintenance
+                from archivebox.workers.runner import run_snapshot_maintenance
 
                 if wait_for_turn:
                     wait_for_turn()
@@ -823,7 +823,7 @@ def process_filtered_snapshots(
             update_values = {}
             updated = 0
             if not queue_for_archiving and snapshot.fs_migration_needed:
-                from archivebox.services.runner import run_snapshot_maintenance
+                from archivebox.workers.runner import run_snapshot_maintenance
 
                 run_snapshot_maintenance(str(snapshot.id))
             if queue_for_archiving:

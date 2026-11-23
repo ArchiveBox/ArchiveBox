@@ -26,7 +26,6 @@ archivebox.cli.archivebox_snapshot
 archivebox.cli.archivebox_pluginmap
 archivebox.cli.archivebox_machine
 archivebox.cli.archivebox_update
-archivebox.cli.rescan
 archivebox.cli.archivebox_extract
 archivebox.cli.archivebox_crawl
 archivebox.cli.archivebox_remove

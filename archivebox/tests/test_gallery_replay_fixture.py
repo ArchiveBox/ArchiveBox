@@ -5,7 +5,7 @@ import zipfile
 import pytest
 from warcio.archiveiterator import ArchiveIterator
 
-from archivebox.core.gallery_replay_fixture import prepare_folder
+from screenshot_gallery_helpers import prepare_folder
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 
@@ -42,7 +42,7 @@ def test_gallery_replay_fixture(admin_client, tmp_path):
 def test_clone_fixture_preserves_existing_recording_and_fills_linked_page(crawl, tmp_path):
     from pathlib import Path
 
-    from archivebox.core.gallery_replay_fixture import prepare_site_navigation
+    from screenshot_gallery_helpers import prepare_site_navigation
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.domains.exports import write_wacz_site
 
@@ -54,7 +54,7 @@ def test_clone_fixture_preserves_existing_recording_and_fills_linked_page(crawl,
     old = snapshot.output_dir / "archivewebpage/archivewebpage.wacz"
     old.parent.mkdir(parents=True)
     # A valid already saved recording is preserved across repeated fallback calls.
-    from archivebox.core.gallery_replay_fixture import write_recording
+    from screenshot_gallery_helpers import write_recording
 
     write_recording(old, homepage, "Field Notes", (directory / "index.html").read_bytes())
     old_bytes = old.read_bytes()

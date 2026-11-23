@@ -13,7 +13,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RESTORE = runpy.run_path(str(ROOT / "bin/restore_site_screenshots.py"))
+RESTORE = runpy.run_path(str(ROOT / "bin/screenshot_gallery_helpers.py"))
 ARTIFACTS = runpy.run_path(str(ROOT / ".github/pages/artifacts.py"))
 
 
@@ -59,12 +59,12 @@ def test_selected_capture_still_requires_exact_source_and_bytes(tmp_path):
     (tmp_path / "index.html").write_text("owned gallery validation fixture")
     manifest = {"revision": "a" * 40, "capture_count": 1, "files": {"capture.png": hashlib.sha256(content).hexdigest()}}
     (tmp_path / "build.json").write_text(json.dumps(manifest))
-    assert RESTORE["validate"](tmp_path, {"head_sha": "a" * 40}) == manifest
+    assert RESTORE["validate_published_gallery"](tmp_path, {"head_sha": "a" * 40}) == manifest
     with pytest.raises(ValueError, match="revision differs"):
-        RESTORE["validate"](tmp_path, {"head_sha": "b" * 40})
+        RESTORE["validate_published_gallery"](tmp_path, {"head_sha": "b" * 40})
     (tmp_path / "capture.png").write_bytes(b"modified")
     with pytest.raises(ValueError, match="checksum mismatch"):
-        RESTORE["validate"](tmp_path, {"head_sha": "a" * 40})
+        RESTORE["validate_published_gallery"](tmp_path, {"head_sha": "a" * 40})
 
 
 def test_published_capture_survives_merging_remote_dev_as_second_parent(tmp_path):
@@ -133,7 +133,7 @@ def write_provider_artifact(directory, outcomes, *, omit=None, stale=None):
 
 def test_restore_accepts_one_omitted_provider_and_keeps_complete_current_providers(tmp_path):
     manifest = write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES)
-    assert RESTORE["validate"](tmp_path, {"head_sha": "a" * 40}) == manifest
+    assert RESTORE["validate_published_gallery"](tmp_path, {"head_sha": "a" * 40}) == manifest
     assert all("photobooth" not in image for image in manifest["files"])
     assert all(f"snapshot-view-new-source-{profile}.png" in manifest["files"] for profile in OPTIONAL_PROFILES)
 
@@ -151,16 +151,16 @@ def test_restore_accepts_one_omitted_provider_and_keeps_complete_current_provide
 def test_restore_rejects_malformed_optional_provider_metadata(tmp_path, outcomes):
     write_provider_artifact(tmp_path, outcomes)
     with pytest.raises(ValueError, match="Invalid optional provider capture outcomes"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
 
 
 def test_restore_rejects_partial_capture_or_unlisted_stale_provider_bytes(tmp_path):
     write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, omit="snapshot-view-new-source-mobile.png")
     with pytest.raises(ValueError, match="Incomplete optional provider capture: new-source"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
     write_provider_artifact(tmp_path, OPTIONAL_OUTCOMES, stale="snapshot-view-photobooth-desktop.png")
     with pytest.raises(ValueError, match="Unavailable provider includes screenshot files: photobooth"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
 
 
 MISSING_RECIPE = "recipe-" + "a" * 16
@@ -194,7 +194,7 @@ def write_recipe_artifact(directory, outcomes, *, missing_profile=None, stale=No
 
 def test_restore_accepts_generic_plugin_outcomes_without_named_provider_rule(tmp_path):
     manifest = write_recipe_artifact(tmp_path, GENERIC_OUTCOMES)
-    assert RESTORE["validate"](tmp_path, {"head_sha": "a" * 40}) == manifest
+    assert RESTORE["validate_published_gallery"](tmp_path, {"head_sha": "a" * 40}) == manifest
     assert "navigation-tools-menu-desktop.png" in manifest["files"]
 
 
@@ -213,7 +213,7 @@ def test_restore_accepts_generic_plugin_outcomes_without_named_provider_rule(tmp
 def test_restore_rejects_malformed_generic_recipe_outcomes(tmp_path, outcomes):
     write_recipe_artifact(tmp_path, outcomes)
     with pytest.raises(ValueError, match="Invalid optional gallery recipe outcome"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
 
 
 def test_restore_rejects_mixed_old_and_new_optional_provenance(tmp_path):
@@ -221,16 +221,16 @@ def test_restore_rejects_mixed_old_and_new_optional_provenance(tmp_path):
     manifest["optional_provider_captures"] = {"older-source": "unavailable"}
     (tmp_path / "build.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="Invalid optional gallery recipe outcomes"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
 
 
 def test_restore_rejects_incomplete_generic_capture_or_stale_omitted_bytes(tmp_path):
     write_recipe_artifact(tmp_path, GENERIC_OUTCOMES, missing_profile="mobile")
     with pytest.raises(ValueError, match="Incomplete optional gallery recipe capture"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
     write_recipe_artifact(tmp_path, GENERIC_OUTCOMES, stale="archive-output-photobooth-desktop.png")
     with pytest.raises(ValueError, match="Unavailable gallery recipe includes screenshot files"):
-        RESTORE["validate"](tmp_path)
+        RESTORE["validate_published_gallery"](tmp_path)
 
 
 @pytest.mark.parametrize("legacy", [True, False])
@@ -270,7 +270,7 @@ def test_pages_overlay_cannot_restore_omitted_view_from_tracked_old_png(tmp_path
     assert not (screenshots / omitted_filename).exists()
     assert "snapshot-view-ytdlp-desktop.png" in manifest["manual_captures"]
     assert (screenshots / "snapshot-view-ytdlp-desktop.png").is_file()
-    assert RESTORE["validate"](screenshots) == manifest
+    assert RESTORE["validate_published_gallery"](screenshots) == manifest
 
 
 def test_qualified_gallery_omission_only_removes_its_feature_figure_in_every_locale(tmp_path):
@@ -313,7 +313,7 @@ def test_qualified_gallery_omission_only_removes_its_feature_figure_in_every_loc
         },
     }
     (gallery / "build.json").write_text(json.dumps(manifest))
-    assert RESTORE["validate"](gallery, {"head_sha": "a" * 40}) == manifest
+    assert RESTORE["validate_published_gallery"](gallery, {"head_sha": "a" * 40}) == manifest
     render = [sys.executable, str(ROOT / ".github/pages/site.py"), "render", str(output)]
     subprocess.run(render, check=True, capture_output=True, text=True)
     for homepage in locales:

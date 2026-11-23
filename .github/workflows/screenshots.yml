@@ -7,16 +7,13 @@ on:
     branches: [dev]
     paths:
       - '.github/workflows/screenshots.yml'
-      - 'bin/take_screenshot.js'
-      - 'bin/setup_ui_screenshot_data.js'
+      - 'bin/screenshot_gallery_helpers.js'
       - 'archivebox/api/**'
       - 'archivebox/domains/**'
-      - 'archivebox/core/library*'
       - 'archivebox/core/admin*'
       - 'archivebox/core/models.py'
       - 'bin/collect_ui_screenshots.sh'
-      - 'bin/assemble_screenshot_gallery.py'
-      - 'bin/generate_ui_screenshot_gallery.py'
+      - 'bin/screenshot_gallery_helpers.py'
       - 'archivebox/templates/**'
       - 'archivebox/core/templatetags/core_tags.py'
   schedule:
@@ -181,7 +178,7 @@ jobs:
         env:
           PUBLIC_RECIPE: ${{ matrix.lane }}
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py pack "$PUBLIC_RECIPE" \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py pack "$PUBLIC_RECIPE" \
             "$RUNNER_TEMP/public-recipe-capture.jsonl" "$RUNNER_TEMP/public-recipe-png" "$RUNNER_TEMP/public-recipe-bundle" \
             --unavailable "$RUNNER_TEMP/public-recipe-unavailable.txt"
 
@@ -410,7 +407,7 @@ jobs:
       - name: Validate and package the native base captures
         if: inputs.plugin_revision == ''
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py pack base \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py pack base \
             "$RUNNER_TEMP/base-capture.jsonl" publicsite/screenshots "$RUNNER_TEMP/base-bundle" \
             --unavailable "$RUNNER_TEMP/base-unavailable.txt"
 
@@ -552,14 +549,14 @@ jobs:
           path: ${{ runner.temp }}/gallery-captures
       - name: Assemble and render the complete gallery
         run: |
-          uv run --no-sync python bin/assemble_screenshot_gallery.py merge \
+          uv run --no-sync python bin/screenshot_gallery_helpers.py merge \
             "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl" \
             --recipe-outcomes-out "$RUNNER_TEMP/recipe-outcomes.json"
           # All required views still pass strict rendering. Only the exact
           # plugin-owned views explicitly reported as unavailable may be absent.
           mkdir -p publicsite/screenshots
           cp "$RUNNER_TEMP/screenshots/"*.png publicsite/screenshots/
-          env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/generate_ui_screenshot_gallery.py build \
+          env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/screenshot_gallery_helpers.py build \
             "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html \
             "$RUNNER_TEMP/recipe-outcomes.json"
 

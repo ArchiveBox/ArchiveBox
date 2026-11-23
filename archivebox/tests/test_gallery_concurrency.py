@@ -45,7 +45,7 @@ def test_gallery_artifact_still_requires_successful_exact_revision_validation():
     assert assemble.get("continue-on-error", "false") == "false"
 
     public = jobs["public_recipes"]
-    assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
+    assembler = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
     matrix = public["strategy"]["matrix"]["include"]
     assert {item["lane"]: tuple(item["plugins"].split(",")) for item in matrix} == assembler["PUBLIC_LANES"]
     assert len(matrix) == 12
@@ -102,8 +102,8 @@ def test_pages_publication_stays_serialized_and_rejects_cancelled_captures():
 
 def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     monkeypatch.delenv("UI_SCREENSHOT_PLUGINS", raising=False)
-    planner = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")["plugin_screenshot_plan"]
-    assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
+    planner = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")["plugin_screenshot_plan"]
+    assembler = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
     plan = planner()
     recipes = assembler["recipes"]
     full = set(recipes(plan, False))
@@ -151,8 +151,8 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
 
 
 def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path):
-    assembler = runpy.run_path(ROOT / "bin/assemble_screenshot_gallery.py")
-    generator = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")
+    assembler = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
+    generator = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
     root = tmp_path / "shards"
     root.mkdir()
     env = {**os.environ, "GITHUB_SHA": "a" * 40, "GITHUB_RUN_ID": "12", "GITHUB_RUN_ATTEMPT": "1"}
@@ -174,7 +174,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
         rows, files = [], {}
         for name in sorted(names - unavailable):
             slug = generator["re"].sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-            for profile, (width, height) in assembler["PROFILES"].items():
+            for profile, (width, height) in assembler["CAPTURE_PROFILES"].items():
                 filename = f"{slug}-{profile}.png"
                 # This fixture exercises transport, not browser screenshot generation.
                 data = assembler["PNG_HEADER"] + b"\0" * 8 + struct.pack(">II", width, height)
@@ -208,7 +208,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
         return subprocess.run(
             [
                 sys.executable,
-                str(ROOT / "bin/assemble_screenshot_gallery.py"),
+                str(ROOT / "bin/screenshot_gallery_helpers.py"),
                 "merge",
                 str(root),
                 str(output),
@@ -232,7 +232,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     whole = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "bin/assemble_screenshot_gallery.py"),
+            str(ROOT / "bin/screenshot_gallery_helpers.py"),
             "whole-outcomes",
             str(manifest),
             str(unavailable),
@@ -248,7 +248,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     render = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "bin/generate_ui_screenshot_gallery.py"),
+            str(ROOT / "bin/screenshot_gallery_helpers.py"),
             "build",
             str(manifest),
             str(tmp_path / "Screenshots.md"),
@@ -271,7 +271,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     assert "snapshot-view-chrome-desktop.png" not in build["files"]  # Default view, no URL recipe.
     assert "Plugin screenshots unavailable in this capture:" in (output / "index.html").read_text()
     assert {"login-desktop.png", "machine-settings-tablet.png"} <= build["files"].keys()
-    restore = runpy.run_path(ROOT / "bin/restore_site_screenshots.py")["validate"]
+    restore = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")["validate_published_gallery"]
     assert restore(output, {"head_sha": env["GITHUB_SHA"]}) == build
 
     required_png = root / "gallery-capture-1-git/snapshot-view-git-desktop.png"
@@ -309,7 +309,7 @@ def test_new_plugin_ownership_is_derived_for_all_registered_views(tmp_path, monk
     (plugin / "templates/card.html").touch()
     config = {"properties": {"FUTURE_FIXTURE_ENABLED": {"default": True}}}
     (plugin / "config.json").write_text(json.dumps(config))
-    planner = runpy.run_path(ROOT / "bin/generate_ui_screenshot_gallery.py")["plugin_screenshot_plan"]
+    planner = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")["plugin_screenshot_plan"]
     monkeypatch.setenv("UI_SCREENSHOT_PLUGINS", "future_fixture")
     assert planner()["owned_views"] == {"Snapshot View (future_fixture)": "future_fixture"}
 
@@ -347,7 +347,7 @@ def test_anonymous_failed_plugin_still_packs_only_explicitly_attested_empty_shar
     bundle = tmp_path / "bundle"
     command = [
         sys.executable,
-        str(ROOT / "bin/assemble_screenshot_gallery.py"),
+        str(ROOT / "bin/screenshot_gallery_helpers.py"),
         "pack",
         "git",
         str(manifest),
@@ -373,7 +373,7 @@ def test_anonymous_failed_plugin_still_packs_only_explicitly_attested_empty_shar
 
 def test_importer_terminal_failure_does_not_mask_infrastructure_or_a_healthy_sibling(monkeypatch):
     from types import SimpleNamespace
-    from archivebox.importers import gallery
+    import screenshot_gallery_helpers as gallery
 
     recipes = [{"plugin": name, "name": name, "feed": "fixture", "settings": {}} for name in ("failed_fixture", "healthy_fixture")]
     runs = {name["plugin"]: [] for name in recipes}
@@ -407,7 +407,7 @@ def test_importer_terminal_failure_does_not_mask_infrastructure_or_a_healthy_sib
 
     monkeypatch.setattr(gallery.subprocess, "run", launch)
     omitted = []
-    views = gallery.prepare("http://localhost:8123", recipes, on_unavailable=omitted.append)
+    views = gallery.prepare_importers("http://localhost:8123", recipes, on_unavailable=omitted.append)
     assert omitted == list(gallery.importer_view_names("failed_fixture"))
     assert {row.split("|")[0] for row in views} == set(gallery.importer_view_names("healthy_fixture"))
     assert ("run", "--crawl-id", "fixture-crawl") in calls
@@ -419,4 +419,4 @@ def test_importer_terminal_failure_does_not_mask_infrastructure_or_a_healthy_sib
 
     monkeypatch.setattr(gallery.subprocess, "run", fail_before_native_result)
     with pytest.raises(RuntimeError, match="Runner unavailable before enqueue"):
-        gallery.prepare("http://localhost:8123", recipes, on_unavailable=omitted.append)
+        gallery.prepare_importers("http://localhost:8123", recipes, on_unavailable=omitted.append)

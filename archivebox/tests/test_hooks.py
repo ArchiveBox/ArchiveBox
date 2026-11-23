@@ -380,7 +380,7 @@ class TestHookExecution:
     @pytest.mark.django_db(transaction=True)
     def test_js_hook_execution(self, tmp_path, hermetic_lib_dir):
         """A shipped JavaScript hook should execute through projected Node."""
-        from archivebox.services.runner import run_install
+        from archivebox.workers.runner import run_install
 
         lib_dir = hermetic_lib_dir
         run_install(plugin_names=["chrome"])
@@ -426,7 +426,7 @@ class TestHookExecution:
     @pytest.mark.django_db(transaction=True)
     def test_real_js_hook_runs_through_abxpkg_shebang(self, tmp_path, hermetic_lib_dir):
         from archivebox.tests.conftest import run_test_hook
-        from archivebox.services.runner import run_install
+        from archivebox.workers.runner import run_install
 
         lib_dir = hermetic_lib_dir
         run_install(plugin_names=["chrome"])
@@ -535,7 +535,7 @@ class TestSnapshotHookOutput:
 def test_abx_dl_hook_execution_exports_singular_node_modules_dir_with_colon_node_path(tmp_path, hermetic_lib_dir):
     """Hook subprocesses must get a real NODE_MODULES_DIR even when NODE_PATH has multiple entries."""
     from archivebox.tests.conftest import run_test_hook
-    from archivebox.services.runner import run_install
+    from archivebox.workers.runner import run_install
 
     lib_dir = hermetic_lib_dir
     run_install(plugin_names=["chrome"])

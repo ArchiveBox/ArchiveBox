@@ -150,7 +150,7 @@ def _run_real_title_crawl(url: str, lib_dir: Path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner, run_install
+    from archivebox.workers.runner import CrawlRunner, run_install
 
     run_install(plugin_names=["title"])
     crawl = Crawl.objects.create(
@@ -667,7 +667,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
     from archivebox.machine.models import Binary, NetworkInterface
     from archivebox.machine.models import Process as MachineProcess
     from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
-    from archivebox.services.runner import run_install
+    from archivebox.workers.runner import run_install
     from abx_dl.services.process_service import ProcessService as DlProcessService
 
     lib_dir = cached_abxpkg_lib_dir

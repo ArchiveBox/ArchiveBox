@@ -129,7 +129,7 @@ def live_screenshot_command(snapshot, live_server, cached_abxpkg_lib_dir, tmp_pa
     }
     command = [
         binary_env["NODE_BINARY"],
-        str(REPO_ROOT / "bin/take_screenshot.js"),
+        str(REPO_ROOT / "bin/screenshot_gallery_helpers.js"),
         f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}",
         variants[0]["path"],
     ]
@@ -231,7 +231,7 @@ def real_second_snapshot_hook_process(snapshot, tmp_path):
 @pytest.fixture
 def real_crawl_setup_process(snapshot, cached_abxpkg_lib_dir):
     from archivebox.tests.conftest import run_test_hook
-    from archivebox.services.runner import run_install
+    from archivebox.workers.runner import run_install
 
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
     config_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
@@ -599,7 +599,7 @@ class TestLiveProgressView:
 
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         if saved_outputs:
             from archivebox.tests.test_snapshot_output_stacks import save_output
@@ -836,7 +836,7 @@ class TestLiveProgressView:
         from archivebox.core.models import ArchiveResult
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         client.force_login(admin_user)
 
@@ -910,7 +910,7 @@ class TestLiveProgressView:
         from archivebox.machine.models import Machine, Process
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.services.runner import run_due_snapshot
+        from archivebox.workers.runner import run_due_snapshot
 
         # Provision the real browser before timing navigation; a cold Chromium
         # download is dependency setup, not part of the screencast assertion.
@@ -1044,7 +1044,7 @@ class TestLiveProgressView:
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.machine.models import Machine, Process
-        from archivebox.services.runner import run_crawl
+        from archivebox.workers.runner import run_crawl
 
         resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
         machine = Machine.current()

@@ -141,7 +141,7 @@ def test_crawl_runner_projects_shipped_hook_tags():
 
     from archivebox.core.models import Snapshot
     from abx_dl.events import SnapshotCompletedEvent
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.workers.runner import CrawlRunner
 
     first = _create_snapshot()
     first.status = first.StatusChoices.QUEUED
