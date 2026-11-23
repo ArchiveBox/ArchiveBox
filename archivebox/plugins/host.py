@@ -3,6 +3,31 @@
 from io import BytesIO
 from uuid import UUID
 
+PROCESS_RECORD_FIELDS = (
+    "id",
+    "pid",
+    "parent_id",
+    "status",
+    "process_type",
+    "worker_type",
+    "cmd__0",
+    "started_at",
+    "ended_at",
+    "exit_code",
+    "archiveresult__plugin",
+    "archiveresult__snapshot__url",
+    "archiveresult__snapshot_id",
+    "archiveresult__hook_name",
+    "archiveresult__output_size",
+    "archiveresult__snapshot__title",
+    "archiveresult__snapshot__crawl_id",
+    "archiveresult__snapshot__crawl__label",
+    "iface__iface",
+    "iface__ip_local",
+    "iface__ip_public",
+    "iface__modified_at",
+)
+
 
 class ArchiveBoxHost:
     def plugin_catalog(self):
@@ -433,30 +458,7 @@ class ArchiveBoxHost:
         self._require_collection_admin(request)
         limit = min(max(limit, 1), 128)
         processes = Process.objects.filter(machine=Machine.current_readonly())
-        fields = (
-            "id",
-            "pid",
-            "parent_id",
-            "status",
-            "process_type",
-            "worker_type",
-            "cmd__0",
-            "started_at",
-            "ended_at",
-            "exit_code",
-            "archiveresult__plugin",
-            "archiveresult__snapshot__url",
-            "archiveresult__snapshot_id",
-            "archiveresult__hook_name",
-            "archiveresult__output_size",
-            "archiveresult__snapshot__title",
-            "archiveresult__snapshot__crawl_id",
-            "archiveresult__snapshot__crawl__label",
-            "iface__iface",
-            "iface__ip_local",
-            "iface__ip_public",
-            "iface__modified_at",
-        )
+        fields = PROCESS_RECORD_FIELDS
         if after:
             # Advance a bounded primary-key window before filtering by machine.
             # Sorting all historical rows for one machine would grow with the collection.
@@ -490,6 +492,48 @@ class ArchiveBoxHost:
         }
         return {"records": records, "cursor": cursor, "output_dirs": directories}
 
+    def process_history_records(self, request, *, before=None, since=None, limit=128):
+        """Page recorded downloads for the collection across machine identities."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Machine, Process
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 128)
+        reporters = self.download_reporters(request, self.plugin_catalog())
+        before_id = UUID(before) if before else None
+        complete = Process.objects.filter(status=Process.StatusChoices.EXITED, ended_at__isnull=False)
+        if since:
+            complete = complete.filter(ended_at__gt=since)
+        if since and timezone.now() - since <= timedelta(days=1, seconds=1):
+            # Hook completion updates modified_at. Use the existing recent
+            # machine/process index before joining archive results or logs.
+            recent = Process.objects.filter(
+                machine_id__in=Machine.objects.values("pk"),
+                process_type=Process.TypeChoices.HOOK,
+                modified_at__gt=since,
+            ).order_by()
+            if before_id:
+                recent = recent.filter(pk__lt=before_id)
+            query = complete.filter(pk__in=recent.values("pk"), archiveresult__plugin__in=reporters)
+            ids = list(query.order_by("-pk").values_list("pk", flat=True)[: limit + 1])
+        else:
+            # Select a bounded page of actual reporter results before reading
+            # Process rows. Old or incomplete captures can yield an empty page.
+            reports = ArchiveResult.objects.filter(plugin__in=reporters, process_id__isnull=False)
+            if before_id:
+                reports = reports.filter(process_id__lt=before_id)
+            ids = list(reports.order_by("-process_id").values_list("process_id", flat=True)[: limit + 1])
+        rows = list(complete.filter(pk__in=ids[:limit]).order_by("-pk").values(*PROCESS_RECORD_FIELDS))
+        return {
+            "records": rows,
+            "output_dirs": {},
+            "cursor": str(ids[limit - 1]) if len(ids) > limit else None,
+        }
+
     def download_reporters(self, request, plugins):
         """Identify plugins that can report completed download measurements."""
         from archivebox.plugins.discovery import get_plugin_presentation_module
@@ -497,25 +541,21 @@ class ArchiveBoxHost:
         self._require_collection_admin(request)
         return {
             name: report
-            for name in list(dict.fromkeys(plugins))[:128]
+            for name in dict.fromkeys(plugins)
             if (report := getattr(get_plugin_presentation_module(name), "completed_downloads", None)) is not None
         }
 
     def process_log_tails(self, request, ids):
-        """Read bounded stderr tails for a page of completed local processes."""
-        from django.db.models import Value
-        from django.db.models.functions import Greatest, Length, Substr
+        """Read bounded stderr tails for a page of completed processes."""
+        from django.db.models.functions import Right
 
-        from archivebox.machine.models import Machine, Process
+        from archivebox.machine.models import Process
 
         self._require_collection_admin(request)
-        size = 65536
-        return {
-            str(pk): tail
-            for pk, tail in Process.objects.filter(machine=Machine.current_readonly(), pk__in=ids[:128], status="exited")
-            .annotate(tail=Substr("stderr", Greatest(Length("stderr") - size + 1, Value(1)), size))
-            .values_list("pk", "tail")
-        }
+        # Use the primary-key index for the supplied page. Filtering on status
+        # in SQL can make SQLite scan every exited process and load its log.
+        rows = Process.objects.filter(pk__in=ids[:128]).order_by().annotate(tail=Right("stderr", 65536))
+        return {str(pk): tail for pk, status, tail in rows.values_list("pk", "status", "tail") if status == Process.StatusChoices.EXITED}
 
     def group_domains(self, request, hosts):
         """Group a bounded set of hostnames using the collection's offline PSL."""
