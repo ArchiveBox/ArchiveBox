@@ -45,6 +45,7 @@ from archivebox.plugins.discovery import (
 register = template.Library()
 register.filter("permission_icon", render_permission_icon)
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
+register.filter("tag_color_style", tag_color_style)
 
 
 @register.simple_tag

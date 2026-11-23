@@ -63,6 +63,8 @@ def test_dry_run_initial_and_live_completed_fragment(admin_client, admin_user):
     detail = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST)
     assert b">Dry Run</button>" in detail.content
     assert b"/preview/" in detail.content
+    assert b">Check access</button>" not in detail.content
+    assert b">Run now</button>" in detail.content
 
 
 def test_dry_run_bounded_safe_items_and_empty_failure_states(admin_client, admin_user):

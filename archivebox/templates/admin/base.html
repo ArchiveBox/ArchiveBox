@@ -6,7 +6,7 @@
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
     <head>
         {% plugin_page_head %}
-        <script src="{% static 'zip-download.js' %}" defer></script>
+        <script src="{% static 'zip-download.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
         <title>{% block title %}Home{% endblock %} | ArchiveBox</title>
         
         {% block blockbots %}

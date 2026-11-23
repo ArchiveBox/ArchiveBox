@@ -9,16 +9,17 @@ from django.db.models import Prefetch
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.models import Snapshot
+from archivebox.core.models import Snapshot, Tag
+from archivebox.crawls.models import Crawl
 from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
 from archivebox.plugins.discovery import get_plugin_catalog
 
+from .admin import ImporterRunAdmin
 from .catalog import get_importer, get_importers
 from .diagnostics import LOG_NAME, SCREENSHOT_NAME, artifact_path, diagnostics
 from .forms import ImporterSourceForm
@@ -90,7 +91,7 @@ def configure(request, plugin=None, feed=None, source_id=None):
         except ValueError as error:
             form.add_error(None, str(error))
         else:
-            messages.success(request, "Importer saved. Check access or use Dry Run to inspect discovered items before importing.")
+            messages.success(request, "Importer saved. Use Dry Run to verify access and preview items.")
             return redirect(source)
     return page(
         request,
@@ -108,9 +109,11 @@ def configure(request, plugin=None, feed=None, source_id=None):
 @importer_admin
 @require_GET
 def detail(request, source_id):
-    source = get_object_or_404(ImporterSource.objects.select_related("persona"), pk=source_id)
+    source = get_object_or_404(ImporterSource.objects.select_related("persona", "folder"), pk=source_id)
     definition = get_importers().get((source.plugin, source.feed))
-    runs = run_page(source_id, request.GET.get("page"))
+    history = ImporterRunAdmin(source_id).history(request)
+    tag_names = Crawl.parse_tag_names(source.tags)
+    tag_ids = dict(Tag.objects.filter(name__in=tag_names).values_list("name", "pk")) if tag_names else {}
     active = source.runs.filter(status__in=ACTIVE_STATUSES).exists()
     return page(
         request,
@@ -119,9 +122,11 @@ def detail(request, source_id):
             "title": source.name,
             "source": source,
             "definition": definition,
-            "runs": runs,
+            "cl": history,
+            "source_id": source_id,
+            "source_tags": [(name, tag_ids.get(name)) for name in tag_names],
+            "activity_query": history.get_query_string({"p": history.page_num}),
             "active": active,
-            "source_url": source.get_absolute_url(),
             "settings_links": importer_settings_links(definition, source),
             "state_path": CONSTANTS.DATA_DIR / "importers" / str(source.pk) / "state",
         },
@@ -177,28 +182,18 @@ def source_activity(request, source_id):
     # Materialize bounded DB reads before accessing files; never hold a cursor
     # across log reads, and keep them out of the initial HTML response entirely.
     source = get_object_or_404(ImporterSource.objects.only("id"), pk=source_id)
-    runs = run_page(source_id, request.GET.get("page"))
+    history = ImporterRunAdmin(source_id).history(request, activity_loaded=True)
     active = source.runs.filter(status__in=ACTIVE_STATUSES).exists()
-    for run in runs:
-        run.diagnostics = diagnostics(run)
     return JsonResponse(
         {
             "html": render_to_string(
                 "importers/history.html",
-                {"runs": runs, "activity_loaded": True, "source_url": reverse("importers:detail", args=[source_id])},
+                {"cl": history, "source_id": source_id},
                 request=request,
             ),
             "active": active,
         },
     )
-
-
-def run_page(source_id, number):
-    runs = Paginator(ImporterRun.objects.filter(source_id=source_id).select_related("crawl").defer("request", "result"), 20).get_page(
-        number,
-    )
-    runs.object_list = list(runs.object_list)
-    return runs
 
 
 def _run_settings_context(run):

@@ -17,7 +17,7 @@ window.archiveboxExportURL = link => {
 // Publish links only after an explicit interaction. Open menus retain native
 // copy-link, modified-click and keyboard behavior without inviting prefetchers.
 function activateExport(link) {
-  if (link) link.href = window.archiveboxExportURL(link);
+  if (link && !link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);
 }
 document.addEventListener('beforetoggle', event => {
   if (event.newState === 'open') event.target.querySelectorAll('a[data-export-format]').forEach(activateExport);

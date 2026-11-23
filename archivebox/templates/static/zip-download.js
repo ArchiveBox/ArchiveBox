@@ -1,4 +1,5 @@
 window.archiveboxHandleZipClick = function(link, event) {
+    if (link?.href && event && (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)) return true
     if (!link || link.dataset.loading === '1') {
         if (event) event.preventDefault()
         return false
@@ -54,9 +55,11 @@ window.archiveboxHandleZipClick = function(link, event) {
     }
     link.style.pointerEvents = 'none'
     link.style.opacity = '0.96'
-    const destination = new URL(link.dataset.zipPath, location.href)
-    destination.searchParams.set('files', '1')
-    destination.searchParams.set('download', 'zip')
+    const destination = new URL(link.href || link.dataset.zipPath, location.href)
+    if (!link.href) {
+        destination.searchParams.set('files', '1')
+        destination.searchParams.set('download', 'zip')
+    }
     let iframe = document.getElementById('archivebox-zip-download-frame')
     if (!iframe) {
         iframe = document.createElement('iframe')

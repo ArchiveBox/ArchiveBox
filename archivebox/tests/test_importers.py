@@ -966,7 +966,12 @@ def test_run_activity_links_recorded_sessions_and_protects_logs(admin_client, im
 
 
 def test_importer_navigation_table_and_paginated_history(admin_client, import_site):
+    from django.urls import reverse
+    from lxml.html import fromstring
+
+    from archivebox.core.models import Folder, Tag
     from archivebox.importers.models import ImporterSource
+    from archivebox.personas.models import Persona
 
     _, url = import_site
     response = admin_client.post(
@@ -976,13 +981,29 @@ def test_importer_navigation_table_and_paginated_history(admin_client, import_si
     )
     assert response.status_code == 302
     source = ImporterSource.objects.get(name="History")
+    folder = Folder.objects.create(name="📚 Reading", created_by=source.created_by)
+    persona = Persona.get_or_create_named("Reading profile")
+    tag = Tag.objects.create(name="reading")
+    source.folder, source.persona, source.tags = folder, persona, "reading,unsaved"
+    source.save(update_fields=["folder", "persona", "tags"])
     for _ in range(21):
         assert admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
         assert admin_client.post(f"{source.get_absolute_url()}pause/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
     admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST)
-    html = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST).content.decode()
-    assert html.split("<tbody>")[1].split("</tbody>")[0].count("<tr>") == 20
-    response = admin_client.get(f"{source.get_absolute_url()}activity/?page=2", HTTP_HOST=ADMIN_TEST_HOST)
+    document = fromstring(admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST).content.decode())
+    table = document.get_element_by_id("result_list")
+    assert len(table.xpath("./tbody/tr")) == 20
+    assert table.xpath(".//thead//a[contains(@href, '?o=')]")
+    assert document.xpath("//a[normalize-space()='Edit settings']/../form/button[normalize-space()='Dry Run']")
+    persona_url = reverse("admin:personas_persona_change", args=[persona.pk])
+    assert document.xpath(f"//main//a[@href='{persona_url}']/text()") == ["🎭 Reading profile"]
+    assert document.xpath(f"//main//a[contains(@href, 'folder={folder.pk}')]/text()") == ["📚 Reading"]
+    assert document.xpath(
+        f"//span[@data-tag='reading' and contains(@style, '--tag-bg')]/a[contains(@href, 'tags__id__exact={tag.pk}')]/text()",
+    ) == ["reading"]
+    assert document.xpath("//span[@data-tag='unsaved']/text()") == ["unsaved"]
+    second_page = document.xpath("//nav[@class='paginator']//a[normalize-space()='2']/@href")[0]
+    response = admin_client.get(f"{source.get_absolute_url()}activity/{second_page}", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.json()["active"] is True  # Active run may be on another page.
     assert response.json()["html"].split("<tbody>")[1].split("</tbody>")[0].count("<tr>") == 2
     html = admin_client.get("/admin/importers/", HTTP_HOST=ADMIN_TEST_HOST).content.decode()

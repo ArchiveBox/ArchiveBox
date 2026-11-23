@@ -12,10 +12,13 @@ Provider-specific browser behavior stays in plugins.
 2. Sync that profile to a server Persona and select it in the importer. The
    signed-in account is detected automatically and remembered after verification.
    Public feeds and CSV sources only need a URL.
-3. **Check access**, then **Dry Run**. Neither advances progress or creates captures. Dry Run displays up to 20 discovered titles/URLs on its run page; it does not classify them as new or already archived. The API/CLI action remains `preview`.
-4. **Import all** continues through every batch until the plugin reports the end
+3. **Dry Run** verifies access and displays up to 20 discovered titles and URLs
+   without advancing progress or creating captures. The API/CLI action is
+   `preview`. Existing `check` calls also queue a Dry Run.
+4. Set a schedule for automatic imports, or use **Run now** to start immediately.
+   Each import continues through every batch until the plugin reports the end
    of the available history. Advanced options contain batch size, tags, schedule,
-   optional source overrides, and a display name. Batch size is never a total cap.
+   optional source overrides, and a display name.
 
 The ordinary server worker processes imports. CLI equivalents:
 
@@ -57,7 +60,7 @@ worker writes and cancellation. Completion payloads include the committed crawl
 relationship. Export jobs use Process STARTED/EXITED events (`worker_type=site-export`).
 
 Pause cancels pending discovery and disables the schedule. Successful batches
-remain committed; starting Import all again resumes from their checkpoint. A
+remain committed; the next import resumes from their checkpoint. A
 failed or cancelled batch never advances progress. Reset preserves captures and
 run history; reset before changing an account or source with committed progress.
 

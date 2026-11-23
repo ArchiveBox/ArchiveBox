@@ -182,8 +182,9 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             url = base_url.replace("//archivebox", "//web.archivebox") + f"/public/?folder={child.pk}"
         response = page.goto(url)
         assert response.status == 200
-        expect(page.locator("a[data-export-format][href]")).to_have_count(0)
-        export_action_urls(response.text())
+        export_action_urls(response.text(), public=view == "public")
+        if view == "public":
+            expect(page.locator("a[data-export-format][href]")).to_have_count(0)
         expect(page.locator("#folder-sidebar .folder-actions a[data-export-format]")).to_have_count(6 if view == "admin" else 5)
         menu = page.locator(f"#folder-menu-{parent.pk}")
         menu_link = menu.locator('a[data-export-format="jsonl"]')

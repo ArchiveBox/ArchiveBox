@@ -20,7 +20,7 @@ class ImporterSourceForm(forms.ModelForm):
         fields = ("name", "persona", "folder", "limit", "tags", "schedule")
         widgets = {"tags": TagEditorWidget(), "schedule": ScheduleWidget(), "folder": FolderPicker(destination=True)}
         help_texts: ClassVar = {
-            "limit": "Items per batch (1–500). Import all continues until the source is exhausted.",
+            "limit": "Items per batch (1–500). Each import continues until the source is exhausted.",
             "tags": "Comma-separated tags to apply to imported captures.",
             "schedule": "Leave blank for manual imports, or use hourly, daily, weekly, or a cron expression.",
         }

@@ -4,7 +4,7 @@
 <html lang="{{ language_code }}">
   <head>
     {% include "core/typography.html" %}
-    {% if not static_export %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
+    {% if not static_export %}<script src="{% static 'zip-download.js' %}?v={{ STATIC_CACHE_KEY|urlencode }}" defer></script>{% endif %}
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta http-equiv="Content-Language" content="{{ language_code }}">
     <meta name="robots" content="NONE,NOARCHIVE">
@@ -64,15 +64,14 @@
           <a class="toolbar-link" href="../{{ directory_query }}"{% if not static_export %} rel="nofollow"{% endif %}>↩ {% translate "Up One Level" %}</a>
         {% endif %}
         <a class="toolbar-link" data-snapshot-page href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
-        {% if zip_url %}<button type="button"
+        {% if zip_url %}{% if authenticated %}<a href="{{ zip_url }}"{% else %}<button type="button" data-zip-path="{{ zip_url|url_without_query }}"{% endif %}
           class="toolbar-link archivebox-zip-button"
-          data-zip-path="{{ zip_url|url_without_query }}"
           data-loading-label="{% translate "Preparing..." %}"
           onclick="return window.archiveboxHandleZipClick(this, event);"
         >
           <span class="archivebox-zip-spinner" aria-hidden="true"></span>
           <span class="archivebox-zip-label">⬇ {% translate "Download Zip" %}</span>
-        </button>{% endif %}
+        {% if authenticated %}</a>{% else %}</button>{% endif %}{% endif %}
       </nav>
 
       <section>
@@ -121,7 +120,7 @@
                   </span>
                 </a>
                 </td><td class="entry-size">{{ entry.size }}</td><td class="entry-type" title="{{ entry.mimetype }}">{{ entry.mimetype }}</td><td>
-                {% if entry.is_dir %}{% if not static_export %}<button type="button" class="entry-download archivebox-zip-button" data-zip-path="{{ f|urlencode }}" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}">⬇</button>{% endif %}{% else %}<a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}?raw=1" download>⬇</a>{% endif %}
+                {% if entry.is_dir %}{% if not static_export %}{% if authenticated %}<a href="{{ f|urlencode }}?files=1&amp;download=zip"{% else %}<button type="button" data-zip-path="{{ f|urlencode }}"{% endif %} class="entry-download archivebox-zip-button" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}">⬇{% if authenticated %}</a>{% else %}</button>{% endif %}{% endif %}{% else %}<a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}?raw=1" download>⬇</a>{% endif %}
               </td></tr>
               {% endwith %}
             {% endfor %}

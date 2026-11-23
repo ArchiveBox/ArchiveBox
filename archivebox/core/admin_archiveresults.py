@@ -655,14 +655,11 @@ class ArchiveResultAdmin(BaseModelAdmin):
             {
                 "label": "Download Zip",
                 "icon": "⬇",
-                "button": True,
+                "url": self.get_output_zip_url(obj, request=request),
                 "kind": "accent",
                 "css_classes": "archivebox-zip-button",
                 "onclick": "return window.archiveboxHandleZipClick(this, event);",
-                "extra_attrs": [
-                    ("data-loading-label", "Preparing..."),
-                    ("data-zip-path", self.get_output_zip_url(obj, request=request).split("?", 1)[0]),
-                ],
+                "extra_attrs": [("data-loading-label", "Preparing...")],
                 "title": "Download all output files as a zip",
             },
             {
@@ -845,8 +842,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
     @admin.display(description="Zip")
     def zip_link(self, result):
         return format_html(
-            '<button type="button" data-zip-path="{}" class="archivebox-zip-button" data-loading-mode="spinner-only" onclick="return window.archiveboxHandleZipClick(this, event);" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; width:48px; min-width:48px; height:24px; padding:0; box-sizing:border-box; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:600; line-height:1; text-decoration:none;"><span class="archivebox-zip-spinner" aria-hidden="true"></span><span class="archivebox-zip-label">⬇ ZIP</span></button>',
-            self.get_output_zip_url(result).split("?", 1)[0],
+            '<a href="{}" class="archivebox-zip-button" data-loading-mode="spinner-only" onclick="return window.archiveboxHandleZipClick(this, event);" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; width:48px; min-width:48px; height:24px; padding:0; box-sizing:border-box; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:600; line-height:1; text-decoration:none;"><span class="archivebox-zip-spinner" aria-hidden="true"></span><span class="archivebox-zip-label">⬇ ZIP</span></a>',
+            self.get_output_zip_url(result),
         )
 
     @admin.display(description="")
@@ -862,13 +859,13 @@ class ArchiveResultAdmin(BaseModelAdmin):
                    href="{}">
                     📁 Output files
                 </a>
-                <button type="button" class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500;"
-                   data-zip-path="{}"
+                <a class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500;"
+                   href="{}"
                    data-loading-label="Preparing..."
                    onclick="return window.archiveboxHandleZipClick(this, event);">
                     <span class="archivebox-zip-spinner" aria-hidden="true"></span>
                     <span class="archivebox-zip-label">⬇ Download Zip</span>
-                </button>
+                </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500;"
                    href="{}">
                     🗂 Snapshot
@@ -877,7 +874,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             """,
             self.get_output_view_url(result),
             self.get_output_files_url(result),
-            self.get_output_zip_url(result).split("?", 1)[0],
+            self.get_output_zip_url(result),
             self.get_snapshot_view_url(result),
         )
 

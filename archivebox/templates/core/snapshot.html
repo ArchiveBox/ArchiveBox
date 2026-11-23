@@ -4,7 +4,7 @@
 <html lang="en">
     <head>
     {% include "core/typography.html" %}
-    {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
+    {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endif %}
         <meta charset="utf-8">
         <title>{{title}}</title>
         <link rel="canonical" href="{{ url }}">
@@ -1298,7 +1298,7 @@
                             </a>
                             {% endif %}
                                 {% if not STATIC_EXPORT %}
-                                <button type="button" class="header-url-action header-url-download" data-zip-path="{% snapshot_url snapshot %}" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
+                                {% if request.user.is_authenticated %}<a href="{% snapshot_zip_url snapshot %}"{% else %}<button type="button" data-zip-path="{% snapshot_url snapshot %}"{% endif %} class="header-url-action header-url-download" onclick="return window.archiveboxHandleZipClick(this, event);" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
                                 {% endif %}
                                     <span class="header-status" title="Snapshot output counts">
                                 {% if num_outputs or num_failures %}
@@ -1311,7 +1311,7 @@
                                 {% if not STATIC_EXPORT %}
                                     <span class="header-download-size"><span class="desktop-size">{{size}}</span><span class="mobile-size">{{size}}</span></span>
                                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M3 13v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
-                                </button>
+                                {% if request.user.is_authenticated %}</a>{% else %}</button>{% endif %}
                                 {% endif %}
                                 </div>
                             </div>

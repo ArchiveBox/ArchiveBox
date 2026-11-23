@@ -32,6 +32,9 @@ WORKER_INTERRUPTED_MESSAGE = "The importer worker stopped. Progress was not adva
 
 
 def enqueue(source: ImporterSource, action: str) -> ImporterRun:
+    # Older API and CLI clients use check for the same discovery operation.
+    if action == ImporterRun.Action.CHECK:
+        action = ImporterRun.Action.PREVIEW
     if action not in ImporterRun.Action.values:
         raise ValueError("Unknown importer action.")
     definition = get_importer(source.plugin, source.feed)

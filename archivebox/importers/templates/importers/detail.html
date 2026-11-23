@@ -1,16 +1,34 @@
 {% extends "importers/base.html" %}
 {% load core_tags static %}
+{% block extrastyle %}<link rel="stylesheet" href="{% static 'admin/css/changelists.css' %}">{{ block.super }}{% endblock %}
 {% block importer_content %}
-<script type="module" src="{% static 'exports.js' %}"></script>
-<div class="toolbar"><div><p class="eyebrow">{{ definition.provider|default:"Plugin unavailable" }} · {{ definition.title|default:source.feed }}</p><h1>{{ source.name }}</h1><p><strong>Persona:</strong> {% if source.persona_id %}<a href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }} ↗</a>{% else %}Server defaults{% endif %}</p><p class="muted">{{ definition.description }}</p></div><a class="button" href="{% url 'importers:edit' source.pk %}">Edit settings</a></div>
-{% if not definition %}<p class="notice">This plugin is unavailable. Reinstall it to run this importer; saved progress and history are preserved.</p>{% endif %}
+<header class="importer-heading">
+  <h1>{{ source.name }}</h1>
+  <p class="muted">{{ definition.provider|default:"Plugin unavailable" }} · {{ definition.title|default:source.feed }}</p>
+</header>
+{% if not definition %}<p class="notice">Reinstall the plugin to run this importer.</p>{% endif %}
 <div class="actions">
-{% if definition %}<form method="post" action="{% url 'importers:action' source.pk 'check' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Check access</button></form><form method="post" action="{% url 'importers:action' source.pk 'preview' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Dry Run</button></form><form method="post" action="{% url 'importers:action' source.pk 'import' %}">{% csrf_token %}<button data-discovery-action class="primary" {% if active %}disabled{% endif %}>Import all</button></form>{% endif %}
-{% if source.enabled %}<form method="post" action="{% url 'importers:action' source.pk 'pause' %}">{% csrf_token %}<button>Pause</button></form>{% else %}<form method="post" action="{% url 'importers:action' source.pk 'resume' %}">{% csrf_token %}<button>Resume</button></form>{% endif %}
+  {% if definition %}
+    <form method="post" action="{% url 'importers:action' source.pk 'preview' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Dry Run</button></form>
+    <form method="post" action="{% url 'importers:action' source.pk 'import' %}">{% csrf_token %}<button data-discovery-action class="primary" {% if active %}disabled{% endif %}>Run now</button></form>
+  {% endif %}
+  {% if source.enabled %}
+    <form method="post" action="{% url 'importers:action' source.pk 'pause' %}">{% csrf_token %}<button>Pause</button></form>
+  {% else %}
+    <form method="post" action="{% url 'importers:action' source.pk 'resume' %}">{% csrf_token %}<button>Resume</button></form>
+  {% endif %}
+  {% if definition %}<a class="button" href="{% url 'importers:edit' source.pk %}">Edit settings</a>{% endif %}
 </div>
-<div class="grid"><section class="card"><h2>Connection</h2><dl><dt>Persona</dt><dd>{% if source.persona_id %}<a href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd><dt>Account</dt><dd>{% if source.account.id %}{% firstof source.account.label source.account.id %}{% elif definition.auth == "persona" %}Detected when you check access{% else %}Public source{% endif %}</dd>{% if settings_links %}<dt>Settings</dt><dd>{% include "importers/settings_links.html" %}</dd>{% endif %}</dl></section><section class="card"><h2>Collection</h2><dl><dt>Schedule</dt><dd>{% if source.enabled %}{{ source.schedule|default:"Manual" }}{% else %}Paused{% endif %}</dd><dt>Next run</dt><dd>{{ source.next_run_at|default:"—" }}</dd><dt>Per batch</dt><dd>{{ source.limit }} items · continues until finished</dd><dt>Folder</dt><dd>{% if source.folder_id %}<a href="/admin/core/snapshot/?folder={{ source.folder_id }}">{{ source.folder.name }}</a>{% else %}Unfiled{% endif %}</dd><dt>Tags</dt><dd>{{ source.tags|default:"None" }}</dd></dl></section></div>
-<p class="actions">{% url 'importers:export-runs' source.pk 'csv' as export_url %}{% snapshot_export_action export_url 'csv' as action %}<a tabindex="0" role="link" data-export-format="csv" data-export-route="{{ action.route }}" data-export-query="">History CSV</a>{% url 'importers:export-runs' source.pk 'jsonl' as export_url %}{% snapshot_export_action export_url 'jsonl' as action %}<a tabindex="0" role="link" data-export-format="jsonl" data-export-route="{{ action.route }}" data-export-query="">History JSONL</a></p>
-<section data-activity-url="{% url 'importers:source-activity' source.pk %}?page={{ runs.number }}">{% include "importers/history.html" %}</section>
+<dl class="importer-properties">
+  <div><dt>Persona</dt><dd>{% if source.persona_id %}<a href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.emoji }} {{ source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd></div>
+  {% if source.account.id or definition.auth == "persona" %}<div><dt>Account</dt><dd>{% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a Dry Run or import{% endif %}</dd></div>{% endif %}
+  {% if settings_links %}<div><dt>Settings</dt><dd>{% include "importers/settings_links.html" %}</dd></div>{% endif %}
+  <div><dt>Schedule</dt><dd>{{ source.schedule|default:"Manual" }}{% if source.next_run_at %} · Next {{ source.next_run_at|date:"M j, H:i" }}{% elif not source.enabled %} · Paused{% endif %}</dd></div>
+  <div><dt>Batch size</dt><dd>{{ source.limit }}</dd></div>
+  <div><dt>Folder</dt><dd>{% if source.folder_id %}{% folder_display_name source.folder.name as folder_display %}<a href="{% url 'admin:core_snapshot_changelist' %}?folder={{ source.folder_id }}">{{ folder_display.0|default:source.folder.emoji }} {{ folder_display.1 }}</a>{% else %}Unfiled{% endif %}</dd></div>
+  {% if source_tags %}<div><dt>Tags</dt><dd class="tag-pills-inline">{% for name, id in source_tags %}<span class="tag-pill" data-tag="{{ name }}" style="{{ name|tag_color_style }}">{% if id %}<a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?tags__id__exact={{ id }}">{{ name }}</a>{% else %}{{ name }}{% endif %}</span>{% endfor %}</dd></div>{% endif %}
+</dl>
+<section data-activity-url="{% url 'importers:source-activity' source.pk %}{{ activity_query }}">{% include "importers/history.html" %}</section>
 {% include "importers/updates.html" %}
 <section class="card section"><h2>Learned code</h2><p>Generated adapters and Browser Harness / Stagehand files for this importer live on the server at:</p><pre>{{ state_path }}</pre><p class="muted">The adapter is in <code>current/</code>; reusable scripts and domain knowledge are in <code>harness/</code>. You can optionally add this directory to version control yourself.</p><h3>Reset learned code</h3><p>Remove generated code and knowledge so the next browser run learns again. Import progress, captures, run history, Persona cookies, and any <code>.git</code> history are preserved.</p><form method="post" action="{% url 'importers:action' source.pk 'reset_code' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Reset learned code</button></form></section>
 <section class="card section"><h2>Reset discovery progress</h2><p class="muted">Start discovery again, or prepare to connect a different account. Existing captures and run history stay in the archive. URLs already archived remain deduplicated.</p><form method="post" action="{% url 'importers:action' source.pk 'reset' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Reset progress</button></form></section>

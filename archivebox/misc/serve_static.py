@@ -419,10 +419,14 @@ def _render_directory_index(
             },
         )
 
+    static_cache_key = ""
     if static_previews is not None:
         zip_url = directory_query = ""
         snapshot_page_url = quote(os.path.relpath(document_root / "index.html", fullpath), safe="/")
     else:
+        from archivebox.core.context_processors import get_static_cache_key
+
+        static_cache_key = get_static_cache_key()
         zip_query = request.GET.copy()
         zip_query["download"] = "zip"
         zip_url = quote(request.path, safe="/")
@@ -442,6 +446,8 @@ def _render_directory_index(
         "directory_query": directory_query,
         "snapshot_page_url": snapshot_page_url,
         "static_export": static_previews is not None,
+        "authenticated": getattr(getattr(request, "user", None), "is_authenticated", False),
+        "STATIC_CACHE_KEY": static_cache_key,
     }
     return HttpResponse(template.render(context))
 

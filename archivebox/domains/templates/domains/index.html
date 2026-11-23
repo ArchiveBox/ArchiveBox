@@ -96,7 +96,7 @@
 </div>
 {% if domain_table_loading %}<noscript><p><a href="{{ domain_table_url }}">View domains</a></p></noscript>{% endif %}
 <script type="module">
-import {startSnapshotExport} from "{% static 'exports.js' %}";
+import {startSnapshotExport} from "{% static 'exports.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}";
 function initializeDomainTable() {
   const form = document.getElementById('changelist-form');
   const actionsUrl = new URL(form.getAttribute('action'), location.href).href;

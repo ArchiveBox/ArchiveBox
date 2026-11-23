@@ -1,0 +1,5 @@
+<span class="badge {{ run.status }}">{{ run.get_status_display }}</span>
+{% if run.status == 'running' and run.cancel_requested %}<small>Stopping</small>{% endif %}
+{% if run.status == 'cancelled' and not run.started_at %}<small>Not started</small>{% endif %}
+{% if run.status_message %}<small class="importer-run-message" title="{{ run.status_message }}">{{ run.status_message|truncatechars:120 }}</small>{% endif %}
+{% include "importers/screenshots.html" %}
