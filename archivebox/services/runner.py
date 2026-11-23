@@ -208,9 +208,16 @@ class CrawlRunner:
         wait_for_resources: bool = True,
         claimed_snapshot: tuple[str, str, datetime] | None = None,
     ):
+        from archivebox.config.common import get_config
+
         self.crawl = crawl
-        self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
         self.catalog = get_plugin_catalog()
+        self.bus = create_bus(
+            name=_bus_name("ArchiveBox", str(crawl.id)),
+            total_timeout=3600.0,
+            config=get_config(include_machine=False).model_dump(mode="json"),
+            catalog=self.catalog,
+        )
         self.process_service = HookProcessService(
             self.bus,
             emit_jsonl=False,
@@ -1651,7 +1658,12 @@ async def _run_binary(binary_id: str) -> None:
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
-    bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
+    bus = create_bus(
+        name=_bus_name("ArchiveBox_binary", str(binary.id)),
+        total_timeout=1800.0,
+        config=config,
+        catalog=get_plugin_catalog(),
+    )
     process_service = PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
@@ -2086,7 +2098,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
-    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
+    bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0, config=config, catalog=catalog)
     PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus)
