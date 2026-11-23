@@ -60,9 +60,6 @@
 {% else %}
 </form>
 {% endif %}
-{% if cl.can_upload and not cl.embedded_changelist %}
-    <button type="button" class="button" data-crawl-upload>Upload file</button>
-{% endif %}
 {% if cl.has_filters and not cl.embedded_changelist %}
   <button
     type="button"

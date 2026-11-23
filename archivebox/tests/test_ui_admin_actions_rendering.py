@@ -77,6 +77,19 @@ def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_
         expect(page.locator(".actions-top .action-buttons")).to_be_visible()
         expect(page.locator(".action-rearchive-select")).to_have_count(1)
         expect(page.locator('.actions-tags button[name="add_tags"]')).to_be_visible()
+        for width in (1280, 768, 390, 1280):
+            page.set_viewport_size({"width": width, "height": 900})
+            controls = page.locator(".actions-top :is(.actions-tags-with-buttons, .action-buttons .button):visible")
+            heights = controls.evaluate_all("controls => controls.map(control => control.getBoundingClientRect().height)")
+            expected_height = 44 if width < 768 else 34
+            assert len(heights) >= 4 and all(abs(height - expected_height) <= 1 for height in heights), (width, heights)
+            # The tag field and +/- buttons share the group's one-pixel border.
+            tag_parts = page.locator(".actions-tags-with-buttons :is(.tag-editor-container, button):visible")
+            assert tag_parts.evaluate_all("parts => parts.map(part => part.getBoundingClientRect().height)") == [expected_height - 2] * 3
+            group = page.locator(".actions-top .actions-tags-with-buttons")
+            right = group.evaluate("node => node.getBoundingClientRect().right")
+            remove_right = group.get_by_role("button", name="Remove tags").evaluate("node => node.getBoundingClientRect().right")
+            assert abs(right - remove_right - 1) <= 1, (width, right, remove_right)
         page.locator(".action-permissions-select").select_option("private")
         expect(page.locator("#result_list tbody tr")).to_have_count(50)
         page.locator("input.action-select").first.check()

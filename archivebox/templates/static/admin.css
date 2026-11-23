@@ -4394,10 +4394,12 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
 .snapshot-changelist-toolbar>.snapshot-export-block{min-width:100px}
 .snapshot-changelist-toolbar .library-export-toggle{font-size:12px}
 
-/* The same outlined controls are used for every admin action toolbar. */
+/* Size the bordered group and standalone buttons by their outer boxes. */
+#content #changelist #changelist-form .actions { --action-control-height: 34px; }
 #content #changelist #changelist-form .actions .button {
-    min-height: 34px;
-    height: auto;
+    box-sizing: border-box;
+    min-height: var(--action-control-height);
+    height: var(--action-control-height);
     margin: 0;
     padding: 7px 11px;
     border: 1px solid var(--border-color, #d0d5dd);
@@ -4418,19 +4420,22 @@ html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #prog
 }
 .admin-action-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 #content #changelist #changelist-form .actions .actions-tags-with-buttons {
-    height: auto;
-    min-height: 34px;
+    box-sizing: border-box;
+    height: var(--action-control-height);
+    grid-template-columns: minmax(0, 1fr) repeat(2, var(--action-control-height));
+    align-items: stretch;
     background: var(--body-bg, #fff);
     border-color: var(--border-color, #d0d5dd);
     border-radius: 6px;
 }
-#content #changelist #changelist-form .actions .actions-tags-with-buttons .button { width: 34px; min-width: 34px; border-width: 0 0 0 1px; border-radius: 0; padding: 7px; }
+#content #changelist #changelist-form .actions .actions-tags-with-buttons .tag-editor-container { height: auto !important; min-height: 0 !important; }
+#content #changelist #changelist-form .actions .actions-tags-with-buttons .button { height: auto; min-height: 0; width: var(--action-control-height); min-width: var(--action-control-height); border-width: 0 0 0 1px; border-radius: 0; padding: 7px; }
 #content #changelist #changelist-form .actions .actions-tags-with-buttons .button:last-child { border-radius: 0 5px 5px 0; }
 @media (max-width: 767px) {
+    #content #changelist #changelist-form .actions { --action-control-height: 44px; }
     .submit-row input, .submit-row button, .submit-row a.button,
     #content .object-tools a, #content .object-tools button,
     #content #changelist #changelist-form .actions .button { min-height: 44px; padding: 10px 12px; }
-    #content #changelist #changelist-form .actions .actions-tags-with-buttons .button { width: 44px; min-width: 44px; }
 }
 
 /* Selected-row controls get their own wrapping row rather than covering search. */

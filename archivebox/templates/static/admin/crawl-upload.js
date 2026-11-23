@@ -1,5 +1,4 @@
 (() => {
-    const input = document.getElementById('crawl-upload-file');
     const overlay = document.getElementById('crawl-drop-overlay');
     if (!overlay) return;
     const title = document.getElementById('crawl-drop-title');
@@ -48,19 +47,8 @@
         } catch (error) {
             busy = false;
             show('error', 'Import failed', error.message);
-        } finally {
-            input.value = '';
         }
     }
-    document.addEventListener('click', event => {
-        const trigger = event.target.closest('[data-crawl-upload]');
-        if (!trigger) return;
-        event.preventDefault();
-        if (!busy) input.click();
-    });
-    input.addEventListener('change', () => {
-        if (input.files.length) openAdd(Array.from(input.files));
-    });
     document.addEventListener('dragenter', event => {
         if (!accepts(event)) return;
         event.preventDefault();

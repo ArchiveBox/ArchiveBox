@@ -118,10 +118,9 @@ def test_large_csv_upload_preserves_full_input(live_server, admin_user, browser_
             page.locator('[name="username"]').fill(admin_user.username)
             page.locator('[name="password"]').fill("testpassword")
             page.get_by_role("button", name="Log in", exact=True).click()
-            with page.expect_file_chooser() as chooser:
-                page.get_by_role("button", name="Upload file", exact=True).click()
+            expect(page.get_by_role("button", name="Upload file", exact=True)).to_have_count(0)
             started = perf_counter()
-            chooser.value.set_files(source)
+            page.locator("#content").drop({"files": source})
             page.wait_for_url("**/add/")
             expect(page.locator("#url-upload-status")).to_have_text("File text added.")
             expect(page.locator(".detected-url-item")).to_have_count(100)
@@ -179,9 +178,8 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
                     list_path = "/admin/core/snapshot/" if index % 2 else "/admin/crawls/crawl/"
                     page.goto(base + list_path)
                     expect(page.locator("#crawl-drop-overlay")).to_be_hidden()
-                    with page.expect_file_chooser() as chooser:
-                        page.get_by_role("button", name="Upload file", exact=True).click()
-                    chooser.value.set_files(source)
+                    expect(page.get_by_role("button", name="Upload file", exact=True)).to_have_count(0)
+                    page.locator("#content").drop({"files": source})
                     page.wait_for_url("**/add/")
                     expect(page.locator("#id_url")).to_have_value(source.read_text())
                     expect(page.locator("#url-counter")).not_to_have_text("0 URLs detected")
@@ -190,17 +188,16 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
                     expect(page.locator("#id_urls")).to_have_value(source.read_text())
                 # Multiple files follow the same existing /add/ import queue.
                 page.goto(base + "/admin/core/snapshot/")
-                with page.expect_file_chooser() as chooser:
-                    page.get_by_role("button", name="Upload file", exact=True).click()
-                chooser.value.set_files([files["rss"], files["netscape"]])
+                page.locator("#content").drop({"files": [files["rss"], files["netscape"]]})
                 page.wait_for_url("**/add/")
                 expect(page.locator("#id_url")).to_have_value(files["rss"].read_text() + files["netscape"].read_text())
                 page.reload()
                 expect(page.locator("#id_url")).to_have_value("")
                 page.go_back()
                 expect(page.locator("#crawl-drop-overlay")).to_be_hidden()
+                page.get_by_role("link", name="Add", exact=True).click()
                 with page.expect_file_chooser() as chooser:
-                    page.get_by_role("button", name="Upload file", exact=True).click()
+                    page.get_by_role("button", name="Upload", exact=True).click()
                 chooser.value.set_files(files["txt"])
                 page.wait_for_url("**/add/")
                 expect(page.locator("#id_url")).to_have_value(files["txt"].read_text())

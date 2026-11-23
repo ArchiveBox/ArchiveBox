@@ -252,7 +252,6 @@ class SnapshotChangeList(SearchResultsChangeList):
         super().__init__(request, *args, **kwargs)
         resolver_name = request.resolver_match.url_name
         self.embedded_changelist = request.GET.get("_embedded") == "crawl"
-        self.can_upload = request.user.has_perm("crawls.add_crawl")
         self.snapshot_is_grid_view = not self.embedded_changelist and (
             resolver_name == "grid" or request.path.rstrip("/").endswith("/grid")
         )
