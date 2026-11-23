@@ -22,7 +22,6 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 from rich.console import Console
-from rich.text import Text
 
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 from abx_dl.events import (
@@ -97,40 +96,23 @@ def _runner_short_id(identifier) -> str:
     return str(identifier).replace("-", "")[-8:]
 
 
-def _runner_label(value: str, *, reserve: int) -> str:
-    width = max(24, shutil.get_terminal_size(fallback=(120, 40)).columns - reserve)
-    value = " ".join(str(value or "").split())
-    if len(value) <= width:
-        return value
-    return f"{value[: max(0, width - 3)]}..."
-
-
 def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: str = "STARTED") -> None:
     crawl_id = crawl.id if crawl is not None else crawl_id
-    line = Text()
-    line.append(f"[Crawl#{_runner_short_id(crawl_id)}]", style="cyan bold")
-    line.append(" ")
+    prefix = f"[Crawl#{_runner_short_id(crawl_id)}]"
     if snapshot is not None:
-        line.append(f"[Snapshot#{_runner_short_id(snapshot.id)}]", style="magenta bold")
-        line.append(" ")
-    status_styles = {
-        "STARTED": "green bold",
-        "SEALED": "blue bold",
-        "PAUSED": "yellow bold",
-    }
-    line.append(f"[{status}]", style=status_styles.get(status, "white bold"))
-    line.append(" ")
-    prefix_width = len(line.plain)
-    if snapshot is not None:
+        prefix += f" [Snapshot#{_runner_short_id(snapshot.id)}]"
         label = snapshot.url
     elif crawl is not None:
-        label = (crawl.label or "").strip()
-        if not label:
-            label = (crawl.urls or "").partition("\n")[0].strip() or str(crawl_id)
+        label = (crawl.label or "").strip() or (crawl.urls or "").partition("\n")[0].strip() or str(crawl_id)
     else:
         label = str(crawl_id)
-    line.append(_runner_label(label, reserve=prefix_width))
-    Console(highlight=False).print(line)
+    logging.getLogger(__name__).info(
+        "%s [%s] %s",
+        prefix,
+        status,
+        " ".join(str(label).split()),
+        extra={"crawl_id": str(crawl_id), "snapshot_id": str(snapshot.id) if snapshot is not None else None},
+    )
 
 
 def create_bus(*, config: ArchiveBoxBaseConfig | dict[str, Any] | None = None, **kwargs: Any) -> EventBus:
@@ -1381,7 +1363,7 @@ class CrawlRunner:
             except ValidationError as err:
                 if snapshot["status"] != "sealed":
                     await sync_to_async(snapshot["_snapshot"].seal, thread_sensitive=True)()
-                print(f"[X] Refusing to archive invalid Snapshot URL {snapshot['url']!r}: {err}", file=sys.stderr)
+                logging.getLogger(__name__).warning("Refusing to archive invalid Snapshot URL %r: %s", snapshot["url"], err)
                 return
             if snapshot["status"] == "sealed" and not self.selected_plugins and not snapshot["retry_plugins"]:
                 await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id)

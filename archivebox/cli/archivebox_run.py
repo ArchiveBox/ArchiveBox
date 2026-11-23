@@ -41,14 +41,16 @@ __package__ = "archivebox.cli"
 __command__ = "archivebox run"
 
 import asyncio
+import logging
 import os
 import signal
 import sys
 from collections import defaultdict
 
 import rich_click as click
-from rich import print as rprint
 
+
+logger = logging.getLogger(__name__)
 
 RUNNER_DAEMON_ENV = "ARCHIVEBOX_RUNNER_DAEMON"
 
@@ -196,7 +198,7 @@ def process_stdin_records() -> int:
                 output_records.append(record)
 
         except Exception as e:
-            rprint(f"[yellow]Error processing record: {e}[/yellow]", file=sys.stderr)
+            logger.exception("Error processing record: %s", e)
             continue
 
     # Output all processed records (for chaining)
@@ -205,10 +207,10 @@ def process_stdin_records() -> int:
             write_record(rec)
 
     if queued_count == 0:
-        rprint("[yellow]No records to process[/yellow]", file=sys.stderr)
+        logger.info("No records to process")
         return 0
 
-    rprint(f"[blue]Processing {queued_count} records...[/blue]", file=sys.stderr)
+    logger.info("Processing %s records...", queued_count)
 
     for binary_id in binary_ids:
         run_binary(binary_id)
@@ -221,7 +223,7 @@ def process_stdin_records() -> int:
             except Crawl.DoesNotExist:
                 continue
             if not crawl.claim_processing_lock(lock_seconds=10):
-                rprint(f"[yellow]Crawl {crawl_id} is already owned by another runner[/yellow]", file=sys.stderr)
+                logger.info("Crawl %s is already owned by another runner", crawl_id)
                 return 1
             with foreground_shutdown_signals(), foreground_parent_watchdog():
                 run_crawl(
@@ -321,7 +323,7 @@ def run_runner(
                         raise
                     # The failed attempt is already final. Continue only the
                     # remaining queue, retaining failure for this command's exit.
-                    rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+                    logger.exception("Runner error: %s: %s", type(e).__name__, e)
                     exit_code = 1
         if daemon and shutdown_state.signal_name:
             exit_code = 128 + signal.Signals[shutdown_state.signal_name].value
@@ -337,13 +339,13 @@ def run_runner(
             exit_code = 128 + signal.Signals[shutdown_state.signal_name].value
             return exit_code
         if daemon:
-            rprint(f"[red]Runner cancelled unexpectedly: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+            logger.exception("Runner cancelled unexpectedly: %s: %s", type(e).__name__, e)
             exit_code = 1
             return 1
         exit_code = 0
         return exit_code
     except Exception as e:
-        rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+        logger.exception("Runner error: %s: %s", type(e).__name__, e)
         exit_code = 1
         return 1
     finally:
@@ -406,10 +408,7 @@ def main(
             except KeyboardInterrupt:
                 sys.exit(0)
             except Exception as e:
-                rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
-                import traceback
-
-                traceback.print_exc()
+                logger.exception("Runner error: %s: %s", type(e).__name__, e)
                 sys.exit(1)
 
         if crawl_id:
@@ -472,10 +471,7 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
         exit_code = 130
         return exit_code
     except Exception as e:
-        rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Runner error: %s: %s", type(e).__name__, e)
         return 1
     finally:
         current.refresh_from_db()

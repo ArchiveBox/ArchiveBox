@@ -580,7 +580,7 @@ def test_supervisord_parent_watchdog_does_not_start_another_archivebox_runtime()
     assert "manage" not in command
 
 
-def test_server_worker_memory_preflight_fails_before_starting_supervisord(capsys):
+def test_server_worker_memory_preflight_fails_before_starting_supervisord(caplog):
     from archivebox.workers.supervisord_util import (
         MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
         require_server_worker_memory,
@@ -591,7 +591,7 @@ def test_server_worker_memory_preflight_fails_before_starting_supervisord(capsys
         require_server_worker_memory(MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES - 1)
 
     assert err.value.code == 1
-    output = capsys.readouterr().err
+    output = caplog.text
     assert "Not enough available memory" in output
     assert "No server, runner, or Sonic workers were started" in output
 
