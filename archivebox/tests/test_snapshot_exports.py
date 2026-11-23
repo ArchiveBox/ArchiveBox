@@ -145,7 +145,7 @@ def test_list_exports_reuse_query_and_writers_with_native_cli_filters(initialize
         assert b"Hacker News" in bundle.read(manifest[0]["path"])
 
 
-@pytest.mark.parametrize("view", ["admin", "public"])
+@pytest.mark.parametrize("view", ["admin", "public", "public-early-open"])
 def test_streamed_search_updates_live_export_links(live_server, admin_user, browser_runtime, settings, view):
     import re
     from urllib.parse import parse_qs, quote_plus, urlsplit
@@ -180,11 +180,28 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             url = f"{admin_url}/admin/core/snapshot/?folder={child.pk}"
         else:
             url = base_url.replace("//archivebox", "//web.archivebox") + f"/public/?folder={child.pk}"
+        if view == "public-early-open":
+            page.add_init_script("""(() => {
+                const observer = new MutationObserver(() => {
+                    const menu = document.getElementById('snapshot-export-menu-sidebar');
+                    if (!menu?.querySelector('a[data-export-format]')) return;
+                    observer.disconnect();
+                    menu.dataset.moduleLoadedOnOpen = String(Boolean(window.archiveboxExportURL));
+                    document.querySelector('[popovertarget="snapshot-export-menu-sidebar"]').click();
+                });
+                observer.observe(document, {childList: true, subtree: true});
+            })()""")
         response = page.goto(url)
         assert response.status == 200
-        export_action_urls(response.text(), public=view == "public")
+        export_action_urls(response.text(), public=view != "admin")
         if view == "public":
             expect(page.locator("a[data-export-format][href]")).to_have_count(0)
+        if view == "public-early-open":
+            early_menu = page.locator("#snapshot-export-menu-sidebar")
+            expect(early_menu).to_have_attribute("data-module-loaded-on-open", "false")
+            expect(early_menu).to_be_visible()
+            expect(early_menu.locator("a[data-export-format][href]")).to_have_count(5)
+            page.keyboard.press("Escape")
         expect(page.locator("#folder-sidebar .folder-actions a[data-export-format]")).to_have_count(6 if view == "admin" else 5)
         menu = page.locator(f"#folder-menu-{parent.pk}")
         menu_link = menu.locator('a[data-export-format="jsonl"]')
@@ -200,6 +217,15 @@ def test_streamed_search_updates_live_export_links(live_server, admin_user, brow
             page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
             page.get_by_role("button", name="Actions for Research", exact=True).click()
             expect(menu).to_be_visible()
+            assert menu.locator("a[data-export-format]:not([href])").count() == 0
+            copy_link = menu.get_by_role("menuitem", name="RSS (Private)", exact=True) if view == "admin" else menu_link
+            copy_url = copy_link.evaluate("link => link.href")
+            copy_link.evaluate("""link => link.addEventListener('contextmenu', event => {
+                link.dataset.contextHref = event.target.closest('a[href]')?.href || '';
+                event.preventDefault();
+            }, {once: true})""")
+            copy_link.click(button="right")
+            expect(copy_link).to_have_attribute("data-context-href", copy_url)
             for link in page.locator("a[data-export-format]").all():
                 parsed = parse_qs(link.get_attribute("data-export-query"))
                 assert parsed.get("q") == [query], link.evaluate("node => node.outerHTML")

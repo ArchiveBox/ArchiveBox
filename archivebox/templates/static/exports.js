@@ -14,17 +14,17 @@ window.archiveboxExportURL = link => {
   return url.href;
 };
 
-// Publish links only after an explicit interaction. Open menus retain native
-// copy-link, modified-click and keyboard behavior without inviting prefetchers.
-function activateExport(link) {
-  if (link && !link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);
+// Populate anonymous export menus before the browser handles any item action.
+function activateExportMenu(menu) {
+  for (const link of menu.querySelectorAll('a[data-export-format]:not([href])')) {
+    link.href = window.archiveboxExportURL(link);
+  }
 }
 document.addEventListener('beforetoggle', event => {
-  if (event.newState === 'open') event.target.querySelectorAll('a[data-export-format]').forEach(activateExport);
+  if (event.newState === 'open' && event.target.hasAttribute('popover')) activateExportMenu(event.target);
 }, true);
-for (const type of ['pointerdown', 'focusin', 'keydown']) {
-  document.addEventListener(type, event => activateExport(event.target.closest('a[data-export-format]')));
-}
+// A menu can open while this deferred module is still loading.
+document.querySelectorAll('[popover]:popover-open').forEach(activateExportMenu);
 
 async function jsonResponse(response) {
   if (!response.ok) {
@@ -125,9 +125,8 @@ export async function startSnapshotExport(url, {format, anchor, data = new FormD
 }
 
 document.addEventListener('click', event => {
-  const link = event.target.closest('a[data-export-format]');
+  const link = event.target.closest('a[data-export-format][href]');
   if (!link) return;
-  activateExport(link);
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   link.closest('[popover]')?.hidePopover();
   if (!archiveFormats.has(link.dataset.exportFormat)) return;
