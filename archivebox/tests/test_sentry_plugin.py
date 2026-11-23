@@ -127,6 +127,13 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
         timeout=120,
     )
     (initialized_archive / "sentry-capture.log").write_text(capture.stdout + capture.stderr)
+    failed_capture = run_archivebox_cmd(
+        ["add", "--plugins=wget", recursive_test_site["root_url"] + "missing-sentry-acceptance-page"],
+        cwd=initialized_archive,
+        timeout=120,
+        env={"WGET_ARGS_EXTRA": '["--timeout=invalid"]'},
+    )
+    (initialized_archive / "sentry-failed-capture.log").write_text(failed_capture.stdout + failed_capture.stderr)
     # A plugin-owned head template must not take down the host's login page.
     head_template = initialized_archive / "custom_templates" / "sentry" / "head.html"
     head_template.parent.mkdir(parents=True, exist_ok=True)
@@ -284,6 +291,10 @@ for enabled, expected in [(False, 0), (True, 1)]:
     events = [payload for kind, payload in items if kind == "event"]
     (initialized_archive / "sentry-envelopes.json").write_text(json.dumps(items))
     logged = next(event for event in events if event.get("logger") == "archivebox.sentry_test")
+    hook_failure = next(event for event in events if event.get("tags", {}).get("plugin.name") == "wget")
+    assert hook_failure["level"] == "error"
+    assert hook_failure["contexts"]["hook"]["exit_code"] != 0
+    assert "invalid time period" in hook_failure["contexts"]["hook"]["stderr"].lower()
     assert logged["logentry"]["formatted"] == "Sentry logging acceptance"
     assert logged["environment"] == "plugin-test"
     assert logged["release"] == "plugin-test@1"
@@ -313,6 +324,13 @@ for enabled, expected in [(False, 0), (True, 1)]:
     )
     assert any(item["attributes"].get("process.exit_code", {}).get("value") == 0 for item in hook_logs)
     transactions = [payload for kind, payload in items if kind == "transaction"]
+    assert not any(item["transaction"] in {"SELECT", "INSERT", "UPDATE", "DELETE", "BEGIN"} for item in transactions)
+    assert not any(
+        discarded["reason"] == "queue_overflow"
+        for kind, report in items
+        if kind == "client_report"
+        for discarded in report["discarded_events"]
+    )
     install_trace = next(item for item in transactions if item["transaction"] == "ArchiveBox_install.emit(InstallEvent)")
     assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_type"] == "InstallEvent"
     assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_bus.name"] == "ArchiveBox_install"
