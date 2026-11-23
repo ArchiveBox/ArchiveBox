@@ -25,7 +25,7 @@ def test_large_sidebar_shares_one_action_menu(admin_client, admin_user, mode):
         response = admin_client.get("/admin/core/snapshot/", {"sidebar": mode}, HTTP_HOST=ADMIN_TEST_HOST)
     elapsed = (perf_counter() - start) * 1000
     assert response.status_code == 200
-    assert len(response.context["sidebar_entries"]) == 100
+    assert len(response.context["sidebar_entries"]) == (50 if mode == "domains" else 100)
     html = response.content.decode()
     print(f"{mode}: {elapsed:.1f} ms, {len(queries)} queries, {len(html):,} bytes")
     assert html.count('id="library-entry-menu"') == 1
@@ -134,8 +134,12 @@ def test_sidebar_search_replaces_lazy_pages(live_server, admin_user, browser_run
                 expect(tree.locator(".folder-row").nth(1)).to_have_attribute("data-folder-name", "Coastal survey")
 
             search(box, common)
-            expect(tree.locator(".library-load-more")).to_be_visible()
-            tree.evaluate("tree => tree.scrollTop = tree.scrollHeight")
+            more = tree.locator(".library-load-more")
+            for _ in range(2 if mode == "domains" else 1):
+                expect(more).to_be_visible()
+                cursor = more.get_attribute("data-cursor")
+                tree.evaluate("tree => tree.scrollTop = tree.scrollHeight")
+                expect(more).not_to_have_attribute("data-cursor", cursor)
             expect(sidebar.get_by_role("link", name=last, exact=True)).to_be_visible()
             if mode == "folders":
                 expect(tree.locator(".folder-row").nth(0)).to_have_attribute("data-folder-name", "Field notes 000")
@@ -222,11 +226,13 @@ def test_sidebar_domain_cursor_keeps_one_group_when_its_hosts_cross_pages(admin_
         return response.json()
 
     first = fetch()
-    assert len(first["choices"]) == 100 and first["next"]
+    assert len(first["choices"]) == 50 and first["next"]
     second = fetch(cursor=first["next"])
-    names = [row["name"] for page in (first, second) for row in page["choices"]]
+    assert len(second["choices"]) == 50 and second["next"]
+    third = fetch(cursor=second["next"])
+    names = [row["name"] for page in (first, second, third) for row in page["choices"]]
     assert names.count("example.com") == 1
     assert len(set(names)) == len(names) == 107
-    assert not second["next"]
+    assert not third["next"]
     for term in ("example.com", "*.example.com"):
         assert {row["name"] for row in fetch(sidebar_q=term)["choices"]} == {"example.com", "example.com:8080"}

@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 from django.core import signing
 from django.core.exceptions import PermissionDenied
+from django.db import connections
 from django.db.models import Exists, OuterRef, Q
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -24,6 +25,7 @@ from archivebox.search.config import get_search_mode
 from archivebox.uuid_compat import compact_uuid
 
 SIDEBAR_PAGE_SIZE = 100
+DOMAIN_SIDEBAR_PAGE_SIZE = 50
 
 
 def sidebar_context(request, *, public=False, folder_tree=None):
@@ -73,10 +75,10 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "id": tag.pk,
                     "name": tag.name,
                     "filter_value": str(tag.pk),
-                    "rename_url": reverse("admin:core_tag_change", args=[tag.pk]),
-                    "delete_tag_url": reverse("admin:core_tag_delete", args=[tag.pk]),
+                    "rename_url": reverse("admin:core_tag_change", args=[tag.pk]) if not public else "",
+                    "delete_tag_url": reverse("admin:core_tag_delete", args=[tag.pk]) if not public else "",
                     "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots"
-                    if tag.has_snapshots
+                    if not public and tag.has_snapshots
                     else "",
                     "style": tag_color_style(tag.name),
                     "url": url,
@@ -87,7 +89,12 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
             last = rows[SIDEBAR_PAGE_SIZE - 1]
             next_key = [last.name, last.pk]
     elif mode == "domains":
-        choices, next_key = snapshots.domain_choices_page(term, SIDEBAR_PAGE_SIZE, cursor)
+        if public and connections[snapshots.db].vendor == "sqlite":
+            # Let SQLite seek by hostname and check visibility by snapshot ID.
+            # A direct permissions constraint can scan every public snapshot
+            # and sort its domains before yielding even the first page.
+            snapshots = Snapshot.objects.using(snapshots.db).filter(Exists(snapshots.filter(pk=OuterRef("pk"))))
+        choices, next_key = snapshots.domain_choices_page(term, DOMAIN_SIDEBAR_PAGE_SIZE, cursor)
         ids = snapshots.domain_representative_ids(key for scope, key in choices.values())
         roots = {snapshot.pk: snapshot for snapshot in snapshots.filter(pk__in=ids.values()).only("id", "url", "reversed_domain")}
         results = load_snapshot_list_results(roots.values())
@@ -105,7 +112,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "name": name,
                     "filter_value": scope,
                     "url": url,
-                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots",
+                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots" if not public else "",
                     "selected": request.GET.get("domain") == scope,
                     "favicon": favicons[0] if favicons else "",
                     "favicon_fallbacks": ",".join(favicons[1:]),
