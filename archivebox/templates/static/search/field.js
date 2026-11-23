@@ -67,16 +67,30 @@
     // input so normal editing can continue between balanced quotes and groups.
     function tokens(text) {
       const result = [];
-      const re = /[()]|(?:[^\s()"\\]|\\[\s\S]?|"(?:\\[\s\S]?|[^"\\])*(?:"|$))+/g;
-      let match;
-      while ((match = re.exec(text))) {
-        const raw = match[0];
+      // A trailing quote or backslash is normal while typing. Advance once
+      // through it; never retry alternative ways to divide the same operand.
+      let end = 0;
+      while (end < text.length) {
+        if (/\s/.test(text[end])) { end++; continue; }
+        const start = end;
+        if (text[end] === '(' || text[end] === ')') {
+          end++;
+        } else {
+          let quoted = false;
+          while (end < text.length) {
+            const char = text[end];
+            if (!quoted && /[\s()]/.test(char)) break;
+            if (char === '"') quoted = !quoted;
+            end += char === '\\' && end + 1 < text.length ? 2 : 1;
+          }
+        }
+        const raw = text.slice(start, end);
         const neg = /^~+/.exec(raw)?.[0] || '';
         const operand = raw.slice(neg.length);
         // Only an unquoted field name at the beginning can introduce an operator.
         const parts = operand.startsWith('"') ? null : /^([a-z][a-z0-9_]*):(.*)$/i.exec(operand);
         result.push({
-          start: match.index, end: re.lastIndex, raw, neg,
+          start, end, raw, neg,
           key: parts?.[1].toLowerCase() === 'tag' ? 'tags' : parts?.[1].toLowerCase(), value: parts?.[2],
           exact: quotedText.test(operand)
         });
