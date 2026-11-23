@@ -299,8 +299,13 @@ def register_lifecycle_signals():
 
     webhook_event.connect(explicit_event, weak=False, dispatch_uid="archivebox.webhook.explicit")
 
-    def before_save(sender, instance, raw=False, **kwargs):
+    def before_save(sender, instance, raw=False, update_fields=None, **kwargs):
         if raw or action_in_progress() or not getattr(sender, "webhook_status_events", {}):
+            return
+        # Heartbeats and metadata saves cannot persist a status transition.
+        # Apart from wasting a SELECT, comparing their in-memory status can
+        # emit an event for a change that was explicitly excluded from the save.
+        if update_fields is not None and "status" not in update_fields:
             return
         instance._webhook_previous_status = (
             None if instance._state.adding else sender.objects.filter(pk=instance.pk).values_list("status", flat=True).first()

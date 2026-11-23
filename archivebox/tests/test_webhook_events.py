@@ -263,3 +263,42 @@ def test_registered_process_status_events_follow_real_subprocess(tmp_path):
         payload = json.loads(action.stdout)
         assert payload["id"] == str(process.pk)
         assert payload["event"] == event and payload["status"] == status
+
+
+def test_process_heartbeat_does_not_read_or_emit_unsaved_status(tmp_path):
+    import sys
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.machine.models import Machine, NetworkInterface
+
+    Process.current()
+    hook = OutboundWebhook(
+        name="Process actually started",
+        ref="archivebox.machine.models.Process",
+        signal="STARTED",
+        actions=[{"type": "python", "code": "import sys; print(sys.stdin.read())"}],
+    )
+    hook.full_clean()
+    hook.save()
+    process = Process.objects.create(
+        machine=Machine.current(),
+        iface=NetworkInterface.current(),
+        cmd=[sys.executable, "-c", "print('child completed')"],
+        pwd=str(tmp_path),
+    )
+    stored_status = process.status
+    previous_heartbeat = process.modified_at
+    process.status = Process.StatusChoices.RUNNING
+    with CaptureQueriesContext(connection) as queries:
+        process.heartbeat()
+    process.refresh_from_db()
+    assert process.modified_at > previous_heartbeat
+    assert process.status == stored_status
+    assert not records(hook).exists()
+    assert not any(query["sql"].startswith('SELECT "machine_process"."status"') for query in queries)
+
+    process.launch()
+    assert process.status == "exited" and process.exit_code == 0
+    payload = json.loads(records(hook).get().stdout)
+    assert payload["id"] == str(process.pk)
+    assert payload["status"] == "running" and payload["event"] == "STARTED"
