@@ -319,6 +319,15 @@ def register_plugin_eventbus(bus, config) -> None:
             register(bus, config)
 
 
+def wrap_plugin_asgi(application, config):
+    """Compose optional application plugins around the complete ASGI lifetime."""
+    for app in reversed(tuple(get_plugin_apps().values())):
+        wrap = getattr(app, "wrap_asgi", None)
+        if wrap is not None:
+            application = wrap(application, config)
+    return application
+
+
 def get_snapshot_file_inventory(snapshot_dir: Path, *, verify: bool = False) -> dict[str, dict[str, Any]] | None:
     """Read the first available declared inventory without rescanning outputs."""
     seen = set()

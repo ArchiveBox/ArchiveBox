@@ -8,10 +8,12 @@ https://docs.djangoproject.com/en/stable/howto/deployment/asgi/
 """
 
 from django.core.handlers.asgi import ASGIHandler
+from django.conf import settings
 
 from archivebox.config.django import setup_django
 from archivebox.core.replay_timing import ReplayPhaseObserver
 from archivebox.workers.request_activity import RequestActivityObserver, bind_request_activity
+from archivebox.plugins.discovery import wrap_plugin_asgi
 
 setup_django(check_db=True)
 
@@ -71,3 +73,6 @@ async def application(scope, receive, send):
         await send({"type": "websocket.close", "code": 1008})
         return
     return await django_application(scope, receive, send)
+
+
+application = wrap_plugin_asgi(application, settings.CONFIG.model_dump(mode="json"))

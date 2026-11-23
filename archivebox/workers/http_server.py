@@ -89,6 +89,9 @@ def main() -> None:
         ws_max_size=args.ws_max_size,
         # Django owns proxy trust and must receive the original socket peer.
         proxy_headers=False,
+        # A pipelined/keepalive request must not inherit the previous request's
+        # context when the transport resumes reading during response delivery.
+        reset_contextvars=True,
     )
     if config.workers < 1:
         parser.error("workers must be at least one")

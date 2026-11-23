@@ -107,6 +107,7 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
             "-c",
             "import sys, asyncio; from django.apps import apps; from django.conf import settings; "
             "from archivebox.services.runner import create_bus; "
+            "from archivebox.core.asgi import application; "
             "bus = create_bus(config=settings.CONFIG); "
             "assert not bus.middlewares; asyncio.run(bus.destroy()); "
             "assert apps.get_app_config('abx_sentry').name == 'abx_plugins.plugins.sentry'; "
@@ -127,6 +128,126 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
         assert "sentry-cdn.com" not in response.text
     finally:
         stop_archivebox_process(server)
+
+
+def test_sentry_asgi_transport_cancellation(initialized_archive, httpserver):
+    httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({})
+    httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
+        b"",
+        content_type="application/x-protobuf",
+    )
+    run_archivebox_cmd(["install", "sentry"], cwd=initialized_archive, env={"SENTRY_ENABLED": "false"}, timeout=120, check=True)
+    result = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            """
+import asyncio, gc, json, logging
+from asgiref.testing import ApplicationCommunicator
+from django.apps import apps
+from archivebox.core.asgi import application
+from archivebox.workers.request_activity import request_activity
+from opentelemetry.trace import get_current_span
+
+scope = {
+    'type': 'http', 'asgi': {'version': '3.0'}, 'http_version': '1.1',
+    'method': 'GET', 'scheme': 'http', 'path': '/health/', 'raw_path': b'/health/',
+    'query_string': b'', 'headers': [(b'host', b'localhost')],
+    'server': ('127.0.0.1', 80), 'client': ('127.0.0.1', 12345),
+}
+records = []
+class ObserveContextErrors(logging.Handler):
+    def emit(self, record):
+        records.append(record)
+logging.getLogger('opentelemetry.context').addHandler(ObserveContextErrors())
+
+async def run():
+    # Real Django waits for an HTTP body before constructing the request.
+    for cancel in (False, True):
+        client = ApplicationCommunicator(application, dict(scope))
+        assert not client.future.done()
+        await asyncio.sleep(0)
+        assert sum(request_activity().values()) == 1
+        if cancel:
+            client.future.cancel()
+        else:
+            await client.send_input({'type': 'http.disconnect'})
+        await client.wait(timeout=5)
+        assert client.output_queue.empty()
+        assert sum(request_activity().values()) == 0
+
+    spans = []
+    for cancel in (False, True):
+        incoming = asyncio.Queue()
+        entered, release = asyncio.Event(), asyncio.Event()
+        messages = []
+        async def send(message):
+            if message['type'] == 'http.response.body':
+                span = get_current_span()
+                assert span.is_recording(), 'request span ended before transport delivery'
+                spans.append(span)
+                entered.set()
+                await release.wait()
+            messages.append(message)
+        task = asyncio.create_task(application(dict(scope), incoming.get, send))
+        await incoming.put({'type': 'http.request', 'body': b'', 'more_body': False})
+        try:
+            await asyncio.wait_for(entered.wait(), 5)
+            assert spans[-1].is_recording()
+            assert messages[0]['status'] == 200
+        finally:
+            if cancel:
+                task.cancel()
+                try:
+                    await asyncio.wait_for(task, 5)
+                except asyncio.CancelledError:
+                    pass
+                else:
+                    raise AssertionError('request cancellation was swallowed')
+            else:
+                release.set()
+                await asyncio.wait_for(task, 5)
+        assert not spans[-1].is_recording()
+        assert sum(request_activity().values()) == 0
+        assert not get_current_span().get_span_context().is_valid
+        if not cancel:
+            assert b'OK' in b''.join(m.get('body', b'') for m in messages)
+    gc.collect()
+    assert not records, [(r.getMessage(), str(r.exc_info)) for r in records]
+    return [format(span.get_span_context().span_id, '016x') for span in spans]
+
+ids = asyncio.run(run())
+apps.get_app_config('abx_sentry').shutdown()
+print(json.dumps(ids))
+""",
+        ],
+        cwd=initialized_archive,
+        env={
+            "SENTRY_ENABLED": "true",
+            "SENTRY_DSN": httpserver.url_for("/1").replace("http://", "http://public@"),
+            "SENTRY_TRACES_SAMPLE_RATE": "1",
+        },
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    expected = set(json.loads(result.stdout.splitlines()[-1]))
+    spans = []
+    for request, response in httpserver.log:
+        assert response.status_code == 200
+        if request.path.endswith("/otlp/v1/traces/"):
+            data = gzip.decompress(request.data) if request.headers.get("Content-Encoding") == "gzip" else request.data
+            spans.extend(
+                span
+                for resource in ExportTraceServiceRequest.FromString(data).resource_spans
+                for scope in resource.scope_spans
+                for span in scope.spans
+            )
+    server_spans = [span for span in spans if span.kind == 2]
+    assert len(server_spans) == 4  # Both pre-body disconnects and both real responses.
+    assert expected <= {span.span_id.hex() for span in server_spans}
+    assert len({span.trace_id for span in server_spans}) == 4
+    assert all(not span.parent_span_id and span.end_time_unix_nano > span.start_time_unix_nano for span in server_spans)
 
 
 def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver, free_tcp_port, recursive_test_site, browser_runtime):
@@ -367,6 +488,8 @@ for enabled in [False, True]:
                                 "trace_id": span.trace_id.hex(),
                                 "span_id": span.span_id.hex(),
                                 "parent_span_id": span.parent_span_id.hex(),
+                                "kind": span.kind,
+                                "scope": scope.scope.name,
                                 "resource": resource_attributes,
                                 "attributes": {a.key: getattr(a.value, a.value.WhichOneof("value")) for a in span.attributes},
                             },
@@ -450,7 +573,7 @@ for enabled in [False, True]:
     assert any(".emit(ProcessEvent)" in span["name"] for span in crawl_spans)
     assert any(item["trace_id"] in crawl_trace_ids for item in hook_logs)
     assert hook_failure["contexts"]["trace"]["trace_id"] in crawl_trace_ids
-    server_requests = [item for item in spans if "http.method" in item["attributes"] and "http.status_code" in item["attributes"]]
+    server_requests = [item for item in spans if item["kind"] == 2 and "http.status_code" in item["attributes"]]
     assert any("admin/login" in item["name"] for item in server_requests)
     assert any(item["resource"]["service.version"] == installed_release for item in server_requests)
     assert any(item["resource"]["service.version"] == "plugin-test@1" for item in server_requests)
@@ -470,6 +593,17 @@ for enabled in [False, True]:
         resource = spans_by_id[item["span_id"]]["resource"]
         for key in ("process.pid", "process.parent_pid", "process.command", "supervisor.process.name"):
             assert item["attributes"].get(key, {}).get("value") == resource.get(key), (key, item["body"])
+    access_logs = [item for item in logs if item["attributes"].get("logger.name", {}).get("value") == "uvicorn.access"]
+    assert access_logs
+    for item in access_logs:
+        assert item.get("span_id") in spans_by_id, item
+        request_span = spans_by_id[item["span_id"]]
+        assert request_span in server_requests
+        assert item["trace_id"] == request_span["trace_id"]
+    assert len({item["span_id"] for item in access_logs}) == len(access_logs)
+    assert all(item["scope"] == "opentelemetry.instrumentation.asgi" for item in server_requests)
+    assert not any(item["scope"] == "opentelemetry.instrumentation.django" for item in spans)
+    assert not any(event.get("logger") == "opentelemetry.context" for event in events)
     assert head_log["span_id"] in spans_by_id
     assert head_failure["contexts"]["trace"]["span_id"] in spans_by_id
     for span in sql_spans:
