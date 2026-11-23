@@ -114,3 +114,29 @@ def test_graph_excludes_schema_references_from_all_edges(admin_client, crawl):
         assert {"source": "example.com", "target": "amazon.com", "value": 1} in data["links"]
         assert all(edge["source"] not in references and edge["target"] not in references for edge in data["links"])
         assert all(node["id"] not in references for node in data.get("nodes", []))
+
+
+def test_graph_keeps_creative_commons_pages_and_excludes_boilerplate(admin_client, crawl):
+    import json
+
+    source = Snapshot.objects.create(crawl=crawl, url="https://example.com/article")
+    profile = Snapshot.objects.create(crawl=crawl, url="http://gmpg.org/xfn/11", parent_snapshot=source)
+    license = Snapshot.objects.create(crawl=crawl, url="https://creativecommons.org/licenses/by/4.0/", parent_snapshot=source)
+    cc0 = Snapshot.objects.create(crawl=crawl, url="https://creativecommons.org/publicdomain/zero/1.0/", parent_snapshot=source)
+    article = Snapshot.objects.create(crawl=crawl, url="https://creativecommons.org/who-we-are/", parent_snapshot=source)
+    destination = Snapshot.objects.create(crawl=crawl, url="https://example.net/next", parent_snapshot=license)
+    for snapshot, targets in ((source, [profile, license, cc0, article]), (license, [destination])):
+        directory = snapshot.get_storage_path_for_version(snapshot.fs_version) / "parse_dom_outlinks"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "urls.jsonl").write_text("\n".join(json.dumps({"url": target.url}) for target in targets))
+
+    expected = [{"source": "example.com", "target": "creativecommons.org", "value": 1}]
+    for params in ({"scan": "1"}, {"scan": "links"}, {"domain": "*.example.com"}, {"domain": "*.creativecommons.org"}):
+        response = admin_client.get("/admin/graph/data/", params, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        data = response.json()
+        assert data["links"] == expected
+        if params.get("scan") == "1":
+            assert {node["id"]: node["count"] for node in data["nodes"]} == {"example.com": 1, "example.net": 1, "creativecommons.org": 1}
+        if params.get("domain") == "*.creativecommons.org":
+            assert [capture["url"] for capture in data["captures"]] == [article.url]

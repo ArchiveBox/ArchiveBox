@@ -243,6 +243,7 @@ class ArchiveBoxHost:
                 {
                     "id": str(snapshot.pk),
                     "domain": group_domain_key(key)[0] if key else "",
+                    "url": snapshot.url,
                     "output_dir": str(directory),
                 },
             )
@@ -282,7 +283,9 @@ class ArchiveBoxHost:
                 {
                     "id": str(row["id"]),
                     "domain": domain(row["url"]),
+                    "url": row["url"],
                     "parent": domain(row["parent_snapshot__url"]),
+                    "parent_url": row["parent_snapshot__url"],
                     "size": row["output_size"] or 0,
                     "favicon": icon["url"] if icon else "",
                 },
@@ -376,6 +379,8 @@ class ArchiveBoxHost:
         for snapshot in captures[:limit]:
             # LIMIT is applied per source, including high-fanout crawl roots.
             children = list(Snapshot.objects.filter(parent_snapshot_id=snapshot.pk).order_by().values_list("url", flat=True)[:32])
+            child_links = [(group(url), url) for url in children]
+            parent_url = snapshot.parent_snapshot.url if snapshot.parent_snapshot else None
             records.append(
                 {
                     "id": str(snapshot.pk),
@@ -387,8 +392,10 @@ class ArchiveBoxHost:
                     "created": snapshot.created_at.isoformat(),
                     "downloaded": snapshot.downloaded_at.isoformat() if snapshot.downloaded_at else None,
                     "output_dir": str(snapshot.get_storage_path_for_version(snapshot.fs_version)),
-                    "parent": group(snapshot.parent_snapshot.url) if snapshot.parent_snapshot else None,
-                    "children": [group(url) for url in children],
+                    "parent": group(parent_url) if parent_url else None,
+                    "parent_url": parent_url,
+                    "children": [domain for domain, _ in child_links],
+                    "child_links": child_links,
                 },
             )
         return {"records": records, "cursor": str(captures[limit - 1].pk) if len(captures) > limit else None}
