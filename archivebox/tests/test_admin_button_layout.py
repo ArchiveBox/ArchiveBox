@@ -41,6 +41,8 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             assert page.locator(".actions-folder").count() == 0
             folder_select = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(folder_select).to_be_visible()
+            expect(page.locator(".action-folder-label")).to_have_text("Move")
+            expect(folder_select.locator('option[value="__choose__"]')).to_have_text("Move")
             folder_search = page.get_by_role("searchbox", name="Find a folder", exact=True)
             expect(folder_search).to_be_hidden()
             expect(page.locator(".action-folder-wrapper > .button")).to_be_visible()
