@@ -3,6 +3,7 @@ from __future__ import annotations
 __package__ = "archivebox.machine"
 
 import os
+import platform
 import signal
 import sys
 import time
@@ -22,6 +23,7 @@ from django.utils.functional import cached_property
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
+from archivebox.config.paths import get_native_machine_guid
 from archivebox.base_models.models import PagedQuerySet, ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
 from archivebox.workers.models import ModelWithQueue
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
@@ -225,7 +227,12 @@ class Machine(ModelWithHealthStats):
         ArchiveBox.conf fails. Use the indexed lookup rather than another global
         cache whose freshness depends on a different store's modification time.
         """
-        return cls.objects.filter(guid=get_host_guid()).first()
+        guid = get_host_guid()
+        identity = Q(guid=guid)
+        if native_guid := get_native_machine_guid():
+            # Reuse records created before the architecture became part of the GUID.
+            identity |= Q(guid=native_guid, os_arch__iexact=platform.machine())
+        return min(cls.objects.filter(identity), key=lambda machine: machine.guid != guid, default=None)
 
     @classmethod
     def current(cls) -> Machine:
@@ -233,12 +240,10 @@ class Machine(ModelWithHealthStats):
         if _CURRENT_MACHINE is not None:
             return _CURRENT_MACHINE
 
-        host_guid = get_host_guid()
         # Host detection, sanitation, and config reconciliation run only on
         # initial registration, never on cached reads.
-        try:
-            machine = cls.objects.get(guid=host_guid)
-        except cls.DoesNotExist:
+        machine = cls.current_readonly()
+        if machine is None:
             config = {}
             try:
                 from archivebox.config.collection import _coerce_from_str_dict, _load_file_config_dict
@@ -247,13 +252,15 @@ class Machine(ModelWithHealthStats):
                 config = _coerce_from_str_dict(file_config)
             except Exception:
                 config = {}
-            machine = cls.objects.create(
-                guid=host_guid,
-                hostname=socket.gethostname(),
-                config=config,
-                **get_os_info(),
-                **get_vm_info(),
-                stats=get_host_stats(),
+            machine, _ = cls.objects.get_or_create(
+                guid=get_host_guid(),
+                defaults=dict(
+                    hostname=socket.gethostname(),
+                    config=config,
+                    **get_os_info(),
+                    **get_vm_info(),
+                    stats=get_host_stats(),
+                ),
             )
         needs_recheck = timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
         # Reconcile before any save can mirror stale DB config over file edits.

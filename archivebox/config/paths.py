@@ -3,7 +3,11 @@ __package__ = "archivebox.config"
 import os
 import socket
 import hashlib
+import hmac
+import json
+import re
 import tempfile
+import time
 import platform
 from pathlib import Path
 from functools import cache
@@ -84,32 +88,95 @@ def get_collection_id(DATA_DIR=DATA_DIR) -> str:
     return _get_collection_id(DATA_DIR=DATA_DIR)
 
 
-@cache
 def get_machine_id(length: int = 8) -> str:
-    """Get a machine ID, using the network identity when no OS ID is available."""
-    import machineid
+    """Return a prefix of the machine's deterministic identifier."""
+    return _get_machine_guid()[:length]
 
+
+@cache
+def get_native_machine_guid() -> str | None:
+    """Return the OS identity hash used by older ArchiveBox installations."""
+    if platform.system() == "Linux":
+        # py-machineid also accepts a Docker container ID on Linux. Only the
+        # OS machine ID files can identify a machine across container replacements.
+        for path in (Path("/var/lib/dbus/machine-id"), Path("/etc/machine-id")):
+            try:
+                machine_id = path.read_text(encoding="ascii").strip()
+            except (OSError, UnicodeError):
+                continue
+            if re.fullmatch(r"[0-9a-fA-F]{32}", machine_id) and machine_id != "0" * 32:
+                return hmac.digest(machine_id.encode(), b"archivebox", "sha256").hex()
+    else:
+        import machineid
+
+        try:
+            return machineid.hashed_id("archivebox")
+        except machineid.MachineIdNotFound:
+            return None
+    return None
+
+
+@cache
+def _get_machine_guid() -> str:
+    system = platform.system()
+    architecture = platform.machine().lower()
+    if native_guid := get_native_machine_guid():
+        return hashlib.sha256(f"archivebox:machine-id:{architecture}:{native_guid}".encode()).hexdigest()
+
+    containerized = IN_DOCKER or Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()
+    hostname = socket.gethostname().rstrip(".").lower()
+    # Compose's hostname is an explicit identity. Docker's default hostname
+    # is a short container ID and changes whenever the container is replaced.
+    if (
+        containerized
+        and hostname not in {"", "(none)", "localhost", "localhost.localdomain"}
+        and not re.fullmatch(r"[0-9a-f]{12}|[0-9a-f]{64}", hostname)
+    ):
+        return hashlib.sha256(f"archivebox:hostname:{architecture}:{hostname}".encode()).hexdigest()
+
+    import psutil
+
+    fingerprint: dict[str, object] = {
+        "system": system,
+        "architecture": architecture,
+        "logical_cpus": psutil.cpu_count(),
+        "physical_cores": psutil.cpu_count(logical=False),
+        "timezone": os.environ.get("TZ") or time.tzname,
+    }
     try:
-        return machineid.hashed_id("archivebox")[:length]
-    except machineid.MachineIdNotFound:
-        import uuid
-
-        import psutil
-
-        node = uuid.getnode()
-        identity = str(node)
-        if node & (1 << 40):
-            # uuid.getnode() silently generates a per-process random value when
-            # tools such as ip/ifconfig are absent. Read interfaces directly so
-            # separate CLI processes agree even in a minimal container.
-            addresses = sorted(
-                address.address
-                for interface in psutil.net_if_addrs().values()
-                for address in interface
-                if address.family == psutil.AF_LINK and address.address not in ("", "00:00:00:00:00:00")
-            )
-            identity = str(int(addresses[0].replace(":", "").replace("-", ""), 16)) if addresses else f"hostname:{socket.gethostname()}"
-        return hashlib.sha256(identity.encode()).hexdigest()[:length]
+        fingerprint["memory_bytes"] = psutil.virtual_memory().total
+    except (OSError, psutil.Error):
+        pass
+    if system == "Linux":
+        try:
+            cpu_info = Path("/proc/cpuinfo").read_text(errors="replace").partition("\n\n")[0]
+        except OSError:
+            cpu_info = ""
+        cpu = {}
+        for line in cpu_info.splitlines():
+            key, _, value = line.partition(":")
+            key = key.strip().lower()
+            if key in {"flags", "features"}:
+                cpu[key] = sorted(set(value.split()))
+            elif key in {"vendor_id", "model name", "cpu implementer", "cpu part"}:
+                cpu[key] = value.strip()
+        fingerprint["cpu"] = cpu
+    if not containerized:
+        fingerprint["hostname"] = hostname
+    try:
+        interfaces = {}
+        for name, addresses in psutil.net_if_addrs().items():
+            if name in {"lo", "lo0"} or name.startswith(("veth", "br-")):
+                continue
+            macs = {address.address.lower() for address in addresses if address.family == psutil.AF_LINK and address.address}
+            if macs:
+                # Docker assigns addresses and hostnames when it creates a container.
+                physical = system == "Linux" and (Path("/sys/class/net") / name / "device").exists()
+                interfaces[name] = sorted(macs - {"00:00:00:00:00:00"}) if not containerized or physical else []
+        fingerprint["interfaces"] = interfaces
+    except (OSError, psutil.Error):
+        pass
+    return hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
 
 
 @cache

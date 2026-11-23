@@ -267,9 +267,8 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
     && chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" "$DATA_DIR" "$TMP_DIR" \
     && find "$ABXPKG_LIB_DIR" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
     && UV_NO_CACHE=true setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env sonic | tee -a /VERSION.txt \
-    && openssl rand -hex 16 > /etc/machine-id \
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER ARCHIVEBOX_UID=$(id -u "$ARCHIVEBOX_USER") ARCHIVEBOX_GID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
-    && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
+    && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\n" | tee -a /VERSION.txt
 
 # Install the complete ArchiveBox catalog, including disabled server plugins.
 # Explicit plugin names make installation independent of enabled defaults.
@@ -299,6 +298,8 @@ RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_d
 
 WORKDIR "$DATA_DIR"
 RUN echo "[+] Initializing image collection..." \
+    # Base image packages can generate their own IDs during installation.
+    && rm -f /etc/machine-id /var/lib/dbus/machine-id \
     && find "$DATA_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} + \
     && HOME="$TMP_DIR" archivebox init \
     && (chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" \
@@ -325,7 +326,8 @@ RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$for
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
 
-RUN (echo -e "\n\n[√] Finished ArchiveBox multistage Docker build successfully." \
+RUN test ! -s /etc/machine-id && test ! -s /var/lib/dbus/machine-id \
+    && (echo -e "\n\n[√] Finished ArchiveBox multistage Docker build successfully." \
     && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) (${TARGETARCH} ${TARGETVARIANT})" \
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt

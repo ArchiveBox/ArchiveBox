@@ -251,11 +251,10 @@ def sync_machine_and_file(machine: Any = None) -> None:
     _MIRROR_IN_PROGRESS = True
     try:
         if machine is None:
-            from archivebox.machine.detect import get_host_guid
             from archivebox.machine.models import Machine
 
             try:
-                machine = Machine.objects.filter(guid=get_host_guid()).first()
+                machine = Machine.current_readonly()
             except Exception:
                 return
             if machine is None:
