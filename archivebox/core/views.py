@@ -1590,6 +1590,15 @@ class PublicIndexView(ListView):
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
     paginator_class = AcceleratedPaginator
     public_search_uses_sql = False
+    search_fragment = None
+
+    def get_template_names(self):
+        templates = super().get_template_names()
+        if self.search_fragment:
+            # Themes can opt into the same fragment; a full custom template
+            # still works with the browser's existing DOM region selectors.
+            return [f"{self.template_name}#search-results", *templates]
+        return templates
 
     def get_paginate_by(self, queryset):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1790,7 +1799,18 @@ class PublicIndexView(ListView):
         context["public_page_count"] = (
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
         )
-        snapshots = list(context.get("object_list") or ())
+        context["search_fragment"] = self.search_fragment
+        objects = context.get("object_list")
+        self.preview_has_more = False
+        if self.search_fragment == "preview":
+            # Plugin icons and thumbnails are the expensive part of each row.
+            # Hydrate enough to paint immediately; keep pagination and scope
+            # intact for the full page that follows on the same URL.
+            snapshots = list(objects[:9]) if objects is not None else []
+            self.preview_has_more = len(snapshots) > 8
+            snapshots = snapshots[:8]
+        else:
+            snapshots = list(objects or ())
         from archivebox.core.list_results_util import load_snapshot_list_results
 
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
@@ -1830,6 +1850,13 @@ class PublicIndexView(ListView):
             snapshot._public_list_icon_paths = summary.succeeded_paths(list_icon_plugins)
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
+        if self.search_fragment and hasattr(self, "public_rank_scope"):
+            # The provider appends IDs in discovery order. Once page one and
+            # its lookahead exist, later hits only change the displayed count.
+            # A Smart Folder's explicit ordering can still insert earlier rows.
+            self.first_ranked_page_filled = (
+                not self.preview_has_more and self.request.GET.get("page", "1") == "1" and context["page_obj"].has_next()
+            )
         return context
 
     def get_queryset(self, **kwargs):
@@ -1903,7 +1930,16 @@ class PublicIndexView(ListView):
         if self.request.user.is_authenticated:
             return redirect("/admin/core/snapshot/")
         if get_request_config(self.request).PUBLIC_INDEX:
+            phase = self.request.headers.get("X-ArchiveBox-Search-Fragment")
+            self.search_fragment = phase if phase in {"preview", "rows"} and self.request.GET.get("q") else None
             response = super().get(*args, **kwargs)
+            patch_vary_headers(response, ("X-ArchiveBox-Search-Fragment",))
+            if self.preview_has_more:
+                response["X-ArchiveBox-Search-More-Rows"] = "1"
+            if self.search_fragment and (state := self.__dict__.get("public_search_state")) is not None:
+                response["X-ArchiveBox-Search-Count"] = str(len(state["ids"]))
+            if getattr(self, "first_ranked_page_filled", False):
+                response["X-ArchiveBox-Search-Page-Filled"] = "1"
             return response
         else:
             return _admin_login_redirect_or_forbidden(self.request)
