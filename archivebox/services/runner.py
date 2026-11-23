@@ -71,7 +71,7 @@ from archivebox.config.common import (
     _plugin_enabled_config_keys,
 )
 from archivebox.base_models.models import PagedQuerySet
-from archivebox.misc.db import run_db_analyze_batch
+from archivebox.misc.db import run_db_optimize
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.plugins.discovery import get_plugin_catalog, register_plugin_eventbus
 from archivebox.plugins.selection import parse_plugin_selection
@@ -2439,9 +2439,7 @@ def run_pending_crawls(
     last_retention_repair_at = 0.0
     retention_backfill_cursors: dict = {}
     deletion_thread: threading.Thread | None = None
-    last_analyze_at = 0.0
-    analyze_queue: list[str] | None = None
-    analyze_sweep_started_at = 0.0
+    last_optimize_at = 0.0
     orchestrator_started_at = time.monotonic()
 
     def delete_in_background() -> None:
@@ -2687,37 +2685,12 @@ def run_pending_crawls(
 
                 recover_orchestrator_state()
                 last_recovery_at = now_monotonic
-            # SQLite query plans degrade as the snapshot/archiveresult tables grow
-            # past their last ANALYZE — stale stats make the optimizer start large
-            # joins from auth_user/crawl instead of using the url index, blowing the
-            # snapshot detail page out to ~500ms. Refresh stats at most once per
-            # 24hr while the queue is idle, and only after the orchestrator has
-            # been alive for at least an hour so short server boots / one-off work
-            # never pay the cost. Each idle tick samples a bounded number of
-            # index entries for one table; never scan the full history while
-            # holding ANALYZE's write transaction. Optional stats refresh must
-            # not prevent queued captures.
-            try:
-                if (
-                    analyze_queue is None
-                    and now_monotonic - orchestrator_started_at >= 3600.0
-                    and now_monotonic - last_analyze_at >= 86400.0
-                ):
-                    analyze_sweep_started_at = now_monotonic
-                    analyze_queue = run_db_analyze_batch(None)
-                elif analyze_queue and now_monotonic - analyze_sweep_started_at >= 300.0:
-                    # Sweep blew past the 5min hard cap — abandon what's left
-                    # and don't retry until the next 24hr window.
-                    analyze_queue = None
-                    last_analyze_at = now_monotonic
-                elif analyze_queue:
-                    analyze_queue = run_db_analyze_batch(analyze_queue)
-                if analyze_queue is not None and not analyze_queue:
-                    analyze_queue = None
-                    last_analyze_at = now_monotonic
-            except Exception:
-                analyze_queue = None
-                last_analyze_at = now_monotonic
+            # Consider planner statistics at most daily, after an hour of uptime
+            # and only while idle. SQLite decides which tables need refreshing;
+            # unchanged history must not pay for repeated full index-page counts.
+            if now_monotonic - orchestrator_started_at >= 3600.0 and now_monotonic - last_optimize_at >= 86400.0:
+                run_db_optimize()
+                last_optimize_at = now_monotonic
             time.sleep(2.0)
             continue
         return 0

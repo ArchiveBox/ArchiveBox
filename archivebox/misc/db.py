@@ -275,38 +275,28 @@ def drop_models_on_postgres(apps, schema_editor, app_label: str, model_names: li
             schema_editor.delete_model(model)
 
 
-def run_db_analyze_batch(remaining: list[str] | None) -> list[str]:
-    """Refresh approximate SQLite planner stats for one table per idle tick.
+def run_db_optimize() -> None:
+    """Let SQLite refresh missing or stale planner statistics during idle time.
 
-    A full ANALYZE scans every index while holding a write transaction; moving
-    it into the runner did not prevent it from blocking submissions. Sampling
-    at most about 1000 entries per index keeps maintenance independent of
-    collection size. Approximate stats are sufficient for choosing indexes.
+    An analysis_limit bounds sampled entries, but ANALYZE can still count
+    every index page. Do not force that work on unchanged collection history.
+    SQLite's optimize policy considers missing statistics and substantial size
+    changes, with its own temporary sampling limit on SQLite 3.46 and newer.
+    Needed analyses can still require index-page reads in some SQLite builds.
     PostgreSQL owns its statistics through autovacuum/autoanalyze.
     """
     from django.db import connection
 
     if connection.vendor != "sqlite":
-        return []
+        return
     try:
         with connection.cursor() as cursor:
-            if remaining is None:
-                cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-                remaining = [row[0] for row in cursor.fetchall()]
-            if not remaining:
-                return []
-            next_table, *rest = remaining
-            cursor.execute("PRAGMA analysis_limit")
-            previous_limit = int(cursor.fetchone()[0])
-            try:
-                cursor.execute("PRAGMA analysis_limit = 1000")
-                cursor.execute(f"ANALYZE {connection.ops.quote_name(next_table)}")
-            finally:
-                cursor.execute(f"PRAGMA analysis_limit = {previous_limit}")
-            return rest
+            # Include tables this runner connection has not queried (0x10000)
+            # and retain optimize's bounded sampling option (0x10).
+            cursor.execute("PRAGMA optimize = 0x10012")
     except Exception:
         # Optional planner maintenance must not prevent queued captures.
-        return []
+        return
 
 
 def compact_command(cmdline: list[str] | None, fallback: str = "") -> str:
