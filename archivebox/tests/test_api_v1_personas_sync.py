@@ -175,3 +175,45 @@ def test_sync_explicit_default_color_scheme_resets_override(client, api_headers)
     assert response.status_code == 200, response.content
     persona.refresh_from_db()
     assert persona.config["BROWSER_COLOR_SCHEME"] == ""
+
+
+def test_sync_preserves_browser_storage_above_old_request_limit(client, api_headers):
+    from archivebox.personas.models import Persona
+
+    value = "saved-browser-record:" + "x" * (26 * 1024 * 1024)
+    auth = {
+        "origins": [
+            {
+                "origin": "https://example.com",
+                "indexedDB": [
+                    {
+                        "name": "Documents",
+                        "version": 1,
+                        "stores": [
+                            {
+                                "name": "documents",
+                                "keyPath": "id",
+                                "autoIncrement": False,
+                                "indexes": [],
+                                "records": [{"value": {"id": 1, "content": value}}],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/personas/sync",
+        payload={
+            "extension_persona_id": "large-browser-state",
+            "name": "large-browser-state",
+            "auth_json": auth,
+        },
+        headers=api_headers,
+    )
+    assert response.status_code == 200, response.content[:500]
+    persona = Persona.objects.get(pk=response.json()["persona"]["id"])
+    assert json.loads((persona.path / "auth.json").read_text()) == auth

@@ -490,7 +490,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = None
-DATA_UPLOAD_MAX_MEMORY_SIZE = 26_214_400  # 25MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 157_286_400  # 150 MiB, including persona browser-state sync.
 
 ################################################################################
 ### Shell Settings
