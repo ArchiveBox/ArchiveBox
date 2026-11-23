@@ -2038,9 +2038,8 @@
         metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${shortNumber(io.mean_io_ms)}ms`}` : 'I/O —',
             io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
         const archiveBytes = data.collection?.bytes;
-        const archiveSize = archiveBytes == null ? '' : archiveBytes >= 1024 ** 4
-            ? `${(Math.ceil(archiveBytes * 10 / 1024 ** 4) / 10).toFixed(1)} TB`
-            : `${Math.ceil(archiveBytes / 1024 ** 3)} GB`;
+        const archiveUnit = archiveBytes > 0 ? Math.min(4, Math.floor(Math.log(archiveBytes) / Math.log(1024))) : 0;
+        const archiveSize = archiveBytes == null ? '' : `${shortNumber(archiveBytes / 1024 ** archiveUnit)} ${['B', 'KB', 'MB', 'GB', 'TB'][archiveUnit]}`;
         const freeSpace = `(${gb(system.disk_free_bytes, true)} free)`;
         metricBadge('storage', `${archiveSize || '—'} ${freeSpace}`,
             `Estimated archive size from recorded snapshot sizes visible to your account. ${sampled(data.collection?.sampled_at)} Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)}`, systemStale);
