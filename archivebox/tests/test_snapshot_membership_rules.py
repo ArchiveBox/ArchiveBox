@@ -295,7 +295,8 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
 
     tag = Tag.objects.create(name="Architecture research")
     parent = Folder.objects.create(name="Library")
-    folder = Folder.objects.create(name="Reading", parent=parent)
+    folder = Folder.objects.create(name="Reading smart", parent=parent, rules={"query": "title:Reading"})
+    destination = Folder.objects.create(name="Reading shelf", parent=parent)
     admin_url = live_server.url.replace("localhost", "admin.archivebox.localhost")
 
     with sync_playwright() as playwright:
@@ -318,14 +319,29 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
             ("Added to folder", "reading", f"{parent.name} / {folder.name}"),
         ):
             page.get_by_role("radio", name=event, exact=True).check()
-            page.locator("#scope-field").get_by_role("combobox").click()
-            suggestions = page.get_by_role("searchbox", name="Search", exact=True)
-            suggestions.fill(query)
-            page.get_by_role("option", name=choice, exact=True).click()
-            expect(page.locator("#scope-field").get_by_role("combobox")).to_contain_text(choice)
+            scope = page.locator("#scope-field")
+            if event == "Tagged":
+                scope.get_by_role("combobox").click()
+                page.get_by_role("searchbox", name="Search", exact=True).fill(query)
+                page.get_by_role("option", name=choice, exact=True).click()
+            else:
+                scope.get_by_role("combobox").select_option(label="Find a folder…")
+                with page.expect_response(lambda response: "/folders/autocomplete/" in response.url and "q=reading" in response.url):
+                    scope.get_by_role("searchbox", name="Find a folder").fill(query)
+                scope.get_by_role("button", name=choice, exact=True).click()
+                expect(scope.get_by_role("combobox")).to_have_value(str(folder.pk))
+            expect(scope.get_by_role("combobox")).to_contain_text(choice)
             page.get_by_role("textbox", name="Name", exact=True).fill(f"{event} rule")
             page.locator("#add-action").select_option("add_tags")
             page.locator("#actions input[type=text]").first.fill("Filed")
+            if event == "Added to folder":
+                page.locator("#add-action").select_option("move_folder")
+                action = page.locator("#actions .record-picker")
+                action.get_by_role("combobox").select_option(label="Find a folder…")
+                action.get_by_role("searchbox").fill("Reading")
+                expect(action.get_by_role("button", name="Library / Reading shelf")).to_be_visible()
+                expect(action.get_by_role("button", name="Library / Reading smart")).to_have_count(0)
+                action.get_by_role("button", name="Library / Reading shelf").click()
             page.get_by_role("button", name="Save rule", exact=True).click()
             expect(page.locator("#toast")).to_have_text("Rule saved")
             page.reload()
@@ -340,3 +356,4 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
     filed = OutboundWebhook.objects.get(name="Added to folder rule")
     assert filed.signal == "FOLDER_ENTERED"
     assert filed.folder_id == folder.pk and filed.relationship == ""
+    assert filed.actions[-1] == {"type": "folder", "folder_id": str(destination.pk)}

@@ -247,9 +247,32 @@ document.addEventListener('DOMContentLoaded', () => {
             chip.append(remove);
             chips.append(chip);
           }
-          search.setCustomValidity(selected.length ? '' : 'Choose an existing value.');
+          (model === 'core.folder' ? choices : search).setCustomValidity(selected.length ? '' : 'Choose an existing value.');
           node.value = multiple ? selected.slice() : (selected[0] ?? null);
           serialize();
+        }
+        row.classList.add('rule-relation-value');
+        if (model === 'core.folder') {
+          // Folder relationships use the same paged path lookup as direct
+          // folder rules. The chips keep the existing exact/in rule format.
+          choices.hidden = false;
+          choices.dataset.picker = 'folder';
+          const placeholder = new Option('Choose a folder', '', true, true);
+          placeholder.disabled = true;
+          choices.add(placeholder);
+          choices.addEventListener('change', () => {
+            const id = choices.value;
+            if (!id) return;
+            known.set(id, choices.selectedOptions[0].text);
+            if (!multiple) selected.length = 0;
+            if (!selected.includes(id)) selected.push(id);
+            choices.value = '';
+            sync();
+          });
+          row.append(chips, choices);
+          window.ArchiveBoxPicker.mount(choices);
+          sync();
+          return;
         }
         function show(results, emptyLabel = 'No matches') {
           available = new Map(results.filter(item => !selected.some(id => String(id) === String(item.id)))
@@ -284,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
           sync();
           search.focus();
         });
-        row.classList.add('rule-relation-value');
         row.append(chips, search, choices);
         sync();
       }

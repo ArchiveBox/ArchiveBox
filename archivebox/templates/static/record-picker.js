@@ -105,6 +105,10 @@
       select.add(findOption(), Array.from(select.options).find(option => !option.disabled) || null);
       select.value = value;
     }
+    // After form.reset() the browser normally falls back to the first option.
+    // Preserve the real default before inserting the Find command above it.
+    const defaultOption = select.selectedOptions[0];
+    if (nativeFolder && defaultOption) defaultOption.defaultSelected = true;
     if (nativeFolder) insertFind();
     let previous = select.value;
     const search = connect(input, lookup(type, () => ({
@@ -112,13 +116,14 @@
       exclude: select.dataset.pickerExclude,
     })), (result) => {
       const value = select.value;
-      const retained = optionsFrom(select).filter((option) => option.fixed || (option.id && option.id === value));
+      const defaultValue = nativeFolder ? Array.from(select.options).find(option => option.defaultSelected)?.value : undefined;
+      const retained = optionsFrom(select).filter(option => option.fixed || option.id === value || option.id === defaultValue);
       const results = result.choices || [];
       const byId = new Map(retained.map((item) => [item.id, item]));
       for (const item of results) byId.set(String(item.id), item);
       select.replaceChildren();
       for (const [id, item] of byId) {
-        const option = new Option(item.name, id, false, id === value);
+        const option = new Option(item.name, id, id === defaultValue, id === value);
         if (item.fixed) option.dataset.pickerFixed = "";
         option.disabled = Boolean(item.disabled);
         select.add(option);
@@ -128,7 +133,9 @@
         if (panel.matches(":popover-open")) {
           // Use the same choices as the native picker. Users typing a filter
           // can choose a visible match without reopening the OS select.
-          const buttons = results.map(item => {
+          const term = input.value.trim().toLowerCase();
+          const fixed = retained.filter(item => item.fixed && !item.disabled && item.name && item.name.toLowerCase().includes(term));
+          const buttons = [...fixed, ...results].map(item => {
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = item.name;
@@ -145,35 +152,59 @@
       next = result.next || "";
       more.hidden = !next || input.hidden;
       status.hidden = nativeFolder && input.hidden;
-      status.textContent = result.error ? "Could not load choices." : results.length ? "" : "No matches.";
+      status.textContent = result.error ? "Could not load choices." : results.length || choices.childElementCount ? "" : "No matches.";
     });
     if (nativeFolder) {
       const remember = () => { if (select.value !== findValue) previous = select.value; };
       select.addEventListener("focus", remember);
       select.addEventListener("pointerdown", remember);
       select.addEventListener("keydown", remember);
+      function openSearch(term = "") {
+        input.hidden = false;
+        choices.replaceChildren();
+        panel.showPopover();
+        // Anchor to the visible select (also the hit target over the Move
+        // button). The top layer escapes the scrolling changelist and dialogs.
+        const rect = select.getBoundingClientRect();
+        const height = window.visualViewport?.height || innerHeight;
+        panel.style.left = Math.max(4, Math.min(rect.left, innerWidth - panel.offsetWidth - 4)) + "px";
+        if (height - rect.bottom >= Math.min(220, rect.top)) {
+          panel.style.top = rect.bottom + 2 + "px";
+          panel.style.bottom = "auto";
+        } else {
+          panel.style.top = "auto";
+          panel.style.bottom = Math.max(0, innerHeight - rect.top + 2) + "px";
+        }
+        input.value = term;
+        input.focus();
+      }
+      // A mouse or keyboard can filter on first interaction, like the tag
+      // field. Let touch open the platform chooser and its Find command.
+      let mousePress = false;
+      select.addEventListener("pointerdown", event => {
+        mousePress = event.pointerType === "mouse" && event.button === 0;
+        if (mousePress) event.preventDefault();
+      });
+      select.addEventListener("click", () => {
+        // Opening on pointerdown lets the subsequent outside pointerup
+        // immediately light-dismiss the popover. Older click events also
+        // lack pointerType, so use the device from the original press.
+        if (mousePress) openSearch();
+        mousePress = false;
+      });
+      select.addEventListener("keydown", event => {
+        if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+        const printable = event.key.length === 1;
+        if (!printable && !["Enter", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        openSearch(printable ? event.key.trimStart() : "");
+      });
       select.addEventListener("change", event => {
         if (select.value === findValue) {
           // A search command must never submit the Move action or a list filter.
           event.stopImmediatePropagation();
           select.value = previous;
-          input.hidden = false;
-          choices.replaceChildren();
-          panel.showPopover();
-          // Anchor to the visible select (also the hit target over the Move
-          // button). The top layer escapes the scrolling changelist and dialogs.
-          const rect = select.getBoundingClientRect();
-          const height = window.visualViewport?.height || innerHeight;
-          panel.style.left = Math.max(4, Math.min(rect.left, innerWidth - panel.offsetWidth - 4)) + "px";
-          if (height - rect.bottom >= Math.min(220, rect.top)) {
-            panel.style.top = rect.bottom + 2 + "px";
-            panel.style.bottom = "auto";
-          } else {
-            panel.style.top = "auto";
-            panel.style.bottom = Math.max(0, innerHeight - rect.top + 2) + "px";
-          }
-          input.value = "";
-          input.focus();
+          openSearch();
         } else {
           remember();
           panel.hidePopover();

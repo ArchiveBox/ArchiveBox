@@ -63,7 +63,8 @@ def test_nested_folder_choices_have_names_for_real_folder_viewer(client):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_smart_folder_selects_m2m_and_fk_values_by_name(browser_runtime, live_server, admin_user, snapshot):
+@pytest.mark.parametrize("field", ["crawl__persona", "crawl__folder"])
+def test_smart_folder_selects_m2m_and_fk_values_by_name(browser_runtime, live_server, admin_user, snapshot, field):
     from urllib.parse import urlsplit
 
     from playwright.sync_api import expect, sync_playwright
@@ -81,7 +82,9 @@ def test_smart_folder_selects_m2m_and_fk_values_by_name(browser_runtime, live_se
     persona = Persona.objects.create(name="Work browser")
     snapshot.tags.set([research])
     snapshot.crawl.persona = persona
-    snapshot.crawl.save(update_fields=["persona"])
+    shelf = Folder.objects.create(name="Reading", parent=Folder.objects.create(name="Research"))
+    snapshot.crawl.folder = shelf
+    snapshot.crawl.save(update_fields=["persona", "folder"])
     folder = Folder.objects.create(name="Fixture folder", rules={"field": "tags", "lookup": "in", "value": [tag.pk]})
 
     with sync_playwright() as playwright:
@@ -105,16 +108,27 @@ def test_smart_folder_selects_m2m_and_fk_values_by_name(browser_runtime, live_se
             choices.select_option(label="Research")
             dialog.get_by_role("button", name="+ Rule", exact=True).click()
             second = dialog.locator(".rule-condition").last
-            second.get_by_label("Field", exact=True).select_option("crawl__persona")
-            second.get_by_role("searchbox", name="Find an existing value").fill("work")
+            second.get_by_label("Field", exact=True).select_option(field)
             choices = second.get_by_label("Choose an existing value", exact=True)
-            expect(choices.get_by_role("option", name="Work browser", exact=True)).to_have_count(1)
-            choices.select_option(label="Work browser")
+            if field == "crawl__folder":
+                second.get_by_label("Comparison", exact=True).select_option("in")
+                choices.focus()
+                page.keyboard.type("Reading")
+                search = second.get_by_role("searchbox", name="Find a folder")
+                expect(search).to_have_value("Reading")
+                second.get_by_role("button", name="Research / Reading", exact=True).click()
+                expect(second.get_by_role("button", name="Remove Research / Reading")).to_be_visible()
+                second_rule = {"field": field, "lookup": "in", "value": [str(shelf.pk)]}
+            else:
+                second.get_by_role("searchbox", name="Find an existing value").fill("work")
+                expect(choices.get_by_role("option", name="Work browser", exact=True)).to_have_count(1)
+                choices.select_option(label="Work browser")
+                second_rule = {"field": field, "lookup": "exact", "value": str(persona.pk)}
             expected = {
                 "op": "AND",
                 "rules": [
                     {"field": "tags", "lookup": "in", "value": [tag.pk, research.pk]},
-                    {"field": "crawl__persona", "lookup": "exact", "value": str(persona.pk)},
+                    second_rule,
                 ],
             }
             assert json.loads(dialog.locator('[name="rules"]').input_value()) == expected

@@ -21,7 +21,7 @@
 <div class="field"><label for="object-type">Object type</label><select id="object-type"></select></div>
 <fieldset class="event-fieldset"><legend>Event</legend><div id="event-timeline" class="event-timeline"></div></fieldset>
 <div class="event-arguments">
-<div class="field" id="scope-field"><label for="scope" id="scope-label">Folder</label><div class="scope-line"><select id="scope"></select><button class="icon-btn scope-open" id="open-scope" title="Open folder" aria-label="Open folder"><svg class="icon"><use href="#external"/></svg></button></div></div>
+<div class="field" id="scope-field"><label for="scope" id="scope-label">Folder</label><div class="scope-line"><div id="scope-control"></div><button class="icon-btn scope-open" id="open-scope" title="Open folder" aria-label="Open folder"><svg class="icon"><use href="#external"/></svg></button></div></div>
 </div>
 <div class="divider"></div><div id="local-fields"><div class="section-head" style="margin-top:0"><h3>Actions <span class="count" id="action-count">0</span></h3><span class="small muted">Run in order</span></div><div id="actions"></div><select id="add-action" class="add-action" aria-label="Add action"><option value="">＋ Add action…</option></select><div class="execution-options"><label class="execution"><input type="checkbox" id="stop">Stop processing other hooks</label><label class="execution"><input type="checkbox" id="stop-on-failure">Stop the sequence if any fail</label></div></div>
 <section class="preview" id="preview" hidden><div class="preview-heading"><span>Preview <span class="count">Saved objects</span></span><button class="icon-btn" id="close-preview" aria-label="Close preview"><svg class="icon"><use href="#close"/></svg></button></div><div id="preview-content"></div></section>

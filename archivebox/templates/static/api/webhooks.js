@@ -205,35 +205,47 @@
   }
   function fillScope() {
     const e = eventOf(current);
-    const scope = $("scope");
-    const picker = window.jQuery(scope);
-    if (picker.data("select2")) picker.select2("destroy");
-    scope.replaceChildren();
+    const previous = window.jQuery($("scope"));
+    if (previous.data("select2")) previous.select2("destroy");
+    // Each event owns its control. A pending folder lookup from a previous
+    // event must never replace a new tag or relationship selection.
+    const scope = document.createElement("select");
+    scope.id = "scope";
+    scope.onchange = changeScope;
+    $("scope-control").replaceChildren(scope);
     $("scope-field").hidden = !e.membership && !e.tag && !e.relationship;
     $("scope-label").textContent = e.membership ? "Folder" : e.tag ? "Tag" : "Relationship";
-    if (e.membership || e.tag) {
-      const selected = e.membership
-        ? folderOf(current)
-        : current.tag_id === "*" ? anyTag : { id: current.tag_id, name: current.tag_name };
+    if (e.membership) {
+      scope.dataset.picker = "folder";
+      const placeholder = new Option("Choose a folder", "", true, true);
+      placeholder.disabled = true;
+      scope.add(placeholder);
+      const wildcard = new Option(anyFolder.name, anyFolder.id);
+      wildcard.dataset.pickerFixed = "";
+      scope.add(wildcard);
+      const selected = folderOf(current);
+      if (selected) window.ArchiveBoxPicker.selectChoice(scope, selected.id, selected.name);
+      window.ArchiveBoxPicker.mount(scope);
+    } else if (e.tag) {
+      const selected = current.tag_id === "*" ? anyTag : { id: current.tag_id, name: current.tag_name };
       scope.add(new Option("", ""));
       if (selected?.id) scope.add(new Option(selected.name, selected.id, true, true));
-      let folderCursor;
-      picker.select2({
+      let cursor;
+      window.jQuery(scope).select2({
         width: "100%",
-        placeholder: e.membership ? "Choose a folder" : "Choose a tag",
+        placeholder: "Choose a tag",
         ajax: {
           delay: 150,
-          data: (params) => ({ term: params.term, page: params.page, after: params.page > 1 ? folderCursor : "" }),
+          data: (params) => ({ term: params.term, page: params.page, after: params.page > 1 ? cursor : "" }),
           transport(params, success, failure) {
             const term = params.data.term || "";
-            const wildcard = e.membership ? anyFolder : anyTag;
             const controller = new AbortController();
-            const lookup = window.ArchiveBoxPicker.lookup(e.membership ? "folder" : "tag");
+            const lookup = window.ArchiveBoxPicker.lookup("tag");
             lookup(term, controller.signal, params.data.after)
               .then(({ choices, next }) => {
-                folderCursor = next;
-                const matching = params.data.page > 1 || !wildcard.name.toLowerCase().includes(term.toLowerCase())
-                  ? choices : [wildcard, ...choices];
+                cursor = next;
+                const matching = params.data.page > 1 || !anyTag.name.toLowerCase().includes(term.toLowerCase())
+                  ? choices : [anyTag, ...choices];
                 success({
                   results: matching.map((item) => ({ id: item.id, text: item.name })),
                   pagination: { more: Boolean(next) },
@@ -538,7 +550,7 @@
     renderActions();
     setDirty();
   };
-  $("scope").onchange = () => {
+  function changeScope() {
     if (eventOf(current).membership) {
       current.folder_id = $("scope").value;
       rememberFolder($("scope"));
@@ -551,7 +563,7 @@
       current.relationship = $("scope").value;
     }
     setDirty();
-  };
+  }
   $("stop").onchange = () => {
     current.stop_processing = $("stop").checked;
     setDirty();

@@ -429,11 +429,12 @@
   gap: 6px;
   align-items: center;
 }
-.webhooks .scope-line select,
-.webhooks .scope-line .select2-container {
+.webhooks #scope-control {
   flex: 1;
-  width: 0;
   min-width: 0;
+}
+.webhooks #scope-control :is(select, .record-picker) {
+  width: 100%;
 }
 .webhooks .scope-open {
   border: 1px solid #ced5dc;
