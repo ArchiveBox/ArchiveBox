@@ -1,6 +1,7 @@
 """Rendered metadata and accessibility through real detail/list/form routes."""
 
 import json
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -60,6 +61,83 @@ def test_snapshot_social_metadata(client, snapshot):
     assert soup.xpath('//main | //*[@role="main"]')
     assert soup.xpath('//h1 | //*[@role="heading"][@aria-level="1"]')
     assert soup.xpath("//a[@download]/@aria-label")[0].startswith("Download ")
+
+
+def test_social_metadata_reads_only_needed_artifacts(client, snapshot):
+    from abx_plugins.plugins.seo import presentation
+
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+    snapshot.save()
+    save_output(snapshot, "seo", "seo.json", json.dumps({"og:title": "SEO title", "og:description": "SEO description"}), "application/json")
+    save_output(
+        snapshot,
+        "readability",
+        "article.json",
+        json.dumps({"title": "Unused title", "excerpt": "Unused description"}),
+        "application/json",
+    )
+    image = (Path(__file__).parents[1] / "templates/static/archive.png").read_bytes()
+    save_output(snapshot, "screenshot", "screenshot.png", image, "image/png")
+    root = Path(snapshot.output_dir)
+    reads, root_resolutions, image_stats = [], [], []
+
+    def observe(frame, event, arg):
+        if event != "call":
+            return
+        if frame.f_globals.get("__name__") == presentation.__name__ and frame.f_code.co_name == "read":
+            reads.append(frame.f_locals["path"])
+        caller = frame.f_back
+        if caller is not None and caller.f_code.co_name == "is_file":
+            caller = caller.f_back
+        if caller is None or caller.f_globals.get("__name__") != presentation.__name__:
+            return
+        path = frame.f_locals.get("self")
+        if frame.f_code.co_name == "resolve" and path == root:
+            root_resolutions.append(path)
+        if frame.f_code.co_name == "stat" and path == root / "screenshot/screenshot.png":
+            image_stats.append(path)
+
+    previous = sys.getprofile()
+    sys.setprofile(observe)
+    try:
+        soup = detail(client, snapshot)
+    finally:
+        sys.setprofile(previous)
+    assert soup.xpath('//meta[@property="og:title"]/@content') == ["SEO title"]
+    assert soup.xpath('//meta[@property="og:description"]/@content') == ["SEO description"]
+    assert soup.xpath('//meta[@property="og:image"]/@content')
+    assert reads == ["seo/seo.json"]
+    assert len(root_resolutions) == 1
+    assert len(image_stats) == 1
+
+
+@pytest.mark.parametrize("target", ["inside", "outside", "empty", "directory", "missing"])
+def test_social_image_checks_current_contained_file(client, snapshot, tmp_path, target):
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+    snapshot.save()
+    image = (Path(__file__).parents[1] / "templates/static/archive.png").read_bytes()
+    save_output(snapshot, "screenshot", "screenshot.png", image, "image/png")
+    source = Path(snapshot.output_dir) / "screenshot/screenshot.png"
+    source.unlink()
+    if target in {"inside", "outside"}:
+        destination = (source.parent if target == "inside" else tmp_path) / "saved.png"
+        destination.write_bytes(image)
+        source.symlink_to(destination)
+    elif target == "empty":
+        source.touch()
+    elif target == "directory":
+        source.mkdir()
+    soup = detail(client, snapshot)
+    urls = soup.xpath('//meta[@property="og:image"]/@content')
+    if target == "inside":
+        assert len(urls) == 1
+        parsed = urlsplit(urls[0])
+        response = client.get(parsed.path + "?" + parsed.query, HTTP_HOST=parsed.netloc)
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == image
+    else:
+        assert not urls
+        assert soup.xpath('//meta[@name="twitter:card"]/@content') == ["summary"]
 
 
 @pytest.mark.parametrize("seo_content", ["{broken", "[]", '{"description": {"wrong": "type"}}'])
