@@ -32,7 +32,8 @@ def main():
     a = capture("first")
     b = capture("second")
     link = b.output_dir / "download/note.txt"
-    assert link.is_symlink()
+    backing = a.output_dir / "download/note.txt"
+    assert not link.is_symlink() and not link.samefile(backing)
 
     def read():
         r = serve_static_with_byterange_support(RequestFactory().get("/download/note.txt?raw=1"), "download/note.txt", b.output_dir)
@@ -43,7 +44,9 @@ def main():
             r.close()
 
     assert read() == b"intended"
-    link.unlink()
+    # Preserve the independent capture while exercising legacy alias replay.
+    retained = link.with_suffix(".retained")
+    link.rename(retained)
     link.symlink_to(os.path.relpath(a.output_dir / "download/other.txt", link.parent))
     assert read() == b"unrelated"
     unarchived = a.output_dir / "download/private.txt"
@@ -53,9 +56,15 @@ def main():
     try:
         read()
     except Http404:
-        print("Scoped symlink replay passed")
+        pass
     else:
         raise AssertionError("unarchived target accepted")
+    os.replace(retained, link)
+    source_id = a.pk
+    a.delete()
+    assert not Snapshot.objects.filter(pk=source_id).exists()
+    assert not backing.exists() and read() == b"intended"
+    print("Independent bytes survived purge; legacy symlink replay checks passed")
 
 
 if __name__ == "__main__":

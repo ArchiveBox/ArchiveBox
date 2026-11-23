@@ -89,3 +89,35 @@ def test_capture_dedup_scope_and_verified_backfill(admin_user, client):
         )
         assert changed.rowcount == 1
     assert not capture(admin_user).samefile(private)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_dedup_keeps_surviving_file_when_storage_cannot_share(admin_user, client):
+    from archivebox.core.collection_dedupe import replace
+
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.org/retained")
+    first = Snapshot.objects.create(crawl=crawl, url="https://example.org/first", status="sealed")
+    second = Snapshot.objects.create(crawl=crawl, url="https://example.org/second", status="sealed")
+    source = first.output_dir / "download" / "content.txt"
+    retained = second.output_dir / "download" / "content.txt"
+    for path in (source, retained):
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"retained capture")
+    # Exercise the real replacement path after the runner has learned that
+    # this device pair does not support either safe sharing method.
+    pair = (source.stat().st_dev, retained.stat().st_dev)
+    outcome = replace(source, retained, {(*pair, "hardlink"), (*pair, "clone")})
+    first_id = first.pk
+    first.delete()
+    assert not source.exists() and not Snapshot.objects.filter(pk=first_id).exists()
+    assert Snapshot.objects.filter(pk=second.pk).exists()
+    assert retained.read_bytes() == b"retained capture"
+    assert outcome == "kept" and not retained.is_symlink()
+
+    url = urlsplit(build_snapshot_url(str(second.pk), "download/content.txt"))
+    response = client.get(url.path, {"raw": "1"}, HTTP_HOST=url.netloc, HTTP_RANGE="bytes=0-7")
+    try:
+        assert response.status_code == 206
+        assert b"".join(response.streaming_content) == b"retained"
+    finally:
+        response.close()
