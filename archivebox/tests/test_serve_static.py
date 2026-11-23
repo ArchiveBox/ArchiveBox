@@ -777,6 +777,48 @@ def test_directory_zip_excludes_symlinks_outside_export_root(tmp_path: Path):
         assert archive.read("export/alias.txt") == b"inside"
 
 
+def test_directory_zip_resolves_ancestors_per_directory_not_per_file(tmp_path):
+    import io
+    import os
+    import sys
+    import zipfile
+
+    root = tmp_path.resolve()
+    (root / "nested").mkdir()
+    expected = {}
+    for folder in (root, root / "nested"):
+        for number in range(10):
+            path = folder / f"file-{number}.txt"
+            path.write_text(path.name)
+            expected[f"{root.name}/{path.relative_to(root)}"] = path.name.encode()
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/?download=zip"),
+        "",
+        document_root=root,
+        show_indexes=True,
+    )
+    root_lookups = []
+
+    def observe(code, offset, callee, arg0):
+        if callee is os.lstat and Path(arg0) == root:
+            root_lookups.append(str(arg0))
+
+    tool_id = next(tool for tool in range(6) if sys.monitoring.get_tool(tool) is None)
+    sys.monitoring.use_tool_id(tool_id, "zip-ancestor-lookups")
+    sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, observe)
+    sys.monitoring.set_events(tool_id, sys.monitoring.events.CALL)
+    try:
+        body = b"".join(response.streaming_content)
+    finally:
+        response.close()
+        sys.monitoring.set_events(tool_id, 0)
+        sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, None)
+        sys.monitoring.free_tool_id(tool_id)
+    with zipfile.ZipFile(io.BytesIO(body)) as archive:
+        assert {name: archive.read(name) for name in archive.namelist()} == expected
+    assert len(root_lookups) == 2, root_lookups
+
+
 def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
     from django.core.exceptions import SuspiciousFileOperation
     from archivebox.misc.serve_static import _resolve_archive_path
@@ -784,10 +826,11 @@ def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
     (tmp_path / "Documents").mkdir()
     saved = tmp_path / "Documents" / "Note.txt"
     saved.write_text("inside root")
-    resolved, relative = _resolve_archive_path(tmp_path, "documents/note.TXT")
+    resolved, relative, root = _resolve_archive_path(tmp_path, "documents/note.TXT")
     assert resolved.read_text() == "inside root"
     assert resolved.is_relative_to(tmp_path)
     assert relative.casefold() == "documents/note.txt"
+    assert root == tmp_path.resolve()
     with pytest.raises(SuspiciousFileOperation):
         _resolve_archive_path(tmp_path, "../DOCUMENTS/note.TXT")
 
@@ -861,6 +904,89 @@ def test_directory_index_reads_each_entry_metadata_once(tmp_path):
         target = f"{path.name}/?files=1" if path == folder else path.name
         assert f'href="{target}"'.encode() in response.content
     assert metadata_reads == dict.fromkeys(paths, 1), metadata_reads
+
+
+@pytest.mark.parametrize("linked_root", [False, True])
+def test_directory_index_resolves_document_root_once(tmp_path, linked_root):
+    import os
+    import sys
+
+    root = tmp_path / "outputs"
+    root.mkdir()
+    root = root.resolve()
+    (root / "note.txt").write_text("captured")
+    document_root = root
+    if linked_root:
+        document_root = tmp_path / "storage-link"
+        document_root.symlink_to(root, target_is_directory=True)
+    root_lookups = []
+
+    def observe(code, offset, callee, arg0):
+        if callee is os.lstat and Path(arg0) == root:
+            root_lookups.append(str(arg0))
+
+    tool_id = next(tool for tool in range(6) if sys.monitoring.get_tool(tool) is None)
+    sys.monitoring.use_tool_id(tool_id, "replay-root-lookups")
+    sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, observe)
+    sys.monitoring.set_events(tool_id, sys.monitoring.events.CALL)
+    try:
+        response = serve_static_with_byterange_support(
+            RequestFactory().get("/?files=1"),
+            "",
+            document_root=document_root,
+            show_indexes=True,
+        )
+    finally:
+        sys.monitoring.set_events(tool_id, 0)
+        sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, None)
+        sys.monitoring.free_tool_id(tool_id)
+    assert response.status_code == 200
+    assert b'href="note.txt"' in response.content
+    assert len(root_lookups) == 1, root_lookups
+
+
+def test_missing_plugin_replay_roots_do_not_resolve_ancestors(tmp_path):
+    import os
+    import sys
+    from archivebox.plugins.discovery import get_plugin_replay_roots
+
+    root = tmp_path.resolve()
+    calls = []
+
+    def observe(code, offset, callee, arg0):
+        if callee in (os.stat, os.lstat) and isinstance(arg0, (str, os.PathLike)):
+            path = Path(arg0)
+            if path.is_relative_to(root):
+                calls.append((callee.__name__, path.relative_to(root).as_posix()))
+
+    tool_id = next(tool for tool in range(6) if sys.monitoring.get_tool(tool) is None)
+    sys.monitoring.use_tool_id(tool_id, "replay-provider-lookups")
+    sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, observe)
+    sys.monitoring.set_events(tool_id, sys.monitoring.events.CALL)
+    try:
+        roots = list(get_plugin_replay_roots(root, "https://example.com/"))
+    finally:
+        sys.monitoring.set_events(tool_id, 0)
+        sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, None)
+        sys.monitoring.free_tool_id(tool_id)
+    assert roots == []
+    assert sorted(calls) == [("stat", "responses/example.com"), ("stat", "wget/example.com")], calls
+
+
+@pytest.mark.parametrize("target_kind", ["inside", "outside", "missing"])
+def test_plugin_replay_root_symlinks_remain_contained(tmp_path, target_kind):
+    from archivebox.plugins.discovery import get_plugin_replay_roots
+
+    root = tmp_path / "snapshot"
+    (root / "responses").mkdir(parents=True)
+    inside = root / "captured"
+    inside.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = {"inside": inside, "outside": outside, "missing": root / "missing"}[target_kind]
+    alias = root / "responses/example.com"
+    alias.symlink_to(target, target_is_directory=True)
+    assert list(get_plugin_replay_roots(root, "https://example.com/")) == ([alias] if target_kind == "inside" else [])
 
 
 @pytest.mark.parametrize("use_asgi", [False, True])

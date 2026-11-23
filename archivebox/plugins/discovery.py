@@ -418,7 +418,7 @@ def rewrite_plugin_replay_document(
 def get_plugin_replay_roots(snapshot_root: Path, url: str):
     """Yield existing provider URL roots inside an authorized snapshot."""
     snapshot_root = Path(snapshot_root)
-    contained_root = snapshot_root.resolve()
+    contained_root = None
     seen = set()
     for module in get_plugin_presentation_modules():
         hook = getattr(module, "replay_roots", None)
@@ -436,12 +436,20 @@ def get_plugin_replay_roots(snapshot_root: Path, url: str):
             ):
                 raise ValueError(f"{module.__name__}: invalid replay root: {relative!r}")
             root = snapshot_root / relative
+            if root in seen:
+                continue
+            seen.add(root)
             try:
-                available = root.resolve().is_relative_to(contained_root) and root.is_dir()
+                # Missing providers are common on replay asset fallbacks. One
+                # stat proves absence without lstat-ing every ancestor first.
+                if not root.is_dir():
+                    continue
+                if contained_root is None:
+                    contained_root = snapshot_root.resolve()
+                available = root.resolve().is_relative_to(contained_root)
             except (OSError, RuntimeError):
                 continue
-            if root not in seen and available:
-                seen.add(root)
+            if available:
                 yield root
 
 

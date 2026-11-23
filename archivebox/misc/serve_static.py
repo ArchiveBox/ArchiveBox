@@ -104,15 +104,18 @@ def _resolve_contained_path(root: Path, path: Path) -> Path:
     return resolved
 
 
-def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str]:
+def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str, Path]:
+    """Return the contained output, URL path, and canonical document root."""
     rel_path = posixpath.normpath(rel_path).lstrip("/") if rel_path else ""
     if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
         raise Http404("Browser runtime files are not archive outputs")
     root = Path(document_root).resolve()
+    if not rel_path:
+        return root, rel_path, root
     # safe_join rejects lexical traversal; it does not inspect symlink targets.
     fullpath = _resolve_contained_path(root, Path(safe_join(root, rel_path)))
     if os.access(fullpath, os.R_OK):
-        return fullpath, rel_path
+        return fullpath, rel_path, root
 
     # Case-insensitive fallback selects different filesystem entries, so each
     # selected component needs validation before we descend into it.
@@ -131,13 +134,13 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         except OSError:
             match = None
         if match is None:
-            return fullpath, rel_path
+            return fullpath, rel_path, root
 
         current = _resolve_contained_path(root, match)
         resolved_parts.append(match.name)
 
     resolved_path = posixpath.join(*resolved_parts) if resolved_parts else ""
-    return current, resolved_path
+    return current, resolved_path, root
 
 
 def _cache_policy(config=None, **config_kwargs) -> str:
@@ -190,15 +193,26 @@ def _iter_visible_files(root: Path):
     root = root.resolve()
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
+        directory = Path(current_root)
+        try:
+            if directory != root:
+                directory = _resolve_contained_path(root, directory)
+        except Http404:
+            dirnames[:] = []
+            continue
         for filename in sorted(name for name in filenames if not name.startswith(".")):
-            entry = Path(current_root) / filename
+            entry = directory / filename
             # os.walk skips directory links but still yields file links; ZIP
             # creation must not dereference those into files outside this tree.
+            # As for directory listings, ordinary files need only one lstat;
+            # resolving every file repeats the complete FUSE ancestor walk.
             try:
-                resolved = _resolve_contained_path(root, entry)
-            except Http404:
+                metadata = entry.lstat()
+                if stat.S_ISLNK(metadata.st_mode):
+                    metadata = _resolve_contained_path(root, entry).stat()
+            except (Http404, OSError):
                 continue
-            if resolved.is_file():
+            if stat.S_ISREG(metadata.st_mode):
                 yield entry
 
 
@@ -346,7 +360,8 @@ def _render_directory_index(
     visible_entries = []
     # Resolve the containing directory once. Re-resolving every ordinary
     # entry repeats all ancestor lstat calls against remote/FUSE storage.
-    fullpath = _resolve_contained_path(document_root, fullpath)
+    if fullpath != document_root:
+        fullpath = _resolve_contained_path(document_root, fullpath)
     with os.scandir(fullpath) as directory:
         for entry in directory:
             if entry.name.startswith("."):
@@ -903,7 +918,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if config is None:
         config = get_config(resolve_plugins=False)
     cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
-    fullpath, path = _resolve_archive_path(document_root, path)
+    fullpath, path, canonical_root = _resolve_archive_path(document_root, path)
     # Reuse this stat for response metadata after path validation; redundant
     # metadata reads can each cost a round trip on FUSE storage.
     readable = os.access(fullpath, os.R_OK)
@@ -921,7 +936,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             return response
         if show_indexes:
-            response = _render_directory_index(request, path, fullpath, Path(document_root).resolve())
+            response = _render_directory_index(request, path, fullpath, canonical_root)
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             response.headers["Last-Modified"] = http_date(statobj.st_mtime)
             return _apply_archive_replay_headers(
