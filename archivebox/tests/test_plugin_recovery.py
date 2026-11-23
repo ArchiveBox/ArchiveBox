@@ -11,19 +11,19 @@ from archivebox.plugins.discovery import get_plugin_catalog
 from archivebox.tests.conftest import cli_env, resolve_abxpkg_chrome_env, run_archivebox_cmd, wait_for_pid_to_disappear
 
 
-def test_recovery_logs_real_plugin_failure_with_traceback(initialized_archive, tmp_path):
-    blocked_library = tmp_path / "blocked-library"
-    blocked_library.write_text("This is a file, not a package library directory.")
+def test_recovery_logs_real_plugin_failure_with_traceback(initialized_archive):
     script = """
 import json
 import logging
 import os
-from pathlib import Path
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.recovery_util import recover_orchestrator_state
 
 (CONSTANTS.USERS_DIR / 'recovery-test' / 'crawls').mkdir(parents=True, exist_ok=True)
-os.environ['ABXPKG_LIB_DIR'] = os.environ['RECOVERY_BLOCKED_LIBRARY']
+# Invalid provider selection fails in the real abxpkg CLI on every platform.
+# A missing/broken package library can instead produce a successful no-op
+# recovery when Chrome has no available Node runtime.
+os.environ['ABXPKG_BINPROVIDERS'] = 'unsupported-recovery-provider'
 records = []
 class Capture(logging.Handler):
     def emit(self, record):
@@ -42,15 +42,14 @@ assert record.levelno == logging.ERROR
 assert record.getMessage() == 'Plugin chrome recovery failed'
 assert record.exc_info is not None and record.exc_info[2] is not None
 assert record.exc_info[0].__name__ == 'CalledProcessError'
-assert record.exc_info[1].returncode != 0
-assert Path(os.environ['RECOVERY_BLOCKED_LIBRARY']).name in record.exc_info[1].stderr, record.exc_info[1].stderr
-assert '[Errno 20] Not a directory' in record.exc_info[1].stderr
+assert record.exc_info[1].returncode == 2
+assert 'unknown provider name(s): unsupported-recovery-provider' in record.exc_info[1].stderr, record.exc_info[1].stderr
 print(json.dumps(result))
 """
     result = run_archivebox_cmd(
         ["shell", "-c", script],
         cwd=initialized_archive,
-        env=cli_env(RECOVERY_BLOCKED_LIBRARY=str(blocked_library)),
+        env=cli_env(),
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
