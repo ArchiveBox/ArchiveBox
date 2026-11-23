@@ -384,7 +384,7 @@ for enabled in [False, True]:
     transactions = [payload for kind, payload in items if kind == "transaction"]
     assert not any(item["transaction"] in {"SELECT", "INSERT", "UPDATE", "DELETE", "BEGIN"} for item in transactions)
     assert not any(
-        discarded["reason"] == "queue_overflow"
+        discarded["reason"] in {"queue_overflow", "buffer_overflow"}
         for kind, report in items
         if kind == "client_report"
         for discarded in report["discarded_events"]
@@ -393,6 +393,13 @@ for enabled in [False, True]:
     assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_type"] == "InstallEvent"
     assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_bus.name"] == "ArchiveBox_install"
     assert any("BinaryRequestEvent" in span["description"] for span in install_trace["spans"])
+    crawl_traces = [item for item in transactions if item["transaction"].endswith(".emit(CrawlEvent)")]
+    assert crawl_traces
+    crawl_spans = [span for item in crawl_traces for span in item["spans"]]
+    assert any(".emit(SnapshotEvent)" in span["description"] for span in crawl_spans)
+    assert any(".emit(ProcessEvent)" in span["description"] for span in crawl_spans)
+    crawl_trace_ids = {item["contexts"]["trace"]["trace_id"] for item in crawl_traces}
+    assert any(item["trace_id"] in crawl_trace_ids for item in hook_logs)
     server_requests = [item for item in transactions if item["contexts"]["trace"]["op"] == "http.server"]
     assert any("admin/login" in item["transaction"] for item in server_requests), sorted({item["transaction"] for item in transactions})
     assert any(span["op"] == "db" and "SELECT" in span["description"] for item in server_requests for span in item["spans"])
