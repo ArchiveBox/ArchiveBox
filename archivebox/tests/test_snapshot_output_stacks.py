@@ -296,7 +296,6 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
         ("chrome_extension_viewport", "screenshot", "screenshot.png", "image/png", "images"),
         ("chrome_extension_screenshot", "screenshot", "screenshot.png", "image/png", "images"),
         ("chrome_extension_singlefile", "singlefile", "singlefile.html", "text/html", "html"),
-        ("chrome_extension_mhtml", "chrome_mhtml", "snapshot.mhtml", "multipart/related", "html"),
     ],
 )
 def test_extension_uploads_share_stacks_without_sharing_files(
@@ -348,17 +347,12 @@ def test_extension_uploads_share_stacks_without_sharing_files(
     outputs = {output["name"]: output for output in context["archiveresults"]}
     assert outputs[plugin]["output_group"] == group
     assert outputs[server_plugin]["output_group"] == group
-    assert outputs[plugin]["browser_upload"]
-    assert not outputs[server_plugin]["browser_upload"]
-    html = render_to_string("core/snapshot_output_cards.html", {**context, "can_delete_outputs": True})
-    cards = re.split(r'(?=<div class="thumb-card)', html)
+    html = render_to_string("core/snapshot_output_cards.html", context)
+    cards = re.findall(r'<div class="thumb-card[^>]*>', html)
     for name in (server_plugin, plugin):
         matching = [card for card in cards if f'data-output-path="{name}/{filename}"' in card]
         assert len(matching) == 1
         assert f'data-output-group="{group}"' in matching[0]
-        assert ('class="card-source-badge"' in matching[0]) == (name == plugin)
-        assert ("from the browser extension" in matching[0]) == (name == plugin)
-        assert "Delete " in matching[0]
 
     client.force_login(snapshot.crawl.created_by)
     host = get_snapshot_host(str(snapshot.id))

@@ -4796,10 +4796,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
             result = output.get("result")
-            output["browser_upload"] = bool(
-                name.startswith("chrome_extension_")
-                or (result is not None and result.hook_name == self.BROWSER_EXTENSION_UPLOAD_HOOK_NAME),
-            )
             output_path = str(output["path"])
             # Discovery already resolved this card's path from its manifest.
             # Folder links need only its plugin root or legacy parent folder.
