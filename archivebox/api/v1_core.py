@@ -18,7 +18,7 @@ from django.db import IntegrityError
 from django.db.models import Model, Q
 from django.http import HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
-from django.core.exceptions import ValidationError
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
@@ -1230,24 +1230,23 @@ def get_any(request: HttpRequest, id: str):
     setattr(request, "with_snapshots", False)
     setattr(request, "with_archiveresults", False)
 
-    for getter in [get_snapshot, get_archiveresult, get_tag]:
+    from archivebox.api.v1_crawls import get_crawl
+
+    for getter in [get_snapshot, get_archiveresult, get_tag, get_crawl]:
         try:
             response = getter(request, id)
-            if isinstance(response, Model):
-                return redirect(
-                    f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}",
-                )
-        except Exception:
-            pass
-
-    try:
-        from archivebox.api.v1_crawls import get_crawl
-
-        response = get_crawl(request, id)
+        except (ObjectDoesNotExist, MultipleObjectsReturned):
+            # A partial reference may miss or be ambiguous for one model but
+            # uniquely identify another. Operational failures are not misses.
+            continue
+        except HttpError as error:
+            if error.status_code != 404:
+                raise
+            continue
         if isinstance(response, Model):
-            return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}")
-    except Exception:
-        pass
+            return redirect(
+                f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}",
+            )
 
     raise HttpError(404, "Object with given ID not found")
 
