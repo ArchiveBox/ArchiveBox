@@ -283,6 +283,8 @@ def run_db_optimize() -> None:
     SQLite's optimize policy considers missing statistics and substantial size
     changes, with its own temporary sampling limit on SQLite 3.46 and newer.
     Needed analyses can still require index-page reads in some SQLite builds.
+    Older SQLite may ignore unsupported optimize flags; this is best effort
+    and must not impose a newer SQLite requirement or force an ANALYZE scan.
     PostgreSQL owns its statistics through autovacuum/autoanalyze.
     """
     from django.db import connection
