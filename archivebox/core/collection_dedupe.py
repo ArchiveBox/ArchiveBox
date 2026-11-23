@@ -58,18 +58,17 @@ def replace(source, dest, unsupported):
     pair = (src.st_dev, dst.st_dev)
     with tempfile.TemporaryDirectory(dir=dest.parent, prefix=".dedupe-") as stage:
         tmp = Path(stage) / "file"
-        for method in ("hardlink", "clone", "symlink"):
+        # If neither method works, keep the independent copy. A symlink
+        # would lose its bytes when the backing snapshot is purged.
+        for method in ("hardlink", "clone"):
             if (*pair, method) in unsupported:
                 continue
             try:
                 if method == "hardlink":
                     os.link(source, tmp)
-                elif method == "clone":
+                else:
                     clone(source, tmp)
                     shutil.copystat(dest, tmp)
-                else:
-                    # Relative to the link's final directory.
-                    tmp.symlink_to(os.path.relpath(source, dest.parent))
             except OSError as err:
                 tmp.unlink(missing_ok=True)
                 if err.errno in (errno.ENOTSUP, errno.ENOSYS, errno.EXDEV, errno.ENOTTY):
