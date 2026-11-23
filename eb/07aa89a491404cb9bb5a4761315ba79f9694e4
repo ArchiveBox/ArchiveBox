@@ -1,0 +1,19 @@
+archivebox/tests/test_snapshot_domains.py
+  s_302d4b0601e736::t_f2da5e79ba4007 365-396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb07aa89a491404cb9bb5a4761315ba79f9694e4",
+  "prompts": {},
+  "sessions": {
+    "s_302d4b0601e736": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de8f-9c43-7260-ae87-c39ab9e64f12",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
