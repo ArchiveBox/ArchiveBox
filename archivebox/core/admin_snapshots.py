@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext
 from django.db.models import Count, Prefetch
 from django import forms
 from django.template import Context, Template, RequestContext
@@ -295,12 +296,16 @@ class SnapshotChangeList(SearchResultsChangeList):
         size = self.list_max_show_all if self.show_all else self.list_per_page
         queryset_ids = self.queryset.values_list("pk", flat=True)
         root_ids = self.root_queryset.values_list("pk", flat=True)
+        domain_count = None
+        if request.GET.get("domain") and (not self.query or getattr(request, "_archivebox_search_complete", False)):
+            # Reuse the exact indexed count to choose the smaller paging scope.
+            domain_count = self.queryset.order_by().values("pk").count()
 
         def read_page(offset, limit):
             cached_page = cached_search_rank_page(request, start=offset, size=limit)
             if cached_page is not None:
                 return cached_page
-            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit)
+            return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=domain_count)
 
         page_ids = read_page(0 if self.show_all else start, size + 1)
         if self.show_all and len(page_ids) > size:
@@ -317,10 +322,10 @@ class SnapshotChangeList(SearchResultsChangeList):
         observed = start + len(page_ids)
         self.result_count_exact = len(page_ids) <= size
         count = observed
-        if request.GET.get("domain") and (not self.query or getattr(request, "_archivebox_search_complete", False)):
+        if domain_count is not None:
             # Domain equality/ranges use the reversed-domain index. Count the
             # complete filtered scope, including any additional admin filters.
-            count = self.queryset.order_by().values("pk").count()
+            count = domain_count
             self.result_count_exact = True
         # Other queries retain the lookahead lower bound for next/previous links.
         self.queryset.query._archivebox_count_hint = count
@@ -547,6 +552,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return field
 
     list_per_page = 50
+
+    def action_checkbox(self, obj):
+        # Django's fixed action widget needs no per-row template/context build.
+        # Keep its field name, attributes, translated label and escaping intact.
+        return format_html(
+            '<input type="checkbox" name="{}" value="{}" class="action-select" aria-label="{}">',
+            admin.helpers.ACTION_CHECKBOX_NAME,
+            str(obj.pk),
+            gettext("Select this object for an action - {}").format(str(obj)),
+        )
 
     @admin.display(description="Date", ordering="created_at")
     def created_at_display(self, obj):
@@ -936,7 +951,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 (
                     " is-active" if choice_value == permissions else "",
                     choice_value,
-                    render_permission_icon(choice_value),
+                    SNAPSHOT_PERMISSION_META[choice_value][0],
                     choice_label,
                 )
                 for choice_value, choice_label in PERMISSIONS_CHOICES
@@ -954,7 +969,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             permissions,
             label,
             label,
-            render_permission_icon(permissions),
+            icon,
             menu_items,
         )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import json
 import os
 import sqlite3
 import threading
@@ -10,6 +11,38 @@ import re
 
 from django.db.backends.sqlite3.base import DatabaseWrapper as DjangoSQLiteDatabaseWrapper
 from django.db.backends.sqlite3.base import SQLiteCursorWrapper as DjangoSQLiteCursorWrapper
+
+
+def _has_saved_output(manifest):
+    """Match the icon EXISTS query without parsing unneeded manifest entries.
+
+    JSONField's database constraint already validates the complete JSON. Decode
+    keys and skip only excluded values; an opening brace establishes object
+    metadata for the first real file without decoding the rest of the document.
+    """
+    if manifest == "{}":
+        return None  # Legacy results may instead have only an output_str path.
+    if not manifest:
+        return False
+    index = 0
+    while manifest[index] in " \t\r\n":
+        index += 1
+    if manifest[index] != "{":
+        value = json.loads(manifest)
+        return isinstance(value, list) and any(isinstance(item, dict) for item in value)
+    index += 1
+    decode = json.JSONDecoder().raw_decode
+    while True:
+        while manifest[index] in " \t\r\n,":
+            index += 1
+        if manifest[index] == "}":
+            return False
+        key, index = decode(manifest, index)
+        while manifest[index] in " \t\r\n:":
+            index += 1
+        if manifest[index] == "{" and not key.lower().endswith((".pid", ".log", ".sh")):
+            return True
+        _value, index = decode(manifest, index)
 
 
 def _sqlite_lock_retry_timeout() -> float:
@@ -195,6 +228,7 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
         conn.create_function("archivebox_domain_authority", 1, domain_authority_from_key, deterministic=True)
         conn.create_function("archivebox_domain_label", 1, domain_label_from_key, deterministic=True)
         conn.create_function("archivebox_reversed_domain", 1, domain_key_from_url, deterministic=True)
+        conn.create_function("archivebox_has_saved_output", 1, _has_saved_output, deterministic=True)
         if self._idle_pool_key is not None:
             self._connection_file_identity = _database_file_identity(conn_params["database"])
         return conn

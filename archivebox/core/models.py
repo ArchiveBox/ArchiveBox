@@ -5645,7 +5645,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     if resolved_path:
                         return resolved_path
 
-        output_file_paths = list(output_file_map.keys())
+        # OutputManifest orders paths lexically; JSONB key order does not.
+        # Keep fallback names and equal-size ties identical on both databases.
+        output_file_paths = sorted(output_file_map)
         if output_file_paths:
             fallback_path = cls._fallback_output_file_path(output_file_paths, plugin, output_file_map)
             if fallback_path:

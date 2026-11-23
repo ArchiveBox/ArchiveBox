@@ -191,9 +191,9 @@ def test_nullable_smart_folder_sort_uses_bounded_order_index(admin_client, admin
         response = admin_client.get("/admin/core/snapshot/", {"folder": folder.pk, "p": page}, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     assert [snapshot.pk for snapshot in response.context["cl"].result_list] == expected
-    probes = [query["sql"] for query in queries if 'FROM "core_snapshot" ORDER BY' in query["sql"] and "LIMIT" in query["sql"]]
+    probes = [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and f"LIMIT {(start + 11) * 8})" in query["sql"]]
     assert len(probes) == 1, "Nullable sort fields must use the same bounded index probe as date ordering"
-    assert probes[0].endswith(f"LIMIT {(start + 11) * 8}")
+    assert "IN (SELECT" in probes[0], "Candidate IDs must remain inside SQL instead of being materialized and rebound in Python"
     assert "NULLS LAST" in probes[0]
     if connection.vendor == "sqlite":
         with connection.cursor() as cursor:

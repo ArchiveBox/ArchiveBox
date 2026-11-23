@@ -459,10 +459,19 @@ def test_domain_summary_later_pages_seek_id_range(admin_user):
     assert len(rows) == 1 and rows[0]["snapshot_count"] == len(pages)
     assert len(queries) == 2
     with connection.cursor() as cursor:
-        cursor.execute("EXPLAIN QUERY PLAN " + queries[1]["sql"])
+        if connection.vendor == "postgresql":
+            # Give the planner real cardinalities for the freshly inserted rows.
+            cursor.execute("ANALYZE core_snapshot")
+            cursor.execute("ANALYZE crawls_crawl")
+        explain = "EXPLAIN QUERY PLAN " if connection.vendor == "sqlite" else "EXPLAIN "
+        cursor.execute(explain + queries[1]["sql"])
         plan = " ".join(str(row[-1]) for row in cursor.fetchall())
-    assert "(id>?)" in plan, plan
-    assert "IN-OPERATOR" not in plan, plan
+    if connection.vendor == "sqlite":
+        assert "(id>?)" in plan, plan
+        assert "IN-OPERATOR" not in plan, plan
+    else:
+        assert "Index Cond: (id >" in plan, plan
+        assert "SubPlan" not in plan, plan
 
 
 def test_domain_summary_deduplicates_filtered_tag_joins(admin_user):

@@ -15,6 +15,8 @@ descriptors) for every row, plus decoding manifests nothing renders. Here:
   and multi-hook groups. Plugin icons link to detail cards using status and stored
   size and a database existence check, without resolving a file. Other rows
   never transfer their manifests.
+- SQLite and PostgreSQL project explicit thumbnail/favicon paths to one metadata entry;
+  shared-file size deduplication and fallback path selection keep full manifests.
 
 List pages must never read the archive filesystem; nothing here does.
 """
@@ -43,6 +45,58 @@ if TYPE_CHECKING:
 _UNRESOLVED = object()
 
 
+class _LinkManifest(Func):
+    """Project an explicit output path; preserve the full manifest for fallback."""
+
+    output_field = TextField()
+    _whitespace = " \t\n\r\v\f\x1c\x1d\x1e\x1f\x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
+
+    def as_sql(self, compiler, connection, **extra_context):
+        return compiler.compile(Cast(self.source_expressions[0], output_field=TextField()))
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        manifest, manifest_params = compiler.compile(self.source_expressions[0])
+        plugin, plugin_params = compiler.compile(self.source_expressions[1])
+        output, output_params = compiler.compile(self.source_expressions[2])
+        # Match str.strip(), exact-key precedence and the resolver's traversal
+        # rejection. Text-output plugins and shared-file sizes bypass projection.
+        raw_path = "'$.' || json_quote(raw)"
+        alternate = "substr(raw, length(prefix) + 1)"
+        alternate_path = f"'$.' || json_quote({alternate})"
+        sql = f"""(SELECT CASE
+            WHEN substr(raw, 1, length(prefix)) = prefix
+                AND length(raw) > length(prefix)
+                AND instr('/' || raw || '/', '/../') = 0 THEN CASE
+                WHEN json_type({manifest}, {raw_path}) = 'object'
+                    THEN json_object(raw, json_extract({manifest}, {raw_path}))
+                WHEN json_type({manifest}, {alternate_path}) = 'object'
+                    THEN json_object({alternate}, json_extract({manifest}, {alternate_path}))
+                ELSE {manifest} END
+            ELSE {manifest} END
+            FROM (SELECT trim({output}, %s) AS raw, {plugin} || '/' AS prefix LIMIT 1)
+        )"""
+        return sql, [*manifest_params * 6, *output_params, self._whitespace, *plugin_params]
+
+    def as_postgresql(self, compiler, connection, **extra_context):
+        manifest, manifest_params = compiler.compile(self.source_expressions[0])
+        plugin, plugin_params = compiler.compile(self.source_expressions[1])
+        output, output_params = compiler.compile(self.source_expressions[2])
+        alternate = "substr(raw, length(prefix) + 1)"
+        sql = f"""(SELECT CASE
+            WHEN left(raw, length(prefix)) = prefix
+                AND length(raw) > length(prefix)
+                AND strpos('/' || raw || '/', '/../') = 0 THEN CASE
+                WHEN jsonb_typeof({manifest} -> raw) = 'object'
+                    THEN jsonb_build_object(raw, {manifest} -> raw)::text
+                WHEN jsonb_typeof({manifest} -> {alternate}) = 'object'
+                    THEN jsonb_build_object({alternate}, {manifest} -> {alternate})::text
+                ELSE {manifest}::text END
+            ELSE {manifest}::text END
+            FROM (SELECT btrim({output}, %s) AS raw, {plugin} || '/' AS prefix LIMIT 1) AS paths
+        )"""
+        return sql, [*manifest_params * 6, *output_params, self._whitespace, *plugin_params]
+
+
 class _HasSavedOutput(Func):
     """Stop at one saved file; hook scripts/logs alone are not captured output."""
 
@@ -58,7 +112,8 @@ class _HasSavedOutput(Func):
         )
 
     def as_sqlite(self, compiler, connection, **extra_context):
-        return self._sql(compiler, "json_each", "files.type = 'object'")
+        manifest, params = compiler.compile(self.source_expressions[0])
+        return f"archivebox_has_saved_output({manifest})", params
 
     def as_postgresql(self, compiler, connection, **extra_context):
         return self._sql(compiler, "jsonb_each", "jsonb_typeof(files.value) = 'object'")
@@ -179,7 +234,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
     Embed paths and each snapshot's thumbnail card are resolved here, from the
     same rows, so rendering never queries per snapshot or per result.
     """
-    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order
+    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, plugin_output_is_text
     from archivebox.plugins.output_groups import snapshot_thumbnail_result
 
     snapshots_by_hex = {snapshot.id.hex: snapshot for snapshot in snapshots}
@@ -194,6 +249,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
         status=ArchiveResult.StatusChoices.SUCCEEDED,
         plugin__in=get_snapshot_role_names("list_icon"),
     )
+    path_plugins = [name for name in set(card_plugins) | set(get_snapshot_role_names("list_icon")) if not plugin_output_is_text(name)]
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
         # Probe the existing (snapshot, plugin, hook) index only when needed.
@@ -218,7 +274,9 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             "output_size",
             "output_str",
             Case(
-                When(links_output | Q(has_sibling_result=True), then=Cast("output_files", output_field=TextField())),
+                When(has_sibling_result=True, then=Cast("output_files", output_field=TextField())),
+                When(links_output & Q(plugin__in=path_plugins), then=_LinkManifest("output_files", "plugin", "output_str")),
+                When(links_output, then=Cast("output_files", output_field=TextField())),
                 default=Value(None),
                 output_field=TextField(),
             ),

@@ -10,6 +10,7 @@ thumbnail selection and exact shared-file sizes still use full model metadata.
 """
 
 import re
+import json
 from datetime import timedelta
 from html import unescape
 
@@ -37,6 +38,138 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST, WEB_TEST_HOST
 pytestmark = pytest.mark.django_db
 
 BIG_MANIFEST_ENTRIES = 3000
+
+
+def test_icon_existence_query_matches_stored_manifest_entries(list_collection):
+    from archivebox.core.list_results_util import _HasSavedOutput
+
+    snapshot = list_collection[0]
+    cases = [
+        {},
+        {"stdout.log": {}},
+        {"hook.SH": {}, "hook.pid": {}},
+        {"hook.sh": {"message": 'commas, braces }{ and \\" quotes'}, "source.py": {}},
+        {"bad.json": None, "array.json": [], "number": 42, "bool": True},
+        {'escaped"name.json': {}, "later.log": {}},
+        {"é.json": {}},
+        {"only.log/": {}},
+        {"file.log.gz": {}},
+        {"first.py": {}, **{f"later/{i}.json": {"size": i} for i in range(BIG_MANIFEST_ENTRIES)}},
+    ]
+    for index, files in enumerate(cases):
+        ArchiveResult.objects.create(snapshot=snapshot, plugin="manifest_check", hook_name=str(index), output_files=files)
+    rows = ArchiveResult.objects.filter(snapshot=snapshot).values_list("output_files", _HasSavedOutput("output_files"))
+    for files, actual in rows:
+        expected = (
+            None
+            if not files
+            else any(isinstance(value, dict) and not key.lower().endswith((".pid", ".log", ".sh")) for key, value in files.items())
+        )
+        assert actual == expected
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT archivebox_has_saved_output(output_files), CASE WHEN output_files = '{}' THEN NULL ELSE EXISTS ("
+                "SELECT 1 FROM json_each(output_files) AS files WHERE files.type = 'object' "
+                "AND LOWER(files.key) NOT LIKE %s AND LOWER(files.key) NOT LIKE %s AND LOWER(files.key) NOT LIKE %s) END "
+                "FROM core_archiveresult WHERE snapshot_id = %s",
+                ["%.pid", "%.log", "%.sh", snapshot.pk.hex],
+            )
+            values = cursor.fetchall()
+        assert len(values) >= len(cases)
+        assert all(actual == expected for actual, expected in values)
+
+
+@pytest.mark.parametrize("language", ["en", "fr", "de"])
+def test_admin_action_checkbox_matches_native_widget(snapshot, language):
+    from django.contrib.admin import ModelAdmin, AdminSite
+    from django.utils.translation import override
+    from archivebox.core.admin_snapshots import SnapshotAdmin
+
+    snapshot.title = 'Quotes " & <tags> and café'
+    snapshot.url = 'https://example.com/?q="&x=<x>'
+    site = AdminSite()
+    with override(language):
+        expected = str(ModelAdmin(Snapshot, site).action_checkbox(snapshot))
+        actual = str(SnapshotAdmin(Snapshot, site).action_checkbox(snapshot))
+    assert actual == expected
+
+
+def test_thumbnail_query_selects_explicit_file_without_transferring_other_assets(client, admin_user, list_collection):
+    snapshot = list_collection[0]
+    result = snapshot.archiveresult_set.get(plugin="responses")
+    result.output_str = "responses/all/20261012T000001__GET__article.html"
+    result.save(update_fields=["output_str"])
+    expected, card_id, sizes = _expected_links(snapshot)
+    client.force_login(admin_user)
+    url = reverse("admin:core_snapshot_changelist")
+    assert client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+    with CaptureQueriesContext(connection) as captured:
+        response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    row = _row(response.content.decode(), f'value="{snapshot.pk}"')
+    assert _rendered_fragments(row) == expected
+    assert f"_card/{card_id}" in row
+    manifest = _manifests_shipped(captured.captured_queries)[("responses", "succeeded")]
+    assert json.loads(manifest) == {
+        "all/20261012T000001__GET__article.html": result.output_files["all/20261012T000001__GET__article.html"],
+    }
+    assert sizes["responses"] == result.output_size
+
+
+@pytest.mark.parametrize(
+    ("output", "files"),
+    [
+        ("responses/", {"responses/": {"root_relative": True}, "index.html": {"size": 2}}),
+        ("responses/README", {"README": {"size": 1, "root_relative": True}, "index.html": {"size": 2}}),
+        ("\u2003responses/README\u2003", {"README": {"size": 1}, "index.html": {"size": 2}}),
+        ("responses/index.html", {"responses/index.html": {"size": 1, "root_relative": True}, "index.html": {"size": 2}}),
+        ("README", {"responses/README": {"size": 1}}),
+        ("responses/missing.pdf", {"source.py": {"size": 1}}),
+        ("responses/legacy.pdf", {}),
+        ("directory", {"a/INDEX.HTML/": {"size": 1}, "index.html": {"size": 2}}),
+        ("directory", {"docs/é.html": {"size": 2}, "tie.html": {"size": 2}}),
+        ("directory", {"first.pdf": {"size": "4"}, "last.pdf": {"size": 5}}),
+        ("responses/../private.txt", {"../private.txt": {"size": 1}, "index.html": {"size": 2}}),
+        ("directory", {"index.html": None, "index.pdf": {"size": 1}}),
+        ('responses/a"b.html', {'a"b.html': {"size": 1}, "index.html": {"size": 2}}),
+    ],
+)
+def test_thumbnail_projection_preserves_path_resolution(snapshot, output, files):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="responses",
+        status="succeeded",
+        output_str=output,
+        output_files=files,
+        output_size=10,
+    )
+    result.refresh_from_db()
+    expected = ArchiveResult.resolve_embed_path("responses", output, result.output_files)
+    summary = load_snapshot_list_results([snapshot])[snapshot.pk]
+    assert summary.results[0].id == str(result.pk)
+    assert summary.results[0].embed_path() == expected
+    assert summary.output_sizes == {"responses": 10}
+
+
+def test_thumbnail_projection_keeps_shared_file_sizes(list_collection):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    snapshot = list_collection[0]
+    first = snapshot.archiveresult_set.get(plugin="responses")
+    first.output_str = "responses/all/20261012T000001__GET__article.html"
+    first.save(update_fields=["output_str"])
+    _result(
+        snapshot,
+        "responses",
+        hook="99",
+        output_str="responses/new.html",
+        output_files={"new.html": {"size": 50}, **first.output_files},
+    )
+    summary = load_snapshot_list_results([snapshot])[snapshot.pk]
+    assert summary.output_sizes["responses"] == first.output_size + 50
+    assert all(len(json.loads(row.output_files_json)) >= BIG_MANIFEST_ENTRIES for row in summary.results if row.plugin == "responses")
 
 
 @pytest.mark.parametrize("plugin", ["git", "wget", "liteparse", "headers", "dns", "hashes"])
@@ -130,6 +263,14 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
             page.locator('[name="username"]').fill(admin_user.username)
             page.locator('[name="password"]').fill("testpassword")
             page.get_by_role("button", name="Log in", exact=True).click()
+            checkbox = page.locator("#result_list input.action-select")
+            checkbox.check()
+            expect(checkbox).to_be_checked()
+            checkbox.uncheck()
+            page.locator("#action-toggle").check()
+            expect(checkbox).to_be_checked()
+            page.locator("#action-toggle").uncheck()
+            expect(checkbox).not_to_be_checked()
             for result in results:
                 page.goto(listing)
                 pile = page.locator(".files-icon-pile").filter(has=page.locator(f".files-icon-plugin--{result.plugin}"))

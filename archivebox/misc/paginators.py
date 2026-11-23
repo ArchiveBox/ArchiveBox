@@ -25,7 +25,7 @@ class AcceleratedPaginator(Paginator):
         return super().count
 
 
-def snapshot_page(queryset, *, base_queryset, start, size):
+def snapshot_page(queryset, *, base_queryset, start, size, count=None):
     """Read a page plus lookahead, probing the existing order index first.
 
     Folder/status indexes can make SQLite sort a million matching rows before
@@ -33,6 +33,11 @@ def snapshot_page(queryset, *, base_queryset, start, size):
     sparse queries fall back to their own indexes. The original queryset remains
     untouched for exports and select-across actions.
     """
+    # If an indexed exact count is already available, a small filtered scope
+    # needs no speculative scan of unrelated rows. This is bounded by the same
+    # maximum 1,000 * 8 candidates as the order-index probe below.
+    if count is not None and count <= 8000:
+        return list(queryset[start : start + size])
     ordering = queryset.query.order_by or queryset.model._meta.ordering
     fields = {field.name for field in queryset.model._meta.concrete_fields} | {"pk"}
     if (
@@ -44,7 +49,9 @@ def snapshot_page(queryset, *, base_queryset, start, size):
             for field in ordering
         )
     ):
-        candidates = list(queryset.model.objects.order_by(*ordering).values_list("pk", flat=True)[: (start + size) * 8])
+        # Keep the bounded IDs inside SQL; hydrating and rebinding thousands of
+        # UUIDs cost more than the index probe itself.
+        candidates = queryset.model.objects.order_by(*ordering).values_list("pk", flat=True)[: (start + size) * 8]
         page = list(
             base_queryset.filter(pk__in=candidates)
             .filter(Exists(queryset.filter(pk=OuterRef("pk"))))
