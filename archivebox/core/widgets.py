@@ -144,7 +144,8 @@ class TagEditorWidget(forms.Widget):
             elif isinstance(value, str):
                 tags = sorted([t.strip() for t in value.split(",") if t.strip()])
 
-        widget_id_raw = attrs.get("id", name) if attrs else name
+        attrs = self.build_attrs(self.attrs, attrs)
+        widget_id_raw = attrs.get("id", name)
         widget_id = self._normalize_id(widget_id_raw)
 
         # Build pills HTML
@@ -170,7 +171,8 @@ class TagEditorWidget(forms.Widget):
                    id="{widget_id}_input"
                    class="tag-inline-input"
                    list="{widget_id}_datalist"
-                   placeholder="Add tag..." aria-label="Add tag"
+                   placeholder="{self._escape(attrs.get("placeholder", "Add tag..."))}"
+                   aria-label="{self._escape(attrs.get("aria-label", "Add tag"))}"
                    autocomplete="off"
                    onkeydown="handleTagKeydown_{widget_id}(event)"
                    onkeypress="if({str(not self.create_redirect).lower()} && (event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar')){{event.preventDefault(); event.stopPropagation();}}"

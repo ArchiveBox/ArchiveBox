@@ -84,7 +84,7 @@ class SnapshotActionForm(ActionForm):
         self.fields["tags"] = forms.CharField(
             label="",
             required=False,
-            widget=TagEditorWidget(),
+            widget=TagEditorWidget(attrs={"placeholder": "Edit tags...", "aria-label": "Edit tags"}),
         )
         self.fields["folder_destination"] = forms.ModelChoiceField(
             queryset=Folder.objects.destinations(),

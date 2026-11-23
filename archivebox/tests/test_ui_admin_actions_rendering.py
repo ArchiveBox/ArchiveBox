@@ -21,6 +21,7 @@ def test_snapshot_action_toolbar_is_server_rendered(admin_client, snapshot):
     assert buttons[0].xpath('.//select[@class="action-rearchive-select"]/option[@value="update_snapshots"]')
     assert buttons[0].xpath('.//select[@class="action-permissions-select"]/option[@value="private"]')
     assert toolbar.xpath('.//span[contains(@class, "actions-tags-with-buttons")][@hidden]/button[@name="add_tags"]')
+    assert toolbar.xpath('.//input[@class="tag-inline-input"]/@placeholder') == ["Edit tags..."]
 
 
 @pytest.mark.django_db(transaction=True)
