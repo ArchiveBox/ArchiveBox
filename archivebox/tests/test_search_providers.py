@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -12,8 +13,21 @@ from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.models import Snapshot
 from archivebox.search.interpreter import SnapshotSearch
+from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def ripgrep_search_config(cached_abxpkg_lib_dir):
+    # Resolve the real test dependency before the query's search budget starts.
+    binary_env = resolve_abxpkg_binary_env(
+        cached_abxpkg_lib_dir,
+        deps_from=Path(get_plugins_dir()) / "search_backend_ripgrep" / "config.json",
+    )
+    ripgrep = Path(binary_env["RIPGREP_BINARY"])
+    assert ripgrep.is_file()
+    return get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep", "RIPGREP_BINARY": str(ripgrep)})
 
 
 def output(snapshot, path, text):
@@ -134,21 +148,20 @@ def test_provider_failure_logs_real_command_and_stderr(crawl, caplog, tmp_path):
     assert errors[0].exc_info
 
 
-def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl):
+def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl, ripgrep_search_config):
     first = Snapshot.objects.create(crawl=crawl, url="https://reports.example/one")
     capped = Snapshot.objects.create(crawl=crawl, url="https://reports.example/two")
     outside = Snapshot.objects.create(crawl=crawl, url="https://unrelated.example/")
     output(first, "dom/output.html", "Orbit Alpha:Beta")
     output(capped, "dom/output.html", "x" * (512 * 1024) + "Orbit Alpha:Beta")
     output(outside, "dom/output.html", "Orbit Alpha:Beta")
-    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep"})
     scope = Snapshot.objects.filter(pk__in=[first.pk, capped.pk, outside.pk])
-    search = SnapshotSearch(scope, 'domain:reports.example (deep:"Orbit" AND deep:"Alpha:Beta")', config=config)
+    search = SnapshotSearch(scope, 'domain:reports.example (deep:"Orbit" AND deep:"Alpha:Beta")', config=ripgrep_search_config)
     assert list(search.stream()) == [first.pk]
     assert search.partial
     assert search.usage["bytes"] == len("Orbit Alpha:Beta") + 512 * 1024
     assert search.usage["files"] == 2
-    negative = SnapshotSearch(scope, 'domain:reports.example ~deep:"Heavy"', config=config)
+    negative = SnapshotSearch(scope, 'domain:reports.example ~deep:"Heavy"', config=ripgrep_search_config)
     assert list(negative.stream()) == [first.pk]
     assert negative.partial
 
@@ -344,8 +357,7 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             daemon.wait(timeout=10)
 
 
-def test_connected_search_reaches_late_snapshots_and_file_tails(crawl):
-    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep"})
+def test_connected_search_reaches_late_snapshots_and_file_tails(crawl, ripgrep_search_config):
     snapshots = []
     for i in range(16):
         snap = Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://scan.example/{i}")
@@ -355,7 +367,7 @@ def test_connected_search_reaches_late_snapshots_and_file_tails(crawl):
     # Place part of a UTF-8 literal on either side of the chunk boundary.
     (snapshots[-1].output_dir / "dom/output.html").write_bytes(b"x" * (512 * 1024 - 1) + "éclipse".encode())
     scope = Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).order_by("pk")
-    search = SnapshotSearch(scope, 'deep:"éclipse"', config=config, streaming=True)
+    search = SnapshotSearch(scope, 'deep:"éclipse"', config=ripgrep_search_config, streaming=True)
     assert list(search.stream()) == [snapshots[-1].pk]
     assert not search.partial
 

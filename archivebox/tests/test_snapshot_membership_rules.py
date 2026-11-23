@@ -168,7 +168,7 @@ def test_deleting_tag_delivers_any_tag_rule_and_retires_specific_rule(client, ap
     snapshot.tags.add(tag)
     untagged = membership_rules("UNTAGGED", tag_id="*")
     membership_rules("UNTAGGED", tag_id=tag.pk)
-    specific_rule = OutboundWebhook.objects.get(tag=tag)
+    specific_rule = OutboundWebhook.objects.get(signal="UNTAGGED", relationship=str(tag.pk))
     response = api_client_request(client, "delete", f"/api/v1/core/tag/{tag.pk}", headers=api_headers)
     assert response.status_code == 200, response.content
     assert not snapshot.tags.exists()
@@ -275,8 +275,7 @@ def test_editor_persists_and_validates_tag_scope(admin_client, signal):
         saved = response.json()["hook"]
         assert saved["tag_id"] == scope
         rule = OutboundWebhook.objects.get(pk=saved["id"])
-        assert rule.tag_id == (tag.pk if scope == tag.pk else None)
-        assert rule.any_tag == (scope == "*")
+        assert rule.relationship == str(scope)
     for scope in (None, tag.pk + 10_000, "Find me", True):
         assert post(admin_client, "save/", webhook_input(signal=signal, tag_id=scope)).status_code == 400
     assert post(admin_client, "save/", webhook_input(tag_id=tag.pk)).status_code == 400
@@ -337,7 +336,7 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
 
     tagged = OutboundWebhook.objects.get(name="Tagged rule")
     assert tagged.signal == "TAGGED"
-    assert tagged.tag_id == tag.pk and tagged.folder_id is None
+    assert tagged.relationship == str(tag.pk) and tagged.folder_id is None
     filed = OutboundWebhook.objects.get(name="Added to folder rule")
     assert filed.signal == "FOLDER_ENTERED"
-    assert filed.folder_id == folder.pk and filed.tag_id is None
+    assert filed.folder_id == folder.pk and filed.relationship == ""

@@ -80,6 +80,7 @@
                                 <div class="url-upload-controls">
                                     <button type="button" id="url-upload-button"><span aria-hidden="true">↥</span> Upload</button>
                                     <span>or drag &amp; drop in files containing URLs</span>
+                                    <button type="button" id="edit-url-list" aria-controls="{{ form.url.id_for_label }}" hidden>Edit URL list</button>
                                 </div>
                                 <div id="url-upload-status" class="help-text" role="status"></div>
                             </div>
@@ -1098,8 +1099,11 @@
                     // Preview work must stay bounded even for multi-megabyte
                     // exports. The textarea is submitted unchanged to the CLI.
                     const text = urlTextarea.value;
+                    // A complete URL on the first line cannot be the JSON opener or a CSV header.
+                    const firstURLLine = /^[\ufeff \t\r\n]*https?:\/\/[^\s,"]+[ \t]*(?:\r?\n|$)/i.exec(text.slice(0, 8192));
+                    const plainURL = firstURLLine && (text.length <= 8192 || firstURLLine[0].endsWith('\n'));
                     let parsed = null;
-                    if (text) {
+                    if (text && !plainURL) {
                         if (previewInput !== text) {
                             previewRequest?.abort();
                             previewRequest = new AbortController();
@@ -1146,6 +1150,9 @@
                 const fileInput = document.getElementById('url-file-input');
                 const uploadButton = document.getElementById('url-upload-button');
                 const uploadStatus = document.getElementById('url-upload-status');
+                const editURLList = document.getElementById('edit-url-list');
+                const urlEditorShell = urlTextarea.closest('.url-editor-shell');
+                const bulkUploadSize = 8 * 1024 * 1024;
                 const dropZone = document.querySelector('.url-editor-column');
                 let pendingFileReads = 0;
                 let fileReadQueue = Promise.resolve();
@@ -1154,6 +1161,22 @@
                     uploadStatus.textContent = message;
                     uploadStatus.classList.toggle('url-upload-warning', warning);
                 }
+
+                function deferURLList(deferred) {
+                    urlEditorShell.hidden = deferred;
+                    editURLList.hidden = !deferred;
+                }
+
+                editURLList.addEventListener('click', () => {
+                    deferURLList(false);
+                    urlTextarea.focus();
+                });
+                urlTextarea.form.addEventListener('reset', () => {
+                    if (!urlEditorShell.hidden) return;
+                    deferURLList(false);
+                    setUploadStatus('');
+                    queueMicrotask(updateURLPreview);
+                });
 
                 function importURLFiles(files) {
                     if (!files.length) return;
@@ -1172,6 +1195,8 @@
                                     errors.push(`${file.name}: no URLs found.`);
                                 }
                                 if (!text) continue;
+                                // Keep the full form value without laying out a large export before preview.
+                                if (file.size >= bulkUploadSize) deferURLList(true);
                                 urlTextarea.value += (urlTextarea.value && !urlTextarea.value.endsWith('\n') ? '\n' : '') + text;
                                 urlTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                                 urlTextarea.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1179,7 +1204,7 @@
                                 errors.push(`${file.name}: could not import this file. Try selecting it again.`);
                             }
                         }
-                        urlTextarea.focus();
+                        (urlEditorShell.hidden ? editURLList : urlTextarea).focus();
                     }).catch(function() {
                         errors.push('File import failed. Try selecting the files again.');
                     }).finally(function() {

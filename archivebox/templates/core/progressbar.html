@@ -28,10 +28,10 @@
         if (archiveboxJQuery("#progress").length === 0) {
             archiveboxJQuery("body").append(archiveboxJQuery("<div></div>").attr("id", "progress"));
             let last_distance = (distance || (30 + (Math.random() * 30)))
-            archiveboxJQuery("#progress").width(last_distance + "%");
+            document.getElementById("progress")?.style.setProperty("width", last_distance + "%");
             setInterval(function() {
                 last_distance += Math.random()
-                archiveboxJQuery("#progress").width(last_distance + "%");
+                document.getElementById("progress")?.style.setProperty("width", last_distance + "%");
             }, 1000)
         }
     };
@@ -39,7 +39,7 @@
     window.loadFinish = function() {
         if (!archiveboxJQuery) return;
         const progress = archiveboxJQuery("#progress");
-        progress.width("101%");
+        progress[0]?.style.setProperty("width", "101%");
         window.setTimeout(function() {
             progress.remove();
         }, 600);
