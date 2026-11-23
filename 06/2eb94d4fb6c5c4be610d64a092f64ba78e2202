@@ -1,0 +1,19 @@
+archivebox/tests/test_native_feature_interfaces.py
+  s_ea615ec0b76fae::t_ebd2467cae2d3f 190-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "062eb94d4fb6c5c4be610d64a092f64ba78e2202",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
