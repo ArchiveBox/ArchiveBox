@@ -12,6 +12,7 @@ from io import BytesIO
 import pytest
 import requests
 from playwright.sync_api import expect, sync_playwright
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,
@@ -129,6 +130,10 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
 
 def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver, free_tcp_port, recursive_test_site, browser_runtime):
     httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({}, headers={"Access-Control-Allow-Origin": "*"})
+    httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
+        b"",
+        content_type="application/x-protobuf",
+    )
     env = {"SENTRY_ENABLED": "false"}
     install = run_archivebox_cmd(
         ["install", "sentry"],
@@ -152,13 +157,12 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             "SENTRY_ENABLE_METRICS=True",
             "SENTRY_TRACES_SAMPLE_RATE=1",
             "SENTRY_PROFILE_SESSION_SAMPLE_RATE=1",
-            "SENTRY_PROFILE_LIFECYCLE=manual",
         ],
         cwd=initialized_archive,
         env=env,
         check=True,
     )
-    server = start_archivebox_server(initialized_archive, port=free_tcp_port, env={"DEBUG": "False"})
+    server = start_archivebox_server(initialized_archive, port=free_tcp_port, env={"DEBUG": "False", "WEB_CONCURRENCY": "2"})
     try:
         response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/", headers={"Host": "localhost"}, timeout=10)
         assert response.status_code == 200
@@ -258,8 +262,9 @@ for enabled in [False, True]:
         ],
         cwd=initialized_archive,
         env={"DEBUG": "False"},
-        check=True,
+        check=False,
     )
+    assert result.returncode == 0, result.stdout + result.stderr
     assert "SENTRY_ENABLED_OK" in result.stdout
     # This goes through ArchiveBox's real embedded EventBus, including native
     # package requests and database projections, with persisted config only.
@@ -331,11 +336,31 @@ for enabled in [False, True]:
     finally:
         stop_archivebox_process(server)
     items = []
+    spans = []
     for request, response in httpserver.log:
         assert response.status_code == 200
         data = request.data
         if request.headers.get("Content-Encoding") == "gzip":
             data = gzip.decompress(data)
+        if request.path.endswith("/otlp/v1/traces/"):
+            batch = ExportTraceServiceRequest.FromString(data)
+            for resource in batch.resource_spans:
+                resource_attributes = {a.key: getattr(a.value, a.value.WhichOneof("value")) for a in resource.resource.attributes}
+                assert resource_attributes["service.name"] == "archivebox"
+                assert resource_attributes["deployment.environment.name"] == "plugin-test"
+                for scope in resource.scope_spans:
+                    for span in scope.spans:
+                        spans.append(
+                            {
+                                "name": span.name,
+                                "trace_id": span.trace_id.hex(),
+                                "span_id": span.span_id.hex(),
+                                "parent_span_id": span.parent_span_id.hex(),
+                                "resource": resource_attributes,
+                                "attributes": {a.key: getattr(a.value, a.value.WhichOneof("value")) for a in span.attributes},
+                            },
+                        )
+            continue
         envelope = BytesIO(data)
         json.loads(envelope.readline())
         while header := envelope.readline():
@@ -348,6 +373,7 @@ for enabled in [False, True]:
             items.append((metadata["type"], payload))
     events = [payload for kind, payload in items if kind == "event"]
     (initialized_archive / "sentry-envelopes.json").write_text(json.dumps(items))
+    (initialized_archive / "sentry-otlp-spans.json").write_text(json.dumps(spans))
     logged = next(event for event in events if event.get("logger") == "archivebox.sentry_test")
     hook_failure = next(event for event in events if event.get("tags", {}).get("plugin.name") == "wget")
     assert hook_failure["level"] == "error"
@@ -381,30 +407,42 @@ for enabled in [False, True]:
         for item in hook_logs
     )
     assert any(item["attributes"].get("process.exit_code", {}).get("value") == 0 for item in hook_logs)
-    transactions = [payload for kind, payload in items if kind == "transaction"]
-    assert not any(item["transaction"] in {"SELECT", "INSERT", "UPDATE", "DELETE", "BEGIN"} for item in transactions)
+    assert spans
+    assert not any(kind == "transaction" for kind, payload in items)
     assert not any(
         discarded["reason"] in {"queue_overflow", "buffer_overflow"}
         for kind, report in items
         if kind == "client_report"
         for discarded in report["discarded_events"]
     )
-    install_trace = next(item for item in transactions if item["transaction"] == "ArchiveBox_install.emit(InstallEvent)")
-    assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_type"] == "InstallEvent"
-    assert install_trace["contexts"]["otel"]["attributes"]["abxbus.event_bus.name"] == "ArchiveBox_install"
-    assert any("BinaryRequestEvent" in span["description"] for span in install_trace["spans"])
-    crawl_traces = [item for item in transactions if item["transaction"].endswith(".emit(CrawlEvent)")]
+    install_trace = next(item for item in spans if item["name"] == "ArchiveBox_install.emit(InstallEvent)")
+    assert install_trace["attributes"]["abxbus.event_type"] == "InstallEvent"
+    assert install_trace["attributes"]["abxbus.event_bus.name"] == "ArchiveBox_install"
+    assert any("BinaryRequestEvent" in span["name"] and span["trace_id"] == install_trace["trace_id"] for span in spans)
+    crawl_traces = [item for item in spans if item["name"].endswith(".emit(CrawlEvent)")]
     assert crawl_traces
-    crawl_spans = [span for item in crawl_traces for span in item["spans"]]
-    assert any(".emit(SnapshotEvent)" in span["description"] for span in crawl_spans)
-    assert any(".emit(ProcessEvent)" in span["description"] for span in crawl_spans)
-    crawl_trace_ids = {item["contexts"]["trace"]["trace_id"] for item in crawl_traces}
+    crawl_trace_ids = {item["trace_id"] for item in crawl_traces}
+    crawl_spans = [span for span in spans if span["trace_id"] in crawl_trace_ids]
+    assert any(".emit(SnapshotEvent)" in span["name"] for span in crawl_spans)
+    assert any(".emit(ProcessEvent)" in span["name"] for span in crawl_spans)
     assert any(item["trace_id"] in crawl_trace_ids for item in hook_logs)
-    server_requests = [item for item in transactions if item["contexts"]["trace"]["op"] == "http.server"]
-    assert any("admin/login" in item["transaction"] for item in server_requests), sorted({item["transaction"] for item in transactions})
-    assert any(span["op"] == "db" and "SELECT" in span["description"] for item in server_requests for span in item["spans"])
-    assert any(item.get("user", {}).get("id") == user_id for item in server_requests)
-    assert any(item.get("user", {}).get("username") == "apitestadmin" for item in server_requests)
+    assert hook_failure["contexts"]["trace"]["trace_id"] in crawl_trace_ids
+    server_requests = [item for item in spans if "http.method" in item["attributes"] and "http.status_code" in item["attributes"]]
+    assert any("admin/login" in item["name"] for item in server_requests)
+    request_trace_ids = {item["trace_id"] for item in server_requests}
+    sql_spans = [span for span in spans if span["attributes"].get("db.system") == "sqlite"]
+    assert sql_spans
+    assert all(span["attributes"].get("db.statement") for span in sql_spans)
+    assert any("SELECT" in span["attributes"]["db.statement"] and span["trace_id"] in request_trace_ids for span in sql_spans)
+    assert any(span["trace_id"] in crawl_trace_ids for span in sql_spans)
+    spans_by_id = {span["span_id"]: span for span in spans}
+    for span in sql_spans:
+        if span["trace_id"] in request_trace_ids | crawl_trace_ids:
+            assert span["parent_span_id"] in spans_by_id, span
+            assert spans_by_id[span["parent_span_id"]]["trace_id"] == span["trace_id"]
+    assert any(item["attributes"].get("user.id") == user_id for item in server_requests)
+    assert any(item["attributes"].get("user.name") == "apitestadmin" for item in server_requests)
+    assert any("admin/login" in item["name"] and "user.id" not in item["attributes"] for item in server_requests)
     browser_pages = [
         item
         for kind, payload in items
@@ -415,6 +453,10 @@ for enabled in [False, True]:
     assert browser_pages
     assert all(item["end_timestamp"] - item["start_timestamp"] < 30 for item in browser_pages)
     assert all(item["attributes"]["user.id"]["value"] == user_id for item in browser_pages)
+    browser_spans = {item["span_id"]: item for kind, payload in items if kind == "span" for item in payload["items"]}
+    browser_requests = [span for span in server_requests if span["parent_span_id"] in browser_spans]
+    assert browser_requests
+    assert all(span["trace_id"] == browser_spans[span["parent_span_id"]]["trace_id"] for span in browser_requests)
     metrics = [item for kind, payload in items if kind == "trace_metric" for item in payload["items"]]
     assert any(item["name"] == "archivebox.spans" for item in metrics)
     assert any(item["name"] == "archivebox.span.duration" for item in metrics)
@@ -422,3 +464,6 @@ for enabled in [False, True]:
     assert profiles
     assert any(profile["profile"]["samples"] for profile in profiles)
     assert any("archivebox" in frame.get("module", "") for profile in profiles for frame in profile["profile"]["frames"])
+    profiler_ids = {profile["profiler_id"] for profile in profiles}
+    assert any(span["attributes"].get("sentry.profiler_id") in profiler_ids for span in server_requests)
+    assert any(span["attributes"].get("sentry.profiler_id") in profiler_ids for span in crawl_spans)

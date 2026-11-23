@@ -151,6 +151,7 @@ dev = [
     "viztracer>=0.17.0",                               # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
+    "opentelemetry-proto>=1.45.1",  # decode the real Sentry OTLP receiver payloads
     "pytest-django>=4.11.1",
     "pytest>=9.0.3,<9.3",
     "pytest-cov>=6.0.0",
