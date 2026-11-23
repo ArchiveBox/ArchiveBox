@@ -46,11 +46,11 @@ def test_older_manual_finish_cannot_replace_newer_core_capture(tmp_path):
     assert [item["id"] for item in ARTIFACTS["ordered_candidates"](candidates)] == [3, 1, 4, 2]
     # Newer capture artifact expired: a later old-source manual artifact cannot
     # lower the published revision; retain the existing public capture instead.
-    assert not RESTORE["capture_meets_published_floor"](old, {"revision": current}, ranks)
-    assert RESTORE["capture_meets_published_floor"](current, {"revision": old}, ranks)
-    assert RESTORE["capture_meets_published_floor"](current, {"revision": current}, ranks)
+    assert not RESTORE["capture_meets_published_floor"](old, {"revision": current}, ranks, repo_dir=tmp_path)
+    assert RESTORE["capture_meets_published_floor"](current, {"revision": old}, ranks, repo_dir=tmp_path)
+    assert RESTORE["capture_meets_published_floor"](current, {"revision": current}, ranks, repo_dir=tmp_path)
     with pytest.raises(ValueError, match="outside the checked-out Core lineage"):
-        RESTORE["capture_meets_published_floor"](current, {"revision": unrelated}, ranks)
+        RESTORE["capture_meets_published_floor"](current, {"revision": unrelated}, ranks, repo_dir=tmp_path)
 
 
 def test_selected_capture_still_requires_exact_source_and_bytes(tmp_path):
@@ -65,6 +65,35 @@ def test_selected_capture_still_requires_exact_source_and_bytes(tmp_path):
     (tmp_path / "capture.png").write_bytes(b"modified")
     with pytest.raises(ValueError, match="checksum mismatch"):
         RESTORE["validate"](tmp_path, {"head_sha": "a" * 40})
+
+
+def test_published_capture_survives_merging_remote_dev_as_second_parent(tmp_path):
+    git(tmp_path, "init", "-b", "dev")
+    base = commit(tmp_path, "common source")
+    git(tmp_path, "checkout", "-b", "local-fixes")
+    local = commit(tmp_path, "local fixes without published changes")
+    git(tmp_path, "checkout", "dev")
+    published = commit(tmp_path, "published capture source")
+    git(tmp_path, "checkout", "local-fixes")
+    git(
+        tmp_path,
+        "-c",
+        "user.name=Gallery Test",
+        "-c",
+        "user.email=gallery@example.invalid",
+        "merge",
+        "--no-ff",
+        "dev",
+        "-m",
+        "merge remote dev",
+    )
+    merged = git(tmp_path, "rev-parse", "HEAD")
+    ranks = RESTORE["capture_revision_order"](tmp_path)
+    assert set(ranks) == {base, local, published, merged}
+    assert RESTORE["capture_meets_published_floor"](merged, {"revision": published}, ranks, repo_dir=tmp_path)
+    assert RESTORE["capture_meets_published_floor"](published, {"revision": published}, ranks, repo_dir=tmp_path)
+    assert not RESTORE["capture_meets_published_floor"](local, {"revision": published}, ranks, repo_dir=tmp_path)
+    assert not RESTORE["capture_meets_published_floor"](published, {"revision": local}, ranks, repo_dir=tmp_path)
 
 
 def test_capture_order_rejects_incomplete_history(tmp_path):

@@ -31,7 +31,7 @@ def capture_revision_order(repo_dir):
     shallow = subprocess.check_output(["git", "rev-parse", "--is-shallow-repository"], cwd=repo_dir, text=True).strip()
     if shallow != "false":
         raise ValueError("Screenshot source ordering requires complete Git history")
-    revisions = subprocess.check_output(["git", "rev-list", "--first-parent", "HEAD"], cwd=repo_dir, text=True).splitlines()
+    revisions = subprocess.check_output(["git", "rev-list", "--topo-order", "HEAD"], cwd=repo_dir, text=True).splitlines()
     return {revision: rank for rank, revision in enumerate(revisions)}
 
 
@@ -107,11 +107,18 @@ def validate(destination, run=None):
     return manifest
 
 
-def capture_meets_published_floor(revision, published, revision_order):
+def capture_meets_published_floor(revision, published, revision_order, *, repo_dir):
     published_revision = published["revision"]
     if published_revision not in revision_order:
         raise ValueError("Published screenshot source is outside the checked-out Core lineage")
-    return revision in revision_order and revision_order[revision] <= revision_order[published_revision]
+    if revision not in revision_order:
+        return False
+    # Both sides of a merge belong to Core history, but a topological rank
+    # alone cannot prove that one side includes the other's published changes.
+    ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", published_revision, revision], cwd=repo_dir, check=False)
+    if ancestry.returncode not in (0, 1):
+        ancestry.check_returncode()
+    return ancestry.returncode == 0
 
 
 def normalize_filenames(destination):
@@ -143,9 +150,10 @@ def main():
     raw = artifacts.fetch(BASE, MANIFEST)
     manifest = json.loads(raw)
     if os.environ.get("GH_TOKEN"):
-        revision_order = capture_revision_order(Path(__file__).resolve().parents[1])
+        repo_dir = Path(__file__).resolve().parents[1]
+        revision_order = capture_revision_order(repo_dir)
         for run in artifacts.runs(REPO, "screenshots.yml", BRANCH, revision_order=revision_order):
-            if not capture_meets_published_floor(run["head_sha"], manifest, revision_order):
+            if not capture_meets_published_floor(run["head_sha"], manifest, revision_order, repo_dir=repo_dir):
                 continue
             if "site-screenshots" not in artifacts.names(REPO, run):
                 continue
