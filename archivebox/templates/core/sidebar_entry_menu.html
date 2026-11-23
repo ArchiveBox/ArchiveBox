@@ -6,7 +6,10 @@
     {% include "core/snapshot_export_links.html" with export_menu=True %}
     {% if not folder_readonly %}{% if perms.core.delete_snapshot or sidebar_mode == 'tags' and perms.core.delete_tag %}
       <hr data-entry-delete-separator hidden>
-      {% if sidebar_mode == 'tags' and perms.core.delete_tag %}<a class="library-delete" role="menuitem" data-entry-delete-tag hidden><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">Delete tag</span></a>{% endif %}
+      {% if sidebar_mode == 'tags' and perms.core.delete_tag %}
+      <form method="post" id="library-tag-delete-form" hidden>{% csrf_token %}<input type="hidden" name="return_to"></form>
+      <button type="submit" form="library-tag-delete-form" class="library-delete" role="menuitem" data-entry-delete-tag hidden><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">Delete tag</span></button>
+      {% endif %}
       {% if perms.core.delete_snapshot %}<a class="library-delete" role="menuitem" data-entry-delete-snapshots hidden><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">Delete snapshots</span></a>{% endif %}
     {% endif %}{% endif %}
   </div>

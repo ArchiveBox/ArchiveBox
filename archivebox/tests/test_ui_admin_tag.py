@@ -196,3 +196,138 @@ def test_tag_create_api_keeps_staff_permissions_and_csrf(django_user_model, admi
 
     assert create("fixture legacy token", HTTP_X_ARCHIVEBOX_API_KEY=get_or_create_api_token(admin_user).token).json()["created"]
     assert set(Tag.objects.filter(name__startswith="fixture").values_list("name", flat=True)) == {"fixture legacy token", "fixture scoped"}
+
+
+def test_tag_delete_requires_post_and_returns_to_list(admin_client, snapshot):
+    from archivebox.core.models import Snapshot, Tag
+
+    tag = Tag.objects.create(name="Delete one")
+    snapshot.tags.add(tag)
+    url = reverse("admin:core_tag_delete", args=[tag.pk])
+    assert admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
+    assert snapshot.tags.filter(pk=tag.pk).exists()
+
+    response = admin_client.post(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    assert response.url == reverse("admin:core_tag_changelist")
+    assert not Tag.objects.filter(pk=tag.pk).exists()
+    assert Snapshot.objects.filter(pk=snapshot.pk).exists()
+
+
+def test_delete_selected_tags_returns_to_current_list(admin_client, snapshot):
+    from archivebox.core.models import Snapshot, Tag
+
+    first = Tag.objects.create(name="Delete first")
+    second = Tag.objects.create(name="Delete second")
+    keep = Tag.objects.create(name="Keep")
+    snapshot.tags.add(first, second, keep)
+    selected = {first.pk, second.pk}
+    remaining_tags = set(Tag.objects.values_list("pk", flat=True)) - selected
+    remaining_links = set(snapshot.tags.values_list("pk", flat=True)) - selected
+    url = reverse("admin:core_tag_changelist") + "?q=Delete"
+    response = admin_client.post(
+        url,
+        {"action": "delete_selected", "index": "0", "_selected_action": [first.pk, second.pk]},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    assert response.url == url
+    assert set(Tag.objects.values_list("pk", flat=True)) == remaining_tags
+    assert Snapshot.objects.filter(pk=snapshot.pk).exists()
+    assert set(snapshot.tags.values_list("pk", flat=True)) == remaining_links
+
+
+def test_tag_sidebar_delete_preserves_library_location_and_clears_deleted_filter(admin_client):
+    from archivebox.core.models import Tag
+
+    tag = Tag.objects.create(name="Delete from sidebar")
+    library = reverse("admin:core_snapshot_changelist")
+    response = admin_client.post(
+        reverse("admin:core_tag_delete", args=[tag.pk]),
+        {"return_to": f"{library}?sidebar=tags&tag={tag.pk}&q=keep&search_mode=meta"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    assert response.url == f"{library}?sidebar=tags&q=keep&search_mode=meta"
+    assert not Tag.objects.filter(pk=tag.pk).exists()
+
+
+def test_tag_delete_checks_csrf_permissions_and_redirect_target(django_user_model):
+    from django.conf import settings
+    from django.contrib.auth.models import Permission
+    from django.test import Client
+
+    from archivebox.core.models import Tag
+
+    tag = Tag.objects.create(name="Permission scoped")
+    url = reverse("admin:core_tag_delete", args=[tag.pk])
+    tags_url = reverse("admin:core_tag_changelist")
+    staff = django_user_model.objects.create_user(username="tag-deleter", is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename="view_tag"))
+    session = Client(enforce_csrf_checks=True)
+    session.force_login(staff)
+    assert session.get(tags_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+    csrf = session.cookies[settings.CSRF_COOKIE_NAME].value
+    assert session.post(url, HTTP_HOST=ADMIN_TEST_HOST, HTTP_X_CSRFTOKEN=csrf).status_code == 403
+
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename="delete_tag"))
+    assert session.post(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 403
+    assert Tag.objects.filter(pk=tag.pk).exists()
+    response = session.post(
+        url,
+        {"return_to": "//example.com/admin/core/snapshot/"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_X_CSRFTOKEN=csrf,
+    )
+    assert response.status_code == 302
+    assert response.url == tags_url
+    assert not Tag.objects.filter(pk=tag.pk).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sidebar_list_and_detail_delete_tags_without_confirmation(live_server, admin_user, browser_runtime, snapshot):
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot, Tag
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
+    sidebar_tag = Tag.objects.create(name="Sidebar tag")
+    detail_tag = Tag.objects.create(name="Detail tag")
+    list_tag = Tag.objects.create(name="List tag")
+    snapshot.tags.add(sidebar_tag, detail_tag, list_tag)
+    library = live_server.url + reverse("admin:core_snapshot_changelist")
+    tags_url = live_server.url + reverse("admin:core_tag_changelist")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1366, "height": 900})
+        page.goto(live_server.url + "/admin/login/")
+        page.get_by_label("Username:", exact=True).fill(admin_user.username)
+        page.get_by_label("Password:", exact=True).fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+
+        page.goto(f"{library}?sidebar=tags&tag={sidebar_tag.pk}")
+        sidebar = page.locator(".folder-sidebar")
+        sidebar.get_by_role("link", name="Sidebar tag", exact=True).hover()
+        sidebar.get_by_role("button", name="Actions for Sidebar tag", exact=True).click()
+        page.get_by_role("menuitem", name="Delete tag", exact=True).click()
+        expect(page).to_have_url(f"{library}?sidebar=tags")
+        expect(sidebar.get_by_role("link", name="Sidebar tag", exact=True)).to_have_count(0)
+
+        page.goto(live_server.url + reverse("admin:core_tag_change", args=[detail_tag.pk]))
+        page.locator("#id_name").fill("")
+        page.locator(".archivebox-toolbar").get_by_role("button", name="Delete").click()
+        expect(page).to_have_url(tags_url)
+        expect(page.get_by_role("link", name="Detail tag", exact=True)).to_have_count(0)
+
+        page.goto(tags_url + "?q=List")
+        page.locator("#result_list tbody input.action-select").check()
+        page.get_by_role("button", name="Delete Tags", exact=True).click()
+        expect(page).to_have_url(tags_url + "?q=List")
+        expect(page.get_by_role("link", name="List tag", exact=True)).to_have_count(0)
+        browser.close()
+
+    assert not Tag.objects.filter(pk__in=[sidebar_tag.pk, detail_tag.pk, list_tag.pk]).exists()
+    assert Snapshot.objects.filter(pk=snapshot.pk).exists()

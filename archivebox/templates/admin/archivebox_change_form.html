@@ -261,7 +261,11 @@ Each action dict may set:
 
   {% if original and has_delete_permission %}
     {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+    {% if delete_with_post %}
+    <button class="ab-btn ab-btn-danger" type="submit" form="{{ opts.model_name }}_form" formmethod="post" formaction="{% add_preserved_filters delete_url %}" formnovalidate title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</button>
+    {% else %}
     <a class="ab-btn ab-btn-danger" role="button" href="{{ delete_url }}" title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</a>
+    {% endif %}
   {% endif %}
 
   {% if opts.model_name == 'machine' or opts.model_name == 'persona' %}

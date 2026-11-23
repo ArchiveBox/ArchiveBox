@@ -843,9 +843,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (action === 'delete') {
-            const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'this tag';
-            if (!window.confirm('Delete "' + tagName + '"? This only removes the tag and its tag links.')) return;
-
             actionButton.disabled = true;
             try {
                 await fetch(withApiKey(cardEl.dataset.deleteUrl), {

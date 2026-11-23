@@ -504,7 +504,10 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!action) continue;
           const url = entry.dataset[key];
           action.hidden = !url;
-          if (url) action.href = url;
+          if (action.form) {
+            action.form.action = url || '';
+            action.form.elements.return_to.value = location.pathname + location.search;
+          } else if (url) action.href = url;
           else action.removeAttribute('href');
         }
         if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);

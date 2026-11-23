@@ -136,7 +136,7 @@
     if (mounted.has(input) || !input.list) return;
     const searchTags = lookup("tag");
     const search = connect(input, (q, signal) => q ? searchTags(q, signal) : { choices: [] }, ({ choices = [] }) => {
-      input.list.replaceChildren(...choices.map((item) => new Option(item.name)));
+      input.list.replaceChildren(...choices.map((item) => new Option(item.name, item.name)));
     });
     mounted.set(input, search);
   }
