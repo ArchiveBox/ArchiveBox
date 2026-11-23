@@ -15,6 +15,7 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": base, "PUBLIC_INDEX": True}
     machine.save(update_fields=["config"])
+    Folder.objects.get_or_create(name="📥 Inbox")
     folders = Folder.objects.bulk_create([Folder(name=f"Demo folder {i:03}", position=i) for i in range(106)])
     tags = Tag.objects.bulk_create([Tag(name=f"Demo tag {i:03}") for i in range(106)])
     crawl = Crawl.objects.create(created_by=admin_user, urls="https://demo000.example/")
@@ -68,7 +69,8 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
                 expect(toggle).to_have_attribute("aria-expanded", "true")
                 row_sel = ".folder-row" if mode == "folders" else ".library-entry"
                 rows = tree.locator(row_sel)
-                expect(rows).to_have_count(100)
+                counts = (50, 100, 106) if mode == "domains" else (100, 107 if mode == "folders" else 106)
+                expect(rows).to_have_count(counts[0])
                 box = nav.bounding_box()
                 tree_metrics = tree.evaluate("el => [el.clientHeight, el.scrollHeight]")
                 assert box["height"] <= max(124, height * 0.25) + 1, box
@@ -81,10 +83,11 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
                 assert actions_before["y"] + actions_before["height"] <= box["y"] + box["height"] + 1
                 tree.hover(position={"x": 14, "y": min(12, tree_metrics[0] - 1)})
                 before = page.evaluate("scrollY")
-                with page.expect_response(lambda r: "/sidebar/" in r.url and "cursor=" in r.url, timeout=5000) as loaded:
-                    page.mouse.wheel(0, tree_metrics[1])
-                assert loaded.value.ok
-                expect(rows).to_have_count(107 if mode == "folders" else 106)
+                for count in counts[1:]:
+                    with page.expect_response(lambda r: "/sidebar/" in r.url and "cursor=" in r.url, timeout=5000) as loaded:
+                        page.mouse.wheel(0, tree.evaluate("el => el.scrollHeight"))
+                    assert loaded.value.ok
+                    expect(rows).to_have_count(count)
                 assert tree.evaluate("el => el.scrollTop") > 0 and page.evaluate("scrollY") == before
                 expect(tree.locator(".library-load-more")).to_be_hidden()
                 assert footer.bounding_box() == actions_before

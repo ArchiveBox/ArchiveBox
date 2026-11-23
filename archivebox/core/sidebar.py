@@ -41,9 +41,14 @@ def sidebar_context(request, *, public=False, folder_tree=None):
     if mode not in SIDEBAR_SCOPES:
         mode = "folders"
     export_filters = _sidebar_view_filters(request)
+    mode_filters = export_filters.copy()
+    scopes = [scope for scope in SIDEBAR_SCOPES.values() if scope in mode_filters]
+    # A sidebar click sets one scope. Keep explicitly combined snapshot filters.
+    if scopes == [SIDEBAR_SCOPES[mode]]:
+        mode_filters.pop(scopes[0])
     mode_queries = {}
     for option in SIDEBAR_SCOPES:
-        query = export_filters.copy()
+        query = mode_filters.copy()
         if option != "folders":
             query["sidebar"] = option
         mode_queries[option] = query.urlencode()
