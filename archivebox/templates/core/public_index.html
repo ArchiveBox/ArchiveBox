@@ -2,6 +2,7 @@
 {% load static tz %}
 {% load core_tags %}
 
+{% load search_field %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
 <script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
@@ -149,10 +150,14 @@
     }
 
     .public-snapshot-count {
+        max-width: 100%;
         color: #64748b;
         font-size: 12px;
-        white-space: nowrap;
     }
+    /* A partial-result explanation can be longer than the query. Give it a
+       separate line so it cannot squeeze the editor or widen a phone viewport. */
+    .public-library .public-snapshot-toolbar:has(.public-search-partial) { flex-wrap: wrap; }
+    .public-snapshot-count:has(.public-search-partial) { flex-basis: 100%; }
 
     .public-snapshot-table-wrap {
         width: 100%;
@@ -677,22 +682,9 @@
         <div class="public-snapshot-toolbar">
             {% include "core/folder_context.html" %}
             <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
-                <input type="hidden" name="sidebar" value="{{ sidebar_mode }}">
-                {% if request.GET.tag %}<input type="hidden" name="tag" value="{{ request.GET.tag }}">{% endif %}
-                {% if request.GET.domain %}<input type="hidden" name="domain" value="{{ request.GET.domain }}">{% endif %}
-                {% if selected_folder %}<input type="hidden" name="folder" value="{{ selected_folder }}">{% endif %}
-                <span class="public-search-input">
-                    <span class="public-search-addon">
-                        <label class="search-icon" for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
-                        <select name="search_mode" class="public-search-mode-select" aria-label="Search mode">
-                            {% for option in search_mode_options %}
-                            <option value="{{ option.value }}"{% if search_mode == option.value %} selected{% endif %}>{{ option.label }}</option>
-                            {% endfor %}
-                        </select>
-                        <span class="search-mode-caret" aria-hidden="true">▾</span>
-                    </span>
-                    <input type="text" size="40" name="q" value="{{ request.GET.q }}" id="searchbar" autofocus placeholder="Search title, URL, tags, timestamp, or content...">
-                </span>
+                {% for key, values in request.GET.lists %}{% if key != "q" and key != "search_mode" and key != "page" and key != "p" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}{% endfor %}
+                {% search_field request.GET.q %}
+                {% if request.GET.search_mode %}<input type="hidden" name="search_mode" value="{{ request.GET.search_mode }}">{% endif %}
                 <input type="submit" value="Search">
             </form>
             {% comment %}
@@ -706,6 +698,7 @@
                 {% if public_search_stream_pending %}
                     <span class="archivebox-search-stream-status" role="status" aria-live="polite">Searching...</span>
                 {% else %}
+                    {% if public_search_partial %}<span class="public-search-partial" role="status">Showing confirmed matches. Some archive contents could not be checked within the search limits.</span>{% endif %}
                     {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }}{% endif %}
                     <span>(page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %})</span>
                 {% endif %}
@@ -774,30 +767,7 @@
             if (window.archiveboxPublicSearchStreamReady) return
             window.archiveboxPublicSearchStreamReady = true
 
-            const storageKey = 'archivebox-admin-search-mode'
             let activeSearch = null
-
-            function initPublicSearchMode() {
-                const params = new URLSearchParams(window.location.search)
-                document.querySelectorAll('.public-search-mode-select').forEach(function(select) {
-                    if (select.dataset.publicSearchModeReady) return
-                    select.dataset.publicSearchModeReady = '1'
-                    const values = Array.from(select.options).map(option => option.value)
-                    const stored = localStorage.getItem(storageKey)
-                    if (!params.has('search_mode') && values.includes(stored)) {
-                        select.value = stored
-                        if ((params.get('q') || '').trim()) {
-                            params.set('search_mode', stored)
-                            params.delete('page')
-                            window.location.replace(window.location.pathname + '?' + params.toString() + window.location.hash)
-                            return
-                        }
-                    }
-                    select.addEventListener('change', function() {
-                        localStorage.setItem(storageKey, select.value)
-                    })
-                })
-            }
 
             function setSearchLoading(controller, text) {
                 if (activeSearch !== controller) return
@@ -830,7 +800,13 @@
             function clearStaleSearchResults(mode) {
                 const tbody = document.querySelector('#table-bookmarks tbody')
                 if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="public-search-empty">Searching ' + mode + ' for matching snapshots...</td></tr>'
+                    const cell = document.createElement('td')
+                    cell.colSpan = 7
+                    cell.className = 'public-search-empty'
+                    cell.textContent = 'Searching ' + mode + ' for matching snapshots...'
+                    const row = document.createElement('tr')
+                    row.appendChild(cell)
+                    tbody.replaceChildren(row)
                 }
                 const snapshotHeading = document.querySelector('#table-bookmarks thead th:nth-child(3)')
                 if (snapshotHeading) snapshotHeading.textContent = 'Snapshot'
@@ -852,7 +828,7 @@
                 if (!form || form.id !== 'changelist-search') return
 
                 const formData = new FormData(form)
-                const mode = String(formData.get('search_mode') || 'meta')
+                const mode = String(formData.get('search_mode') || 'query')
                 const query = String(formData.get('q') || '').trim()
                 if (!query) return
                 if (mode === 'url') return
@@ -903,7 +879,8 @@
                 streamUrl.searchParams.set('search_mode', mode)
                 streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
                 fetch(streamUrl, {signal: controller.signal})
-                    .then(function(response) {
+                    .then(async function(response) {
+                        if (!response.ok) throw new Error(response.status === 400 ? await response.text() : 'Search could not finish.')
                         const reader = response.body.getReader()
                         const decoder = new TextDecoder()
                         let buffer = ''
@@ -930,7 +907,10 @@
                         return read()
                     })
                     .catch(function(error) {
-                        if (error.name !== 'AbortError') throw error
+                        if (error.name !== 'AbortError' && !controller.signal.aborted) {
+                            const cell = document.querySelector('.public-search-empty')
+                            if (cell) cell.textContent = error.message
+                        }
                     })
                     .finally(function() {
                         clearSearchLoading(controller)
@@ -938,7 +918,7 @@
                     })
             }
 
-            initPublicSearchMode()
+
             document.addEventListener('input', cancelActiveSearch)
             document.addEventListener('change', cancelActiveSearch)
             document.addEventListener('submit', streamPublicSnapshotSearch)

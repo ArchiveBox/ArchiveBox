@@ -296,8 +296,10 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
     queryset = queryset.order_by(*ordering)
     if not queryset.totally_ordered:
         queryset = queryset.order_by(*ordering, "-pk")
+    partial = False
     if params.get("q"):
-        queryset = apply_snapshot_search(queryset, params["q"], search_mode=params.get("search_mode"), config=config)
+        queryset = apply_snapshot_search(queryset, params["q"], search_mode=params.get("search_mode"), config=config, public=public_only)
+        partial = getattr(queryset, "search_partial", False)
     queryset = queryset.distinct()
     if limit := params.get("max_results"):
         try:
@@ -307,6 +309,7 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
         if limit <= 0:
             raise ValueError("Invalid snapshot export limit.")
         queryset = queryset.filter(pk__in=Subquery(queryset.values("pk")[:limit]))
+    queryset.search_partial = partial
     return queryset
 
 
@@ -522,6 +525,8 @@ def snapshot_export_view(request, format, *, api=False):
     if format not in ARCHIVE_FORMATS:
         response = _snapshot_metadata_file(request, snapshots, format)
         response["Referrer-Policy"] = "no-referrer"
+        if getattr(snapshots, "search_partial", False):
+            response["X-ArchiveBox-Search-Partial"] = "1"
         return response
     from archivebox.domains.export_service import export_jobs, launch_export
 

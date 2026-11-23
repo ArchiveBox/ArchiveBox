@@ -2,29 +2,35 @@
 
 ## How to Search in ArchiveBox
 
-You can search your ArchiveBox data in a number of ways:
+The public index, Snapshot admin, mobile search, REST search, and `archivebox list` and `archivebox search` accept the same expression. For example, enter `tags:solar (title:"Solar Panel" OR site:solarcity.com) ~status:queued`. On the command line, wrap the complete expression in single quotes to preserve its double quotes and parentheses.
 
-- using the CLI: `archivebox search 'text to search'` (`archivebox search --help` for more)
-- using the Web UI: both the `/public` index and `/admin/core/snapshot` pages provide a search box
-- using the REST API: `/api/v1/core/snapshots?search=text+to+search&search_mode=contents`
-- by searching the archive data folder directly with external tools (e.g. macOS Spotlight, [Cerebro](https://www.cerebroapp.com/), `ag`, [Yacy](https://yacy.net/), etc.)
+![Search field showing an operator query and its matching snapshot](images/search/after.png)
 
-![image](https://github.com/ArchiveBox/ArchiveBox/assets/511499/637675ee-bf4a-49f9-b936-c2da1bd64410)
+| Syntax | Matches |
+| --- | --- |
+| `panel`, `"solar panel"` | A search term, or a literal contiguous substring. Quotes preserve punctuation, including colons. |
+| `AND`, `OR`, `~`, `( … )` | Negation binds first, then AND, then OR. A space between operands also means AND. |
+| `domain:example.com`, `site:*.example.com` | An HTTP(S) host. A wildcard includes its subdomains and the host itself. |
+| `tags:solar,research`, `plugins:pdf,reader` | Every listed substring must match a tag or a successful plugin name, respectively. Quote an item containing spaces or commas. |
+| `owner:alice`, `title:"field guide"`, `status:sealed`, `permissions:public` | The corresponding snapshot metadata contains the supplied value. |
+| `after:2026`, `before:2028`, `bookmarked:2026-12-31` | Bookmark time in UTC. After is inclusive, before is exclusive, and bookmarked matches a whole year, month, or day. |
+| `filetype:pdf,png` | A saved output filename ends in any listed extension. |
+| `meta:"solar panel"` | A substring in database metadata. Public searches use public metadata. |
+| `deep:"solar panel"` | A literal in archived file contents, checked by a registered scanner. |
+| `linksto:example.com`, `linkedfrom:example.com` | A recorded outgoing HTTP(S) URL contains the substring, or a matching source URL links to this snapshot's URL. |
+| `output_size__gte:"1 MB"` | A Smart Folder field and comparison using the builder's types and relationship IDs. Administrative searches support the full builder schema. |
 
-<br/>
+Text operands containing an uppercase letter match case. Lowercase operands ignore case where supported. Each operand makes this decision independently. Hostnames use DNS casing rules. The field suggests values as you type. Arrow keys move into badges for editing, Escape closes suggestions, and Enter runs the query.
 
----
+Searching a folder, tag or domain further narrows the current view. Snapshot admin filters apply as well. Value suggestions come from the same selection. Clearing the query restores the filtered list.
 
-## How Search Works
+### Results, ranking and limits
 
-ArchiveBox search works by doing substring matches in `Snapshot` metadata fields (`url`, `title`, `timestamp`, `tags`), and by searching the full archived content within each Snapshot (using the selected search backend below). You can find the search implementation source code here: [`archivebox/core/views.py: PublicIndex.get_queryset()`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py#:~:text=title__icontains).
+Database predicates narrow the candidate set before content reads. The configured full-text plugin supplies word matches and, where available, scores or provider order. Results stream in confirmed batches. Explicit sorting remains available. The file budget applies to the whole expression across its branches and covers up to 12 snapshot directories, 96 files, 512 directory entries and 4 MiB of input, with a 512 KiB per-file cap. External search work has an eight-second deadline. Narrow a deep search with a domain, date, tag, or other metadata predicate to spend that budget on relevant candidates.
 
-> *Note: ArchiveBox currently only returns the bare list of snapshots that match when performing a search.*  
->   
-> This will be [improved in the future](https://zulip.archivebox.io/#narrow/stream/154-support/topic/Full.20Text.20Search.20works.2E.2E.2E.20but.20is.20there.20a.20UI.3F) to highlight the *specific paragraph/line/area that matched* within a Snapshot.  
-> For now we recommend using Ctl+F in the browser or one of the external tools listed above to further filter for a term within a Snapshot's contents.
+A missing index entry, unreadable artifact or exhausted budget can leave membership unknown, including under negation. The web UI labels partial results. REST search and metadata export responses carry `X-ArchiveBox-Search-Partial: 1` when coverage is incomplete. The CLI reports partial coverage on stderr.
 
-<br/>
+Smart Folders accept database-backed search expressions and the Advanced rule builder. Their saved sort and limit apply to the combined membership. Persistent membership must be decidable from database rows because moves and webhooks use it during writes. Full-text, file and link searches are available in the ordinary search field. Copied export URLs replay the expression and filters against current, authorized rows.
 
 ## ArchiveBox Search Backends
 

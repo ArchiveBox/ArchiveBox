@@ -2088,7 +2088,10 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             page.evaluate("document.fonts.ready")
             assert today_row.locator(".field-title_str b").evaluate("(node) => getComputedStyle(node).fontFamily").startswith('"Open Sans"')
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            compact = width <= 700 or (width <= 1024 and height >= width) or (width <= 939 and height <= 500)
+            results = page.locator("#changelist-form > .results")
+            compact = results.bounding_box()["width"] <= 900 or (height >= width and width <= 1024) or (width <= 939 and height <= 500)
+            if compact:
+                assert results.evaluate("el => el.scrollWidth <= el.clientWidth + 1")
             assert page.locator("#result_list thead").is_visible() != compact
             if not compact:
                 assert today_row.evaluate("(row) => getComputedStyle(row).display") == "table-row"
@@ -2172,7 +2175,7 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
 
         # Verify the tablet table is interactive, not merely styled as a table.
         # Follow the real admin sort links and assert the returned row order.
-        for width, height in ((701, 600), (940, 700), (1024, 768), (1133, 744), (1331, 894)):
+        for width, height in ((1440, 900), (1600, 900)):
             page.set_viewport_size({"width": width, "height": height})
             rows = page.locator("#result_list tbody tr .action-select")
             for column, ascending in (
@@ -2181,21 +2184,12 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
                 ("tags_inline", [str(older.pk), str(today.pk)]),
             ):
                 page.goto(f"{live_server.url}/admin/core/snapshot/")
-                if width == 1331:
-                    page.locator("#changelist-form > .results").evaluate("node => node.style.maxWidth = '752px'")
                 header = page.locator(f"#result_list thead th.column-{column}")
                 link = header.locator(".text a")
                 directions = set()
                 for _ in range(2):
                     with page.expect_navigation(wait_until="domcontentloaded"):
                         link.click()
-                    if width == 1331:
-                        results = page.locator("#changelist-form > .results")
-                        results.evaluate("node => node.style.maxWidth = '752px'")
-                        assert results.bounding_box()["width"] <= 752
-                        assert results.evaluate("node => getComputedStyle(node).overflowX") == "auto"
-                        assert page.locator("#result_list thead").is_visible()
-                        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                     direction = "ascending" if "ascending" in header.get_attribute("class").split() else "descending"
                     assert direction in header.get_attribute("class").split()
                     directions.add(direction)

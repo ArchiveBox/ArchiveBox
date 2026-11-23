@@ -28,7 +28,7 @@ def build_snapshot_export_urls(filters, *, api=False, request=None) -> dict[str,
 
     query = normalize_export_query(filters)
     if query.get("q") and request is not None:
-        query["search_mode"] = get_search_mode(query.get("search_mode"), config=get_request_config(request))
+        query["search_mode"] = get_search_mode(query.get("search_mode") or "query", config=get_request_config(request))
     if request is not None and not api and query.get("o"):
         ordering = snapshot_admin_sort(query["o"], request=request)
         query.pop("o")

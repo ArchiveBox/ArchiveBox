@@ -97,7 +97,9 @@ def test_snapshot_action_toolbar_in_browser(live_server, browser_runtime, admin_
                     expect(toggle).to_have_attribute("aria-expanded", "false")
                 row.locator(".tag-inline-input-sm").focus()
                 expect(row.locator(".tag-pill:visible")).to_have_count(4)
-                page.locator("#searchbar").focus()
+                editor = page.get_by_role("combobox", name="Search snapshots")
+                editor.focus()
+                editor.press("Escape")
             thumbnail = row.locator(".snapshot-thumbnail")
             if thumbnail.bounding_box()["height"] <= 64:
                 expect(thumbnail.locator(".snapshot-thumbnail-caption").first).to_be_hidden()
@@ -181,14 +183,13 @@ def test_streamed_search_rows_drag_checked_snapshots(live_server, browser_runtim
         page.locator("#id_password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         original_form = page.locator("#changelist-form").element_handle()
-        page.locator('select[name="search_mode"]').select_option("meta")
-        page.locator("#searchbar").fill("Streamed")
+        page.locator('#changelist-search [role="combobox"]').fill("meta:Streamed")
         with page.expect_response(
             lambda response: (
                 "/admin/core/snapshot/?" in response.url and response.request.headers.get("x-requested-with") == "XMLHttpRequest"
             ),
         ):
-            page.locator("#searchbar").press("Enter")
+            page.locator('#changelist-search [role="combobox"]').press("Enter")
         page.wait_for_function("oldForm => !oldForm.isConnected", arg=original_form)
         expect(page.locator("#result_list tbody tr")).to_have_count(3)
         source = page.locator("#result_list tbody tr").filter(has_text="Streamed capture 0")

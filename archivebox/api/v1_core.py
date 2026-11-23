@@ -933,7 +933,7 @@ class SnapshotFilterSchema(FilterSchema):
 
 @router.get("/snapshots", response=list[SnapshotSchema], url_name="get_snapshots")
 @paginate(CustomPagination)
-def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], with_archiveresults: bool = False):
+def get_snapshots(request: HttpRequest, response: HttpResponse, filters: Query[SnapshotFilterSchema], with_archiveresults: bool = False):
     """List all Snapshot entries matching these filters."""
     setattr(request, "with_archiveresults", with_archiveresults)
     from archivebox.search.query import apply_snapshot_filters
@@ -952,16 +952,23 @@ def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], wi
         return queryset
 
     runtime_config = request.archivebox_config
-    search_mode = get_search_mode(filters.search_mode, config=runtime_config)
+    search_mode = get_search_mode(filters.search_mode or "query", config=runtime_config)
     try:
-        return apply_snapshot_search(
+        matches = apply_snapshot_search(
             queryset,
             query,
             search_mode=search_mode,
             config=runtime_config,
             include_id_matches=True,
         )
+        if getattr(matches, "search_partial", False):
+            response["X-ArchiveBox-Search-Partial"] = "1"
+        return matches
+    except (ValueError, ValidationError) as err:
+        raise HttpError(400, str(err)) from err
     except Exception:
+        if search_mode == "query":
+            raise
         if get_search_mode_backend(search_mode, config=runtime_config):
             return queryset.none()
         return apply_snapshot_search(queryset, query, search_mode="meta", config=runtime_config, include_id_matches=True)

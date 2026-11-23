@@ -104,9 +104,8 @@ def test_admin_previews_load_on_scroll_and_panel_navigation(snapshot, admin_user
         expect(page.locator(".snapshot-thumbnail iframe").first).to_have_attribute("src", re.compile(r"/_card/"))
         # Replace the panel via the real search stream, without reloading.
         old_row = page.locator(".snapshot-thumbnail").first.element_handle()
-        page.locator('select[name="search_mode"]').select_option("meta")
-        page.locator('#changelist-search input[name="q"]').fill("preview")
-        page.locator('#changelist-search input[name="q"]').press("Enter")
+        page.locator('#changelist-search [role="combobox"]').fill("meta:preview")
+        page.locator('#changelist-search [role="combobox"]').press("Enter")
         page.wait_for_function("row => !row.isConnected", arg=old_row)
         expect(page.locator(".snapshot-thumbnail iframe").first).to_have_attribute("src", re.compile(r"/_card/"))
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")

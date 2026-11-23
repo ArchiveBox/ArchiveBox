@@ -555,7 +555,8 @@ def test_browser_smart_folder_preview_updates_without_saving(live_server, admin_
         dialog = page.locator("#folder-dialog")
         matches = dialog.locator(".folder-match")
         expect(matches).to_have_count(3)
-        expect(dialog.get_by_role("heading", name="Rules", exact=True)).to_be_visible()
+        expect(dialog.get_by_role("heading", name="Search", exact=True)).to_be_visible()
+        expect(dialog.get_by_text("Advanced rules", exact=True)).to_be_visible()
         desktop = dialog.locator(".folder-rule-panel").bounding_box()
         desktop_preview = dialog.locator(".folder-match-panel").bounding_box()
         assert desktop["x"] + desktop["width"] < desktop_preview["x"]
@@ -586,3 +587,113 @@ def test_browser_smart_folder_preview_updates_without_saving(live_server, admin_
         browser.close()
     folder.refresh_from_db()
     assert folder.rules == original
+
+
+def test_search_rule_uses_snapshot_query_and_preserves_advanced_conditions(crawl):
+    from archivebox.search.interpreter import SnapshotSearch
+
+    first = Snapshot.objects.create(crawl=crawl, url="https://example.org/a", title="ABC:DEF solar")
+    second = Snapshot.objects.create(crawl=crawl, url="https://example.org/b", title="Solar atlas")
+    other = Snapshot.objects.create(crawl=crawl, url="https://example.org/0", title="unrelated")
+    tag = Tag.objects.create(name="solar-research")
+    first.tags.add(tag)
+    second.tags.add(tag)
+    query = 'tag:solar AND (title:"ABC:DEF" OR title:atlas)'
+    rule = group("NOT", leaf("url", "exact", first.url))
+    folder = Folder.objects.create(name="Reading", rules={**rule, "query": query, "sort": "url", "limit": 1})
+    assert set(SnapshotSearch(Snapshot.objects.all(), query).queryset()) == {first, second}
+    assert list(Snapshot.objects.in_folder(folder.pk)) == [second]
+    folder.refresh_from_db()
+    assert folder.rules == {**rule, "query": query, "sort": "url", "limit": 1}
+    other.tags.add(tag)
+    other.title = "new atlas"
+    other.save(update_fields=["title"])
+    folder.rules["sort"] = "title"
+    folder.save()
+    assert list(Snapshot.objects.in_folder(folder.pk)) == [second]
+    folder.rules["sort"] = "-title"
+    folder.save()
+    assert list(Snapshot.objects.in_folder(folder.pk)) == [other]
+
+
+def test_folder_search_rejects_uncertain_membership_and_recursive_references():
+    folder = Folder.objects.create(name="Rules", rules=leaf("title", "icontains", "needle"))
+    for query, message in [
+        ('~deep:"missing"', "complete membership"),
+        ("(tags:missing", "closing parenthesis"),
+        (f"folder__in_folder:{folder.pk}", "cycle"),
+    ]:
+        folder.rules = {"query": query}
+        with pytest.raises(ValidationError, match=message):
+            folder.save()
+        folder.refresh_from_db()
+        assert folder.rules == leaf("title", "icontains", "needle")
+
+
+def test_typed_builder_lookups_in_search_queries(crawl):
+    import json
+
+    from archivebox.core.models import ArchiveResult
+    from archivebox.search.interpreter import SnapshotSearch
+
+    matched = Snapshot.objects.create(crawl=crawl, url="https://example.org/match", title="Red, blue")
+    Snapshot.objects.create(crawl=crawl, url="https://example.org/other", title="Red")
+    files = {"index.txt": {"size": 3}}
+    ArchiveResult.objects.create(snapshot=matched, plugin="title", output_size=1_050_000, status="succeeded", output_files=files)
+    for rule, text in [
+        (leaf("title", "in", ["Red, blue", "Green"]), json.dumps(["Red, blue", "Green"])),
+        (leaf("archiveresult__output_files", "exact", files), json.dumps(files)),
+        (leaf("archiveresult__output_size", "gte", {"amount": 1, "unit": "MB"}), "1 MB"),
+    ]:
+        query = f"{rule['field']}__{rule['lookup']}:{json.dumps(text)}"
+        assert list(Snapshot.objects.filter(RuleQuery().compile(rule))) == [matched], rule
+        assert list(SnapshotSearch(Snapshot.objects.all(), query).queryset()) == [matched], query
+
+
+@pytest.mark.django_db(transaction=True)
+def test_new_smart_folder_starts_with_search_and_saves_advanced_rules(browser_runtime, live_server, admin_user, crawl):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    panel = Snapshot.objects.create(crawl=crawl, url="https://energy.example.org/panels", title="Solar Panel Field Guide")
+    atlas = Snapshot.objects.create(crawl=crawl, url="https://energy.example.org/atlas", title="Community Solar Atlas")
+    tag = Tag.objects.create(name="solar-research")
+    panel.tags.add(tag)
+    atlas.tags.add(tag)
+    query = 'tags:solar AND (title:"Solar Panel" OR title:Atlas)'
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1400, "height": 900})
+        page.goto(live_server.url.replace("localhost", "admin.archivebox.localhost") + "/admin/login/?next=/admin/core/snapshot/")
+        page.get_by_label("Username").fill(admin_user.username)
+        page.get_by_label("Password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.get_by_role("button", name="Create folder", exact=True).click()
+        page.get_by_role("menuitem", name="New smart folder", exact=True).click()
+        dialog = page.locator("#folder-dialog")
+        expect(dialog.locator(".folder-save")).to_be_enabled()
+        expect(dialog.locator(".folder-advanced")).not_to_have_attribute("open", "")
+        dialog.get_by_label("Name", exact=True).fill("Energy")
+        dialog.get_by_role("combobox", name="Search snapshots").fill(query)
+        expect(dialog.locator(".folder-match")).to_have_count(2)
+        dialog.locator("summary").click()
+        dialog.get_by_role("button", name="+ Rule", exact=True).click()
+        dialog.get_by_label("Field", exact=True).select_option("title")
+        dialog.get_by_label("Comparison", exact=True).select_option("icontains")
+        dialog.get_by_role("textbox", name="Value", exact=True).fill("Panel")
+        dialog.get_by_label("Sort by", exact=True).select_option("title")
+        dialog.get_by_label("Sort direction", exact=True).select_option("asc")
+        dialog.get_by_label("Limit", exact=True).fill("1")
+        expect(dialog.locator(".folder-match strong")).to_have_text(panel.title)
+        dialog.get_by_role("button", name="Save folder").click()
+        expect(dialog).not_to_be_visible()
+        browser.close()
+    folder = Folder.objects.get(name="Energy")
+    assert folder.rules == {**leaf("title", "icontains", "Panel"), "query": query, "sort": "title", "limit": 1}
+    assert list(Snapshot.objects.in_folder(folder.pk)) == [panel]

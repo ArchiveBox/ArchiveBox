@@ -1937,7 +1937,19 @@ tbody .output-link:hover {opacity: 1;}
     border-radius: 4px;
 }
 
+/* Both side panes take space from the results. Switch rows at the native
+   table's 900px minimum using the scrollport width, including on desktop.
+   Portrait tablets and short phones retain their existing compact preference. */
+.model-snapshot.change-list #changelist-form > .results {
+    container: snapshot-results / inline-size;
+}
 @media (max-width: 700px), (orientation: portrait) and (max-width: 1024px), (orientation: landscape) and (max-width: 939px) and (max-height: 500px) {
+    .model-snapshot.change-list #changelist-form > .results {
+        --compact-snapshot-rows: 1;
+    }
+}
+
+@container snapshot-results (max-width: 900px) or style(--compact-snapshot-rows: 1) {
     .model-snapshot.change-list #result_list {
         display: block;
         min-width: 0 !important;
@@ -2165,7 +2177,7 @@ tbody .output-link:hover {opacity: 1;}
 /* Keep title, source, and tags in one reading column at every compact width. */
 .snapshot-row-permission,
 .snapshot-created-at__relative { display: none; }
-@media (max-width: 700px), (orientation: portrait) and (max-width: 1024px), (orientation: landscape) and (max-width: 939px) and (max-height: 500px) {
+@container snapshot-results (max-width: 900px) or style(--compact-snapshot-rows: 1) {
     .model-snapshot.change-list #result_list {
         container: snapshot-rows / inline-size;
     }

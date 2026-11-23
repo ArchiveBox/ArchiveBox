@@ -10,8 +10,3 @@
 {% if not embedded_changelist %}</div>
 {% include "core/folder_dialog.html" %}{% endif %}
 {% endblock %}
-
-{% block object-tools %}
-{% if not embedded_changelist %}
-{% if not cl.result_count %}<div class="library-empty"><h2>No snapshots here yet</h2><p>Move captures into this folder, or adjust your search and filters.</p><a href="{% url 'admin:core_snapshot_changelist' %}">Browse all snapshots →</a></div>{% endif %}
-{% endif %}{{ block.super }}{% endblock %}

@@ -66,13 +66,13 @@ def test_superseded_meta_search_cannot_overwrite_replacement(admin_client, crawl
             assert int(await asyncio.wait_for(anext(iterator), 5)) == 0
             assert int(await asyncio.wait_for(anext(iterator), 5)) == 1
             assert await asyncio.to_thread(stalled.wait, 5)
-            assert cache.get(key) == {"ids": [snapshots[0].pk.hex], "done": False}
+            assert cache.get(key) == {"ids": [snapshots[0].pk.hex], "done": False, "partial": False}
 
             async def consume_replacement():
                 return [int(chunk) async for chunk in replacement.streaming_content]
 
             assert (await asyncio.wait_for(consume_replacement(), 5))[-1] == len(snapshots)
-            expected = {"ids": [item.pk.hex for item in snapshots], "done": True}
+            expected = {"ids": [item.pk.hex for item in snapshots], "done": True, "partial": False}
             assert cache.get(key) == expected
             if aborted:
                 await iterator.aclose()

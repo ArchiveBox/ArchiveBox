@@ -83,7 +83,7 @@
       if (!form || form.id !== "changelist-search") return;
 
       var formData = new FormData(form);
-      var mode = String(formData.get("search_mode") || "meta");
+      var mode = String(formData.get("search_mode") || "query");
       var query = String(formData.get("q") || "").trim();
       if (!query) return;
       if (mode === "url") return;
@@ -110,7 +110,7 @@
         clearSearchLoading(controller);
         if (searchMessage?.isConnected) {
           searchMessage.removeAttribute("data-search-pending");
-          searchMessage.textContent = "Search couldn't finish. Press Enter to try again.";
+          searchMessage.textContent = error.message || "Search could not finish.";
         }
       }
 
@@ -194,7 +194,8 @@
       // Stream chunks only say "new result count"; the page fetch reads IDs from cache.
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
       fetch(streamUrl, {signal: controller.signal})
-        .then(function(response) {
+        .then(async function(response) {
+          if (response.status === 400) throw new Error(await response.text());
           if (!response.ok || !response.body || !(response.headers.get("Content-Type") || "").startsWith("text/plain")) {
             throw new Error("Unexpected snapshot search stream response");
           }

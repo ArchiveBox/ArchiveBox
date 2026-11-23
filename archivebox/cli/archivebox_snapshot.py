@@ -223,7 +223,9 @@ def snapshot_filter_options(*, default_filter_type: str):
                 click.option(
                     "--filter-type",
                     "-f",
-                    type=click.Choice(SNAPSHOT_FILTER_TYPE_CHOICES),
+                    type=click.Choice(
+                        (*SNAPSHOT_FILTER_TYPE_CHOICES, "query") if default_filter_type == "query" else SNAPSHOT_FILTER_TYPE_CHOICES,
+                    ),
                     default=default_filter_type,
                     help="Type of pattern matching to use for positional filters",
                 ),
@@ -262,7 +264,7 @@ def build_snapshot_queryset(
 ) -> QuerySet:
     from archivebox.core.models import Snapshot
 
-    return Snapshot.objects.order_by("-created_at").search(**kwargs)
+    return Snapshot.objects.all().search(**kwargs)
 
 
 def list_snapshots(
@@ -308,6 +310,9 @@ def list_snapshots(
     except (ValueError, IncorrectLookupParameters, SuspiciousOperation, ValidationError) as err:
         rprint(f"[red]{err}[/red]", file=sys.stderr)
         return 2
+
+    if getattr(queryset, "search_partial", False):
+        rprint("Showing confirmed matches. Search limits or unavailable content left some snapshots unchecked.", file=sys.stderr)
 
     if export_format:
         from archivebox.core.exports import ARCHIVE_FORMATS, write_snapshot_metadata

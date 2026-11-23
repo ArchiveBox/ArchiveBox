@@ -1,4 +1,3 @@
-import re
 from urllib.parse import urlencode
 
 import pytest
@@ -73,9 +72,8 @@ def test_url_only_search_stream_and_pages(admin_client, client, url_rows, surfac
     params = {"q": "nEeDlE", "search_mode": "url"}
     initial = browser.get(path, params, HTTP_HOST=host)
     assert initial.status_code == 200
-    selector = re.search(r'<select[^>]*name="search_mode"[^>]*>(.*?)</select>', initial.content.decode(), re.S).group(1)
-    options = re.findall(r'<option value="([^"]+)"[^>]*>(.*?)</option>', selector, re.S)
-    assert [(value, label.strip()) for value, label in options][:2] == [("meta", "meta"), ("url", "URL")]
+    assert b'role="combobox" aria-label="Search snapshots"' in initial.content
+    assert b'name="search_mode" value="url"' in initial.content
     if surface == "admin":
         assert initial.context["cl"].search_stream_complete
         assert len(initial.context["cl"].result_list) == 50

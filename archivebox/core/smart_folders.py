@@ -1,5 +1,7 @@
 """Model-derived, parameterized snapshot predicates shared by folder views and exports."""
 
+import json
+import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -227,6 +229,26 @@ class RuleQuery:
         self.cache[key] = query
         return query
 
+    def advanced_term(self, field, lookup, text, stack):
+        """Decode the builder's typed values, then apply its existing allowlist and cleaning."""
+        spec = self.specs.get(field, {})
+        value = text
+        try:
+            if lookup in {"in", "not_in"}:
+                # A JSON array preserves embedded commas, JSON types and relation IDs.
+                value = json.loads(text) if text.startswith("[") else text.split(",")
+            elif spec.get("type") == "json" and lookup in {"exact", "not_exact"}:
+                value = json.loads(text)
+            elif spec.get("units") and lookup not in {"isnull", "present"}:
+                amount = re.fullmatch(r"([+-]?[0-9]+(?:\.[0-9]+)?)\s*([A-Za-z]+)", text)
+                if amount:
+                    value = {"amount": amount[1], "unit": amount[2]}
+            elif spec.get("type") == "boolean" and text.lower() in {"true", "false"}:
+                value = text.lower() == "true"
+        except (ValueError, RecursionError) as error:
+            raise ValidationError("Enter a valid JSON value for this comparison.") from error
+        return self.compile({"field": field, "lookup": lookup, "value": value}, stack)
+
     def compile(self, rules, stack=()):
         from archivebox.core.models import Snapshot
 
@@ -237,6 +259,31 @@ class RuleQuery:
             count += 1
             if count > 100 or depth > 8 or not isinstance(node, dict):
                 raise ValidationError("Use at most 100 rules and 8 nested groups.")
+            if "query" in node:
+                from archivebox.search.interpreter import SnapshotSearch
+                from archivebox.search.language import sql_bounds
+
+                try:
+                    if not isinstance(node["query"], str) or not node["query"].strip():
+                        raise ValueError("Enter a search expression.")
+                    plan = SnapshotSearch(Snapshot.objects.all(), node["query"], rules=self, stack=stack)
+                except (ValueError, OverflowError, RecursionError) as error:
+                    raise ValidationError(str(error)) from error
+                if len(plan.sql) != len(plan.terms):
+                    # This same predicate drives folder deletion, bulk moves and webhooks,
+                    # sometimes inside a write transaction. Missing evidence from a bounded
+                    # backend scan must never be interpreted as a definitive non-match.
+                    raise ValidationError(
+                        "Saved folders require complete membership. Use database fields such as title:, tags: or meta: "
+                        "instead of full-text, deep: or link searches.",
+                    )
+                query = sql_bounds(plan.tree, plan.sql)[1]
+                # Historical rule trees stay in their typed, lossless representation.
+                # Adding search intersects the entire tree, including a negated root.
+                if "field" in node or "op" in node:
+                    advanced = {key: value for key, value in node.items() if key != "query"}
+                    query &= build(advanced, depth)
+                return query
             if "op" in node:
                 op, children = node.get("op"), node.get("rules")
                 if (

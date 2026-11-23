@@ -7,7 +7,6 @@ from django.contrib.admin.views.main import ChangeList
 from django.db.models import Case, Expression, IntegerField, Value, When
 
 from archivebox.search.config import (
-    get_default_search_mode,
     get_search_mode,
     get_search_mode_backend,
     get_search_mode_base,
@@ -57,10 +56,11 @@ class SearchResultsChangeList(ChangeList):
 
     def __init__(self, request, *args, **kwargs):
         """Capture normalized search mode before Django builds results."""
-        self.search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
+        self.search_mode = get_search_mode(request.GET.get("search_mode") or "query", config=request.archivebox_config)
         self.search_mode_backend = get_search_mode_backend(self.search_mode, config=request.archivebox_config)
         super().__init__(request, *args, **kwargs)
         self.embedded_changelist = request.GET.get("_embedded") == "crawl"
+        self.search_partial = getattr(request, "_archivebox_search_partial", False)
         self.search_stream_complete = bool(getattr(request, "_archivebox_search_complete", False))
 
     def get_results(self, request):
@@ -95,7 +95,7 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
 
     def get_default_search_mode(self):
         """Return the default search mode for the current request config."""
-        return get_default_search_mode(config=self.request.archivebox_config)
+        return "query"
 
     def get_search_mode_options(self):
         """Return selector options for the current request config."""
@@ -107,13 +107,14 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
         search_term = search_term.strip()
         if not search_term:
             return super().get_search_results(request, queryset, search_term)
-        search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
+        search_mode = get_search_mode(request.GET.get("search_mode") or "query", config=request.archivebox_config)
         if get_search_mode_base(search_mode, config=request.archivebox_config) == "url":
             request._archivebox_search_complete = True
             return queryset.filter(url_search_q(search_term)), False
         if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
             state = get_cached_admin_search_state(request)
             request._archivebox_search_complete = bool(state and state.get("done"))
+            request._archivebox_search_partial = bool(state and state.get("partial"))
             if state is not None:
                 cached_ids = state.get("ids") or []
                 if not cached_ids:
@@ -128,6 +129,10 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
             qs, use_distinct = super().get_search_results(request, queryset, search_term)
             return qs, use_distinct
         if request.GET.get("_embedded") == "crawl":
+            if search_mode == "query":
+                from archivebox.search.query import apply_snapshot_search
+
+                return apply_snapshot_search(queryset, search_term, config=request.archivebox_config), False
             try:
                 return queryset.filter(
                     pk__in=query_search_index(

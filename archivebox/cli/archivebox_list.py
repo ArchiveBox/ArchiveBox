@@ -12,7 +12,7 @@ from archivebox.cli.archivebox_snapshot import list_snapshots, snapshot_filter_o
 
 @click.command()
 @snapshot_output_options
-@snapshot_filter_options(default_filter_type="substring")
+@snapshot_filter_options(default_filter_type="query")
 def main(**kwargs) -> None:
     """List Snapshots."""
     sys.exit(list_snapshots(**kwargs))
