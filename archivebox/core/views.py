@@ -1979,7 +1979,7 @@ class AddView(UserPassesTestMixin, FormView):
                 urls = [validate_url(submitted_lines[0])]
             except ValueError:
                 pass
-        print(f"[+] Adding URL: {urls_input}")
+        print(f"[+] Adding crawl input: {len(urls_input):,} characters")
 
         # Extract all form fields
         tag = form.cleaned_data["tag"]

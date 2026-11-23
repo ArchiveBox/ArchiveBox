@@ -21,7 +21,9 @@
         overlay.dataset.state = state;
         title.textContent = heading;
         message.textContent = description;
+        message.hidden = !description;
         detail.textContent = hint;
+        detail.hidden = !hint;
         close.hidden = state !== 'error';
         overlay.hidden = false;
         if (state === 'error') {
@@ -39,13 +41,13 @@
         if (busy) return;
         busy = true;
         depth = 0;
-        show('uploading', 'Opening Add…', 'Loading your files or text into the existing import form.', files.map(file => file.name).join(', ') || 'Dropped text');
+        show('uploading', 'Importing…', '', files.map(file => file.name).join(', '));
         try {
             await window.archiveboxAddInput.transfer({files, text});
             window.location.assign(overlay.dataset.addUrl);
         } catch (error) {
             busy = false;
-            show('error', 'Could not open Add', error.message);
+            show('error', 'Import failed', error.message);
         } finally {
             input.value = '';
         }
@@ -63,7 +65,7 @@
         if (!accepts(event)) return;
         event.preventDefault();
         depth += 1;
-        if (!busy) show('dragging', 'Drop to create a crawl', 'Open these files or text in Add to import any URLs found.', 'Review your URLs and settings before starting');
+        if (!busy) show('dragging', 'Drop to create a crawl', 'Import URLs from files or text.');
     });
     document.addEventListener('dragover', event => {
         if (!accepts(event)) return;

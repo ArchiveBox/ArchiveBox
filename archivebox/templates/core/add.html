@@ -39,12 +39,10 @@
             </center>
         {% else %}
             <div id="in-progress" style="display: none;">
-                <center><h3>Creating crawl and queueing snapshots...</h3>
-                    <p>Your crawl is being created. The background runner will process URLs and create snapshots.</p>
+                <center><h3>Creating crawl…</h3>
                     <br/>
                     <div class="loader"></div>
                     <br/>
-                    Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for detailed progress...
                 </center>
             </div>
             <input id="url-file-input" type="file" multiple hidden>
@@ -94,6 +92,7 @@
                                 <div id="detected-urls-list" class="detected-urls-list">
                                     <div class="detected-urls-empty">Paste URLs, markdown, JSON, or prose to preview matches here.</div>
                                 </div>
+                                <p id="url-preview-note" class="help-text" hidden>Preview limited to the first 100 URLs or 50 KB. All input will be imported.</p>
                             </aside>
                         </div>
                         {% if form.url.errors %}
@@ -344,9 +343,6 @@
             </form>
             {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}
             <br/><br/><br/>
-            <center id="delay-warning" style="display: none">
-                <small>(you will be redirected to your new Crawl page momentarily, it's safe to close this page at any time)</small>
-            </center>
             {% if absolute_add_path %}
             <!-- <center id="bookmarklet">
               <p>Bookmark this link to quickly add to your archive:
@@ -869,7 +865,7 @@
                     return starts;
                 }
 
-                function extractURLs(text) {
+                function extractURLs(text, limit = Infinity) {
                     const urls = [];
                     const skippedStarts = new Set();
 
@@ -895,6 +891,7 @@
                                 skippedStarts.add(partStart);
                             }
                             urls.push({ url: part.url, start: partStart, end });
+                            if (urls.length >= limit) return urls;
                         }
                     }
 
@@ -1097,7 +1094,13 @@
                 }
 
                 function updateURLPreview() {
-                    const matches = extractURLs(urlTextarea.value).map((match, index) => ({
+                    // Preview work must stay bounded even for multi-megabyte
+                    // exports. The textarea is submitted unchanged to the CLI.
+                    const text = urlTextarea.value;
+                    const previewText = text.slice(0, 50000);
+                    const previewMatches = extractURLs(previewText, 101).filter(match => text.length <= 50000 || match.end < previewText.length);
+                    const truncated = text.length > 50000 || previewMatches.length > 100;
+                    const matches = previewMatches.slice(0, 100).map((match, index) => ({
                         ...match,
                         number: index + 1,
                         colorIndex: index % urlPalette.length,
@@ -1106,14 +1109,15 @@
                     const uniqueMatches = dedupeMatchesForFilterView(matches);
                     const limitedMatches = applyMaxURLsLimit(uniqueMatches);
                     const count = matches.length;
-                    urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} detected`;
+                    urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} ${truncated ? 'in preview' : 'detected'}`;
                     urlCounter.className = count > 0 ? 'url-counter url-counter-positive' : 'url-counter';
-                    renderHighlightLayer(urlTextarea.value, matches);
+                    document.getElementById('url-preview-note').hidden = !truncated;
+                    // Avoid duplicating the full input in a highlighted DOM tree.
+                    renderHighlightLayer(text.length > 50000 ? '' : text, matches);
                     renderDetectedURLs(limitedMatches);
                     syncHighlightScroll();
                 }
 
-                urlTextarea.addEventListener('input', updateURLPreview);
                 const fileInput = document.getElementById('url-file-input');
                 const uploadButton = document.getElementById('url-upload-button');
                 const uploadStatus = document.getElementById('url-upload-status');
@@ -1139,7 +1143,7 @@
                                     errors.push(`${file.name}: could not read as text. Use a text or bookmarks export.`);
                                     continue;
                                 }
-                                if (!extractURLs(text).length) {
+                                if (!/https?:\/\//i.test(text)) {
                                     errors.push(`${file.name}: no URLs found.`);
                                 }
                                 if (!text) continue;
@@ -1410,10 +1414,6 @@
                     }
                     document.getElementById('in-progress').style.display = 'block'
                     document.getElementById('add-form').style.display = 'none'
-                    document.getElementById('delay-warning').style.display = 'block'
-                    setTimeout(function() {
-                        window.location = '/'
-                    }, 2000)
                     return true
                 })
             </script>

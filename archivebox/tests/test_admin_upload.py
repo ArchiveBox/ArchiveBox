@@ -5,6 +5,63 @@ from archivebox.tests.test_cli_add_1 import write_import_format_files
 
 
 @pytest.mark.django_db(transaction=True)
+def test_large_csv_upload_preserves_full_input(live_server, admin_user, browser_runtime, settings, tmp_path):
+    from time import perf_counter
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.exports import write_snapshot_metadata
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    base = f"http://archivebox.localhost:{urlsplit(live_server.url).port}"
+    settings.CONFIG = settings.CONFIG.model_copy(update={"BASE_URL": base})
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": base}
+    machine.save(update_fields=["config"])
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(crawl=crawl, url=f"https://example.com/{i:05}", title="CSV export " + "x" * 400, timestamp=str(1900600000 + i))
+            for i in range(24000)
+        ],
+    )
+    source = tmp_path / "snapshots.csv"
+    with source.open("w") as output:
+        write_snapshot_metadata(Snapshot.objects.filter(crawl=crawl), "csv", output)
+    assert source.stat().st_size >= 12_000_000
+    text = source.read_text()
+    admin_url = base.replace("//archivebox", "//admin.archivebox")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        try:
+            page = browser.new_page()
+            page.goto(f"{admin_url}/admin/login/?next=/admin/crawls/crawl/")
+            page.locator('[name="username"]').fill(admin_user.username)
+            page.locator('[name="password"]').fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            with page.expect_file_chooser() as chooser:
+                page.get_by_role("button", name="Upload file", exact=True).click()
+            started = perf_counter()
+            chooser.value.set_files(source)
+            page.wait_for_url("**/add/")
+            expect(page.locator("#url-upload-status")).to_have_text("File text added.")
+            elapsed = perf_counter() - started
+            print(f"CSV upload: {source.stat().st_size:,} bytes, {elapsed:.2f}s to preview")
+            assert elapsed < 5, f"Large CSV preview took {elapsed:.2f}s"
+            assert page.locator("#id_url").input_value() == text
+            assert page.locator(".detected-url-item").count() <= 100
+            page.locator("#submit").click()
+            page.wait_for_url("**/admin/crawls/crawl/*/change/")
+        finally:
+            browser.close()
+    imported = Crawl.objects.exclude(pk=crawl.pk).get()
+    assert imported.urls.replace("\r\n", "\n") == text
+    assert "https://example.com/23999" in imported.urls
+
+
+@pytest.mark.django_db(transaction=True)
 def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, tmp_path):
     from playwright.sync_api import expect, sync_playwright
 
