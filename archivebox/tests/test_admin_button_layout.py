@@ -41,25 +41,19 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             assert page.locator(".actions-folder").count() == 0
             folder_select = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(folder_select).to_be_visible()
-            assert folder_select.evaluate("node => getComputedStyle(node).opacity") == "0"
-            folder_box = folder_select.bounding_box()
-            move_button = page.locator(".action-folder-wrapper > .button")
-            move_box = move_button.bounding_box()
-            for dimension in ("x", "y", "width", "height"):
-                assert abs(folder_box[dimension] - move_box[dimension]) < 1
-            assert move_button.evaluate("""node => {
-                const box = node.getBoundingClientRect();
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                const parts = [...range.getClientRects()].filter(part => part.width && part.height);
-                return parts.length >= 3 && parts.every(part =>
-                    part.left >= box.left - 1 && part.right <= box.right + 1 &&
-                    part.top >= box.top - 1 && part.bottom <= box.bottom + 1);
-            }""")
+            folder_search = page.get_by_role("searchbox", name="Find a folder", exact=True)
+            expect(folder_search).to_be_visible()
+            expect(page.locator(".action-folder-wrapper .record-picker > button")).to_be_hidden()
+            assert folder_select.evaluate("node => getComputedStyle(node).opacity") == "1"
+            for control in (folder_search, folder_select):
+                box = control.bounding_box()
+                assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1
+                if width <= 390:
+                    assert box["height"] >= 44
             folder_select.focus()
             page.keyboard.press("Escape")
             page.get_by_role("combobox", name="Permissions", exact=True).focus()
-            assert folder_select.evaluate("node => node.selectedIndex") == -1
+            expect(folder_select).to_have_value("__choose__")
             page.locator("input.action-select").first.uncheck()
             expect(folder_select).not_to_be_visible()
             page.locator("input.action-select").first.check()
@@ -179,12 +173,13 @@ def test_folder_action_menu_reopens_and_moves_real_selection(live_server, browse
             checkbox.check()
             menu = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(menu).to_be_visible()
+            page.get_by_role("searchbox", name="Find a folder", exact=True).fill("OneTab")
             expect(menu.locator(f'option[value="{folder.pk}"]')).to_have_text("2026 / OneTab")
-            assert menu.evaluate("node => node.selectedIndex") == -1
+            expect(menu).to_have_value("__choose__")
             menu.focus()
             page.keyboard.press("Escape")
             page.get_by_role("combobox", name="Re-Archive", exact=True).focus()
-            assert menu.evaluate("node => node.selectedIndex") == -1
+            expect(menu).to_have_value("__choose__")
             with page.expect_navigation(wait_until="domcontentloaded"):
                 menu.select_option(destination)
             assert reader.submit(current_folder_id).result() == destination

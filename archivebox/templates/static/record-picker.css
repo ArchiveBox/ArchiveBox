@@ -1,4 +1,12 @@
 .record-picker { display: inline-flex; flex-direction: column; gap: 4px; max-width: 100%; min-width: 0; }
 .record-picker > input, .record-picker > select { box-sizing: border-box; width: 100%; min-width: 0; }
 .record-picker > button { align-self: flex-start; }
+.record-picker > button[hidden] { display: none !important; }
+.record-picker > button[hidden] { display: none !important; }
 .record-picker-status:empty { display: none; }
+@media (max-width: 767px) {
+  .record-picker > input, .record-picker > select, .record-picker > button { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  .record-picker > input, .record-picker > select, .record-picker > button { min-height: 44px; }
+}
