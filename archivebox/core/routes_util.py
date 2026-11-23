@@ -45,7 +45,14 @@ def build_snapshot_export_urls(filters, *, api=False, request=None) -> dict[str,
     if apps.is_installed("archivebox.domains"):
         formats += ("html_zip", "wacz")
     suffix = "?" + query.urlencode() if query else ""
-    urls = {format: reverse(route, args=[format]) + suffix for format in formats}
+    # A sidebar may build one set of these URLs per row. Within one
+    # request the reversed format paths are fixed; only the suffix varies.
+    cached_paths = request.__dict__.setdefault("_snapshot_export_route_paths", {}) if request is not None else {}
+    paths = cached_paths.get(route)
+    if paths is None:
+        paths = {format: reverse(route, args=[format]) for format in formats}
+        cached_paths[route] = paths
+    urls = {format: paths[format] + suffix for format in formats}
     if api:
         urls = {"rss_public": urls.pop("rss"), **urls}
     else:
@@ -53,7 +60,7 @@ def build_snapshot_export_urls(filters, *, api=False, request=None) -> dict[str,
         public_query["public_only"] = "1"
         urls = {
             "rss": urls.pop("rss"),
-            "rss_public": reverse(route, args=["rss"]) + "?" + public_query.urlencode(),
+            "rss_public": paths["rss"] + "?" + public_query.urlencode(),
             **urls,
         }
     return urls
