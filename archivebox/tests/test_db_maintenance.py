@@ -15,13 +15,15 @@ def empty_database(tmp_path):
         yield
 
 
-def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_database):
+@pytest.mark.parametrize("queried", [False, True], ids=["unqueried", "queried"])
+def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_database, queried):
     from archivebox.misc.db import run_db_optimize
 
     statements = []
-    # Older SQLite accepts unknown optimize bits without doing the newer
-    # all-table analysis. That best-effort no-op remains supported.
-    analyzes_unqueried_tables = sqlite3.sqlite_version_info >= (3, 46, 0)
+    # Before 3.46, optimize considers only tables used by this connection.
+    # The newer all-tables bit also covers unqueried tables; older SQLite
+    # ignores that bit while retaining its useful queried-table maintenance.
+    expects_analysis = queried or sqlite3.sqlite_version_info >= (3, 46, 0)
     with connection.cursor() as cursor:
         cursor.execute("CREATE TABLE maintenance_items (id INTEGER PRIMARY KEY, category TEXT, label TEXT)")
         cursor.execute("CREATE INDEX maintenance_category ON maintenance_items(category)")
@@ -29,9 +31,9 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
             "INSERT INTO maintenance_items(category, label) VALUES (%s, %s)",
             [(f"category-{index % 10}", f"item-{index}") for index in range(200)],
         )
-        # Older SQLite only considers tables this connection has queried.
-        cursor.execute("SELECT id FROM maintenance_items WHERE category = %s LIMIT 1", ("category-0",))
-        cursor.fetchone()
+        if queried:
+            cursor.execute("SELECT id FROM maintenance_items WHERE category = %s LIMIT 1", ("category-0",))
+            assert cursor.fetchone() is not None
         cursor.execute("PRAGMA analysis_limit")
         original_limit = cursor.fetchone()[0]
         cursor.execute("PRAGMA busy_timeout")
@@ -42,7 +44,7 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
             initial_stat = cursor.fetchone()
-        if analyzes_unqueried_tables:
+        if expects_analysis:
             assert initial_stat is not None
             initial_count = int(initial_stat[0].split()[0])
             assert initial_count >= 200
@@ -62,7 +64,7 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
             grown_stat = cursor.fetchone()
-            if analyzes_unqueried_tables:
+            if expects_analysis:
                 assert grown_stat is not None
                 assert int(grown_stat[0].split()[0]) > initial_count * 10
             else:
@@ -72,7 +74,7 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
         with connection.cursor() as cursor:
             cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_label'")
             new_index_stat = cursor.fetchone()
-            if analyzes_unqueried_tables:
+            if expects_analysis:
                 assert new_index_stat is not None
                 assert int(new_index_stat[0].split()[0]) >= 20000
             else:
