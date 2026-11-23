@@ -418,6 +418,13 @@ class ArchiveBoxHost:
                 result[candidates[url]] = group_domain_key(key)[0]
         return result
 
+    def group_snapshot_urls(self, request, urls):
+        """Map URLs to collection domain groups without reading snapshot rows."""
+        from archivebox.core.domain_grouping import domain_label_from_key, domain_key_from_url
+
+        self._require_collection_admin(request)
+        return {url: domain_label_from_key(key) for url in urls[:256] if (key := domain_key_from_url(url))}
+
     def process_records(self, request, *, after=None, ids=(), limit=128):
         """Bounded current-machine processes plus newly created lifecycle rows."""
         from archivebox.machine.models import Machine, Process

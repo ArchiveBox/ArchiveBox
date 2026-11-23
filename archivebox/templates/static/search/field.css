@@ -1,7 +1,7 @@
     /* Match static/library/folders.css: compact controls, 4px corners,
        system typography, neutral borders, and ArchiveBox's burgundy accent.
        In the app, reuse its CSS variables and toolbar classes directly. */
-    .abx-search-field { position:relative; flex:1 1 auto; min-width:0; color-scheme:light dark; }
+    .abx-search-field { position:relative; flex:1 1 auto; min-width:0; }
     .abx-search-field {
       --abx-bg: light-dark(#fff,#202125); --abx-fg: light-dark(#1d2939,#ededf0);
       --abx-muted: light-dark(#667085,#a9adb8); --abx-line: light-dark(#d0d5dd,#464951);

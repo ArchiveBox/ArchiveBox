@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'search/field.css' %}">
+<link rel="stylesheet" href="{% static 'search/field.css' %}?v={{ static_cache_key|urlencode }}">
 <div class="abx-search-field" data-operators="{{ operators }}" data-suggestions="{% url 'search-suggestions' %}" data-icons="{% static 'search/icons.svg' %}">
 <input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" enterkeyhint="search" aria-label="Search snapshots" placeholder="Search snapshots…">
 
@@ -18,4 +18,4 @@
       <div class="feedback" role="status" aria-live="polite"></div>
 
 </div>
-<script defer src="{% static 'search/field.js' %}"></script>
+<script defer src="{% static 'search/field.js' %}?v={{ static_cache_key|urlencode }}"></script>
