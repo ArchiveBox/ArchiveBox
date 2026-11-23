@@ -344,15 +344,21 @@ def _render_directory_index(
     entries = []
     file_list = []
     visible_entries = []
-    for entry in fullpath.iterdir():
-        if entry.name.startswith("."):
-            continue
-        try:
-            resolved = _resolve_contained_path(document_root, entry)
-            stat_result = resolved.stat()
-        except (Http404, OSError):
-            continue
-        visible_entries.append((entry, stat_result))
+    # Resolve the containing directory once. Re-resolving every ordinary
+    # entry repeats all ancestor lstat calls against remote/FUSE storage.
+    fullpath = _resolve_contained_path(document_root, fullpath)
+    with os.scandir(fullpath) as directory:
+        for entry in directory:
+            if entry.name.startswith("."):
+                continue
+            try:
+                stat_result = entry.stat(follow_symlinks=False)
+                if stat.S_ISLNK(stat_result.st_mode):
+                    resolved = _resolve_contained_path(document_root, Path(entry.path))
+                    stat_result = resolved.stat()
+            except (Http404, OSError):
+                continue
+            visible_entries.append((Path(entry.path), stat_result))
     visible_entries.sort(key=lambda item: (not stat.S_ISDIR(item[1].st_mode), item[0].name.lower()))
     for entry, stat_result in visible_entries:
         is_dir = stat.S_ISDIR(stat_result.st_mode)

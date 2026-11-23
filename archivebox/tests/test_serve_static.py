@@ -817,6 +817,7 @@ def test_directory_previews_only_small_supported_files(tmp_path: Path):
 
 
 def test_directory_index_reads_each_entry_metadata_once(tmp_path):
+    import os
     import sys
     from collections import Counter
 
@@ -828,14 +829,22 @@ def test_directory_index_reads_each_entry_metadata_once(tmp_path):
     paths.append(folder)
     metadata_reads = Counter()
 
-    def observe_stat(frame, event, arg):
-        if event == "call" and frame.f_code is Path.stat.__code__:
-            path = frame.f_locals["self"]
-            if path in paths:
-                metadata_reads[path] += 1
+    def observe_stat(code, offset, callee, arg0):
+        if callee in (os.stat, os.lstat):
+            path = Path(arg0) if isinstance(arg0, (str, bytes, os.PathLike)) else None
+        elif callee is os.DirEntry.stat:
+            path = Path(arg0.path)
+        else:
+            return
+        if path in paths:
+            metadata_reads[path] += 1
 
-    previous = sys.getprofile()
-    sys.setprofile(observe_stat)
+    # Observe native metadata work, including realpath's lstat calls and
+    # scandir metadata. Counting only Path.stat misses repeated FUSE lookups.
+    tool_id = next(tool for tool in range(6) if sys.monitoring.get_tool(tool) is None)
+    sys.monitoring.use_tool_id(tool_id, "directory-metadata-reads")
+    sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, observe_stat)
+    sys.monitoring.set_events(tool_id, sys.monitoring.events.CALL)
     try:
         response = serve_static_with_byterange_support(
             RequestFactory().get("/?files=1"),
@@ -844,7 +853,9 @@ def test_directory_index_reads_each_entry_metadata_once(tmp_path):
             show_indexes=True,
         )
     finally:
-        sys.setprofile(previous)
+        sys.monitoring.set_events(tool_id, 0)
+        sys.monitoring.register_callback(tool_id, sys.monitoring.events.CALL, None)
+        sys.monitoring.free_tool_id(tool_id)
     assert response.status_code == 200
     for path in paths:
         target = f"{path.name}/?files=1" if path == folder else path.name

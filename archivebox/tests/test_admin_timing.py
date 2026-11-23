@@ -1,3 +1,5 @@
+import cProfile
+import pstats
 import re
 import time
 
@@ -41,6 +43,24 @@ def test_admin_timing_sync(admin_client, snapshot):
     assert measured.render() is measured
     assert measured["Server-Timing"] == header
     assert "Server-Timing" not in admin_client.get(PATH, HTTP_HOST=ADMIN_TEST_HOST)
+
+
+def test_english_admin_render_avoids_global_translation_state(admin_client, snapshot):
+    profile = cProfile.Profile()
+    response = profile.runcall(admin_client.get, PATH, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert table(response) is not None
+    assert b"Snapshots" in response.content
+    translation_calls = {
+        function: stats[1]
+        for (filename, _line, function), stats in pstats.Stats(profile).stats.items()
+        if filename.endswith("django/utils/translation/trans_real.py")
+        and function in {"get_language", "gettext", "pgettext", "ngettext", "npgettext"}
+    }
+    # The fixed English UI has no locale selection or translation catalogs.
+    # These calls otherwise contend on asgiref.Local's process-wide lock for
+    # every reversed URL and translated label during concurrent rendering.
+    assert not translation_calls, translation_calls
 
 
 def test_anonymous_and_public_no_admin_metrics(client):
