@@ -271,13 +271,7 @@ class SnapshotSearch:
         return self.link_cache[snapshot.pk]
 
     def link_endpoints(self, term):
-        if term.exact_url:
-            lookup = "url__exact" if has_uppercase(term.value) else "url__iexact"
-            return self.scope.order_by().filter(**{lookup: term.value})
-        # Use native LIKE for the common lowercase ASCII URL fragment. Other
-        # operands use the shared smart-case matcher (SQLite LIKE is ASCII-only).
-        needle = Q(url__icontains=term.value) if term.value.isascii() and not has_uppercase(term.value) else substring("url", term.value)
-        return self.scope.order_by().filter(needle, Q(url__istartswith="http://") | Q(url__istartswith="https://"))
+        return self.scope.order_by().filter(substring("url", term.value), Q(url__istartswith="http://") | Q(url__istartswith="https://"))
 
     def sources(self, term):
         qs = (
@@ -575,8 +569,7 @@ class SnapshotSearch:
                     for term in dict.fromkeys(leaves(expr)):
                         if term.field == "linksto":
                             pattern = literal_pattern(term.value)
-                            matches = pattern.fullmatch if term.exact_url else pattern.search
-                            hit = any(matches(url) for url in urls)
+                            hit = any(pattern.search(url) for url in urls)
                             if hit or done:
                                 answers[term] = hit
                     expr = simplify(expr, answers)

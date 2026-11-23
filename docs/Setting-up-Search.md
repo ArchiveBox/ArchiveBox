@@ -17,10 +17,10 @@ The public index, Snapshot admin, mobile search, REST search, and `archivebox li
 | `filetype:pdf,png` | A saved output filename ends in any listed extension. |
 | `meta:"solar panel"` | A substring in database metadata. Public searches use public metadata. |
 | `deep:"solar panel"` | A literal in archived file contents, checked by a registered scanner. |
-| `linksto:example.com`, `linkedfrom:example.com` | Match a literal substring anywhere in the outgoing or source HTTP(S) URL. For example, `linkedfrom:ycombinator.com` includes links from `news.ycombinator.com`. Quote a complete URL, such as `linkedfrom:"https://news.ycombinator.com/item?id=42"`, to select that specific page. The same rule applies to `linksto:`. |
+| `linksto:example.com`, `linkedfrom:example.com` | Match a literal substring anywhere in the outgoing or source HTTP(S) URL. For example, `linkedfrom:ycombinator.com` includes links from `news.ycombinator.com`. |
 | `output_size__gte:"1 MB"` | A Smart Folder field and comparison using the builder's types and relationship IDs. Administrative searches support the full builder schema. |
 
-Text operands containing an uppercase letter match case. Lowercase operands ignore case where supported. Each operand makes this decision independently. Hostnames use DNS casing rules. The field suggests values as you type. Arrow keys move into badges for editing, Escape closes suggestions, and Enter runs the query.
+In `linkedfrom:"https://example.com/page"`, the colon in `https:` is literal text inside the quoted value. Text operators match the entire substring, so this also finds links from `https://example.com/page/other`. Text operands containing an uppercase letter match case. Lowercase operands ignore case where supported. Each operand makes this decision independently. Hostnames use DNS casing rules. The field suggests values as you type. Arrow keys move into badges for editing, Escape closes suggestions, and Enter runs the query.
 
 Searching a folder, tag or domain further narrows the current view. Snapshot admin filters apply as well. Value suggestions come from the same selection. Clearing the query restores the filtered list.
 

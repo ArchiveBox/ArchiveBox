@@ -81,7 +81,7 @@ def test_links_in_pre_migration_output_directory(crawl):
     assert list(SnapshotSearch(Snapshot.objects.all(), "linkedfrom:legacy.example").stream()) == [target.pk]
 
 
-def test_link_substrings_and_exact_page_urls(crawl):
+def test_quoted_and_unquoted_link_values_match_the_same_substring(crawl):
     page = "https://news.ycombinator.com/some/specific/page"
     first, other = (Snapshot.objects.create(crawl=crawl, url=url) for url in (page, page + "/other"))
     # Cover both saved output and the database edge kept by recursive capture.
@@ -91,10 +91,9 @@ def test_link_substrings_and_exact_page_urls(crawl):
     output(other, "parser/urls.jsonl", child.url)
     scope = Snapshot.objects.all()
     assert set(SnapshotSearch(scope, "linkedfrom:ycombinator.com").stream()) == {target.pk, child.pk}
-    assert set(SnapshotSearch(scope, "linkedfrom:" + page).stream()) == {target.pk, child.pk}
-    assert list(SnapshotSearch(scope, f'linkedfrom:"{page}"').stream()) == [target.pk]
-    assert set(SnapshotSearch(scope, 'linksto:"articles.example"').stream()) == {first.pk, other.pk}
-    assert list(SnapshotSearch(scope, f'linksto:"{target.url}"').stream()) == [first.pk]
+    for field, value, expected in (("linkedfrom", page, {target.pk, child.pk}), ("linksto", target.url, {first.pk, other.pk})):
+        for operand in (value, json.dumps(value)):
+            assert set(SnapshotSearch(scope, f"{field}:{operand}").stream()) == expected
 
 
 def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):
