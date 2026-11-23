@@ -24,6 +24,7 @@ def test_standalone_bus_ignores_sentry_configuration():
             sys.executable,
             "-c",
             "import sys, asyncio; from abx_dl.orchestrator import create_bus; "
+            "from abx_dl.catalog import PluginCatalog; assert 'sentry' not in PluginCatalog.discover(runtime='abx-dl'); "
             "bus = create_bus(); assert not bus.middlewares; asyncio.run(bus.destroy()); "
             "assert 'abx_plugins.plugins.sentry.runtime' not in sys.modules; "
             "assert not any(n.startswith(('sentry_sdk', 'opentelemetry')) for n in sys.modules)",
