@@ -70,7 +70,7 @@ def test_closed_connection_is_reused_by_next_request_thread(db_path):
     _third, pragma_rows = _request(db_path, "PRAGMA foreign_keys")
     assert pragma_rows == [(1,)]
     _fourth, pragma_rows = _request(db_path, "PRAGMA synchronous")
-    assert pragma_rows == [(3,)]  # EXTRA, including reused connections
+    assert pragma_rows == [(1,)]
 
 
 @pytest.mark.parametrize("mode", ["OFF", "MEMORY"])
