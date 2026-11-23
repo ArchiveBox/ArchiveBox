@@ -30,7 +30,7 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
             ("resource_admission", r" \(active=\d+ slots=0 adaptive=\d+\)"),
         )
         for stamp in re.findall(
-            rf"\[([^]\n]+)\] WARNING archivebox.services.{source} Capture admission deferred for crawl {re.escape(crawl_id)}: "
+            rf"\[([^]\n]+)\] WARNING archivebox.workers.{source} Capture admission deferred for crawl {re.escape(crawl_id)}: "
             rf"{pressure_reason}(?:, {pressure_reason})*{suffix}$",
             stderr,
             re.M,
@@ -65,13 +65,19 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
         )
 
 
+def read_pressure_fixture(name):
+    stderr = (Path(__file__).parent / "fixtures" / name).read_text()
+    # The recorded runs predate the worker modules' namespace change.
+    return stderr.replace(" archivebox.services.", " archivebox.workers.")
+
+
 @pytest.mark.parametrize("active_pressure", [False, True])
 @pytest.mark.parametrize("memory_observation", [False, True])
 @pytest.mark.parametrize("pressure_reason", ["io stalls", "cpu quota throttling"])
 @pytest.mark.parametrize("invalid", [None, "absent", "stale", "other-crawl", "parallel", "missing-decision", "unmeasured", "not-denied"])
 def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure, pressure_reason, memory_observation):
     # Exact stderr excerpt and first-hook timestamps from the real hosted run.
-    stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-recovery.txt").read_text()
+    stderr = read_pressure_fixture("admission-pressure-recovery.txt")
     stderr = stderr.replace("io stalls", pressure_reason)
     if memory_observation:
         stderr = stderr.replace(" pressure=none", " active_memory=None pressure=none")
@@ -111,7 +117,7 @@ def test_serialized_recovery_allows_spare_slots_for_final_snapshot(invalid):
     # The hosted rc368 run was genuinely serialized after recent I/O stalls.
     # Use its real admission timeline. The first replayed start is the lower
     # boundary of the second snapshot's decision; the final start is exact.
-    stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-final-snapshot.txt").read_text()
+    stderr = read_pressure_fixture("admission-pressure-final-snapshot.txt")
     first = datetime.fromisoformat("2026-11-20T13:46:16+00:00")
     final = datetime.fromisoformat("2026-11-20T13:46:35.335158+00:00")
     if invalid == "early-parallel":
