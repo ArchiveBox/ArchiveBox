@@ -418,6 +418,18 @@ for enabled in [False, True]:
         for item in hook_logs
     )
     assert any(item["attributes"].get("process.exit_code", {}).get("value") == 0 for item in hook_logs)
+    python_logs = [item for item in logs if item["attributes"].get("sentry.sdk.name", {}).get("value", "").startswith("sentry.python")]
+    assert python_logs
+    for item in python_logs:
+        for key in ("process.pid", "process.parent_pid", "process.command"):
+            assert item["attributes"].get(key, {}).get("value"), (key, item["body"])
+    assert any(item["attributes"].get("supervisor.process.name", {}).get("value") for item in hook_logs)
+    assert any(item["attributes"].get("supervisor.process.name", {}).get("value") == "worker_uvicorn" for item in logs)
+    completions = [item for item in hook_logs if "process.exit_code" in item["attributes"]]
+    assert completions
+    for item in completions:
+        assert item["attributes"]["hook.process.pid"]["value"] > 0
+        assert item["attributes"]["hook.process.pid"]["value"] != item["attributes"]["process.pid"]["value"]
     assert spans
     assert not any(kind == "transaction" for kind, payload in items)
     assert not any(
@@ -454,6 +466,10 @@ for enabled in [False, True]:
     assert any("SELECT" in span["attributes"]["db.statement"] and span["trace_id"] in request_trace_ids for span in sql_spans)
     assert any(span["trace_id"] in crawl_trace_ids for span in sql_spans)
     spans_by_id = {span["span_id"]: span for span in spans}
+    for item in hook_logs:
+        resource = spans_by_id[item["span_id"]]["resource"]
+        for key in ("process.pid", "process.parent_pid", "process.command", "supervisor.process.name"):
+            assert item["attributes"].get(key, {}).get("value") == resource.get(key), (key, item["body"])
     assert head_log["span_id"] in spans_by_id
     assert head_failure["contexts"]["trace"]["span_id"] in spans_by_id
     for span in sql_spans:
