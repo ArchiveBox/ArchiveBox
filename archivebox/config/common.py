@@ -1092,6 +1092,10 @@ def load_source_config(*, include_file: bool = True) -> ArchiveBoxBaseConfig:
 def _plugin_enabled_config_keys() -> dict[str, str]:
     enabled_keys: dict[str, str] = {}
     for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
+        # Application-only plugins opt out of automatic hook selection. Their
+        # enable flags belong to their own configuration, not the extractor list.
+        if schema.get("app_module") and schema.get("x-auto-run") is False:
+            continue
         properties = schema.get("properties") if isinstance(schema, dict) else None
         if not isinstance(properties, dict):
             continue

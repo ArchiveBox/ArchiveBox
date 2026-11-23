@@ -1,6 +1,7 @@
 """Run Uvicorn with explicit listeners so [::] serves both IP families."""
 
 import argparse
+import asyncio
 import logging
 import socket
 from contextlib import ExitStack
@@ -23,6 +24,15 @@ class ObservedServer(uvicorn.Server):
                 logging.INFO if stopped else logging.WARNING,
                 "worker_memory_stopped" if stopped else "worker_memory_stop_pending",
             )
+            from django.apps import apps
+
+            for app in apps.get_app_configs():
+                shutdown = getattr(app, "shutdown", None)
+                if callable(shutdown):
+                    try:
+                        await asyncio.to_thread(shutdown)
+                    except Exception:
+                        logging.getLogger(__name__).exception("Application shutdown failed: %s", app.name)
 
 
 def main() -> None:
