@@ -4,7 +4,6 @@ from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.core import signing
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -83,28 +82,23 @@ def folders_autocomplete(request, q: str = "", destination: bool = False, exclud
         raise HttpError(403, "Folder lookup is unavailable for this account.")
     term = q.strip()[:100]
     scope = [term, destination, str(exclude or "")]
-    salt = "folder-autocomplete"
+    salt = "folder-autocomplete-tree"
     folders = Folder.objects.matching_name(term)
     if destination:
         folders = folders.destinations()
-    if exclude:
-        folders = folders.exclude(pk__in=Folder.subtree_ids(exclude))
+    last = None
     if after:
         try:
             cursor = signing.loads(after, salt=salt)
             if cursor[:3] != scope:
                 raise ValueError
-            position, name, pk = cursor[3:]
-            folders = folders.filter(
-                Q(position__gt=position) | Q(position=position, name__gt=name) | Q(position=position, name=name, pk__gt=compact_uuid(pk)),
-            )
-        except (signing.BadSignature, ValueError, TypeError) as error:
+            last = compact_uuid(cursor[3])
+        except (signing.BadSignature, ValueError, TypeError, IndexError) as error:
             raise HttpError(400, "Invalid folder cursor.") from error
-    page = list(folders.only("name", "parent", "position").order_by("position", "name", "pk")[:21])
-    last = page[19] if len(page) > 20 else None
+    page = folders.picker_page(limit=21, after=last, exclude=exclude)
     return {
-        "choices": Folder.picker_choices(page[:20]),
-        "next": signing.dumps([*scope, last.position, last.name, str(last.pk)], salt=salt) if last else "",
+        "choices": page[:20],
+        "next": signing.dumps([*scope, page[19]["id"]], salt=salt) if len(page) > 20 else "",
     }
 
 

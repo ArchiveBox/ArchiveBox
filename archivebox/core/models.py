@@ -8,6 +8,7 @@ import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
+from itertools import batched
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import urlparse, urlsplit
@@ -15,7 +16,7 @@ from urllib.parse import urlparse, urlsplit
 from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import IntegrityError, models, transaction
+from django.db import IntegrityError, connections, models, transaction
 from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
 from django.db.models.fields.json import KT
 from django.db.models.functions import (
@@ -78,6 +79,57 @@ class FolderQuerySet(models.QuerySet):
         if len(parts) > 1 and all(parts):
             matches |= Q(**{f"{'parent__' * depth}name__icontains": part for depth, part in enumerate(reversed(parts))})
         return self.filter(matches)
+
+    def picker_page(self, *, limit, after=None, exclude=None):
+        """Return matching IDs and breadcrumbs in sidebar order, including across pages."""
+        db = connections[self.db]
+        table = db.ops.quote_name(self.model._meta.db_table)
+        # Keep membership (including destination eligibility) in the ORM. The
+        # recursive part has no Django equivalent and is shared by SQLite/Postgres.
+        matches, params = self.order_by().values("pk").query.get_compiler(using=self.db).as_sql()
+        params = list(params)
+        excluded = ""
+        if exclude:
+            excluded = "WHERE f.id <> %s"
+            params.append(self.model._meta.pk.get_db_prep_value(exclude, db))
+        # The key is an encoded sequence, even when names use a locale with
+        # numeric collation. Compare its bytes consistently for sort and seek.
+        collation = '"C"' if db.vendor == "postgresql" else "BINARY"
+        sort_key = f"tree.sort_key COLLATE {collation}"
+        continuation = ""
+        if after:
+            continuation = f"WHERE {sort_key} > (SELECT sort_key FROM tree WHERE id = %s)"
+            params.append(self.model._meta.pk.get_db_prep_value(after, db))
+        # Rank siblings, not the whole list. Fixed-width numeric components make
+        # a parent's key a prefix of every descendant's key, even at page breaks.
+        # Ascend from matches first so a rare search only sorts its own branches.
+        sql = f"""
+            WITH RECURSIVE matches(id) AS ({matches}),
+            ancestors(id) AS (
+                SELECT id FROM matches
+                UNION
+                SELECT f.parent_id FROM {table} f JOIN ancestors a ON f.id = a.id
+                WHERE f.parent_id IS NOT NULL
+            ),
+            siblings AS (
+                SELECT f.id, f.parent_id, f.name,
+                       CAST(1000000000000000000 + ROW_NUMBER() OVER (
+                           PARTITION BY f.parent_id ORDER BY f.position, f.name COLLATE {collation}, f.id
+                       ) AS TEXT) AS step
+                FROM {table} f JOIN ancestors a ON a.id = f.id {excluded}
+            ),
+            tree(id, label, sort_key) AS (
+                SELECT id, CAST(name AS TEXT), step FROM siblings WHERE parent_id IS NULL
+                UNION ALL
+                SELECT s.id, t.label || ' / ' || s.name, t.sort_key || s.step
+                FROM tree t JOIN siblings s ON s.parent_id = t.id
+            )
+            SELECT tree.id, tree.label FROM tree JOIN matches ON matches.id = tree.id
+            {continuation} ORDER BY {sort_key} LIMIT %s
+        """
+        with db.cursor() as cursor:
+            cursor.execute(sql, [*params, limit])
+            return [{"id": str(compact_uuid(pk)), "name": name} for pk, name in cursor.fetchall()]
 
     def destinations(self):
         from archivebox.core.smart_folders import CHILDREN_RULES
@@ -257,7 +309,7 @@ class Folder(models.Model):
         return queryset.in_folder(folder_id)
 
     @classmethod
-    def tree(cls, *, public=False):
+    def tree(cls, *, public=False, path_pattern=None):
         from archivebox.core.smart_folders import RuleQuery
         from archivebox.core.permissions import PERMISSIONS_PUBLIC, public_snapshots_queryset
 
@@ -273,54 +325,67 @@ class Folder(models.Model):
             folders = list(cls.objects.annotate(has_public_snapshots=models.Exists(visible)))
         else:
             folders = list(cls.objects.all())
-        compiler = RuleQuery(folders)
-
         children, by_id = {}, {folder.pk: folder for folder in folders}
-        smart = [folder for folder in folders if folder.is_smart and not folder.is_container]
+        for folder in folders:
+            children.setdefault(folder.parent_id, []).append(folder)
+        for siblings in children.values():
+            siblings.sort(key=lambda f: (f.position, f.name, str(f.pk)))
+        ordered = []
+        pending = [(folder, 0) for folder in reversed(children.get(None, []))]
+        while pending:
+            folder, level = pending.pop()
+            folder.level = level
+            folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
+            if path_pattern is None or path_pattern.search(folder.path_label):
+                ordered.append(folder)
+            pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
+        # Descendants contain their parent's entire breadcrumb. For a literal
+        # path search, an unrelated branch cannot establish a public match.
+        smart = [folder for folder in ordered if folder.is_smart and not folder.is_container]
         if public and smart:
             from archivebox.progressmonitor.collection import snapshot_list_count
 
             recent_ids = list(Snapshot.objects.order_by("-pk").values_list("pk", flat=True)[:128])
-            checks = []
+            compiler = RuleQuery(folders)
+            # Equivalent compiled predicates have the same public witnesses.
+            # Group after compilation because relative folder rules and limits
+            # can give identical-looking saved rules different memberships.
+            groups = {}
             for folder in smart:
-                matches = public_snapshots_queryset(Snapshot.objects.filter(compiler.folder(folder.pk)))
-                summary = snapshot_list_count(matches, first_match=True)
-                witness = summary.get("snapshot_id") if summary else None
-                candidates = [witness, *recent_ids] if witness else recent_ids
-                # Revalidate cached witnesses against current permissions and
-                # rules. Cold/empty smart folders must not scan the collection
-                # on every public page; later loads can use the background result.
-                visible = Snapshot.objects.filter(pk__in=candidates).filter(models.Exists(matches.filter(pk=models.OuterRef("pk"))))
-                checks.append(When(pk=folder.pk, then=models.Exists(visible)))
-            visibility = dict(
-                cls.objects.filter(pk__in=[folder.pk for folder in smart])
-                .annotate(matches=Case(*checks, default=False, output_field=models.BooleanField()))
-                .values_list("pk", "matches"),
-            )
-            for folder in smart:
-                folder.has_public_snapshots = visibility[folder.pk]
-        for folder in folders:
-            children.setdefault(folder.parent_id, []).append(folder)
+                groups.setdefault(compiler.folder(folder.pk), []).append(folder)
+            # Do not build one CASE with thousands of subqueries and bind
+            # parameters. Each predicate already binds up to 129 candidate IDs.
+            for group in batched(groups.items(), 6):
+                checks = []
+                for predicate, members in group:
+                    matches = public_snapshots_queryset(Snapshot.objects.filter(predicate))
+                    summary = snapshot_list_count(matches, first_match=True)
+                    witness = summary.get("snapshot_id") if summary else None
+                    candidates = [witness, *recent_ids] if witness else recent_ids
+                    # Recheck current permissions even for cached witnesses.
+                    visible = Snapshot.objects.filter(pk__in=candidates).filter(models.Exists(matches.filter(pk=models.OuterRef("pk"))))
+                    checks.append(When(pk=members[0].pk, then=models.Exists(visible)))
+                visibility = dict(
+                    cls.objects.filter(pk__in=[members[0].pk for _, members in group])
+                    .annotate(matches=Case(*checks, default=False, output_field=models.BooleanField()))
+                    .values_list("pk", "matches"),
+                )
+                for _, members in group:
+                    for folder in members:
+                        folder.has_public_snapshots = visibility[members[0].pk]
         if public:
-            for folder in folders:
+            for folder in ordered:
                 if folder.has_public_snapshots:
                     parent_id = folder.parent_id
-                    while parent_id:
+                    while parent_id and not by_id[parent_id].has_public_snapshots:
                         by_id[parent_id].has_public_snapshots = True
                         parent_id = by_id[parent_id].parent_id
-        for siblings in children.values():
-            siblings.sort(key=lambda f: (f.position, f.name, str(f.pk)))
         result = []
-        pending = [(folder, 0) for folder in reversed(children.get(None, []))]
-        while pending:
-            folder, level = pending.pop()
+        for folder in ordered:
             if public and not folder.has_public_snapshots:
                 continue
-            folder.level = level
             folder.has_children = any(not public or child.has_public_snapshots for child in children.get(folder.pk, []))
-            folder.path_label = f"{by_id[folder.parent_id].path_label} / {folder.name}" if folder.parent_id else folder.name
             result.append(folder)
-            pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
         return result
 
     @classmethod

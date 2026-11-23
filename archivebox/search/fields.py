@@ -69,10 +69,10 @@ def suggestions(request):
         values = choices(scope.filter(tags__isnull=False), "tags__name")
     elif key == "folder":
         if is_admin_user(request):
-            folders = Folder.objects.matching_name(prefix).only("name", "position", "parent")[:20]
-            values = [choice["name"] for choice in Folder.picker_choices(folders)]
+            values = [choice["name"] for choice in Folder.objects.matching_name(prefix).picker_page(limit=20)]
         else:
-            values = [label for _, label in Folder.path_choices(Folder.tree(public=True)) if literal_pattern(prefix).search(label)][:20]
+            folders = Folder.tree(public=True, path_pattern=literal_pattern(prefix))
+            values = [folder.path_label for folder in folders[:20]]
     elif key == "plugins":
         names = [name for name in snapshot_plugin_choices() if literal_pattern(prefix).search(name)]
         if is_admin_user(request) and not list_url:

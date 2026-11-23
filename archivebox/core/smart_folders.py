@@ -107,6 +107,10 @@ class RuleQuery:
         from archivebox.core.models import Folder
 
         self.folders = {str(f.pk): f for f in (folders if folders is not None else Folder.objects.all())}
+        # Child unions and public visibility reuse this compiler for the whole tree.
+        self.children = {}
+        for folder in self.folders.values():
+            self.children.setdefault(str(folder.parent_id), []).append(folder)
         self.validate = validate
         self.freeze_limits = freeze_limits
         self.cache = {}
@@ -215,7 +219,7 @@ class RuleQuery:
         folder = self.folders.get(key)
         if folder is None:
             return Q(pk__in=[])
-        children = [child for child in self.folders.values() if str(child.parent_id) == key]
+        children = self.children.get(key, ())
         if folder.is_smart:
             query = self.compile(folder.rules, (*stack, key))
         else:
@@ -344,18 +348,16 @@ class RuleQuery:
                             raise ValidationError("Folders cannot contain a cycle.")
                         visited.add(key)
                         # Include any remaining source rows during a partial move.
-                        if key in self.folders and (
-                            self.folders[key].is_container or any(str(child.parent_id) == key for child in self.folders.values())
-                        ):
+                        children = self.children.get(key, ())
+                        if key in self.folders and (self.folders[key].is_container or children):
                             physical.append(key)
-                        for child in self.folders.values():
-                            if str(child.parent_id) == key:
-                                if child.is_container and not child.rules.get("limit"):
-                                    pending.append(str(child.pk))
-                                else:
-                                    result |= self.folder(child.pk, stack) if child.is_smart else Q(pk__in=[])
-                                    if not child.is_smart:
-                                        physical.append(str(child.pk))
+                        for child in children:
+                            if child.is_container and not child.rules.get("limit"):
+                                pending.append(str(child.pk))
+                            elif child.is_smart:
+                                result |= self.folder(child.pk, stack)
+                            else:
+                                physical.append(str(child.pk))
                     result |= Q(folder_id__in=physical)
                 else:
                     if value != "*" and str(value) not in self.folders and self.validate:

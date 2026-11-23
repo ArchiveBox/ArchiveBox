@@ -6,7 +6,7 @@ import os
 import posixpath
 import time
 from contextlib import closing
-from functools import reduce
+from functools import cached_property, reduce
 from pathlib import Path
 from typing import ClassVar, cast
 from urllib.parse import quote, urlparse, urlsplit
@@ -87,7 +87,12 @@ from archivebox.core.routes_util import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
-from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, _resolve_contained_path, serve_static_with_byterange_support
+from archivebox.misc.serve_static import (
+    FAVICON_CACHE_CONTROL,
+    _resolve_archive_path,
+    _resolve_contained_path,
+    serve_static_with_byterange_support,
+)
 from archivebox.misc.util import (
     base_url,
     equivalent_urls,
@@ -1878,8 +1883,13 @@ class PublicIndexView(ListView):
             )
         return context
 
+    @cached_property
+    def folder_tree(self):
+        # Autocomplete and stream requests reuse the list queryset without
+        # rendering its sidebar. Only pay for public witnesses if needed.
+        return Folder.tree(public=True)
+
     def get_queryset(self, **kwargs):
-        self.folder_tree = Folder.tree(public=True)
         self.selected_folder = self.request.GET.get("folder", "")
         self.folder_query = None
         self.folder_breadcrumbs = []

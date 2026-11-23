@@ -119,13 +119,19 @@
       const defaultValue = nativeFolder ? Array.from(select.options).find(option => option.defaultSelected)?.value : undefined;
       const retained = optionsFrom(select).filter(option => option.fixed || option.id === value || option.id === defaultValue);
       const results = result.choices || [];
-      const byId = new Map(retained.map((item) => [item.id, item]));
+      const byId = new Map(retained.filter(item => item.fixed).map(item => [item.id, item]));
       for (const item of results) byId.set(String(item.id), item);
+      // Keep off-page form values available for submission and reset. Pinned
+      // values must not jump ahead of ancestors in the server's ordered page.
+      for (const item of retained) {
+        if (!byId.has(item.id)) byId.set(item.id, {...item, hidden: nativeFolder});
+      }
       select.replaceChildren();
       for (const [id, item] of byId) {
         const option = new Option(item.name, id, id === defaultValue, id === value);
         if (item.fixed) option.dataset.pickerFixed = "";
         option.disabled = Boolean(item.disabled);
+        option.hidden = Boolean(item.hidden);
         select.add(option);
       }
       if (nativeFolder) {

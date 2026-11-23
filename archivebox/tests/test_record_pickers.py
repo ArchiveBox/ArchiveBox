@@ -175,3 +175,115 @@ def test_folder_picker_on_admin_forms_and_add(live_server, browser_runtime, admi
         # Persona configures browser profiles. Filesystem paths are not archive folder IDs.
         expect(page.locator('#persona_form select[data-picker="folder"], #persona_form select[name="folder"]')).to_have_count(0)
         browser.close()
+
+
+def test_folder_picker_orders_matching_branches_across_pages(admin_client):
+    root = Folder.objects.create(name="Match Z root", position=9)
+    parent = root
+    for depth in range(5):
+        parent = Folder.objects.create(name=f"Match A level {depth}", parent=parent)
+    leaves = [Folder(name=f"Match A leaf {i:02d}", parent=parent) for i in range(34)]
+    leaves.extend(Folder(name=f"Match {name}", parent=parent) for name in ("Study", "study", "École", "🔖"))
+    Folder.objects.bulk_create(leaves)
+    smart = Folder.objects.create(name="Match Smart", parent=parent, rules={"query": "title:science"})
+    Folder.objects.create(name="Match other root", position=10)
+    expected = [(str(pk), label) for pk, label in Folder.path_choices() if "Match" in label]
+
+    def pages(**filters):
+        params = {"q": "Match", **filters}
+        choices = []
+        while True:
+            response = admin_client.get(reverse("api-1:folders_autocomplete"), params, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            page = response.json()
+            assert len(page["choices"]) <= 20
+            choices.extend((item["id"], item["name"]) for item in page["choices"])
+            if not page["next"]:
+                return choices
+            assert params.get("after") != page["next"]
+            params["after"] = page["next"]
+
+    assert pages() == expected
+    assert pages(destination="true") == [choice for choice in expected if choice[0] != str(smart.pk)]
+    assert pages(exclude=str(root.pk)) == [expected[-1]]
+
+
+def test_folder_picker_large_hierarchy_in_browser(live_server, browser_runtime, admin_user, record_property, client, crawl):
+    from time import perf_counter
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.smart_folders import CHILDREN_RULES
+    from archivebox.machine.models import Machine
+
+    roots = [Folder(name=f"Root {i:02}", rules=CHILDREN_RULES) for i in range(10)]
+    rows = list(roots)
+    for root in roots:
+        for branch in range(10):
+            parent = root
+            for level in range(5):
+                parent = Folder(name=f"Level {level} branch {branch}", parent=parent, rules=CHILDREN_RULES)
+                rows.append(parent)
+            for leaf in range(100):
+                query = "title:research" if leaf == 1 else f"title:topic-{root.name[-2:]}-{branch}-{leaf}"
+                rows.append(Folder(name=f"Leaf {leaf:02}", parent=parent, rules={"query": query} if leaf % 2 else None))
+    Folder.objects.bulk_create(rows, batch_size=100)
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.conftest import WEB_TEST_HOST
+
+    Snapshot.objects.create(crawl=crawl, url="https://research.example.org", title="Research", config={"PERMISSIONS": "public"})
+    Machine.from_json({"config": {"PUBLIC_INDEX": True}})
+    started = perf_counter()
+    response = client.get(
+        reverse("search-suggestions"),
+        {"operator": "folder", "prefix": "Leaf 01", "search_url": reverse("public-index")},
+        HTTP_HOST=WEB_TEST_HOST,
+    )
+    assert response.status_code == 200
+    public_paths = response.json()["values"]
+    assert len(public_paths) == 20
+    assert all(path.endswith(" / Leaf 01") for path in public_paths)
+    record_property("public_folder_suggestions_ms", round(1000 * (perf_counter() - started)))
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    admin = live_server.url.replace("localhost", "admin.archivebox.localhost")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(admin + "/admin/login/?next=/add/")
+        page.get_by_label("Username").fill(admin_user.username)
+        page.get_by_label("Password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        select = page.locator("#id_folder")
+        picker = select.locator("..")
+        select.click()
+        buttons = picker.locator(".record-picker-choices button")
+        expect(buttons).to_have_count(21)  # 20 choices plus No folder
+        expect(buttons.nth(1)).to_have_text("Root 00")
+        expect(buttons.nth(2)).to_have_text("Root 00 / Level 0 branch 0")
+        previous = set(buttons.all_text_contents())
+        for _ in range(3):
+            with page.expect_response(lambda r: "/folders/autocomplete/" in r.url and "after=" in r.url) as reply:
+                picker.get_by_role("button", name="More results").click()
+            labels = [choice["name"] for choice in reply.value.json()["choices"]]
+            expect(buttons.last).to_have_text(labels[-1])
+            assert previous.isdisjoint(labels)
+            previous.update(labels)
+            assert len(reply.value.body()) < 8192
+            assert select.locator("option").count() <= 23
+
+        start = perf_counter()
+        with page.expect_response(lambda r: "/folders/autocomplete/" in r.url and "q=Leaf" in r.url) as reply:
+            picker.get_by_role("searchbox").fill("Leaf 98")
+        labels = [choice["name"] for choice in reply.value.json()["choices"]]
+        expect(buttons.first).to_have_text(labels[0])
+        record_property("filter_to_visible_ms", round(1000 * (perf_counter() - start)))
+        record_property("response_bytes", len(reply.value.body()))
+        assert len(labels) == 20
+        assert labels[0].startswith("Root 00 / Level 0 branch 0 /") and labels[0].endswith(" / Leaf 98")
+        assert labels[1].startswith("Root 00 / Level 0 branch 1 /")
+        buttons.first.click()
+        expect(select).to_have_value(reply.value.json()["choices"][0]["id"])
+        browser.close()
