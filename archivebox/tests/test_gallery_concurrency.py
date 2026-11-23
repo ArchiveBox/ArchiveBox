@@ -105,18 +105,19 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     planner = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")["plugin_screenshot_plan"]
     assembler = runpy.run_path(ROOT / "bin/screenshot_gallery_helpers.py")
     plan = planner()
+    public_views = assembler["public_views"](plan)
     recipes = assembler["recipes"]
     full = set(recipes(plan, False))
     base = set(recipes(plan, True))
     moved = full - base
     assert len(moved) == 23  # Six singleton, 15 compound and two browser automation visits.
-    assert len(set().union(*assembler["PUBLIC_VIEWS"].values())) == 25
-    assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= assembler["PUBLIC_VIEWS"]["cad"]
-    assert "Snapshot View (opendataloader)" in assembler["PUBLIC_VIEWS"]["documents"]
+    assert len(set().union(*public_views.values())) == 25
+    assert {"Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)"} <= public_views["cad"]
+    assert "Snapshot View (opendataloader)" in public_views["documents"]
     # Keep the installed iWork recipe and its real PDF readiness check intact;
     # it is a singleton and must not inherit the Documents job's ODL preset.
     iwork = plan["overrides"]["iwork"]
-    assert assembler["PUBLIC_VIEWS"]["iwork"] == {"Snapshot View (iwork)"}
+    assert public_views["iwork"] == {"Snapshot View (iwork)"}
     assert [example["plugins"] for example in plan["examples"] if example["url"] == iwork["url"]] == [["iwork"]]
     assert {recipe for recipe in moved if recipe.split("|")[0] == "iwork"} == {f"iwork|{iwork['url']}"}
     assert iwork["wait_for_text"] == "CoT-zuzalu-final.pdf"
@@ -129,7 +130,7 @@ def test_anonymous_gallery_batches_keep_all_required_native_views(monkeypatch):
     assert odl_lanes and "iwork" not in odl_lanes[1].split("|")
 
     automation = assembler["PUBLIC_LANES"]["browser-automation"]
-    assert assembler["PUBLIC_VIEWS"]["browser-automation"] == {f"Snapshot View ({plugin})" for plugin in automation}
+    assert public_views["browser-automation"] == {f"Snapshot View ({plugin})" for plugin in automation}
     assert {recipe for recipe in moved if recipe.split("|")[0] in automation} == {
         f"{plugin}|https://pirate.github.io/stress-tests/challenge.html?plugin={plugin}" for plugin in automation
     }
@@ -160,8 +161,9 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     env.pop("UI_SCREENSHOT_PLUGINS", None)
     pins = {name: assembler["version"](name) for name in ("abx-plugins", "abx-dl", "abxpkg", "abxbus")}
     identity = {key: env[key] for key in ("GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")} | {"pins": pins}
-    views = {name for lane_views in assembler["PUBLIC_VIEWS"].values() for name in lane_views}
     plan = generator["plugin_screenshot_plan"]()
+    public_views = assembler["public_views"](plan)
+    views = {name for lane_views in public_views.values() for name in lane_views}
     owners = plan["owned_views"]
     required = generator["REQUIRED_VIEW_NAMES"] | set(plan["required"]) | owners.keys()
     base = required - views
@@ -200,7 +202,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
         }
         (directory / "receipt.json").write_text(json.dumps(dict(identity=identity, lane=lane, files=files, outcomes=lane_status)))
 
-    for lane, names in {"base": base, **assembler["PUBLIC_VIEWS"]}.items():
+    for lane, names in {"base": base, **public_views}.items():
         bundle(root / f"gallery-capture-1-{lane}", lane, names)
     manifest, outcomes = tmp_path / "gallery.jsonl", tmp_path / "outcomes.json"
 
@@ -283,7 +285,7 @@ def test_optional_gallery_artifact_is_only_same_build_complete_captures(tmp_path
     required_png.write_bytes(original_png)
     shutil.rmtree(root / "gallery-capture-1-git")
     assert "Unexpected or missing capture artifacts" in merge(tmp_path / "missing-required").stderr
-    bundle(root / "gallery-capture-1-git", "git", assembler["PUBLIC_VIEWS"]["git"])
+    bundle(root / "gallery-capture-1-git", "git", public_views["git"])
     bad_base = root / "gallery-capture-1-base"
     shutil.rmtree(bad_base)
     bundle(bad_base, "base", base, unavailable=absent - {"Snapshot View (figma)"})

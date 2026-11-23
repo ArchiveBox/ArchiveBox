@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: codespell
         # Captured and bundled third-party JavaScript is not prose.
-        exclude: ^archivebox/(tests/fixtures/crontab-resources/index\.js|templates/static/model-viewer/[^/]+\.bundle\.js)$
+        exclude: ^archivebox/tests/fixtures/crontab-resources/index\.js$
         additional_dependencies:
           - tomli
 

@@ -93,6 +93,12 @@ def _validate_presentation_metadata(name: str, manifest: dict[str, Any]) -> None
         if len(PurePosixPath(path).parts) != 1:
             raise ValueError(f"{name}: default_output_path must be a filename")
 
+    preview_extensions = manifest.get("file_preview_extensions", [])
+    if not isinstance(preview_extensions, list) or any(
+        not isinstance(ext, str) or not re.fullmatch(r"\.[a-z0-9]+", ext) for ext in preview_extensions
+    ):
+        raise ValueError(f"{name}: file_preview_extensions must contain lowercase extensions")
+
     crawler_paths = manifest.get("crawler_output_paths", [])
     if not isinstance(crawler_paths, list):
         raise ValueError(f"{name}: crawler_output_paths must be a list")
@@ -271,6 +277,26 @@ def get_snapshot_role_paths(snapshot, results, role: str):
         if path and path not in seen:
             seen.add(path)
             yield path
+
+
+@lru_cache(maxsize=1)
+def get_file_preview_providers() -> dict[str, str]:
+    """Map saved file extensions to the plugin that renders their preview."""
+    providers = {}
+    for plugin in get_plugin_catalog().values():
+        for extension in plugin.manifest.get("file_preview_extensions", []):
+            if extension in providers:
+                raise ValueError(f"{extension}: file preview already provided by {providers[extension]}")
+            providers[extension] = plugin.name
+    return providers
+
+
+def render_plugin_file_preview(provider: str, filename: str, output_url: str, *, replay_base: str) -> str:
+    """Render a registered file viewer independently of its extractor's primary output."""
+    module = get_plugin_presentation_module(provider)
+    if module is None:
+        raise ValueError(f"{provider}: file preview requires a presentation module")
+    return module.render_file_preview(filename, output_url, replay_base=replay_base)
 
 
 def get_replay_asset_bundle(format: str, provider: str | None = None) -> tuple[str, tuple[str, ...]]:

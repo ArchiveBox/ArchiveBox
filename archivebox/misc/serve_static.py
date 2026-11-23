@@ -34,6 +34,8 @@ from abx_plugins.plugins.base.django import RangedFileReader, _is_asgi_request, 
 from archivebox.plugins.discovery import (
     add_replay_document_metadata,
     get_replay_document_hooks,
+    get_file_preview_providers,
+    render_plugin_file_preview,
     render_plugin_full_response,
     rewrite_plugin_replay_document,
 )
@@ -344,9 +346,6 @@ def _build_directory_zip_response(
     )
 
 
-MODEL_PREVIEW_EXTENSIONS = frozenset({".stl", ".glb", ".gltf", ".obj", ".ply", ".3mf"})
-
-
 def _render_directory_index(
     request,
     path: str,
@@ -409,7 +408,7 @@ def _render_directory_index(
                 "name": url,
                 "url": url,
                 "preview_kind": preview_kind,
-                "model_preview": entry.suffix.lower() in MODEL_PREVIEW_EXTENSIONS,
+                "plugin_preview": not is_dir and entry.suffix.lower() in get_file_preview_providers(),
                 "preview_url": quote(os.path.relpath(document_root / preview_path, fullpath), safe="/") if preview_path else "",
                 "mimetype": "Directory" if is_dir else mime,
                 "size_bytes": 0 if is_dir else stat_result.st_size,
@@ -882,9 +881,10 @@ def _apply_archive_replay_headers(
     is_archive_replay: bool,
     original_url: str = "",
     config=None,
+    display_path: Path | None = None,
     **config_kwargs,
 ) -> HttpResponse:
-    if fullpath.suffix.lower() in MODEL_PREVIEW_EXTENSIONS:
+    if (display_path or fullpath).suffix.lower() in get_file_preview_providers():
         # A browser must not satisfy a raw Range read from cached viewer HTML.
         patch_vary_headers(response, ("Range",))
     if not is_archive_replay:
@@ -1028,6 +1028,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 return _apply_archive_replay_headers(
                     not_modified,
                     fullpath=fullpath,
+                    display_path=display_path,
                     content_type="",
                     is_archive_replay=is_archive_replay,
                     original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1058,13 +1059,14 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if is_text_like and "charset=" not in content_type:
         content_type = f"{content_type}; charset=utf-8"
     thumbnail = request.GET.get("preview") == "thumbnail"
+    preview_provider = get_file_preview_providers().get(display_path.suffix.lower())
     preview_as_text_html = (
         bool(request.GET.get("preview"))
         and not thumbnail
         and is_text_like
         and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
-        and not (request.META.get("HTTP_RANGE") and display_path.suffix.lower() in MODEL_PREVIEW_EXTENSIONS)
+        and not (request.META.get("HTTP_RANGE") and preview_provider)
     )
     preview_as_image_html = bool(request.GET.get("preview")) and not thumbnail and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
@@ -1082,34 +1084,30 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         return _apply_archive_replay_headers(
             not_modified,
             fullpath=fullpath,
+            display_path=display_path,
             content_type=content_type,
             is_archive_replay=is_archive_replay,
             original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
         )
 
-    if (
-        display_path.suffix.lower() in MODEL_PREVIEW_EXTENSIONS
-        and request.GET.get("preview")
-        and not thumbnail
-        and not request.META.get("HTTP_RANGE")
-    ):
+    if preview_provider and request.GET.get("preview") and not thumbnail and not request.META.get("HTTP_RANGE"):
         raw_query = request.GET.copy()
         raw_query.pop("preview", None)
         raw_query["raw"] = "1"
-        wrapped = loader.get_template("static/model_viewer.html").render(
-            {
-                "title": display_path.name,
-                "model_format": display_path.suffix.lower().lstrip("."),
-                "output_path": f"{quote(request.path, safe='/')}?{raw_query.urlencode()}",
-            },
+        document = render_plugin_file_preview(
+            preview_provider,
+            display_path.name,
+            f"{quote(request.path, safe='/')}?{raw_query.urlencode()}",
+            replay_base=urljoin(request.path, posixpath.relpath("replay", posixpath.dirname(rel_path) or ".") + "/"),
         )
-        response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-        _set_transformed_response_headers(response, fullpath, statobj, None, cache_policy)
+        response = HttpResponse(document, content_type="text/html; charset=utf-8")
+        _set_transformed_response_headers(response, display_path, statobj, None, cache_policy)
         return _apply_archive_replay_headers(
             response,
             fullpath=fullpath,
-            content_type="text/html; charset=utf-8",
+            display_path=display_path,
+            content_type="text/html",
             is_archive_replay=is_archive_replay,
             original_url=getattr(request, "archivebox_snapshot_url", ""),
             config=config,
@@ -1133,6 +1131,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         return _apply_archive_replay_headers(
             response,
             fullpath=fullpath,
+            display_path=display_path,
             content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
             original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1151,6 +1150,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
+                    display_path=display_path,
                     content_type="text/html; charset=utf-8",
                     is_archive_replay=is_archive_replay,
                     original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1172,6 +1172,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             return _apply_archive_replay_headers(
                 response,
                 fullpath=fullpath,
+                display_path=display_path,
                 content_type="text/html; charset=utf-8",
                 is_archive_replay=is_archive_replay,
                 original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1180,7 +1181,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, ValueError):
             pass
 
-    if request.GET.get("preview") and not thumbnail:
+    if request.GET.get("preview") and not thumbnail and not preview_provider:
         try:
             raw_query = request.GET.copy()
             raw_query.pop("preview", None)
@@ -1208,6 +1209,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
+                    display_path=display_path,
                     content_type=replay_content_type,
                     is_archive_replay=is_archive_replay,
                     original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1236,6 +1238,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         return _apply_archive_replay_headers(
             response,
             fullpath=fullpath,
+            display_path=display_path,
             content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
             original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1258,6 +1261,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
+                    display_path=display_path,
                     content_type=content_type,
                     is_archive_replay=is_archive_replay,
                     original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1285,6 +1289,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
+                        display_path=display_path,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
                         original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1324,6 +1329,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
+                        display_path=display_path,
                         content_type="text/html; charset=utf-8",
                         is_archive_replay=is_archive_replay,
                         original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1341,6 +1347,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
+                        display_path=display_path,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
                         original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1353,6 +1360,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
+                        display_path=display_path,
                         content_type=content_type,
                         is_archive_replay=is_archive_replay,
                         original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1410,6 +1418,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
+                    display_path=display_path,
                     content_type="text/html",
                     is_archive_replay=is_archive_replay,
                     original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1427,6 +1436,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             return _apply_archive_replay_headers(
                 response,
                 fullpath=fullpath,
+                display_path=display_path,
                 content_type="text/plain",
                 is_archive_replay=is_archive_replay,
                 original_url=getattr(request, "archivebox_snapshot_url", ""),
@@ -1504,6 +1514,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     return _apply_archive_replay_headers(
         response,
         fullpath=fullpath,
+        display_path=display_path,
         content_type=content_type,
         is_archive_replay=is_archive_replay,
         original_url=getattr(request, "archivebox_snapshot_url", ""),

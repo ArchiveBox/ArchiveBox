@@ -1595,12 +1595,15 @@ def validate_recipe_status(status, owners):
     return outcomes
 
 
-EXTRA_VIEWS = {"caddl": ("Model preview (STL)", "Model preview (3MF)", "Model preview (GLB)")}
-PUBLIC_VIEWS = {
-    lane: {name for plugin in plugins for name in (f"Snapshot View ({plugin})", *EXTRA_VIEWS.get(plugin, ()))}
-    for lane, plugins in PUBLIC_LANES.items()
-}
 PNG_HEADER = b"\x89PNG\r\n\x1a\n"
+
+
+def public_views(plan):
+    views = {lane: set() for lane in PUBLIC_LANES}
+    for name, plugin in plan["owned_views"].items():
+        if lane := PUBLIC_OWNERS.get(plugin):
+            views[lane].add(name)
+    return views
 
 
 def recipes(plan, split):
@@ -1623,7 +1626,7 @@ def recipes(plan, split):
                 moved[lane].update(views)
             continue
         yield ",".join(example["plugins"]) + "|" + example["url"]
-    if split and moved != PUBLIC_VIEWS:
+    if split and moved != public_views(plan):
         raise ValueError("Anonymous recipe partition no longer covers the exact public gallery views")
 
 
@@ -1683,11 +1686,12 @@ def validate(lane, rows, root, digests, outcomes=None):
         actual = validate_recipe_status(outcomes, owners)
         if any((status == "captured") != (name in views) for name, status in actual.items()):
             raise ValueError(f"Capture disagrees with plugin view outcomes: {lane}")
+    expected_views = public_views(plugin_screenshot_plan())
     if lane == "base":
-        if views.keys() & set().union(*PUBLIC_VIEWS.values()):
+        if views.keys() & set().union(*expected_views.values()):
             raise ValueError("Public recipe view was captured twice")
     else:
-        expected = PUBLIC_VIEWS[lane]
+        expected = expected_views[lane]
         if outcomes is not None:
             expected = expected - {name for name, status in actual.items() if status == "unavailable"}
         if views.keys() != expected:

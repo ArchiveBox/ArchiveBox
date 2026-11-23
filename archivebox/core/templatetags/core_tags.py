@@ -1209,13 +1209,12 @@ def write_static_plugin_previews(context):
     """Materialize existing output viewers beside unchanged saved files."""
     from django.template.loader import render_to_string
     from archivebox.misc.serve_static import (
-        MODEL_PREVIEW_EXTENSIONS,
         _render_directory_index,
         _render_text_preview_document,
         _render_image_preview_document,
         _render_markdown_document,
     )
-    from archivebox.plugins.discovery import render_plugin_full_response
+    from archivebox.plugins.discovery import get_file_preview_providers, render_plugin_file_preview, render_plugin_full_response
 
     snapshot = context["snapshot"]
     directory = Path(context["STATIC_EXPORT_DIR"])
@@ -1237,7 +1236,7 @@ def write_static_plugin_previews(context):
             viewer.write(document)
         previews[path] = name
 
-    model_directories = set()
+    preview_directories = set()
     files = {}
     for output in context["archiveresults"]:
         result = output.get("result")
@@ -1253,28 +1252,21 @@ def write_static_plugin_previews(context):
         output_url = "../" + quote(path, safe=_STATIC_URL_SAFE)
         mime = mimetypes.guess_type(source.name)[0] or ""
         document = ""
-        if source.suffix.lower() in MODEL_PREVIEW_EXTENSIONS:
-            import shutil
-            from django.contrib.staticfiles import finders
+        if provider := get_file_preview_providers().get(source.suffix.lower()):
+            from archivebox.config.common import get_config
+            from archivebox.domains.wacz import replay_assets
 
-            assets = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "model-viewer"
-            if not assets.exists():
-                viewer_script = finders.find("model-viewer/viewer.js")
-                if viewer_script is None:
-                    raise FileNotFoundError("model-viewer/viewer.js")
-                shutil.copytree(Path(viewer_script).parent, assets)
-            document = render_to_string(
-                "static/model_viewer.html",
-                {
-                    "title": source.name,
-                    "model_format": source.suffix.lower()[1:],
-                    "output_path": output_url,
-                    "viewer_script_url": quote(os.path.relpath(assets / "viewer.js", generated), safe=_STATIC_URL_SAFE),
-                },
-            )
+            asset_root = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "viewers" / provider
+            if not asset_root.exists():
+                for asset_path, data in replay_assets(context.get("CONFIG") or get_config(), "file-preview", provider=provider).items():
+                    target = asset_root / asset_path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+            replay_base = quote(os.path.relpath(asset_root / "replay", generated), safe=_STATIC_URL_SAFE) + "/"
+            document = render_plugin_file_preview(provider, source.name, output_url, replay_base=replay_base)
             parent = source.parent
             while parent != directory:
-                model_directories.add(parent)
+                preview_directories.add(parent)
                 parent = parent.parent
         elif source.suffix.lower() == ".zip":
             document = render_to_string(
@@ -1295,7 +1287,7 @@ def write_static_plugin_previews(context):
             save(path, document, "file")
 
     # Materialize the same native browser, preserving any original index page.
-    for folder in sorted(model_directories):
+    for folder in sorted(preview_directories):
         index = folder / "index.html"
         if not index.exists():
             response = _render_directory_index(None, folder.relative_to(directory).as_posix(), folder, directory, static_previews=previews)
