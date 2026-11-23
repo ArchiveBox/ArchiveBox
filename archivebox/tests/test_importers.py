@@ -993,11 +993,16 @@ def test_importer_navigation_table_and_paginated_history(admin_client, import_si
     document = fromstring(admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST).content.decode())
     table = document.get_element_by_id("result_list")
     assert len(table.xpath("./tbody/tr")) == 20
+    run_ids = source.runs.order_by("-created_at", "-id").values_list("pk", flat=True)[:20]
+    displayed_ids = [link.text_content().rsplit(" · ", 1)[1] for link in table.xpath("./tbody/tr/td[1]/a")]
+    assert displayed_ids == [str(run_id)[-8:] for run_id in run_ids]
     assert table.xpath(".//thead//a[contains(@href, '?o=')]")
     assert document.xpath("//a[normalize-space()='Edit settings']/../form/button[normalize-space()='Dry Run']")
     persona_url = reverse("admin:personas_persona_change", args=[persona.pk])
-    assert document.xpath(f"//main//a[@href='{persona_url}']/text()") == ["🎭 Reading profile"]
-    assert document.xpath(f"//main//a[contains(@href, 'folder={folder.pk}')]/text()") == ["📚 Reading"]
+    assert document.xpath(f"//main//span[@class='tag-pill']/a[@href='{persona_url}']/text()") == ["Reading profile"]
+    assert document.xpath(f"//main//span[@class='tag-pill']/a[contains(@href, 'folder={folder.pk}')]/text()") == ["📚 Reading"]
+    assert document.xpath("//dt[normalize-space()='Persona']/svg/use[contains(@href, '#user')]")
+    assert document.xpath("//dt[normalize-space()='Folder']/svg/use[contains(@href, '#folder')]")
     assert document.xpath(
         f"//span[@data-tag='reading' and contains(@style, '--tag-bg')]/a[contains(@href, 'tags__id__exact={tag.pk}')]/text()",
     ) == ["reading"]

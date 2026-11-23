@@ -5,6 +5,7 @@
 {% elif 'permissions' in action %}<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/>
 {% elif 'pause' in action %}<path d="M8 5v14M16 5v14"/>
 {% elif 'resume' in action %}<path d="m8 5 11 7-11 7Z"/>
+{% elif action == 'edit' %}<path d="m15 4 5 5M4 20l5-1L21 7a1.4 1.4 0 0 0-4-4L5 15Z"/>
 {% elif 'seal' in action %}<path d="m5 12 4 4L19 6"/>
 {% elif action == 'move_to_folder' %}<path d="M3 7V5h7l2 2h9v13H3v-3m-1-5h11m-4-4 4 4-4 4"/>
 {% else %}<path d="M20 7v5h-5M4 17v-5h5M5.6 7a7 7 0 0 1 11.6-2L20 8M4 16l2.8 3A7 7 0 0 0 18.4 17"/>

@@ -2,31 +2,59 @@
 {% load core_tags static %}
 {% block extrastyle %}<link rel="stylesheet" href="{% static 'admin/css/changelists.css' %}">{{ block.super }}{% endblock %}
 {% block importer_content %}
+{% static 'search/icons.svg' as icons %}
 <header class="importer-heading">
   <h1>{{ source.name }}</h1>
   <p class="muted">{{ definition.provider|default:"Plugin unavailable" }} · {{ definition.title|default:source.feed }}</p>
 </header>
 {% if not definition %}<p class="notice">Reinstall the plugin to run this importer.</p>{% endif %}
-<div class="actions">
+<div class="actions importer-actions">
   {% if definition %}
-    <form method="post" action="{% url 'importers:action' source.pk 'preview' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}>Dry Run</button></form>
-    <form method="post" action="{% url 'importers:action' source.pk 'import' %}">{% csrf_token %}<button data-discovery-action class="primary" {% if active %}disabled{% endif %}>Run now</button></form>
+    <form method="post" action="{% url 'importers:action' source.pk 'preview' %}">{% csrf_token %}<button data-discovery-action {% if active %}disabled{% endif %}><svg class="admin-action-icon" aria-hidden="true"><use href="{{ icons }}#search"/></svg>Dry Run</button></form>
+    <form method="post" action="{% url 'importers:action' source.pk 'import' %}">{% csrf_token %}<button data-discovery-action class="primary" {% if active %}disabled{% endif %}>{% include 'admin/action_icon.html' with action='resume' %}Run now</button></form>
   {% endif %}
   {% if source.enabled %}
-    <form method="post" action="{% url 'importers:action' source.pk 'pause' %}">{% csrf_token %}<button>Pause</button></form>
+    <form method="post" action="{% url 'importers:action' source.pk 'pause' %}">{% csrf_token %}<button>{% include 'admin/action_icon.html' with action='pause' %}Pause</button></form>
   {% else %}
-    <form method="post" action="{% url 'importers:action' source.pk 'resume' %}">{% csrf_token %}<button>Resume</button></form>
+    <form method="post" action="{% url 'importers:action' source.pk 'resume' %}">{% csrf_token %}<button>{% include 'admin/action_icon.html' with action='resume' %}Resume</button></form>
   {% endif %}
-  {% if definition %}<a class="button" href="{% url 'importers:edit' source.pk %}">Edit settings</a>{% endif %}
+  {% if definition %}<a class="button" href="{% url 'importers:edit' source.pk %}">{% include 'admin/action_icon.html' with action='edit' %}Edit settings</a>{% endif %}
 </div>
 <dl class="importer-properties">
-  <div><dt>Persona</dt><dd>{% if source.persona_id %}<a href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.emoji }} {{ source.persona.name }}</a>{% else %}Server defaults{% endif %}</dd></div>
-  {% if source.account.id or definition.auth == "persona" %}<div><dt>Account</dt><dd>{% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a Dry Run or import{% endif %}</dd></div>{% endif %}
-  {% if settings_links %}<div><dt>Settings</dt><dd>{% include "importers/settings_links.html" %}</dd></div>{% endif %}
-  <div><dt>Schedule</dt><dd>{{ source.schedule|default:"Manual" }}{% if source.next_run_at %} · Next {{ source.next_run_at|date:"M j, H:i" }}{% elif not source.enabled %} · Paused{% endif %}</dd></div>
-  <div><dt>Batch size</dt><dd>{{ source.limit }}</dd></div>
-  <div><dt>Folder</dt><dd>{% if source.folder_id %}{% folder_display_name source.folder.name as folder_display %}<a href="{% url 'admin:core_snapshot_changelist' %}?folder={{ source.folder_id }}">{{ folder_display.0|default:source.folder.emoji }} {{ folder_display.1 }}</a>{% else %}Unfiled{% endif %}</dd></div>
-  {% if source_tags %}<div><dt>Tags</dt><dd class="tag-pills-inline">{% for name, id in source_tags %}<span class="tag-pill" data-tag="{{ name }}" style="{{ name|tag_color_style }}">{% if id %}<a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?tags__id__exact={{ id }}">{{ name }}</a>{% else %}{{ name }}{% endif %}</span>{% endfor %}</dd></div>{% endif %}
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#user"/></svg>Persona</dt>
+    <dd>{% if source.persona_id %}<span class="tag-pill"><a class="tag-link" href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }}</a></span>{% else %}Server defaults{% endif %}</dd>
+  </div>
+  {% if source.account.id or definition.auth == "persona" %}
+    <div>
+      <dt><svg aria-hidden="true"><use href="{{ icons }}#lock"/></svg>Account</dt>
+      <dd>{% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a Dry Run or import{% endif %}</dd>
+    </div>
+  {% endif %}
+  {% if settings_links %}
+    <div>
+      <dt><svg aria-hidden="true"><use href="{{ icons }}#link"/></svg>Settings</dt>
+      <dd>{% include "importers/settings_links.html" %}</dd>
+    </div>
+  {% endif %}
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#calendar"/></svg>Schedule</dt>
+    <dd>{{ source.schedule|default:"Manual" }}{% if source.next_run_at %} · Next {{ source.next_run_at|date:"M j, H:i" }}{% elif not source.enabled %} · Paused{% endif %}</dd>
+  </div>
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#database"/></svg>Batch size</dt>
+    <dd>{{ source.limit }}</dd>
+  </div>
+  <div>
+    <dt><svg aria-hidden="true"><use href="{{ icons }}#folder"/></svg>Folder</dt>
+    <dd>{% if source.folder_id %}{% folder_display_name source.folder.name as folder_display %}<span class="tag-pill"><a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?folder={{ source.folder_id }}">{% if folder_display.0 %}{{ folder_display.0 }} {% endif %}{{ folder_display.1 }}</a></span>{% else %}Unfiled{% endif %}</dd>
+  </div>
+  {% if source_tags %}
+    <div>
+      <dt><svg aria-hidden="true"><use href="{{ icons }}#tag"/></svg>Tags</dt>
+      <dd class="tag-pills-inline">{% for name, id in source_tags %}<span class="tag-pill" data-tag="{{ name }}" style="{{ name|tag_color_style }}">{% if id %}<a class="tag-link" href="{% url 'admin:core_snapshot_changelist' %}?tags__id__exact={{ id }}">{{ name }}</a>{% else %}{{ name }}{% endif %}</span>{% endfor %}</dd>
+    </div>
+  {% endif %}
 </dl>
 <section data-activity-url="{% url 'importers:source-activity' source.pk %}{{ activity_query }}">{% include "importers/history.html" %}</section>
 {% include "importers/updates.html" %}

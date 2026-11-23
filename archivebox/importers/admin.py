@@ -55,7 +55,7 @@ class ImporterRunAdmin(admin.ModelAdmin):
             '<a href="{}"><strong>{}</strong> · {}</a><br><small>{}</small>',
             reverse("importers:run", args=[run.pk]),
             run.get_action_display(),
-            str(run.pk)[:8],
+            str(run.pk)[-8:],
             date_format(timezone.localtime(run.created_at), "SHORT_DATETIME_FORMAT"),
         )
 

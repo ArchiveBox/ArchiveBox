@@ -3,6 +3,7 @@
 import pytest
 from django.test import Client
 from django.urls import reverse
+from lxml.html import fromstring
 
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
@@ -61,10 +62,11 @@ def test_dry_run_initial_and_live_completed_fragment(admin_client, admin_user):
     assert run.items == items and run.crawl_id is None
     assert (Snapshot.objects.count(), Crawl.objects.count()) == counts
     detail = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST)
-    assert b">Dry Run</button>" in detail.content
-    assert b"/preview/" in detail.content
-    assert b">Check access</button>" not in detail.content
-    assert b">Run now</button>" in detail.content
+    controls = fromstring(detail.content).find_class("importer-actions")[0]
+    actions = {button.text_content().strip(): button.getparent().get("action") for button in controls.xpath("./form/button")}
+    assert actions["Dry Run"] == reverse("importers:action", args=[source.pk, "preview"])
+    assert actions["Run now"] == reverse("importers:action", args=[source.pk, "import"])
+    assert "Check access" not in actions
 
 
 def test_dry_run_bounded_safe_items_and_empty_failure_states(admin_client, admin_user):
