@@ -5,11 +5,40 @@ import re
 from django import forms
 from django.db.models.manager import BaseManager
 from django.db.models.query import QuerySet
+from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 
 from archivebox.core.tag_colors import tag_color_style
+
+
+class FolderPicker(forms.Select):
+    """Render the current folder only. The browser requests choices on demand."""
+
+    def __init__(self, attrs=None, *, destination=False, exclude=None):
+        options = {"data-picker": "folder", **(attrs or {})}
+        if destination:
+            options["data-picker-destination"] = "true"
+        if exclude:
+            options["data-picker-exclude"] = str(exclude)
+        super().__init__(options)
+
+    def optgroups(self, name, value, attrs=None):
+        from archivebox.core.models import Folder
+        from archivebox.uuid_compat import compact_uuid
+
+        choices = []
+        if self.choices.field.empty_label is not None:
+            choices.append(("", self.choices.field.empty_label))
+        try:
+            value = [str(compact_uuid(item)) if item else "" for item in value]
+            selected = [item for item in value if item]
+            choices.extend((item["id"], item["name"]) for item in Folder.picker_choices(self.choices.queryset.filter(pk__in=selected)))
+        except (ValidationError, ValueError):
+            pass  # The bound field displays the invalid-choice error.
+        widget = forms.Select(choices=choices)
+        return widget.optgroups(name, value, attrs)
 
 
 class ScheduleWidget(forms.TextInput):
@@ -145,7 +174,7 @@ class TagEditorWidget(forms.Widget):
                    autocomplete="off"
                    onkeydown="handleTagKeydown_{widget_id}(event)"
                    onkeypress="if({str(not self.create_redirect).lower()} && (event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar')){{event.preventDefault(); event.stopPropagation();}}"
-                   oninput="fetchTagAutocomplete_{widget_id}(this.value)"
+                   data-tag-suggestions="/api/v1/core/tags/autocomplete/"
             >
             <datalist id="{widget_id}_datalist"></datalist>
             <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(",".join(tags))}">
@@ -156,7 +185,6 @@ class TagEditorWidget(forms.Widget):
         (function() {{
             var createRedirect = {create_redirect};
             var currentTags_{widget_id} = {tags_json};
-            var autocompleteTimeout_{widget_id} = null;
 
             window.focusTagInput_{widget_id} = function(event) {{
                 if (event.target.classList.contains('tag-remove-btn')) return;
@@ -365,35 +393,6 @@ class TagEditorWidget(forms.Widget):
                     rebuildPills_{widget_id}();
                     updateHiddenInput_{widget_id}();
                 }}
-            }};
-
-            window.fetchTagAutocomplete_{widget_id} = function(query) {{
-                if (autocompleteTimeout_{widget_id}) {{
-                    clearTimeout(autocompleteTimeout_{widget_id});
-                }}
-
-                autocompleteTimeout_{widget_id} = setTimeout(function() {{
-                    if (!query || query.length < 1) {{
-                        document.getElementById('{widget_id}_datalist').innerHTML = '';
-                        return;
-                    }}
-
-                    var path = '/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query);
-                    fetch(createRedirect ? path : buildApiUrl(path))
-                        .then(function(response) {{ return response.json(); }})
-                        .then(function(data) {{
-                            var datalist = document.getElementById('{widget_id}_datalist');
-                            datalist.innerHTML = '';
-                            (data.tags || []).forEach(function(tag) {{
-                                var option = document.createElement('option');
-                                option.value = tag.name;
-                                datalist.appendChild(option);
-                            }});
-                        }})
-                        .catch(function(err) {{
-                            console.log('Autocomplete error:', err);
-                        }});
-                }}, 150);
             }};
 
             function escapeHtml(text) {{
@@ -775,6 +774,7 @@ class InlineTagEditorWidget(TagEditorWidget):
                    placeholder="+"
                    autocomplete="off"
                    data-inline-tag-input="1"
+                   data-tag-suggestions="/api/v1/core/tags/autocomplete/"
             >
             <datalist id="{widget_id}_datalist"></datalist>
             '''

@@ -1,0 +1,4 @@
+.record-picker { display: inline-flex; flex-direction: column; gap: 4px; max-width: 100%; min-width: 0; }
+.record-picker > input, .record-picker > select { box-sizing: border-box; width: 100%; min-width: 0; }
+.record-picker > button { align-self: flex-start; }
+.record-picker-status:empty { display: none; }

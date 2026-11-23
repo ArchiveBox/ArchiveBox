@@ -6,26 +6,15 @@
         const name = sidebarForm.querySelector('#tag-merge-name')
         const source = sidebarForm.querySelector('[data-merge-source]')
         const search = sidebarForm.querySelector('#tag-merge-search')
-        let searchTimer, request
-        search.addEventListener('input', () => {
-            clearTimeout(searchTimer); request?.abort()
-            searchTimer = setTimeout(async () => {
-                request = new AbortController()
-                const url = new URL(sidebarForm.dataset.searchUrl, location.href)
-                url.searchParams.set('sidebar', 'tags')
-                url.searchParams.set('sidebar_q', search.value)
-                try {
-                    const response = await fetch(url, {signal:request.signal})
-                    if (!response.ok) throw new Error('Could not load tags')
-                    const data = await response.json()
-                    target.replaceChildren(new Option('Choose a tag…', ''))
-                    for (const tag of data.choices) if (tag.id !== source.value) target.add(new Option(tag.name, tag.id))
-                } catch (error) {
-                    if (error.name !== 'AbortError') target.replaceChildren(new Option(error.message, ''))
-                }
-            }, 60)
-        })
-        dialog.addEventListener('close', () => {clearTimeout(searchTimer); request?.abort()})
+        const find = window.ArchiveBoxPicker.connect(
+            search,
+            window.ArchiveBoxPicker.lookup('tag'),
+            ({choices = [], error}) => {
+                target.replaceChildren(new Option(error ? 'Could not load tags' : 'Choose a tag…', ''))
+                for (const tag of choices) if (String(tag.id) !== source.value) target.add(new Option(tag.name, tag.id))
+            },
+        )
+        dialog.addEventListener('close', find.cancel)
         document.querySelectorAll('[data-sidebar-tag-merge]').forEach(button => {
             button.addEventListener('click', () => {
                 button.closest(':popover-open')?.hidePopover()

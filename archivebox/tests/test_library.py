@@ -19,14 +19,14 @@ def test_move_destination_labels_match_refreshed_folder_paths(admin_client, view
     duplicate = Folder.objects.create(name="OneTab", parent=other)
     smart = Folder.objects.create(name="Smart", rules={"field": "url", "lookup": "icontains", "value": "example"}, position=2)
     limited = Folder.objects.create(name="Limited", rules={**CHILDREN_RULES, "sort": "-created_at", "limit": 2})
-    expected = [
-        ("", "No folder"),
-        (parent.pk, "2026"),
-        (child.pk, "2026 / OneTab"),
-        (nested.pk, "2026 / OneTab / Reading"),
-        (other.pk, "2025"),
-        (duplicate.pk, "2025 / OneTab"),
-    ]
+    expected = {
+        str(parent.pk): "2026",
+        str(child.pk): "2026 / OneTab",
+        str(nested.pk): "2026 / OneTab / Reading",
+        str(other.pk): "2025",
+        str(duplicate.pk): "2025 / OneTab",
+        str(limited.pk): "Limited",
+    }
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
@@ -36,21 +36,18 @@ def test_move_destination_labels_match_refreshed_folder_paths(admin_client, view
     assert len(folder_reads) == 1, folder_reads
     assert response.status_code == 200
     field = response.context["action_form"].fields["folder_destination"]
-    import html
-    import re
 
-    def choices(response):
-        select = re.search(r'<select[^>]*name="folder_destination"[^>]*>(.*?)</select>', response.content.decode(), re.DOTALL)
-        assert select is not None
-        return [
-            (html.unescape(value), html.unescape(label))
-            for value, label in re.findall(r'<option value="([^"]*)">(.*?)</option>', select[1])
-        ]
+    def search_destinations():
+        results = admin_client.get("/api/v1/core/folders/autocomplete/", {"destination": "true"}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert results.status_code == 200, results.content
+        return {choice["id"]: choice["name"] for choice in results.json()["choices"]}
 
-    assert choices(response) == [(str(value), label) for value, label in expected]
+    assert b'data-picker-destination="true"' in response.content
+    assert f'value="{nested.pk}"'.encode() not in response.content
+    assert search_destinations() == expected
     assert field.queryset.filter(pk=parent.pk).exists()
     assert not field.queryset.filter(pk=smart.pk).exists()
-    assert not field.queryset.filter(pk=limited.pk).exists()
+    assert field.queryset.filter(pk=limited.pk).exists()
 
     renamed = admin_client.post(
         "/admin/core/folder/save/",
@@ -60,17 +57,13 @@ def test_move_destination_labels_match_refreshed_folder_paths(admin_client, view
     assert renamed.status_code == 200, renamed.content
     tree = renamed.json()["folder_html"]
     assert renamed.json()["path_label"] == "2026 / Bookmarks"
-    assert dict(renamed.json()["folder_choices"])[str(nested.pk)] == "2026 / Bookmarks / Reading"
-    assert str(smart.pk) not in dict(renamed.json()["move_folder_choices"])
-    # Preserve the existing live-refresh eligibility (broader than the initial
-    # action field for containers carrying sort/limit metadata).
-    assert str(limited.pk) in dict(renamed.json()["move_folder_choices"])
+    assert "folder_choices" not in renamed.json()
+    assert "move_folder_choices" not in renamed.json()
     assert 'title="2026 / Bookmarks"' in tree
     children = admin_client.get("/admin/core/snapshot/sidebar/", {"parent": child.pk}, HTTP_HOST=ADMIN_TEST_HOST)
     assert children.status_code == 200
     assert 'title="2026 / Bookmarks / Reading"' in children.json()["html"]
-    updated = admin_client.get(view, HTTP_HOST=ADMIN_TEST_HOST)
-    labels = dict(choices(updated))
+    labels = search_destinations()
     assert labels[str(child.pk)] == "2026 / Bookmarks"
     assert labels[str(nested.pk)] == "2026 / Bookmarks / Reading"
 
@@ -95,7 +88,8 @@ def test_initial_folder_sidebar_reuses_picker_tree_and_limits_roots(admin_client
     assert len(visible) == 52
     assert [folder.pk for folder in visible[-2:]] == [roots[-1].pk, selected.pk]
     assert response.context["sidebar_next"]
-    assert len(response.context["folder_choices"]) == 107
+    assert "folder_choices" not in response.context
+    assert f'value="{roots[75].pk}"'.encode() not in response.content
 
 
 def test_initial_folder_sidebar_preloads_breadth_first(admin_client):
@@ -144,6 +138,7 @@ def test_preloaded_folder_children_continue_without_gaps(admin_client):
 def test_folder_path_choices_and_admin_foreign_keys(admin_client, snapshot):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
+    from lxml.html import fromstring
     from archivebox.core.models import Folder
 
     parent = Folder.objects.create(name="2026")
@@ -159,17 +154,31 @@ def test_folder_path_choices_and_admin_foreign_keys(admin_client, snapshot):
     assert dict(choices)[grandchild.pk] == "2026 / OneTab / Research"
     assert dict(choices)[duplicate.pk] == "2025 / OneTab"
 
+    snapshot.folder = child
+    snapshot.save(update_fields=["folder"])
+    snapshot.refresh_from_db()
+    assert snapshot.folder.parent_id == child.pk
     response = admin_client.get(f"/admin/core/snapshot/{snapshot.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     field = response.context["adminform"].form.fields["folder"]
-    assert dict(field.choices)[child.pk] == "2026 / OneTab"
+    folder_options = fromstring(response.content).xpath('//select[@name="folder"]/option')
+    assert [(item.get("value"), item.text_content()) for item in folder_options if "selected" in item.attrib] == [
+        (str(snapshot.folder_id), "2026 / OneTab / Items"),
+    ]
+    assert str(duplicate.pk) not in {item.get("value") for item in folder_options}
     assert field.queryset.filter(pk=child.pk).exists()
     response = admin_client.get(f"/admin/core/folder/{child.pk}/change/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     field = response.context["adminform"].form.fields["parent"]
-    assert dict(field.choices)[duplicate.pk] == "2025 / OneTab"
-    assert child.pk not in dict(field.choices)
-    assert grandchild.pk not in dict(field.choices)
+    parent_options = fromstring(response.content).xpath('//select[@name="parent"]/option[@selected]')
+    assert [(item.get("value"), item.text_content()) for item in parent_options] == [(str(parent.pk), "2026")]
+    response = admin_client.get(
+        "/api/v1/core/folders/autocomplete/",
+        {"q": "OneTab", "exclude": str(child.pk)},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assert response.json()["choices"] == [{"id": str(duplicate.pk), "name": "2025 / OneTab"}]
     assert not field.queryset.filter(pk__in=[child.pk, grandchild.pk]).exists()
 
 

@@ -9,7 +9,7 @@ from archivebox.base_models.admin import KeyValueWidget
 from archivebox.config.common import get_config, host_config_keys, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
-from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
+from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
 from archivebox.personas.models import Persona
@@ -118,7 +118,13 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         required=False,
         widget=TagEditorWidget(),
     )
-    folder = forms.ModelChoiceField(label="Folder", queryset=Folder.objects.none(), required=False, empty_label="No folder")
+    folder = forms.ModelChoiceField(
+        label="Folder",
+        queryset=Folder.objects.none(),
+        required=False,
+        empty_label="No folder",
+        widget=FolderPicker(destination=True),
+    )
     depth = forms.ChoiceField(
         label="Archive depth",
         choices=DEPTH_CHOICES,
@@ -332,15 +338,8 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             self.can_override_crawl_config = bool(user.is_authenticated and user.is_active and user.is_superuser)
         super().__init__(*args, **kwargs)
 
-        self.folder_tree = Folder.tree() if self.can_override_crawl_config else []
         if self.can_override_crawl_config:
-            self.fields["folder"].queryset = Folder.objects.filter(
-                pk__in=[folder.pk for folder in self.folder_tree if not folder.is_smart or folder.is_container],
-            )
-            self.fields["folder"].choices = [
-                ("", "No folder"),
-                *Folder.path_choices(folder for folder in self.folder_tree if not folder.is_smart or folder.is_container),
-            ]
+            self.fields["folder"].queryset = Folder.objects.destinations()
         else:
             self.fields.pop("folder")
 

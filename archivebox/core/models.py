@@ -70,6 +70,21 @@ if TYPE_CHECKING:
 
 
 class FolderQuerySet(models.QuerySet):
+    def matching_name(self, term):
+        if not term:
+            return self
+        matches = Q(name__icontains=term)
+        parts = term.split(" / ")
+        if len(parts) > 1 and all(parts):
+            matches |= Q(**{f"{'parent__' * depth}name__icontains": part for depth, part in enumerate(reversed(parts))})
+        return self.filter(matches)
+
+    def destinations(self):
+        from archivebox.core.smart_folders import CHILDREN_RULES
+
+        container = {f"rules__{key}": value for key, value in CHILDREN_RULES.items()}
+        return self.filter(Q(rules__isnull=True) | Q(rules__query__isnull=True, **container))
+
     def update(self, **kwargs):
         from archivebox.api.webhook_events import track_model_update
 
@@ -317,6 +332,30 @@ class Folder(models.Model):
         """
         return [(folder.pk, folder.path_label) for folder in (cls.tree() if folders is None else folders)]
 
+    @classmethod
+    def ancestor_map(cls, folders):
+        by_id = {folder.pk: folder for folder in folders}
+        pending = {folder.parent_id for folder in by_id.values() if folder.parent_id} - by_id.keys()
+        while pending:
+            ancestors = cls.objects.only("name", "parent").in_bulk(pending)
+            by_id.update(ancestors)
+            pending = {folder.parent_id for folder in ancestors.values() if folder.parent_id} - by_id.keys()
+        return by_id
+
+    def path_parts(self, by_id):
+        path, seen, folder = [], set(), self
+        while folder and folder.pk not in seen:
+            seen.add(folder.pk)
+            path.append(folder.name)
+            folder = by_id.get(folder.parent_id)
+        return list(reversed(path))
+
+    @classmethod
+    def picker_choices(cls, folders):
+        folders = list(folders)
+        by_id = cls.ancestor_map(folders)
+        return [{"id": str(folder.pk), "name": " / ".join(folder.path_parts(by_id))} for folder in folders]
+
     def to_json(self):
         return {
             "type": "Folder",
@@ -358,15 +397,11 @@ class Folder(models.Model):
 
     @classmethod
     def subtree_ids(cls, folder_id):
-        children = {}
-        for pk, parent_id in cls.objects.values_list("pk", "parent_id"):
-            children.setdefault(parent_id, []).append(pk)
-        result, pending = set(), [compact_uuid(folder_id)]
+        pending = {compact_uuid(folder_id)}
+        result = set()
         while pending:
-            pk = pending.pop()
-            if pk not in result:
-                result.add(pk)
-                pending.extend(children.get(pk, []))
+            result.update(pending)
+            pending = set(cls.objects.filter(parent_id__in=pending).values_list("pk", flat=True)) - result
         return result
 
 

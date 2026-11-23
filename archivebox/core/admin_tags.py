@@ -20,8 +20,7 @@ from django.utils.safestring import mark_safe
 
 from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.core.admin_snapshots import SnapshotActionForm
-from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag, Tag
-from archivebox.core.smart_folders import CHILDREN_RULES
+from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag, Tag
 from archivebox.core.tag_merge import MERGE_MAX_TAGS, merge_selected_tags
 from archivebox.core.widgets import TagEditorWidget
 from archivebox.core.tag_util import annotate_tag_snapshot_counts, build_tag_cards, rename_tag
@@ -326,10 +325,6 @@ class TagAdmin(BaseModelAdmin):
                     (name, label) for name, label in choices if name and name not in TAG_SNAPSHOT_ACTIONS and name != TAGGED_SNAPSHOT_DELETE
                 ],
             }
-            if any(name == "move_to_folder" for name, _ in snapshot_choices):
-                context["move_folder_choices"] = Folder.path_choices(
-                    folder for folder in Folder.tree() if folder.rules is None or folder.rules == CHILDREN_RULES
-                )
             extra_context = {**(extra_context or {}), **context}
         return super().changelist_view(request, extra_context=extra_context)
 

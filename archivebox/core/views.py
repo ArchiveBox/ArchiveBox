@@ -2041,8 +2041,6 @@ class AddView(UserPassesTestMixin, FormView):
             "persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str),
             "recent_personas": recent_personas,
             "can_override_crawl_config": can_override_crawl_config,
-            "folder_tree": context["form"].folder_tree,
-            "folder_choices": Folder.path_choices(context["form"].folder_tree),
             "stdout": "",
         }
 

@@ -63,11 +63,16 @@ def webhook_data(hook):
 
 
 def editor_data():
+    hooks = [webhook_data(hook) for hook in OutboundWebhook.objects.select_related("tag").order_by("created_at", "pk")]
+    folder_ids = {hook["folder_id"] for hook in hooks if hook["folder_id"] not in (None, "*")}
+    folder_ids.update(
+        action["folder_id"] for hook in hooks for action in hook["actions"] if action.get("type") == "folder" and action.get("folder_id")
+    )
     return {
-        "hooks": [webhook_data(hook) for hook in OutboundWebhook.objects.select_related("tag").order_by("created_at", "pk")],
+        "hooks": hooks,
         "models": event_catalog(),
         "signal_labels": dict(OutboundWebhook._meta.get_field("signal").choices),
-        "folders": [{"id": str(folder_id), "name": label} for folder_id, label in Folder.path_choices()],
+        "folders": Folder.picker_choices(Folder.objects.filter(pk__in=folder_ids).only("name", "parent")),
         "plugins": sorted(get_plugin_catalog()),
         "config_fields": sorted(configurable_fields()),
         "tag_editor": str(TagEditorWidget().render("webhook_action_tags_TOKEN", None)),

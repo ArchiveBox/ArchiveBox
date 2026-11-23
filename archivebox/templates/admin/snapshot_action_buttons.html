@@ -25,13 +25,7 @@
               </span>
             {% elif value == 'move_to_folder' %}
               <span class="action-folder-wrapper">
-                <select name="folder_destination" class="action-folder-select" aria-label="Move to folder">
-                  <option value="">{{ action_form.folder_destination.field.empty_label }}</option>
-                  {% for folder_value, folder_label in move_folder_choices %}
-                    <option value="{{ folder_value }}">{{ folder_label }}</option>
-                  {% endfor %}
-                </select>
-                <span aria-hidden="true" class="button">{% include "admin/action_icon.html" with action=value %}<span class="action-folder-label">Move to folder</span><span aria-hidden="true">▾</span></span>
+                {% include "core/record_picker.html" with name="folder_destination" css_class="action-folder-select" label="Move to folder" kind="folder" destination=True placeholder="Move to folder" empty_label="No folder" %}
               </span>
             {% elif value == 'merge_tags' %}
               <button type="button" class="button" data-tag-merge-open aria-haspopup="dialog" disabled>Merge Tags</button>
