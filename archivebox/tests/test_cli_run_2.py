@@ -27,6 +27,67 @@ from .test_cli_run_1 import (
 
 @pytest.mark.django_db
 class TestRecoverOrchestratorState:
+    def test_idle_recovery_does_not_scan_completed_crawl_payloads(self):
+        from django.db import connection, transaction
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+
+        try:
+            with transaction.atomic():
+                user_id = get_or_create_system_user_pk()
+                Crawl.objects.bulk_create(
+                    Crawl(urls="https://example.com/" + "x" * 32768, created_by_id=user_id, status="sealed", retry_at=None)
+                    for _ in range(128)
+                )
+                if connection.vendor == "sqlite":
+                    with connection.cursor() as cursor:
+                        cursor.execute("ANALYZE crawls_crawl")
+                with CaptureQueriesContext(connection) as queries:
+                    recovered = recover_orchestrator_state()
+                assert not any(recovered.values()), recovered
+                assert Crawl.objects.filter(status="sealed").count() == 128
+                # All historical rows share a status, so SQLite prefers reading
+                # their large payload pages for a multi-column repair predicate.
+                # An idle pass must establish absence through the status index.
+                if connection.vendor == "sqlite":
+                    for query in queries:
+                        sql = query["sql"]
+                        if sql.startswith('UPDATE "crawls_crawl"'):
+                            with connection.cursor() as cursor:
+                                cursor.execute("EXPLAIN QUERY PLAN " + sql)
+                                plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                            assert "SCAN crawls_crawl" not in plan, (sql, plan)
+                    status_probes = [query["sql"] for query in queries if query["sql"].startswith('SELECT 1 AS "a" FROM "crawls_crawl"')]
+                    assert len(status_probes) == 2, status_probes
+                    for sql in status_probes:
+                        with connection.cursor() as cursor:
+                            cursor.execute("EXPLAIN QUERY PLAN " + sql)
+                            plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                        assert "COVERING INDEX" in plan and "status=?" in plan, plan
+                # The empty result is only for this pass. Newly queued work
+                # and interrupted ownership must be recovered on the next one.
+                queued = Crawl.objects.create(urls="https://example.com/new", created_by_id=user_id, status="queued", retry_at=None)
+                started = Crawl.objects.create(
+                    urls="https://example.com/interrupted",
+                    created_by_id=user_id,
+                    status="started",
+                    retry_at=None,
+                )
+                recovered = recover_orchestrator_state()
+                assert recovered["crawls_queued_without_retry_at"] == 1
+                assert recovered["crawls_started_without_active_snapshots"] == 1
+                queued.refresh_from_db()
+                started.refresh_from_db()
+                assert queued.status == "queued" and queued.retry_at is not None
+                assert started.status == "started" and started.retry_at is not None
+                transaction.set_rollback(True)
+        finally:
+            if connection.vendor == "sqlite":
+                with connection.cursor() as cursor:
+                    cursor.execute("ANALYZE sqlite_schema")
+
     def test_extension_upload_recovery_uses_hook_index_before_snapshots(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
