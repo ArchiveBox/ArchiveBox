@@ -60,7 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
       dialog.querySelector('.folder-save').textContent=moving ? 'Move folder' : 'Save folder';
       folderForm.elements.folder_id.value = button.dataset.id || '';
       folderForm.elements.name.value = button.dataset.name || '';
-      folderForm.elements.parent.value = button.dataset.parent || picker?.value || '';
+      const parent = folderForm.elements.parent;
+      const parentPicker = window.ArchiveBoxPicker.mount(parent);
+      parentPicker.reset();
+      const parentId = button.dataset.parent || picker?.value || '';
+      const row = button.closest('.folder-row');
+      const label = picker?.value === parentId ? picker.selectedOptions[0]?.text :
+        row?.dataset.folderId === parentId ? row.querySelector('.folder-link')?.title : null;
+      for (const option of Array.from(parent.options).slice(1)) option.remove();
+      if (parentId && label) window.ArchiveBoxPicker.selectChoice(parent, parentId, label);
+      parent.dataset.pickerExclude = button.dataset.id || '';
       document.querySelector('#folder-dialog-title').textContent = moving ? 'Move folder' : button.dataset.id ? (button.dataset.smart === 'true' ? 'Edit smart folder rules' : 'Edit folder') : button.dataset.smart === 'true' ? 'New smart folder' : 'New folder';
       const subtitle = dialog.querySelector('#folder-dialog-subtitle');
       subtitle.hidden = moving || Boolean(button.dataset.id) || button.dataset.smart !== 'true';
@@ -68,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else dialog.setAttribute('aria-describedby', subtitle.id);
       dialog.querySelector('.folder-form-error').textContent = '';
       dialog.showModal();
-      (moving ? folderForm.elements.parent : folderForm.elements.name).focus();
+      (moving ? parentPicker.input : folderForm.elements.name).focus();
       const kind = dialog.querySelector('#folder-kind');
       kind.disabled = true;
       folderForm.querySelector('[type=submit]').disabled = true;
@@ -169,8 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const relationLookups = new Set(['exact', 'in', 'isnull', 'present']);
       const labels = new Map(Object.entries(schema.related_selected || {}).map(([model, choices]) =>
         [model, new Map(choices.map(choice => [String(choice.id), choice.name]))]));
-      const unavailable = new Set(schema.unavailable_parents);
-      [...folderForm.elements.parent.options].forEach(option => option.disabled=unavailable.has(option.value));
+      if (schema.parent_choice) {
+        const parent = folderForm.elements.parent;
+        window.ArchiveBoxPicker.selectChoice(parent, schema.parent_choice.id, schema.parent_choice.name);
+      }
       smart ||= schema.rules !== null;
       kind.value = smart ? 'smart' : 'normal';
       kind.disabled = schema.container || Boolean(picker);
@@ -229,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
         choices.setAttribute('aria-label', 'Choose an existing value');
         choices.hidden = true;
         let available = new Map();
-        let timer, controller;
         function sync() {
           chips.replaceChildren();
           for (const id of selected) {
@@ -257,29 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
           for (const [key, item] of available) choices.add(new Option(item.name, key));
           choices.hidden = false;
         }
-        function find() {
-          window.clearTimeout(timer);
-          controller?.abort();
-          const query = search.value.trim();
-          show([], 'Searching…');
-          timer = window.setTimeout(async () => {
-            const request = new AbortController();
-            controller = request;
-            try {
-              const url = new URL(folderForm.dataset.rulesUrl, location.href);
-              url.searchParams.set('related_field', node.field);
-              url.searchParams.set('q', query);
-              const response = await fetch(url, {credentials:'same-origin', signal:request.signal});
-              if (!response.ok) throw new Error('Lookup failed');
-              const payload = await response.json();
-              if (!request.signal.aborted && search.isConnected) show(payload.choices);
-            } catch (error) {
-              if (!request.signal.aborted && search.isConnected) show([], 'Could not load choices');
-            }
-          }, 140);
-        }
-        search.addEventListener('focus', find);
-        search.addEventListener('input', find);
+        const find = window.ArchiveBoxPicker.connect(
+          search,
+          window.ArchiveBoxPicker.lookup(null, () => ({ related_field: node.field }), folderForm.dataset.rulesUrl),
+          ({choices: results = [], error}) => show(results, error ? 'Could not load choices' : 'No matches'),
+        );
+        search.addEventListener('focus', () => find());
         search.addEventListener('keydown', event => {
           if (event.key === 'ArrowDown' && !choices.hidden) {
             event.preventDefault();
@@ -309,9 +302,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (['isnull','present'].includes(node.lookup)) return;
         if (spec.type === 'folder') {
           const options = node.lookup === 'in_children' ? [['self','This folder']] : [['*','ANY']];
-          options.push(...schema.folders.map(folder => [folder.id, folder.name]));
           node.value ??= options[0][0];
-          row.append(select(options, node.value, 'Folder', value => node.value=value));
+          if (node.value !== options[0][0]) {
+            options.push([node.value, labels.get('core.folder')?.get(String(node.value)) || 'Unavailable folder']);
+          }
+          const control = select(options, node.value, 'Folder', value => node.value=value);
+          control.options[0].dataset.pickerFixed = '';
+          control.dataset.picker = 'folder';
+          row.append(control);
+          window.ArchiveBoxPicker.mount(control);
         } else if (spec.related_model) {
           const model = schema.related_fields?.[spec.name];
           if (model && ['exact', 'in'].includes(node.lookup)) renderRelatedValues(row, node, model);
@@ -456,13 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!response.ok) throw new Error(result.error || 'Could not save folder.');
         if (picker) {
           const label = result.path_label;
-          picker.add(new Option(label, String(result.id), true, true));
-          folderForm.elements.parent.add(new Option(label, String(result.id)));
+          window.ArchiveBoxPicker.selectChoice(picker, result.id, label);
           picker.dispatchEvent(new Event('change', {bubbles:true}));
           dialog.close();
           picker.focus();
         } else if (refreshTree) {
-          refreshFolderTree(result.folder_html, result.id, result.folder_choices, result.move_folder_choices, result.folder_next);
+          refreshFolderTree(result.folder_html, result.id, result.folder_next);
           dialog.close();
         } else {
           dialog.close();
@@ -756,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.hidden = hidden || !button.dataset.cursor;
     });
   }
-  function refreshFolderTree(html, createdId, parentChoices, moveChoices, next) {
+  function refreshFolderTree(html, createdId, next) {
     if (sidebarQuery || searchTimer !== undefined) {
       searchSidebar();
     } else {
@@ -773,14 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loading.hidden = true;
       renderTree();
     }
-    [folderForm.elements.parent, form?.querySelector('[name=folder_destination]')].filter(Boolean).forEach(select => {
-      const selectedValue = select.value;
-      const root = select.options[0].cloneNode(true);
-      select.replaceChildren(root);
-      const choices = select.name === 'folder_destination' ? moveChoices : parentChoices;
-      choices.forEach(([id, label]) => select.add(new Option(label, id)));
-      select.value = selectedValue;
-    });
+
   }
   function refreshRows() {
     rows = [...tree.querySelectorAll('.folder-row')];
@@ -1401,7 +1392,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const destination = form.querySelector('[name=folder_destination]');
         const action = form.querySelector('select[name=action]');
         if (!destination || !action) {clearDrag(); status.textContent = 'Folder moves are unavailable for this account.'; return;}
-        destination.value = target.dataset.smart === 'true' && target.dataset.container !== 'true' ? '' : target.dataset.folderId;
+        const id = target.dataset.smart === 'true' && target.dataset.container !== 'true' ? '' : target.dataset.folderId;
+        window.ArchiveBoxPicker.selectChoice(destination, id, target.querySelector('.folder-link')?.title || target.dataset.folderName);
         action.value = 'move_to_folder';
         clearDrag(); status.textContent = 'Moving snapshots…';
         form.requestSubmit(form.querySelector('button[name=index]'));
@@ -1419,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         status.textContent = '';
       }
       initializeTagRows();
+      if (form) window.ArchiveBoxPicker.initialize(form);
       initializeSnapshotDragging();
     }
     selectionChanged();

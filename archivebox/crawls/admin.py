@@ -32,7 +32,7 @@ from archivebox.core.permissions import (
     render_permission_icon,
 )
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_export_urls, build_snapshot_role_output_url
-from archivebox.core.widgets import ScheduleWidget, TagEditorWidget, URLFiltersWidget
+from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.plugins.discovery import get_snapshot_role_names
@@ -419,6 +419,7 @@ class CrawlAdminForm(forms.ModelForm):
         model = Crawl
         fields = "__all__"
         widgets: ClassVar[dict[str, forms.Widget]] = {
+            "folder": FolderPicker(destination=True),
             "urls": forms.Textarea(
                 attrs={
                     "rows": 8,
@@ -437,10 +438,8 @@ class CrawlAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if "folder" in self.fields:
-            self.fields["folder"].choices = [
-                ("", "No folder"),
-                *Folder.path_choices(folder for folder in Folder.tree() if not folder.is_smart or folder.is_container),
-            ]
+            self.fields["folder"].queryset = Folder.objects.destinations()
+            self.fields["folder"].empty_label = "No folder"
         config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
         if self.instance and self.instance.pk:
             self.initial["tags_editor"] = self.instance.tags_str

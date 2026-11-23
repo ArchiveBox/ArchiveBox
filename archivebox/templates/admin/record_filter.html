@@ -1,0 +1,10 @@
+{% load i18n %}
+<details data-filter-title="{{ title }}" open>
+  <summary>{{ title }}</summary>
+  {% with clear=choices.0 selected=choices.1 %}
+    <select aria-label="{{ title }}" data-picker="{{ spec.picker_kind }}" data-picker-filter="{{ spec.parameter_name }}" data-picker-filter-url="{{ clear.query_string }}">
+      <option value="">{% translate "All" %}</option>
+      {% if spec.value and selected.selected %}<option value="{{ spec.value }}" selected>{{ selected.display }}</option>{% endif %}
+    </select>
+  {% endwith %}
+</details>

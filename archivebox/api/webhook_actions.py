@@ -98,8 +98,8 @@ def validate_actions(hook):
             elif kind == "permissions" and action.get(kind) not in {"private", "unlisted", "public"}:
                 raise ValueError("Choose private, unlisted, or public.")
             elif kind == "folder" and action.get("folder_id"):
-                if not Folder.objects.filter(pk=action["folder_id"]).exists():
-                    raise ValueError("Choose an existing folder.")
+                if not Folder.objects.destinations().filter(pk=action["folder_id"]).exists():
+                    raise ValueError("Choose a regular folder or a folder with children.")
             elif kind in {"python", "shell"}:
                 value = action.get("code" if kind == "python" else "command")
                 if not isinstance(value, str) or not value.strip():

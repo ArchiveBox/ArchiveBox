@@ -1,0 +1,4 @@
+<select{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if css_class %} class="{{ css_class }}"{% endif %}{% if label %} aria-label="{{ label }}"{% endif %}{% if required %} required{% endif %} data-picker="{{ kind }}"{% if destination %} data-picker-destination="true"{% endif %}>
+  {% if placeholder %}<option value="__choose__" data-picker-fixed disabled selected>{{ placeholder }}</option>{% endif %}
+  <option value="" data-picker-fixed{% if required %} disabled{% endif %}>{{ empty_label }}</option>
+</select>

@@ -6,7 +6,7 @@
     <div class="folder-name-field"><label for="folder-name">Name</label><input id="folder-name" name="name" maxlength="100" required autocomplete="off"></div>
     <div class="folder-options" hidden></div>
   </div>
-  <div class="folder-move-field" hidden><label for="folder-parent">Move to</label><select id="folder-parent" name="parent"><option value="">Top level</option>{% for folder_id, folder_label in folder_choices %}<option value="{{ folder_id }}">{{ folder_label }}</option>{% endfor %}</select></div>
+  <div class="folder-move-field" hidden><label for="folder-parent">Move to</label>{% include "core/record_picker.html" with id="folder-parent" name="parent" kind="folder" empty_label="Top level" %}</div>
   <input type="hidden" id="folder-kind" value="normal">
   <input type="hidden" name="rules" value="">
   <div class="folder-rule-layout" hidden>

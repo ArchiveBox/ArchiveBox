@@ -136,37 +136,6 @@
         });
     }
 
-    var autocompleteTimers = new WeakMap();
-
-    function fetchAutocomplete(el, query, datalist) {
-        if (!datalist) return;
-        var existing = autocompleteTimers.get(el);
-        if (existing) window.clearTimeout(existing);
-
-        var timer = window.setTimeout(function() {
-            if (!query || query.length < 1) {
-                datalist.innerHTML = '';
-                return;
-            }
-
-            fetch(buildApiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)))
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    datalist.innerHTML = '';
-                    (data.tags || []).forEach(function(tag) {
-                        var option = document.createElement('option');
-                        option.value = tag.name;
-                        datalist.appendChild(option);
-                    });
-                })
-                .catch(function(err) {
-                    console.log('Autocomplete error:', err);
-                });
-        }, 150);
-
-        autocompleteTimers.set(el, timer);
-    }
-
     function handleContainerClick(event) {
         var target = event.target;
         var container = target.closest('.tag-editor-inline');
@@ -202,15 +171,6 @@
         }
     }
 
-    function handleInputEvent(event) {
-        var input = event.target;
-        if (!input || !input.matches('input.tag-inline-input-sm')) return;
-        var container = input.closest('.tag-editor-inline');
-        if (!container) return;
-        var datalist = container.querySelector('datalist');
-        fetchAutocomplete(container, input.value, datalist);
-    }
-
     function handleInputFocus(event) {
         var input = event.target;
         if (!input || !input.matches('input.tag-inline-input-sm')) return;
@@ -226,7 +186,6 @@
     function init() {
         document.addEventListener('click', handleContainerClick);
         document.addEventListener('keydown', handleInputKeydown);
-        document.addEventListener('input', handleInputEvent);
         document.addEventListener('focusin', handleInputFocus);
         document.addEventListener('focusout', handleInputBlur);
     }

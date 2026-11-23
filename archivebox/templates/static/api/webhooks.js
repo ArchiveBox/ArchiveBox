@@ -22,7 +22,7 @@
       : events;
   };
 
-  const folders = { Snapshot: initial.folders };
+  const folders = new Map(initial.folders.map((item) => [item.id, item]));
   const types = {
     disable_plugin: "Disable plugin",
     enable_plugin: "Enable plugin",
@@ -120,7 +120,7 @@
     };
   const folderOf = (h) =>
     eventOf(h).membership
-      ? [anyFolder, ...(folders[modelName(h.ref)] || [])].find((f) => f.id === h.folder_id)
+      ? (h.folder_id === "*" ? anyFolder : folders.get(h.folder_id))
       : undefined;
   const relationshipsFor = (ref) =>
     initial.models.find((m) => m.ref === ref)?.relationships || [];
@@ -217,30 +217,27 @@
         : current.tag_id === "*" ? anyTag : { id: current.tag_id, name: current.tag_name };
       scope.add(new Option("", ""));
       if (selected?.id) scope.add(new Option(selected.name, selected.id, true, true));
+      let folderCursor;
       picker.select2({
         width: "100%",
         placeholder: e.membership ? "Choose a folder" : "Choose a tag",
         ajax: {
           delay: 150,
+          data: (params) => ({ term: params.term, page: params.page, after: params.page > 1 ? folderCursor : "" }),
           transport(params, success, failure) {
             const term = params.data.term || "";
-            const query = term.toLowerCase();
-            if (e.membership) {
-              const matching = [anyFolder, ...folders.Snapshot]
-                .filter((folder) => folder.name.toLowerCase().includes(query))
-                .slice(0, 20);
-              success({ results: matching.map((folder) => ({ id: folder.id, text: folder.name })) });
-              return;
-            }
+            const wildcard = e.membership ? anyFolder : anyTag;
             const controller = new AbortController();
-            fetch("/api/v1/core/tags/autocomplete/?q=" + encodeURIComponent(term), { signal: controller.signal })
-              .then((response) => {
-                if (!response.ok) throw new Error("Could not load tags");
-                return response.json();
-              })
-              .then(({ tags }) => {
-                const matching = anyTag.name.toLowerCase().includes(query) ? [anyTag, ...tags] : tags;
-                success({ results: matching.map((tag) => ({ id: tag.id, text: tag.name })) });
+            const lookup = window.ArchiveBoxPicker.lookup(e.membership ? "folder" : "tag");
+            lookup(term, controller.signal, params.data.after)
+              .then(({ choices, next }) => {
+                folderCursor = next;
+                const matching = params.data.page > 1 || !wildcard.name.toLowerCase().includes(term.toLowerCase())
+                  ? choices : [wildcard, ...choices];
+                success({
+                  results: matching.map((item) => ({ id: item.id, text: item.name })),
+                  pagination: { more: Boolean(next) },
+                });
               })
               .catch((error) => {
                 if (error.name !== "AbortError") failure(error);
@@ -315,11 +312,10 @@
         "Visibility",
       );
     if (a.type === "move_folder")
-      return selectHTML(
-        [["", "No folder"], ...folders.Snapshot.map((f) => [f.id, f.name])],
-        a.value,
-        "Destination folder",
-      );
+      return '<select data-picker="folder" data-picker-destination="true" aria-label="Destination folder">' +
+        '<option value="">No folder</option>' +
+        (a.value ? `<option value="${esc(a.value)}" selected>${esc(folders.get(a.value)?.name || "Unavailable folder")}</option>` : "") +
+        '</select>';
     if (a.type === "set_depth")
       return selectHTML(
         [0, 1, 2, 3, 4].map((x) => [x, x]),
@@ -422,6 +418,7 @@
       const placeholder = row.querySelector("[data-tag-editor]");
       if (placeholder) mountTagEditor(current.actions[Number(row.dataset.index)], placeholder);
     }
+    window.ArchiveBoxPicker.initialize($("actions"));
     $("action-count").textContent = current.actions.length;
   }
   async function openEditor(id) {
@@ -544,6 +541,7 @@
   $("scope").onchange = () => {
     if (eventOf(current).membership) {
       current.folder_id = $("scope").value;
+      rememberFolder($("scope"));
       $("open-scope").disabled = !current.folder_id || current.folder_id === "*";
     } else if (eventOf(current).tag) {
       const value = $("scope").value;
@@ -562,7 +560,18 @@
     current.stop_on_failure = $("stop-on-failure").checked;
     setDirty();
   };
+  function rememberFolder(select) {
+    const id = select.value;
+    if (id && id !== "*") folders.set(id, { id, name: select.selectedOptions[0].textContent });
+  }
+  $("actions").onchange = (e) => {
+    if (!e.target.matches('[data-picker="folder"]')) return;
+    rememberFolder(e.target);
+    current.actions[Number(e.target.closest(".action-row").dataset.index)].value = e.target.value;
+    setDirty();
+  };
   $("actions").oninput = (e) => {
+    if (e.target.matches(".record-picker input")) return;
     const row = e.target.closest(".action-row");
     if (!row) return;
     const a = current.actions[Number(row.dataset.index)];

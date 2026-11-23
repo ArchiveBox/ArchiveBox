@@ -278,7 +278,10 @@ def test_folder_and_importer_ui_downloads(live_server, admin_user, browser_runti
         page.locator('[name="setting_IMPORTER_RSS_URL"]').fill("https://example.com/feed.xml")
         page.get_by_text("Advanced options", exact=True).click()
         page.locator('[name="name"]').fill("UI feed")
-        page.locator('[name="folder"]').select_option(str(folder.pk))
+        picker = page.locator('.record-picker:has([name="folder"])')
+        picker.get_by_role("searchbox").fill(folder.name)
+        expect(picker.locator(f'option[value="{folder.pk}"]')).to_have_count(1)
+        picker.locator('[name="folder"]').select_option(str(folder.pk))
         page.get_by_role("button", name="Save importer", exact=True).click()
         expect(page.get_by_role("link", name="UI exports", exact=True)).to_be_visible()
         assert page.goto(f"{origin}/admin/importers/").status == 200
