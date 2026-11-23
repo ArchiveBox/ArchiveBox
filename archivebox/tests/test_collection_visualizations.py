@@ -44,6 +44,18 @@ def test_visualizations_are_registered_private_and_self_contained(admin_client):
         assert asset.status_code == 200
         assert len(b"".join(asset.streaming_content)) > 1000
         assert admin_client.post(f"/admin/{route}/data/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 405
+    dashboard = admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert dashboard.status_code == 200
+    html = dashboard.content
+    navbar = html.split(b'id="user-tools"', 1)[1].split(b"</nav>", 1)[0]
+    assert b'href="/admin/graph/"' not in navbar
+    assert b'href="/admin/bandwidth/"' not in navbar
+    results_row = html.split(b'class="abx-admin-flow__row abx-admin-flow__row--grandchild"', 1)[1].split(b"</article>", 2)
+    assert b"Archive Results" in results_row[0]
+    assert b'href="/admin/graph/"' in results_row[1] and b"Graph Explorer" in results_row[1]
+    environment = html.split(b'id="abx-admin-environment-title"', 1)[1].split(b"</article>", 1)[0]
+    assert b'href="/admin/bandwidth/"' in environment and b"Bandwidth" in environment
+
     telemetry = admin_client.get("/admin/bandwidth/data/", HTTP_HOST=ADMIN_TEST_HOST)
     assert telemetry.status_code == 200, telemetry.content
     # Unrelated host interfaces are absent when this collection has no captures running.
@@ -83,7 +95,13 @@ def test_graph_excludes_schema_references_from_all_edges(admin_client, crawl):
     import json
 
     source = Snapshot.objects.create(crawl=crawl, url="https://example.com/article")
-    urls = ["https://www.w3.org/2000/svg", "https://schema.org/Article", "https://ogp.me/ns", "https://amazon.com/item"]
+    references = {
+        "w3.org": "https://www.w3.org/2000/svg",
+        "schema.org": "https://schema.org/Article",
+        "ogp.me": "https://ogp.me/ns",
+        "w.org": "https://api.w.org/",
+    }
+    urls = [*references.values(), "https://amazon.com/item"]
     for url in urls:
         Snapshot.objects.create(crawl=crawl, url=url, parent_snapshot=source)
     directory = source.get_storage_path_for_version(source.fs_version) / "parse_dom_outlinks"
@@ -94,5 +112,5 @@ def test_graph_excludes_schema_references_from_all_edges(admin_client, crawl):
         assert response.status_code == 200
         data = response.json()
         assert {"source": "example.com", "target": "amazon.com", "value": 1} in data["links"]
-        assert all(edge["target"] not in {"w3.org", "schema.org", "ogp.me"} for edge in data["links"])
-        assert all(node["id"] not in {"w3.org", "schema.org", "ogp.me"} for node in data.get("nodes", []))
+        assert all(edge["source"] not in references and edge["target"] not in references for edge in data["links"])
+        assert all(node["id"] not in references for node in data.get("nodes", []))
