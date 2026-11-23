@@ -645,7 +645,7 @@ class SnapshotQuerySet(PagedQuerySet):
 
     def domain_choices_page(self, search, limit, cursor=None, *, descending=False):
         """Page over distinct host keys, carrying open subdomain ranges forward."""
-        from archivebox.core.domain_grouping import domain_key, domain_search_term, group_domain_key
+        from archivebox.core.domain_grouping import domain_key, domain_search_term, domains_with_nested_suffixes, group_domain_key
 
         needle = domain_search_term(search)
         after, saved = cursor or ("", [])
@@ -653,33 +653,48 @@ class SnapshotQuerySet(PagedQuerySet):
         choices = {}
         latest = after
         keys = self._domain_key_candidates(needle)
-        if after:
-            keys = keys.filter(**{"reversed_domain__lt" if descending else "reversed_domain__gt": after})
         previous_keys = {"reversed_domain__gte" if descending else "reversed_domain__lte": after}
-        for key in keys._distinct_domain_keys(descending).iterator(chunk_size=limit + 1):
-            domain, scope = group_domain_key(key)
-            if domain in choices or domain in open_groups or needle not in domain.casefold():
-                continue
-            # PostgreSQL keeps raw IDN spellings in its derived column.
-            # Check the indexed range for an equivalent group already paged.
-            if (
-                after
-                and "xn--" in domain
-                and any(
-                    group_domain_key(prior)[0] == domain
-                    for prior in self.filter_by_domain(scope).filter(**previous_keys)._distinct_domain_keys()
-                )
-            ):
-                continue
-            if len(choices) == limit:
-                remaining = [[name, end] for name, end in open_groups.items() if (end < latest if descending else end > latest)]
-                return choices, [latest, remaining]
-            choices[domain] = (scope, key)
-            latest = key
-            if scope.startswith("*."):
-                parts = urlparse("//" + scope[2:])
-                open_groups[domain] = domain_key(parts.hostname, parts.port) + ("" if descending else "/")
-        return choices, None
+        seek = after
+        while True:
+            page = keys.filter(**{"reversed_domain__lt" if descending else "reversed_domain__gt": seek}) if seek else keys
+            batch = list(page._distinct_domain_keys(descending)[: limit + 1])
+            skip_to = None
+            for key in batch:
+                if skip_to and (key > skip_to if descending else key < skip_to):
+                    continue
+                seek = key
+                domain, scope = group_domain_key(key)
+                if scope.startswith("*."):
+                    parts = urlparse("//" + scope[2:])
+                    prefix = domain_key(parts.hostname, parts.port)
+                    # Jump only within the dotted child range. A sibling such
+                    # as example-other.com sorts between example.com and its
+                    # subdomains and must still be visited. Nested PSL entries
+                    # (e.g. s3.amazonaws.com) may introduce different groups.
+                    if key.startswith(prefix + ".") and parts.hostname not in domains_with_nested_suffixes():
+                        skip_to = seek = prefix + ("." if descending else "/")
+                if domain in choices or domain in open_groups or needle not in domain.casefold():
+                    continue
+                # PostgreSQL keeps raw IDN spellings in its derived column.
+                # Check the indexed range for an equivalent group already paged.
+                if (
+                    after
+                    and "xn--" in domain
+                    and any(
+                        group_domain_key(prior)[0] == domain
+                        for prior in self.filter_by_domain(scope).filter(**previous_keys)._distinct_domain_keys()
+                    )
+                ):
+                    continue
+                if len(choices) == limit:
+                    remaining = [[name, end] for name, end in open_groups.items() if (end < latest if descending else end > latest)]
+                    return choices, [latest, remaining]
+                choices[domain] = (scope, key)
+                latest = key
+                if scope.startswith("*."):
+                    open_groups[domain] = prefix + ("" if descending else "/")
+            if len(batch) < limit + 1:
+                return choices, None
 
     def domain_representative_ids(self, keys):
         """Fetch one capture per displayed group with bounded index lookups."""

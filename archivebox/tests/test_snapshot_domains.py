@@ -20,6 +20,50 @@ def create_pages(user, urls, *, persona=None):
     return [Snapshot.objects.create(crawl=crawl, url=url) for url in urls]
 
 
+@pytest.mark.parametrize("descending", [False, True])
+def test_domain_page_seeks_past_large_subdomain_groups(admin_user, descending):
+    import cProfile
+    import pstats
+
+    crawl = Crawl.objects.create(created_by=admin_user, urls="https://example.com/")
+    urls = [f"https://site{i:05}.example.com/" for i in range(1001)]
+    urls += ["https://example.com/", "https://example-other.com/", "https://other.com/", "https://tenant.github.io/"]
+    Snapshot.objects.bulk_create([Snapshot(crawl=crawl, url=url, timestamp=str(1920000000 + i)) for i, url in enumerate(urls)])
+    profile = cProfile.Profile()
+    with profile:
+        first, cursor = Snapshot.objects.all().domain_choices_page("", 2, descending=descending)
+        second, cursor = Snapshot.objects.all().domain_choices_page("", 2, cursor, descending=descending)
+    assert cursor is None
+    assert len(first) == len(second) == 2
+    assert set(first) | set(second) == {"example.com", "example-other.com", "other.com", "tenant.github.io"}
+    grouped = sum(stats[1] for (_, _, function), stats in pstats.Stats(profile).stats.items() if function == "group_domain_key")
+    assert grouped < 20, f"Grouped {grouped} hostnames for four displayed domains"
+
+
+@pytest.mark.parametrize("descending", [False, True])
+def test_domain_page_keeps_nested_public_suffix_groups(admin_user, descending):
+    create_pages(
+        admin_user,
+        [
+            "https://amazonaws.com/",
+            "https://a.amazonaws.com/",
+            "https://b.amazonaws.com/",
+            "https://one.s3.amazonaws.com/",
+            "https://two.s3.amazonaws.com/",
+            "https://z.amazonaws.com/",
+        ],
+    )
+    names = []
+    cursor = None
+    while True:
+        page, cursor = Snapshot.objects.all().domain_choices_page("", 1, cursor, descending=descending)
+        names.extend(page)
+        if cursor is None:
+            break
+    assert len(names) == 3
+    assert set(names) == {"amazonaws.com", "one.s3.amazonaws.com", "two.s3.amazonaws.com"}
+
+
 def test_domain_filter_matches_boundaries_and_arbitrary_subdomains(admin_user):
     default_port = [
         "https://example.com/",

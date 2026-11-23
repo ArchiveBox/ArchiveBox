@@ -64,6 +64,16 @@ def domain_suffixes():
     return TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
 
 
+@lru_cache(maxsize=1)
+def domains_with_nested_suffixes():
+    """Groups containing another public/private suffix cannot skip all children."""
+    parents = set()
+    for suffix in domain_suffixes().tlds:
+        labels = suffix.lstrip("!*.").split(".")
+        parents.update(".".join(labels[index:]) for index in range(1, len(labels)))
+    return parents
+
+
 def group_host(host):
     try:
         normalized = host.rstrip(".").encode("idna").decode("ascii").lower()
