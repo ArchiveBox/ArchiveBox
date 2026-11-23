@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.personas.models import Persona
-from archivebox.services.cache_candidates import cache_candidates
 
 
 @pytest.mark.django_db(transaction=True)
@@ -28,12 +27,12 @@ def test_cache_candidates_isolate_owner_persona_and_find_siblings(admin_user):
         for _ in range(21)
     ]
     snap = Snapshot.objects.create(crawl=Crawl.objects.create(created_by=admin_user, persona=persona, urls=url), url=url)
-    hints = cache_candidates(snap)
+    hints = snap.cache_candidates()
     assert [hint["snapdir"].split("/")[-1] for hint in hints[:20]] == [s.pk.hex for s in reversed(prior[-20:])]
     assert {hint["url"] for hint in hints[20:]} >= {origin + "/owner/repo", origin + "/", origin + "/owner/repo/issues/1"}
     for crawl in isolated:
         snap = Snapshot.objects.create(crawl=Crawl.objects.create(created_by=crawl.created_by, persona=crawl.persona, urls=url), url=url)
-        assert len(cache_candidates(snap)) == 1
+        assert len(snap.cache_candidates()) == 1
 
 
 @pytest.mark.django_db(transaction=True)

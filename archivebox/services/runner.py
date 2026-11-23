@@ -1149,10 +1149,8 @@ class CrawlRunner:
                     "snapshot_id": str(snapshot.id),
                 },
             )
-            from archivebox.services.cache_candidates import cache_candidates
-
             normalized_config = normalize_runtime_config(config)
-            normalized_config["CACHE_CANDIDATES"] = json.dumps(cache_candidates(snapshot) if create_outputs else [])
+            normalized_config["CACHE_CANDIDATES"] = json.dumps(snapshot.cache_candidates() if create_outputs else [])
             configured_plugins = parse_plugin_selection(normalized_config.get("PLUGINS"))
             if configured_plugins is not None:
                 selected_plugin_names = set(self.catalog.select(configured_plugins))

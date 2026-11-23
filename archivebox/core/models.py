@@ -3646,6 +3646,94 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         except (OSError, TypeError, ValueError):
             return {}
 
+    def cache_candidates(self) -> list[dict[str, str]]:
+        """Return scoped snapshot paths for hooks using a time-bounded database lookup."""
+        from contextlib import ExitStack
+        from time import monotonic
+        from django.db import connections
+
+        result = []
+        deadline = monotonic() + 0.1
+        try:
+            parsed = urlsplit(self.url)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname or len(self.url) > 8192:
+                return []
+            alias = self._state.db
+            db = connections[alias]
+            scoped = (
+                Snapshot.objects.using(alias)
+                .filter(
+                    status="sealed",
+                    crawl__created_by_id=self.crawl.created_by_id,
+                    crawl__persona_id=self.crawl.persona_id,
+                    permissions=self.permissions,
+                )
+                .exclude(pk=self.pk)
+                .select_related("crawl__created_by")
+                .only("url", "timestamp", "bookmarked_at", "created_at", "fs_version", "crawl__created_by__username")
+                .order_by("-created_at", "-pk")
+            )
+            seen = set()
+            size = 0
+            with ExitStack() as stack, db.cursor() as cursor:
+                if db.vendor == "sqlite":
+                    raw = db.connection
+                    busy = cursor.execute("PRAGMA busy_timeout").fetchone()[0]
+                    cursor.execute("PRAGMA busy_timeout=0")
+                    stack.callback(raw.execute, f"PRAGMA busy_timeout={int(busy)}")
+                    stack.enter_context(transaction.atomic(using=alias))
+                    raw.set_progress_handler(lambda: int(monotonic() >= deadline), 500)
+                    stack.callback(raw.set_progress_handler, None, 0)
+                elif db.vendor == "postgresql":
+                    stack.enter_context(transaction.atomic(using=alias))
+                else:
+                    return []
+
+                def collect(rows, limit):
+                    nonlocal size
+                    remaining = int((deadline - monotonic()) * 1000)
+                    if remaining < 1:
+                        raise TimeoutError
+                    if db.vendor == "postgresql":
+                        cursor.execute(f"SET LOCAL statement_timeout = '{remaining}ms'")
+                    for row in rows[:limit]:
+                        if row.pk in seen or len(row.url) > 8192:
+                            continue
+                        path = row.get_storage_path_for_version(row.fs_version).relative_to(CONSTANTS.DATA_DIR)
+                        if ".." in path.parts:
+                            continue
+                        hint = {"url": row.url, "snapdir": str(path), "created_at": row.created_at.isoformat()}
+                        size += len(json.dumps(hint))
+                        if size > 32000:
+                            raise OverflowError
+                        seen.add(row.pk)
+                        result.append(hint)
+
+                collect(scoped.filter(url=self.url), 20)
+                root = f"{parsed.scheme}://{parsed.netloc}"
+                path = parsed.path.rstrip("/")
+                if not (parsed.query or parsed.fragment):
+                    path = path.rpartition("/")[0]
+                parents = []
+                while len(parents) < 16:
+                    parents.append(root + path)
+                    if not path:
+                        break
+                    path = path.rpartition("/")[0]
+                for parent in parents:
+                    collect(scoped.filter(url__in=(parent, parent + "/")).exclude(url=self.url), 1)
+                for parent in parents:
+                    prefix = parent + "/"
+                    descendants = scoped.filter(url__startswith=prefix).exclude(url__in=(self.url, prefix))
+                    if db.vendor == "sqlite":
+                        # Binary range uses the normal URL index even with case-insensitive LIKE.
+                        descendants = descendants.filter(url__gte=prefix, url__lt=parent + "0")
+                    collect(descendants, 1)
+        except Exception:
+            # A timeout, unavailable database or unusable historical row only drops hints.
+            pass
+        return result
+
     def storage_path_candidates(self) -> tuple[Path, ...]:
         """Return the existing layout choices in precedence order, without touching storage."""
         current = self.get_storage_path_for_version(self.fs_version)
