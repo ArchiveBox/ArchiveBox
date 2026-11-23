@@ -756,8 +756,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const toggle = row.querySelector('.folder-toggle');
       if (toggle) {
         const expanded = isFolderExpanded(row.dataset.folderId) && (!loadedParents || loadedParents.has(row.dataset.folderId));
+        const label = `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`;
         toggle.setAttribute('aria-expanded', String(expanded));
-        toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`);
+        toggle.setAttribute('aria-label', label);
+        toggle.title = label;
         if (expanded && !hidden && !sidebarQuery && !row.dataset.childrenRequested) loadChildren(row);
       }
     });

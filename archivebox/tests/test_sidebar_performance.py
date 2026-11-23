@@ -99,7 +99,20 @@ def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, b
         page.get_by_role("button", name="Log in", exact=True).click()
         tree = page.locator(".folder-tree")
         leaf = tree.get_by_role("link", name="Field notes", exact=True)
+        research = tree.locator(f'.folder-row[data-folder-id="{root.pk}"]')
+        folder_icon = research.locator(".folder-link > svg")
+        caret = research.locator(".folder-toggle > svg")
+        expect(folder_icon).to_be_visible()
+        expect(caret).to_be_visible()
+        name = research.locator(".folder-link > span").bounding_box()
+        caret_box = caret.bounding_box()
+        assert caret_box["x"] >= name["x"] + name["width"]
+        research.hover()
+        assert caret.bounding_box() == caret_box
+        assert caret_box["x"] + caret_box["width"] <= research.locator(".folder-row-actions").bounding_box()["x"]
         tree.get_by_role("button", name="Expand Research", exact=True).click()
+        expect(folder_icon).to_be_visible()
+        expect(caret).to_be_hidden()
         tree.get_by_role("button", name="Expand Archives", exact=True).click()
         tree.get_by_role("button", name="Expand Notebooks", exact=True).click()
         expect(leaf).to_be_visible()
@@ -108,13 +121,12 @@ def test_folder_expansion_survives_refresh_and_rename(live_server, admin_user, b
         expect(leaf).to_be_visible()
         assert not sidebar_requests, sidebar_requests
 
-        row = tree.locator(f'.folder-row[data-folder-id="{root.pk}"]')
-        row.hover()
-        row.get_by_role("button", name="Actions for Research", exact=True).click()
-        row.get_by_role("menuitem", name="Rename", exact=True).click()
+        research.hover()
+        research.get_by_role("button", name="Actions for Research", exact=True).click()
+        research.get_by_role("menuitem", name="Rename", exact=True).click()
         page.locator("#folder-name").fill("Research notes")
         page.get_by_role("button", name="Save folder", exact=True).click()
-        expect(row.get_by_role("button", name="Collapse Research notes", exact=True)).to_be_visible()
+        expect(research.get_by_role("button", name="Collapse Research notes", exact=True)).to_be_visible()
         expect(leaf).to_be_visible()
 
         sidebar = page.locator(".folder-sidebar")
