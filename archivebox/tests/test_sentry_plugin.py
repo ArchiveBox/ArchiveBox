@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from io import BytesIO
+from importlib.metadata import version
 
 import pytest
 import requests
@@ -152,7 +153,7 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             "SENTRY_ENABLED=True",
             f"SENTRY_DSN={dsn}",
             "SENTRY_ENVIRONMENT=plugin-test",
-            "SENTRY_RELEASE=plugin-test@1",
+            "SENTRY_RELEASE=",
             "SENTRY_ENABLE_LOGS=True",
             "SENTRY_ENABLE_METRICS=True",
             "SENTRY_TRACES_SAMPLE_RATE=1",
@@ -162,6 +163,7 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
         env=env,
         check=True,
     )
+    installed_release = f"archivebox@{version('archivebox')}"
     server = start_archivebox_server(initialized_archive, port=free_tcp_port, env={"DEBUG": "False", "WEB_CONCURRENCY": "2"})
     try:
         response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/", headers={"Host": "localhost"}, timeout=10)
@@ -170,6 +172,8 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
         assert "bundle.tracing.replay" not in response.text
         assert "replaysOnErrorSampleRate: 0" in response.text
         assert "&lt;script" not in response.text
+        browser_config = json.loads(re.search(r'<script id="sentry-config" type="application/json">(.*?)</script>', response.text).group(1))
+        assert browser_config["release"] == installed_release
         # Continuous profiling publishes native 60-second chunks. Keep a real
         # request workload alive through that interval instead of altering SDK
         # internals or forcing a test-only profiler flush.
@@ -180,6 +184,12 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             time.sleep(1)
     finally:
         stop_archivebox_process(server)
+    run_archivebox_cmd(
+        ["config", "--set", "SENTRY_RELEASE=plugin-test@1"],
+        cwd=initialized_archive,
+        env=env,
+        check=True,
+    )
     capture = run_archivebox_cmd(
         ["add", "--plugins=wget", recursive_test_site["root_url"]],
         cwd=initialized_archive,
@@ -313,6 +323,7 @@ for enabled in [False, True]:
             browser_config = json.loads(re.search(r'<script id="sentry-config" type="application/json">(.*?)</script>', page.text).group(1))
             assert browser_config["user"]["username"] == "apitestadmin"
             assert browser_config["user"]["email"] == "apitestadmin@example.com"
+            assert browser_config["release"] == "plugin-test@1"
             user_id = browser_config["user"]["id"]
         anonymous = requests.get(f"{origin}/admin/login/", timeout=10)
         assert anonymous.status_code == 200
@@ -429,10 +440,17 @@ for enabled in [False, True]:
     assert hook_failure["contexts"]["trace"]["trace_id"] in crawl_trace_ids
     server_requests = [item for item in spans if "http.method" in item["attributes"] and "http.status_code" in item["attributes"]]
     assert any("admin/login" in item["name"] for item in server_requests)
+    assert any(item["resource"]["service.version"] == installed_release for item in server_requests)
+    assert any(item["resource"]["service.version"] == "plugin-test@1" for item in server_requests)
     request_trace_ids = {item["trace_id"] for item in server_requests}
     sql_spans = [span for span in spans if span["attributes"].get("db.system") == "sqlite"]
     assert sql_spans
     assert all(span["attributes"].get("db.statement") for span in sql_spans)
+    assert all(span["resource"].get("process.command") for span in sql_spans)
+    assert all(span["resource"].get("process.parent_pid") for span in sql_spans)
+    root_sql = [span for span in sql_spans if not span["parent_span_id"]]
+    assert any(span["resource"].get("supervisor.process.name") == "worker_runner" for span in root_sql)
+    assert any(span["resource"].get("supervisor.process.name") == "worker_uvicorn" for span in root_sql)
     assert any("SELECT" in span["attributes"]["db.statement"] and span["trace_id"] in request_trace_ids for span in sql_spans)
     assert any(span["trace_id"] in crawl_trace_ids for span in sql_spans)
     spans_by_id = {span["span_id"]: span for span in spans}
