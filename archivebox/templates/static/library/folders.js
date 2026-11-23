@@ -1087,6 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Compact cards retain their two-pill cap. The native table fits actual
   // one-line pill widths to the shared Title + Tags space.
   const cleanupTagRows = [];
+  let refreshSearchTags;
   function initializeTagRows() {
     cleanupTagRows.splice(0).forEach(cleanup => cleanup());
     const table = form?.querySelector('#result_list');
@@ -1192,7 +1193,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function scheduleFit() {
       if (!frame) frame = requestAnimationFrame(fitTableTags);
     }
-    form?.querySelectorAll('.tag-pills-inline').forEach(pills => {
+    const bindings = new Map();
+    function bindPills(pills) {
       const editor = pills.closest('.tag-editor-inline');
       const cell = pills.closest('td.field-tags_inline');
       const inTable = cell && cell.closest('table') === table;
@@ -1209,10 +1211,25 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.addEventListener('focusin', update);
         editor.addEventListener('focusout', update);
       }
-      cleanupTagRows.push(() => observer.disconnect());
+      bindings.set(pills, () => observer.disconnect());
       updateCompactBadges(row);
-    });
-    if (rows.length) {
+    }
+    form?.querySelectorAll('.tag-pills-inline').forEach(bindPills);
+    cleanupTagRows.push(() => bindings.forEach(disconnect => disconnect()));
+    refreshSearchTags = added => {
+      for (const [pills, disconnect] of bindings) {
+        if (!pills.isConnected) {
+          disconnect();
+          bindings.delete(pills);
+        }
+      }
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (!rows[i].pills.isConnected) rows.splice(i, 1);
+      }
+      for (const row of added) row.querySelectorAll('.tag-pills-inline').forEach(bindPills);
+      if (table && rows.length) scheduleFit();
+    };
+    if (table) {
       let lastWidth;
       const observer = new ResizeObserver(([entry]) => {
         const width = entry.contentRect.width;
@@ -1278,8 +1295,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') clearSidebarDwell();
   });
-  function initializeSnapshotDragging() {
-    form?.querySelectorAll('input.action-select').forEach(checkbox => {
+  function initializeSnapshotDragging(root = form) {
+    root?.querySelectorAll('input.action-select').forEach(checkbox => {
       const row = checkbox.closest('tr,.card');
       if (!row) return;
       row.draggable = true;
@@ -1422,7 +1439,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initializeDropTargets(sidebar.querySelectorAll('.folder-drop-target'));
   let initializedForm;
-  window.archiveboxInitLibraryRows = () => {
+  window.archiveboxInitLibraryRows = added => {
+    if (added && form === initializedForm) {
+      refreshSearchTags?.(added);
+      for (const row of added) {
+        initializeSnapshotDragging(row);
+        window.ArchiveBoxPicker.initialize(row);
+      }
+      return;
+    }
     viewportChanged();
     form = document.querySelector('#changelist-form');
     if (form !== initializedForm) {

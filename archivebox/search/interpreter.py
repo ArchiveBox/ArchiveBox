@@ -117,6 +117,8 @@ class SnapshotSearch:
         self.stop_event = stop_event
         self.partial = False
         self.usage = Counter()
+        # Replace the pair together so the HTTP stream always samples one batch.
+        self.archive_batch = (0, 0)
         self.read_ids = set()
         self.link_cache = {}
         self.reverse = {}
@@ -266,12 +268,14 @@ class SnapshotSearch:
             command = PluginCommand(name="outlinks", plugin_name="archivebox", path=Path(sys.executable), args=["-I", str(reader)])
             records = self.command_records(command, {"root": str(root), "snapshots": paths})
             try:
-                for snapshot in pending:
+                self.archive_batch = (0, len(pending))
+                for index, snapshot in enumerate(pending, 1):
                     urls = set()
                     for item in records:
                         if isinstance(item, str):
                             urls.add(item)
                         else:
+                            self.archive_batch = (index, len(pending))
                             yield snapshot, urls, item["complete"]
                             break
                     else:
@@ -406,12 +410,17 @@ class SnapshotSearch:
         }
         if disk:
             payload["archive_root"] = str(CONSTANTS.ARCHIVE_DIR)
+            self.archive_batch = (0, len(admitted))
+            checked = set()
         iterator = self.command_records(command, payload, env=self.env)
         try:
             for record in iterator:
                 pk = str(record["id"]).replace("-", "")
                 if pk not in admitted:
                     continue
+                if disk:
+                    checked.add(pk)
+                    self.archive_batch = (len(checked), len(admitted))
                 for key in DISK_LIMITS:
                     self.usage[key] += max(0, int(record.get("usage", {}).get(key, 0)))
                 matches = {keys[k]: v for k, v in record.get("matches", {}).items() if k in keys and isinstance(v, bool)}

@@ -3,6 +3,7 @@
   (function() {
     if (window.archiveboxSnapshotSearchStreamReady) return;
     window.archiveboxSnapshotSearchStreamReady = true;
+    {% include "includes/search_stream.js" %}
     var activeSearch = null;
 
     function setSearchLoading(controller) {
@@ -19,12 +20,7 @@
         status.setAttribute('aria-live', 'polite');
         toolbar.after(status);
       }
-      if (!status.querySelector('progress')) {
-        var bar = document.createElement('progress');
-        bar.setAttribute('aria-label', 'Searching snapshots');
-        status.replaceChildren(bar, ' Searching…');
-      }
-      status.hidden = false;
+      controller.progress.show(status);
       form.setAttribute('aria-busy', 'true');
     }
 
@@ -58,7 +54,7 @@
       var changelist = document.getElementById("changelist");
       if (!changelist) return;
 
-      var results = changelist.querySelector(".results");
+      var results = changelist.querySelector(".results, .cards");
       if (!results) {
         results = document.createElement("div");
         var toolbar = changelist.querySelector("#toolbar");
@@ -96,6 +92,7 @@
       if (activeSearch) activeSearch.abort();
 
       var controller = new AbortController();
+      controller.progress = searchProgress({{ cl.list_per_page }});
       activeSearch = controller;
       setSearchLoading(controller);
       var searchMessage = setChangelistSearchingState(controller);
@@ -106,6 +103,11 @@
       var renderedVersion = -1;
       var lastRender = 0;
       var failed = false;
+      var renderedRows = null;
+      var previousSize = 0;
+      // Django Actions closes over this array for shift-click and select-all.
+      // Keep that binding valid when the stream adds or removes checkboxes.
+      var actionCheckboxes = [];
       var renderHeaders = {"X-Requested-With": "XMLHttpRequest"};
 
       function failSearch(error) {
@@ -150,17 +152,58 @@
           })
           .then(function(html) {
             if (controller.signal.aborted) return;
-            var doc = new DOMParser().parseFromString(html, "text/html");
+            var doc = searchFragment(html);
             var nextMain = doc.getElementById("content-main");
             var currentMain = document.getElementById("content-main");
-            if (nextMain?.querySelector("#changelist") && currentMain) {
+            var rowsSelector = '#result_list tbody, .cards';
+            var nextRows = nextMain?.querySelector(rowsSelector);
+            if (renderedRows?.isConnected && nextRows && renderedRows.tagName === nextRows.tagName) {
+              const across = currentMain.querySelector('input.select-across')?.value === '1';
+              const added = syncSearchRows(renderedRows, nextRows);
+              const boxes = renderedRows.querySelectorAll('input.action-select');
+              actionCheckboxes.splice(0, actionCheckboxes.length, ...boxes);
+              for (const row of added) {
+                const box = row.querySelector('input.action-select');
+                if (across && box) {
+                  box.checked = true;
+                  row.classList.add(row.matches('tr') ? 'selected' : 'selected-card');
+                }
+              }
+              if (added.length || boxes.length !== previousSize) {
+                window.archiveboxInitLibraryRows?.(added);
+                for (const row of added) window.archiveboxInitFilesIconPiles?.(row);
+              }
+              previousSize = boxes.length;
+              const summary = currentMain.querySelector('.action-summary');
+              const nextSummary = nextMain.querySelector('.action-summary');
+              if (summary && nextSummary) {
+                for (const key of ['pageCount', 'resultCount', 'fullResultCount', 'countExact']) {
+                  if (summary.dataset[key] !== nextSummary.dataset[key]) summary.dataset[key] = nextSummary.dataset[key];
+                }
+                const counter = summary.querySelector('.action-counter');
+                counter.dataset.actionsIcnt = String(boxes.length);
+                const toggle = currentMain.querySelector('#action-toggle');
+                if (toggle) toggle.checked = boxes.length > 0 && Array.from(boxes).every(box => box.checked);
+                const options = summary.querySelector('.snapshot-across-options');
+                if (options) options.hidden = nextSummary.querySelector('.snapshot-across-options').hidden;
+                const total = summary.querySelector('.action-total-count');
+                const nextTotal = nextSummary.querySelector('.action-total-count');
+                if (total.innerHTML !== nextTotal.innerHTML) total.replaceChildren(...nextTotal.childNodes);
+                currentMain.querySelector('#changelist-form').dispatchEvent(new Event('change', {bubbles: true}));
+              }
+              const footer = currentMain.querySelector('.paginator');
+              const nextFooter = nextMain.querySelector('.paginator');
+              if (footer && nextFooter && !footer.isEqualNode(nextFooter)) footer.replaceWith(nextFooter);
+            } else if (nextMain?.querySelector("#changelist") && currentMain) {
               // Capture at replacement time: a user can select rows while this
               // refresh is in flight. New matches inherit an all-results selection.
               var selectedIds = new Set(Array.from(currentMain.querySelectorAll('input.action-select:checked'), function(input) { return input.value; }));
               var selectAcross = currentMain.querySelector('input.select-across')?.value === '1';
               window.archiveboxRefreshLibraryExportLinks?.(doc);
               currentMain.replaceWith(nextMain);
-              var actionCheckboxes = nextMain.querySelectorAll("tr input.action-select");
+              renderedRows = nextRows;
+              previousSize = nextRows?.children.length || 0;
+              actionCheckboxes = Array.from(nextMain.querySelectorAll("tr input.action-select"));
               if (window.Actions && actionCheckboxes.length) window.Actions(actionCheckboxes);
               if (window.archiveboxInitAdminChangelist) window.archiveboxInitAdminChangelist();
               if (window.archiveboxInitChangelistFilters) window.archiveboxInitChangelistFilters();
@@ -206,9 +249,9 @@
       streamUrl.searchParams.set("q", query);
       streamUrl.searchParams.set("search_mode", mode);
       // The cache key is membership filters plus user; pages and sort reuse it.
-      // Stream chunks only say "new result count"; the page fetch reads IDs from cache.
+      // Row counts trigger page fetches from cache. Scan progress only updates the bar.
       streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
-      fetch(streamUrl, {headers: {"X-ArchiveBox-Search-Page": "first"}, signal: controller.signal})
+      fetch(streamUrl, {headers: {"X-ArchiveBox-Search-Page": "first", "X-ArchiveBox-Search-Progress": "1"}, signal: controller.signal})
         .then(async function(response) {
           var token = response.headers.get("X-ArchiveBox-Search-Page");
           if (token) renderHeaders["X-ArchiveBox-Search-Page"] = token;
@@ -225,17 +268,19 @@
               buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done});
               var lines = buffer.split("\n");
               buffer = lines.pop();
-              lines = lines.filter(line => line.trim());
+              lines = lines.map(line => line.trim()).filter(line => line && !controller.progress.work(line));
               lines.forEach(function(count) {
                 count = parseInt(count.trim(), 10);
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
               });
+              if (lines.length) controller.progress.count(resultVersion);
               if (lines.length && resultVersion > 0 && !result.done) renderSoon();
               if (!result.done) return read();
               // A resumed later page needs settled pagination, even if the last
               // count matches a provisional first-page render.
               // SQL waves contain the ordered page plus its lookahead. An
               // unchanged final count already has the correct pagination.
+              controller.progress.finishing();
               if (!token) renderedVersion = -1;
               // Keep the progress state until the final table is actually installed.
               // The stream can finish while an earlier wave is still rendering.
