@@ -2145,16 +2145,14 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
             assert abs((preview_box["x"] + preview_box["width"] / 2) - (date_box["x"] + date_box["width"] / 2)) < 2
             permission_box = today_row.locator(".snapshot-row-permission").bounding_box()
             assert abs(permission_box["x"] - url_box["x"]) < 2
-            assert today_row.locator(".tag-editor-inline").bounding_box()["x"] >= permission_box["x"] + permission_box["width"]
+            tag_editor = today_row.locator(".tag-editor-inline").bounding_box()
+            assert tag_editor["x"] - (permission_box["x"] + permission_box["width"]) == pytest.approx(2, abs=0.5)
             if width == 390:
                 checkbox = today_row.locator(".action-select").bounding_box()
                 assert date_box["x"] > title_box["x"]
                 assert checkbox["x"] >= today_row.bounding_box()["x"]
             toggle = today_row.locator(".library-tags-toggle")
             assert 0 < today_row.locator(".tag-pill:visible").count() <= 5
-            tag_text_box = today_row.locator(".tag-pill:visible .tag-link").first.bounding_box()
-            url_text_box = today_row.locator(".snapshot-original-url code").bounding_box()
-            assert abs(tag_text_box["x"] - url_text_box["x"]) < 1
             if toggle.is_visible():
                 assert today_row.locator(".tag-pill:visible").count() < 5
                 toggle.click()

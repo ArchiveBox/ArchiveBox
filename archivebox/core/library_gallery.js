@@ -78,8 +78,11 @@ async function prepare(page, adminBaseUrl, crawlId, librarySource) {
   await page.goto(result.url, {waitUntil: 'domcontentloaded'});
   await page.click('.library-mode-toggle');
   await page.waitForSelector('#library-mode-menu:popover-open');
-  const domains = await page.$eval('#library-mode-menu a[href$="?sidebar=domains"]', node => node.textContent.trim());
-  if (domains !== 'Domains') throw new Error('The sidebar view menu omitted Domains.');
+  const domains = await page.$eval('#library-mode-menu a[data-sidebar-mode-link="domains"]', node => ({
+    label: node.textContent.trim(),
+    mode: new URL(node.href).searchParams.get('sidebar'),
+  }));
+  if (domains.label !== 'Domains' || domains.mode !== 'domains') throw new Error('The sidebar view menu omitted Domains.');
   await page.keyboard.press('Escape');
   if (!await page.$('.folder-sidebar a[aria-current="page"]')) throw new Error('Saved folder filter is not selected.');
   if (await page.$('.library-context,.library-breadcrumbs')) throw new Error('The removed folder header is still present.');
