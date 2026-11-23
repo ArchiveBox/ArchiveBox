@@ -373,6 +373,21 @@ def find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:
 # =============================================================================
 
 
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionstart(session):
+    # Runtime bootstrap intentionally changes cwd to a disposable collection.
+    # xdist launches local workers during session start; they must inherit the
+    # original invocation directory so relative test paths still resolve.
+    # Restore collection isolation before collection or any test executes.
+    runtime_cwd = Path.cwd()
+    if not hasattr(session.config, "workerinput") and session.config.getoption("numprocesses", default=0):
+        os.chdir(session.config.invocation_params.dir)
+    try:
+        yield
+    finally:
+        os.chdir(runtime_cwd)
+
+
 def pytest_configure():
     import django
     from django.apps import apps
