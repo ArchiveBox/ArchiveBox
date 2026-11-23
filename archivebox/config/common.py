@@ -155,7 +155,6 @@ _SCOPE_CRAWL_FROZEN = "crawl_frozen"
 _SCOPE_CRAWL_EXECUTION = "crawl_execution"
 _SCOPE_SERVER = "server"
 _MACHINE_ONLY_CORE_KEYS = frozenset({"BASE_URL", "DEBUG", "USE_COLOR", "SHOW_PROGRESS", "SEARCH_BACKEND_ENGINE"})
-SYSTEM_PLUGIN_NAMES = frozenset({"opencode", "search_backend_ripgrep", "search_backend_sonic", "search_backend_sqlite"})
 
 
 @cache
@@ -1053,6 +1052,11 @@ def _build_archivebox_config_model(plugin_schemas: PluginSchemaDocuments) -> typ
 
 
 PLUGIN_CONFIG_SCHEMAS = _discover_plugin_config_schemas()
+SYSTEM_PLUGIN_NAMES = frozenset({"opencode", "search_backend_ripgrep", "search_backend_sonic", "search_backend_sqlite"}) | frozenset(
+    name
+    for name, schema in PLUGIN_CONFIG_SCHEMAS.items()
+    if (schema.get("properties", {}).get(f"{name.upper()}_ENABLED") or {}).get("x-scope") == _SCOPE_SERVER
+)
 ArchiveBoxConfig = _build_archivebox_config_model(PLUGIN_CONFIG_SCHEMAS)
 
 
@@ -1092,10 +1096,6 @@ def load_source_config(*, include_file: bool = True) -> ArchiveBoxBaseConfig:
 def _plugin_enabled_config_keys() -> dict[str, str]:
     enabled_keys: dict[str, str] = {}
     for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
-        # Application-only plugins opt out of automatic hook selection. Their
-        # enable flags belong to their own configuration, not the extractor list.
-        if schema.get("app_module") and schema.get("x-auto-run") is False:
-            continue
         properties = schema.get("properties") if isinstance(schema, dict) else None
         if not isinstance(properties, dict):
             continue

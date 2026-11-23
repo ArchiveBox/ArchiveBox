@@ -11,7 +11,7 @@ from io import BytesIO
 
 import pytest
 import requests
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,
@@ -38,6 +38,62 @@ def test_standalone_bus_ignores_sentry_configuration():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_sentry_settings_are_machine_only(initialized_archive, browser_runtime, free_tcp_port):
+    run_archivebox_cmd(
+        ["config", "--set", f"BASE_URL=http://localhost:{free_tcp_port}"],
+        cwd=initialized_archive,
+        check=True,
+    )
+    create_admin_and_token(initialized_archive)
+    result = run_archivebox_cmd(
+        [
+            "manage",
+            "shell",
+            "-c",
+            """
+import json
+from archivebox.config.common import ArchiveBoxConfig, get_config, host_config_keys
+from archivebox.machine.models import Machine
+from archivebox.personas.models import Persona
+persona = Persona.objects.create(name='Sentry scope', config={'SENTRY_ENABLED': True, 'SENTRY_ENVIRONMENT': 'persona-override'})
+keys = {key for key in ArchiveBoxConfig.model_fields if key.startswith('SENTRY_')}
+assert keys and keys <= host_config_keys()
+assert all(ArchiveBoxConfig.scope_for_key(key) == 'server' for key in keys)
+assert not keys & ArchiveBoxConfig._crawl_frozen_keys()
+assert not keys & ArchiveBoxConfig._crawl_runtime_keys()
+assert get_config(persona=persona).SENTRY_ENABLED is False
+assert get_config(persona=persona).SENTRY_ENVIRONMENT != 'persona-override'
+print(json.dumps({'persona': str(persona.pk), 'machine': str(Machine.current().pk)}))
+""",
+        ],
+        cwd=initialized_archive,
+        check=True,
+    )
+    ids = json.loads(result.stdout.splitlines()[-1])
+    server = start_archivebox_server(initialized_archive, port=free_tcp_port, log_name="sentry-settings-server.log")
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+            page = browser.new_page()
+            origin = f"http://localhost:{free_tcp_port}"
+            page.goto(origin + "/admin/login/")
+            page.locator("#id_username").fill("apitestadmin")
+            page.locator("#id_password").fill("testpass123")
+            page.locator('input[type="submit"]').click()
+            page.wait_for_url(origin + "/admin/")
+            for path in ("/add/", f"/admin/personas/persona/{ids['persona']}/change/"):
+                page.goto(origin + path)
+                expect(page.locator("#plugin-settings")).to_be_visible()
+                expect(page.locator('[role="tab"][data-plugin="sentry"]')).to_have_count(0)
+                expect(page.locator('[data-config-key^="SENTRY_"][name]')).to_have_count(0)
+            page.goto(origin + f"/admin/machine/machine/{ids['machine']}/change/")
+            page.locator('[role="tab"][data-plugin="sentry"]').click()
+            expect(page.locator('[data-config-key="SENTRY_ENVIRONMENT"][name]')).to_be_visible()
+            browser.close()
+    finally:
+        stop_archivebox_process(server)
 
 
 @pytest.mark.parametrize("dsn", ["", "http://public@127.0.0.1:1/1"])
@@ -164,12 +220,14 @@ from archivebox.personas.models import Persona
 from archivebox.services.runner import CrawlRunner
 
 user, _ = get_user_model().objects.get_or_create(username='sentry-acceptance')
-for enabled, expected in [(False, 0), (True, 1)]:
+for enabled in [False, True]:
     persona = Persona.objects.create(name=f'sentry-{enabled}', config={'SENTRY_ENABLED': enabled})
     crawl = Crawl.objects.create(urls='', created_by=user, persona=persona, config={'PLUGINS': 'wget'})
     runner = CrawlRunner(crawl, show_progress=False, wait_for_resources=False)
     asyncio.run(runner.run())
-    assert len(runner.bus.middlewares) == expected, (enabled, runner.bus.middlewares)
+    # Monitoring is machine-owned; stale persona flags cannot change it.
+    assert runner.base_config.SENTRY_ENABLED is True
+    assert len(runner.bus.middlewares) == 1, (enabled, runner.bus.middlewares)
 """,
         ],
         cwd=initialized_archive,

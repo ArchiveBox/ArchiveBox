@@ -950,6 +950,9 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
     form = response.context["form"] if page == "add" else response.context["adminform"].form
     names = [plugin["name"] for group in form.plugin_groups for plugin in group["plugins"]]
     expected = {plugin.name for plugin in get_plugin_catalog().values() if not plugin.config.hidden}
+    expected -= SYSTEM_PLUGIN_NAMES
+    assert set(names).isdisjoint(SYSTEM_PLUGIN_NAMES)
+    assert "sentry" not in names
     importer_names = {plugin.name for plugin in get_plugin_catalog().values() if plugin.config.category == "importers"}
     if page == "add":
         expected -= importer_names
@@ -1001,7 +1004,8 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
             elif catalog[card["name"]].config.hidden:
                 assert group["field_name"] == "shared_settings"
             else:
-                assert group["field_name"] == f"{catalog[card['name']].config.category}_plugins"
+                category_fields = {category: field for category, field, _title in form.plugin_group_specs}
+                assert group["field_name"] == category_fields.get(catalog[card["name"]].config.category, "other_plugins")
             for field in card["config_fields"]:
                 assert f'name="{field["input_name"]}"'.encode() in response.content
     postprocessing = next(group for group in form.plugin_groups if group["field_name"] == "postprocessing_plugins")
