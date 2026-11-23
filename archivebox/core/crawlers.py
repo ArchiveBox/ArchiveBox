@@ -10,6 +10,10 @@ from django.utils.decorators import sync_and_async_middleware
 from archivebox.plugins.discovery import get_plugin_catalog
 
 
+# Dedicated training crawlers; search and user-directed answer fetchers remain blocked.
+TRAINING_CRAWLERS = ("GPTBot", "ClaudeBot", "MistralAI-Training")
+TRAINING_USER_AGENT = re.compile(r"(?<![\w-])(?:" + "|".join(TRAINING_CRAWLERS) + r")(?=/|[\s;)]|$)", re.IGNORECASE)
+
 # Crawler families and user-triggered fetchers documented by their operators.
 # Generic bot/spider/crawler identifiers cover additional self-declared robots;
 # ordinary browser, curl, wget, requests and httpx user agents remain unchanged.
@@ -40,7 +44,9 @@ def CrawlerMiddleware(get_response):
     suffix = "(?:" + "|".join(re.escape(path) for path in outputs) + ")" if outputs else r"(?!)"
     direct_path = re.compile(rf"^/{suffix}$")
     snapshot_path = re.compile(rf"^/(?:{'|'.join(PREFIXES[1:])}){suffix}$")
-    robots = "User-agent: *\nDisallow: /\nAllow: /robots.txt$\nAllow: /static/\nAllow: /favicon.ico$\n"
+    robots = "User-agent: *\nDisallow: /\n\n"
+    robots += "".join(f"User-agent: {agent}\n" for agent in TRAINING_CRAWLERS)
+    robots += "Disallow: /\nAllow: /robots.txt$\nAllow: /static/\nAllow: /favicon.ico$\n"
     for output in outputs:
         for prefix in ("", "snapshot/*/", "*/*/*/*/"):
             robots += f"Allow: /{prefix}{output}$\nAllow: /{prefix}{output}?raw=1$\n"
@@ -52,7 +58,8 @@ def CrawlerMiddleware(get_response):
             return response, False
         if request.path in {"/health", "/health/"}:
             return None, False
-        is_crawler = bool(CRAWLER_USER_AGENT.search(request.META.get("HTTP_USER_AGENT", "")))
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+        is_crawler = bool(CRAWLER_USER_AGENT.search(user_agent))
         if request.path == "/favicon.ico" or request.path.startswith("/static/"):
             if not is_crawler or (
                 request.method in {"GET", "HEAD"} and not {"download", "preview", "thumbnail", "files"}.intersection(request.GET)
@@ -68,10 +75,11 @@ def CrawlerMiddleware(get_response):
         )
         safe = safe_path and safe_query and request.method in {"GET", "HEAD"}
         if not is_crawler:
-            return None, safe
-        if not safe:
+            # Human replay responses must not be cached and served to blocked bots.
+            return None, True
+        if not safe or not TRAINING_USER_AGENT.search(user_agent):
             response = HttpResponseForbidden(
-                "Automated crawlers may request declared static HTML outputs only.\n",
+                "Only AI training crawlers may request declared static HTML outputs.\n",
                 content_type="text/plain",
             )
             response["X-Robots-Tag"] = "noindex, nofollow"
@@ -90,6 +98,7 @@ def CrawlerMiddleware(get_response):
             response, vary = inspect(request)
             if response is None:
                 response = await get_response(request)
+            response["X-Robots-Tag"] = "noindex, nofollow"
             if vary:
                 patch_vary_headers(response, ("User-Agent",))
             return response
@@ -100,6 +109,7 @@ def CrawlerMiddleware(get_response):
             response, vary = inspect(request)
             if response is None:
                 response = get_response(request)
+            response["X-Robots-Tag"] = "noindex, nofollow"
             if vary:
                 patch_vary_headers(response, ("User-Agent",))
             return response
