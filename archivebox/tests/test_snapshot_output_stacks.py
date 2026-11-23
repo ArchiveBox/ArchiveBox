@@ -357,7 +357,7 @@ def test_extension_uploads_share_stacks_without_sharing_files(
         assert len(matching) == 1
         assert f'data-output-group="{group}"' in matching[0]
         assert ('class="card-source-badge"' in matching[0]) == (name == plugin)
-        assert ('from the browser extension' in matching[0]) == (name == plugin)
+        assert ("from the browser extension" in matching[0]) == (name == plugin)
         assert "Delete " in matching[0]
 
     client.force_login(snapshot.crawl.created_by)
