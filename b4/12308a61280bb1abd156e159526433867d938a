@@ -1,0 +1,39 @@
+archivebox/domains/gallery.js
+  s_ea615ec0b76fae::t_53f7b7b7511402 55
+archivebox/core/models.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 631,634,643-644,646,655-659,670,675-676,681,755-810,823-838,840-870
+archivebox/tests/test_sidebar_performance.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 157-158,160,163-170,172-199
+archivebox/domains/views.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 15,108-142,153,167-173,175-178,182,184-190,210,266-267,288,294-299,308-312,320
+archivebox/templates/static/library/folders.js
+  s_ea615ec0b76fae::t_53f7b7b7511402 594-602
+archivebox/tests/test_sidebar_modes.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 253-256
+archivebox/tests/test_site_scope.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 85
+archivebox/domains/templates/domains/index.html
+  s_ea615ec0b76fae::t_53f7b7b7511402 90-97,100,153-179
+bin/collect_ui_screenshots.sh
+  s_ea615ec0b76fae::t_53f7b7b7511402 627-628,794
+archivebox/tests/test_snapshot_domains.py
+  s_ea615ec0b76fae::t_53f7b7b7511402 291,296,308,317,324,331-333,342-343,354,362
+archivebox/domains/templates/domains/table.html
+  s_ea615ec0b76fae::t_e4abcff48f2e66 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b412308a61280bb1abd156e159526433867d938a",
+  "prompts": {},
+  "sessions": {
+    "s_ea615ec0b76fae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204c0-b0c4-7720-968e-79647380b7ba",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
