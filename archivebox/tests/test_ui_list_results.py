@@ -5,8 +5,8 @@ thousands of entries, a responses result whose output_str names a directory (so
 its link comes from the manifest fallback), a legacy root-relative singlefile,
 a plugin with two hooks, a screenshot without a usable file (so the thumbnail
 falls back to the next candidate) and failed/queued rows with large manifests.
-Expected links come from loading full ArchiveResult model instances, the path
-these pages used before.
+Plugin icons use stored success/size and canonical card anchors. Favicons,
+thumbnail selection and exact shared-file sizes still use full model metadata.
 """
 
 import re
@@ -21,15 +21,129 @@ from django.urls import reverse
 from lxml.html import fromstring, tostring
 
 from archivebox.core.models import ArchiveResult, Snapshot
-from archivebox.core.routes_util import build_snapshot_detail_path, get_snapshot_output_anchor
+from archivebox.core.routes_util import build_snapshot_detail_path
 from archivebox.crawls.models import Crawl
-from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon, get_snapshot_thumbnail_card_order
+from archivebox.plugins.discovery import (
+    get_plugin_icon,
+    get_plugin_icon_sprite,
+    get_plugin_list_icon,
+    get_plugin_name,
+    get_snapshot_role_names,
+    get_snapshot_thumbnail_card_order,
+)
 from archivebox.plugins.output_groups import plugin_icon_is_hidden, plugin_output_sizes, snapshot_thumbnail_result
 from archivebox.tests.conftest import ADMIN_TEST_HOST, WEB_TEST_HOST
 
 pytestmark = pytest.mark.django_db
 
 BIG_MANIFEST_ENTRIES = 3000
+
+
+@pytest.mark.parametrize("plugin", ["git", "wget", "liteparse", "headers", "dns", "hashes"])
+def test_plugin_icons_need_no_manifest(client, admin_user, list_collection, plugin):
+    snapshot = list_collection[0]
+    snapshot.archiveresult_set.filter(plugin=plugin).delete()
+    result = _result(
+        snapshot,
+        plugin,
+        output_str=plugin,
+        output_files={f"repo/src/{i}.py": {"size": 100} for i in range(BIG_MANIFEST_ENTRIES)},
+    )
+    client.force_login(admin_user)
+    url = reverse("admin:core_snapshot_changelist")
+    assert client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+    with CaptureQueriesContext(connection) as captured:
+        response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    row = _row(response.content.decode(), f'value="{snapshot.pk}"')
+    assert _rendered_fragments(row)[plugin] == f"#{plugin}"
+    assert _manifests_shipped(captured.captured_queries)[(plugin, "succeeded")] is None
+    assert result.output_size == BIG_MANIFEST_ENTRIES * 100
+    result.status = "failed"
+    result.save(update_fields=["status"])
+    response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert plugin not in _rendered_fragments(_row(response.content.decode(), f'value="{snapshot.pk}"'))
+
+
+@override_settings(PUBLIC_INDEX=True)
+def test_public_icon_retains_legacy_output_without_stored_size(client, list_collection):
+    snapshot = list_collection[0]
+    result = snapshot.archiveresult_set.get(plugin="singlefile")
+    ArchiveResult.objects.filter(pk=result.pk).update(output_size=0)
+    response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    row = _row(response.content.decode(), f"/{snapshot.archive_path_from_db}")
+    assert _rendered_fragments(row)["singlefile"] == "#singlefile"
+
+
+@pytest.mark.parametrize(
+    ("output", "files", "visible"),
+    [
+        ("1 screencast frames (0 kept)", {"hook.sh": {"size": 199}}, False),
+        ("1kb text indexed", {"hook.sh": {"size": 100}, "stdout.log": {"size": 80}, "hook.pid": {"size": 6}}, False),
+        ("/old/archive/git", {"saved.mp3": {"size": 100}}, False),
+        ("git", {"hook.sh": {"size": 100}, "repo/source.py": {"size": 100}}, True),
+        ("git/legacy.html", {}, True),
+    ],
+)
+def test_icon_availability_excludes_hook_artifacts_and_invalid_paths(client, admin_user, list_collection, output, files, visible):
+    snapshot = list_collection[0]
+    snapshot.archiveresult_set.filter(plugin="git").delete()
+    result = _result(snapshot, "git", output_str=output, output_files=files)
+    ArchiveResult.objects.filter(pk=result.pk).update(output_size=200)
+    client.force_login(admin_user)
+    url = reverse("admin:core_snapshot_changelist")
+    assert client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+    with CaptureQueriesContext(connection) as captured:
+        response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    row = _row(response.content.decode(), f'value="{snapshot.pk}"')
+    assert ("git" in _rendered_fragments(row)) == visible
+    assert _manifests_shipped(captured.captured_queries)[("git", "succeeded")] is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, browser_runtime, admin_user):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.machine.models import Machine
+    from archivebox.tests.test_snapshot_output_stacks import save_output
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.status = "sealed"
+    snapshot.save()
+    results = [save_output(snapshot, plugin) for plugin in ("git", "headers", "singlefile", "wget")]
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            listing = f"http://admin.archivebox.localhost:{port}/admin/core/snapshot/"
+            page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
+            page.locator('[name="username"]').fill(admin_user.username)
+            page.locator('[name="password"]').fill("testpassword")
+            page.get_by_role("button", name="Log in", exact=True).click()
+            for result in results:
+                page.goto(listing)
+                pile = page.locator(".files-icon-pile").filter(has=page.locator(f".files-icon-plugin--{result.plugin}"))
+                pile.locator(".files-icon-pile-top").hover()
+                pile.locator(f".files-icon-pile-popup .files-icon-plugin--{result.plugin}").click()
+                expect(page.locator(f'.selected-card[data-plugin-name="{result.plugin}"]')).to_have_count(1)
+                frame = page.locator("#main-frame")
+                expect(frame).to_have_attribute("src", re.compile(r".+"))
+                card_src = frame.get_attribute("src")
+                assert urlsplit(page.url).fragment == result.plugin
+                page.goto(page.url.split("#")[0] + "#" + result.embed_path())
+                expect(frame).to_have_attribute("src", card_src)
+        finally:
+            browser.close()
 
 
 @pytest.mark.parametrize("plugin", ["archivedotorg", "opendataloader", "chrome"])
@@ -130,10 +244,9 @@ def _expected_links(snapshot):
             first_succeeded.setdefault(result.plugin, result)
     fragments = {}
     for plugin, result in first_succeeded.items():
-        embed_path = result.embed_path()
-        if plugin_icon_is_hidden(plugin) or not str(get_plugin_icon(plugin)).strip() or not embed_path:
+        if plugin_icon_is_hidden(plugin) or not str(get_plugin_icon(plugin)).strip() or not result.output_size:
             continue
-        fragments[plugin] = build_snapshot_detail_path("", output_path=get_snapshot_output_anchor(plugin, embed_path), prefix="")
+        fragments[plugin] = build_snapshot_detail_path("", output_path=get_plugin_name(plugin), prefix="")
     card = snapshot_thumbnail_result(results)
     return fragments, (str(card.id) if card else None), plugin_output_sizes(results)
 
@@ -158,14 +271,18 @@ def _manifests_shipped(captured_queries):
     with connection.cursor() as cursor:
         cursor.execute(result_queries[0])
         # values_list order: id, snapshot_id, plugin, status, output_size, output_str, output_files
-        return {(row[2], row[3]): row[-1] for row in cursor.fetchall()}
+        return {(row[2], row[3]): row[6] for row in cursor.fetchall()}
 
 
 def _assert_only_linkable_manifests_shipped(captured_queries):
     shipped = _manifests_shipped(captured_queries)
     card_plugins = set(get_snapshot_thumbnail_card_order())
     for (plugin, status), manifest in shipped.items():
-        linkable = status == ArchiveResult.StatusChoices.SUCCEEDED or plugin in card_plugins
+        linkable = (
+            (status == ArchiveResult.StatusChoices.SUCCEEDED and plugin in get_snapshot_role_names("list_icon"))
+            or plugin in card_plugins
+            or plugin == "chrome"
+        )
         assert (manifest is not None) == linkable, (plugin, status)
     # The failed hook's 3,000-entry manifest is never transferred or decoded.
     assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
@@ -194,13 +311,11 @@ def test_public_index_links_match_model_instances_and_skip_unrendered_manifests(
 
     fragments, card_id, sizes = _expected_links(sealed)
     assert _rendered_fragments(sealed_row) == fragments
-    # Links resolved through each path the resolver has: output_str naming a
-    # manifest key (wget), the extension/size fallback (responses: earliest of
-    # the tied largest .html), a legacy root-relative file, and the first hook.
-    assert fragments["wget"] == "#wget/list-results.example/article.html"
-    assert fragments["responses"] == "#responses/all/20261012T000001__GET__article.html"
+    # File icons open the plugin card; resolving its preview belongs on detail.
+    assert fragments["wget"] == "#wget"
+    assert fragments["responses"] == "#responses"
     assert fragments["singlefile"] == "#singlefile"
-    assert fragments["chrome"] == "#chrome/browser.json"
+    assert fragments["chrome"] == "#chrome"
     assert "screenshot" not in fragments
     # The screenshot has no usable file, so the card falls back to responses.
     assert ArchiveResult.objects.get(pk=card_id).plugin == "responses"
@@ -316,7 +431,7 @@ def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(lis
     shipped = _manifests_shipped(captured.captured_queries)
     assert shipped[("dns", ArchiveResult.StatusChoices.FAILED)] is not None
     assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
-    single = next(row for row in summary.results if row.plugin == "singlefile")
+    single = next(row for row in summary.results if row.plugin == "favicon")
     assert single.embed_path() is not None
     assert single._output_files is None
     assert single.embed_path() is not None
@@ -366,11 +481,11 @@ def test_list_fallback_preserves_name_extension_size_and_tie_priorities(snapshot
 
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
-        plugin="wget",
+        plugin="responses",
         status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_files={path: {"size": size} for path, size in files.items()},
     )
-    expected_path = f"wget/{expected}" if expected is not None else None
+    expected_path = f"responses/{expected}" if expected is not None else None
     assert result.embed_path() == expected_path
     summary = load_snapshot_list_results([snapshot])[snapshot.pk]
     assert next(row for row in summary.results if row.id == str(result.pk)).embed_path() == expected_path
@@ -381,12 +496,12 @@ def test_list_fallback_ignores_malformed_sizes(snapshot):
 
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
-        plugin="wget",
+        plugin="responses",
         status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_files={"malformed.html": {"size": "invalid"}, "valid.html": {"size": 1}},
     )
     summary = load_snapshot_list_results([snapshot])[snapshot.pk]
-    assert next(row for row in summary.results if row.id == str(result.pk)).embed_path() == "wget/valid.html"
+    assert next(row for row in summary.results if row.id == str(result.pk)).embed_path() == "responses/valid.html"
 
 
 @override_settings(PUBLIC_INDEX=True)

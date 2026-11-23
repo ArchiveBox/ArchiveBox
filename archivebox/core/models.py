@@ -3438,10 +3438,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if linked and not (result is True or (result and result.status == "succeeded")):
                 continue
             if linked:
-                embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
-                if not embed_path or str(embed_path).strip() in (".", "/", "./"):
-                    continue
-                href = build_path(archive_path, output_path=get_snapshot_output_anchor(plugin, embed_path), prefix=prefix)
+                if isinstance(result, ListResult):
+                    anchor = result.icon_anchor()
+                    if not anchor:
+                        continue
+                else:
+                    embed_path = result.embed_path() if isinstance(result, ArchiveResult) else f"{plugin}/"
+                    if not embed_path or str(embed_path).strip() in (".", "/", "./"):
+                        continue
+                    anchor = get_snapshot_output_anchor(plugin, embed_path)
+                href = build_path(archive_path, output_path=anchor, prefix=prefix)
             icons_by_group[group].append((plugin, icon, escape(href), display_name))
 
         tag = "a" if linked else "span"

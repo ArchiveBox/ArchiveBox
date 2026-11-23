@@ -43,16 +43,16 @@ def test_domain_counts_match_before_and_after_pagination(live_server, browser_ru
             expect(paginator.get_by_role("link", name="Next", exact=True)).to_have_count(0)
             paginator.get_by_role("link", name="Previous", exact=True).click()
             expect(paginator).to_contain_text("79 snapshots")
-            page.get_by_role("combobox", name="Search mode", exact=True).select_option("url")
-            page.get_by_role("textbox", name="Search", exact=True).fill("claude.ai")
-            page.get_by_role("textbox", name="Search", exact=True).press("Enter")
+            search = page.get_by_role("combobox", name="Search snapshots", exact=True)
+            search.fill("domain:claude.ai")
+            search.press("Enter")
             expect(paginator).to_contain_text("79 snapshots")
             page.locator("th.column-title_str .text a").click()
             paginator.get_by_role("link", name="Next", exact=True).click()
             expect(page.locator("#result_list input.action-select")).to_have_count(29)
             query = parse_qs(urlsplit(page.url).query)
             assert query["domain"] == ["*.claude.ai"]
-            assert query["q"] == ["claude.ai"] and query["search_mode"] == ["url"]
+            assert query["q"] == ["domain:claude.ai"]
             assert query["p"] == ["2"] and "o" in query
             page.get_by_role("button", name="Switch to grid view", exact=True).click()
             expect(page.get_by_role("button", name="Switch to list view", exact=True)).to_be_visible()

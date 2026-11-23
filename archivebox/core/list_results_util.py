@@ -2,7 +2,7 @@
 
 The public index and the admin snapshot changelist show, per snapshot:
 progress counts, per-plugin sizes, one file icon per successful plugin
-(linking to that result's embed path), a favicon and a thumbnail.
+(linking to its detail card), a favicon and a thumbnail.
 
 Loading every result as a model instance with its ``output_files`` manifest
 used to dominate these pages: model construction (field converters, signals,
@@ -11,9 +11,10 @@ descriptors) for every row, plus decoding manifests nothing renders. Here:
 - every result is one plain value row, never a model instance;
 - single-result plugin sizes come from the materialized ``output_size`` column;
 - multi-hook plugin sizes deduplicate their shared manifest paths;
-- the same query ships ``output_files`` as text for links, thumbnail candidates
-  and multi-hook groups. Other rows never transfer theirs. Manifests are decoded
-  only when rendering needs a link or must deduplicate a plugin's file sizes.
+- the same query ships ``output_files`` as text for favicons, thumbnail candidates
+  and multi-hook groups. Plugin icons link to detail cards using status and stored
+  size and a database existence check, without resolving a file. Other rows
+  never transfer their manifests.
 
 List pages must never read the archive filesystem; nothing here does.
 """
@@ -26,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import Case, CharField, Exists, OuterRef, Q, TextField, Value, When
+from django.db.models import BooleanField, Case, CharField, Exists, Func, OuterRef, Q, TextField, Value, When
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -40,6 +41,27 @@ if TYPE_CHECKING:
 
 
 _UNRESOLVED = object()
+
+
+class _HasSavedOutput(Func):
+    """Stop at one saved file; hook scripts/logs alone are not captured output."""
+
+    output_field = BooleanField(null=True)
+
+    def _sql(self, compiler, iterator, object_check):
+        manifest, params = compiler.compile(self.source_expressions[0])
+        return (
+            f"CASE WHEN {manifest} = '{{}}' THEN NULL ELSE EXISTS ("
+            f"SELECT 1 FROM {iterator}({manifest}) AS files WHERE {object_check} "
+            "AND LOWER(files.key) NOT LIKE %s AND LOWER(files.key) NOT LIKE %s AND LOWER(files.key) NOT LIKE %s) END",
+            [*params, *params, "%.pid", "%.log", "%.sh"],
+        )
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        return self._sql(compiler, "json_each", "files.type = 'object'")
+
+    def as_postgresql(self, compiler, connection, **extra_context):
+        return self._sql(compiler, "jsonb_each", "jsonb_typeof(files.value) = 'object'")
 
 
 def favicon_results():
@@ -83,6 +105,7 @@ class ListResult:
     output_str: str
     # Undecoded JSON for link resolution and multi-hook size deduplication.
     output_files_json: str | None = None
+    has_saved_output: bool | None = None
     _embed_path: Any = _UNRESOLVED
     _output_files: dict[str, dict[str, Any]] | None = None
     _retain_output_files: bool = True
@@ -101,6 +124,16 @@ class ListResult:
         if self._embed_path is _UNRESOLVED:
             self._embed_path = ArchiveResult.resolve_embed_path(self.plugin, self.output_str, self.output_file_map())
         return self._embed_path
+
+    def icon_anchor(self) -> str | None:
+        from archivebox.plugins.discovery import get_plugin_name, plugin_output_is_text
+
+        # Match the resolver's rejection of legacy absolute output paths.
+        if self.output_str and not plugin_output_is_text(self.plugin) and self.output_str.strip().startswith("/"):
+            return None
+        if self.has_saved_output or (self.has_saved_output is None and ArchiveResult.resolve_embed_path(self.plugin, self.output_str, {})):
+            return get_plugin_name(self.plugin)
+        return None
 
 
 @dataclass(slots=True, eq=False)
@@ -155,9 +188,12 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
         return {}
 
     card_plugins = get_snapshot_thumbnail_card_order()
-    # Successful results feed file icons and favicons; thumbnail cards try
-    # their candidates regardless of status. Nothing else renders a path.
-    links_output = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(card_plugins))
+    # File icons open plugin cards, not individual files. Only favicons and
+    # thumbnail candidates need a file path on a list page.
+    links_output = Q(plugin__in=list(card_plugins)) | Q(
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        plugin__in=get_snapshot_role_names("list_icon"),
+    )
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
         # Probe the existing (snapshot, plugin, hook) index only when needed.
@@ -186,9 +222,14 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
                 default=Value(None),
                 output_field=TextField(),
             ),
+            Case(
+                When(status=ArchiveResult.StatusChoices.SUCCEEDED, then=_HasSavedOutput("output_files")),
+                default=Value(False),
+                output_field=BooleanField(null=True),
+            ),
         )
     )
-    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files_json in rows:
+    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files_json, has_saved_output in rows:
         # PostgreSQL renders uuid as text with dashes; SQLite stores bare hex.
         summary = summaries[snapshot_id.replace("-", "")]
         if not plugin:
@@ -203,6 +244,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
                 output_size or 0,
                 output_str,
                 output_files_json,
+                has_saved_output,
             ),
         )
 

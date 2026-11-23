@@ -1270,7 +1270,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def files(self, obj):
         results = self._get_prefetched_results(obj)
         if results is None:
-            results = obj.archiveresult_set.only("plugin", "status", "output_size", "output_str", "output_files")
+            results = load_snapshot_list_results([obj])[obj.pk].results
 
         plugins_with_output: dict[str, ArchiveResult] = {}
         for result in results:
@@ -1309,11 +1309,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             metadata = icon_metadata[result.plugin]
             if metadata is None:
                 continue
-            embed_path = result.embed_path()
-            if not embed_path:
-                continue
             group_id, plugin, icon, label = metadata
-            anchor_path = get_snapshot_output_anchor(result.plugin, embed_path)
+            # The detail page resolves this plugin's representative output.
+            # Showing a successful capture needs no file-manifest scan here.
+            if isinstance(result, ArchiveResult):
+                output_path = result.embed_path()
+                anchor_path = get_snapshot_output_anchor(result.plugin, output_path) if output_path else None
+            else:
+                anchor_path = result.icon_anchor()
+            if not anchor_path:
+                continue
             icons_by_group[group_id].append(
                 {
                     "plugin": plugin,

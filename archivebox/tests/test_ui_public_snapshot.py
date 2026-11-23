@@ -388,7 +388,7 @@ class TestPublicIndex:
         assert response.status_code == 200
         for snapshot in snapshots:
             for plugin in ("readability", "screenshot", "dns"):
-                assert f"/{snapshot.archive_path_from_db}#{plugin}/content.html".encode() in response.content
+                assert f"/{snapshot.archive_path_from_db}#{plugin}".encode() in response.content
         lookups = sum(
             values[1]
             for (source, _line, function), values in pstats.Stats(profile).stats.items()
