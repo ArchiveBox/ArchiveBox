@@ -19,10 +19,6 @@
   - ```{autodoc2-docstring} archivebox.domains.wacz.write_site_wacz
     :summary:
     ```
-* - {py:obj}`replay_assets <archivebox.domains.wacz.replay_assets>`
-  - ```{autodoc2-docstring} archivebox.domains.wacz.replay_assets
-    :summary:
-    ```
 ````
 
 ### API
@@ -31,12 +27,5 @@
 :canonical: archivebox.domains.wacz.write_site_wacz
 
 ```{autodoc2-docstring} archivebox.domains.wacz.write_site_wacz
-```
-````
-
-````{py:function} replay_assets(config, format='wacz', *, provider=None) -> dict[str, bytes]
-:canonical: archivebox.domains.wacz.replay_assets
-
-```{autodoc2-docstring} archivebox.domains.wacz.replay_assets
 ```
 ````

@@ -1254,11 +1254,12 @@ def write_static_plugin_previews(context):
         document = ""
         if provider := get_file_preview_providers().get(source.suffix.lower()):
             from archivebox.config.common import get_config
-            from archivebox.domains.wacz import replay_assets
+            from archivebox.plugins.discovery import get_replay_asset_bundle, read_replay_assets
 
             asset_root = Path(context["STATIC_EXPORT_ROOT"]) / "_archivebox" / "viewers" / provider
             if not asset_root.exists():
-                for asset_path, data in replay_assets(context.get("CONFIG") or get_config(), "file-preview", provider=provider).items():
+                _, paths = get_replay_asset_bundle("file-preview", provider=provider)
+                for asset_path, data in read_replay_assets(context.get("CONFIG") or get_config(), provider, paths).items():
                     target = asset_root / asset_path
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(data)

@@ -101,24 +101,3 @@ def write_site_wacz(
             json.dumps({"path": "datapackage.json", "hash": f"sha256:{hashlib.sha256(package_bytes).hexdigest()}"}),
         )
     return len(resources)
-
-
-def replay_assets(config, format="wacz", *, provider=None) -> dict[str, bytes]:
-    """Export the installed replay player, using the normal plugin asset hook."""
-    from django.http import HttpResponse
-
-    from archivebox.plugins.discovery import get_replay_asset_bundle, serve_plugin_replay_asset
-
-    provider, paths = get_replay_asset_bundle(format, provider=provider)
-    assets = {}
-    for path in paths:
-        response = serve_plugin_replay_asset(path, config, HttpResponse, provider=provider)
-        if response is None:
-            raise ValueError(f"Replay asset provider {provider} cannot serve {path}")
-        try:
-            if response.status_code != 200:
-                raise ValueError(f"Replay asset provider {provider} returned {response.status_code} for {path}")
-            assets[path] = b"".join(response.streaming_content) if response.streaming else response.content
-        finally:
-            response.close()
-    return assets

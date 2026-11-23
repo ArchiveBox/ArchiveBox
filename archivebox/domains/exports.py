@@ -11,15 +11,21 @@ import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit
 
+from archivebox.config.common import get_config
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.misc.logging_util import printable_filesize
 from abx_plugins.plugins.base.html import Resources
-from archivebox.plugins.discovery import get_snapshot_role_paths, rewrite_plugin_replay_document
+from archivebox.plugins.discovery import (
+    get_snapshot_replay_asset_providers,
+    get_snapshot_role_paths,
+    read_replay_assets,
+    rewrite_plugin_replay_document,
+)
 from archivebox.misc.serve_static import (
     rewrite_navigation_links,
 )
 
-from .wacz import replay_assets, write_site_wacz
+from .wacz import write_site_wacz
 
 
 CSS_URL = re.compile(r"(?:url\(\s*|@import\s+)[\"']?([^\s\"'()]+)", re.IGNORECASE)
@@ -140,11 +146,14 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
             progress({"pages": completed, "total_pages": len(sources), "bytes": size})
             reported_at = now
 
+    providers = tuple(get_snapshot_replay_asset_providers())
+    asset_cache = {}
     for index, (_, root, relative_root) in enumerate(sources):
         if relative_root.is_absolute() or ".." in relative_root.parts:
             raise ValueError("Snapshot files must be inside the collection archive.")
         target_root = destination / relative_root
         target_root.mkdir(parents=True, exist_ok=True)
+        matched = {}
         # Include complete saved plugin output trees, including Git dotfiles.
         # Never follow directory links or file links outside the snapshot.
         for current, directories, filenames in os.walk(root):
@@ -155,12 +164,26 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
                     continue
                 if not source.resolve().is_relative_to(root) or not source.is_file():
                     continue
-                target = target_root / source.relative_to(root)
+                relative = source.relative_to(root)
+                target = target_root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with source.open("rb") as original, target.open("xb") as copied:
                     while chunk := original.read(1024 * 1024):
                         report_bytes(len(chunk))
                         copied.write(chunk)
+                if len(matched) < len(providers):
+                    for provider, matches, paths in providers:
+                        if provider not in matched and matches(relative.as_posix()):
+                            matched[provider] = paths
+        for provider, paths in matched.items():
+            if provider not in asset_cache:
+                asset_cache[provider] = read_replay_assets(get_config(), provider, paths)
+            for name, data in asset_cache[provider].items():
+                target = target_root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                report_bytes(len(data))
+                with target.open("xb") as asset:
+                    asset.write(data)
         completed = index + 1
         progress({"pages": completed, "total_pages": len(sources), "bytes": size})
 
@@ -174,19 +197,6 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     queryset = Snapshot.objects.filter(pk__in=archive_paths).prefetch_related("tags", "archiveresult_set")
     (destination / "index.html").write_text(queryset.to_html(out_dir=destination, preview_paths=previews, snapshot_order=archive_paths))
     (destination / "pages.json").write_text(json.dumps([{"url": page_url, "path": links[key]} for _, page_url, _, _, key in pages]))
-    assets = None
-    for _, _, relative_root in sources:
-        target_root = destination / relative_root
-        if any(path.suffix.lower() == ".wacz" for path in target_root.rglob("*.wacz")):
-            if assets is None:
-                from archivebox.config.common import get_config
-
-                assets = replay_assets(get_config())
-            for name, data in assets.items():
-                target = target_root / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open("xb") as asset:
-                    asset.write(data)
     final_size = sum(path.stat().st_size for path in destination.rglob("*") if path.is_file())
     report_bytes(final_size - size)
     progress({"pages": len(sources), "total_pages": len(sources), "bytes": final_size})

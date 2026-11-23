@@ -99,6 +99,14 @@
   - ```{autodoc2-docstring} archivebox.plugins.discovery.get_replay_asset_bundle
     :summary:
     ```
+* - {py:obj}`get_snapshot_replay_asset_providers <archivebox.plugins.discovery.get_snapshot_replay_asset_providers>`
+  - ```{autodoc2-docstring} archivebox.plugins.discovery.get_snapshot_replay_asset_providers
+    :summary:
+    ```
+* - {py:obj}`read_replay_assets <archivebox.plugins.discovery.read_replay_assets>`
+  - ```{autodoc2-docstring} archivebox.plugins.discovery.read_replay_assets
+    :summary:
+    ```
 * - {py:obj}`get_plugin_presentation_modules <archivebox.plugins.discovery.get_plugin_presentation_modules>`
   - ```{autodoc2-docstring} archivebox.plugins.discovery.get_plugin_presentation_modules
     :summary:
@@ -437,6 +445,20 @@ Bases: {py:obj}`typing.TypedDict`
 :canonical: archivebox.plugins.discovery.get_replay_asset_bundle
 
 ```{autodoc2-docstring} archivebox.plugins.discovery.get_replay_asset_bundle
+```
+````
+
+````{py:function} get_snapshot_replay_asset_providers()
+:canonical: archivebox.plugins.discovery.get_snapshot_replay_asset_providers
+
+```{autodoc2-docstring} archivebox.plugins.discovery.get_snapshot_replay_asset_providers
+```
+````
+
+````{py:function} read_replay_assets(config, provider: str, paths: tuple[str, ...]) -> dict[str, bytes]
+:canonical: archivebox.plugins.discovery.read_replay_assets
+
+```{autodoc2-docstring} archivebox.plugins.discovery.read_replay_assets
 ```
 ````
 

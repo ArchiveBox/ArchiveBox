@@ -59,6 +59,32 @@ def test_wacz_preview_uses_served_mount_and_portable_replay_base(snapshot, clien
 
 
 @pytest.mark.django_db(transaction=True)
+def test_html_export_matches_loose_recordings_during_copy(snapshot, browser_runtime, tmp_path):
+    from zipfile import ZipFile
+    from abx_plugins import get_plugins_dir
+    from django.core.management import call_command
+    from archivebox.tests.conftest import resolve_abxpkg_binary_env
+
+    resolve_abxpkg_binary_env(browser_runtime["lib_dir"], deps_from=Path(get_plugins_dir()) / "archivewebpage/config.json")
+    directory = snapshot.output_dir / "legacy" / "recordings"
+    directory.mkdir(parents=True)
+    (directory / "notes.warc.gz.txt").write_text("notes")
+    plain = tmp_path / "plain"
+    call_command("site_export", query=f"id__in={snapshot.pk}", format="html", destination=str(plain))
+    assert not (plain / snapshot.static_archive_path / "replay").exists()
+
+    with ZipFile(Path(__file__).parent / "fixtures/memento/iframetest.wacz") as fixture:
+        recording = fixture.read("archive/data.warc.gz")
+    (directory / "page.WARC.GZ").write_bytes(recording)
+    portable = tmp_path / "portable"
+    call_command("site_export", query=f"id__in={snapshot.pk}", format="html", destination=str(portable))
+    root = portable / snapshot.static_archive_path
+    assert (root / "legacy/recordings/page.WARC.GZ").read_bytes() == recording
+    assert (root / "replay/ui.js").stat().st_size > 0
+    assert (root / "replay/sw.js").stat().st_size > 0
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
 def test_chrome_full_preview_loads_plugin_ui_tags(snapshot, client, live_server, browser_runtime, tmp_path, mode):
     import json

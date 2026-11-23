@@ -55,15 +55,14 @@ def test_site_wacz_requires_existing_recordings(tmp_path):
 @pytest.mark.django_db(transaction=True)
 def test_exported_replay_assets_use_installed_plugin(cached_abxpkg_lib_dir):
     from archivebox.config.common import get_config
-    from archivebox.domains.wacz import replay_assets
-    from archivebox.plugins.discovery import get_plugin_catalog
+    from archivebox.plugins.discovery import get_plugin_catalog, get_replay_asset_bundle, read_replay_assets
     from archivebox.tests.conftest import install_real_binary
 
     plugin = get_plugin_catalog()["archivewebpage"]
     requirement = json.loads((plugin.path / "config.json").read_text())["required_binaries"][0]
     install_real_binary(requirement["name"], binproviders=requirement["binproviders"], overrides=requirement["overrides"])
     config = get_config(overrides={"ABXPKG_LIB_DIR": str(cached_abxpkg_lib_dir)})
-    assets = replay_assets(config)
+    assets = read_replay_assets(config, *get_replay_asset_bundle("wacz"))
     extension = next((cached_abxpkg_lib_dir / "chromewebstore/extensions").glob("*__archivewebpage"))
     assert assets["replay/ui.js"] == (extension / "ui.js").read_bytes()
     assert len(assets["replay/sw.js"]) > 1000

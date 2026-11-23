@@ -314,6 +314,35 @@ def get_replay_asset_bundle(format: str, provider: str | None = None) -> tuple[s
     raise ValueError(f"No plugin provides replay assets for {format}")
 
 
+def get_snapshot_replay_asset_providers():
+    """Yield each plugin's path matcher and the assets it serves beside a matching snapshot."""
+    for name, plugin in sorted(get_plugin_catalog().items()):
+        bundles = plugin.manifest.get("replay_assets", {})
+        if bundles:
+            matches = getattr(get_plugin_presentation_module(name), "is_replay_target", None)
+            if callable(matches):
+                paths = tuple(dict.fromkeys(path for bundle in bundles.values() for path in bundle))
+                yield name, matches, paths
+
+
+def read_replay_assets(config, provider: str, paths: tuple[str, ...]) -> dict[str, bytes]:
+    """Read a provider's declared assets through its normal serving hook."""
+    from django.http import HttpResponse
+
+    assets = {}
+    for path in paths:
+        response = serve_plugin_replay_asset(path, config, HttpResponse, provider=provider)
+        if response is None:
+            raise ValueError(f"Replay asset provider {provider} cannot serve {path}")
+        try:
+            if response.status_code != 200:
+                raise ValueError(f"Replay asset provider {provider} returned {response.status_code} for {path}")
+            assets[path] = b"".join(response.streaming_content) if response.streaming else response.content
+        finally:
+            response.close()
+    return assets
+
+
 @lru_cache(maxsize=1)
 def get_plugin_presentation_modules() -> tuple[ModuleType, ...]:
     """Load optional plugin-owned presentation hooks declared in manifests."""
