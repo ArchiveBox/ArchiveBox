@@ -6,6 +6,7 @@ or its owner revokes access. Plugin-local tests assert provider-specific content
 
 import hashlib
 import json
+import sys
 import zipfile
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
@@ -37,7 +38,6 @@ DOCUMENT_PROVIDERS = {"microsoft365", "notion", "figma", "tldraw", "excalidraw",
         "onedrive",
         "microsoft365",
         "iclouddrive",
-        "iwork",
         "wetransfer",
     ],
 )
@@ -57,6 +57,9 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
         BASE_URL=f"http://archivebox.localhost:{port}",
         BIND_ADDR=f"127.0.0.1:{port}",
     )
+    if plugin == "iwork" and sys.platform == "linux":
+        # Keep Keynote's 2D export off the emulated GPU on hosted runners.
+        env.setdefault("CHROME_ARGS_EXTRA", '["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]')
     captured = run_archivebox_cmd(["add", f"--plugins={plugin},title", recipe["url"]], cwd=root, env=env, timeout=240)
     (root / "capture.log").write_text(captured.stdout + captured.stderr)
     assert captured.returncode == 0, captured.stdout + captured.stderr
