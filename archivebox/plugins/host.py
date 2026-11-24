@@ -232,9 +232,10 @@ class ArchiveBoxHost:
 
     def outlink_records(self, request, *, after=None, limit=32):
         """Keyset-page captures and their saved URL output paths."""
+        from concurrent.futures import ThreadPoolExecutor
+
         from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
         from archivebox.core.models import Snapshot
-        from archivebox.plugins.url_outputs import url_output_candidates
 
         self._require_collection_admin(request)
         limit = min(max(limit, 1), 32)
@@ -257,12 +258,11 @@ class ArchiveBoxHost:
         )
         records = []
         paths = set()
-        for snapshot in rows[:limit]:
-            directory = snapshot.get_storage_path_for_version(snapshot.fs_version)
-            try:
-                paths.update(str(path) for path in url_output_candidates(directory) if (directory / path).is_file(follow_symlinks=False))
-            except FileNotFoundError:
-                pass
+        snapshots = rows[:limit]
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            files = list(executor.map(self._saved_url_outputs, (snapshot.storage_path_candidates() for snapshot in snapshots)))
+        for snapshot, (directory, saved_paths) in zip(snapshots, files, strict=True):
+            paths.update(saved_paths)
             key = domain_key_from_url(snapshot.url)
             records.append(
                 {
@@ -270,9 +270,22 @@ class ArchiveBoxHost:
                     "domain": group_domain_key(key)[0] if key else "",
                     "url": snapshot.url,
                     "output_dir": str(directory),
+                    "paths": saved_paths,
                 },
             )
         return {"records": records, "paths": sorted(paths), "cursor": str(rows[limit - 1].pk) if len(rows) > limit else None}
+
+    @staticmethod
+    def _saved_url_outputs(directories):
+        from archivebox.plugins.url_outputs import url_output_candidates
+
+        for directory in directories:
+            try:
+                paths = sorted(str(path) for path in url_output_candidates(directory) if (directory / path).is_file(follow_symlinks=False))
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+            return directory, paths
+        return directories[0], []
 
     def collection_records(self, request, *, after=None, limit=512):
         """Stream narrow snapshot metadata using the existing primary-key index."""
@@ -297,19 +310,21 @@ class ArchiveBoxHost:
         for result in favicon_results().filter(snapshot_id__in=[row["id"] for row in rows[:limit]]):
             icons.setdefault(result.snapshot_id, []).append(result)
 
-        def domain(url):
+        def domain_and_scope(url):
             key = domain_key_from_url(url or "")
-            return group_domain_key(key)[0] if key else ""
+            return group_domain_key(key) if key else ("", "")
 
         records = []
         for row in rows[:limit]:
             icon = snapshot_favicon_data(row["id"], icons.get(row["id"], []), request=request)
+            domain, scope = domain_and_scope(row["url"])
             records.append(
                 {
                     "id": str(row["id"]),
-                    "domain": domain(row["url"]),
+                    "domain": domain,
+                    "scope": scope,
                     "url": row["url"],
-                    "parent": domain(row["parent_snapshot__url"]),
+                    "parent": domain_and_scope(row["parent_snapshot__url"])[0],
                     "parent_url": row["parent_snapshot__url"],
                     "size": row["output_size"] or 0,
                     "favicon": icon["url"] if icon else "",
@@ -368,6 +383,8 @@ class ArchiveBoxHost:
 
     def snapshot_records(self, request, *, domain, after=None, limit=16):
         """A short keyset page of capture metadata and discovery relationships."""
+        from concurrent.futures import ThreadPoolExecutor
+
         from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key
         from archivebox.core.models import Snapshot
 
@@ -401,7 +418,10 @@ class ArchiveBoxHost:
             return group_domain_key(key)[0] if key else ""
 
         records = []
-        for snapshot in captures[:limit]:
+        snapshots = captures[:limit]
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            files = list(executor.map(self._saved_url_outputs, (snapshot.storage_path_candidates() for snapshot in snapshots)))
+        for snapshot, (directory, saved_paths) in zip(snapshots, files, strict=True):
             # LIMIT is applied per source, including high-fanout crawl roots.
             children = list(Snapshot.objects.filter(parent_snapshot_id=snapshot.pk).order_by().values_list("url", flat=True)[:32])
             child_links = [(group(url), url) for url in children]
@@ -416,7 +436,8 @@ class ArchiveBoxHost:
                     "size": snapshot.output_size or 0,
                     "created": snapshot.created_at.isoformat(),
                     "downloaded": snapshot.downloaded_at.isoformat() if snapshot.downloaded_at else None,
-                    "output_dir": str(snapshot.get_storage_path_for_version(snapshot.fs_version)),
+                    "output_dir": str(directory),
+                    "paths": saved_paths,
                     "parent": group(parent_url) if parent_url else None,
                     "parent_url": parent_url,
                     "children": [domain for domain, _ in child_links],
