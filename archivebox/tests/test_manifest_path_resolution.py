@@ -45,7 +45,7 @@ def test_replay_resolves_manifest_paths_without_constructing_path_objects(snapsh
     save_output(snapshot, "readability")
     profile = cProfile.Profile()
     with profile:
-        response = client.get("/readability/content.html", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+        response = client.get("/readability/content.html", {"raw": "1"}, HTTP_HOST=get_snapshot_host(str(snapshot.id)))
         body = b"".join(response.streaming_content) if response.streaming else response.content
     assert response.status_code == 200
     assert body == (snapshot.output_dir / "readability/content.html").read_bytes()
@@ -162,7 +162,7 @@ def test_replay_projection_preserves_replacement_primary_and_root_precedence(sna
         output_str="readability/replacement.html",
         output_files=files,
     )
-    response = client.get("/readability/replacement.html", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+    response = client.get("/readability/replacement.html", {"raw": "1"}, HTTP_HOST=get_snapshot_host(str(snapshot.id)))
     body = b"".join(response.streaming_content) if response.streaming else response.content
     assert response.status_code == 200
     assert body == (root_file if root_relative else plugin_file).read_bytes()

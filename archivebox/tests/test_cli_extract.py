@@ -137,7 +137,7 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
 
         target = urlsplit(build_snapshot_url(snapshot_id, output_path))
         assert "%253A" in target.path and "%252F" in target.path
-        response = Client().get(target.path, HTTP_HOST=target.netloc)
+        response = Client().get(target.path, {"raw": "1"}, HTTP_HOST=target.netloc)
         assert response.status_code == 200, (target, response.status_code)
         assert b"".join(response.streaming_content) == captured_bytes
         preview = Client().get(f"{target.path}?preview=1", HTTP_HOST=target.netloc)

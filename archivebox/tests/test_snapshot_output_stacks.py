@@ -1634,10 +1634,12 @@ def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot,
             if selection:
                 assert parse_qs(urlsplit(refreshed_src).query)["reader"] == ["1"]
                 assert urlsplit(refreshed_src).fragment == "section"
-            raw = page.request.get(frame.locator("html").evaluate("() => location.href"))
+            document = urlsplit(frame.locator("html").evaluate("() => location.href"))
+            raw_url = document._replace(query="&".join(filter(None, (document.query, "raw=1"))), fragment="").geturl()
+            raw = page.request.get(raw_url)
             assert raw.status == 200
             assert "immutable" in raw.headers["cache-control"]
-            assert b"refreshed preview fixture" in raw.body()
+            assert raw.body() == output.read_bytes()
         finally:
             browser.close()
 

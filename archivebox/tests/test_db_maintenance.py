@@ -38,12 +38,20 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
         original_limit = cursor.fetchone()[0]
         cursor.execute("PRAGMA busy_timeout")
         original_timeout = cursor.fetchone()[0]
+
+    def read_index_stat(cursor, index):
+        # Older SQLite may not create sqlite_stat1 until the first analysis.
+        cursor.execute("SELECT 1 FROM sqlite_schema WHERE name = 'sqlite_stat1' AND type = 'table'")
+        if cursor.fetchone() is None:
+            return None
+        cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = %s", (index,))
+        return cursor.fetchone()
+
     connection.connection.set_trace_callback(statements.append)
     try:
         run_db_optimize()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
-            initial_stat = cursor.fetchone()
+            initial_stat = read_index_stat(cursor, "maintenance_category")
         if expects_analysis:
             assert initial_stat is not None
             initial_count = int(initial_stat[0].split()[0])
@@ -62,8 +70,7 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
             )
         run_db_optimize()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_category'")
-            grown_stat = cursor.fetchone()
+            grown_stat = read_index_stat(cursor, "maintenance_category")
             if expects_analysis:
                 assert grown_stat is not None
                 assert int(grown_stat[0].split()[0]) > initial_count * 10
@@ -72,8 +79,7 @@ def test_sqlite_maintenance_refreshes_missing_and_grown_statistics_only(empty_da
             cursor.execute("CREATE INDEX maintenance_label ON maintenance_items(label)")
         run_db_optimize()
         with connection.cursor() as cursor:
-            cursor.execute("SELECT stat FROM sqlite_stat1 WHERE idx = 'maintenance_label'")
-            new_index_stat = cursor.fetchone()
+            new_index_stat = read_index_stat(cursor, "maintenance_label")
             if expects_analysis:
                 assert new_index_stat is not None
                 assert int(new_index_stat[0].split()[0]) >= 20000

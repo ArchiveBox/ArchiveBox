@@ -29,7 +29,7 @@ def test_replay_normalizes_manifest_once_and_reads_replaced_metadata(snapshot, c
         with profile:
             response = client.get(
                 f"/_card/{result.id}" if surface == "card" else f"/readability/{filename}",
-                {"preview": "1"} if surface == "preview" else {},
+                {"preview": "1"} if surface == "preview" else {"raw": "1"} if surface == "raw" else {},
                 HTTP_HOST=get_snapshot_host(str(snapshot.id)),
             )
             body = b"".join(response.streaming_content) if response.streaming else response.content

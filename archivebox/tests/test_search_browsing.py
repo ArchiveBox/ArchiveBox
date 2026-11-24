@@ -3,10 +3,10 @@ import threading
 from urllib.parse import urlencode
 import pytest
 from asgiref.sync import async_to_sync
-from django.core.cache import cache
+from django.core.cache import caches
 from django.db.backends.signals import connection_created
 from archivebox.core.models import Snapshot, Folder
-from archivebox.search.views import get_admin_search_cache_key
+from archivebox.search.views import get_admin_search_cache_key, search_state
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -66,14 +66,14 @@ def test_superseded_meta_search_cannot_overwrite_replacement(admin_client, crawl
             assert int(await asyncio.wait_for(anext(iterator), 5)) == 0
             assert int(await asyncio.wait_for(anext(iterator), 5)) == 1
             assert await asyncio.to_thread(stalled.wait, 5)
-            assert cache.get(key) == {"ids": [snapshots[0].pk.hex], "done": False, "partial": False}
+            assert search_state(old.wsgi_request, key) == {"ids": [snapshots[0].pk.hex], "done": False, "partial": False}
 
             async def consume_replacement():
                 return [int(chunk) async for chunk in replacement.streaming_content]
 
             assert (await asyncio.wait_for(consume_replacement(), 5))[-1] == len(snapshots)
             expected = {"ids": [item.pk.hex for item in snapshots], "done": True, "partial": False}
-            assert cache.get(key) == expected
+            assert search_state(old.wsgi_request, key) == expected
             if aborted:
                 await iterator.aclose()
             else:
@@ -82,12 +82,12 @@ def test_superseded_meta_search_cannot_overwrite_replacement(admin_client, crawl
             if not aborted:
                 assert int(await asyncio.wait_for(anext(iterator), 5)) == 2
                 assert await asyncio.to_thread(stalled_after_progress.wait, 5)
-                assert cache.get(key) == expected
+                assert search_state(old.wsgi_request, key) == expected
                 await iterator.aclose()
                 release_after_progress.set()
             await asyncio.to_thread(stalled_worker.join, 5)
             assert not stalled_worker.is_alive()
-            assert cache.get(key) == expected
+            assert search_state(old.wsgi_request, key) == expected
         finally:
             release.set()
             release_after_progress.set()
@@ -143,7 +143,10 @@ def test_completed_meta_search_sort_and_page_reuse(admin_client, crawl, size):
     scoped = admin_client.get(path, {**params, "folder": str(folder.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
     assert not scoped.context["cl"].search_stream_complete
     assert b"var initialForm =" in scoped.content
-    cache.delete(get_admin_search_cache_key(first.wsgi_request))
+    key = get_admin_search_cache_key(first.wsgi_request)
+    search_cache = caches["search_results"]
+    generation = search_cache.get(key)
+    assert search_cache.delete(f"{key}:{generation}")
     expired = admin_client.get(path, {**params, "p": "2"}, HTTP_HOST=ADMIN_TEST_HOST)
     assert expired.status_code == 200
     assert not expired.context["cl"].search_stream_complete

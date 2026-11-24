@@ -1,5 +1,4 @@
 import pytest
-from django.template.loader import render_to_string
 
 from archivebox.core.models import Folder, Snapshot
 from archivebox.crawls.models import Crawl
@@ -69,11 +68,11 @@ def test_smart_folder_checks_matches_not_current_list(admin_client, admin_user):
     assert folder.snapshots.count() == 0
 
 
-def test_folder_menu_waits_for_authoritative_action(admin_client, admin_user):
-    from django.contrib.auth.context_processors import PermWrapper
-
+def test_folder_menu_waits_for_authoritative_action(admin_client):
     folder = Folder.objects.create(name="Empty")
-    html = render_to_string("core/folder_tree.html", {"folder_tree": Folder.tree(), "perms": PermWrapper(admin_user)})
+    response = admin_client.get("/admin/core/snapshot/sidebar/", **HOST)
+    assert response.status_code == 200
+    html = response.json()["html"]
     assert "Checking folder…" in html
     assert 'aria-disabled="true"' in html
     assert f'data-delete-snapshots-url="/admin/core/snapshot/?folder={folder.pk}#delete-snapshots"' in html

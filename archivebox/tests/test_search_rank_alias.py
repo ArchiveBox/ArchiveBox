@@ -65,11 +65,10 @@ def test_rank_alias_revalidates_moved_deleted_ids_and_keeps_original_ranks(admin
 
 
 def test_ranked_page_rechecks_prior_batches_without_limiting_action_membership(admin_client, crawl):
-    from django.core.cache import cache
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
     from archivebox.core.models import SnapshotTag, Tag
-    from archivebox.search.views import get_admin_search_cache_key
+    from archivebox.search.views import get_admin_search_cache_key, search_state
 
     original = Folder.objects.create(name="Scoped search")
     moved = Folder.objects.create(name="Outside search")
@@ -106,7 +105,7 @@ def test_ranked_page_rechecks_prior_batches_without_limiting_action_membership(a
 
     assert async_to_sync(consume)()[-1] == 624
     cache_key = get_admin_search_cache_key(stream.wsgi_request, path + "?" + urlencode(params))
-    state = cache.get(cache_key)
+    state = search_state(stream.wsgi_request, cache_key)
     assert state["done"]
     by_hex = {s.pk.hex: s.pk for s in snapshots}
     ranked = [by_hex[ident] for ident in state["ids"]]
