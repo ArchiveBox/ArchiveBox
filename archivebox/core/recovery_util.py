@@ -64,8 +64,11 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
                 if type(count) is not int or count < 0:
                     raise ValueError("Recovery command must return a nonnegative processes_orphaned count")
                 cleaned["plugin_processes_orphaned"] += count
-            except (OSError, ValueError, subprocess.SubprocessError):
-                logger.exception("Plugin %s recovery failed", plugin)
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                detail = getattr(error, "stderr", None)
+                if isinstance(detail, bytes):
+                    detail = detail.decode(errors="replace")
+                logger.exception("Plugin %s recovery failed: %s", plugin, detail.strip() if detail else error)
 
     running_hook_processes = Process.objects.filter(
         archiveresult__snapshot_id=OuterRef("pk"),

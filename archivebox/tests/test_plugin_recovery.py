@@ -39,7 +39,8 @@ assert result['plugin_processes_orphaned'] == 0, result
 assert len(records) == 1, [(record.name, record.getMessage()) for record in records]
 record = records[0]
 assert record.levelno == logging.ERROR
-assert record.getMessage() == 'Plugin chrome recovery failed'
+assert record.getMessage().startswith('Plugin chrome recovery failed: ')
+assert 'unknown provider name(s): unsupported-recovery-provider' in record.getMessage()
 assert record.exc_info is not None and record.exc_info[2] is not None
 assert record.exc_info[0].__name__ == 'CalledProcessError'
 assert record.exc_info[1].returncode == 2
@@ -103,6 +104,7 @@ def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, 
             )
             assert isinstance(result.stdout, str) and isinstance(result.stderr, str)
             assert result.returncode == 0, result.stdout + result.stderr
+            assert "Plugin chrome recovery failed" not in result.stderr
             assert json.loads(result.stdout.splitlines()[-1])["plugin_processes_orphaned"] == expected, result.stdout + result.stderr
 
         recover(0)
