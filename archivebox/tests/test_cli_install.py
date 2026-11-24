@@ -35,13 +35,13 @@ def test_install_dry_run_reports_plan_without_creating_binary_records(initialize
 def test_install_target_resolver_uses_declared_binary_aliases():
     """Targeted plugin-owned binaries must not fan out to every plugin or raw '*' provider installs."""
 
-    assert _resolve_install_targets(("ripgrep",)) == ([], ["ripgrep"])
-    assert _resolve_install_targets(("rg",)) == ([], ["rg"])
+    assert _resolve_install_targets(("ripgrep",)) == (["search_backend_ripgrep"], [])
+    assert _resolve_install_targets(("rg",)) == (["search_backend_ripgrep"], [])
     assert _resolve_install_targets(("sonic",)) == (["search_backend_sonic"], [])
     assert _resolve_install_targets(("not-a-real-tool",)) == ([], ["not-a-real-tool"])
 
 
-def test_default_dependency_install_memory_preflight_fails_before_installers(capsys):
+def test_default_dependency_install_memory_preflight_fails_before_installers(caplog):
     from archivebox.workers.supervisord_util import (
         MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
         require_dependency_install_memory,
@@ -52,7 +52,7 @@ def test_default_dependency_install_memory_preflight_fails_before_installers(cap
         require_dependency_install_memory(MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES - 1)
 
     assert err.value.code == 1
-    output = capsys.readouterr().err
+    output = caplog.text
     assert "Not enough available memory to install ArchiveBox dependencies" in output
     assert "No plugin dependency installers were started" in output
 
