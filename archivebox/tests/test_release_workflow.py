@@ -187,6 +187,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
             assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     early = ci["jobs"]["dev-image"]
     assert early["needs"] == "docker-digests"
+    assert early["runs-on"] == "ubuntu-24.04-arm"
     assert early["if"] == "github.event_name == 'push' && github.ref_name == 'dev'"
     publish = next(step["run"] for step in early["steps"] if step.get("id") == "publish")
     assert '[[ "$(< /tmp/digests/source-ref)" == "$GITHUB_SHA" ]]' in publish

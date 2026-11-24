@@ -89,7 +89,9 @@ jobs:
     name: Publish early dev image
     needs: docker-digests
     if: github.event_name == 'push' && github.ref_name == 'dev'
-    runs-on: ubuntu-24.04
+    # Manifest promotion executes neither image. Keep it off the x86 test queue
+    # so completed Docker builds can reach dev-unstable before the full matrix.
+    runs-on: ubuntu-24.04-arm
     permissions:
       actions: read
       contents: read
