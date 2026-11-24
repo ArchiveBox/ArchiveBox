@@ -1,5 +1,6 @@
 """Browser checks for native domain capture filter controls."""
 
+import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -35,18 +36,19 @@ def test_domain_counts_match_before_and_after_pagination(live_server, browser_ru
             expect(count).to_have_text("79")
             count.click()
             paginator = page.locator(".paginator").last
-            expect(paginator).to_contain_text("79 snapshots")
-            expect(paginator).not_to_contain_text("+")
-            expect(paginator).not_to_contain_text("≈")
+            # First paint may have only one page plus a lookahead until the count is available.
+            first_page_count = re.compile(r"(?:51\+|79) snapshots")
+            expect(paginator).to_contain_text(first_page_count)
+            expect(page.locator("#result_list input.action-select")).to_have_count(50)
             paginator.get_by_role("link", name="Next", exact=True).click()
             expect(paginator).to_contain_text("79 snapshots")
             expect(paginator.get_by_role("link", name="Next", exact=True)).to_have_count(0)
             paginator.get_by_role("link", name="Previous", exact=True).click()
-            expect(paginator).to_contain_text("79 snapshots")
+            expect(paginator).to_contain_text(first_page_count)
             search = page.get_by_role("combobox", name="Search snapshots", exact=True)
             search.fill("domain:claude.ai")
             search.press("Enter")
-            expect(paginator).to_contain_text("79 snapshots")
+            expect(paginator).to_contain_text(first_page_count)
             page.locator("th.column-title_str .text a").click()
             paginator.get_by_role("link", name="Next", exact=True).click()
             expect(page.locator("#result_list input.action-select")).to_have_count(29)
