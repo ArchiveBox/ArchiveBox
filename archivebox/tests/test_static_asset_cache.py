@@ -45,6 +45,20 @@ def test_static_asset_cache_headers(client):
         assert validation["Cache-Control"] == "public, no-cache"
 
 
+@pytest.mark.django_db
+def test_admin_catalog_is_versioned_static_javascript(client, admin_user):
+    url = static("admin/jsi18n.js")
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/javascript")
+    assert response["Cache-Control"] == "public, max-age=31536000, immutable"
+    validation = client.head(url, HTTP_IF_NONE_MATCH=response["ETag"])
+    assert validation.status_code == 304
+    assert validation["Cache-Control"] == response["Cache-Control"]
+    client.force_login(admin_user)
+    assert response.content == client.get("/admin/jsi18n/").content
+
+
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_navigation_reuses_static_assets(browser_runtime, live_server, admin_user, snapshot):
     with sync_playwright() as playwright:
@@ -66,6 +80,14 @@ def test_snapshot_navigation_reuses_static_assets(browser_runtime, live_server, 
         assert assets
         assert all(path.startswith("/static/v/") and transferred == 0 for path, transferred in assets), assets
         assert len({path.split("/")[3] for path, _ in assets}) == 1
-        for name in ("/admin.css", "/search/field.js", "/search/icons.svg", "/library/layout.js", "/fonts/open-sans/latin-normal.woff2"):
+        for name in (
+            "/admin.css",
+            "/admin/jsi18n.js",
+            "/search/field.js",
+            "/search/icons.svg",
+            "/library/layout.js",
+            "/fonts/open-sans/latin-normal.woff2",
+        ):
             assert any(path.endswith(name) for path, _ in assets), name
+        assert not page.evaluate("performance.getEntriesByName(location.origin + '/admin/jsi18n/').length")
         browser.close()

@@ -11,7 +11,7 @@ from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.sidebar import sidebar_view
-from archivebox.core.staticfiles import plugin_icon
+from archivebox.core.staticfiles import admin_js_catalog, plugin_icon
 from archivebox.core.views import (
     HomepageView,
     SnapshotView,
@@ -43,6 +43,7 @@ urlpatterns = [
     path("public/sidebar/", sidebar_view, {"public": True}, name="public-sidebar"),
     path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
     re_path(r"^static/plugin-icons/(?P<plugin>[a-z0-9_]+)/(?P<fingerprint>[a-f0-9]{20})\.svg$", plugin_icon, name="plugin-icon"),
+    re_path(r"^static/v/(?P<version>[\w.+-]+)/admin/jsi18n\.js$", admin_js_catalog),
     re_path(r"^static/v/(?P<version>[\w.+-]+)/(?P<path>.*)$", serve_static),
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("favicon.ico", serve_static, {"path": "favicon.ico"}),

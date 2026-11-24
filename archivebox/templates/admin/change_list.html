@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
   {% endif %}
   {% if cl.formset or action_form %}
-    <script src="{% url 'admin:jsi18n' %}"></script>
+    <script src="{% static 'admin/jsi18n.js' %}"></script>
   {% endif %}
   {{ media.css }}
   <style>
