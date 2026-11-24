@@ -100,6 +100,9 @@
 .plugin-settings-empty > span { display: block; font-size: 48px; color: #b3b6c0; }
 .plugin-settings-empty strong { display: block; font-size: 18px; color: #444; }
 .plugin-settings-empty p { font: inherit; }
+@container (800px < width <= 1050px) {
+    .plugin-config-field:has(.config-presets) > .plugin-config-control { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
+}
 @container (max-width: 800px) {
     .plugin-settings-content { padding: 22px 20px; }
     .plugin-config-field { grid-template-columns: 1fr; gap: 0; }

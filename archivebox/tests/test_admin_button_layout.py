@@ -111,7 +111,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         search.fill("SCREENSHOT_RESOLUTION")
         card = page.locator('.plugin-card[data-plugin-name="screenshot"]')
         expect(card).to_be_visible()
-        for width in (1280, 390):
+        for width in (1280, 1060, 390):
             page.set_viewport_size({"width": width, "height": 900})
             card.get_by_role("button", name="Phone").click()
             expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("390,844")
@@ -124,7 +124,7 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             preset_boxes = [button.bounding_box() for button in card.locator(".config-presets button").all()]
             assert len(preset_boxes) == 4
             assert preset_boxes[-1]["x"] > preset_boxes[-2]["x"]
-            assert len({round(box["y"]) for box in preset_boxes}) == (1 if width == 1280 else 2)
+            assert len({round(box["y"]) for box in preset_boxes}) == (2 if width == 390 else 1)
             panel = page.locator("#plugin-settings").bounding_box()
             assert panel["x"] >= 0 and panel["x"] + panel["width"] <= width + 1
             for control in card.locator(".config-presets button").all():
