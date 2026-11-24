@@ -19,7 +19,7 @@ from typing import Any, Literal, TextIO, cast
 
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
 from rich.console import Console
 
@@ -72,7 +72,7 @@ from archivebox.config.common import (
 from archivebox.base_models.models import PagedQuerySet
 from archivebox.misc.db import run_db_optimize
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
-from archivebox.plugins.discovery import get_plugin_catalog, register_plugin_eventbus
+from archivebox.plugins.discovery import current_process_attributes, get_plugin_catalog, plugin_operation, register_plugin_eventbus
 from archivebox.plugins.selection import parse_plugin_selection
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.uuid_compat import compact_uuid
@@ -1592,26 +1592,34 @@ def _run_crawl_locked(
     claimed_snapshot: tuple[str, str, datetime] | None = None,
 ) -> None:
     from archivebox.crawls.models import Crawl
+    from django.conf import settings
     from django.db import close_old_connections
 
     def run_in_current_thread() -> None:
         close_old_connections()
         try:
-            raise_if_shutdown_requested()
-            crawl = Crawl.objects.get(id=crawl_id)
-            runner = CrawlRunner(
-                crawl,
-                snapshot_ids=snapshot_ids,
-                selected_plugins=selected_plugins,
-                process_discovered_snapshots_inline=process_discovered_snapshots_inline,
-                show_progress=show_progress,
-                interactive_interrupts=interactive_interrupts,
-                config_overrides=config_overrides,
-                schedule_all_crawls=schedule_all_crawls,
-                wait_for_resources=wait_for_resources,
-                claimed_snapshot=claimed_snapshot,
-            )
-            asyncio.run(runner.run())
+            # The crawl ID is known before the bus loads its execution state.
+            # Keep its setup SQL and native events under the same crawl boundary.
+            with plugin_operation(
+                "CrawlRunner.run",
+                normalize_runtime_config(settings.CONFIG),
+                attributes={**current_process_attributes(), "crawl.id": str(crawl_id)},
+            ):
+                raise_if_shutdown_requested()
+                crawl = Crawl.objects.get(id=crawl_id)
+                runner = CrawlRunner(
+                    crawl,
+                    snapshot_ids=snapshot_ids,
+                    selected_plugins=selected_plugins,
+                    process_discovered_snapshots_inline=process_discovered_snapshots_inline,
+                    show_progress=show_progress,
+                    interactive_interrupts=interactive_interrupts,
+                    config_overrides=config_overrides,
+                    schedule_all_crawls=schedule_all_crawls,
+                    wait_for_resources=wait_for_resources,
+                    claimed_snapshot=claimed_snapshot,
+                )
+                asyncio.run(runner.run())
             if runner._resource_deferred and wait_for_resources and schedule_all_crawls:
                 # The foreground collection loop reconsiders priority after
                 # cleanup; a daemon leaves the retry time to its scheduler.
@@ -2418,6 +2426,10 @@ def run_pending_crawls(
 
     crawl_claim_lock_seconds = 10
     runtime_config = get_config()
+    operation_config = normalize_runtime_config(runtime_config)
+    operation_attributes = current_process_attributes()
+    if crawl_id is not None:
+        operation_attributes["crawl.id"] = str(crawl_id)
     last_recovery_at = 0.0
     last_retention_at = 0.0
     last_retention_repair_at = 0.0
@@ -2430,251 +2442,260 @@ def run_pending_crawls(
         from django.db import connections
 
         try:
-            Snapshot.delete_requested(batch_size=100, drain=True)
+            with plugin_operation("Snapshot.delete_requested", operation_config, attributes=operation_attributes):
+                Snapshot.delete_requested(batch_size=100, drain=True)
         finally:
             connections.close_all()
 
     while True:
-        raise_if_shutdown_requested()
-        now_monotonic = time.monotonic()
-        if crawl_id is None and (daemon or not maintenance_only):
-            from archivebox.importers.service import tick as tick_importers
+        # Each pass finishes before its idle sleep, so SQL and dispatched buses
+        # have an exported parent without keeping one daemon-long trace open.
+        with plugin_operation("run_pending_crawls", operation_config, attributes=operation_attributes):
+            raise_if_shutdown_requested()
+            now_monotonic = time.monotonic()
+            if crawl_id is None and (daemon or not maintenance_only):
+                from archivebox.importers.service import tick as tick_importers
 
-            if tick_importers(daemon=daemon):
-                continue
-        if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
-            if daemon:
-                # At most one job can be doing filesystem I/O. A stuck mount
-                # must not block capture scheduling or runner shutdown; rows
-                # remain pending until cleanup succeeds, including on restart.
-                if (deletion_thread is None or not deletion_thread.is_alive()) and Snapshot.objects.filter(
-                    status=Snapshot.DELETING_STATE,
-                ).exists():
-                    deletion_thread = threading.Thread(target=delete_in_background, name="snapshot-delete", daemon=True)
-                    deletion_thread.start()
-            else:
-                Snapshot.delete_requested(batch_size=100)
-            for model in (ArchiveResult, Snapshot, Crawl, Process):
-                # Keep the tight scheduler loop anchored on indexed delete_at
-                # columns only. Backfilling missing delete_at values has to read
-                # config JSON for models whose retention policy is scoped to a
-                # Crawl/Snapshot/Process. That repair is still required for
-                # correctness, but it belongs in the idle maintenance block
-                # below, not ahead of every claim attempt.
-                model.delete_expired(batch_size=100, backfill_missing=False)
-            last_retention_at = now_monotonic
-
-        if daemon and crawl_id is None:
-            now = timezone.now()
-            for schedule in (
-                CrawlSchedule.objects.filter(is_enabled=True)
-                .select_related("template", "template__created_by")
-                .defer("template__urls", "template__config", "template__notes")
-            ):
-                if schedule.is_due(now):
-                    schedule.dispatch(queued_at=now)
-
-        if maintenance_only:
-            # Filesystem migration is independent of lifecycle status; do not
-            # tick current-layout queued snapshots or start extraction here.
-            # Sealed rows can also have index/metadata ticks without a layout
-            # migration. Let the same maintenance path settle those ticks;
-            # filtering only stale versions leaves them due forever.
-            filesystem_snapshot = (
-                Snapshot.objects.filter(retry_at__lte=timezone.now())
-                .filter(Q(status=Snapshot.StatusChoices.SEALED) | ~Q(fs_version=Snapshot._fs_current_version()))
-                .order_by("retry_at", "created_at")
-                .first()
-            )
-            if filesystem_snapshot and Snapshot.claim_for_worker(filesystem_snapshot, lock_seconds=60):
-                if run_snapshot_maintenance(str(filesystem_snapshot.id)):
+                if tick_importers(daemon=daemon):
                     continue
+            if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
+                if daemon:
+                    # At most one job can be doing filesystem I/O. A stuck mount
+                    # must not block capture scheduling or runner shutdown; rows
+                    # remain pending until cleanup succeeds, including on restart.
+                    if (deletion_thread is None or not deletion_thread.is_alive()) and Snapshot.objects.filter(
+                        status=Snapshot.DELETING_STATE,
+                    ).exists():
+                        deletion_thread = threading.Thread(target=delete_in_background, name="snapshot-delete", daemon=True)
+                        deletion_thread.start()
+                else:
+                    Snapshot.delete_requested(batch_size=100)
+                for model in (ArchiveResult, Snapshot, Crawl, Process):
+                    # Keep the tight scheduler loop anchored on indexed delete_at
+                    # columns only. Backfilling missing delete_at values has to read
+                    # config JSON for models whose retention policy is scoped to a
+                    # Crawl/Snapshot/Process. That repair is still required for
+                    # correctness, but it belongs in the idle maintenance block
+                    # below, not ahead of every claim attempt.
+                    model.delete_expired(batch_size=100, backfill_missing=False)
+                last_retention_at = now_monotonic
 
-        has_due_snapshots = False
-        has_due_crawls = False
-        if not maintenance_only:
-            # Check after schedule dispatch and maintenance, which can enqueue
-            # work. An idle pass otherwise scans the same empty snapshot queue
-            # six times and the crawl queue three times. Successful work below
-            # restarts the loop, so these flags never survive a dispatch.
-            snapshot_queue = Snapshot.objects.filter(retry_at__lte=timezone.now())
-            crawl_queue = Crawl.objects.filter(retry_at__lte=timezone.now())
-            if crawl_id:
-                snapshot_queue = snapshot_queue.filter(crawl_id=crawl_id)
-                crawl_queue = crawl_queue.filter(id=crawl_id)
-            has_due_snapshots = snapshot_queue.exists()
-            has_due_crawls = crawl_queue.exists()
-            active_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status__in=Crawl.RUNNABLE_STATES,
-                status__in=Snapshot.RUNNABLE_STATES,
-            )
-            if crawl_id:
-                active_snapshots = active_snapshots.filter(crawl_id=crawl_id)
-            # New submissions newest-first so they show progress before old
-            # backlog (policy above _first_due_id). Keep this pass order in
-            # sync with _higher_priority_crawl_waiting.
-            if has_due_snapshots and _run_due_snapshot_id(
-                _next_queued_crawl_snapshot_id(active_snapshots),
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-                schedule_all_crawls=crawl_id is None,
-            ):
-                continue
+            if daemon and crawl_id is None:
+                now = timezone.now()
+                for schedule in (
+                    CrawlSchedule.objects.filter(is_enabled=True)
+                    .annotate(
+                        _last_run_created_at=Subquery(
+                            Crawl.objects.filter(schedule_id=OuterRef("pk")).order_by("-created_at").values("created_at")[:1],
+                        ),
+                    )
+                    .select_related("template", "template__created_by")
+                    .defer("template__urls", "template__config", "template__notes")
+                ):
+                    if schedule.is_due(now):
+                        schedule.dispatch(queued_at=now)
 
-            # Same newest-first admission for queued crawls that have no due
-            # snapshot yet (policy above _first_due_id).
-            if has_due_crawls and _run_due_crawl_status(
-                Crawl.StatusChoices.QUEUED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                newest_first=True,
-            ):
-                continue
+            if maintenance_only:
+                # Filesystem migration is independent of lifecycle status; do not
+                # tick current-layout queued snapshots or start extraction here.
+                # Sealed rows can also have index/metadata ticks without a layout
+                # migration. Let the same maintenance path settle those ticks;
+                # filtering only stale versions leaves them due forever.
+                filesystem_snapshot = (
+                    Snapshot.objects.filter(retry_at__lte=timezone.now())
+                    .filter(Q(status=Snapshot.StatusChoices.SEALED) | ~Q(fs_version=Snapshot._fs_current_version()))
+                    .order_by("retry_at", "created_at")
+                    .first()
+                )
+                if filesystem_snapshot and Snapshot.claim_for_worker(filesystem_snapshot, lock_seconds=60):
+                    if run_snapshot_maintenance(str(filesystem_snapshot.id)):
+                        continue
 
-            # Started work resumes oldest-first before untouched backlog
-            # (policy above _first_due_id).
-            if has_due_snapshots and any(
-                _run_due_snapshot_query(
-                    due_snapshots,
+            has_due_snapshots = False
+            has_due_crawls = False
+            if not maintenance_only:
+                # Check after schedule dispatch and maintenance, which can enqueue
+                # work. An idle pass otherwise scans the same empty snapshot queue
+                # six times and the crawl queue three times. Successful work below
+                # restarts the loop, so these flags never survive a dispatch.
+                snapshot_queue = Snapshot.objects.filter(retry_at__lte=timezone.now())
+                crawl_queue = Crawl.objects.filter(retry_at__lte=timezone.now())
+                if crawl_id:
+                    snapshot_queue = snapshot_queue.filter(crawl_id=crawl_id)
+                    crawl_queue = crawl_queue.filter(id=crawl_id)
+                has_due_snapshots = snapshot_queue.exists()
+                has_due_crawls = crawl_queue.exists()
+                active_snapshots = Snapshot.objects.filter(
+                    retry_at__lte=timezone.now(),
+                    crawl__status__in=Crawl.RUNNABLE_STATES,
+                    status__in=Snapshot.RUNNABLE_STATES,
+                )
+                if crawl_id:
+                    active_snapshots = active_snapshots.filter(crawl_id=crawl_id)
+                # New submissions newest-first so they show progress before old
+                # backlog (policy above _first_due_id). Keep this pass order in
+                # sync with _higher_priority_crawl_waiting.
+                if has_due_snapshots and _run_due_snapshot_id(
+                    _next_queued_crawl_snapshot_id(active_snapshots),
                     lock_seconds=60,
                     interactive_interrupts=interactive_interrupts,
                     wait_for_resources=not daemon,
                     runtime_config=runtime_config,
                     schedule_all_crawls=crawl_id is None,
+                ):
+                    continue
+
+                # Same newest-first admission for queued crawls that have no due
+                # snapshot yet (policy above _first_due_id).
+                if has_due_crawls and _run_due_crawl_status(
+                    Crawl.StatusChoices.QUEUED,
+                    crawl_id=crawl_id,
+                    lock_seconds=crawl_claim_lock_seconds,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    newest_first=True,
+                ):
+                    continue
+
+                # Started work resumes oldest-first before untouched backlog
+                # (policy above _first_due_id).
+                if has_due_snapshots and any(
+                    _run_due_snapshot_query(
+                        due_snapshots,
+                        lock_seconds=60,
+                        interactive_interrupts=interactive_interrupts,
+                        wait_for_resources=not daemon,
+                        runtime_config=runtime_config,
+                        schedule_all_crawls=crawl_id is None,
+                    )
+                    for due_snapshots in (active_snapshots.filter(status=Snapshot.StatusChoices.STARTED), active_snapshots)
+                ):
+                    continue
+
+            if not maintenance_only and has_due_crawls:
+                if _run_due_crawl_status(
+                    Crawl.StatusChoices.STARTED,
+                    crawl_id=crawl_id,
+                    lock_seconds=crawl_claim_lock_seconds,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                ):
+                    continue
+
+            if not maintenance_only and has_due_snapshots:
+                # Canceled-crawl child sealing is important cleanup, but it must
+                # not starve live crawl work when a large bulk cancel leaves many
+                # children due at once.
+                cancelling_snapshots = Snapshot.objects.filter(
+                    retry_at__lte=timezone.now(),
+                    crawl__status=Crawl.StatusChoices.SEALED,
+                    status=Snapshot.StatusChoices.STARTED,
                 )
-                for due_snapshots in (active_snapshots.filter(status=Snapshot.StatusChoices.STARTED), active_snapshots)
-            ):
-                continue
+                if crawl_id:
+                    cancelling_snapshots = cancelling_snapshots.filter(crawl_id=crawl_id)
+                if _run_due_snapshot_query(
+                    cancelling_snapshots,
+                    lock_seconds=60,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    runtime_config=runtime_config,
+                ):
+                    continue
 
-        if not maintenance_only and has_due_crawls:
-            if _run_due_crawl_status(
-                Crawl.StatusChoices.STARTED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-            ):
-                continue
+            if not maintenance_only and has_due_snapshots:
+                pausing_snapshots = Snapshot.objects.filter(
+                    retry_at__lte=timezone.now(),
+                    crawl__status=Crawl.StatusChoices.PAUSED,
+                    status__in=Snapshot.RUNNABLE_STATES,
+                )
+                if crawl_id:
+                    pausing_snapshots = pausing_snapshots.filter(crawl_id=crawl_id)
+                if _run_due_snapshot_query(
+                    pausing_snapshots,
+                    lock_seconds=60,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    runtime_config=runtime_config,
+                ):
+                    continue
 
-        if not maintenance_only and has_due_snapshots:
-            # Canceled-crawl child sealing is important cleanup, but it must
-            # not starve live crawl work when a large bulk cancel leaves many
-            # children due at once.
-            cancelling_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status=Crawl.StatusChoices.SEALED,
-                status=Snapshot.StatusChoices.STARTED,
-            )
-            if crawl_id:
-                cancelling_snapshots = cancelling_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                cancelling_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-            ):
-                continue
+            # Final active-state fallback uses only the retry_at scheduler index and
+            # selects an id first. Keep final SEALED rows out of this broad path so
+            # large filesystem/index backfills cannot starve newly queued crawls.
+            if not maintenance_only and has_due_snapshots:
+                due_snapshots = Snapshot.objects.filter(
+                    retry_at__lte=timezone.now(),
+                    status__in=Snapshot.OPEN_STATES,
+                )
+                if crawl_id:
+                    due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
+                if _run_due_snapshot_query(
+                    due_snapshots,
+                    lock_seconds=60,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    runtime_config=runtime_config,
+                ):
+                    continue
 
-        if not maintenance_only and has_due_snapshots:
-            pausing_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status=Crawl.StatusChoices.PAUSED,
-                status__in=Snapshot.RUNNABLE_STATES,
-            )
-            if crawl_id:
-                pausing_snapshots = pausing_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                pausing_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-            ):
-                continue
+            if not maintenance_only and has_due_snapshots:
+                # Final snapshots can still have an explicit filesystem/index-json
+                # maintenance tick. Search extraction is invoked directly by the
+                # update path and never enters this scheduler through ArchiveResult.
+                sealed_snapshots = Snapshot.objects.filter(
+                    retry_at__lte=timezone.now(),
+                    status=Snapshot.StatusChoices.SEALED,
+                )
+                if crawl_id:
+                    sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
+                if _run_due_snapshot_query(
+                    sealed_snapshots,
+                    lock_seconds=60,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    runtime_config=runtime_config,
+                ):
+                    continue
 
-        # Final active-state fallback uses only the retry_at scheduler index and
-        # selects an id first. Keep final SEALED rows out of this broad path so
-        # large filesystem/index backfills cannot starve newly queued crawls.
-        if not maintenance_only and has_due_snapshots:
-            due_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                status__in=Snapshot.OPEN_STATES,
-            )
-            if crawl_id:
-                due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                due_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-            ):
-                continue
+            if not maintenance_only and has_due_crawls:
+                if _run_due_crawl_status(
+                    Crawl.StatusChoices.SEALED,
+                    crawl_id=crawl_id,
+                    lock_seconds=crawl_claim_lock_seconds,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                ):
+                    continue
 
-        if not maintenance_only and has_due_snapshots:
-            # Final snapshots can still have an explicit filesystem/index-json
-            # maintenance tick. Search extraction is invoked directly by the
-            # update path and never enters this scheduler through ArchiveResult.
-            sealed_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                status=Snapshot.StatusChoices.SEALED,
-            )
-            if crawl_id:
-                sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                sealed_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-            ):
-                continue
+            if crawl_id is None and not maintenance_only:
+                if _run_due_binary():
+                    continue
 
-        if not maintenance_only and has_due_crawls:
-            if _run_due_crawl_status(
-                Crawl.StatusChoices.SEALED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-            ):
-                continue
-
-        if crawl_id is None and not maintenance_only:
-            if _run_due_binary():
-                continue
-
-        now_monotonic = time.monotonic()
-        if crawl_id is None and now_monotonic - last_retention_repair_at >= (60.0 if daemon else 0.0):
-            for model in (ArchiveResult, Snapshot, Crawl, Process):
-                # No runnable work was found on this scheduler pass. This is
-                # the bounded repair point for missing retention deadlines,
-                # including ArchiveResult rows intentionally saved without
-                # delete_at in the plugin-result hot path. Running it here keeps
-                # DELETE_AFTER resolution fresh without making every hook event
-                # load parent Snapshot/Crawl config.
-                model.delete_expired(batch_size=100, backfill_missing=True, backfill_cursors=retention_backfill_cursors)
-            last_retention_repair_at = now_monotonic
-
-        if daemon:
             now_monotonic = time.monotonic()
-            if now_monotonic - last_recovery_at >= 30.0:
-                from archivebox.core.recovery_util import recover_orchestrator_state
+            if crawl_id is None and now_monotonic - last_retention_repair_at >= (60.0 if daemon else 0.0):
+                for model in (ArchiveResult, Snapshot, Crawl, Process):
+                    # No runnable work was found on this scheduler pass. This is
+                    # the bounded repair point for missing retention deadlines,
+                    # including ArchiveResult rows intentionally saved without
+                    # delete_at in the plugin-result hot path. Running it here keeps
+                    # DELETE_AFTER resolution fresh without making every hook event
+                    # load parent Snapshot/Crawl config.
+                    model.delete_expired(batch_size=100, backfill_missing=True, backfill_cursors=retention_backfill_cursors)
+                last_retention_repair_at = now_monotonic
 
-                recover_orchestrator_state()
-                last_recovery_at = now_monotonic
-            # Consider planner statistics at most daily, after an hour of uptime
-            # and only while idle. SQLite decides which tables need refreshing;
-            # unchanged history must not pay for repeated full index-page counts.
-            if now_monotonic - orchestrator_started_at >= 3600.0 and now_monotonic - last_optimize_at >= 86400.0:
-                run_db_optimize()
-                last_optimize_at = now_monotonic
-            time.sleep(2.0)
-            continue
-        return 0
+            if daemon:
+                now_monotonic = time.monotonic()
+                if now_monotonic - last_recovery_at >= 30.0:
+                    from archivebox.core.recovery_util import recover_orchestrator_state
+
+                    recover_orchestrator_state()
+                    last_recovery_at = now_monotonic
+                # Consider planner statistics at most daily, after an hour of uptime
+                # and only while idle. SQLite decides which tables need refreshing;
+                # unchanged history must not pay for repeated full index-page counts.
+                if now_monotonic - orchestrator_started_at >= 3600.0 and now_monotonic - last_optimize_at >= 86400.0:
+                    run_db_optimize()
+                    last_optimize_at = now_monotonic
+            else:
+                return 0
+        time.sleep(2.0)

@@ -400,12 +400,18 @@ def server(
     runtime_config = get_config()
     _print_server_startup_warnings(runtime_config, host, port)
     command = current_command(Process.TypeChoices.SERVER, data_dir=CONSTANTS.DATA_DIR, url=bind_url)
+    from archivebox.config.common import normalize_runtime_config
+    from archivebox.plugins.discovery import current_process_attributes, plugin_operation
+
+    operation_config = normalize_runtime_config(runtime_config)
+    operation_attributes = current_process_attributes()
 
     def still_owns_runtime_stack() -> bool:
         # This is polled at the log-tail cadence. Keep the autocommit
         # connection open so SQLite can reuse its page cache between polls;
         # reconnecting here repeatedly rereads the process table while idle.
-        return command_owns_runtime_stack(command, data_dir=CONSTANTS.DATA_DIR)
+        with plugin_operation("command_owns_runtime_stack", operation_config, attributes=operation_attributes):
+            return command_owns_runtime_stack(command, data_dir=CONSTANTS.DATA_DIR)
 
     try:
         with (

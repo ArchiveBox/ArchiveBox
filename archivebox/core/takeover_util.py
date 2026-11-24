@@ -51,6 +51,9 @@ def runtime_stack_owner(*, data_dir: str | Path, exclude_id=None):
     if exclude_id is not None:
         base_qs = base_qs.exclude(id=exclude_id)
 
+    # Polling ownership only needs identity/liveness fields. Historical log
+    # bodies can be large; leave them deferred until a caller actually asks.
+    base_qs = base_qs.defer("stdout", "stderr")
     for qs in (
         # Only server parents own HTTP runtime leadership. Foreground add/update
         # commands can own runner/plugin services components, but server startup must never
@@ -95,7 +98,7 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
     )
     if exclude_id is not None:
         qs = qs.exclude(id=exclude_id)
-    for proc in qs.order_by("-created_at", "-modified_at").paged_iterator(chunk_size=50):
+    for proc in qs.defer("stdout", "stderr").order_by("-created_at", "-modified_at").paged_iterator(chunk_size=50):
         if proc.is_running:
             return proc
         proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)

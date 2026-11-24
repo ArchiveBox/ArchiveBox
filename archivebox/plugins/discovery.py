@@ -1,6 +1,7 @@
 __package__ = "archivebox.plugins"
 
 import re
+from contextlib import ExitStack, contextmanager
 from html import escape
 from html.parser import HTMLParser
 from collections.abc import Iterable
@@ -375,6 +376,34 @@ def register_plugin_eventbus(bus, config) -> None:
         register = getattr(app, "register_eventbus", None)
         if register is not None:
             register(bus, config)
+
+
+def current_process_attributes():
+    """Project the registered Process identity without another database read."""
+    from archivebox.machine.models import Process
+
+    process = Process.current_readonly()
+    if process is None:
+        return {}
+    return {
+        "process.id": str(process.pk),
+        "process.parent_id": str(process.parent_id or ""),
+        "process.type": process.process_type,
+        "worker.type": process.worker_type,
+    }
+
+
+@contextmanager
+def plugin_operation(name, config, *, attributes=None):
+    """Let application plugins observe bounded work outside an event bus."""
+    # ExitStack preserves plugin cleanup on return, cancellation and failure;
+    # the host never imports an optional monitoring SDK itself.
+    with ExitStack() as stack:
+        for app in get_plugin_apps().values():
+            enter = getattr(app, "enter_operation", None)
+            if enter is not None:
+                stack.enter_context(enter(name, config, attributes=attributes or {}))
+        yield
 
 
 def wrap_plugin_asgi(application, config):

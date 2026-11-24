@@ -329,7 +329,22 @@ def run_next_importer(stop_event=None, *, run_id=None) -> bool:
 
 
 def recover_interrupted() -> None:
-    for run in ImporterRun.objects.filter(status=ImporterRun.Status.RUNNING).select_related("owner"):
+    # Recovery only checks the owner PID. Imported items, saved requests and
+    # process logs can be large and must not be decoded on every idle poll.
+    runs = (
+        ImporterRun.objects.filter(status=ImporterRun.Status.RUNNING)
+        .select_related("owner")
+        .only(
+            "id",
+            "owner__machine_id",
+            "owner__env",
+            "owner__pid",
+            "owner__started_at",
+            "owner__cmd",
+            "owner__status",
+        )
+    )
+    for run in runs:
         if run.owner is None or not run.owner.is_running:
             ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.RUNNING).update(
                 status=Case(
@@ -350,13 +365,20 @@ _stop = threading.Event()
 
 def _background_run():
     from django.db import connections
+    from archivebox.config.common import get_config, normalize_runtime_config
+    from archivebox.plugins.discovery import current_process_attributes, plugin_operation
 
+    config = normalize_runtime_config(get_config())
+    attributes = current_process_attributes()
     try:
         while not _stop.is_set():
-            recover_interrupted()
-            enqueue_due()
-            worked = run_next_importer(_stop)
-            connections.close_all()
+            # This independent thread outlives any scheduler pass that started
+            # it. Give each active iteration its own completed worker operation.
+            with plugin_operation("archivebox.importers.service._background_run", config, attributes=attributes):
+                recover_interrupted()
+                enqueue_due()
+                worked = run_next_importer(_stop)
+                connections.close_all()
             if not worked:
                 _stop.wait(2)
     finally:

@@ -70,3 +70,32 @@ def test_idle_queue_check_does_not_hide_new_scoped_snapshot_work():
     snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.PAUSED
     assert snapshot.retry_at == RETRY_AT_MAX
+
+
+def test_schedule_poll_reuses_latest_run_timestamp_for_one_pass():
+    from django.db.models import OuterRef, Subquery
+    from archivebox.crawls.models import Crawl, CrawlSchedule
+
+    now = timezone.now()
+    template = Crawl.objects.create(urls="https://www.sqlite.org/", status="sealed", retry_at=None, created_at=now - timedelta(days=2))
+    schedule = CrawlSchedule.objects.create(template=template, schedule="daily")
+    previous = Crawl.objects.create(
+        urls=template.urls,
+        schedule=schedule,
+        status="sealed",
+        retry_at=None,
+        created_at=now - timedelta(hours=1),
+    )
+    latest = Crawl.objects.filter(schedule_id=OuterRef("pk")).order_by("-created_at").values("created_at")[:1]
+    with CaptureQueriesContext(connection) as queries:
+        sampled = CrawlSchedule.objects.select_related("template").annotate(_last_run_created_at=Subquery(latest)).get(pk=schedule.pk)
+        assert sampled.last_run_at == previous.created_at
+        assert not sampled.is_due(now)
+    assert len(queries) == 1, queries.captured_queries
+    # Reusing this object after its own dispatch must see the new durable run.
+    dispatched = sampled.enqueue(queued_at=now)
+    assert sampled.last_run_at == dispatched.created_at
+    # Ordinary reads and the next poll always see work created elsewhere too.
+    later = Crawl.objects.create(urls=template.urls, schedule=schedule, created_at=now + timedelta(minutes=1))
+    assert schedule.last_run_at == later.created_at
+    assert CrawlSchedule.objects.annotate(_last_run_created_at=Subquery(latest)).get(pk=schedule.pk).last_run_at == later.created_at

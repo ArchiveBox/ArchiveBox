@@ -167,6 +167,25 @@ def cli(ctx, help=False):
             from archivebox.misc.checks import check_data_folder, check_migrations
 
             setup_django()
+            persistent = subcommand in {"server", "run"} or (
+                subcommand == "manage"
+                and any(name in sys.argv[1:] for name in ("runserver", "supervisord", "supervisord_watchdog", "runner_watch"))
+            )
+            if not persistent:
+                from django.conf import settings
+                from archivebox.config.common import normalize_runtime_config
+                from archivebox.plugins.discovery import current_process_attributes, plugin_operation
+
+                # Click closes this resource after the actual finite command,
+                # including its preflight work. Persistent workers instead end
+                # their own operation contexts after each active iteration.
+                ctx.with_resource(
+                    plugin_operation(
+                        f"archivebox {subcommand}",
+                        normalize_runtime_config(settings.CONFIG),
+                        attributes=current_process_attributes(),
+                    ),
+                )
             if os.environ.get("ARCHIVEBOX_WANTS_INIT") == "1" and subcommand not in ("init", "help"):
                 # Universal `--init` was passed: build/upgrade the data folder before
                 # the regular preflight runs, so it succeeds on a fresh dir and an

@@ -336,11 +336,20 @@ def test_runtime_stack_owner_prefers_newer_server_over_older_update(tmp_path, in
                 status=Process.StatusChoices.RUNNING,
             )
 
-        owner = runtime_stack_owner(data_dir=tmp_path)
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as queries:
+            owner = runtime_stack_owner(data_dir=tmp_path)
 
         assert owner is not None
         assert owner.process_type == Process.TypeChoices.SERVER
         assert owner.pid == procs[-1].pid
+        # The log-tail ownership poll needs live PID identity, not process logs.
+        for query in queries:
+            if 'FROM "machine_process"' in query["sql"]:
+                projection = query["sql"].split(" FROM ", 1)[0]
+                assert '"stdout"' not in projection and '"stderr"' not in projection, projection
     finally:
         _stop_archivebox_shells(procs)
 

@@ -1162,6 +1162,35 @@ def test_worker_stop_preserves_pending_page_and_restarts_from_last_committed_pag
     assert source.enabled and source.next_run_at == next_run_at
 
 
+def test_importer_recovery_reads_only_owner_liveness_fields(admin_client, import_site):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.importers.models import ImporterRun, ImporterSource
+    from archivebox.importers.service import recover_interrupted
+    from archivebox.machine.models import Process
+
+    _, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Owner recovery", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Owner recovery")
+    owner = Process.current()
+    run = ImporterRun.objects.create(source=source, status=ImporterRun.Status.RUNNING, owner=owner)
+    with CaptureQueriesContext(connection) as queries:
+        recover_interrupted()
+    run.refresh_from_db()
+    assert run.status == ImporterRun.Status.RUNNING
+    recovery_reads = [row["sql"] for row in queries if 'FROM "importers_importerrun"' in row["sql"]]
+    assert len(recovery_reads) == 1, recovery_reads
+    projection = recovery_reads[0].split(" FROM ", 1)[0]
+    for field in ("request", "items", "result", "stdout", "stderr"):
+        assert f'."{field}"' not in projection, projection
+    assert not any('FROM "machine_process"' in row["sql"] for row in queries), queries.captured_queries
+
+
 @pytest.mark.parametrize("paused", [True, False])
 def test_worker_recovery_preserves_explicit_pause(admin_client, import_site, paused):
     from archivebox.crawls.models import Crawl

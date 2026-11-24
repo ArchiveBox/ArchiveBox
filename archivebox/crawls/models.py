@@ -94,7 +94,12 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
     def last_run_at(self):
         if self.kind == "update":
             return self.modified_at
-        latest_created_at = self.crawl_set.order_by("-created_at").values_list("created_at", flat=True).first()
+        # The scheduler projects this scalar with its schedule query. Ordinary
+        # callers still read fresh rows; the annotation lives only on that pass.
+        if "_last_run_created_at" in self.__dict__:
+            latest_created_at = self.__dict__["_last_run_created_at"]
+        else:
+            latest_created_at = self.crawl_set.order_by("-created_at").values_list("created_at", flat=True).first()
         if latest_created_at is not None:
             return latest_created_at
         if self.template:
@@ -132,7 +137,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         # Template config is frozen; new runs must resolve current persona defaults.
         crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
-        return Crawl.objects.create(
+        crawl = Crawl.objects.create(
             urls=template.urls,
             config=crawl_config,
             max_depth=template.max_depth,
@@ -146,6 +151,9 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
             retry_at=queued_at,
             created_by=template.created_by,
         )
+        # A dispatch changes this schedule even within the current pass.
+        self.__dict__.pop("_last_run_created_at", None)
+        return crawl
 
 
 class CrawlQuerySet(PagedQuerySet):
