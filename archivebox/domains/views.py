@@ -1,4 +1,5 @@
 from functools import wraps
+from contextvars import copy_context
 from heapq import nlargest, nsmallest
 import logging
 from operator import itemgetter
@@ -98,7 +99,8 @@ def _domain_rows():
                 _refresh_lock.release()
 
         try:
-            Thread(target=refresh, name="domain-summary", daemon=True).start()
+            # The cached summary refresh still belongs to this page request.
+            Thread(target=copy_context().run, args=(refresh,), name="domain-summary", daemon=True).start()
         except RuntimeError:
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start domain metadata refresh")

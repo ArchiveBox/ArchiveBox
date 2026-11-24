@@ -2,6 +2,7 @@
 
 import json
 import logging
+from contextvars import copy_context
 from datetime import timedelta
 from pathlib import Path
 from threading import Lock, Thread
@@ -100,7 +101,8 @@ def progress_metrics(user, *, crawl_id=None, snapshot_id=None, system_only=False
                 _refresh_lock.release()
 
         try:
-            Thread(target=refresh, name="progress-metrics", daemon=True).start()
+            # Keep the polling request's context on its deferred database work.
+            Thread(target=copy_context().run, args=(refresh,), name="progress-metrics", daemon=True).start()
         except RuntimeError:
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start progress metrics sampler")

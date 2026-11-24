@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import logging
+import os
 import socket
 from contextlib import ExitStack
 from ipaddress import IPv6Address, ip_address
@@ -25,8 +26,19 @@ class WorkerApplication:
         # event loop, independently in each worker rather than in the manager.
         from archivebox.core.asgi import application
         from archivebox.plugins.discovery import get_plugin_icon_sprite
+        from archivebox.config import CONSTANTS
+        from archivebox.machine.models import Process
         from django.urls import reverse
         from django.template.loader import get_template
+
+        # Uvicorn spawns these children directly, bypassing Django runserver's
+        # registration. Each child owns a distinct Process row and log files.
+        Process.current().mark_running(
+            process_type=Process.TypeChoices.WORKER,
+            worker_type=os.environ.get("SUPERVISOR_PROCESS_NAME", "worker_uvicorn"),
+            pwd=str(CONSTANTS.DATA_DIR),
+            timeout=CONSTANTS.MAX_HOOK_RUNTIME_SECONDS,
+        )
 
         # The first browser should not pay for importing Django Ninja's API
         # routes and compiling the list template after the worker reports ready.
@@ -42,6 +54,13 @@ class WorkerApplication:
     @staticmethod
     def shutdown():
         from django.apps import apps
+        from archivebox.machine.models import Process
+
+        # A graceful lifespan shutdown ends this child, not its Supervisor or
+        # Uvicorn manager. Abrupt exits remain the existing recovery's job.
+        process = Process.current_readonly()
+        if process is not None:
+            process.mark_exited(exit_code=0)
 
         for app in apps.get_app_configs():
             shutdown = getattr(app, "shutdown", None)
@@ -54,6 +73,11 @@ class WorkerApplication:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "lifespan":
             assert self.application is not None, "Worker startup has not completed"
+            from archivebox.plugins.discovery import current_process_attributes
+
+            # Core startup already registered this worker. Expose its cached
+            # identity to application plugins without a query on every request.
+            scope = {**scope, "archivebox.process": current_process_attributes()}
             return await self.application(scope, receive, send)
 
         message = await receive()

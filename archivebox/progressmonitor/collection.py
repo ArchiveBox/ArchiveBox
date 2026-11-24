@@ -12,6 +12,7 @@ a thread does not make a scan free or require switching the database to WAL.
 """
 
 import logging
+from contextvars import copy_context
 from threading import Lock, Thread
 from time import time
 
@@ -61,7 +62,9 @@ def crawl_summary(crawl_id, *, snapshot_id=None):
                 _refresh_lock.release()
 
         try:
-            Thread(target=refresh, name="crawl-summary", daemon=True).start()
+            # The refresh belongs to the request that scheduled it, including
+            # its trace and user context, even if the response finishes first.
+            Thread(target=copy_context().run, args=(refresh,), name="crawl-summary", daemon=True).start()
         except RuntimeError:
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start crawl totals refresh")
@@ -129,7 +132,8 @@ def collection_summary(user, *, public=False, refresh=True):
                 _refresh_lock.release()
 
         try:
-            Thread(target=refresh, name="collection-summary", daemon=True).start()
+            # Plain threads otherwise drop the initiating request's context.
+            Thread(target=copy_context().run, args=(refresh,), name="collection-summary", daemon=True).start()
         except RuntimeError:
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start collection totals refresh")
@@ -176,7 +180,8 @@ def snapshot_list_count(queryset, *, first_match=False):
                 _refresh_lock.release()
 
         try:
-            Thread(target=refresh, name="snapshot-list-count", daemon=True).start()
+            # Attribute this count to its requesting page, not an orphan SQL span.
+            Thread(target=copy_context().run, args=(refresh,), name="snapshot-list-count", daemon=True).start()
         except RuntimeError:
             _refresh_lock.release()
             logging.getLogger(__name__).exception("Could not start snapshot list count refresh")

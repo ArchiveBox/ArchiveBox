@@ -13,6 +13,7 @@ import threading
 import time
 import zipfile
 from datetime import UTC, datetime
+from contextvars import copy_context
 from pathlib import Path
 from typing import cast
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
@@ -281,7 +282,8 @@ def _build_directory_zip_response(
             # A sync view may construct this response after its ASGI caller
             # disconnects; no one then receives or closes that response. Start
             # the producer only once a body consumer exists to own its cleanup.
-            threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
+            # A producer runs off-thread but remains part of this download.
+            threading.Thread(target=copy_context().run, args=(build_zip,), name=f"zip-stream-{root_name}", daemon=True).start()
             while True:
                 timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
                 try:

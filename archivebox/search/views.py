@@ -6,6 +6,7 @@ import json
 import threading
 import time
 from contextlib import ExitStack
+from contextvars import copy_context
 from copy import copy
 from itertools import batched
 from queue import Empty, Full, Queue
@@ -565,7 +566,9 @@ def snapshot_search_stream_response(
                 emit(None)
 
         try:
-            threading.Thread(target=run_search, name=thread_name, daemon=True).start()
+            # Preserve the streaming request's context through SQL and filesystem
+            # search, so its work stays attached to the requesting user and trace.
+            threading.Thread(target=copy_context().run, args=(run_search,), name=thread_name, daemon=True).start()
             yield f"0{stream_padding}\n"
             heartbeat = time.monotonic()
             last_work, work_sent_at = None, 0
