@@ -37,7 +37,7 @@ from archivebox.core.models import Folder, Snapshot, ArchiveResult, Tag
 from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.api.auth import API_AUTH_METHODS, authenticated_user_from_request
 from archivebox.config.common import get_config
-from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
+from archivebox.core.routes_util import build_snapshot_detail_path, build_web_url
 from archivebox.misc.util import equivalent_urls, validate_url_length
 from archivebox.core.tag_util import (
     add_snapshot_counts,
@@ -845,14 +845,16 @@ def _snapshots_rss_feed(request, *, snapshots, title, feed_factory=Rss201rev2Fee
 
     feed = feed_factory(
         title=title,
-        link=build_web_url("/public/", request=request),
+        link=f"{web_base_url}/public/",
         description="Recently added ArchiveBox snapshots.",
         language="en",
         feed_url=feed_url,
     )
 
     for snapshot in snapshots:
-        archived_url = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
+        # Every item shares this request's web origin. Rebuilding it for each
+        # snapshot repeats config/host parsing throughout large RSS exports.
+        archived_url = web_base_url + build_snapshot_detail_path(snapshot.archive_path_from_db)
         rss_tags = getattr(snapshot, "_rss_export_tags", None)
         tags = [tag.name for tag in (snapshot.tags.all() if rss_tags is None else rss_tags)]
         crawl_user = snapshot.crawl.created_by if snapshot.crawl_id else None

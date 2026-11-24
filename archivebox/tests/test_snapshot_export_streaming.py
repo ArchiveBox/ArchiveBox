@@ -126,8 +126,15 @@ def test_metadata_export_actual_asgi_stream_closes_spool(initialized_archive, la
 
 
 @pytest.mark.parametrize("date_source", ["updated", "published", "empty"])
-def test_public_rss_spool_matches_django_bytes_and_channel_date(client, crawl, date_source):
+@pytest.mark.parametrize("security_mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
+def test_public_rss_spool_matches_django_bytes_and_channel_date(client, crawl, date_source, security_mode):
     from archivebox.api.v1_core import _snapshots_rss_response
+    from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "SERVER_SECURITY_MODE": security_mode}
+    machine.save(update_fields=["config"])
 
     earliest = datetime(2026, 1, 1, tzinfo=UTC)
     latest = earliest + timedelta(days=4)
@@ -144,6 +151,7 @@ def test_public_rss_spool_matches_django_bytes_and_channel_date(client, crawl, d
         created_at=earliest,
         modified_at=earliest if date_source == "published" else latest,
         title='Café "paper" &lt;p&gt; & berries',
+        fs_version="0.8.0",
     )
     first.refresh_from_db()
     second = Snapshot.objects.create(
@@ -153,7 +161,11 @@ def test_public_rss_spool_matches_django_bytes_and_channel_date(client, crawl, d
         config={"PERMISSIONS": "public"},
         bookmarked_at=earliest + timedelta(days=1),
     )
-    Snapshot.objects.filter(pk=second.pk).update(created_at=earliest + timedelta(days=1), modified_at=earliest + timedelta(days=2))
+    Snapshot.objects.filter(pk=second.pk).update(
+        created_at=earliest + timedelta(days=1),
+        modified_at=earliest + timedelta(days=2),
+        fs_version="1.0.0",
+    )
     second.refresh_from_db()
     Snapshot.objects.create(
         crawl=crawl,
@@ -176,6 +188,12 @@ def test_public_rss_spool_matches_django_bytes_and_channel_date(client, crawl, d
     rows = [] if empty else [second, first]
     reference = _snapshots_rss_response(response.wsgi_request, snapshots=rows).content
     assert [item.findtext("guid") for item in channel.findall("item")] == [str(row.pk) for row in rows]
+    assert channel.findtext("link") == build_web_url("/public/", request=response.wsgi_request)
+    # Legacy timestamp paths and current owner/date paths keep the same escaping
+    # and request-specific origin when RSS resolves that origin just once.
+    assert [item.findtext("link") for item in channel.findall("item")] == [
+        build_snapshot_detail_url(row.archive_path_from_db, request=response.wsgi_request) for row in rows
+    ]
     if empty:
         assert started <= build_date <= datetime.now(UTC)
         # Match the exact dynamic RFC 2822 date if the two real renders cross a second boundary.
