@@ -596,13 +596,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const top = rect.bottom + box.height + 12 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4;
         menu.style.top = `${Math.max(8, Math.min(innerHeight - box.height - 8, top))}px`;
       }
-      menu.addEventListener('toggle', event => {
-        const open = event.newState === 'open';
+      // The browser opens the popover before it delivers toggle. Measure it
+      // while invisible so even a reused menu first appears at its new trigger.
+      menu.addEventListener('beforetoggle', event => {
+        if (event.newState === 'open') menu.removeAttribute('data-positioned');
+      });
+      function syncMenu(open) {
+        if (open && menu.hasAttribute('data-positioned')) return;
         button.setAttribute('aria-expanded', String(open));
         button.closest('.library-entry')?.classList.toggle('has-open-menu', open);
         if (open) {
           refreshRemoval();
           positionMenu();
+          menu.setAttribute('data-positioned', '');
           items.find(item => !item.hidden)?.focus({preventScroll:true});
           window.addEventListener('resize', positionMenu);
           window.addEventListener('scroll', positionMenu, true);
@@ -611,7 +617,10 @@ document.addEventListener('DOMContentLoaded', () => {
           window.removeEventListener('resize', positionMenu);
           window.removeEventListener('scroll', positionMenu, true);
         }
-      });
+      }
+      menu.addEventListener('toggle', event => syncMenu(event.newState === 'open'));
+      // Native triggers can open a menu before this deferred script has run.
+      if (menu.matches(':popover-open')) syncMenu(true);
       if (id !== 'library-entry-menu') buttons.forEach(trigger => trigger.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();

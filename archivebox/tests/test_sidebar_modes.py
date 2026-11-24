@@ -170,8 +170,28 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
             page.locator("#library-mode-menu").get_by_role("menuitem", name=label, exact=True).click()
             expect(page.locator("#result_list tbody tr")).to_have_count(13)
 
+        def open_anchored_menu(trigger):
+            # Sample before the queued toggle handler and again at paint. The
+            # browser may render the open popover before delivering that event.
+            trigger.evaluate("""button => {
+                const menu = button.popoverTargetElement;
+                const sample = () => {
+                    const box = menu.getBoundingClientRect();
+                    return {visible: menu.checkVisibility({visibilityProperty: true}), x: box.x, y: box.y};
+                };
+                window.menuOpening = new Promise(resolve => menu.addEventListener('toggle', () => {
+                    const opening = sample();
+                    requestAnimationFrame(() => resolve([opening, sample()]));
+                }, {once: true, capture: true}));
+            }""")
+            trigger.click()
+            opening, painted = page.evaluate("window.menuOpening")
+            assert painted["visible"]
+            if opening["visible"]:
+                assert (opening["x"], opening["y"]) == pytest.approx((painted["x"], painted["y"]), abs=1)
+
         page.screenshot(path=str(evidence / "all-snapshots.png"))
-        sidebar.get_by_role("button", name="Choose sidebar view").click()
+        open_anchored_menu(sidebar.get_by_role("button", name="Choose sidebar view"))
         page.screenshot(path=str(evidence / "view-menu.png"))
         page.keyboard.press("Escape")
         sidebar.get_by_role("link", name="Web archiving", exact=True).click()
@@ -188,8 +208,10 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
         expect(page.locator("#result_list tbody tr")).to_have_count(4)
         choose("Tags")
         sidebar.get_by_role("link", name="python", exact=True).hover()
-        sidebar.get_by_role("button", name="Actions for python", exact=True).click()
+        page.emulate_media(reduced_motion="reduce")
+        open_anchored_menu(sidebar.get_by_role("button", name="Actions for python", exact=True))
         menu = page.locator(".folder-menu:popover-open")
+        expect(menu).to_have_css("animation-name", "none")
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_be_visible()
         expect(menu.get_by_role("menuitem", name="Delete snapshots", exact=True)).to_be_visible()
         assert menu.locator(".library-delete:visible").all_text_contents() == ["Delete tag", "Delete snapshots"]

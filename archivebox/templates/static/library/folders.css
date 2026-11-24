@@ -70,6 +70,11 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .public-library #table-bookmarks thead th{border-top:0;border-bottom:1px solid var(--hairline-color,#e4e7ec)}
 .folder-drop-status:empty{display:none}.folder-drop-status{padding:6px 12px;font-size:11px;color:var(--archivebox-accent)}
 .folder-menu{box-sizing:border-box;position:fixed;inset:auto;margin:0;padding:4px;width:216px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;border:1px solid var(--border-color,#d0d5dd);border-radius:6px;background:var(--body-bg,#fff);color:var(--body-fg,#1d2939);box-shadow:0 6px 20px #10182826}
+@media(scripting:enabled){.folder-menu[popover]:not([data-positioned]){visibility:hidden}}
+@media(prefers-reduced-motion:no-preference){
+  .folder-menu[data-positioned]:popover-open{animation:library-menu-appear 100ms ease-out}
+  @keyframes library-menu-appear{from{opacity:0}to{opacity:1}}
+}
 .folder-menu.library-import-menu{width:290px}.folder-menu .snapshot-export-menu{display:block}
 .folder-menu [role=menuitem]{box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:32px;margin:0;padding:6px 8px;border:0;border-radius:3px;background:none;color:var(--body-fg,#1d2939);font:inherit;font-size:12px;line-height:20px;text-align:left;text-decoration:none!important;cursor:pointer}
 .folder-menu [role=menuitem]:hover,.folder-menu [role=menuitem]:focus-visible{outline:0;background:color-mix(in srgb,var(--archivebox-accent,#a51c50) 8%,var(--body-bg,#fff));color:var(--archivebox-accent,#a51c50)}
