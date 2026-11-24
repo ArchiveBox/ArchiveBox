@@ -95,18 +95,17 @@ def test_admin_action_checkbox_matches_native_widget(snapshot, language):
     assert actual == expected
 
 
-def test_thumbnail_query_selects_explicit_file_without_transferring_other_assets(client, admin_user, list_collection):
+@override_settings(PUBLIC_INDEX=True)
+def test_thumbnail_query_selects_explicit_file_without_transferring_other_assets(client, list_collection):
     snapshot = list_collection[0]
     result = snapshot.archiveresult_set.get(plugin="responses")
     result.output_str = "responses/all/20261012T000001__GET__article.html"
     result.save(update_fields=["output_str"])
     expected, card_id, sizes = _expected_links(snapshot)
-    client.force_login(admin_user)
-    url = reverse("admin:core_snapshot_changelist")
-    assert client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
     with CaptureQueriesContext(connection) as captured:
-        response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
-    row = _row(response.content.decode(), f'value="{snapshot.pk}"')
+        response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    row = _row(response.content.decode(), f"/{snapshot.archive_path_from_db}")
     assert _rendered_fragments(row) == expected
     assert f"_card/{card_id}" in row
     manifest = _manifests_shipped(captured.captured_queries)[("responses", "succeeded")]
@@ -419,9 +418,9 @@ def _manifests_shipped(captured_queries):
         return {(row[2], row[3]): row[6] for row in cursor.fetchall()}
 
 
-def _assert_only_linkable_manifests_shipped(captured_queries):
+def _assert_only_linkable_manifests_shipped(captured_queries, *, images_only=False):
     shipped = _manifests_shipped(captured_queries)
-    card_plugins = set(get_snapshot_thumbnail_card_order())
+    card_plugins = set(get_snapshot_thumbnail_card_order(images_only=images_only))
     for (plugin, status), manifest in shipped.items():
         linkable = (
             (status == ArchiveResult.StatusChoices.SUCCEEDED and plugin in get_snapshot_role_names("list_icon"))
@@ -481,7 +480,7 @@ def test_public_index_links_match_model_instances_and_skip_unrendered_manifests(
 
 
 def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manifests(client, admin_user, list_collection):
-    sealed, _started = list_collection
+    sealed, started = list_collection
     client.force_login(admin_user)
     url = reverse("admin:core_snapshot_changelist")
     # The first admin request provisions per-process rows (machine, API token).
@@ -491,17 +490,19 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
     assert response.status_code == 200
     row = _row(response.content.decode(), f'value="{sealed.pk}"')
 
-    fragments, card_id, _sizes = _expected_links(sealed)
+    fragments, _card_id, _sizes = _expected_links(sealed)
     # The admin lists plugins whose first successful result saved bytes; here
     # that is every linked plugin, so both pages show the same links.
     piles = fromstring(row).find_class("files-icon-pile")
     assert _rendered_fragments(row) == fragments
     assert len(fromstring(row).find_class("files-icon-pile-top")) == len(piles)
     assert not fromstring(row).find_class("files-icon-pile-popup")
-    assert f"_card/{card_id}" in row
+    assert "snapshot-thumbnail-initial" in row and "data-admin-preview" not in row
+    started_row = _row(response.content.decode(), f'value="{started.pk}"')
+    assert "screenshot/screenshot.png?" in started_row and "<iframe" not in started_row
     assert re.search(r'class="snapshot-url-favicon" src="[^"]*favicon/favicon\.ico"', row)
 
-    _assert_only_linkable_manifests_shipped(captured.captured_queries)
+    _assert_only_linkable_manifests_shipped(captured.captured_queries, images_only=True)
     html = response.content.decode()
     used = {plugin for pile in fromstring(html).find_class("files-icon-pile") for plugin, _ in json.loads(pile.get("data-files-icons"))}
     defined = re.findall(r'<template id="abx-file-icon-([a-z0-9_]+)"', html)

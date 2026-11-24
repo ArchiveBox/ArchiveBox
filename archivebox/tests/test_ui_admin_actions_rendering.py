@@ -216,7 +216,7 @@ def test_streamed_search_rows_drag_checked_snapshots(live_server, browser_runtim
             expect(page.locator("input.action-select:checked")).to_have_count(3)
         target = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
         if drag_source == "preview":
-            image = source.frame_locator(".field-preview_icon iframe").locator(".screenshot-thumbnail")
+            image = source.locator(".field-preview_icon img.screenshot-thumbnail")
             expect(image).to_be_visible()
             expect(image).to_have_js_property("complete", True)
             assert image.evaluate("image => image.naturalWidth") > 0

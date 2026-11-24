@@ -2,9 +2,14 @@
 <span class="snapshot-thumbnail" role="img" aria-label="Preview of {{ host }}" style="display:inline-flex;position:relative;vertical-align:middle;align-items:center;justify-content:center;overflow:hidden;border-radius:4px;box-shadow:4px 4px 4px rgba(0,0,0,0.02);width:{{ width }};height:{{ height }};background:hsl({{ hue }} 35% 92%);color:hsl({{ hue }} 35% 30%);container:snapshot-thumbnail / size;">
   <span style="display:flex;flex-direction:column;align-items:center;gap:4px;max-width:90%;">
     <span class="snapshot-thumbnail-initial" aria-hidden="true" style="font:bold 28px var(--font-family-primary);">{{ initial }}</span>
+    {% if not thumbnail_admin %}
     <span class="snapshot-thumbnail-caption" style="font:10px var(--font-family-primary);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ host }}</span>
     <span class="snapshot-thumbnail-caption" aria-hidden="true" style="font-size:12px;">▤</span>
+    {% endif %}
   </span>
+  {% if thumbnail_src %}
+  <template data-admin-preview><img class="screenshot-thumbnail" src="{{ thumbnail_src }}"{% if thumbnail_fallbacks %} data-fallbacks="{{ thumbnail_fallbacks }}"{% endif %} alt="" draggable="false" decoding="async" fetchpriority="low" hidden style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;pointer-events:none;"></template>
+  {% endif %}
   {% if card_result %}
   <span aria-hidden="true" inert style="position:absolute;inset:0;display:block;pointer-events:none;">
     {% plugin_card card_result %}

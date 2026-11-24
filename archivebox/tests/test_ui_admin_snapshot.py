@@ -312,7 +312,7 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert b"Searching matching snapshots..." in response.content
 
 
-def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client, snapshot, real_hash_projection):
+def test_snapshot_changelist_thumbnail_uses_prefetched_screenshot(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
     snapshot.title = "Preview destination test"
@@ -329,11 +329,12 @@ def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client,
 
     assert response.status_code == 200
     assert b'class="snapshot-preview' in response.content
-    assert f"_card/{result.id}".encode() in response.content
     html = response.content.decode()
     preview_cell = re.search(r'<td class="field-preview_icon">(.*?)</td>', html, re.S)
     title_cell = re.search(r'<td class="field-title_str">(.*?)</td>', html, re.S)
     assert preview_cell and title_cell
+    assert "screenshot.png?" in preview_cell.group(1)
+    assert "<iframe" not in preview_cell.group(1)
     preview_link = re.search(r'<a href="([^"]+)"', preview_cell.group(1))
     title_link = re.search(r'<a href="([^"]+)"', title_cell.group(1))
     assert preview_link and title_link
@@ -364,7 +365,9 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     assert thumbnail_link.group(1) == title_link.group(1)
     assert thumbnail_link.group(1).endswith(f"/{snapshot.archive_path_from_db}")
     assert 'aria-label="Preview of example.com"' in thumbnail_link.group(2)
-    assert "▤" in thumbnail_link.group(2)
+    assert re.search(r'class="snapshot-thumbnail-initial"[^>]*>E</span>', thumbnail_link.group(2))
+    assert "<iframe" not in thumbnail_link.group(2)
+    assert "snapshot-thumbnail-caption" not in thumbnail_link.group(2)
     # Completed non-HTML captures can have no page title. They are not pending.
     assert '<span class="title-text">example.com</span>' in html
     assert "Pending..." not in html
@@ -389,8 +392,8 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
         "admin:core_snapshot_preview",
         args=(snapshot.pk, "chrome_extension_screenshot", "screenshot.png"),
     )
-    assert f"_card/{result.id}" in html
-    assert "data-candidates=" not in html
+    assert f'src="{preview_url}?' in html
+    assert f"_card/{result.id}" not in html
 
     preview_response = admin_client.get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -588,7 +591,7 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
     assert snapshot.config["PERMISSIONS"] == "private"
 
 
-def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_screenshot_missing(snapshot, real_hash_projection):
+def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection):
     from archivebox.config.common import get_config
     from archivebox.core.admin_site import archivebox_admin
     from archivebox.core.admin_snapshots import SnapshotAdmin
@@ -612,9 +615,9 @@ def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_s
     snapshot._snapshot_card_results = [result]
     thumbnail = str(admin._render_thumbnail(snapshot))
 
-    assert f"_card/{result.id}" in thumbnail
-    assert "screenshot-1.png" not in thumbnail
-    assert "data-candidates=" not in thumbnail
+    assert "<iframe" not in thumbnail
+    assert re.search(r'src="[^"]*chrome_extension_screenshot/screenshot-1\.png\?', thumbnail)
+    assert re.search(r'data-fallbacks="[^"]*chrome_extension_screenshot/screenshot\.png\?', thumbnail)
 
 
 def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):

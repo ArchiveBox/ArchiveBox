@@ -239,12 +239,13 @@ def read_plugin_output_text(plugin_name: str, snapshot_dir: Path, output_str: st
     return ""
 
 
-@lru_cache(maxsize=1)
-def get_snapshot_thumbnail_card_order() -> dict[str, int]:
+@lru_cache(maxsize=2)
+def get_snapshot_thumbnail_card_order(*, images_only: bool = False) -> dict[str, int]:
     """Return plugin-owned ArchiveResult names eligible for snapshot thumbnails."""
     return {
         card["archive_result_name"]: card["order"]
         for plugin in get_plugin_catalog().values()
+        if not images_only or plugin.manifest.get("snapshot_output_group") == "images"
         for card in plugin.manifest.get("snapshot_thumbnail_cards", [])
     }
 

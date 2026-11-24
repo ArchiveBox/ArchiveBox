@@ -262,7 +262,7 @@ class SnapshotChangeList(SearchResultsChangeList):
         # Progress counts, file icons, favicons and thumbnails come from plain
         # rows plus the few manifest entries their links need: responses/wget
         # manifests hold thousands of entries (see list_results_util).
-        list_results = load_snapshot_list_results(snapshots)
+        list_results = load_snapshot_list_results(snapshots, images_only=True)
         for obj in snapshots:
             summary = list_results[obj.pk]
             counts = summary.status_counts + summary.unnamed_status_counts
@@ -289,7 +289,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             # hook to count shared plugin files once and order the icons.
             obj.__dict__["_admin_output_results"] = summary.results
             obj.__dict__["_snapshot_card_results"] = summary.results
-            obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
+            obj.__dict__["_snapshot_thumbnail_image_paths"] = summary.thumbnail_image_paths
 
     def get_results(self, request):
         if getattr(request, "_archivebox_search_filter_only", False):
@@ -861,11 +861,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         snapshot = get_object_or_404(Snapshot, pk=object_id)
         if not self.has_view_or_change_permission(request, snapshot):
             raise PermissionDenied
-        result = snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).first()
-        try:
-            output_path = result.output_file_path(filename) if result else None
-        except (TypeError, ValueError, OverflowError):
-            output_path = None
+        results = (
+            snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED)
+            .only("plugin", "output_files", "output_str")
+            .order_by("id")
+        )
+        output_path = None
+        for result in results:
+            try:
+                manifest = result.output_file_map()
+                output_path = result.output_file_path(filename, output_file_map=manifest)
+                if not manifest:
+                    # Legacy captures can have a saved image path and no manifest.
+                    primary = result.embed_path_db(manifest)
+                    if primary and primary.removeprefix(f"{plugin}/") == filename:
+                        output_path = primary
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if output_path:
+                break
         if not output_path:
             raise Http404("Snapshot image does not exist")
         request.archivebox_cache_policy = "private"
@@ -1402,7 +1416,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 if not plugin_icon_is_hidden(plugin) and icon.strip():
                     if asset := get_plugin_icon_asset(plugin):
                         url = reverse("plugin-icon", kwargs={"plugin": plugin, "fingerprint": asset[0]})
-                        icon = f'<img src="{escape(url)}" width="16" height="16" alt="">'
+                        # Keep the original badge styling around the cached SVG.
+                        icon = f'{icon[: icon.index("<svg")]}<img src="{escape(url)}" width="16" height="16" alt="">{icon[icon.rindex("</svg>") + 6 :]}'
                     icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon)
                 else:
                     icon_metadata[plugin] = None

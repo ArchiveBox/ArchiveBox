@@ -1367,11 +1367,12 @@ body.model-crawl.change-list #result_list td.field-short_id a {
 
 .files-icon-pile::before,
 .files-icon-pile::after {
+    box-sizing: border-box;
     position: absolute;
     top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
+    left: 1px;
+    width: 15px;
+    height: 15px;
     border: 1px solid #d9cdd3;
     border-radius: 3px;
     background: #f7f2f4;
@@ -1379,8 +1380,9 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     pointer-events: none;
 }
 
-.files-icon-pile::before { transform: translate(2px, -2px) rotate(7deg); z-index: -2; }
-.files-icon-pile::after { transform: translate(1px, -1px) rotate(3deg); z-index: -1; background: #ece5e8; }
+/* Let the edges show above the cover without widening the icon stack. */
+.files-icon-pile::before { transform: translate(1.5px, -2px) rotate(5deg); z-index: -2; }
+.files-icon-pile::after { transform: translate(.5px, -1px) rotate(2deg); z-index: -1; background: #ece5e8; }
 .files-icon-pile-popup {
     position: fixed;
     z-index: 0;
