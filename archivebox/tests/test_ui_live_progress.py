@@ -1829,7 +1829,18 @@ class TestLiveProgressView:
                     status=ArchiveResult.StatusChoices.QUEUED,
                 ),
             )
-            page.locator("#progress-monitor .extractor-badge.queued").wait_for()
+            queued_icon = page.locator("#progress-monitor .extractor-badge.queued .badge-icon")
+            queued_icon.wait_for()
+            from archivebox.plugins.discovery import get_plugin_icon
+
+            assert queued_icon.evaluate(
+                """(node, markup) => {
+                const expected = document.createElement('span');
+                expected.innerHTML = markup;
+                return node.innerHTML === expected.innerHTML;
+            }""",
+                get_plugin_icon("chrome"),
+            )
             page.wait_for_timeout(1500)
             labels = page.locator("#progress-monitor .extractor-badge .badge-label").all_text_contents()
             assert labels == ["parse txt urls", "chrome wait"]
