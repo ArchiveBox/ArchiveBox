@@ -313,10 +313,17 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
     return queryset
 
 
-def selection_digest(snapshots):
+def selection_digest(snapshots, *, stream_queryset=False):
     digest = hashlib.sha256()
-    ids = snapshots.values_list("pk", flat=True) if hasattr(snapshots, "values_list") else snapshots
-    for pk in sorted(str(pk) for pk in ids):
+    if stream_queryset:
+        # Export sorts only use snapshot values or one annotation per snapshot,
+        # so changing outer order cannot change DISTINCT membership. An inner
+        # max_results subquery keeps its own ordering and selection.
+        ids = snapshots.order_by("pk").values_list("pk", flat=True).iterator(chunk_size=1000)
+    else:
+        ids = snapshots.values_list("pk", flat=True) if hasattr(snapshots, "values_list") else snapshots
+        ids = sorted(str(pk) for pk in ids)
+    for pk in ids:
         digest.update(str(pk).encode())
         digest.update(b"\n")
     return digest.hexdigest()
@@ -629,7 +636,7 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
                 config=getattr(request, "archivebox_config", None),
                 selection_before=cutoff,
             )
-            if process.export_report.get("selection_digest") != selection_digest(snapshots):
+            if process.export_report.get("selection_digest") != selection_digest(snapshots, stream_queryset=True):
                 return HttpResponse("The public selection changed. Export it again.", status=409)
         destination = Path(value("--destination"))
         if value("--format") not in {"html_zip", "wacz"}:
