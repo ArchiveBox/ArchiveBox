@@ -160,18 +160,6 @@ jobs:
           enable-cache: false
           cache-dependency-glob: uv.lock
 
-      # Self-hosted tool storage survives jobs. Normal abxpkg validation and
-      # install locks allow reuse across files; cold-install tests use tmp_path.
-      - name: Reuse persistent runner tools
-        if: runner.environment == 'self-hosted'
-        env:
-          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ steps.python.outputs.python-version }}
-        run: |
-          mkdir -p "$PERSISTENT_ABXPKG_LIB"
-          echo "ABXPKG_LIB_DIR=$PERSISTENT_ABXPKG_LIB" >> "$GITHUB_ENV"
-
-      # Restored binaries still pass normal abxpkg resolution/version checks.
-      # Installation and isolation tests explicitly choose fresh temporary libs.
       - name: Identify runtime dependency cache
         shell: bash
         run: |
@@ -186,6 +174,17 @@ jobs:
           print("ABXPKG_CACHE_DEPS=" + hashlib.sha256(json.dumps(versions, sort_keys=True).encode()).hexdigest())
           PYTHON
 
+      # Older providers may resolve the newest installed browser even when
+      # asked for a pinned build. Keep incompatible runtime pins in separate
+      # libraries while still sharing installs across jobs with the same pins.
+      - name: Reuse persistent runner tools
+        if: runner.environment == 'self-hosted'
+        env:
+          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ steps.python.outputs.python-version }}/${{ env.ABXPKG_CACHE_DEPS }}
+        run: |
+          mkdir -p "$PERSISTENT_ABXPKG_LIB"
+          echo "ABXPKG_LIB_DIR=$PERSISTENT_ABXPKG_LIB" >> "$GITHUB_ENV"
+
       - name: Reuse validated runtime dependencies
         if: runner.environment != 'self-hosted'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -194,8 +193,6 @@ jobs:
           # Managed venvs link to setup-python's patch-specific interpreter path.
           # A 3.13.15 cache cannot run on a host that only has 3.13.16 installed.
           key: abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
-          restore-keys: |
-            abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-
 
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
