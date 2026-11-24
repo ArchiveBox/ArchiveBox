@@ -192,15 +192,27 @@ def test_hyphenated_previous_layout_serves_until_lazy_migration_moves_it(snapsho
     current_dir, crawl_dir, legacy_dir, legacy_crawl_dir = _store_previous_layout_in_hyphenated_dirs(snapshot)
     client.force_login(admin_user)
 
-    def served_file() -> tuple[int, bytes]:
-        response = client.get("/wget/index.html", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
-        body = consume_streaming_response(response) if getattr(response, "streaming", False) else response.content
-        return response.status_code, body
+    def assert_served_file():
+        from lxml.html import fromstring
+
+        host = get_snapshot_host(str(snapshot.id))
+        rendered = client.get("/wget/index.html", HTTP_HOST=host)
+        assert rendered.status_code == 200
+        body = consume_streaming_response(rendered) if rendered.streaming else rendered.content
+        document = fromstring(body)
+        assert document.xpath("normalize-space(string(//body))") == "saved hyphenated capture"
+        assert document.xpath("//link[@rel='canonical']/@href") == [snapshot.url]
+        assert document.xpath("//meta[@name='robots']/@content") == ["noindex, follow"]
+
+        raw = client.get("/wget/index.html?raw=1", HTTP_HOST=host)
+        assert raw.status_code == 200
+        raw_body = consume_streaming_response(raw) if raw.streaming else raw.content
+        assert raw_body == b"<html>saved hyphenated capture</html>"
 
     detail = client.get(f"/{snapshot.archive_path_from_db}", HTTP_HOST=WEB_TEST_HOST, follow=True)
     assert detail.status_code == 200
     assert snapshot.url in detail.content.decode()
-    assert served_file() == (200, b"<html>saved hyphenated capture</html>")
+    assert_served_file()
 
     run_scheduled_maintenance()
     run_pending_crawls(maintenance_only=True)
@@ -214,7 +226,7 @@ def test_hyphenated_previous_layout_serves_until_lazy_migration_moves_it(snapsho
     assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
     crawl_link = crawl_dir / "snapshots" / Snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
     assert crawl_link.resolve() == current_dir.resolve()
-    assert served_file() == (200, b"<html>saved hyphenated capture</html>")
+    assert_served_file()
 
 
 def test_previous_layout_migration_is_one_existence_check_per_snapshot_without_walks(snapshot):

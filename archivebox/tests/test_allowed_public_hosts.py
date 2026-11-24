@@ -101,7 +101,8 @@ def test_builtin_role_and_original_replay_hosts_keep_existing_routing(snapshot, 
     suffix = str(snapshot.id).replace("-", "")[-12:]
     replay = client.get(f"/singlefile/{output.output_str}", HTTP_HOST=f"snap-{suffix}.archivebox.localhost:5797")
     assert replay.status_code == 200
-    assert b"ArchiveBox consolelog preview fixture" in b"".join(replay.streaming_content)
+    body = b"".join(replay.streaming_content) if replay.streaming else replay.content
+    assert b"ArchiveBox consolelog preview fixture" in body
     assert client.get("/admin/login/", HTTP_HOST="admin.archivebox.localhost:5797").status_code == 200
     api = client.get("/", HTTP_HOST="api.archivebox.localhost:5797")
     assert api.status_code == 302
