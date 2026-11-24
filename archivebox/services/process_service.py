@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
@@ -64,7 +65,9 @@ class ProcessService(BaseService):
 
     def __init__(self, bus):
         self._iface = None
-        self._completed_queue: asyncio.Queue[ProcessCompletedEvent | None] = asyncio.Queue()
+        self._completed_queue: asyncio.Queue[tuple[ProcessCompletedEvent, contextvars.Context, asyncio.Future[dict | None]]] = (
+            asyncio.Queue()
+        )
         self._completed_worker: asyncio.Task | None = None
         super().__init__(bus)
         self.bus.on(ProcessStartedEvent, self.on_ProcessStartedEvent__save_to_db)
@@ -77,7 +80,7 @@ class ProcessService(BaseService):
             self._iface = await sync_to_async(current_network_interface_with_machine, thread_sensitive=True)()
         return self._iface
 
-    async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
+    async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> dict:
         from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
@@ -180,29 +183,33 @@ class ProcessService(BaseService):
                     snapshot_id=snapshot_event.snapshot_id,
                     process_id=str(process.id),
                 )
+        return process.to_json()
 
     async def _completed_worker_loop(self) -> None:
         while True:
-            event = await self._completed_queue.get()
+            event, context, result = await self._completed_queue.get()
             try:
-                if event is None:
-                    return
-                await self._save_completed_process_to_db(event)
+                # The queue serializes writes, but each item belongs to its own
+                # event handler. A long-lived consumer otherwise inherits the
+                # first completion's trace and attributes every later query to it.
+                value = await asyncio.create_task(self._save_completed_process_to_db(event), context=context)
+                if not result.done():
+                    result.set_result(value)
+            except Exception as error:
+                if not result.done():
+                    result.set_exception(error)
             finally:
                 self._completed_queue.task_done()
 
     def _ensure_completed_worker(self) -> None:
         if self._completed_worker is None or self._completed_worker.done():
-            self._completed_worker = asyncio.create_task(self._completed_worker_loop())
+            self._completed_worker = asyncio.create_task(self._completed_worker_loop(), context=contextvars.Context())
 
-    async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
+    async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> dict | None:
         self._ensure_completed_worker()
-        completed_worker = self._completed_worker
-        assert completed_worker is not None
-        await self._completed_queue.put(event)
-        await self.flush_completed()
-        if completed_worker.done():
-            await completed_worker
+        result = asyncio.get_running_loop().create_future()
+        await self._completed_queue.put((event, contextvars.copy_context(), result))
+        return await result
 
     async def flush_completed(self) -> None:
         await self._completed_queue.join()
@@ -213,7 +220,7 @@ class ProcessService(BaseService):
     async def on_CrawlCompletedEvent__flush_completed(self, event: CrawlCompletedEvent) -> None:
         await self.flush_completed()
 
-    async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> None:
+    async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> dict | None:
         from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
@@ -287,3 +294,6 @@ class ProcessService(BaseService):
         if missing_cmd:
             updates["cmd"] = [event.hook_path, *event.hook_args]
         await Process.objects.filter(id=process.id).aupdate(**updates)
+        for key, value in updates.items():
+            setattr(process, key, value)
+        return process.to_json()
