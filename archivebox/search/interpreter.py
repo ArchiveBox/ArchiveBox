@@ -3,6 +3,7 @@
 import json
 import logging
 import math
+import shutil
 import subprocess
 import sys
 import time
@@ -20,7 +21,7 @@ from django.db.models import Case, Exists, OuterRef, Q, Value, When
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
-from archivebox.search.backends import get_backend, search_backend_command_env
+from archivebox.search.backends import get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.language import (
     Term,
     has_uppercase,
@@ -42,6 +43,7 @@ PAGE_SIZE = 64
 DISK_LIMITS = {"files": 96, "entries": 512, "bytes": 4 << 20}
 MAX_SECONDS = 8.0
 SCAN_SECONDS = 2.0
+SONIC_FALLBACK_CANDIDATES = 32
 # Only external work competes for these slots. A missing or slow mounted drive
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
@@ -87,7 +89,9 @@ def sql_snapshot_search(scope, query, *, public=False, ranked=False):
 
 
 class SnapshotSearch:
-    def __init__(self, scope, query, *, config=None, stop_event=None, rules=None, stack=(), public=False, streaming=False):
+    def __init__(
+        self, scope, query, *, config=None, stop_event=None, rules=None, stack=(), public=False, streaming=False, allow_sonic_fallback=False
+    ):
         self.scope = scope
         self.tree = parse(query)
         self.terms = tuple(dict.fromkeys(leaves(self.tree)))
@@ -142,6 +146,10 @@ class SnapshotSearch:
         self.exhausted_words = set()
         self.hinted_ids = {}
         self.scan_deadline = None
+        self.allow_sonic_fallback = allow_sonic_fallback and streaming and not public
+        self.sonic_handshake = None
+        self.sonic_started = None
+        self.fallback_candidates = SONIC_FALLBACK_CANDIDATES
         self.deadline = math.inf
 
     @cached_property
@@ -153,6 +161,27 @@ class SnapshotSearch:
     def backend(self):
         self.config = self.config or get_config()
         return get_backend(config=self.config)
+
+    @cached_property
+    def sonic_fallback(self):
+        if not self.allow_sonic_fallback or self.backend is None or self.backend.name != "search_backend_sonic":
+            return None
+        if normalize_search_backend_name(self.config.get("SEARCH_BACKEND_ENGINE")) != "sonic":
+            return None
+        scanner = get_plugin_catalog().get("search_backend_ripgrep")
+        if not scanner or not scanner.config.search_scan or not self.config.get(scanner.enabled_key, True):
+            return None
+        return scanner
+
+    def observe_sonic(self, connected):
+        if self.sonic_handshake is not None or self.sonic_started is None:
+            return
+        if connected:
+            self.sonic_handshake = True
+        elif shutil.which(self.env.get("RIPGREP_BINARY", "rg"), path=self.env.get("PATH")):
+            # Do not enter the scanner's dependency resolver for a missing binary.
+            self.sonic_handshake = False
+            self.scan_deadline = self.sonic_started + SCAN_SECONDS
 
     def active(self):
         if self.stop_event and self.stop_event.is_set():
@@ -631,7 +660,7 @@ class SnapshotSearch:
             if (
                 not ordered
                 and self.scan_deadline is not None
-                and not self.scan_available()
+                and (not self.scan_available() or (self.sonic_handshake is False and not self.fallback_candidates))
                 and not any(term.field in {"linksto", "linkedfrom"} for term in self.terms)
             ):
                 self.partial = True
@@ -724,12 +753,25 @@ class SnapshotSearch:
         app = get_plugin_app(self.backend.name)
         pages = getattr(app, "search_word_pages", None) if exhaustive else None
         lookup = getattr(app, "search_word_hits", None)
+        options = {"environ": self.env, "timeout": timeout}
+        if self.sonic_handshake is False:
+            return
+        # Observe the existing first lookup, never a separate probe or a
+        # substitute for complete pages. A subsequent error is not downtime.
+        typed_name = "search_word_pages_with_availability" if pages else "search_word_hits_with_availability"
+        if self.sonic_started is None and self.sonic_fallback and (observed := getattr(app, typed_name, None)):
+            self.sonic_started = time.monotonic()
+            options["observe"] = self.observe_sonic
+            if pages:
+                pages = observed
+            else:
+                lookup = observed
         postings = None
         if pages:
-            postings = chain.from_iterable(pages(word.value, environ=self.env, timeout=timeout))
+            postings = chain.from_iterable(pages(word.value, **options))
         elif lookup:
             try:
-                postings = lookup(word.value, environ=self.env, timeout=timeout)
+                postings = lookup(word.value, **options)
             except (ImportError, OSError, RuntimeError, ValueError) as err:
                 logger.warning("In-process search unavailable: %s", type(err).__name__)
         confirmed_word = postings is not None
@@ -766,7 +808,7 @@ class SnapshotSearch:
                 if not self.active():
                     break
             else:
-                if pages:
+                if pages and self.sonic_handshake is not False:
                     self.exhausted_words.add(word)
         except (ImportError, OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
             stderr = getattr(err, "stderr", "") or ""
@@ -834,6 +876,13 @@ class SnapshotSearch:
         ranked = []
         for terms, batch in groups.items():
             backend = self.backend
+            if self.sonic_handshake is False:
+                self.partial = True
+                if index_only or not self.fallback_candidates or not self.scan_available():
+                    continue
+                backend = self.sonic_fallback
+                batch = dict(islice(batch.items(), self.fallback_candidates))
+                self.fallback_candidates -= len(batch)
             if not backend:
                 continue
             try:

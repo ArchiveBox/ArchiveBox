@@ -376,6 +376,7 @@ def snapshot_search_stream_response(
     public=False,
     page_request=None,
     report_work=False,
+    allow_sonic_fallback=False,
 ):
     """Stream Snapshot search progress and cache matching IDs for a list view."""
     if not query:
@@ -388,7 +389,9 @@ def snapshot_search_stream_response(
         from archivebox.search.interpreter import SnapshotSearch
 
         try:
-            search = SnapshotSearch(base_queryset, query, config=config, public=public, streaming=True)
+            search = SnapshotSearch(
+                base_queryset, query, config=config, public=public, streaming=True, allow_sonic_fallback=allow_sonic_fallback
+            )
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
         page_query = search.sql_queryset(
@@ -638,6 +641,7 @@ def admin_snapshot_search_stream_view(model_admin, request):
         config=config,
         cache_key=get_admin_search_cache_key(request, search_url),
         thread_name="admin-snapshot-search-stream",
+        allow_sonic_fallback=request.user.is_authenticated and request.user.is_staff,
         page_request=(request, search_url) if ordered else None,
         report_work=request.headers.get("X-ArchiveBox-Search-Progress") == "1",
     )
