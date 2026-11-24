@@ -1410,6 +1410,7 @@ class TestUrlRouting:
         self._run(
             """
             from datetime import timedelta
+            from lxml.html import fromstring
             import shutil
             from urllib.parse import urlsplit
             from django.db import connection
@@ -1507,7 +1508,10 @@ class TestUrlRouting:
                 assert auth.status_code == 302
                 replay_resp = replay_client.get("/about.html", HTTP_HOST=original_host)
                 assert replay_resp.status_code == 200
-                assert response_body(replay_resp) == b"private"
+                assert fromstring(response_body(replay_resp)).xpath("normalize-space(string(//body))") == "private"
+                raw_replay_resp = replay_client.get("/about.html?raw=1", HTTP_HOST=original_host)
+                assert raw_replay_resp.status_code == 200
+                assert response_body(raw_replay_resp) == b"private"
 
                 # The candidate subquery must keep root URLs whose first
                 # delimiter is a query or fragment, as well as ordinary paths.
@@ -1580,6 +1584,7 @@ class TestUrlRouting:
         self._run(
             """
             from datetime import timedelta
+            from lxml.html import fromstring
             import shutil
             from django.contrib.auth.models import AnonymousUser
             from django.db import connection
@@ -1629,12 +1634,21 @@ class TestUrlRouting:
                     response = OriginalDomainHostView.as_view()(request, domain=domain, path="docs")
 
                 assert response.status_code == 200
-                assert response_body(response) == b"index-fallback"
+                assert fromstring(response_body(response)).xpath("normalize-space(string(//body))") == "index-fallback"
+                assert "script-src 'none'" in response["Content-Security-Policy"]
                 snapshot_queries = [
                     query["sql"] for query in queries.captured_queries
                     if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
                 ]
                 assert len(snapshot_queries) == 1, snapshot_queries
+
+                raw_request = RequestFactory().get("/docs?raw=1", HTTP_HOST=get_base_host())
+                raw_request.user = AnonymousUser()
+                raw_request.archivebox_config = SERVER_CONFIG
+                raw_response = OriginalDomainHostView.as_view()(raw_request, domain=domain, path="docs")
+                assert raw_response.status_code == 200
+                assert response_body(raw_response) == b"index-fallback"
+                assert "script-src 'none'" in raw_response["Content-Security-Policy"]
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)

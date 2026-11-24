@@ -851,8 +851,9 @@ class TestPublicIndex:
         assert saved_file.status_code == 200
         assert historic_icon_target.status_code == 200
         assert historic_icon_target.redirect_chain
-        assert b"migrated output" in b"".join(saved_file.streaming_content)
-        assert b"migrated output" in b"".join(historic_icon_target.streaming_content)
+        for response in (saved_file, historic_icon_target):
+            body = b"".join(response.streaming_content) if response.streaming else response.content
+            assert b"migrated output" in body
         assert b"Upgraded 0.7 snapshot" in live_detail.content
 
     @override_settings(PUBLIC_INDEX=True)
