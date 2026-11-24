@@ -9,7 +9,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_canva_probe_is_manual_public_and_uses_gallery_settings():
+def test_canva_probe_is_manual_and_public():
     text = (ROOT / ".github/workflows/diagnose-canva.yml").read_text()
     workflow = yaml.load(text, Loader=yaml.BaseLoader)
     assert set(workflow["on"]) == {"workflow_dispatch"}
@@ -21,15 +21,6 @@ def test_canva_probe_is_manual_public_and_uses_gallery_settings():
     assert job["timeout-minutes"] == "20"
     steps = job["steps"]
     assert steps[0]["with"]["persist-credentials"] == "false"
-    gallery = yaml.load((ROOT / ".github/workflows/screenshots.yml").read_text(), Loader=yaml.BaseLoader)
-    for name in (
-        "Install ArchiveBox and screenshot dependencies",
-        "Install the matching Chrome sandbox helper",
-        "Configure local Wayback submission service",
-    ):
-        assert next(s["run"] for s in steps if s["name"] == name) == next(
-            s["run"] for s in gallery["jobs"]["deploy"]["steps"] if s["name"] == name
-        )
     capture = next(s["run"] for s in steps if s["name"] == "Capture public Canva with native diagnostics")
     assert "env -i PATH=" in capture
     assert 'HOME="$public_root/home"' in capture

@@ -540,35 +540,6 @@ def select_gallery_snapshots(snapshots, urls, evidence):
     return featured
 
 
-def native_plugin_output_unavailable(snapshot_id, plugin, *, default_view=False):
-    """Only a sealed, successfully opened native snapshot proves scoped absence."""
-    from django.db.models import Q
-    from archivebox.core.models import ArchiveResult, Snapshot
-
-    if not Snapshot.objects.filter(id=snapshot_id, status=Snapshot.StatusChoices.SEALED).exists():
-        return False
-    results = ArchiveResult.objects.filter(snapshot_id=snapshot_id)
-    states = set(results.filter(plugin=plugin).values_list("status", flat=True))
-    if not states <= {"noresults", "failed", "skipped"}:
-        return False
-    navigated = results.filter(plugin="chrome", hook_name="on_Snapshot__30_chrome_navigate", status="succeeded").exists()
-    if navigated and (states or default_view):
-        return True
-    return (
-        results.filter(
-            plugin="chrome",
-            hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
-            status="failed",
-        )
-        .filter(
-            Q(process__stderr__contains="[chrome] target_crash status=crashed ")
-            | Q(process__stderr__contains="[chrome] target_crash status=oom ")
-            | Q(process__stderr__contains="tab closed unexpectedly!"),
-        )
-        .exists()
-    )
-
-
 AI_GALLERY_OUTPUTS = (
     ("autotag", "automatic tags", "tags.jsonl"),
     ("autosummary", "automatic summary", "summary.md"),
@@ -692,7 +663,6 @@ def native_library_source(crawl, snapshots, urls, evidence):
 
 
 def prepare_library(evidence_dir, *, model=""):
-    import requests
     from django.utils import timezone
 
     from archivebox.config import CONSTANTS
@@ -703,50 +673,38 @@ def prepare_library(evidence_dir, *, model=""):
 
     evidence = Path(evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
-    outcomes = os.environ.get("UI_SCREENSHOT_UNAVAILABLE_OUT")
     capture_env = os.environ.copy()
     if model:
         if not model.startswith("openai/"):
             raise ValueError("Gallery AI captures require an explicitly configured OpenAI model.")
         configure_provider(model, CONSTANTS.DATA_DIR)
-    snapshots = []
-    try:
-        urls = news_urls()
-        (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
-        # The existing supervisor does not adopt the shell's temporary env.
-        # Persist the fixture preset until the foreground crawl has completed.
-        persona = Persona.get_or_create_named("Default")
-        started = timezone.now()
-        with library_capture_plugins(persona, model=model), homepage_capture_budget(urls[0]):
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "archivebox",
-                    "add",
-                    "--no-only-new",
-                    "--tag=screenshot-library",
-                    "--max-urls=7",
-                    *urls,
-                ],
-                cwd=CONSTANTS.DATA_DIR,
-                env=capture_env,
-                check=True,
-            )
-        crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
-        snapshots = list(Snapshot.objects.filter(crawl=crawl))
-        if {snapshot.url for snapshot in snapshots} != set(urls):
-            raise RuntimeError("Gallery crawl did not create every requested real capture.")
-        snapshots, source = native_library_source(crawl, snapshots, urls, evidence)
-    except (LibrarySourceUnavailable, requests.RequestException) as error:
-        # Native capture stays an observed outcome, never relabeled as passing.
-        # Only unavailable source evidence can choose this owned, playable input;
-        # scaffold, database, CLI, and archive-format errors remain fatal.
-        if not outcomes:
-            raise
-        print(f"::warning title=Native library source unavailable::{type(error).__name__}; using the owned app replay fixture")
-        source = prepare_replay_fixture()
-        snapshots = [snapshot for snapshot in snapshots if snapshot.status == Snapshot.StatusChoices.SEALED]
+    urls = news_urls()
+    (evidence / "hacker-news-candidates.json").write_text(json.dumps(urls, indent=2))
+    # The existing supervisor does not adopt the shell's temporary env.
+    # Persist the fixture preset until the foreground crawl has completed.
+    persona = Persona.get_or_create_named("Default")
+    started = timezone.now()
+    with library_capture_plugins(persona, model=model), homepage_capture_budget(urls[0]):
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "archivebox",
+                "add",
+                "--no-only-new",
+                "--tag=screenshot-library",
+                "--max-urls=7",
+                *urls,
+            ],
+            cwd=CONSTANTS.DATA_DIR,
+            env=capture_env,
+            check=True,
+        )
+    crawl = Crawl.objects.filter(created_at__gte=started, urls__contains=urls[0]).latest("created_at")
+    snapshots = list(Snapshot.objects.filter(crawl=crawl))
+    if {snapshot.url for snapshot in snapshots} != set(urls):
+        raise RuntimeError("Gallery crawl did not create every requested real capture.")
+    snapshots, source = native_library_source(crawl, snapshots, urls, evidence)
     (evidence / "gallery-library-source.json").write_text(json.dumps(source))
     ai_snapshots = {}
     for snapshot in snapshots:
@@ -803,9 +761,8 @@ def prepare_library(evidence_dir, *, model=""):
                 views.append(
                     f"{name}|{base}{snapshot_path}#{plugin}/{artifact}|{snapshot_path}|archivebox/templates/core/snapshot.html",
                 )
-            elif outcomes:
-                with Path(outcomes).open("a") as stream:
-                    print(name, file=stream)
+            else:
+                raise RuntimeError(f"No captured output for {name}")
         (evidence / "ai-views.txt").write_text("\n".join(views) + "\n")
     (evidence / "library-crawl-id.txt").write_text(source["crawl_id"])
     return source["crawl_id"]
@@ -815,7 +772,7 @@ def importer_view_names(name):
     return (name, name + " history", name + " snapshots", name + " export")
 
 
-def prepare_importers(admin_base_url, recipes, *, on_unavailable=None, capture_opt_ins=None):
+def prepare_importers(admin_base_url, recipes, *, capture_opt_ins=None):
     def command(*args, settings=None):
         extra = {"env": {**os.environ, **settings}} if settings else {}
         result = subprocess.run([sys.executable, "-m", "archivebox", *args], capture_output=True, text=True, **extra)
@@ -827,21 +784,9 @@ def prepare_importers(admin_base_url, recipes, *, on_unavailable=None, capture_o
         return json.loads(command("importer", "runs", "--source-id", source_id, "--format", "json"))
 
     def run_action(source_id, action, recipe):
-        previous = {run["id"] for run in runs_for(source_id)}
-        try:
-            key = (capture_opt_ins or {}).get(recipe["plugin"])
-            settings = {key: "True"} if key else None
-            command("manage", "importers", "--source", source_id, "--action", action, settings=settings)
-        except RuntimeError:
-            new = [run for run in runs_for(source_id) if run["id"] not in previous]
-            if on_unavailable is None or len(new) != 1 or new[0]["action"] != action or new[0]["status"] not in {"failed", "needs_login"}:
-                raise
-            return False
-        return True
-
-    def unavailable(recipe):
-        for name in importer_view_names(recipe["name"]):
-            on_unavailable(name)
+        key = (capture_opt_ins or {}).get(recipe["plugin"])
+        settings = {key: "True"} if key else None
+        command("manage", "importers", "--source", source_id, "--action", action, settings=settings)
 
     views = []
     for recipe in recipes:
@@ -875,24 +820,17 @@ def prepare_importers(admin_base_url, recipes, *, on_unavailable=None, capture_o
                 ),
             )
         source_id = source["id"]
-        if not run_action(source_id, "preview", recipe):
-            unavailable(recipe)
-            continue
+        run_action(source_id, "preview", recipe)
         runs = runs_for(source_id)
         imports = [run for run in runs if run["action"] == "import"]
         if not imports:
-            if not run_action(source_id, "import", recipe):
-                unavailable(recipe)
-                continue
+            run_action(source_id, "import", recipe)
             runs = runs_for(source_id)
             imports = [run for run in runs if run["action"] == "import"]
         if not imports or any(run["status"] != "succeeded" for run in runs):
             raise RuntimeError("Importer gallery requires successful preview and import records.")
         if not any(run["items"] for run in imports):
-            if on_unavailable is None:
-                raise RuntimeError("Importer gallery requires nonempty imported records.")
-            unavailable(recipe)
-            continue
+            raise RuntimeError("Importer gallery requires nonempty imported records.")
         for crawl_id in dict.fromkeys(run["crawl_id"] for run in imports if run["crawl_id"]):
             # No plugin selector: every imported URL receives the normal full capture.
             print(f"[*] Verifying full importer capture: {crawl_id}", file=sys.stderr)
@@ -1318,7 +1256,7 @@ selectProfile('desktop');
     )
 
 
-def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, recipe_outcomes: dict | None = None) -> None:
+def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -> None:
     provenance = build_provenance()
     source_base_url = f"https://github.com/ArchiveBox/ArchiveBox/blob/{provenance['revision']}/"
     captures = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines() if line]
@@ -1344,34 +1282,18 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, r
             raise SystemExit(f"duplicate {capture['profile']} capture for {capture['name']}")
         variants[capture["profile"]] = capture
 
-    complete_groups = []
+    if not grouped_captures:
+        raise SystemExit("No gallery views were captured")
     for group in grouped_captures:
         variants = group["variants"]
         assert isinstance(variants, dict)
         missing_profiles = [profile for profile in CAPTURE_PROFILES if profile not in variants]
         if missing_profiles:
-            if allow_partial:
-                continue
             raise SystemExit(f"missing {', '.join(missing_profiles)} capture for {group['name']}")
-        complete_groups.append(group)
-    grouped_captures = complete_groups
 
-    unavailable = set()
-    unavailable_note = ""
-    if recipe_outcomes is not None:
-        if allow_partial:
-            raise SystemExit("Plugin capture outcomes require the strict gallery build")
-        plan = plugin_screenshot_plan()
-        owned = plan["owned_views"]
-        outcomes = validate_recipe_status(recipe_outcomes, owned)
-        unavailable = {name for name, status in outcomes.items() if status == "unavailable"}
-        if unavailable & captures_by_name.keys() or set(outcomes) - unavailable - captures_by_name.keys():
-            raise SystemExit("Plugin capture outcomes disagree with gallery captures")
-        if unavailable:
-            unavailable_note = f"Plugin screenshots unavailable in this capture: {', '.join(sorted(unavailable))}."
     if not allow_partial:
         captured_names = set(captures_by_name)
-        missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names - unavailable)
+        missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names)
         if missing:
             raise SystemExit(f"required UI screenshot coverage is missing: {', '.join(missing)}")
     markdown_sections = []
@@ -1443,7 +1365,6 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, r
                     "Raw API endpoints, API documentation, health-check, and error routes are intentionally excluded."
                 ),
                 f"Generated from ArchiveBox `{provenance['version']}` at revision `{provenance['revision']}`.",
-                *(("", unavailable_note) if unavailable_note else ()),
                 "",
                 "\n\n".join(markdown_sections),
                 "",
@@ -1459,8 +1380,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, r
         f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
         f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
         "Desktop, tablet, and mobile viewports are captured from the same build.</p>"
-        + (f'<p id="optional-recipe-captures">{html.escape(unavailable_note)}</p>' if unavailable_note else "")
-        + "</header>"
+        "</header>"
     )
     html_path.write_text(render_gallery(gallery_header, "".join(html_sections)), encoding="utf-8")
 
@@ -1473,7 +1393,6 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path, r
                 **provenance,
                 "capture_count": len(captures),
                 "files": file_hashes,
-                **({"optional_recipe_captures": recipe_outcomes} if recipe_outcomes is not None else {}),
             },
             indent=2,
             sort_keys=True,
@@ -1567,34 +1486,6 @@ def view_slug(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def recipe_id(name, owner):
-    return "recipe-" + hashlib.sha256(f"{owner}:{name}".encode()).hexdigest()[:16]
-
-
-def recipe_status(outcomes, owners):
-    return {recipe_id(name, owner): {"status": outcomes[name], "views": [view_slug(name)]} for name, owner in owners.items()}
-
-
-def validate_recipe_status(status, owners):
-    groups = {recipe_id(name, owner): name for name, owner in owners.items()}
-    if len(groups) != len(owners) or len({view_slug(name) for name in owners}) != len(owners):
-        raise ValueError("Plugin gallery plan has colliding ownership")
-    if not isinstance(status, dict) or status.keys() != groups.keys():
-        raise ValueError("Expected one explicit capture outcome per owned plugin view")
-    outcomes = {}
-    for key, name in groups.items():
-        record = status[key]
-        if (
-            not isinstance(record, dict)
-            or record.keys() != {"status", "views"}
-            or record["status"] not in ("captured", "unavailable")
-            or record["views"] != [view_slug(name)]
-        ):
-            raise ValueError(f"Invalid owned plugin outcome: {name}")
-        outcomes[name] = record["status"]
-    return outcomes
-
-
 PNG_HEADER = b"\x89PNG\r\n\x1a\n"
 
 
@@ -1641,13 +1532,7 @@ def read_rows(manifest):
     return [json.loads(line) for line in manifest.read_text().splitlines()]
 
 
-def plan_owners(lane):
-
-    owners = plugin_screenshot_plan()["owned_views"]
-    return {name: plugin for name, plugin in owners.items() if lane == "whole" or PUBLIC_OWNERS.get(plugin, "base") == lane}
-
-
-def validate(lane, rows, root, digests, outcomes=None):
+def validate(lane, rows, root, digests):
     filenames = set()
     views = {}
     for row in rows:
@@ -1675,59 +1560,34 @@ def validate(lane, rows, root, digests, outcomes=None):
             or hashlib.sha256(data).hexdigest() != digests[filename]
         ):
             raise ValueError(f"Invalid capture dimensions or checksum: {filename}")
-    if (
-        (not views and (lane == "base" or outcomes is None))
-        or filenames != digests.keys()
-        or any(profiles != CAPTURE_PROFILES.keys() for profiles in views.values())
-    ):
+    if not views or filenames != digests.keys() or any(profiles != CAPTURE_PROFILES.keys() for profiles in views.values()):
         raise ValueError(f"Incomplete viewport manifest: {lane}")
-    if outcomes is not None:
-        owners = plan_owners(lane)
-        actual = validate_recipe_status(outcomes, owners)
-        if any((status == "captured") != (name in views) for name, status in actual.items()):
-            raise ValueError(f"Capture disagrees with plugin view outcomes: {lane}")
     expected_views = public_views(plugin_screenshot_plan())
     if lane == "base":
         if views.keys() & set().union(*expected_views.values()):
             raise ValueError("Public recipe view was captured twice")
     else:
         expected = expected_views[lane]
-        if outcomes is not None:
-            expected = expected - {name for name, status in actual.items() if status == "unavailable"}
         if views.keys() != expected:
             raise ValueError(f"Public lane did not capture its exact view: {lane}")
 
 
-def collect_outcomes(lane, rows, unavailable):
-    missing = unavailable.read_text().splitlines()
-    names = {row["name"] for row in rows}
-    owners = plan_owners(lane)
-    if set(missing) - owners.keys() or len(missing) != len(set(missing)):
-        raise ValueError(f"Unowned or duplicate failure in lane: {lane}")
-    if set(missing) & names:
-        raise ValueError(f"Unavailable plugin produced gallery images: {lane}")
-    return recipe_status({name: "unavailable" if name in missing else "captured" for name in owners}, owners)
-
-
-def pack(lane, manifest, screenshot_root, bundle, unavailable=None):
+def pack(lane, manifest, screenshot_root, bundle):
     build = json.loads((screenshot_root / "build.json").read_text())
     current = identity()
     if build["revision"] != current["GITHUB_SHA"] or build["capture_count"] != len(build["files"]):
         raise ValueError("Native build differs from checked-out source or is incomplete")
     rows = read_rows(manifest)
-    outcomes = collect_outcomes(lane, rows, unavailable) if unavailable is not None else None
-    validate(lane, rows, screenshot_root, build["files"], outcomes)
+    validate(lane, rows, screenshot_root, build["files"])
     bundle.mkdir()
     for name in build["files"]:
         shutil.copyfile(screenshot_root / name, bundle / name)
     shutil.copyfile(manifest, bundle / "capture.jsonl")
     receipt = {"identity": current, "lane": lane, "files": build["files"]}
-    if outcomes is not None:
-        receipt["outcomes"] = outcomes
     (bundle / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
-def merge(artifact_root, output, manifest, recipe_outcomes_out=None):
+def merge(artifact_root, output, manifest):
     current = identity()
     attempt = current["GITHUB_RUN_ATTEMPT"]
     lanes = ("base", *PUBLIC_LANES)
@@ -1735,7 +1595,6 @@ def merge(artifact_root, output, manifest, recipe_outcomes_out=None):
     expected_names = {bundle.name for bundle in bundles.values()}
     if {path.name for path in artifact_root.iterdir()} != expected_names:
         raise ValueError("Unexpected or missing capture artifacts")
-    status = {}
     all_files = {}
     all_rows = []
     for lane, bundle in bundles.items():
@@ -1744,26 +1603,17 @@ def merge(artifact_root, output, manifest, recipe_outcomes_out=None):
             raise ValueError(f"Mixed capture provenance: {lane}")
         files = receipt["files"]
         rows = read_rows(bundle / "capture.jsonl")
-        outcomes = receipt["outcomes"] if recipe_outcomes_out is not None else None
-        validate(lane, rows, bundle, files, outcomes)
+        validate(lane, rows, bundle, files)
         if {path.name for path in bundle.iterdir()} != files.keys() | {"capture.jsonl", "receipt.json"}:
             raise ValueError(f"Unexpected native capture files: {lane}")
-        if outcomes is not None:
-            if status.keys() & outcomes.keys():
-                raise ValueError("Duplicate plugin outcomes")
-            status.update(outcomes)
         if all_files.keys() & files.keys():
             raise ValueError(f"Duplicate gallery file: {lane}")
         all_files.update({name: bundle / name for name in files})
         all_rows.extend(rows)
-    if recipe_outcomes_out is not None:
-        validate_recipe_status(status, plugin_screenshot_plan()["owned_views"])
     output.mkdir()
     for name, source in all_files.items():
         shutil.copyfile(source, output / name)
     manifest.write_text("".join(json.dumps(row) + "\n" for row in all_rows))
-    if recipe_outcomes_out is not None:
-        recipe_outcomes_out.write_text(json.dumps(status, sort_keys=True) + "\n")
 
 
 def pages_artifacts():
@@ -2114,7 +1964,6 @@ def main():
     build.add_argument("manifest", type=Path)
     build.add_argument("markdown", type=Path)
     build.add_argument("html", type=Path)
-    build.add_argument("outcomes", type=Path, nargs="?")
     commands.add_parser("restore").add_argument("destination", type=Path)
     commands.add_parser("summarize-canva").add_argument("directory", type=Path)
     serve = commands.add_parser("serve-exports")
@@ -2128,16 +1977,10 @@ def main():
     pack_parser.add_argument("manifest", type=Path)
     pack_parser.add_argument("screenshot_root", type=Path)
     pack_parser.add_argument("bundle", type=Path)
-    pack_parser.add_argument("--unavailable", type=Path)
     merge_parser = commands.add_parser("merge")
     merge_parser.add_argument("artifacts", type=Path)
     merge_parser.add_argument("output", type=Path)
     merge_parser.add_argument("manifest", type=Path)
-    merge_parser.add_argument("--recipe-outcomes-out", type=Path)
-    whole_parser = commands.add_parser("whole-outcomes")
-    whole_parser.add_argument("manifest", type=Path)
-    whole_parser.add_argument("unavailable", type=Path)
-    whole_parser.add_argument("output", type=Path)
     args = parser.parse_args()
     if args.command == "plugin-plan":
         print(json.dumps(plugin_screenshot_plan()))
@@ -2150,10 +1993,7 @@ def main():
     elif args.command == "append":
         append_manifest(args.manifest, args.screenshot)
     elif args.command == "build":
-        outcomes = json.loads(args.outcomes.read_text()) if args.outcomes else None
-        if args.outcomes and not isinstance(outcomes, dict):
-            parser.error("Invalid optional provider status")
-        build_galleries(args.manifest, args.markdown, args.html, outcomes)
+        build_galleries(args.manifest, args.markdown, args.html)
     elif args.command == "restore":
         restore_gallery(args.destination)
     elif args.command == "serve-exports":
@@ -2163,12 +2003,9 @@ def main():
     elif args.command == "recipes":
         print(*recipes(json.loads(args.plan.read_text()), args.split == "1"), sep="\n")
     elif args.command == "pack":
-        pack(args.lane, args.manifest, args.screenshot_root, args.bundle, args.unavailable)
+        pack(args.lane, args.manifest, args.screenshot_root, args.bundle)
     elif args.command == "merge":
-        merge(args.artifacts, args.output, args.manifest, args.recipe_outcomes_out)
-    else:
-        outcomes = collect_outcomes("whole", read_rows(args.manifest), args.unavailable)
-        args.output.write_text(json.dumps(outcomes, sort_keys=True) + "\n")
+        merge(args.artifacts, args.output, args.manifest)
 
 
 if __name__ == "__main__":

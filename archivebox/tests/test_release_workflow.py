@@ -178,41 +178,9 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
     ci = yaml.safe_load(CI_WORKFLOW.read_text())
-    screenshots = yaml.load((REPO_ROOT / ".github" / "workflows" / "screenshots.yml").read_text(), Loader=yaml.BaseLoader)
     prepare_path = ci["jobs"]["prepare"]["uses"]
     prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
     assert prepare["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
-    assert set(screenshots["on"]) == {"push", "schedule", "workflow_dispatch"}
-    assert screenshots["on"]["push"] == {
-        "branches": ["dev"],
-        "paths": [
-            ".github/workflows/screenshots.yml",
-            "bin/screenshot_gallery_helpers.js",
-            "archivebox/api/**",
-            "archivebox/domains/**",
-            "archivebox/core/admin*",
-            "archivebox/core/models.py",
-            "bin/collect_ui_screenshots.sh",
-            "bin/screenshot_gallery_helpers.py",
-            "archivebox/templates/**",
-            "archivebox/core/templatetags/core_tags.py",
-        ],
-    }
-    _, hours, *days = screenshots["on"]["schedule"][0]["cron"].split()
-    assert days == ["*", "*", "*"]
-    assert len(hours.split(",")) == 2
-    first, second = map(int, hours.split(","))
-    assert second - first == 12
-    assert "prepare" not in screenshots["jobs"]
-    assert screenshots["jobs"]["changes"]["steps"][0]["uses"] == "ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main"
-    assert screenshots["jobs"]["deploy"]["needs"] == "changes"
-    assert screenshots["jobs"]["deploy"]["if"] == (
-        "(needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'"
-    )
-    assert screenshots["jobs"]["public_recipes"]["needs"] == "changes"
-    assert screenshots["jobs"]["assemble"]["needs"] == ["deploy", "public_recipes"]
-    assert screenshots["jobs"]["complete"]["needs"] == ["changes", "assemble"]
-    assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
         if name not in {"prepare", "required", "dev-image"}:
             assert job["needs"] == "prepare"

@@ -41,14 +41,6 @@ MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
 : >"$MANIFEST_FILE"
 PERSONAS_DIR="$CAPTURE_ROOT/personas"
 ACTIVE_PERSONA="Screenshots"
-UNAVAILABLE_OUT="${UI_SCREENSHOT_UNAVAILABLE_OUT:-}"
-if [[ -n "$UNAVAILABLE_OUT" && ( "$UNAVAILABLE_OUT" != /* || "$MAX_VIEWS" != 0 || "$MANIFEST_OUT" != /* ) ]]; then
-    echo '[!] Plugin outcomes require an absolute native manifest and a complete lane' >&2
-    exit 1
-fi
-if [[ -n "$UNAVAILABLE_OUT" ]]; then
-    : >"$UNAVAILABLE_OUT"
-fi
 CAPTURE_PROFILES=$'desktop|1600|1000\ntablet|1024|1366\nmobile|390|844'
 
 stop_background_runner() {
@@ -199,11 +191,12 @@ fi
 PLUGIN_SCREENSHOT_PLAN="$CAPTURE_ROOT/plugin-screenshots.json"
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" plugin-plan >"$PLUGIN_SCREENSHOT_PLAN"
 PLUGIN_ENABLED_CONFIG=()
+enabled_config_lines="$(uv run --no-cache --project "$REPO_DIR" python -c \
+    'import json,sys; plan=json.load(open(sys.argv[1])); enabled=plan["enabled"] if sys.argv[2] == "1" else sorted([*plan["enabled"], *plan["capture_opt_ins"]]); print("\n".join(f"{plugin.upper()}_ENABLED=True" for plugin in enabled))' \
+    "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS")"
 while IFS= read -r enabled_config; do
     [[ -z "$enabled_config" ]] || PLUGIN_ENABLED_CONFIG+=("$enabled_config")
-done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-    'import json,sys; plan=json.load(open(sys.argv[1])); enabled=plan["enabled"] if sys.argv[2] == "1" else sorted([*plan["enabled"], *plan["capture_opt_ins"]]); print("\n".join(f"{plugin.upper()}_ENABLED=True" for plugin in enabled))' \
-    "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS")
+done <<<"$enabled_config_lines"
 
 echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
 (
@@ -375,47 +368,6 @@ VIEWS=(
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
 )
 
-classify_missing_plugin_output() {
-    local snapshot_id="$1" plugin="$2" default_view="${3:-0}"
-    [[ -n "$UNAVAILABLE_OUT" ]] || return 1
-    (
-        cd "$DATA_DIR"
-        UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" UI_SCREENSHOT_EXPECT_PLUGIN="$plugin" UI_SCREENSHOT_DEFAULT_VIEW="$default_view" \
-            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c '
-import os
-from screenshot_gallery_helpers import native_plugin_output_unavailable
-raise SystemExit(not native_plugin_output_unavailable(
-    os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"],
-    default_view=os.environ["UI_SCREENSHOT_DEFAULT_VIEW"] == "1",
-))
-'
-    )
-}
-
-record_unavailable_view() {
-    printf '%s\n' "$1" >>"$UNAVAILABLE_OUT"
-    printf '::warning title=Native plugin screenshot unavailable::%s\n' "$1"
-}
-
-record_supplementary_failure() {
-    local plugin="$1" url="$2" views_file="$CAPTURE_ROOT/unavailable-views.txt"
-    uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$plugin" "$url" <<'PYUNAVAILABLE' >"$views_file"
-import json, sys
-plan = json.load(open(sys.argv[1]))
-plugin, url = sys.argv[2:]
-recipe = plan["overrides"][plugin]
-if recipe["url"] == url:
-    print(f"Snapshot View ({plugin})")
-for output in recipe.get("outputs", []):
-    if output.get("url", recipe["url"]) == url:
-        print(output["name"])
-PYUNAVAILABLE
-    test -s "$views_file"
-    while IFS= read -r missing_view; do
-        record_unavailable_view "$missing_view"
-    done <"$views_file"
-}
-
 run_gallery_add() {
     local plugin_names="$1" source_url="$2"
     cd "$DATA_DIR"
@@ -493,10 +445,6 @@ add_supplementary_template_capture() {
         fi
         if [[ -z "$discovered_preview_url" ]]; then
             echo "[!] The $supplementary_plugin snapshot did not expose its own verified output in the real snapshot UI" >&2
-            if classify_missing_plugin_output "$snapshot_id" "$supplementary_plugin"; then
-                record_supplementary_failure "$supplementary_plugin" "$source_url"
-                continue
-            fi
             cat "$capture_log" >&2
             cat "$discovery_report" >&2
             exit 1
@@ -505,12 +453,11 @@ add_supplementary_template_capture() {
         capture_mode="$(uv run --no-cache --project "$REPO_DIR" python -c \
             'import json,sys; recipe=json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]; text=recipe.get("wait_for_text", ""); print("wait-preview-text:" + text if text else "")' \
             "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
-        if [[ "$source_url" == "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]["url"])' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")" ]]; then
+        recipe_url="$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]["url"])' "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin")"
+        if [[ "$source_url" == "$recipe_url" ]]; then
             VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$output_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html|$capture_mode")
         fi
-        while IFS= read -r output_view; do
-            [[ -z "$output_view" ]] || VIEWS+=("$output_view")
-        done < <(uv run --no-cache --project "$REPO_DIR" python - "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin" "$source_url" "$discovered_preview_url" <<'PYVIEWS'
+        output_views="$(uv run --no-cache --project "$REPO_DIR" python - "$PLUGIN_SCREENSHOT_PLAN" "$supplementary_plugin" "$source_url" "$discovered_preview_url" <<'PYVIEWS'
 import json, sys
 from urllib.parse import urljoin, urlsplit
 recipe = json.load(open(sys.argv[1]))["overrides"][sys.argv[2]]
@@ -520,7 +467,10 @@ for output in recipe.get("outputs", []):
     url = urljoin(sys.argv[4], output["path"])
     print("|".join((output["name"], url, urlsplit(url).path, "archivebox/misc/serve_static.py", "model" if output.get("model") else "")))
 PYVIEWS
-        )
+        )"
+        while IFS= read -r output_view; do
+            [[ -z "$output_view" ]] || VIEWS+=("$output_view")
+        done <<<"$output_views"
     done
     local discovery_status=$?
     if [[ -n "$timing_label" ]]; then
@@ -531,29 +481,25 @@ PYVIEWS
 
 if [[ -n "$PLUGIN_VIEWS" ]]; then
     VIEWS=()
+    example_rows="$(uv run --no-cache --project "$REPO_DIR" python -c \
+        'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
+        "$PLUGIN_SCREENSHOT_PLAN")"
     while IFS='|' read -r example_plugins example_url; do
         [[ -z "$example_plugins" ]] || add_supplementary_template_capture "$example_plugins" "$example_url"
-    done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-        'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
-        "$PLUGIN_SCREENSHOT_PLAN")
+    done <<<"$example_rows"
 fi
 
-if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")" != "0" ]]; then
+importer_count="$(uv run --no-cache --project "$REPO_DIR" python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["importer_views"]))' "$PLUGIN_SCREENSHOT_PLAN")"
+if [[ "$importer_count" != "0" ]]; then
     (
         cd "$DATA_DIR"
-        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$UNAVAILABLE_OUT" "$SCOPED_GALLERY_OPT_INS" <<'PYIMPORTERS'
+        uv run --no-cache --project "$REPO_DIR" python - "$ADMIN_BASE_URL" "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" <<'PYIMPORTERS'
 import json, sys
-from pathlib import Path
 from screenshot_gallery_helpers import prepare_importers
 
-def mark_unavailable(name):
-    print(f"::warning title=Native importer screenshot unavailable::{name}", file=sys.stderr)
-    with Path(sys.argv[3]).open("a") as outcomes:
-        print(name, file=outcomes)
-
 plan = json.load(open(sys.argv[2]))
-print("\n".join(prepare_importers(sys.argv[1], plan["importer_views"], capture_opt_ins=plan["capture_opt_ins"] if sys.argv[4] == "1" else None,
-                        on_unavailable=mark_unavailable if sys.argv[3] else None)))
+opt_ins = plan["capture_opt_ins"] if sys.argv[3] == "1" else None
+print("\n".join(prepare_importers(sys.argv[1], plan["importer_views"], capture_opt_ins=opt_ins)))
 PYIMPORTERS
     ) >"$CAPTURE_ROOT/importer-views.txt"
     while IFS= read -r importer_view; do
@@ -569,12 +515,13 @@ if [[ -n "$PLUGIN_VIEWS" ]]; then
         node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$ADMIN_BASE_URL/admin/login/" "$CAPTURE_ROOT/persona-login.png" >/dev/null
 fi
 
+config_views="$(uv run --no-cache --project "$REPO_DIR" python -c \
+    'import json,sys; print("\n".join("|".join(view[key] for key in ("name", "path", "source", "mode")) for view in json.load(open(sys.argv[1]))["config_views"]))' \
+    "$PLUGIN_SCREENSHOT_PLAN")"
 while IFS='|' read -r config_name config_path config_source config_mode; do
     [[ -z "$config_path" ]] && continue
     VIEWS+=("$config_name|$ADMIN_BASE_URL$config_path|$config_path|$config_source|$config_mode")
-done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-    'import json,sys; print("\n".join("|".join(view[key] for key in ("name", "path", "source", "mode")) for view in json.load(open(sys.argv[1]))["config_views"]))' \
-    "$PLUGIN_SCREENSHOT_PLAN")
+done <<<"$config_views"
 
 capture_index=0
 while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
@@ -777,7 +724,6 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
-                capture_status=0
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$screenshot_user_data_dir" \
@@ -794,16 +740,7 @@ PY
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     SCREENSHOT_WAIT_SELECTOR="$wait_for_selector" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
-                    node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$url" "$screenshot_path" >"$capture_dir/report.json" || capture_status=$?
-                if [[ "$capture_status" != 0 ]]; then
-                    if [[ "$capture_status" == 42 && -n "$UNAVAILABLE_OUT" ]] && \
-                        uv run --no-project python -c 'import json,sys; raise SystemExit(sys.argv[2] not in json.load(open(sys.argv[1]))["owned_views"])' \
-                            "$PLUGIN_SCREENSHOT_PLAN" "$name"; then
-                        record_unavailable_view "$name"
-                        continue 2
-                    fi
-                    exit "$capture_status"
-                fi
+                    node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
                 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" validate \
@@ -1011,26 +948,6 @@ PY
             [[ -z "$plugin_name" ]] && continue
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
-        if [[ -n "$UNAVAILABLE_OUT" ]]; then
-            uv run --no-sync --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" validate \
-                "$SNAPSHOT_DISCOVERY_REPORT" "$LIVE_SNAPSHOT_VIEW_PATH"
-            absent_default_outputs="$CAPTURE_ROOT/absent-default-outputs.txt"
-            uv run --no-project python - "$PLUGIN_SCREENSHOT_PLAN" "$SNAPSHOT_DISCOVERY_REPORT" <<'PYABSENT' >"$absent_default_outputs"
-import json, sys
-plan, report = (json.load(open(path)) for path in sys.argv[1:])
-found = {row["plugin"] for row in report["checks"]["snapshotOutputs"]}
-for name, plugin in plan["owned_views"].items():
-    if plugin not in plan["overrides"] and name == f"Snapshot View ({plugin})" and plugin not in found:
-        print(plugin)
-PYABSENT
-            while IFS= read -r missing_plugin; do
-                if ! classify_missing_plugin_output "$LIVE_SNAPSHOT_ID" "$missing_plugin" 1; then
-                    echo "[!] Snapshot view missing without a native plugin outcome: $missing_plugin" >&2
-                    exit 1
-                fi
-                record_unavailable_view "Snapshot View ($missing_plugin)"
-            done <"$absent_default_outputs"
-        fi
         # Report malformed partitioning as capture failure, never as an empty
         # process substitution and a best-effort gallery.
         supplementary_recipes="$CAPTURE_ROOT/supplementary-recipes.txt"
@@ -1048,19 +965,11 @@ PYABSENT
     fi
 done
 
-render_outcomes=()
-if [[ "$MAX_VIEWS" == 0 && -z "$PLUGIN_VIEWS" && "$SPLIT_PUBLIC" != 1 ]]; then
-    if [[ -n "$UNAVAILABLE_OUT" ]]; then
-        outcome_report="$CAPTURE_ROOT/recipe-outcomes.json"
-        uv run --no-sync --project "$REPO_DIR" python "$REPO_DIR/bin/screenshot_gallery_helpers.py" whole-outcomes \
-            "$MANIFEST_FILE" "$UNAVAILABLE_OUT" "$outcome_report"
-        render_outcomes=("$outcome_report")
-    fi
-else
+if [[ "$MAX_VIEWS" != 0 || -n "$PLUGIN_VIEWS" || "$SPLIT_PUBLIC" == 1 ]]; then
     export UI_SCREENSHOT_ALLOW_PARTIAL=1
 fi
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" build \
-    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html" ${render_outcomes[@]+"${render_outcomes[@]}"}
+    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
 
 if [[ -n "$MANIFEST_OUT" ]]; then
     cp "$MANIFEST_FILE" "$MANIFEST_OUT"
