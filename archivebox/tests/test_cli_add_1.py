@@ -217,8 +217,8 @@ def assert_no_file_or_shell_payload_snapshots(cwd: Path, *, canary: Path) -> Non
     "choice,plugins",
     [(choice, "chrome") for choice in ["skip", "retry", "abort", "ctrl-c", "noninteractive"]] + [("noninteractive", "archivewebpage")],
 )
-def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_browser_dependency_cache):
-    env = cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True")
+def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_browser_dependency_cache, blocking_http_server):
+    env = cli_env(CHROME_HEADLESS="True")
     # The timed observation below is for a running navigate hook. Resolve the
     # selected plugin's real binaries before starting it, so a cold install is
     # not counted as a hook-start failure.
@@ -258,7 +258,7 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_bro
 
     try:
         result = run_archivebox_cmd(
-            ["add", f"--plugins={plugins}", "https://archivebox.io/tests/"],
+            ["add", f"--plugins={plugins}", blocking_http_server.url],
             cwd=initialized_archive,
             env=env,
             stdin=subprocess.DEVNULL if choice == "noninteractive" else slave,
@@ -318,6 +318,7 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_bro
         for log in (initialized_archive / "logs").glob("worker_runner_add_*.log"):
             assert "Choice [skip]:" not in log.read_text()
 
+        blocking_http_server.release_response.set()
         rerun = run_archivebox_cmd(
             ["extract", f"--plugins={plugins}", str(before_interrupt["snapshot_id"])],
             cwd=initialized_archive,
@@ -333,7 +334,7 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins, ci_bro
         with use_archivebox_db(initialized_archive):
             snapshot_dir = Snapshot.objects.get(pk=before_interrupt["snapshot_id"]).output_dir
         navigation = json.loads((snapshot_dir / "chrome" / "navigation.json").read_text())
-        assert navigation["url"] == "https://archivebox.io/tests/"
+        assert navigation["url"] == blocking_http_server.url
         assert navigation["status"] == 200
     finally:
         if result is not None and result.poll() is None:
