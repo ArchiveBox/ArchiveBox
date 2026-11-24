@@ -39,12 +39,12 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .folder-sidebar .folder-row .folder-link{flex:1;gap:8px;padding:6px 4px}
 .folder-row .folder-link[aria-current=page]{background:none!important}
 .folder-sidebar .folder-toggle{width:24px!important;flex:0 0 24px!important;height:var(--library-row-height)}
-.folder-sidebar .folder-row:has(>.folder-toggle[aria-expanded=false])>.folder-link{flex:0 1 auto;padding-right:4px!important}
-.folder-row:has(>.folder-toggle[aria-expanded=false])>.folder-row-actions{position:static;flex:none;margin-inline-start:auto}
-/* The folder icon doubles as the collapse target while the caret is hidden. */
-.folder-toggle[aria-expanded=true]{position:absolute;left:calc(var(--folder-depth)*var(--folder-indent))}
-.folder-toggle[aria-expanded=true]>svg{visibility:hidden}
-.folder-sidebar .folder-toggle[aria-expanded=true]:hover{background:color-mix(in srgb,var(--archivebox-accent) 8%,transparent)}
+.folder-sidebar .folder-row:has(>.folder-toggle)>.folder-link{flex:0 1 auto;padding-right:4px!important}
+.folder-row:has(>.folder-toggle)>.folder-row-actions{position:static;flex:none;margin-inline-start:auto}
+.folder-toggle[aria-expanded=true]>svg{transform:rotate(90deg)}
+@media(hover:hover){
+  .folder-row:not(:hover):not(:has(>:focus-visible))>.folder-toggle[aria-expanded=true]>svg{visibility:hidden}
+}
 .folder-row-actions{position:absolute;right:0;display:flex;gap:0;opacity:0;pointer-events:none;background:inherit;border-radius:4px}
 .folder-row:hover .folder-row-actions,.folder-row:focus-within .folder-row-actions,.folder-row:has(:popover-open) .folder-row-actions{opacity:1;pointer-events:auto}
 .folder-row:has(.folder-row-actions):is(:hover,:focus-within,:has(:popover-open)) .folder-link{padding-right:52px}
