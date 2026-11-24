@@ -818,9 +818,10 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
     if results is None:
         results = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
     if results is None:
-        from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order
+        from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, get_snapshot_thumbnail_image_names
 
-        results = snapshot.archiveresult_set.filter(plugin__in=get_snapshot_thumbnail_card_order(images_only=admin)).only(
+        names = get_snapshot_thumbnail_image_names(screenshots_only=True) if admin else tuple(get_snapshot_thumbnail_card_order())
+        results = snapshot.archiveresult_set.filter(plugin__in=names).only(
             "id",
             "snapshot_id",
             "plugin",
@@ -838,7 +839,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
     hue = int(hashlib.sha256(host.encode()).hexdigest()[:6], 16) % 360
     card, images = None, ()
     if admin:
-        paths = snapshot.__dict__[cache_key] if precomputed else snapshot_thumbnail_image_paths(results)
+        paths = snapshot.__dict__[cache_key] if precomputed else snapshot_thumbnail_image_paths(results, screenshots_only=True)
         # Reuse the authenticated image endpoint so all thumbnails share the
         # admin connection, including images belonging to private snapshots.
         images = tuple(

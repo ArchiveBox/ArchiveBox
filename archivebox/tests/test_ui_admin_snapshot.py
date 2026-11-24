@@ -591,7 +591,8 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
     assert snapshot.config["PERMISSIONS"] == "private"
 
 
-def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection):
+@pytest.mark.parametrize("provider", ["chrome_extension_screenshot", "chrome_extension_viewport"])
+def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection, provider):
     from archivebox.config.common import get_config
     from archivebox.core.admin_site import archivebox_admin
     from archivebox.core.admin_snapshots import SnapshotAdmin
@@ -599,7 +600,7 @@ def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screen
 
     _process, result = real_hash_projection
     ArchiveResult.objects.filter(pk=result.pk).update(
-        plugin="chrome_extension_screenshot",
+        plugin=provider,
         output_files={
             "screenshot-1.png": {"size": 2},
             "screenshot.png": {"size": 1},
@@ -616,8 +617,8 @@ def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screen
     thumbnail = str(admin._render_thumbnail(snapshot))
 
     assert "<iframe" not in thumbnail
-    assert re.search(r'src="[^"]*chrome_extension_screenshot/screenshot-1\.png\?', thumbnail)
-    assert re.search(r'data-fallbacks="[^"]*chrome_extension_screenshot/screenshot\.png\?', thumbnail)
+    assert re.search(rf'src="[^"]*{provider}/screenshot-1\.png\?', thumbnail)
+    assert re.search(rf'data-fallbacks="[^"]*{provider}/screenshot\.png\?', thumbnail)
 
 
 def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):

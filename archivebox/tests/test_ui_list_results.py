@@ -31,6 +31,7 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_snapshot_role_names,
     get_snapshot_thumbnail_card_order,
+    get_snapshot_thumbnail_image_names,
 )
 from archivebox.plugins.output_groups import plugin_icon_is_hidden, plugin_output_sizes, snapshot_thumbnail_result
 from archivebox.tests.conftest import ADMIN_TEST_HOST, WEB_TEST_HOST
@@ -420,7 +421,7 @@ def _manifests_shipped(captured_queries):
 
 def _assert_only_linkable_manifests_shipped(captured_queries, *, images_only=False):
     shipped = _manifests_shipped(captured_queries)
-    card_plugins = set(get_snapshot_thumbnail_card_order(images_only=images_only))
+    card_plugins = set(get_snapshot_thumbnail_image_names(screenshots_only=True) if images_only else get_snapshot_thumbnail_card_order())
     for (plugin, status), manifest in shipped.items():
         linkable = (
             (status == ArchiveResult.StatusChoices.SUCCEEDED and plugin in get_snapshot_role_names("list_icon"))

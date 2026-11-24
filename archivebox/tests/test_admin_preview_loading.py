@@ -1,6 +1,9 @@
 """Admin screenshot previews load after paint, including below the fold."""
 
 import re
+import shutil
+from pathlib import Path
+
 import pytest
 from django.template import Context
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -18,9 +21,19 @@ def test_admin_preview_loader_uses_release_cache_key(admin_client):
 
 
 def test_admin_thumbnail_uses_an_image_and_public_thumbnail_uses_the_card(snapshot):
+    from archivebox.core.models import ArchiveResult
     from archivebox.core.templatetags.core_tags import snapshot_thumbnail
 
-    result = save_output(snapshot, "screenshot", filename="capture.png")
+    output = snapshot.output_dir / "screenshot/capture.png"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(Path(__file__).parents[2] / "publicsite/assets/social-card.png", output)
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="screenshot/capture.png",
+        output_files={"capture.png": {"size": output.stat().st_size, "mimetype": "image/png"}},
+    )
     snapshot._snapshot_card_results = [result]
     snapshot._snapshot_thumbnail_result = result
     admin_html = str(snapshot_thumbnail(Context(), snapshot, admin=True))
@@ -125,8 +138,6 @@ def test_admin_previews_load_without_scrolling_and_after_panel_navigation(snapsh
     machine.save(update_fields=["config"])
     for index in range(50):
         row = Snapshot.objects.create(url=f"https://example.com/preview/{index}", crawl=snapshot.crawl)
-        from pathlib import Path
-        import shutil
         from archivebox.core.models import ArchiveResult
 
         output = Path(row.output_dir) / "screenshot/screenshot.png"

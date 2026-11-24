@@ -235,7 +235,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = 
     Embed paths and each snapshot's thumbnail card are resolved here, from the
     same rows, so rendering never queries per snapshot or per result.
     """
-    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, plugin_output_is_text
+    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, get_snapshot_thumbnail_image_names, plugin_output_is_text
     from archivebox.plugins.output_groups import snapshot_thumbnail_image_paths, snapshot_thumbnail_result
 
     snapshots_by_hex = {snapshot.id.hex: snapshot for snapshot in snapshots}
@@ -243,7 +243,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = 
     if not summaries:
         return {}
 
-    card_plugins = get_snapshot_thumbnail_card_order(images_only=images_only)
+    card_plugins = get_snapshot_thumbnail_image_names(screenshots_only=True) if images_only else tuple(get_snapshot_thumbnail_card_order())
     # File icons open plugin cards, not individual files. Only favicons and
     # thumbnail candidates need a file path on a list page.
     links_output = Q(plugin__in=list(card_plugins)) | Q(
@@ -327,7 +327,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = 
             # Only siblings reuse the parsed map to deduplicate shared files.
             result._retain_output_files = plugin_counts[result.plugin] > 1
         if images_only:
-            summary.thumbnail_image_paths = snapshot_thumbnail_image_paths(summary.results)
+            summary.thumbnail_image_paths = tuple(snapshot_thumbnail_image_paths(summary.results, screenshots_only=True))
         elif (card_row := snapshot_thumbnail_result(summary.results)) is not None:
             summary.thumbnail_result = _archive_result_from_row(card_row)
             # Card URLs may read result.snapshot; share the page's loaded parent.

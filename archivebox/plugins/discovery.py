@@ -239,13 +239,12 @@ def read_plugin_output_text(plugin_name: str, snapshot_dir: Path, output_str: st
     return ""
 
 
-@lru_cache(maxsize=2)
-def get_snapshot_thumbnail_card_order(*, images_only: bool = False) -> dict[str, int]:
+@lru_cache(maxsize=1)
+def get_snapshot_thumbnail_card_order() -> dict[str, int]:
     """Return plugin-owned ArchiveResult names eligible for snapshot thumbnails."""
     return {
         card["archive_result_name"]: card["order"]
         for plugin in get_plugin_catalog().values()
-        if not images_only or plugin.manifest.get("snapshot_output_group") == "images"
         for card in plugin.manifest.get("snapshot_thumbnail_cards", [])
     }
 
@@ -261,6 +260,23 @@ def get_snapshot_role_names(role: str) -> tuple[str, ...]:
         if enabled:
             providers.append((order, plugin.name))
     return tuple(dict.fromkeys(name for _, plugin in sorted(providers) for name in get_archive_result_names(plugin)))
+
+
+@lru_cache(maxsize=2)
+def get_snapshot_thumbnail_image_names(*, screenshots_only: bool = False) -> tuple[str, ...]:
+    """Prefer primary previews, followed by the declared thumbnail order."""
+    thumbnail_order = get_snapshot_thumbnail_card_order()
+    names = dict.fromkeys((*get_snapshot_role_names("primary_preview"), *sorted(thumbnail_order, key=thumbnail_order.__getitem__)))
+    if not screenshots_only:
+        return tuple(names)
+    # Other thumbnails may show a favicon or a document preview. The admin
+    # list takes the image providers, including their original result aliases.
+    catalog = get_plugin_catalog()
+    return tuple(
+        name
+        for name in names
+        if (plugin := catalog.get(get_plugin_name(name))) and plugin.manifest.get("snapshot_output_group") == "images"
+    )
 
 
 def get_snapshot_role_result(results, role: str):
