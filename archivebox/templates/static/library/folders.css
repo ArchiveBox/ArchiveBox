@@ -372,3 +372,11 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .archivebox-search-stream-status svg{width:1em;height:1em;vertical-align:-.12em;margin:0 .3em}
 .search-phase-time{margin-inline-start:.5em;color:var(--body-quiet-color,#667085);font-variant-numeric:tabular-nums;white-space:nowrap}
 .archivebox-search-stream-status progress{width:4rem;max-width:20vw;height:.45rem;vertical-align:middle}
+
+/* Keep width-fitted desktop controls on the existing local font fallback. */
+@media (min-width: 768px) {
+  .model-snapshot.change-list .snapshot-library :is(.actions-top, .folder-sidebar-reopen, #result_list .column-tags_inline, #result_list .field-tags_inline) {
+    --font-family-primary: Arial, sans-serif;
+    font-family: var(--font-family-primary);
+  }
+}
