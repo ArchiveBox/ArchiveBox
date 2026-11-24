@@ -122,7 +122,7 @@ jobs:
         if: >-
           github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
           (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: ArchiveBox/monorepo/.github/actions/setup-squid@9dabfac1097d945bcf94281b7756cc215a460e44
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
         with:
           proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
           ca: ${{ vars.SQUID_CA }}
