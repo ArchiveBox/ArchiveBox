@@ -23,8 +23,11 @@ function activateExportMenu(menu) {
 document.addEventListener('beforetoggle', event => {
   if (event.newState === 'open' && event.target.hasAttribute('popover')) activateExportMenu(event.target);
 }, true);
-// A menu can open while this deferred module is still loading.
-document.querySelectorAll('[popover]:popover-open').forEach(activateExportMenu);
+// A menu can open while this deferred module is still loading. Older browsers
+// reject this selector, which would also prevent export click handlers below.
+if (CSS.supports('selector(:popover-open)')) {
+  document.querySelectorAll('[popover]:popover-open').forEach(activateExportMenu);
+}
 
 async function jsonResponse(response) {
   if (!response.ok) {
@@ -37,7 +40,7 @@ async function jsonResponse(response) {
 export async function startSnapshotExport(url, {format, anchor, data = new FormData(), csrf = '', session = false, api = false} = {}) {
   if (!archiveFormats.has(format)) throw new Error('Unknown archive format');
   const menu = anchor.closest('[popover]');
-  menu?.hidePopover();
+  menu?.hidePopover?.();
   let notifications = document.getElementById('export-notifications');
   if (!notifications) {
     notifications = document.createElement('ul');
@@ -128,7 +131,7 @@ document.addEventListener('click', event => {
   const link = event.target.closest('a[data-export-format][href]');
   if (!link) return;
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-  link.closest('[popover]')?.hidePopover();
+  link.closest('[popover]')?.hidePopover?.();
   if (!archiveFormats.has(link.dataset.exportFormat)) return;
   event.preventDefault();
   const controls = link.closest('.snapshot-export-links');
