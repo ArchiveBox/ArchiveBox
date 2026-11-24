@@ -38,7 +38,7 @@ def search_state(request, key):
 def ranked_page_ids(scope, ids, *, start, size):
     """Keep provider order and recheck current visibility without sorting the whole cache in SQL."""
     page = []
-    for batch in batched(ids, 512):
+    for batch in batched(ids, min(512, max(16, size))):
         valid = {pk.hex: pk for pk in scope.filter(pk__in=batch).order_by().values_list("pk", flat=True)}
         for snapshot_id in batch:
             if snapshot_id not in valid:
@@ -391,7 +391,9 @@ def snapshot_search_stream_response(
             search = SnapshotSearch(base_queryset, query, config=config, public=public, streaming=True)
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
-        page_query = search.sql_queryset()
+        page_query = search.sql_queryset(
+            ranked=not base_queryset.query.order_by if not page_request else "o" not in QueryDict(urlsplit(page_request[1]).query),
+        )
     elif search_mode == "url" and page_request:
         page_query = base_queryset.filter(url_search_q(query.strip()))
 
@@ -409,6 +411,44 @@ def snapshot_search_stream_response(
                 search.scope = base_queryset
 
     generation = uuid4().hex
+
+    def first_fragment():
+        # Serve the normal list renderer over the existing stream. This skips
+        # one browser round trip and preserves the same controls, links and
+        # permission checks as a separately fetched fragment.
+        from django.urls import resolve, reverse
+
+        request, list_url = page_request
+        target = urlsplit(list_url)
+        allowed = (reverse("public-index"),) if public else (reverse("admin:core_snapshot_changelist"), reverse("admin:grid"))
+        if target.path not in allowed:
+            return None
+        fragment = copy(request)
+        fragment.path = fragment.path_info = target.path
+        fragment.GET = QueryDict(target.query)
+        fragment.META = {
+            **request.META,
+            "QUERY_STRING": target.query,
+            "PATH_INFO": target.path,
+            "HTTP_X_REQUESTED_WITH": "XMLHttpRequest",
+            "HTTP_X_ARCHIVEBOX_SEARCH_GENERATION": generation,
+            "HTTP_X_ARCHIVEBOX_SEARCH_FRAGMENT": "preview",
+            "HTTP_X_ARCHIVEBOX_SEARCH_ROWS": "start",
+            "HTTP_X_ARCHIVEBOX_SEARCH_PAGE": page_token or "",
+        }
+        fragment.__dict__.pop("headers", None)
+        fragment.resolver_match = resolve(target.path)
+        try:
+            response = fragment.resolver_match.func(fragment)
+            if response.status_code != 200 or not hasattr(response, "render"):
+                return None
+            response.render()
+            return {
+                "html": response.content.decode(response.charset),
+                "headers": {k: v for k, v in response.items() if k.startswith("X-ArchiveBox-Search-")},
+            }
+        finally:
+            close_old_connections()
 
     async def snapshot_ids():
         seen = set()
@@ -511,6 +551,9 @@ def snapshot_search_stream_response(
                 if done or (len(ids) != last_sent and (not last_sent or now - last_sent_at >= stream_max_delay)):
                     await asyncio.to_thread(cache_results, done)
                     if len(ids) != last_sent:
+                        if not last_sent and page_request and page_request[0].headers.get("X-ArchiveBox-Search-First-Row") == "1":
+                            if fragment := await asyncio.to_thread(first_fragment):
+                                yield "first " + json.dumps({"count": len(ids), **fragment}) + "\n"
                         last_sent, last_sent_at = len(ids), now
                         yield f"{last_sent}{stream_padding}\n"
                 # File workers already know their current batch. Opt in on this

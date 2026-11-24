@@ -35,8 +35,8 @@ def test_install_dry_run_reports_plan_without_creating_binary_records(initialize
 def test_install_target_resolver_uses_declared_binary_aliases():
     """Targeted plugin-owned binaries must not fan out to every plugin or raw '*' provider installs."""
 
-    assert _resolve_install_targets(("ripgrep",)) == (["search_backend_ripgrep"], [])
-    assert _resolve_install_targets(("rg",)) == (["search_backend_ripgrep"], [])
+    assert _resolve_install_targets(("ripgrep",)) == ([], ["ripgrep"])
+    assert _resolve_install_targets(("rg",)) == ([], ["rg"])
     assert _resolve_install_targets(("sonic",)) == (["search_backend_sonic"], [])
     assert _resolve_install_targets(("not-a-real-tool",)) == ([], ["not-a-real-tool"])
 

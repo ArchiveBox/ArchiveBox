@@ -34,9 +34,9 @@
     const lookup = {__proto__: null, ...Object.fromEntries(operators.flatMap(op => [op.key,...(op.aliases || [])].map(key => [key,op])))};
     lookup.tag = lookup.tags; // Accepted on input; suggest only the canonical tags: spelling.
     const listFields = new Set(['tags','plugins','filetype']);
-    const literalFields = new Set(['meta','deep']);
-    const freeSuggestions = new Set(['title','linksto','linkedfrom','after','before','bookmarked', ...literalFields]);
-    const freeFields = new Set(['tags','plugins','folder','owner','status','permissions','title','linksto','linkedfrom','domain','site','after','before','bookmarked', ...literalFields]);
+    const literalFields = new Set(['meta']);
+    const freeSuggestions = new Set(['title','url','linksto','linkedfrom','after','before','bookmarked', ...literalFields]);
+    const freeFields = new Set(['tags','plugins','folder','owner','status','permissions','title','url','linksto','linkedfrom','domain','site','after','before','bookmarked', ...literalFields]);
     const quotedText = /^"(?:\\.|[^"\\])+"$/;
     const tagList = /^(?:"(?:\\.|[^"\\])+"|[^",\s]+)(?:,(?:"(?:\\.|[^"\\])+"|[^",\s]+))*$/;
     const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -222,7 +222,7 @@
         const field = valid(token);
         const classes = [];
         if ((field || token.exact) && !editing) classes.push('filter-badge');
-        if (field && !editing && ['domain','site','linksto','linkedfrom'].includes(token.key)) classes.push('host-filter');
+        if (field && !editing && ['domain','site','url','linksto','linkedfrom'].includes(token.key)) classes.push('host-filter');
         if (!editing && (token.exact || (field && literalFields.has(token.key) && quotedText.test(token.value)))) {
           classes.push('exact');
         }

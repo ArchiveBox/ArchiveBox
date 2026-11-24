@@ -3,7 +3,6 @@
 import json
 import os
 import subprocess
-from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -11,23 +10,10 @@ from abx_plugins import get_plugins_dir
 
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
-from archivebox.core.models import Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.search.interpreter import SnapshotSearch
-from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def ripgrep_search_config(cached_abxpkg_lib_dir):
-    # Resolve the real test dependency before the query's search budget starts.
-    binary_env = resolve_abxpkg_binary_env(
-        cached_abxpkg_lib_dir,
-        deps_from=Path(get_plugins_dir()) / "search_backend_ripgrep" / "config.json",
-    )
-    ripgrep = Path(binary_env["RIPGREP_BINARY"])
-    assert ripgrep.is_file()
-    return get_config(overrides={"SEARCH_BACKEND_ENGINE": "ripgrep", "RIPGREP_BINARY": str(ripgrep)})
 
 
 def output(snapshot, path, text):
@@ -131,6 +117,22 @@ def test_indexed_url_proofs_preserve_off_host_and_file_only_matches(crawl):
     assert list(SnapshotSearch(scope, "linkedfrom:LIBRARY.EXAMPLE", streaming=True).stream()) == [indirect.pk]
 
 
+@pytest.mark.parametrize("value", ["library.example", "https://library.example/ABC", "library.example/ABC"])
+def test_url_operator_prefers_indexed_matches_and_keeps_embedded_urls(crawl, value):
+    scope = Snapshot.objects.all().order_by()
+    embedded = Snapshot.objects.create(crawl=crawl, url=f"https://elsewhere.example/?return={value}")
+    prefix = Snapshot.objects.create(crawl=crawl, url="https://library.example/ABC/paper")
+    Snapshot.objects.create(crawl=crawl, url="https://unrelated.example", title=value)
+    search = SnapshotSearch(scope, f'url:"{value}"', streaming=True)
+    assert list(search.stream()) == [prefix.pk, embedded.pk]
+    assert set(search.queryset().values_list("pk", flat=True)) == {prefix.pk, embedded.pk}
+    assert list(SnapshotSearch(scope.exclude(pk=prefix.pk), f'url:"{value}"', streaming=True).stream()) == [embedded.pk]
+    Snapshot.objects.filter(pk__in=[prefix.pk, embedded.pk]).update(title="Matching article")
+    combined = SnapshotSearch(scope, f'url:"{value}" AND title:article', streaming=True)
+    assert list(combined.stream()) == [prefix.pk, embedded.pk]
+    assert list(SnapshotSearch(scope.order_by("url"), f'url:"{value}"', streaming=True).stream()) == [embedded.pk, prefix.pk]
+
+
 def test_native_substrings_preserve_literal_unicode_and_punctuation(crawl):
     import re
     from archivebox.search.language import has_uppercase, substring
@@ -185,22 +187,35 @@ def test_provider_failure_logs_real_command_and_stderr(crawl, caplog, tmp_path):
     assert errors[0].exc_info
 
 
-def test_deep_shares_reads_after_metadata_filter_and_preserves_unknown_under_negation(crawl, ripgrep_search_config):
-    first = Snapshot.objects.create(crawl=crawl, url="https://reports.example/one")
-    capped = Snapshot.objects.create(crawl=crawl, url="https://reports.example/two")
-    outside = Snapshot.objects.create(crawl=crawl, url="https://unrelated.example/")
-    output(first, "dom/output.html", "Orbit Alpha:Beta")
-    output(capped, "dom/output.html", "x" * (512 * 1024) + "Orbit Alpha:Beta")
-    output(outside, "dom/output.html", "Orbit Alpha:Beta")
-    scope = Snapshot.objects.filter(pk__in=[first.pk, capped.pk, outside.pk])
-    search = SnapshotSearch(scope, 'domain:reports.example (deep:"Orbit" AND deep:"Alpha:Beta")', config=ripgrep_search_config)
-    assert list(search.stream()) == [first.pk]
-    assert search.partial
-    assert search.usage["bytes"] == len("Orbit Alpha:Beta") + 512 * 1024
-    assert search.usage["files"] == 2
-    negative = SnapshotSearch(scope, 'domain:reports.example ~deep:"Heavy"', config=ripgrep_search_config)
-    assert list(negative.stream()) == [first.pk]
-    assert negative.partial
+def test_search_reads_stored_index_even_if_archive_is_unmounted(crawl):
+    snap = Snapshot.objects.create(crawl=crawl, url="https://example.org/indexed")
+    output(snap, "readability/article.txt", "observatory station")
+    run_hook(snap, "search_backend_sqlite", "--snapshot-id", str(snap.pk), SEARCH_BACKEND_SQLITE_ENABLED="true")
+    (snap.output_dir / "readability/article.txt").write_text("unindexed replacement")
+    scope = Snapshot.objects.filter(pk=snap.pk)
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite"})
+    for query in ("observatory", "deep:observatory", 'deep:"observatory station"'):
+        assert list(SnapshotSearch(scope, query, config=config).stream()) == [snap.pk]
+    for query in ("unindexed", "deep:replacement"):
+        assert not list(SnapshotSearch(scope, query, config=config).stream())
+
+
+def test_search_matches_recorded_output_path_without_opening_remote_storage(crawl):
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite"})
+    snap = Snapshot.objects.create(crawl=crawl, url="https://reports.example/1")
+    ArchiveResult.objects.create(
+        snapshot=snap,
+        plugin="wget",
+        status="succeeded",
+        output_files={"papers/Nick:SWEETING.pdf": {"mimetype": "application/pdf"}},
+    )
+    scope = Snapshot.objects.filter(pk=snap.pk)
+    for query in ('deep:"nick:sweeting"', "deep:SWEETING", "deep:sweeting AND domain:reports.example"):
+        search = SnapshotSearch(scope, query, config=config)
+        assert list(search.stream()) == [snap.pk]
+        assert not search.usage
+    for query in ("deep:Sweeting", "deep:application", "~deep:sweeting"):
+        assert not list(SnapshotSearch(scope, query, config=config).stream())
 
 
 def test_sqlite_native_rank_explicit_sort_and_quoted_colons(crawl):
@@ -222,11 +237,10 @@ def test_sqlite_native_rank_explicit_sort_and_quoted_colons(crawl):
     assert list(SnapshotSearch(scope, '"ABC:DEF"', config=config).stream()) == [strong.pk]
     assert list(SnapshotSearch(scope, '~"ABC:DEF"', config=config).stream()) == [weak.pk]
 
-    # The index returns its confirmed ranked hits without waiting for a broad
-    # metadata scan; a row with only metadata must still arrive exactly once.
+    # A title match precedes indexed body matches, which retain their BM25 order.
     unindexed.title = "galaxy"
     unindexed.save(update_fields=["title"])
-    assert list(SnapshotSearch(scope, "galaxy", config=config).stream()) == [strong.pk, weak.pk, unindexed.pk]
+    assert list(SnapshotSearch(scope, "galaxy", config=config).stream()) == [unindexed.pk, strong.pk, weak.pk]
     for query in ("domain:papers.example galaxy", "(galaxy OR title:galaxy) AND domain:papers.example"):
         hits = list(SnapshotSearch(scope, query, config=config).stream())
         assert sorted(hits) == [weak.pk, strong.pk, unindexed.pk]
@@ -331,8 +345,8 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             plan = SnapshotSearch(scope.order_by(), "interstellar AND deep:diskneedle", config=config, streaming=True)
             stream = plan.stream()
             try:
-                assert next(stream) == hit.pk
-                assert plan.usage["bytes"] > 0
+                assert list(stream) == []
+                assert plan.usage["bytes"] == 0
             finally:
                 stream.close()
 
@@ -394,21 +408,6 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             daemon.wait(timeout=10)
 
 
-def test_connected_search_reaches_late_snapshots_and_file_tails(crawl, ripgrep_search_config):
-    snapshots = []
-    for i in range(16):
-        snap = Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://scan.example/{i}")
-        output(snap, "dom/output.html", "available")
-        snapshots.append(snap)
-    # Cross both the 12-snapshot preview and the 512 KiB read boundary.
-    # Place part of a UTF-8 literal on either side of the chunk boundary.
-    (snapshots[-1].output_dir / "dom/output.html").write_bytes(b"x" * (512 * 1024 - 1) + "éclipse".encode())
-    scope = Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).order_by("pk")
-    search = SnapshotSearch(scope, 'deep:"éclipse"', config=ripgrep_search_config, streaming=True)
-    assert list(search.stream()) == [snapshots[-1].pk]
-    assert not search.partial
-
-
 def test_connected_reverse_links_visit_late_sources_and_manifest_tail(crawl):
     sources = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://sources.example/{i}") for i in range(15)]
     target = Snapshot.objects.create(crawl=crawl, url="https://late.example/end")
@@ -417,3 +416,35 @@ def test_connected_reverse_links_visit_late_sources_and_manifest_tail(crawl):
     scope = Snapshot.objects.filter(crawl=crawl)
     assert list(SnapshotSearch(scope, "linkedfrom:sources.example", streaming=True).stream()) == [target.pk]
     assert list(SnapshotSearch(scope, "linksto:late.example", streaming=True).stream()) == [sources[-1].pk]
+
+
+def test_link_lookup_has_no_snapshot_quota(crawl):
+    sources = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://many.example/{i}") for i in range(16)]
+    target = Snapshot.objects.create(crawl=crawl, url="https://destination.example/story")
+    output(sources[-1], "parse_html_urls/urls.jsonl", json.dumps({"url": target.url}) + "\n")
+    assert list(SnapshotSearch(Snapshot.objects.filter(crawl=crawl), "linkedfrom:many.example").stream()) == [target.pk]
+
+
+def test_relevance_orders_domain_url_title_metadata_then_index(crawl):
+
+    ordered = [
+        ("https://news.orbit.example/home", "", ""),
+        ("https://example.org/path/orbit", "", ""),
+        ("https://example.org/story", "An Orbit story", ""),
+        ("https://example.org/note", "", "an orbit in a note"),
+        ("https://example.org/document", "", ""),
+    ]
+    snapshots = [
+        Snapshot.objects.create(id=UUID(int=100 - n), crawl=crawl, url=url, title=title, notes=notes)
+        for n, (url, title, notes) in enumerate(ordered)
+    ]
+    index_text = snapshots[-1]
+    output(index_text, "readability/article.txt", "orbit orbit orbit")
+    run_hook(index_text, "search_backend_sqlite", "--snapshot-id", str(index_text.pk), SEARCH_BACKEND_SQLITE_ENABLED="true")
+    config = get_config(overrides={"SEARCH_BACKEND_ENGINE": "sqlite"})
+    scope = Snapshot.objects.filter(crawl=crawl).order_by()
+    for query in ("orbit", "after:2000 orbit", "deep:orbit"):
+        assert list(SnapshotSearch(scope, query, config=config, streaming=True).stream()) == [s.pk for s in snapshots]
+    assert list(SnapshotSearch(scope.order_by("id"), "orbit", config=config, streaming=True).stream()) == [
+        s.pk for s in reversed(snapshots)
+    ]

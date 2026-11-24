@@ -44,7 +44,9 @@ def get_available_backends() -> dict:
     if _search_backends_cache is None:
         from archivebox.plugins.discovery import get_search_backends
 
-        _search_backends_cache = get_search_backends()
+        # Content searches must stay on the collection index, including when
+        # an older plugin package still advertises a filesystem scanner.
+        _search_backends_cache = {name: provider for name, provider in get_search_backends().items() if not provider.config.search_scan}
 
     return _search_backends_cache
 
@@ -58,9 +60,13 @@ def get_backend(config: dict[str, Any] | None = None, **config_kwargs: Any) -> A
     if backend_name in backends:
         return backends[backend_name]
 
-    for backend in backends.values():
-        if backend.config.search_scan:
-            return backend
+    # Existing collections may still select a retired backend. Resolve the
+    # collection default through the registered providers.
+    from archivebox.config.common import SearchBackendConfig
+
+    default = normalize_search_backend_name(SearchBackendConfig.model_fields["SEARCH_BACKEND_ENGINE"].default)
+    if default in backends:
+        return backends[default]
 
     available = list(backends.keys())
     raise RuntimeError(

@@ -748,7 +748,7 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
 
 
 def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_runtime(archivebox_daemon_server):
-    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep")
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite")
     server.wait_for_workers(("worker_uvicorn", "worker_runner"))
 
     setup_result = subprocess.run(

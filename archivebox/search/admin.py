@@ -55,7 +55,7 @@ class SearchResultsChangeList(ChangeList):
             self.opts.model_name == "snapshot"
             and self.query
             and self.result_count == 0
-            and get_search_mode_base(self.search_mode, config=request.archivebox_config) == "deep"
+            and get_search_mode_base(self.search_mode, config=request.archivebox_config) == "contents"
             and self.search_mode_backend,
         )
 
@@ -100,7 +100,7 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
             if search_mode == "query":
                 from archivebox.search.interpreter import sql_snapshot_search
 
-                filtered = sql_snapshot_search(queryset, search_term)
+                filtered = sql_snapshot_search(queryset, search_term, ranked="o" not in request.GET)
                 if filtered is not None:
                     request._archivebox_search_complete = True
                     return filtered, False

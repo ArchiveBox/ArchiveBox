@@ -74,3 +74,9 @@ function searchProgress(pageSize) {
         finishing() { bar.value = bar.max; },
     };
 }
+// Consume the first real row with the same renderer as a later HTTP fragment.
+function firstSearchFragment(line) {
+    if (!line.startsWith('first ')) return null;
+    const {html, headers, count} = JSON.parse(line.slice(6));
+    return {response: new Response(html, {headers}), count};
+}

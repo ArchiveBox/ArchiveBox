@@ -212,7 +212,6 @@ def test_search_backend_engine_derives_default_backend_enabled_without_entering_
     assert default_config.SEARCH_BACKEND_ENGINE == "sonic"
 
     default_runtime_config = default_config.for_crawl_runtime(extra_context={"snapshot_id": "default-runtime-config"})
-    assert default_runtime_config["SEARCH_BACKEND_RIPGREP_ENABLED"] is True
     assert default_runtime_config["SEARCH_BACKEND_SQLITE_ENABLED"] is False
     assert default_runtime_config["SEARCH_BACKEND_SONIC_ENABLED"] is True
 
@@ -222,7 +221,7 @@ def test_search_backend_engine_derives_default_backend_enabled_without_entering_
     assert sqlite_runtime_config["SEARCH_BACKEND_SQLITE_ENABLED"] is True
 
     config = ArchiveBoxConfig(
-        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_ENGINE="sonic",
         SEARCH_BACKEND_SQLITE_ENABLED=False,
         SEARCH_BACKEND_SONIC_ENABLED=True,
         SECRET_KEY="server-secret",
@@ -232,7 +231,6 @@ def test_search_backend_engine_derives_default_backend_enabled_without_entering_
     runtime_config = config.for_crawl_runtime(extra_context={"snapshot_id": "runtime-config"})
 
     assert "SEARCH_BACKEND_ENGINE" not in runtime_config
-    assert runtime_config["SEARCH_BACKEND_RIPGREP_ENABLED"] is True
     assert runtime_config["SEARCH_BACKEND_SQLITE_ENABLED"] is False
     assert runtime_config["SEARCH_BACKEND_SONIC_ENABLED"] is True
     assert "SECRET_KEY" not in runtime_config
@@ -524,7 +522,6 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
         "SEARCH_BACKEND_ENGINE": "sqlite",
         "SEARCH_BACKEND_SQLITE_ENABLED": True,
         "SEARCH_BACKEND_SONIC_ENABLED": False,
-        "SEARCH_BACKEND_RIPGREP_ENABLED": False,
         "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.2",
     }
     machine.config = {**machine.config, **settings}
@@ -537,7 +534,6 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
         "SEARCH_BACKEND_ENGINE": "ripgrep",
         "SEARCH_BACKEND_SQLITE_ENABLED": False,
         "SEARCH_BACKEND_SONIC_ENABLED": True,
-        "SEARCH_BACKEND_RIPGREP_ENABLED": True,
         "SONIC_HOST": "legacy.example",
     }
     persona.config.update(legacy)
@@ -567,7 +563,7 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
 
     persona_cards = fields(PersonaAdminForm(instance=persona))
     machine_cards = fields(MachineAdminForm(instance=machine))
-    names = {"opencode", "search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+    names = {"opencode", "search_backend_sqlite", "search_backend_sonic"}
     assert not names & persona_cards.keys()
     assert names <= machine_cards.keys()
     assert {field["key"] for field in persona_cards["base"]} >= {"TIMEOUT", "MEMORY_LIMIT", "MEMORY_MIN_FREE", "USER_AGENT"}

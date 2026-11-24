@@ -299,7 +299,7 @@ class RuleQuery:
                     # backend scan must never be interpreted as a definitive non-match.
                     raise ValidationError(
                         "Saved folders require complete membership. Use database fields such as title:, tags: or meta: "
-                        "instead of full-text, deep: or link searches.",
+                        "instead of full-text or link searches.",
                     )
                 query = sql_bounds(plan.tree, plan.sql)[1]
                 # Historical rule trees stay in their typed, lossless representation.

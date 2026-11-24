@@ -41,6 +41,7 @@ OPERATORS = {
     "plugins": ("puzzle", "Successful plugin name contains this text"),
     "owner": ("user", "Username contains this text"),
     "domain": ("globe", "Website domain"),
+    "url": ("link", "Snapshot URL contains this text"),
     "after": ("calendar", "Bookmarked on or after a date"),
     "before": ("calendar", "Bookmarked before a date"),
     "bookmarked": ("calendar", "Bookmarked in a year, month or day"),
@@ -49,7 +50,6 @@ OPERATORS = {
     "permissions": ("lock", "Snapshot visibility"),
     "title": ("type", "Title contains this text"),
     "meta": ("database", "Search database metadata"),
-    "deep": ("file", "Search archived file contents"),
     "linksto": ("out", "Outgoing URL contains this text."),
     "linkedfrom": ("link", "Source URL contains this text."),
 }
@@ -100,7 +100,7 @@ def parse(source):
             return Term("word", word)
         field = field.lower()
         field = ALIASES.get(field, field)
-        if field not in OPERATORS and not re.fullmatch(r"[a-z][a-z0-9_]*__[a-z_]+", field):
+        if field != "deep" and field not in OPERATORS and not re.fullmatch(r"[a-z][a-z0-9_]*__[a-z_]+", field):
             raise ValueError(f"Unknown field {field}")
         if field in ("tags", "plugins", "filetype"):
             # A quoted list item can contain commas, spaces or colons. Split
@@ -137,10 +137,13 @@ def parse(source):
             )
         if not value and peek() and peek().startswith('"') and tokens[i][1] == tokens[i - 1][2]:
             value = json.loads(peek())
+            if field == "deep":
+                field = "literal"
             i += 1
         if not value:
             raise ValueError(f"Empty {field}")
-        return Term(field, value)
+        # Bookmarked searches from the old UI now use ordinary indexed text.
+        return Term("word" if field == "deep" else field, value)
 
     def conjunction():
         nonlocal i
@@ -266,10 +269,20 @@ def url_substring_hint(value, db):
         except ValueError:
             return None
     if value.lower().startswith(("https://", "http://")):
-        if connections[db].vendor == "sqlite" and value.isascii():
-            return Q(url__gte=value, url__lt=url_prefix_upper_bound(value))
-        return Q(url__startswith=value)
-    return None
+        prefixes = (value,)
+    elif re.match(r"^[\w-]+(?:\.[\w-]+)*(?:[/:?#]|$)", value):
+        # An omitted scheme still allows two small seeks, including a partial
+        # host or a host followed by a path. Other occurrences come later.
+        prefixes = ("https://" + value, "http://" + value)
+    else:
+        return None
+    return reduce(
+        or_,
+        (
+            Q(url__gte=p, url__lt=url_prefix_upper_bound(p)) if connections[db].vendor == "sqlite" and p.isascii() else Q(url__startswith=p)
+            for p in prefixes
+        ),
+    )
 
 
 def url_prefix_upper_bound(prefix):
@@ -304,6 +317,29 @@ class ConfigContains(Func):
         return f"EXISTS ({sql})", (*lhs_params, *rhs_params)
 
 
+class OutputPathExists(Func):
+    """Apply a text predicate to recorded paths, which are JSON keys, never metadata values."""
+
+    output_field = BooleanField()
+
+    def as_sql(self, compiler, connection, **extra_context):
+        column, params = compiler.compile(self.source_expressions[0])
+        predicate, values = compiler.compile(self.source_expressions[1])
+        if connection.vendor == "postgresql":
+            keys = f"jsonb_object_keys(CASE WHEN jsonb_typeof({column}) = 'object' THEN {column} ELSE '{{}}'::jsonb END) AS j(key)"
+            params = (*params, *params)
+        else:
+            keys = f"json_each({column}) AS j"
+            predicate = f"typeof(j.key) = 'text' AND ({predicate})"
+        return f"EXISTS (SELECT 1 FROM {keys} WHERE {predicate})", (*params, *values)
+
+
+def recorded_path_contains(value):
+    key = RawSQL("j.key", (), output_field=TextField())
+    results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk")).filter(OutputPathExists("output_files", substring(key, value)))
+    return Q(Exists(results))
+
+
 def matching_tag_assignments(value, *, match_case=None):
     # Test the substring against distinct tag names, then follow indexed IDs.
     tags = Tag.objects.filter(substring("name", value, match_case=match_case)).order_by().values("pk")
@@ -319,7 +355,7 @@ def text_metadata(term, *, public):
     # A candidate page already has snapshot IDs. Probe their assignments
     # instead of materializing every matching assignment in the collection.
     tags = matching_tag_assignments(term.value).filter(snapshot_id=OuterRef("pk"))
-    return reduce(or_, (substring(f, term.value) for f in fields)) | Q(Exists(tags))
+    return reduce(or_, (substring(f, term.value) for f in fields)) | Q(Exists(tags)) | recorded_path_contains(term.value)
 
 
 def sql_leaf(term, db, *, rules=None, stack=(), public=False):
@@ -350,7 +386,7 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
         return (rules or RuleQuery()).named_folders(v, stack, public=public)
     if f == "domain":
         return SnapshotQuerySet.domain_q(v)
-    if f in {"permissions", "status", "title"}:
+    if f in {"permissions", "status", "title", "url"}:
         return substring(f, v)
     if f == "owner":
         return substring("crawl__created_by__username", v)
@@ -399,24 +435,17 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
             )
         if not all(re.fullmatch(r"[a-zA-Z0-9]+", s) for s in parts):
             raise ValueError("Invalid extension")
-        if vendor == "postgresql":
-            # The file paths are JSON object keys. Django's key transforms work
-            # for known keys, but cannot enumerate arbitrary keys by extension.
-            keys_from = """jsonb_object_keys(CASE WHEN jsonb_typeof(output_files) = 'object'
-                THEN output_files ELSE '{}'::jsonb END) AS j(key)"""
-        else:
-            keys_from = "json_each(output_files) AS j"
         comparison, prefix = "lower(j.key) LIKE %s", "%."
         if match_case:
             # SQLite LIKE still folds ASCII; GLOB preserves filename case.
             comparison, prefix = ("j.key GLOB %s", "*.") if vendor == "sqlite" else ("j.key LIKE %s", "%.")
         clause = " OR ".join(comparison for _ in parts)
         keys = RawSQL(
-            f"EXISTS (SELECT 1 FROM {keys_from} WHERE {clause})",
+            clause,
             [prefix + (s if match_case else s.lower()) for s in parts],
             output_field=BooleanField(),
         )
-        return Q(Exists(results.filter(keys)))
+        return Q(Exists(results.filter(OutputPathExists("output_files", keys))))
     if f == "meta":
         fields = (
             "url",

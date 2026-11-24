@@ -631,7 +631,7 @@ If ArchiveBox detects the configured `TMP_DIR` is unwritable or too long, it wil
 ---
 #### `ABXPKG_LIB_DIR`
 **Possible Values:** [`<user-config>/abx/lib`]/`/opt/archivebox/lib`/`~/.config/abx/lib`/...
-Path for installed binary dependencies (`chromium`, `single-file`, `yt-dlp`, `ripgrep`, etc.) managed by `abxpkg`. The default is the platform-standard user-config location (`~/.config/abx/lib` on Linux, `~/Library/Application Support/abx/lib` on macOS, `%APPDATA%\abx\lib` on Windows) so a single binary installation can be shared across multiple collections on the same machine without re-downloading.
+Path for installed binary dependencies (`chromium`, `single-file`, `yt-dlp`, etc.) managed by `abxpkg`. The default is the platform-standard user-config location (`~/.config/abx/lib` on Linux, `~/Library/Application Support/abx/lib` on macOS, `%APPDATA%\abx\lib` on Windows) so a single binary installation can be shared across multiple collections on the same machine without re-downloading.
 
 > [!NOTE]
 > `ABXPKG_LIB_DIR` can grow to several GB. Put it on a fast local disk — running extractors off a network-mounted `ABXPKG_LIB_DIR` will be painfully slow.
@@ -785,21 +785,20 @@ Lower values retry more aggressively (useful if you expect locks to clear quickl
 ArchiveBox can index Snapshot text/HTML output into searchable indexes that power the search bar in the Web UI and the `archivebox search <query>` CLI command. Multiple backend engines can be enabled at once; `SEARCH_BACKEND_ENGINE` selects the default used by the UI and CLI.
 
 > [!NOTE]
-> Each backend has its own tuning knobs (e.g. [Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port, [ripgrep](https://plugins.archivebox.io/#search_backend_ripgrep) flags, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path). Those backend-specific options now live with the plugin that implements them — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend schema.
+> Each backend has its own tuning knobs (e.g. [Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path). Those backend-specific options now live with the plugin that implements them — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend schema.
 
 ---
 #### `SEARCH_BACKEND_ENGINE`
-**Possible Values:** [`sonic`]/`ripgrep`/`sqlite`
+**Possible Values:** [`sonic`]/`sqlite`
 
 Which search backend engine to use when running `archivebox search` and rendering the Web UI search bar.
 
-- **`ripgrep`** — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://plugins.archivebox.io/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. ArchiveBox keeps it enabled as the fallback when Sonic is unavailable.
 
 - **`sonic`** *(default)* — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://plugins.archivebox.io/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected.
 
-- **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://plugins.archivebox.io/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Faster than `ripgrep` on large collections, slightly slower than `sonic`, but no daemon to babysit. Good middle ground for users who want a real index without operational overhead.
+- **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://plugins.archivebox.io/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Good middle ground for users who want a real index without operational overhead.
 
-*Note: Backend-specific tuning ([Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port/password, [ripgrep](https://plugins.archivebox.io/#search_backend_ripgrep) flag overrides, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path, indexer batch size, etc.) lives in each search-backend plugin's own config schema — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend option list.*
+*Note: Backend-specific tuning ([Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port/password, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path, indexer batch size, etc.) lives in each search-backend plugin's own config schema — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend option list.*
 
 ---
 
@@ -1009,11 +1008,6 @@ SHOW_PROGRESS=False archivebox add < urls.txt
 <a id="responses-settings"></a>
 <a id="responses_enabled"></a>
 <a id="responses_timeout"></a>
-<a id="ripgrep-search-settings"></a>
-<a id="ripgrep_args"></a>
-<a id="ripgrep_args_extra"></a>
-<a id="ripgrep_binary"></a>
-<a id="ripgrep_timeout"></a>
 <a id="rss-url-parser-settings"></a>
 <a id="screenshot-settings"></a>
 <a id="screenshot_enabled"></a>

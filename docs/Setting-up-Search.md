@@ -44,79 +44,7 @@ archivebox version
 archivebox config --get SEARCH_BACKEND_ENGINE
 ```
 
-ArchiveBox installs and enables both [Sonic](https://github.com/valeriansaliou/sonic) and [`ripgrep`](https://github.com/BurntSushi/ripgrep). Sonic is selected by default for fast indexed search, while ripgrep remains available as the filesystem fallback when Sonic is unavailable or explicitly selected.
-
-> [!TIP]
-> **You should consider selecting `ripgrep` instead of Sonic if:**
-> 
-> - Sonic is unavailable on your platform
-> - you prefer filesystem scanning without a background daemon
-> - you need ripgrep-compatible regular expressions
-
-<br/>
-
-<a name="ripgrep"></a>
-
-### `ripgrep` *(fallback)*
-
-ArchiveBox resolves `ripgrep` through `abxpkg`: a compatible host installation is used first, otherwise a managed copy is installed.
-
-```bash
-archivebox install ripgrep
-archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
-
-# check the resolved provider, version, and projected binary:
-archivebox version
-
-# then try it out by searching via the Web UI or CLI:
-archivebox search 'text to search for'
-```
-
-#### Pros
-- supports advanced searching with regex patterns
-- simple, few moving parts, and broadly available for all OSs and CPU architectures
-- 0 idle resource use as there is no background indexer process running
-- 0 additional disk storage needed as it searches the original data instead of maintaining a separate index
-- reasonably fast on NVMe and SSD drives for small collections
-
-#### Cons
-- very slow as archive collection size increases (doesn't scale well beyond 500~1,000 Snapshots)
-- very slow if underlying filesystem is slow (e.g. HDDs or network mounts)
-- doesn't support stemming, boolean operators, or other advanced full-text search features
-
-<br/>
-
-<a name="ripgrep-all"></a>
-
-### `ripgrep-all` (aka `rga`)
-
-`ripgrep-all` supports more binary file types such as PDFs, eBooks, Office documents, zip, and tar files. It is useful as an external companion tool, but it is **not currently a supported drop-in binary for ArchiveBox's `ripgrep` backend**. The backend relies on `rg`'s command and output contract.
-
-<br/>
-
-<a name="ugrep"></a>
-
-### `ugrep`
-
-`ugrep` is another capable external search tool, but it is **not a supported drop-in binary** for ArchiveBox's `ripgrep` backend. Contributions adding a dedicated integration are welcome.
-
-`ugrep` is similar to `ripgrep` and `ripgrep-all` in that it's an indexless disk-search tool, but it provides some more of the full-text search features without the performance overhead of maintaining a separate search backend worker with an independent index.
-
-https://github.com/Genivia/ugrep
-
-#### Pros
-
-- supports [boolean operators](https://github.com/Genivia/ugrep#bool) in search queries
-- supports binary formats like compressed archives, PDFs, eBooks, etc.
-- better support for Unicode, special characters, and searching across multiple lines of text
-- supports [fuzzy search](https://github.com/Genivia/ugrep#fuzzy)
-
-#### Cons
-
-- not as fast as `sonic` and but also not as simple as `ripgrep`
-- not all of its features are fully integrated with ArchiveBox yet
-
-<br/><br/>
+Search uses Sonic by default. SQLite FTS is also available. Both use the collection's full-text index. Ordinary text queries also match recorded output filenames in the database. Existing `deep:` queries use the same text search.
 
 <a name="sonic"></a>
 
@@ -126,7 +54,7 @@ https://github.com/Genivia/ugrep
 
 Internally it functions as an index store, storing only the original IDs of the Snapshots with a super-compressed representation of the text. This allows it to scale to searching terabytes of archive data while maintaining an index only a fraction of that size.
 
-*ArchiveBox has supported Sonic for years, and it is the most thoroughly tested and recommended backend for ArchiveBox users that need to scale beyond `ripgrep`.*
+*ArchiveBox has supported Sonic for years, and it is the most thoroughly tested and recommended backend for ArchiveBox large collections.*
 
 ArchiveBox resolves and starts Sonic through the same `abxpkg` lifecycle on both Docker and bare-metal installations.
 
@@ -200,7 +128,7 @@ archivebox config --set FTS_TOKENIZERS="porter unicode61 remove_diacritics 2"
 
 #### Cons
 
-- Not as thoroughly-tested by ArchiveBox team as our `sonic` or `ripgrep` backends
+- Not as thoroughly-tested by ArchiveBox team as our `sonic` backend
 - Maintains a (compressed, but still potentially large) duplicate copy of all searchable text in `search.sqlite3` db
 - Does not support searching binary files PDFs, eBooks, compressed archives, etc.
 - Search indexing and querying must be performed on same server as ArchiveBox data (we don't yet support sending FTS5 queries to a remote server)
@@ -214,7 +142,6 @@ archivebox config --set FTS_TOKENIZERS="porter unicode61 remove_diacritics 2"
 ### Further Reading
 
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/docker-compose.yml#:~:text=SEARCH_BACKEND_ENGINE
-- https://plugins.archivebox.io/#search_backend_ripgrep
 - https://plugins.archivebox.io/#search_backend_sonic
 - https://plugins.archivebox.io/#search_backend_sqlite
 

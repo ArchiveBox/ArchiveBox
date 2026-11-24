@@ -51,6 +51,25 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
         field.press("Control+z")
         expect(hidden).to_have_value("tags:sun x")
 
+        field.fill("ur")
+        url_option = page.get_by_role("option", name="url:", exact=False)
+        expect(url_option).to_be_visible()
+        assert url_option.locator("svg use").evaluate("use => use.getBBox().width") > 0
+        field.press("Tab")
+        expect(hidden).to_have_value("url:")
+        field.fill("url:example.org ")
+        field.press("Escape")
+        field.press("Tab")
+        assert field.locator(".badge-icon use").evaluate("use => use.getBBox().width") > 0
+        field.fill("fol")
+        folder_option = page.get_by_role("option", name="folder:", exact=False)
+        expect(folder_option).to_be_visible()
+        assert folder_option.locator("svg use").evaluate("use => use.getBBox().width") > 0
+        field.fill('folder:"Research" ')
+        field.press("Escape")
+        field.press("Tab")
+        assert field.locator(".badge-icon use").evaluate("use => use.getBBox().width") > 0
+
         field.fill("tag")
         expect(page.locator('[role="option"] .suggestion-name')).to_have_text(["tags:"])
         field.press("Tab")
@@ -147,7 +166,10 @@ def test_standalone_mobile_search_submits_from_keyboard(live_server, crawl, brow
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize(("query", "sql_page"), [("after:2026", True), ("after:2026 AND sortable", False)])
+@pytest.mark.parametrize(
+    ("query", "sql_page"),
+    [("after:2026", True), ("after:2026 AND sortable", False), ("url:example.org AND after:2026", False)],
+)
 def test_sort_search_results_by_column(live_server, admin_user, crawl, browser_runtime, query, sql_page):
     from datetime import datetime, timezone
 
@@ -316,6 +338,7 @@ def test_editor_searches_only_within_active_view(live_server, admin_user, crawl,
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("view", ["public", "list", "grid"])
 def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, browser_runtime, view):
+    import json
     import shutil
     from uuid import UUID
 
@@ -326,7 +349,7 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
     from archivebox.crawls.models import Crawl
     from django.contrib.auth import get_user_model
 
-    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", PUBLIC_INDEX="true", BASE_URL="http://archivebox.localhost")
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", PUBLIC_INDEX="true", BASE_URL="http://archivebox.localhost")
     server.wait_for_workers(("worker_uvicorn",))
     port = server.port
     with use_archivebox_db(server.data_dir):
@@ -353,13 +376,11 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
                     output_str="screenshot.png",
                     output_files={"screenshot.png": {"size": image.stat().st_size, "mimetype": "image/png"}},
                 )
-        path = snap.output_dir / "dom" / "late.txt"
-        path.parent.mkdir(parents=True)
-        with path.open("wb") as stream:
-            # Sparse fixture. At 4 MiB/window the final text arrives after the
-            # old eight-second whole-query deadline, with no hits along the way.
-            stream.seek(42 << 20)
-            stream.write(b"sunrise")
+        # Use the real SQLite indexer. A literal near the end of this indexed
+        # article arrives in a later read window, after the first SQL result.
+        from archivebox.tests.test_search import index_text
+
+        index_text(snap, "details " * 650_000 + " sunrise", server.data_dir)
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page()
@@ -377,6 +398,8 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
             rows = page.locator(".cards > .card" if view == "grid" else "#result_list tbody tr[data-snapshot-id]")
         editor = page.locator("#changelist-search [role=combobox]")
         fragments = []
+        streams = []
+        page.on("response", lambda r: streams.append(r) if "/search-stream/" in r.url else None)
         page.on(
             "response",
             lambda response: (
@@ -386,9 +409,17 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
             ),
         )
         original_editor = editor.element_handle()
-        editor.fill("title:Early OR deep:sunrise")
+        editor.fill('title:Early OR "sunrise"')
         editor.press("Escape")
+        # Capture the state in the submit event itself, before a fast response
+        # can replace stale collection totals and mask this regression.
+        page.evaluate("""document.addEventListener('submit', () => {
+            window.pendingSearchFooter = [...document.querySelectorAll(
+                '.public-pagination, #changelist .paginator, #changelist .action-total-count'
+            )].map(node => node.textContent.trim()).join('');
+        }, {once: true})""")
         editor.press("Enter")
+        assert page.evaluate("window.pendingSearchFooter") == ""
         expect(rows).to_have_count(1)
         first = rows.filter(has_text="Early metadata")
         frame = first.locator("iframe")
@@ -420,7 +451,9 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
         assert first_row.evaluate("row => row.isConnected && row === row.parentElement.firstElementChild")
         assert removals.evaluate("removed => removed.length") == 0
         assert not repeat_requests
-        bodies = [response.text() for response in fragments]
+        (first,) = (json.loads(line[6:]) for line in streams[0].text().splitlines() if line.startswith("first "))
+        assert first["count"] >= 1
+        bodies = [first["html"], *(response.text() for response in fragments)]
         for row in rows.all():
             row_id = row.get_attribute("data-snapshot-id")
             assert sum(f'data-snapshot-id="{row_id}"' in body for body in bodies) == 1

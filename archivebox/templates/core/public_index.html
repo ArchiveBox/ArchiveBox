@@ -3,6 +3,8 @@
 {% load core_tags %}
 
 {% load search_field %}
+{% block search_stream_head %}{% url 'public-search-stream' as endpoint %}{% if public_search_stream_pending %}{% include 'includes/search_stream_head.html' with complete=False mode=search_mode %}{% else %}{% include 'includes/search_stream_head.html' with complete=True mode=search_mode %}{% endif %}{% endblock %}
+{% block jquery %}<script defer src="{% static 'jquery.min.js' %}"></script>{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
 <script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
@@ -679,7 +681,7 @@
             <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
                 {% for key, values in request.GET.lists %}{% if key != "q" and key != "search_mode" and key != "page" and key != "p" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}{% endfor %}
                 {% search_field request.GET.q %}
-                {% if request.GET.search_mode %}<input type="hidden" name="search_mode" value="{{ request.GET.search_mode }}">{% endif %}
+                {% if request.GET.search_mode %}<input type="hidden" name="search_mode" value="{{ search_mode }}">{% endif %}
                 <input type="submit" value="Search">
             </form>
             {% endif %}
@@ -699,7 +701,6 @@
                 {% endif %}
             </div>
         </div>
-        {% if not search_fragment %}{% plugin_icon_sprite %}{% endif %}
         <div class="public-snapshot-table-wrap">
             <table id="table-bookmarks" aria-label="Archived snapshots">
                 <thead>
@@ -733,6 +734,7 @@
                 </tbody>
             </table>
         </div>
+        {% if not search_fragment %}{% plugin_icon_sprite %}{% endif %}
         {% if not search_retained %}{% include "core/snapshot_export_links.html" with export_urls=snapshot_export_urls export_caption=True export_class="snapshot-list-exports" %}{% endif %}
         <div class="public-pagination" role="navigation" aria-label="Snapshot pages">
             Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
@@ -812,7 +814,7 @@
                 const snapshotHeading = document.querySelector('#table-bookmarks thead th:nth-child(3)')
                 if (snapshotHeading) snapshotHeading.textContent = 'Snapshot'
                 const pagination = document.querySelector('.public-pagination')
-                if (pagination) pagination.textContent = 'Searching...'
+                if (pagination) pagination.replaceChildren()
             }
 
             function cancelActiveSearch(event) {
@@ -864,10 +866,10 @@
                     if (next && current && !next.isEqualNode(current)) current.replaceChildren(...next.childNodes)
                 }
 
-                async function renderNow(preview = false) {
+                async function renderNow(preview = false, firstResponse = null) {
                     const url = buildListUrl()
                     const headers = {...renderHeaders, 'X-ArchiveBox-Search-Fragment': preview ? 'preview' : 'rows'}
-                    const response = await fetch(url, {headers, signal: controller.signal})
+                    const response = firstResponse || await fetch(url, {headers, signal: controller.signal})
                     if (!response.ok) throw new Error('Could not load snapshot results')
                     const html = await response.text()
                     const doc = searchFragment(html)
@@ -898,11 +900,7 @@
                 const listUrl = buildListUrl()
                 history.replaceState(null, '', listUrl)
                 clearStaleSearchResults(mode)
-                const streamUrl = new URL("{% url 'public-search-stream' %}", window.location.href)
-                streamUrl.searchParams.set('q', query)
-                streamUrl.searchParams.set('search_mode', mode)
-                streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
-                fetch(streamUrl, {headers: {'X-ArchiveBox-Search-Page': 'first', 'X-ArchiveBox-Search-Progress': '1'}, signal: controller.signal})
+                window.archiveboxFetchSearch(listUrl, controller)
                     .then(async function(response) {
                         const generation = response.headers.get("X-ArchiveBox-Search-Generation");
                         if (generation) renderHeaders["X-ArchiveBox-Search-Generation"] = generation;
@@ -919,8 +917,14 @@
                             const lines = buffer.split('\n')
                             buffer = lines.pop()
                             let shouldRender = false
-                            lines.forEach(function(count) {
-                                if (!count.trim() || controller.progress.work(count.trim())) return
+                            for (let count of lines) {
+                                if (!count.trim() || controller.progress.work(count.trim())) continue
+                                const first = firstSearchFragment(count)
+                                if (first) {
+                                    resultVersion = first.count
+                                    await renderNow(true, first.response)
+                                    continue
+                                }
                                 count = parseInt(count.trim(), 10)
                                 if (Number.isFinite(count)) {
                                     resultVersion = count
@@ -929,7 +933,7 @@
                                     resultVersion += 1
                                     shouldRender = true
                                 }
-                            })
+                            }
                             controller.progress.count(resultVersion)
                             if (result.done) controller.progress.finishing()
                             const needsRows = shouldRender && !firstPageFilled && resultVersion > renderedCount

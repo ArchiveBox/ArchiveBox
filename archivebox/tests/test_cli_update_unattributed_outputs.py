@@ -91,7 +91,7 @@ def test_failed_file_copy_never_publishes_partial_output(initialized_archive):
 def test_filesystem_migration_refuses_a_live_server(archivebox_daemon_server):
     from archivebox.crawls.models import Crawl
 
-    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", PLUGINS="")
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", PLUGINS="")
     server.wait_for_workers(("worker_uvicorn", "worker_runner"))
     with use_archivebox_db(server.data_dir):
         crawl = Crawl.objects.create(urls="https://example.com/legacy", status="sealed", retry_at=None)

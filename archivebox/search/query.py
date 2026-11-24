@@ -9,7 +9,7 @@ from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 from archivebox.config.common import get_config
 from archivebox.misc.logging import stderr
 from archivebox.misc.util import enforce_types, equivalent_urls
-from archivebox.search.backends import get_available_backends, get_backend, normalize_search_backend_name, search_backend_command_env
+from archivebox.search.backends import get_available_backends, get_backend, search_backend_command_env
 from archivebox.search.config import get_search_mode, get_search_mode_backend, get_search_mode_base
 
 
@@ -182,7 +182,6 @@ def prioritize_metadata_matches(
     metadata_queryset: QuerySet,
     fulltext_queryset: QuerySet,
     *,
-    deep_queryset: QuerySet | None = None,
     ordering: list[str] | tuple[str, ...] | None = None,
 ) -> QuerySet:
     """Rank metadata hits before backend full-text hits."""
@@ -191,32 +190,21 @@ def prioritize_metadata_matches(
     fulltext_ids = [
         pk for pk in fulltext_queryset.values_list("pk", flat=True).distinct()[: MAX_SEARCH_RANK_IDS + 1] if pk not in metadata_id_set
     ]
-    fulltext_id_set = set(fulltext_ids)
-    deep_ids = []
-    if deep_queryset is not None:
-        deep_ids = [
-            pk
-            for pk in deep_queryset.values_list("pk", flat=True).distinct()[: MAX_SEARCH_RANK_IDS + 1]
-            if pk not in metadata_id_set and pk not in fulltext_id_set
-        ]
-
-    if not metadata_ids and not fulltext_ids and not deep_ids:
+    if not metadata_ids and not fulltext_ids:
         return base_queryset.none()
 
-    if any(len(ids) > MAX_SEARCH_RANK_IDS for ids in (metadata_ids, fulltext_ids, deep_ids)):
+    if any(len(ids) > MAX_SEARCH_RANK_IDS for ids in (metadata_ids, fulltext_ids)):
         search_filter = Q()
         if metadata_ids:
             search_filter |= Q(pk__in=metadata_queryset.values("pk").distinct())
         if fulltext_ids:
             search_filter |= Q(pk__in=fulltext_queryset.values("pk").distinct())
-        if deep_queryset is not None and deep_ids:
-            search_filter |= Q(pk__in=deep_queryset.values("pk").distinct())
         qs = base_queryset.filter(search_filter)
         if ordering is not None:
             qs = qs.order_by(*ordering)
         return qs.distinct()
 
-    qs = base_queryset.filter(pk__in=[*metadata_ids, *fulltext_ids, *deep_ids]).annotate(
+    qs = base_queryset.filter(pk__in=[*metadata_ids, *fulltext_ids]).annotate(
         search_rank=Case(
             When(pk__in=metadata_ids, then=Value(0)),
             When(pk__in=fulltext_ids, then=Value(1)),
@@ -273,18 +261,6 @@ def apply_snapshot_search(
         if len(metadata_ids) >= max_results:
             return metadata_queryset.distinct()
 
-    if search_mode_base == "deep":
-        fulltext_search_mode = f"contents:{search_mode_backend}" if search_mode_backend else "contents"
-        fulltext_queryset = query_search_index(query, search_mode=fulltext_search_mode, config=config, max_results=max_results)
-        deep_queryset = query_search_index(query, search_mode=search_mode, config=config, max_results=max_results)
-        return prioritize_metadata_matches(
-            base_queryset,
-            metadata_queryset,
-            fulltext_queryset,
-            deep_queryset=deep_queryset,
-            ordering=ordering,
-        )
-
     backend_queryset = query_search_index(query, search_mode=search_mode, config=config, max_results=max_results)
     if search_mode_backend and not include_metadata_for_forced_backend:
         return base_queryset.filter(pk__in=backend_queryset.values("pk")).distinct()
@@ -339,83 +315,38 @@ def iter_query_search_ids(
     if search_mode_base == "meta":
         return
 
-    backends = get_available_backends()
-    configured_backend = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
-    fallback_enabled = search_mode_base == "deep" and (
-        not forced_backend
-        or (forced_backend == configured_backend and forced_backend in backends and backends[forced_backend].config.search_fallback)
-    )
-    indexed = [name for name, backend in backends.items() if not backend.config.search_scan]
-    scanners = [name for name, backend in backends.items() if backend.config.search_scan]
-    if forced_backend:
-        if forced_backend not in backends:
-            raise RuntimeError(
-                f'Search backend "{forced_backend}" not found. Available backends: {list(backends) or "none"}',
-            )
-        backend_names = (
-            [forced_backend, *(name for name in (*indexed, *scanners) if name != forced_backend)] if fallback_enabled else [forced_backend]
-        )
-    elif search_mode_base == "deep":
-        backend_names = [
-            *([configured_backend] if configured_backend in indexed else []),
-            *(name for name in indexed if name != configured_backend),
-            *scanners,
-        ]
-    elif configured_backend in backends:
-        backend_names = [configured_backend]
-    elif scanners:
-        backend_names = scanners[:1]
-    else:
-        get_backend(config=config)
-        return
+    backend = get_available_backends()[forced_backend] if forced_backend else get_backend(config=config)
+    from archivebox.plugins.services import ensure_plugin_services
+    from archivebox.plugins.discovery import get_plugin_catalog
+    from archivebox.config.constants import CONSTANTS
+    from abx_dl.execution import iter_plugin_command
+    from contextlib import redirect_stdout
+    import sys
 
-    errors: list[Exception] = []
-    successful_backends = 0
-    seen: set[str] = set()
     try:
-        for backend_name in backend_names:
-            if stop_event is not None and stop_event.is_set():
-                return
-            backend = backends[backend_name]
-            try:
-                import sys
-                from contextlib import redirect_stdout
-                from archivebox.plugins.services import ensure_plugin_services
-
-                with redirect_stdout(sys.stderr):
-                    ensure_plugin_services(config, plugin_names={backend.name}, reason="search query")
-                from abx_dl.execution import iter_plugin_command
-                from archivebox.config.constants import CONSTANTS
-                from archivebox.plugins.discovery import get_plugin_catalog
-
-                command = get_plugin_catalog().command(backend.name, "search")
-                if command is None:
-                    raise RuntimeError(f'Plugin "{backend.name}" does not expose a search command')
-                ids = iter_plugin_command(
-                    command,
-                    arguments={"query": query, "search_mode": search_mode_base},
-                    env=search_backend_command_env(config=config),
-                    cwd=CONSTANTS.DATA_DIR,
-                    timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
-                    stop_event=stop_event,
-                )
-                try:
-                    for snapshot_id in ids:
-                        if snapshot_id in seen:
-                            continue
-                        seen.add(snapshot_id)
-                        yield snapshot_id
-                        if max_results and len(seen) >= max_results:
-                            return
-                finally:
-                    ids.close()
-                successful_backends += 1
-            except Exception as err:
-                errors.append(err)
-                if not fallback_enabled:
-                    raise
-        if not successful_backends and errors and search_mode_base == "deep":
-            raise errors[0]
+        with redirect_stdout(sys.stderr):
+            ensure_plugin_services(config, plugin_names={backend.name}, reason="search query")
+        command = get_plugin_catalog().command(backend.name, "search")
+        if command is None:
+            raise RuntimeError(f'Plugin "{backend.name}" does not expose a search command')
+        ids = iter_plugin_command(
+            command,
+            arguments={"query": query, "search_mode": "contents"},
+            env=search_backend_command_env(config=config),
+            cwd=CONSTANTS.DATA_DIR,
+            timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
+            stop_event=stop_event,
+        )
+        seen = set()
+        try:
+            for snapshot_id in ids:
+                if snapshot_id not in seen:
+                    seen.add(snapshot_id)
+                    yield snapshot_id
+                    if max_results and len(seen) >= max_results:
+                        break
+        finally:
+            ids.close()
     except Exception as err:
         stderr()
         stderr(

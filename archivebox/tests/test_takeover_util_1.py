@@ -59,7 +59,7 @@ def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:
     add_env = dict(env)
-    add_env["SEARCH_BACKEND_ENGINE"] = "ripgrep"
+    add_env["SEARCH_BACKEND_ENGINE"] = "sqlite"
     _cmd_result = run_archivebox_cmd(
         [
             "add",
@@ -118,7 +118,7 @@ def test_interactive_add_takeover(initialized_archive, interrupt_before_takeover
     server = None
     port = get_free_port()
     env = cli_env(
-        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_ENABLED="False",
         CHROME_DELAY_AFTER_LOAD="60",
         CHROME_TIMEOUT="120",

@@ -1,0 +1,40 @@
+<script>
+(() => {
+    function start(list, signal) {
+        const url = new URL('{{ endpoint|escapejs }}', location.href);
+        url.searchParams.set('q', list.searchParams.get('q'));
+        url.searchParams.set('search_mode', list.searchParams.get('search_mode'));
+        url.searchParams.set('search_url', list.pathname + list.search);
+        return fetch(url, {signal, headers: {
+            'X-ArchiveBox-Search-Page': 'first',
+            'X-ArchiveBox-Search-Progress': '1',
+            'X-ArchiveBox-Search-First-Row': '1'
+        }});
+    }
+
+    // Start asynchronously as soon as the page arrives. Its first row can
+    // travel while styles load, without delaying the document response.
+    let pending;
+    {% if not complete and request.GET.q %}
+    const list = new URL(location.href);
+    list.searchParams.set('q', list.searchParams.get('q').trim());
+    list.searchParams.set('search_mode', '{{ mode|escapejs }}');
+    const controller = new AbortController();
+    pending = {url: list.href, controller, response: start(list, controller.signal)};
+    pending.response.catch(() => {}); // The table surfaces errors when it claims this stream.
+    {% endif %}
+
+    window.archiveboxFetchSearch = (list, controller) => {
+        if (pending) {
+            const initial = pending;
+            pending = null;
+            if (initial.url === list.href) {
+                controller.signal.addEventListener('abort', () => initial.controller.abort(), {once:true});
+                return initial.response;
+            }
+            initial.controller.abort();
+        }
+        return start(list, controller.signal);
+    };
+})();
+</script>

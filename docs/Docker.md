@@ -73,9 +73,10 @@ docker compose up -d --wait
 
 Open <http://admin.archivebox.localhost:5797> and follow the setup wizard to create the first admin and configure web access. Existing `BASE_URL` and security settings are used as-is, so configured servers skip the web-access wizard.
 
-ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
+ArchiveBox uses the Sonic full-text index by default. To select SQLite FTS:
+
 ```bash
-docker compose exec archivebox archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+docker compose exec archivebox archivebox config --set SEARCH_BACKEND_ENGINE=sqlite
 ```
 
 <br/>

@@ -232,7 +232,7 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
 
 @pytest.mark.timeout(420)
 def test_live_background_add_survives_server_exit_and_foreground_run_reclaims(tmp_path, initialized_archive, recursive_test_site):
-    env = cli_env(live=True, SEARCH_BACKEND_ENGINE="ripgrep")
+    env = cli_env(live=True, SEARCH_BACKEND_ENGINE="sqlite")
     port = get_free_port()
     server = None
     server2 = None

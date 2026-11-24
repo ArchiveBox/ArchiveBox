@@ -17,7 +17,7 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
     from archivebox.tests.test_snapshot_output_stacks import IMAGE_FIXTURE
     from django.contrib.auth import get_user_model
 
-    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep", BASE_URL="http://archivebox.localhost")
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", BASE_URL="http://archivebox.localhost")
     server.wait_for_workers(("worker_uvicorn",))
     with use_archivebox_db(server.data_dir):
         owner = get_user_model().objects.create_superuser(username="selection-admin", password="testpassword")
@@ -33,13 +33,9 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
                 retry_at=None,
             )
             if late:
-                path = snap.output_dir / "dom" / "late.txt"
-                path.parent.mkdir(parents=True)
-                with path.open("wb") as stream:
-                    # The first file releases the early page. The second leaves
-                    # time to make a selection before the final table arrives.
-                    stream.seek((6 if index == 60 else 22) << 20)
-                    stream.write(b"late-match")
+                from archivebox.tests.test_search import index_text
+
+                index_text(snap, "details " * 650_000 + " late-match", server.data_dir)
             else:
                 path = snap.output_dir / "screenshot" / "screenshot.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,7 +56,7 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
         page.locator('[name="username"]').fill(owner.username)
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
-        page.locator('#changelist-search [role="combobox"]').fill("title:Streamselection OR deep:late-match")
+        page.locator('#changelist-search [role="combobox"]').fill('title:Streamselection OR "late-match"')
         # Rows can now arrive several times before the deep scan has finished.
         # Exercise selection during that interval, then check the settled UI
         # against the actual stream completion event.

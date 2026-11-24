@@ -24,6 +24,18 @@ class WorkerApplication:
         # Django startup reads the collection database. Do that outside the
         # event loop, independently in each worker rather than in the manager.
         from archivebox.core.asgi import application
+        from archivebox.plugins.discovery import get_plugin_icon_sprite
+        from django.urls import reverse
+        from django.template.loader import get_template
+
+        # The first browser should not pay for importing Django Ninja's API
+        # routes and compiling the list template after the worker reports ready.
+        # Resolve/compile only; search scope and results stay request-local.
+        reverse("public-index")
+        get_template("public_index.html")
+        # Each plugin's parsed SVG is cached by discovery for the worker's
+        # lifetime. Parse the catalog off the first table's render path.
+        get_plugin_icon_sprite()
 
         return application
 

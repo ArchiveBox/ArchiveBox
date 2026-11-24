@@ -33,7 +33,7 @@ def test_runner_retries_failed_deletion_without_blocking_captures(initialized_ar
         port=port,
         PLUGINS="title",
         SAVE_TITLE="True",
-        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_ENGINE="sqlite",
     )
     # Measure captures while deletion retries, not a cold browser installation.
     # Without setup, only the first case spends its capture deadline installing

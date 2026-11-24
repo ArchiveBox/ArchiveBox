@@ -1697,6 +1697,16 @@ class PublicIndexView(ListView):
             mode = get_search_mode(self.request.GET.get("search_mode") or "query", config=self.request.archivebox_config)
             direct = mode == "url" or self.public_search_uses_sql
             requested = self.kwargs.get(self.page_kwarg) or self.request.GET.get(self.page_kwarg) or "1"
+            if self.search_fragment == "preview" and str(requested) == "1" and hasattr(self, "public_rank_scope"):
+                # A first paint needs one visible row and one lookahead. The
+                # full refresh reconciles totals and paging. COUNT or in_bulk
+                # of a whole page here makes latency grow with the result set.
+                ids = ranked_page_ids(self.public_rank_scope, state["ids"], start=0, size=2)
+                paginator = self.get_paginator(range(len(ids)), page_size)
+                page = paginator.page(1)
+                rows = self.public_rank_scope.filter(pk__in=ids).in_bulk()
+                page.object_list = [rows[pk] for pk in ids if pk in rows]
+                return paginator, page, page.object_list, False
             if not direct and (state is None or not state.get("done")):
                 # An expired/in-flight search has not established its page count.
                 # Render a provisional first page without changing the requested
@@ -1807,7 +1817,7 @@ class PublicIndexView(ListView):
         context["show_search_index_hint"] = bool(
             query
             and not public_search_pending
-            and get_search_mode_base(search_mode, config=runtime_config) == "deep"
+            and get_search_mode_base(search_mode, config=runtime_config) == "contents"
             and search_mode_backend
             and context["paginator"].count == 0,
         )
@@ -1823,9 +1833,9 @@ class PublicIndexView(ListView):
             # Plugin icons and thumbnails are the expensive part of each row.
             # Hydrate enough to paint immediately; keep pagination and scope
             # intact for the full page that follows on the same URL.
-            snapshots = list(objects[:9]) if objects is not None else []
-            self.preview_has_more = len(snapshots) > 8
-            snapshots = snapshots[:8]
+            snapshots = list(objects[:2]) if objects is not None else []
+            self.preview_has_more = len(snapshots) > 1
+            snapshots = snapshots[:1]
         else:
             snapshots = list(objects or ())
         from archivebox.core.list_results_util import load_snapshot_list_results
@@ -1937,7 +1947,7 @@ class PublicIndexView(ListView):
         if search_mode == "query":
             from archivebox.search.interpreter import sql_snapshot_search
 
-            filtered = sql_snapshot_search(qs, query, public=True)
+            filtered = sql_snapshot_search(qs, query, public=True, ranked="o" not in self.request.GET)
             if filtered is not None:
                 self.public_search_uses_sql = True
                 return filtered.order_by(*self.ordering, "pk")

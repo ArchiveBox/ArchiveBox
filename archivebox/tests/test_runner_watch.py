@@ -28,7 +28,7 @@ def test_reload_restarts_only_server_runner_once(initialized_archive, recursive_
         live=True,
         server=True,
         port=port,
-        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_ENGINE="sqlite",
         CHROME_DELAY_AFTER_LOAD="60",
         CHROME_TIMEOUT="120",
         CHROME_HEADLESS="True",

@@ -341,7 +341,9 @@ class SnapshotChangeList(SearchResultsChangeList):
                 return cached_page
             return snapshot_page(queryset_ids, base_queryset=root_ids, start=offset, size=limit, count=indexed_count)
 
-        page_ids = read_page(0 if self.show_all else start, size + 1)
+        preview = bool(self.query and not self.show_all and not start and request.headers.get("X-ArchiveBox-Search-Fragment") == "preview")
+        page_ids = read_page(0 if self.show_all else start, 2 if preview else size + 1)
+        self.preview_has_more = preview and len(page_ids) > 1
         if self.show_all and len(page_ids) > size:
             self.show_all = False
             size = self.list_per_page
@@ -354,7 +356,7 @@ class SnapshotChangeList(SearchResultsChangeList):
 
             raise IncorrectLookupParameters
         observed = start + len(page_ids)
-        self.result_count_exact = len(page_ids) <= size
+        self.result_count_exact = not self.preview_has_more and len(page_ids) <= size
         count = observed
         if indexed_count is not None:
             count = indexed_count
@@ -369,6 +371,7 @@ class SnapshotChangeList(SearchResultsChangeList):
         # scope. Recheck that scope on fetch, without binding every cached ID
         # again just to read the displayed rows.
         rank_scope = getattr(request, "_archivebox_search_rank_scope", self.queryset)
+        page_ids = page_ids[:1] if preview else page_ids
         rows = {obj.pk: obj for obj in rank_scope.filter(pk__in=page_ids[:size]).order_by()}
         self.result_list = [rows[pk] for pk in page_ids[:size] if pk in rows]
         # Rank is a presentation attribute only on displayed rows. Keep the
@@ -740,8 +743,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         try:
             try:
                 response = super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
-                patch_vary_headers(response, ("X-ArchiveBox-Search-Rows", "X-ArchiveBox-Search-Generation", "X-ArchiveBox-Search-Page"))
+                patch_vary_headers(
+                    response,
+                    (
+                        "X-ArchiveBox-Search-Rows",
+                        "X-ArchiveBox-Search-Generation",
+                        "X-ArchiveBox-Search-Page",
+                        "X-ArchiveBox-Search-Fragment",
+                    ),
+                )
                 cl = (getattr(response, "context_data", None) or {}).get("cl")
+                if cl and getattr(cl, "preview_has_more", False):
+                    response["X-ArchiveBox-Search-More-Rows"] = "1"
                 if cl and hasattr(cl, "row_cursor"):
                     response["X-ArchiveBox-Search-Rows"] = cl.row_cursor
                     if cl.retained_rows:

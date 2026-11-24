@@ -348,7 +348,6 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
         "SEARCH_BACKEND_ENGINE=sqlite",
         "SEARCH_BACKEND_SQLITE_ENABLED=True",
         "SEARCH_BACKEND_SONIC_ENABLED=False",
-        "SEARCH_BACKEND_RIPGREP_ENABLED=False",
     )
 
     user_id = get_or_create_system_user_pk()

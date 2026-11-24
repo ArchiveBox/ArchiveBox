@@ -1057,7 +1057,7 @@ def _build_archivebox_config_model(plugin_schemas: PluginSchemaDocuments) -> typ
 
 
 PLUGIN_CONFIG_SCHEMAS = _discover_plugin_config_schemas()
-SYSTEM_PLUGIN_NAMES = frozenset({"opencode", "search_backend_ripgrep", "search_backend_sonic", "search_backend_sqlite"}) | frozenset(
+SYSTEM_PLUGIN_NAMES = frozenset({"opencode", "search_backend_sonic", "search_backend_sqlite"}) | frozenset(
     name
     for name, schema in PLUGIN_CONFIG_SCHEMAS.items()
     if (schema.get("properties", {}).get(f"{name.upper()}_ENABLED") or {}).get("x-scope") == _SCOPE_SERVER

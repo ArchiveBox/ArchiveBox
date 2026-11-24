@@ -102,7 +102,7 @@ def suggestions(request):
             hosts = hosts.filter(hosts.domain_rule_q("icontains", prefix))
         keys = hosts.order_by("reversed_domain").values_list("reversed_domain", flat=True).distinct()[:12]
         values = [domain_authority_from_key(k) for k in keys]
-    elif key in ("linksto", "linkedfrom"):
+    elif key in ("url", "linksto", "linkedfrom"):
         values = choices(scope, "url")
     elif key in ("after", "before", "bookmarked"):
         today = date.today()

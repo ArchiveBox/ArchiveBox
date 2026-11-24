@@ -3,21 +3,25 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        {% plugin_page_head %}
+        {% block search_stream_head %}{% endblock %}
         <title>Archived Sites</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {# admin.css imports typography.css, which imports font.css. Start all three in parallel. #}
+        <link rel="preload" as="style" href="{% static 'typography.css' %}">
+        <link rel="preload" as="style" href="{% static 'fonts/open-sans/font.css' %}">
 
         <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
         <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}">
         <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
         <link rel="stylesheet" href="{% static 'admin.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+        {% plugin_page_head %}
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
         </script>
         
-        <script src="{% static 'jquery.min.js' %}"></script>
+        {% block jquery %}<script src="{% static 'jquery.min.js' %}"></script>{% endblock %}
         {% include "core/record_picker_assets.html" %}
         {% block extra_head %}
         {% endblock %}
@@ -87,9 +91,7 @@
                 window.setCookie('GMT_OFFSET', window.GMT_OFFSET, 365)
             }
 
-            jQuery(document).ready(function () {
-                setTimeOffset();
-            });
+            document.addEventListener('DOMContentLoaded', setTimeOffset, {once: true});
         </script>
     </body>
 </html>

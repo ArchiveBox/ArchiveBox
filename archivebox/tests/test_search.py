@@ -100,23 +100,27 @@ def populate_admin_search_cache(client, path, params):
     return client.get(path, params, HTTP_HOST=ADMIN_HOST)
 
 
-def configure_ripgrep_search_backend(lib_dir: Path) -> None:
-    from abx_plugins import get_plugins_dir
+def configure_sqlite_search_backend():
+    from archivebox.config.constants import CONSTANTS
 
-    binary_env = resolve_abxpkg_binary_env(
-        lib_dir,
-        deps_from=Path(get_plugins_dir()) / "search_backend_ripgrep" / "config.json",
-    )
-    rg_binary = Path(binary_env["RIPGREP_BINARY"])
-    assert rg_binary.is_file()
+    # The live request and the standalone indexer must open the same fixture DB.
     Machine.from_json(
         {
             "config": {
-                "SEARCH_BACKEND_ENGINE": "ripgrep",
-                "RIPGREP_BINARY": str(rg_binary),
+                "SEARCH_BACKEND_ENGINE": "sqlite",
+                "SEARCH_BACKEND_SQLITE_ENABLED": True,
+                "SEARCH_BACKEND_SQLITE_DB": str(CONSTANTS.DATA_DIR / "search.sqlite3"),
             },
         },
     )
+
+
+def index_text(snapshot, text, data_dir=None):
+    from archivebox.tests.test_search_providers import output, run_hook
+
+    output(snapshot, "readability/article.txt", text)
+    options = {"DATA_DIR": str(data_dir)} if data_dir else {}
+    run_hook(snapshot, "search_backend_sqlite", "--snapshot-id", str(snapshot.pk), SEARCH_BACKEND_SQLITE_ENABLED="true", **options)
 
 
 def test_search_backend_command_env_serializes_config_without_mutating_process_env(tmp_path):
@@ -204,13 +208,13 @@ for snapshot_id in iter_plugin_command(command, arguments={"query": "needle"}, e
 def test_search_mode_options_use_canonical_backend_names():
     from archivebox.search.config import get_search_mode_options
 
-    Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+    Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "sonic"}})
 
     options = get_search_mode_options()
 
-    assert {"value": "contents", "label": "deep"} in options
-    assert {"value": "deep:ripgrep", "label": "deep:ripgrep"} in options
-    assert all(not option["label"].startswith("deep: ") for option in options)
+    assert {"value": "contents", "label": "contents"} in options
+    assert {"value": "contents:sonic", "label": "contents:sonic"} in options
+    assert all("ripgrep" not in option["value"] and "deep" not in option["label"] for option in options)
 
 
 def test_snapshot_metadata_search_includes_notes_crawl_fields_username_and_config_values(admin_user):
@@ -248,8 +252,8 @@ def test_snapshot_metadata_search_includes_notes_crawl_fields_username_and_confi
 
 
 class TestAdminSnapshotSearch:
-    def test_admin_operator_field_with_configured_ripgrep(self, client, admin_user):
-        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+    def test_admin_operator_field_with_configured_sonic(self, client, admin_user):
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "sonic"}})
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
@@ -290,7 +294,7 @@ class TestAdminSnapshotSearch:
         assert b'id="changelist"' in response.content
         assert b'name="search_mode" value="contents"' in response.content
 
-    def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(
+    def test_admin_search_stream_uses_configured_index_for_legacy_deep_mode(
         self,
         client,
         admin_user,
@@ -299,26 +303,24 @@ class TestAdminSnapshotSearch:
     ):
         from archivebox.core.models import Snapshot
 
-        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
+        configure_sqlite_search_backend()
         fulltext_snapshot = Snapshot.objects.create(
             url="https://example.com/fulltext-only",
             title="Unrelated Title",
             crawl=crawl,
         )
-        output_file = fulltext_snapshot.output_dir / "dom" / "output.html"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text("<html><body>needle-deep-result</body></html>", encoding="utf-8")
+        index_text(fulltext_snapshot, "needledeepresult")
 
         client.login(username="testadmin", password="testpassword")
         response = populate_admin_search_cache(
             client,
             reverse("admin:core_snapshot_changelist"),
-            {"q": "needle-deep-result", "search_mode": "deep"},
+            {"q": "needledeepresult", "search_mode": "deep"},
         )
 
         assert response.status_code == 200
-        assert response.context["cl"].search_mode.startswith("deep")
-        assert b'name="search_mode" value="deep"' in response.content
+        assert response.context["cl"].search_mode == "contents"
+        assert b'name="search_mode" value="contents"' in response.content
         assert str(fulltext_snapshot.id).encode() in response.content
         assert [(snapshot.pk, snapshot.search_rank) for snapshot in response.context["cl"].result_list] == [(fulltext_snapshot.pk, 0)]
         assert b'class="search-rank-0"' in response.content
@@ -368,7 +370,7 @@ class TestAdminSnapshotSearch:
     ):
         from archivebox.core.models import Snapshot
 
-        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
+        configure_sqlite_search_backend()
         metadata_snapshot = Snapshot.objects.create(
             url="https://example.com/google-meta",
             title="Google Metadata Match",
@@ -379,9 +381,7 @@ class TestAdminSnapshotSearch:
             title="Unrelated Title",
             crawl=crawl,
         )
-        output_file = fulltext_snapshot.output_dir / "dom" / "output.html"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text("<html><body>google fulltext match</body></html>", encoding="utf-8")
+        index_text(fulltext_snapshot, "google fulltext match")
 
         client.login(username="testadmin", password="testpassword")
         response = populate_admin_search_cache(
@@ -472,6 +472,27 @@ class TestPublicIndexSearch:
     def public_index_enabled(self):
         Machine.from_json({"config": {"PUBLIC_INDEX": True}})
 
+    @pytest.mark.parametrize("admin", [False, True])
+    def test_initial_search_document_leaves_link_lookup_to_stream(self, admin, client, admin_user, public_snapshot):
+        from archivebox.core.models import Snapshot
+
+        child = Snapshot.objects.create(
+            crawl=public_snapshot.crawl,
+            parent_snapshot=public_snapshot,
+            url="https://article.example/proven",
+            title="Immediately visible article",
+            config={"PERMISSIONS": "public"},
+        )
+        if admin:
+            client.force_login(admin_user)
+        response = client.get(
+            "/admin/core/snapshot/" if admin else "/public/",
+            {"q": "linkedfrom:public-example.com"},
+            HTTP_HOST=ADMIN_HOST if admin else WEB_HOST,
+        )
+        assert response.status_code == 200
+        assert child.title.encode() not in response.content
+
     def test_public_search_by_url(self, client, public_snapshot):
         cache.clear()
         response = client.get("/public/", {"q": "public-example.com"}, HTTP_HOST=WEB_HOST)
@@ -480,8 +501,8 @@ class TestPublicIndexSearch:
         assert b"matching snapshots..." in response.content
         assert b"No snapshots found." not in response.content
 
-    def test_public_operator_field_with_configured_ripgrep(self, client):
-        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+    def test_public_operator_field_with_configured_sonic(self, client):
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "sonic"}})
 
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
@@ -499,7 +520,7 @@ class TestPublicIndexSearch:
     ):
         from archivebox.core.models import Snapshot
 
-        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
+        configure_sqlite_search_backend()
         metadata_snapshot = Snapshot.objects.create(
             url="https://public-example.com/google-meta",
             title="Google Metadata Match",
@@ -870,7 +891,7 @@ class TestSearchBackendsE2E:
         plugins_dir = Path(get_plugins_dir())
         lib_dir = initialized_archive / "lib"
         install_result = run_archivebox_cmd(
-            ["install", "wget", "search_backend_ripgrep", "search_backend_sonic"],
+            ["install", "wget", "search_backend_sonic"],
             cwd=initialized_archive,
             env={"ABXPKG_LIB_DIR": str(lib_dir)},
             default_cli_env=True,
@@ -880,11 +901,9 @@ class TestSearchBackendsE2E:
             lib_dir,
             deps_from=[
                 plugins_dir / "wget" / "config.json",
-                plugins_dir / "search_backend_ripgrep" / "config.json",
                 plugins_dir / "search_backend_sonic" / "config.json",
             ],
         )
-        assert Path(binary_env["RIPGREP_BINARY"]).is_file()
         assert Path(binary_env["SONIC_BINARY"]).is_file()
         # abxpkg may replace both env/bin and provider install paths on later
         # hydration. Keep a real executable outside its managed lib tree so
@@ -1008,7 +1027,7 @@ class TestSearchBackendsE2E:
             env = cli_env(
                 live=True,
                 ABXPKG_LIB_DIR=str(lib_dir),
-                PLUGINS="wget,search_backend_ripgrep,search_backend_sqlite,search_backend_sonic",
+                PLUGINS="wget,search_backend_sqlite,search_backend_sonic",
                 SAVE_TITLE="True",
                 WGET_ENABLED="True",
                 TIMEOUT="20",
@@ -1020,7 +1039,6 @@ class TestSearchBackendsE2E:
                 ALLOWED_HOSTS="*",
                 BASE_URL=f"http://archivebox.localhost:{archivebox_port}",
                 SEARCH_BACKEND_ENGINE="sonic",
-                SEARCH_BACKEND_RIPGREP_ENABLED="True",
                 SEARCH_BACKEND_SQLITE_ENABLED="True",
                 SEARCH_BACKEND_SONIC_ENABLED="True",
                 SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
@@ -1134,7 +1152,6 @@ class TestSearchBackendsE2E:
             }, (sonic_results, index_update.stdout, index_update.stderr)
 
             cli_backend_expectations = (
-                ("ripgrep", shared_content_needle, matrix_urls),
                 ("sqlite", first_batch_content_needle, first_wget_urls),
                 ("sonic", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
                 ("sonic", tag_only_needle, [tag_only_url]),
@@ -1239,10 +1256,6 @@ class TestSearchBackendsE2E:
             ):
                 for search_mode, query, expected_urls in (
                     ("meta", "search-matrix", urls),
-                    ("deep:ripgrep", first_batch_content_needle, first_wget_urls),
-                    ("deep:ripgrep", second_batch_content_needle, second_wget_urls),
-                    ("deep:ripgrep", shared_content_needle, matrix_urls),
-                    ("deep:ripgrep", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
                     ("deep:sqlite", first_batch_content_needle, first_wget_urls),
                     ("deep:sqlite", second_batch_content_needle, second_wget_urls),
                     ("deep:sqlite", shared_content_needle, matrix_urls),
@@ -1429,86 +1442,6 @@ class TestSearchBackendsE2E:
             fixture_server.shutdown()
             fixture_server.server_close()
             fixture_thread.join(timeout=5)
-
-
-@pytest.mark.timeout(90)
-def test_live_public_search_disconnect_reaps_backend(initialized_archive):
-    """A real HTTP disconnect cancels a silent ripgrep process and its wrapper."""
-    import signal
-    from uuid import uuid4
-
-    import psutil
-
-    from archivebox.core.models import Snapshot
-    from archivebox.tests.test_orm_helpers import use_archivebox_db
-
-    rg = shutil.which("rg")
-    assert rg
-    query = "disconnect" + uuid4().hex
-    port = get_free_port()
-    env = cli_env(
-        live=True,
-        PUBLIC_INDEX="True",
-        PERMISSIONS="public",
-        SEARCH_BACKEND_ENGINE="ripgrep",
-        SEARCH_BACKEND_RIPGREP_ENABLED="True",
-        RIPGREP_BINARY=rg,
-        RIPGREP_ARGS_EXTRA='["--no-mmap", "--text", "--sort", "path"]',
-        RIPGREP_TIMEOUT="30",
-        ALLOWED_HOSTS="*",
-    )
-    created = run_archivebox_cmd(
-        ["snapshot", "create", "--status=sealed", "https://example.com/disconnect-test"],
-        cwd=initialized_archive,
-        env=env,
-    )
-    assert created.returncode == 0, created.stderr
-    with use_archivebox_db(initialized_archive):
-        snapshot = Snapshot.objects.get(url="https://example.com/disconnect-test")
-        directory = snapshot.output_dir / "dom"
-        directory.mkdir(parents=True, exist_ok=True)
-        (directory / "a.txt").write_text(query + "\n")
-        with (directory / "z.txt").open("wb") as large:
-            large.truncate(8 * 1024**3)
-            for offset in range(0, 8 * 1024**3, 1024**2):
-                large.seek(offset)
-                large.write(b"\n")
-    server = start_archivebox_server(initialized_archive, port=port, env=env, daemonize=False, log_name="disconnect-server.log")
-    children = []
-    try:
-        with requests.get(
-            f"http://127.0.0.1:{port}/public/search-stream/",
-            params={"q": query, "search_mode": "deep:ripgrep"},
-            headers={"Host": f"web.archivebox.localhost:{port}"},
-            stream=True,
-            timeout=(5, 10),
-        ) as response:
-            assert response.status_code == 200, response.text
-            lines = response.iter_lines()
-            assert int(next(lines).strip()) == 0
-            assert int(next(lines).strip()) == 1
-            for child in psutil.Process(server.pid).children(recursive=True):
-                try:
-                    cmdline = child.cmdline()
-                except psutil.NoSuchProcess:
-                    # Unrelated workers can finish after the process-tree snapshot.
-                    # The two query-specific children still have to be alive below.
-                    continue
-                if query in " ".join(cmdline):
-                    children.append(child)
-            assert len(children) == 2
-            for child in children:
-                if Path(child.exe()).name == Path(rg).name:
-                    child.send_signal(signal.SIGSTOP)
-        _, alive = psutil.wait_procs(children, timeout=5)
-        assert not alive, [(child.pid, child.status()) for child in alive]
-    finally:
-        for child in children:
-            try:
-                child.kill()
-            except psutil.NoSuchProcess:
-                pass
-        stop_archivebox_process(server)
 
 
 def test_admin_stream_and_row_render_share_results_across_processes(initialized_archive):

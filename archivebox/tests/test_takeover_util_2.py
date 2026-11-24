@@ -50,7 +50,7 @@ def test_interactive_add_borrowing_server_supervisor_can_abort(initialized_archi
     add = None
     port = get_free_port()
     env = cli_env(
-        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_ENABLED="False",
         CHROME_DELAY_AFTER_LOAD="60",
         CHROME_TIMEOUT="120",
@@ -248,7 +248,7 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
 def test_behavior_foreground_add_keeps_existing_server_http_visible(tmp_path, initialized_archive, recursive_test_site):
 
     port = get_free_port()
-    env = cli_env(live=True, server=True, port=port, SEARCH_BACKEND_ENGINE="ripgrep")
+    env = cli_env(live=True, server=True, port=port, SEARCH_BACKEND_ENGINE="sqlite")
     server = None
     try:
         server = start_archivebox_server(tmp_path, port=port, log_name="behavior-server-add.log", env=env)
@@ -282,7 +282,7 @@ def test_behavior_foreground_add_keeps_existing_server_http_visible(tmp_path, in
 def test_behavior_background_add_returns_and_server_archives_visible_url(tmp_path, initialized_archive, recursive_test_site):
 
     port = get_free_port()
-    env = cli_env(live=True, server=True, port=port, SEARCH_BACKEND_ENGINE="ripgrep")
+    env = cli_env(live=True, server=True, port=port, SEARCH_BACKEND_ENGINE="sqlite")
     server = None
     try:
         server = start_archivebox_server(tmp_path, port=port, log_name="behavior-server-bg-add.log", env=env)

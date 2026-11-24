@@ -71,10 +71,9 @@
       message.textContent = "Searching matching snapshots...";
       results.appendChild(message);
 
-      var paginator = changelist.querySelector(".paginator");
-      if (paginator) paginator.hidden = true;
-      var actions = changelist.querySelector(".actions");
-      if (actions) actions.hidden = true;
+      // These controls describe the old membership (and its selection).
+      // The first result fragment restores the normal controls for this query.
+      changelist.querySelectorAll(".paginator, .actions, .action-summary").forEach(node => node.remove());
       return message;
     }
 
@@ -136,7 +135,7 @@
         return url;
       }
 
-      function renderNow() {
+      function renderNow(firstResponse) {
         clearTimeout(pendingRender);
         pendingRender = null;
         if (controller.signal.aborted || (renderedVersion === resultVersion && !renderInFlight)) return Promise.resolve();
@@ -145,9 +144,13 @@
         renderInFlight = true;
         renderedVersion = resultVersion;
         lastRender = Date.now();
-        renderPromise = fetch(url, {headers: renderHeaders, signal: controller.signal})
+        const headers = {...renderHeaders};
+        if (!renderedRows) headers["X-ArchiveBox-Search-Fragment"] = "preview";
+        renderPromise = (firstResponse ? Promise.resolve(firstResponse) : fetch(url, {headers: headers, signal: controller.signal}))
           .then(async function(response) {
             if (!response.ok) throw new Error("Could not load snapshot results");
+            // Fetch the remaining rows even if the producer is already done.
+            if (response.headers.has("X-ArchiveBox-Search-More-Rows")) renderedVersion = -1;
             return {html: await response.text(), retained: Number(response.headers.get("X-ArchiveBox-Search-Retained")), cursor: response.headers.get("X-ArchiveBox-Search-Rows")};
           })
           .then(function({html, retained, cursor}) {
@@ -246,13 +249,7 @@
       // Layout navigation must use the submitted query even while the old
       // toolbar is still displayed and streamed results are in flight.
       history.replaceState(null, "", listUrl);
-      var streamUrl = new URL("{% url 'admin:core_snapshot_search_stream' %}", window.location.href);
-      streamUrl.searchParams.set("q", query);
-      streamUrl.searchParams.set("search_mode", mode);
-      // The cache key is membership filters plus user; pages and sort reuse it.
-      // Row counts trigger page fetches from cache. Scan progress only updates the bar.
-      streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
-      fetch(streamUrl, {headers: {"X-ArchiveBox-Search-Page": "first", "X-ArchiveBox-Search-Progress": "1"}, signal: controller.signal})
+      window.archiveboxFetchSearch(listUrl, controller)
         .then(async function(response) {
           const generation = response.headers.get("X-ArchiveBox-Search-Generation");
           if (generation) renderHeaders["X-ArchiveBox-Search-Generation"] = generation;
@@ -267,11 +264,19 @@
           var decoder = new TextDecoder();
           var buffer = "";
           function read() {
-            return reader.read().then(function(result) {
+            return reader.read().then(async function(result) {
               buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done});
               var lines = buffer.split("\n");
               buffer = lines.pop();
               lines = lines.map(line => line.trim()).filter(line => line && !controller.progress.work(line));
+              for (const line of lines) {
+                const first = firstSearchFragment(line);
+                if (first) {
+                  resultVersion = first.count;
+                  await renderNow(first.response);
+                }
+              }
+              lines = lines.filter(line => !line.startsWith('first '));
               lines.forEach(function(count) {
                 count = parseInt(count.trim(), 10);
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;

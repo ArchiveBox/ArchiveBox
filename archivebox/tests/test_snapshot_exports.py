@@ -516,15 +516,15 @@ def test_feed_url_is_keyless_and_honors_caller_permissions(admin_client, admin_u
 
 
 def test_folder_export_defaults_to_configured_content_search(admin_client, admin_user, cached_abxpkg_lib_dir):
-    from archivebox.tests.test_search import configure_ripgrep_search_backend
+    from archivebox.tests.test_search import configure_sqlite_search_backend, index_text
 
-    configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
+    configure_sqlite_search_backend()
     folder = Folder.objects.create(name="Content search", created_by=admin_user)
     crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
     snapshot = Snapshot.objects.create(url=crawl.urls, title="Unrelated title", crawl=crawl, folder=folder)
     output = snapshot.output_dir / "dom/output.html"
     output.parent.mkdir(parents=True)
-    output.write_text("<!doctype html><p>folderdeepneedle</p>")
+    index_text(snapshot, "folderdeepneedle")
     response = admin_client.get(
         "/admin/core/snapshot/export.jsonl",
         {"folder": str(folder.pk), "q": "folderdeepneedle"},
@@ -639,9 +639,9 @@ def test_public_folder_export_links_keep_query_and_configured_content_search(adm
     from urllib.parse import parse_qs, urlsplit
     from archivebox.machine.models import Machine
     from archivebox.tests.conftest import WEB_TEST_HOST
-    from archivebox.tests.test_search import configure_ripgrep_search_backend, consume_streaming_response
+    from archivebox.tests.test_search import configure_sqlite_search_backend, consume_streaming_response, index_text
 
-    configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
+    configure_sqlite_search_backend()
     settings.CONFIG = settings.CONFIG.model_copy(update={"PUBLIC_INDEX": True})
     machine = Machine.current()
     machine.config = {**machine.config, "PUBLIC_INDEX": True}
@@ -659,7 +659,7 @@ def test_public_folder_export_links_keep_query_and_configured_content_search(adm
         )
         output = snapshot.output_dir / "dom/output.html"
         output.parent.mkdir(parents=True)
-        output.write_text("<!doctype html><p>publicfolderdeepneedle</p>")
+        index_text(snapshot, "publicfolderdeepneedle")
         snapshots.append(snapshot)
     client = Client()
     query = {"q": "publicfolderdeepneedle", "folder": str(folder.pk)}

@@ -1,13 +1,13 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'search/field.css' %}?v={{ static_cache_key|urlencode }}">
-<div class="abx-search-field" data-operators="{{ operators }}" data-suggestions="{% url 'search-suggestions' %}" data-icons="{% static 'search/icons.svg' %}">
+<div class="abx-search-field" data-operators="{{ operators }}" data-suggestions="{% url 'search-suggestions' %}" data-icons="{% static 'search/icons.svg' %}?v={{ static_cache_key|urlencode }}">
 <input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" enterkeyhint="search" aria-label="Search snapshots" placeholder="Search snapshots…">
 
       <div class="abx-query-control enhanced">
-        <span class="abx-query-icon"><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}#search"></use></svg></span>
+        <span class="abx-query-icon"><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}?v={{ static_cache_key|urlencode }}#search"></use></svg></span>
         <div class="query" contenteditable="true" role="combobox" aria-label="Search snapshots" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ field_id }}-options" aria-multiline="false" enterkeyhint="search" autocapitalize="none" autocorrect="off" spellcheck="false" data-placeholder="Search snapshots…"></div>
 
-        <button class="abx-query-clear cursor-interaction" type="button" aria-label="Clear search" hidden><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}#x"></use></svg></button>
+        <button class="abx-query-clear cursor-interaction" type="button" aria-label="Clear search" hidden><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}?v={{ static_cache_key|urlencode }}#x"></use></svg></button>
       </div>
       <p class="precedence-hint" id="{{ field_id }}-hint" hidden>AND and spaces bind before OR. Use parentheses to change the grouping.</p>
       <div class="suggestions" hidden>

@@ -6,35 +6,27 @@ from archivebox.config.common import get_config
 from archivebox.search.backends import get_available_backends, normalize_search_backend_name
 
 
-SEARCH_MODES = ("query", "meta", "url", "contents", "deep")
+SEARCH_MODES = ("query", "meta", "url", "contents")
 
 
 def get_default_search_mode(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     """Choose the default search mode from config and discovered backends."""
-    config = config or get_config(**config_kwargs)
-    backend_name = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
-    backends = get_available_backends()
-    if backend_name in backends:
-        return f"deep:{backend_name}"
-    for name, backend in backends.items():
-        if backend.config.search_scan:
-            return f"deep:{name}"
     return "contents"
 
 
 def get_search_mode(search_mode: str | None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     """Normalize a user-supplied search mode or fall back to the default."""
     normalized = (search_mode or "").strip().lower().replace(" ", "")
-    if normalized == "content":
+    if normalized in ("content", "deep"):
         normalized = "contents"
     if normalized in SEARCH_MODES:
         return normalized
     if ":" in normalized:
         mode, backend_name = normalized.split(":", 1)
         backend_name = normalize_search_backend_name(backend_name)
-        if mode == "content":
+        if mode in ("content", "deep"):
             mode = "contents"
-        if mode in {"contents", "deep"} and backend_name in get_available_backends():
+        if mode == "contents" and backend_name in get_available_backends():
             return f"{mode}:{backend_name}"
     return get_default_search_mode(config=config, **config_kwargs)
 
@@ -64,16 +56,14 @@ def get_search_mode_options(config: dict[str, Any] | None = None, **config_kwarg
     options = [
         {"value": "meta", "label": "meta"},
         {"value": "url", "label": "URL"},
-        {"value": "contents", "label": "deep"},
+        {"value": "contents", "label": "contents"},
     ]
     if backend_names:
         options.extend(
             {
-                "value": f"deep:{backend_name}",
-                "label": f"deep:{backend_name}",
+                "value": f"contents:{backend_name}",
+                "label": f"contents:{backend_name}",
             }
             for backend_name in backend_names
         )
-    else:
-        options.append({"value": "deep", "label": "deep"})
     return options

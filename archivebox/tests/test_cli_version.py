@@ -262,7 +262,6 @@ def test_version_shows_binaries_after_init(tmp_path, initialized_archive):
 # Machine-owned search services do not follow the crawl plugin selection.
 NO_MACHINE_SEARCH = {
     "SEARCH_BACKEND_ENGINE": "",
-    "SEARCH_BACKEND_RIPGREP_ENABLED": "False",
     "SEARCH_BACKEND_SONIC_ENABLED": "False",
     "SEARCH_BACKEND_SQLITE_ENABLED": "False",
 }

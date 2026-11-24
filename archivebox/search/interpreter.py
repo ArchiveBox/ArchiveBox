@@ -11,13 +11,11 @@ from collections import Counter, defaultdict
 from functools import cached_property
 from itertools import batched, chain, islice
 from pathlib import Path
-from queue import Empty, SimpleQueue
 from subprocess import SubprocessError
 
-from django.core.exceptions import ValidationError
-from django.db import close_old_connections, connections
-from django.core.exceptions import FieldDoesNotExist
-from django.db.models import Case, Q, Value, When
+from django.db import connections
+from django.core.exceptions import FieldDoesNotExist, ValidationError
+from django.db.models import Case, Exists, OuterRef, Q, Value, When
 
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
@@ -42,15 +40,11 @@ PAGE_SIZE = 64
 # External work is shared by every Boolean branch. Metadata-only queries remain
 # ordinary lazy Django queries and never consume this file budget.
 DISK_LIMITS = {"files": 96, "entries": 512, "bytes": 4 << 20}
-MAX_SNAPSHOTS = 12
 MAX_SECONDS = 8.0
 # Only external work competes for these slots. A missing or slow mounted drive
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
 STALL_SECONDS = 30.0
-# Only the first screen needs speculative concurrency. More simultaneous
-# viewers still execute the same complete plan without additional threads.
-FIRST_PAGE_SLOTS = threading.BoundedSemaphore(2)
 
 
 def indexed_predicate(model, predicate):
@@ -74,19 +68,19 @@ def indexed_predicate(model, predicate):
     return bool(predicate.children)
 
 
-def positive_words(node, negated=False):
+def positive_terms(node, negated=False):
     if isinstance(node, Term):
-        if not negated and node.field == "word" and not has_uppercase(node.value):
+        if not negated:
             yield node
         return
     for child in node.args:
-        yield from positive_words(child, negated != (node.op == "not"))
+        yield from positive_terms(child, negated != (node.op == "not"))
 
 
-def sql_snapshot_search(scope, query, *, public=False):
+def sql_snapshot_search(scope, query, *, public=False, ranked=False):
     """Return a lazy metadata queryset, or defer external work and syntax errors to the stream."""
     try:
-        return SnapshotSearch(scope, query, public=public).sql_queryset()
+        return SnapshotSearch(scope, query, public=public).sql_queryset(ranked=ranked)
     except (ValueError, ValidationError):
         return None
 
@@ -105,18 +99,28 @@ class SnapshotSearch:
         self.url_hints = {}
         self.indexed_evidence = {}
         for term in self.terms:
-            if term.field not in {"word", "literal", "linkedfrom", "linksto"}:
+            if term.field not in {"url", "word", "literal", "linkedfrom", "linksto"}:
                 continue
             hint = url_substring_hint(term.value, scope.db)
             if hint is not None:
                 self.url_hints[term] = hint
-            if term.field in {"word", "literal"}:
+            if term.field in {"url", "word", "literal"}:
                 if hint is not None:
                     self.indexed_evidence[term] = hint & substring("url", term.value)
                 continue
             endpoints = self.link_endpoints(term)
             if hint is not None:
-                self.indexed_evidence[term] = self.recorded_links(term, endpoints.filter(hint))
+                indexed_endpoints = self.link_endpoints(term, scope=self.index_probe_scope).filter(hint)
+                # SQLite materializes the RHS of IN before yielding one child.
+                # Start with a page of matching endpoints; the complete
+                # predicate below still covers every source and every file.
+                if term.field == "linkedfrom":
+                    children = self.index_probe_scope.filter(parent_snapshot_id=OuterRef("pk"))
+                    indexed_endpoints = indexed_endpoints.filter(Exists(children))
+                    self.indexed_evidence[term] = Q(parent_snapshot_id__in=indexed_endpoints.values("pk")[:PAGE_SIZE])
+                else:
+                    parents = indexed_endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id")
+                    self.indexed_evidence[term] = Q(pk__in=parents[:PAGE_SIZE])
             # Only actual parents/children can provide database link evidence.
             # Keep the broader substring pass for paths, lookalikes and ports.
             if term.field == "linkedfrom":
@@ -130,12 +134,11 @@ class SnapshotSearch:
         self.usage = Counter()
         # Replace the pair together so the HTTP stream always samples one batch.
         self.archive_batch = (0, 0)
-        self.read_ids = set()
         self.link_cache = {}
         self.reverse = {}
         self.legacy_hits = {}
         self.word_hits = defaultdict(set)
-        self.hinted_ids = set()
+        self.hinted_ids = {}
         self.deadline = None
 
     @cached_property
@@ -147,19 +150,6 @@ class SnapshotSearch:
     def backend(self):
         self.config = self.config or get_config()
         return get_backend(config=self.config) if get_available_backends() else None
-
-    @cached_property
-    def scanner(self):
-        if self.backend and self.backend.config.search_scan and get_plugin_catalog().command(self.backend.name, "search_candidates"):
-            return self.backend
-        return next(
-            (
-                p
-                for p in get_available_backends().values()
-                if p.config.search_scan and get_plugin_catalog().command(p.name, "search_candidates")
-            ),
-            None,
-        )
 
     def active(self):
         if self.stop_event and self.stop_event.is_set():
@@ -184,18 +174,42 @@ class SnapshotSearch:
         qs.search_partial = self.partial
         return qs
 
-    def sql_queryset(self):
+    @cached_property
+    def index_probe_scope(self):
+        # On SQLite a low-selectivity permissions equality can displace BOTH
+        # the hostname and parent indexes. Seek in the indexed field first,
+        # checking the original scope by PK for each candidate (including
+        # both ends of a relationship). PostgreSQL can plan the join itself.
+        if self.scope.query.where and connections[self.scope.db].vendor == "sqlite":
+            permitted = self.scope.filter(pk=OuterRef("pk"))
+            return self.scope.model._base_manager.using(self.scope.db).filter(Exists(permitted))
+        return self.scope
+
+    @cached_property
+    def indexed_bounds(self):
+        direct = {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)}
+        quick, narrow = sql_bounds(self.tree, direct, self.indexed_evidence)
+        if quick is False and self.indexed_evidence:
+            # An unindexed sibling (url:... AND title:..., for example) can
+            # still be checked cheaply against a bounded page of candidates.
+            certain, _ = sql_bounds(self.tree, self.sql, self.evidence)
+            hints = [self.indexed_evidence[t] for t in positive_terms(self.tree) if t in self.indexed_evidence]
+            if hints and isinstance(certain, Q):
+                candidates = self.witnesses(Q(*hints, _connector=Q.OR), indexed=True)[:PAGE_SIZE]
+                quick = Q(pk__in=candidates) & certain
+        return quick, narrow
+
+    def sql_queryset(self, *, ranked=False):
+        # An unordered URL search has two useful waves (host/prefix, then
+        # substring anywhere). A column sort must page the entire predicate.
+        if ranked and any(t.field == "url" for t in self.indexed_evidence) and isinstance(self.indexed_bounds[0], Q):
+            return None
         if len(self.sql) == len(self.terms):
             return self.scope.filter(sql_bounds(self.tree, self.sql)[1])
         return None
 
-    def admit(self, pk):
-        if self.streaming:
-            return True
-        if pk not in self.read_ids and len(self.read_ids) >= MAX_SNAPSHOTS:
-            return False
-        self.read_ids.add(pk)
-        return all(self.usage[name] < maximum for name, maximum in DISK_LIMITS.items())
+    def disk_budget_available(self):
+        return self.streaming or all(self.usage[name] < maximum for name, maximum in DISK_LIMITS.items())
 
     def command_records(self, command, payload, *, env=None):
         from abx_dl.execution import iter_plugin_command
@@ -299,7 +313,7 @@ class SnapshotSearch:
     def preview_links(self, snapshot, path):
         if snapshot.pk in self.link_cache:
             return self.link_cache[snapshot.pk]
-        if not self.admit(snapshot.pk):
+        if not self.disk_budget_available():
             return set(), False
         payload = {
             "root": str(CONSTANTS.ARCHIVE_DIR),
@@ -329,8 +343,9 @@ class SnapshotSearch:
             return Q(parent_snapshot_id__in=endpoints.values("pk"))
         return Q(pk__in=endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id"))
 
-    def link_endpoints(self, term):
-        return self.scope.order_by().filter(substring("url", term.value), Q(url__istartswith="http://") | Q(url__istartswith="https://"))
+    def link_endpoints(self, term, *, scope=None):
+        scope = self.scope if scope is None else scope
+        return scope.order_by().filter(substring("url", term.value), Q(url__istartswith="http://") | Q(url__istartswith="https://"))
 
     def sources(self, term):
         qs = (
@@ -346,9 +361,6 @@ class SnapshotSearch:
             first = list(qs.filter(self.url_hints[term]).order_by()[:PAGE_SIZE])
             yield from first
             qs = qs.exclude(pk__in=[snap.pk for snap in first])
-        if not self.streaming:
-            yield from qs[: MAX_SNAPSHOTS + 1]
-            return
         cursor = None
         while self.active():
             page = list((qs.filter(pk__gt=cursor) if cursor else qs)[:PAGE_SIZE])
@@ -359,20 +371,18 @@ class SnapshotSearch:
 
     def target_batches(self, term):
         seen, complete = set(), True
-        sources = self.sources(term)
-        if not self.streaming:
-            bounded = list(sources)
-            complete = len(bounded) <= MAX_SNAPSHOTS
-            sources = bounded[:MAX_SNAPSHOTS]
-        for _, links, done in self.link_rows(sources):
+        for _, links, done in self.link_rows(self.sources(term)):
             complete &= done
             new = links - seen
             seen.update(new)
             if new:
                 yield new
+            if not self.disk_budget_available():
+                complete = False
+                break
         self.reverse[term] = seen, complete and self.active()
 
-    def provider(self, backend, terms, rows, *, disk=False):
+    def provider(self, backend, terms, rows):
         """Yield evidence from registered commands. An omitted answer is unknown."""
         from abx_dl.execution import iter_plugin_command
 
@@ -384,7 +394,7 @@ class SnapshotSearch:
             # their registered search command. A limited posting list cannot prove NOT.
             command = get_plugin_catalog().command(backend.name, "search")
             for term in terms:
-                if disk or not command or term.field != "word" or has_uppercase(term.value):
+                if not command or term.field != "word" or has_uppercase(term.value):
                     continue
                 if term not in self.legacy_hits:
                     iterator = iter_plugin_command(
@@ -407,43 +417,27 @@ class SnapshotSearch:
                         yield pk, {term: True}, {term: self.legacy_hits[term][pk]}
             return
         keys = {str(i): term for i, term in enumerate(terms)}
-        candidates = []
-        for pk, snap in rows.items():
-            if disk and not self.admit(snap.pk):
-                continue
-            candidate = {"id": pk}
-            if disk:
-                path = snap.get_storage_path_for_version(snap.fs_version)
-                if not path.is_relative_to(CONSTANTS.ARCHIVE_DIR) or ".." in path.parts:
-                    continue
-                candidate["path"] = str(path)
-            candidates.append(candidate)
-        if not candidates:
-            return
-        admitted = {candidate["id"] for candidate in candidates}
+        admitted = rows.keys()
         payload = {
             "streaming": self.streaming,
             "terms": [{"key": k, "mode": t.field, "value": t.value} for k, t in keys.items()],
-            "candidates": candidates,
+            "candidates": [{"id": pk} for pk in rows],
             "limits": {
                 **{k: v if self.streaming else max(0, v - self.usage[k]) for k, v in DISK_LIMITS.items()},
                 "seconds": MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
                 "per_file": 512 << 10,
             },
         }
-        if disk:
-            payload["archive_root"] = str(CONSTANTS.ARCHIVE_DIR)
-            self.archive_batch = (0, len(admitted))
-            checked = set()
+        checked = set()
+        self.archive_batch = (0, len(rows))
         iterator = self.command_records(command, payload, env=self.env)
         try:
             for record in iterator:
                 pk = str(record["id"]).replace("-", "")
                 if pk not in admitted:
                     continue
-                if disk:
-                    checked.add(pk)
-                    self.archive_batch = (len(checked), len(admitted))
+                checked.add(pk)
+                self.archive_batch = (len(checked), len(rows))
                 for key in DISK_LIMITS:
                     self.usage[key] += max(0, int(record.get("usage", {}).get(key, 0)))
                 matches = {keys[k]: v for k, v in record.get("matches", {}).items() if k in keys and isinstance(v, bool)}
@@ -459,7 +453,14 @@ class SnapshotSearch:
     def stream(self):
         qs = self.scope
         if len(self.sql) == len(self.terms):
-            yield from self.queryset().values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
+            matches = self.sql_queryset()
+            if not qs.query.order_by and self.sql_queryset(ranked=True) is None:
+                # Bound the exclusion list; a large archive never needs to
+                # collect all its URL matches before showing a page.
+                head = list(self.witnesses(self.indexed_bounds[0], indexed=True)[:PAGE_SIZE])
+                yield from head
+                matches = matches.exclude(pk__in=head).order_by()
+            yield from matches.values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
             return
         self.deadline = time.monotonic() + MAX_SECONDS
         certain, possible = sql_bounds(self.tree, self.sql, self.evidence)
@@ -468,8 +469,8 @@ class SnapshotSearch:
         if isinstance(possible, Q):
             qs = qs.filter(possible)
         ordered = bool(qs.query.order_by)
-        flags = {f"_abx_filter_{i}": term for i, term in enumerate((*self.sql, *self.evidence))}
         predicates = self.sql | self.evidence
+        flags = {f"_abx_filter_{i}": term for i, term in enumerate(predicates)}
         qs = qs.annotate(**{name: Case(When(predicates[t], then=Value(True)), default=Value(False)) for name, t in flags.items()})
         # REST and exports preselect relations for serialization. Candidate
         # pages need their own narrower projection until membership is known.
@@ -494,49 +495,32 @@ class SnapshotSearch:
             # Check the original expression and scope, then continue the normal
             # plan for everything the index did not confirm.
             confirmed = set()
-            words = tuple(dict.fromkeys(positive_words(self.tree)))
-            quick, narrow = sql_bounds(
-                self.tree,
-                {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)},
-                self.indexed_evidence,
-            )
+            words = tuple(dict.fromkeys(t for t in positive_terms(self.tree) if t.field == "word" and not has_uppercase(t.value)))
+            quick, narrow = self.indexed_bounds
             if not isinstance(quick, Q) and isinstance(narrow, Q) and isinstance(certain, Q):
                 # An indexed restriction can be necessary without being
                 # sufficient (e.g. domain AND text). Check metadata for one
                 # page of that small candidate stream before probing the index.
                 quick = certain & Q(pk__in=self.witnesses(narrow)[:PAGE_SIZE])
-            race = self.streaming and words and isinstance(certain, Q) and not connections[self.scope.db].in_atomic_block
-            witness_pages = self.witness_pages(certain, narrow) if race else None
-            if race and FIRST_PAGE_SLOTS.acquire(blocking=False):
-                yield from self.first_screen(qs, flags, words, quick, witness_pages, confirmed)
-                # A disconnected stream can leave a worker finishing its last
-                # bounded SELECT. Only resume its iterator after normal completion.
-                if not self.active():
-                    return
-            else:
-                if isinstance(quick, Q):
-                    for pk in self.witnesses(quick)[:PAGE_SIZE].iterator(chunk_size=1):
-                        confirmed.add(pk)
-                        yield pk
-                if witness_pages is not None:
-                    # Busy workers should not force a collection-wide scan
-                    # ahead of a responsive index. Try one bounded DB page.
-                    for pk in next(witness_pages, ()):
-                        if pk not in confirmed:
-                            confirmed.add(pk)
-                            yield pk
-                for pk in self.indexed_hits(qs, flags, words):
-                    if pk not in confirmed:
-                        confirmed.add(pk)
-                        yield pk
+            text = tuple(dict.fromkeys(t for t in positive_terms(self.tree) if t.field in {"word", "literal"}))
+            # Publish field tiers in order. A fast full-text provider must not
+            # occupy the first page before a stronger URL or title proof arrives.
+            if text and isinstance(certain, Q):
+                yield from self.ranked_metadata(text, certain, quick)
+                qs = qs.exclude(certain)
+            elif isinstance(quick, Q):
+                for pk in self.witnesses(quick, indexed=True)[:PAGE_SIZE].iterator(chunk_size=1):
+                    confirmed.add(pk)
+                    yield pk
+            for pk in self.indexed_hits(qs, flags, words):
+                if pk not in confirmed:
+                    confirmed.add(pk)
+                    yield pk
             reverse_lookup = isinstance(self.tree, Term) and self.tree.field == "linkedfrom"
-            if isinstance(certain, Q):
+            if isinstance(certain, Q) and not text:
                 # Each SQL witness is sufficient on its own. Do not repeat
                 # expensive "possible" predicates, such as inspecting JSON keys.
-                witnesses = (
-                    chain.from_iterable(witness_pages) if witness_pages is not None else self.witnesses(certain).iterator(chunk_size=1)
-                )
-                for pk in witnesses:
+                for pk in self.witnesses(certain).iterator(chunk_size=1):
                     if not self.active():
                         return
                     if pk not in confirmed:
@@ -557,11 +541,11 @@ class SnapshotSearch:
                 qs = qs.exclude(certain)
             if confirmed:
                 qs = qs.exclude(pk__in=confirmed)
-            # Some index candidates still need another source (word AND deep,
-            # for example). Visit those before unrelated arbitrary UUID pages.
-            if remaining := self.hinted_ids - confirmed:
+            # Revisit scoped postings whose remaining operands still need verification.
+            if remaining := [pk for pk in self.hinted_ids if pk not in confirmed]:
                 for batch in batched(remaining, PAGE_SIZE):
-                    yield from self.page(list(qs.filter(pk__in=batch)), flags)
+                    rows = {snap.pk: snap for snap in qs.filter(pk__in=batch).order_by()}
+                    yield from self.page([rows[pk] for pk in batch if pk in rows], flags)
                 qs = qs.exclude(pk__in=remaining)
         if ordered:
             if not qs.totally_ordered:
@@ -569,8 +553,6 @@ class SnapshotSearch:
         else:
             qs = qs.order_by("pk")
         offset, cursor = 0, None
-        external = set(self.terms) - self.sql.keys()
-        file_only = all(t.field in {"deep", "linkedfrom", "linksto"} for t in external)
         while self.active():
             # Close the DB cursor before spawning a plugin or reading archive
             # storage. Keyset pagination is cheap when rank has no explicit sort.
@@ -588,127 +570,56 @@ class SnapshotSearch:
                 yield from hits
             if len(page) < PAGE_SIZE:
                 break
-            if not ordered and file_only and len(self.read_ids) == MAX_SNAPSHOTS and not any(t.field == "linkedfrom" for t in external):
-                # Remaining disk-only rows cannot be admitted. All certain SQL
-                # branches were already delivered by the initial metadata wave.
-                self.partial = True
-                break
             if self.streaming:
                 self.link_cache.clear()
             cursor = page[-1].pk
             offset += PAGE_SIZE
 
-    def witnesses(self, predicate):
+    def witnesses(self, predicate, *, indexed=False):
         # No sort is requested in this lane. Let the DB walk its chosen index
         # and return the first row without building a temporary sort table.
-        return self.scope.filter(predicate).order_by().values_list("pk", flat=True)
+        scope = self.index_probe_scope if indexed else self.scope
+        return scope.filter(predicate).order_by().values_list("pk", flat=True)
 
-    def witness_pages(self, certain, narrow):
-        # A sparse WHERE ... LIMIT 64 can keep the DB busy for seconds after
-        # a tab disconnects, starving the next search. Keyset windows give
-        # cancellation a turn even when the database finds *zero* matches.
-        candidates = self.scope.order_by("pk").values_list("pk", flat=True)
-        if isinstance(narrow, Q):
-            candidates = candidates.filter(narrow)
-        size = PAGE_SIZE
+    def ranked_metadata(self, terms, certain, quick):
+        # These are disjoint lazy queries, without a database-wide score sort.
+        # The first host/prefix seek can return a row while the later tiers have
+        # yet to run. SQL membership and the original permission scope apply to
+        # every tier, including ORs with another independently sufficient branch.
+        remaining = self.scope.order_by()
+        hosts = []
+        for term in terms:
+            # A single label appears unchanged in the stored reversed hostname.
+            # Cross-label substrings need the display-order database function.
+            if term.value.isascii() and term.value.isalnum():
+                hosts.append(Q(reversed_domain__icontains=term.value))
+            else:
+                hosts.append(self.scope.model.objects.domain_rule_q("icontains", term.value))
+        tiers = [Q(*hosts, _connector=Q.OR)]
+        tiers.extend(Q(*(substring(field, t.value) for t in terms), _connector=Q.OR) for field in ("url", "title"))
+        if isinstance(quick, Q):
+            first = list(self.witnesses(quick & tiers[0] & certain, indexed=True)[:PAGE_SIZE])
+            yield from first
+            remaining = remaining.exclude(pk__in=first)
+        for tier in tiers:
+            for pk in remaining.filter(tier).filter(certain).values_list("pk", flat=True).iterator(chunk_size=1):
+                if not self.active():
+                    return
+                yield pk
+            remaining = remaining.exclude(tier)
+        # Expensive metadata (tags and output paths) is checked last. Keyset
+        # windows let sparse queries respond to client cancellation between reads.
         cursor = None
+        scope_ids = self.scope.order_by("pk").values_list("pk", flat=True)
         while self.active():
-            ids = list((candidates.filter(pk__gt=cursor) if cursor else candidates)[:size])
+            ids = list((scope_ids.filter(pk__gt=cursor) if cursor else scope_ids)[: PAGE_SIZE * 4])
             if not ids:
                 return
-            yield list(self.witnesses(certain).filter(pk__in=ids))
-            if len(ids) < size:
-                return
+            yield from list(remaining.filter(pk__in=ids).filter(certain).values_list("pk", flat=True))
             cursor = ids[-1]
-            size = PAGE_SIZE * 4
-
-    def first_screen(self, qs, flags, words, quick, witness_pages, confirmed):
-        """Publish independent proofs as they arrive; disk fallback never runs in these lanes."""
-        # At most two SQL prefixes and 500 postings can be enqueued. A
-        # bounded blocking put here could hold a database cursor behind HTTP.
-        events = SimpleQueue()
-        closed = threading.Event()
-        index_ready = threading.Event()
-        quick_ready = threading.Event()
-
-        def sql_hits():
-            try:
-                if isinstance(quick, Q):
-                    yield from self.witnesses(quick)[:PAGE_SIZE].iterator(chunk_size=1)
-            finally:
-                quick_ready.set()
-            # A broad SQL scan can monopolize I/O. Give a responsive index
-            # first chance, but a stalled one cannot hold back database matches.
-            index_ready.wait(0.075)
-            count = 0
-            while not closed.is_set() and self.active() and count < PAGE_SIZE:
-                page = next(witness_pages, None)
-                if page is None:
-                    break
-                yield from page
-                count += len(page)
-                if index_ready.is_set():
-                    break
-
-        def index_hits():
-            quick_ready.wait(0.025)
-            try:
-                yield from self.indexed_hits(qs, flags, words)
-            finally:
-                index_ready.set()
-
-        # Workers use separate Django connections. Do not borrow a transaction
-        # or leave a cursor open while a consumer waits on a plugin or a socket.
-        unfinished = 2
-        finish_lock = threading.Lock()
-
-        def finished():
-            nonlocal unfinished
-            with finish_lock:
-                unfinished -= 1
-                if not unfinished:
-                    FIRST_PAGE_SLOTS.release()
-
-        def produce(source):
-            try:
-                close_old_connections()
-                for pk in source():
-                    if closed.is_set() or not self.active():
-                        break
-                    events.put(pk)
-            except Exception as exc:
-                events.put(exc)
-            finally:
-                connections.close_all()
-                events.put(None)
-                finished()
-
-        started = 0
-        try:
-            for source in (sql_hits, index_hits):
-                threading.Thread(target=produce, args=(source,), name="search-first-page", daemon=True).start()
-                started += 1
-            ended = 0
-            while ended < 2 and self.active():
-                try:
-                    item = events.get(timeout=0.05)
-                except Empty:
-                    continue
-                if isinstance(item, Exception):
-                    raise item
-                if item is None:
-                    ended += 1
-                elif item not in confirmed:
-                    confirmed.add(item)
-                    yield item
-        finally:
-            closed.set()
-            # A worker that could not start cannot release its share.
-            for _ in range(2 - started):
-                finished()
 
     def indexed_hits(self, qs, flags, words):
-        if not words or not self.backend or self.backend.config.search_scan:
+        if not words or not self.backend:
             return
         # Spread a bounded set of early postings across Boolean alternatives;
         # a rare or empty first operand must not starve the next OR branch.
@@ -761,10 +672,10 @@ class SnapshotSearch:
                 ids = dict.fromkeys(pk for item in batch if (pk := normalize_search_result_id(item)) and pk not in visited)
                 visited.update(ids)
                 if confirmed_word:
-                    yield from self.confirm_postings(ids, word)
+                    yield from self.confirm_postings(ids, word, qs)
                 else:
                     by_id = {row.pk.hex: row for row in qs.select_related(None).only("pk").filter(pk__in=ids)}
-                    self.hinted_ids.update(row.pk for row in by_id.values())
+                    self.hinted_ids.update(dict.fromkeys(by_id[pk].pk for pk in ids if pk in by_id))
                     yield from self.page([by_id[pk] for pk in ids if pk in by_id], flags, index_only=True)
                 if not self.active():
                     break
@@ -777,7 +688,7 @@ class SnapshotSearch:
             if close := getattr(postings, "close", None):
                 close()
 
-    def confirm_postings(self, ids, word):
+    def confirm_postings(self, ids, word, qs):
         # A confirmed posting makes its word true in the whole expression.
         # Simplifying first avoids touching tags, output JSON, or the disk to
         # prove branches that can no longer affect this candidate's membership.
@@ -791,7 +702,7 @@ class SnapshotSearch:
             certain, possible = (expr, expr) if isinstance(expr, bool) else sql_bounds(expr, self.sql, self.evidence)
             if possible is False:
                 continue
-            rows = self.scope.filter(pk__in=group).order_by()
+            rows = qs.filter(pk__in=group).order_by()
             if isinstance(possible, Q):
                 rows = rows.filter(possible)
             # The scope and any remaining SQL-only condition are checked in
@@ -804,7 +715,7 @@ class SnapshotSearch:
             else:
                 proven = Value(certain)
             for pk, hit in rows.values_list("pk", proven):
-                self.hinted_ids.add(pk)
+                self.hinted_ids[pk] = None
                 self.word_hits[word].add(pk.hex)
                 if hit:
                     matches[pk.hex] = pk
@@ -821,93 +732,82 @@ class SnapshotSearch:
                 yield snap.pk
             elif expr is not False:
                 rows[pk], pending[pk] = snap, expr
-        for disk in (False, True):
-            if not pending or not self.active():
-                break
-            fields = {"word", "literal", "deep"} if disk else {"word", "literal"}
-            if disk and self.backend and not (self.backend.config.search_scan or self.backend.config.search_fallback):
-                fields = {"deep"}
-            # Different OR branches can leave different expensive operands for
-            # different rows. Only ask about predicates that could affect each row.
-            groups = defaultdict(dict)
-            for pk, expr in pending.items():
-                required = tuple(dict.fromkeys(t for t in leaves(expr) if t.field in fields))
-                if required:
-                    groups[required][pk] = rows[pk]
-            ranked = []
-            for terms, batch in groups.items():
-                backend = self.scanner if disk else self.backend
-                if not backend or (not disk and backend.config.search_scan):
-                    continue
-                try:
-                    for pk, answers, scores in self.provider(backend, terms, batch, disk=disk):
-                        if pk not in pending:
-                            continue
-                        if disk and (not self.backend or not self.backend.config.search_scan):
-                            # A negative in a fallback file scan cannot disprove
-                            # a word in a different provider's indexed document.
-                            answers = {t: value for t, value in answers.items() if t.field == "deep" or value}
-                        expr = simplify(pending[pk], answers)
-                        if isinstance(expr, bool):
-                            del pending[pk]
-                            if expr and disk:
-                                yield rows[pk].pk
-                            elif expr:
-                                ranked.append((sum(scores.get(t, 0) for t in answers if answers[t]), rows[pk].pk))
-                        else:
-                            pending[pk] = expr
-                except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
-                    if self.streaming and (disk or not backend.config.search_fallback):
-                        raise
-                    stderr = getattr(err, "stderr", "") or ""
-                    if isinstance(stderr, bytes):
-                        stderr = stderr.decode(errors="replace")
-                    logger.warning("Search provider %s unavailable: %s\n%s", backend.name, err, stderr, exc_info=True)
-            # Reorder only confirmed hits in this index page. Never hold file
-            # hits for ranking or move a result the browser already received.
-            yield from (pk for _, pk in sorted(ranked, key=lambda match: -match[0]))
-            if index_only:
-                # Unknowns remain eligible for verification in the regular
-                # page pass. Do not start disk I/O while delivering index hits.
-                return
-            if not disk:
-                outgoing = [rows[pk] for pk, expr in pending.items() if any(term.field == "linksto" for term in leaves(expr))]
-                for snapshot, urls, done in self.link_rows(outgoing):
-                    pk = snapshot.pk.hex
-                    expr = pending[pk]
-                    answers = {}
-                    for term in dict.fromkeys(leaves(expr)):
-                        if term.field == "linksto":
-                            pattern = literal_pattern(term.value)
-                            hit = any(pattern.search(url) for url in urls)
-                            if hit or done:
-                                answers[term] = hit
-                    expr = simplify(expr, answers)
+        if not pending or not self.active():
+            self.partial |= bool(pending)
+            return
+        # Different OR branches can leave different expensive operands for
+        # different rows. Only ask about predicates that could affect each row.
+        groups = defaultdict(dict)
+        for pk, expr in pending.items():
+            required = tuple(dict.fromkeys(t for t in leaves(expr) if t.field in {"word", "literal"}))
+            if required:
+                groups[required][pk] = rows[pk]
+        ranked = []
+        for terms, batch in groups.items():
+            backend = self.backend
+            if not backend:
+                continue
+            try:
+                for pk, answers, scores in self.provider(backend, terms, batch):
+                    if pk not in pending:
+                        continue
+                    expr = simplify(pending[pk], answers)
                     if isinstance(expr, bool):
                         del pending[pk]
                         if expr:
-                            yield snapshot.pk
+                            ranked.append((sum(scores.get(t, 0) for t in answers if answers[t]), rows[pk].pk))
                     else:
                         pending[pk] = expr
-                for pk, expr in list(pending.items()):
-                    for term in tuple(dict.fromkeys(leaves(expr))):
-                        if term.field == "linkedfrom":
-                            if term not in self.reverse:
-                                for _ in self.target_batches(term):
-                                    pass
-                            urls, done = self.reverse[term]
-                            hit = rows[pk].url in urls
-                        else:
-                            continue
-                        if hit or done:
-                            expr = simplify(expr, {term: hit})
-                        if isinstance(expr, bool):
-                            break
-                    if expr is True:
-                        yield rows[pk].pk
-                    if isinstance(expr, bool):
-                        del pending[pk]
-                    else:
-                        pending[pk] = expr
-        if not index_only:
-            self.partial |= bool(pending)
+            except (OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
+                if self.streaming:
+                    raise
+                stderr = getattr(err, "stderr", "") or ""
+                if isinstance(stderr, bytes):
+                    stderr = stderr.decode(errors="replace")
+                logger.warning("Search provider %s unavailable: %s\n%s", backend.name, err, stderr, exc_info=True)
+        # Reorder only confirmed hits in this index page. Never hold file
+        # hits for ranking or move a result the browser already received.
+        yield from (pk for _, pk in sorted(ranked, key=lambda match: -match[0]))
+        if index_only:
+            # Unknowns remain eligible for verification in the regular
+            # page pass. Do not start disk I/O while delivering index hits.
+            return
+        outgoing = [rows[pk] for pk, expr in pending.items() if any(term.field == "linksto" for term in leaves(expr))]
+        for snapshot, urls, done in self.link_rows(outgoing):
+            pk = snapshot.pk.hex
+            expr = pending[pk]
+            answers = {}
+            for term in dict.fromkeys(leaves(expr)):
+                if term.field == "linksto":
+                    pattern = literal_pattern(term.value)
+                    hit = any(pattern.search(url) for url in urls)
+                    if hit or done:
+                        answers[term] = hit
+            expr = simplify(expr, answers)
+            if isinstance(expr, bool):
+                del pending[pk]
+                if expr:
+                    yield snapshot.pk
+            else:
+                pending[pk] = expr
+        for pk, expr in list(pending.items()):
+            for term in tuple(dict.fromkeys(leaves(expr))):
+                if term.field == "linkedfrom":
+                    if term not in self.reverse:
+                        for _ in self.target_batches(term):
+                            pass
+                    urls, done = self.reverse[term]
+                    hit = rows[pk].url in urls
+                else:
+                    continue
+                if hit or done:
+                    expr = simplify(expr, {term: hit})
+                if isinstance(expr, bool):
+                    break
+            if expr is True:
+                yield rows[pk].pk
+            if isinstance(expr, bool):
+                del pending[pk]
+            else:
+                pending[pk] = expr
+        self.partial |= bool(pending)
