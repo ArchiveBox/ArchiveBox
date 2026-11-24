@@ -553,7 +553,10 @@ for enabled in [False, True]:
         snapshots = {row["id"]: row["crawl_id"] for row in snapshot_rows}
         snapshot_urls = {row["id"]: row["url"] for row in snapshot_rows}
     logged = next(event for event in events if event.get("logger") == "archivebox.sentry_test")
-    hook_failure = next(event for event in events if event.get("tags", {}).get("plugin.name") == "wget")
+    hook_failures = [event for event in events if event.get("tags", {}).get("plugin.name") == "wget"]
+    # A runner takeover can also terminate a real in-flight hook. Select the
+    # invalid-arguments exit independently of the stderr assertion below.
+    hook_failure = next(event for event in hook_failures if event["contexts"]["hook"]["exit_code"] == 1)
     assert hook_failure["level"] == "error"
     assert hook_failure["contexts"]["hook"]["exit_code"] != 0
     assert "invalid time period" in hook_failure["contexts"]["hook"]["stderr"].lower()
@@ -746,12 +749,13 @@ for enabled in [False, True]:
         resource = spans_by_id[item["span_id"]]["resource"]
         for key in ("process.pid", "process.parent_pid", "process.command", "supervisor.process.name"):
             assert item["attributes"].get(key, {}).get("value") == resource.get(key), (key, item["body"])
-    failure_attrs = hook_failure["contexts"]["hook"]
-    failed_process_id = UUID(failure_attrs["hook.process.id"]).hex
-    assert processes[failed_process_id]["exit_code"] != 0
-    assert hook_failure["contexts"]["trace"]["trace_id"] == process_spans[failed_process_id]["trace_id"]
-    for key in ("hook.process.id", "hook.process.parent_id", "plugin.name", "hook.name", "snapshot.id", "snapshot.url", "crawl.id"):
-        assert hook_failure["tags"][key] == process_spans[failed_process_id]["attributes"][key]
+    for hook_error in hook_failures:
+        failure_attrs = hook_error["contexts"]["hook"]
+        failed_process_id = UUID(failure_attrs["hook.process.id"]).hex
+        assert processes[failed_process_id]["exit_code"] != 0
+        assert hook_error["contexts"]["trace"]["trace_id"] == process_spans[failed_process_id]["trace_id"]
+        for key in ("hook.process.id", "hook.process.parent_id", "plugin.name", "hook.name", "snapshot.id", "snapshot.url", "crawl.id"):
+            assert hook_error["tags"][key] == process_spans[failed_process_id]["attributes"][key]
     access_logs = [item for item in logs if item["attributes"].get("logger.name", {}).get("value") == "uvicorn.access"]
     assert access_logs
     for item in access_logs:
