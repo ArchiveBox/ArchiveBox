@@ -16,7 +16,6 @@ The public index, Snapshot admin, mobile search, REST search, and `archivebox li
 | `after:2026`, `before:2028`, `bookmarked:2026-12-31` | Bookmark time in UTC. After is inclusive, before is exclusive, and bookmarked matches a whole year, month, or day. |
 | `filetype:pdf,png` | A saved output filename ends in any listed extension. |
 | `meta:"solar panel"` | A substring in database metadata. Public searches use public metadata. |
-| `deep:"solar panel"` | A literal in archived file contents, checked by a registered scanner. |
 | `linksto:example.com`, `linkedfrom:example.com` | Match a literal substring anywhere in the outgoing or source HTTP(S) URL. For example, `linkedfrom:ycombinator.com` includes links from `news.ycombinator.com`. |
 | `output_size__gte:"1 MB"` | A Smart Folder field and comparison using the builder's types and relationship IDs. Administrative searches support the full builder schema. |
 
@@ -26,9 +25,11 @@ Searching a folder, tag or domain further narrows the current view. Snapshot adm
 
 ### Results, ranking and limits
 
-Database predicates narrow the candidate set before content reads. The configured full-text plugin supplies word matches and, where available, scores or provider order. Results stream in confirmed batches. Explicit sorting remains available. For synchronous CLI, API and exports, the file budget applies to the whole expression across its branches and covers up to 12 snapshot directories, 96 files, 512 directory entries and 4 MiB of input, with a 512 KiB per-file cap. External search work has an eight-second deadline. Narrow a deep search with a domain, date, tag, or other metadata predicate to spend that budget on relevant candidates.
+Search streams confirmed matches. For text searches, a literal substring in the domain ranks first, followed by the URL, title, other matching metadata and finally indexed content. Content results use provider order or available scores. An explicit column sort takes precedence. Existing `deep:` queries use ordinary text search.
 
-A missing index entry, unreadable artifact or exhausted budget can leave membership unknown, including under negation. The web search continues through the active view while connected. Registered streaming scanners read successive chunks of each available file, keeping their place between I/O windows. Editing the query or leaving the page cancels the stream. Missing evidence cannot prove a negated predicate. REST search and metadata export responses carry `X-ArchiveBox-Search-Partial: 1` when coverage is incomplete. The CLI reports partial coverage on stderr.
+Sonic is enabled by default. An empty index, a timeout or a connection failure does not enable filesystem scanning. To use the Ripgrep fallback, disable Sonic and any other content index and enable the Ripgrep plugin. For example, set `SEARCH_BACKEND_SONIC_ENABLED=False`, `SEARCH_BACKEND_SQLITE_ENABLED=False` and `SEARCH_BACKEND_RIPGREP_ENABLED=True`. An enabled SQLite index also takes precedence over Ripgrep. The fallback verifies only unresolved candidates in the current scope, with a shared two-second scan budget, up to 96 files, 512 directory entries and 4 MiB total (512 KiB per file). These limits apply to connected searches too.
+
+A missing index entry, unreadable file or exhausted budget can leave membership unknown, including under negation. Editing the query or leaving the page cancels the stream. REST search and metadata export responses carry `X-ArchiveBox-Search-Partial: 1` when coverage is incomplete. The CLI reports partial coverage on stderr.
 
 Smart Folders accept database-backed search expressions and the Advanced rule builder. Their saved sort and limit apply to the combined membership. Persistent membership must be decidable from database rows because moves and webhooks use it during writes. Full-text, file and link searches are available in the ordinary search field. Copied export URLs replay the expression and filters against current, authorized rows.
 

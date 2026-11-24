@@ -1,12 +1,13 @@
 __package__ = "archivebox.search"
 
+import json
 from subprocess import CalledProcessError
 from typing import Any
 
 from django.db import connection
 from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 
-from archivebox.config.common import get_config
+from archivebox.config.common import ArchiveBoxBaseConfig, get_config
 from archivebox.misc.logging import stderr
 from archivebox.misc.util import enforce_types, equivalent_urls
 from archivebox.search.backends import get_available_backends, get_backend, search_backend_command_env
@@ -224,7 +225,7 @@ def apply_snapshot_search(
     query: str,
     *,
     search_mode: str | None = None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | dict[str, Any] | None = None,
     ordering: list[str] | tuple[str, ...] | None = None,
     max_results: int | None = None,
     skip_backend_when_metadata_satisfies_limit: bool = False,
@@ -261,7 +262,7 @@ def apply_snapshot_search(
         if len(metadata_ids) >= max_results:
             return metadata_queryset.distinct()
 
-    backend_queryset = query_search_index(query, search_mode=search_mode, config=config, max_results=max_results)
+    backend_queryset = query_search_index(query, search_mode=search_mode, config=config, max_results=max_results, scope=base_queryset)
     if search_mode_backend and not include_metadata_for_forced_backend:
         return base_queryset.filter(pk__in=backend_queryset.values("pk")).distinct()
 
@@ -277,8 +278,9 @@ def apply_snapshot_search(
 def query_search_index(
     query: str,
     search_mode: str | None = None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | dict[str, Any] | None = None,
     max_results: int | None = None,
+    scope: QuerySet | None = None,
     **config_kwargs: Any,
 ) -> QuerySet:
     """Return a Snapshot queryset from backend search IDs."""
@@ -290,15 +292,16 @@ def query_search_index(
     if search_mode_base == "meta":
         return Snapshot.objects.none()
 
-    snapshot_pks = list(iter_query_search_ids(query, search_mode=search_mode, config=config, max_results=max_results))
+    snapshot_pks = list(iter_query_search_ids(query, search_mode=search_mode, config=config, max_results=max_results, scope=scope))
     return Snapshot.objects.filter(pk__in=list(dict.fromkeys(snapshot_pks)))
 
 
 def iter_query_search_ids(
     query: str,
     search_mode: str | None = None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | dict[str, Any] | None = None,
     max_results: int | None = None,
+    scope: QuerySet | None = None,
     stop_event=None,
     **config_kwargs: Any,
 ):
@@ -315,7 +318,25 @@ def iter_query_search_ids(
     if search_mode_base == "meta":
         return
 
-    backend = get_available_backends()[forced_backend] if forced_backend else get_backend(config=config)
+    backend = get_available_backends(config)[forced_backend] if forced_backend else get_backend(config=config)
+    if not backend:
+        return
+    if backend.config.search_scan:
+        from itertools import islice
+        from archivebox.core.models import Snapshot
+        from archivebox.search.interpreter import SnapshotSearch
+
+        # Old contents links and CLI/API callers must respect the same scope and
+        # total budget as an operator query. Never invoke a whole-archive scan.
+        search = SnapshotSearch(
+            scope if scope is not None else Snapshot.objects.all(),
+            json.dumps(query),
+            config=config,
+            stop_event=stop_event,
+            streaming=True,
+        )
+        yield from islice(search.scan_content_ids(backend), max_results)
+        return
     from archivebox.plugins.services import ensure_plugin_services
     from archivebox.plugins.discovery import get_plugin_catalog
     from archivebox.config.constants import CONSTANTS
@@ -359,13 +380,15 @@ def iter_query_search_ids(
 
 
 @enforce_types
-def flush_search_index(snapshots: QuerySet, config: dict[str, Any] | None = None, **config_kwargs: Any) -> None:
+def flush_search_index(snapshots: QuerySet, config: ArchiveBoxBaseConfig | dict[str, Any] | None = None, **config_kwargs: Any) -> None:
     """Remove Snapshot IDs from the configured search backend index."""
     config = config or get_config(**config_kwargs)
     if not snapshots:
         return
 
     backend = get_backend(config=config)
+    if not backend or backend.config.search_scan:
+        return
     snapshot_pks = [str(pk) for pk in snapshots.values_list("pk", flat=True)]
 
     try:

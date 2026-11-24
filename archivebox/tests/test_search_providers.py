@@ -320,6 +320,21 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             assert list(negative.stream()) == []
             assert negative.partial
 
+            # A word can occur in both a field and the content index. Check
+            # Boolean membership when the postings intersect and when they
+            # overlap metadata, across both old and page-aware providers.
+            missing.title = "magnetosphere"
+            missing.save(update_fields=["title"])
+            for expr, expected_ids in (
+                ("interstellar AND magnetosphere", {hit.pk}),
+                ("interstellar OR magnetosphere", {hit.pk, missing.pk}),
+                ("interstellar AND ~title:magnetosphere", {hit.pk}),
+            ):
+                observed = list(SnapshotSearch(scope, expr, config=config, streaming=True).stream())
+                assert len(observed) == len(expected_ids) and set(observed) == expected_ids
+            missing.title = ""
+            missing.save(update_fields=["title"])
+
             # A slow disk branch is never required to publish a Boolean result
             # already established by an index or metadata, even when it comes first.
             output(missing, "dom/large.txt", "unrelated " * 550_000 + "diskneedle")
@@ -407,6 +422,12 @@ def test_index_only_sonic_hit_and_unknown_negative(crawl, tmp_path):
             daemon.terminate()
             daemon.wait(timeout=10)
 
+    # The archive contains this exact word. A configured but now offline
+    # index still cannot turn a failed lookup into a positive disk match.
+    offline = SnapshotSearch(scope, "diskneedle", config=config)
+    assert list(offline.stream()) == []
+    assert offline.partial and offline.scan_deadline is None
+
 
 def test_connected_reverse_links_visit_late_sources_and_manifest_tail(crawl):
     sources = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://sources.example/{i}") for i in range(15)]
@@ -448,3 +469,75 @@ def test_relevance_orders_domain_url_title_metadata_then_index(crawl):
     assert list(SnapshotSearch(scope.order_by("id"), "orbit", config=config, streaming=True).stream()) == [
         s.pk for s in reversed(snapshots)
     ]
+
+
+def test_scan_is_only_available_without_a_configured_index(crawl):
+    from archivebox.search.backends import get_available_backends, get_backend
+    from archivebox.search.config import get_search_mode
+    from archivebox.search.query import apply_snapshot_search
+
+    row = Snapshot.objects.create(crawl=crawl, url="https://eligible.example/item")
+    other = Snapshot.objects.create(crawl=crawl, url="https://elsewhere.example/item")
+    for snap in (row, other):
+        output(snap, "singlefile/body.html", "content-only-needle")
+    scope = Snapshot.objects.filter(pk=row.pk)
+    for engine, sonic, sqlite, expected in (
+        ("sonic", True, False, "sonic"),
+        ("ripgrep", True, False, "sonic"),
+        ("sqlite", False, True, "sqlite"),
+        ("ripgrep", False, True, "sqlite"),
+        ("sonic", False, False, "ripgrep"),
+        ("ripgrep", False, False, "ripgrep"),
+    ):
+        config = get_config(
+            overrides={
+                "SEARCH_BACKEND_ENGINE": engine,
+                "SEARCH_BACKEND_SONIC_ENABLED": sonic,
+                "SEARCH_BACKEND_SQLITE_ENABLED": sqlite,
+                "SEARCH_BACKEND_RIPGREP_ENABLED": True,
+            },
+        )
+        assert get_backend(config).name == f"search_backend_{expected}"
+        assert ("ripgrep" in get_available_backends(config)) == (expected == "ripgrep")
+        assert (get_search_mode("contents:ripgrep", config=config) == "contents:ripgrep") == (expected == "ripgrep")
+    assert list(SnapshotSearch(scope, 'domain:eligible.example "content-only-needle"', config=config, streaming=True).stream()) == [row.pk]
+    assert list(apply_snapshot_search(scope, "content-only-needle", search_mode="contents:ripgrep", config=config)) == [row]
+    disabled = get_config(
+        overrides={
+            "SEARCH_BACKEND_ENGINE": "ripgrep",
+            "SEARCH_BACKEND_SONIC_ENABLED": False,
+            "SEARCH_BACKEND_SQLITE_ENABLED": False,
+            "SEARCH_BACKEND_RIPGREP_ENABLED": False,
+        },
+    )
+    assert get_backend(disabled) is None
+    assert "ripgrep" not in get_available_backends(disabled)
+    assert not list(SnapshotSearch(scope, "content-only-needle", config=disabled).stream())
+
+
+def test_ripgrep_budget_is_shared_across_pages_and_negation(crawl):
+    import time
+    from archivebox.search.interpreter import EXTERNAL_SLOTS, SCAN_SECONDS
+
+    config = get_config(
+        overrides={
+            "SEARCH_BACKEND_ENGINE": "ripgrep",
+            "SEARCH_BACKEND_SONIC_ENABLED": False,
+            "SEARCH_BACKEND_SQLITE_ENABLED": False,
+            "SEARCH_BACKEND_RIPGREP_ENABLED": True,
+        },
+    )
+    scope = Snapshot.objects.filter(crawl=crawl)
+    page = Snapshot.objects.create(crawl=crawl, url="https://example.org/page")
+    output(page, "dom/article.txt", "unindexed needle")
+    # Hold the actual scan slots. Contention must consume the same deadline
+    # as reading files, even in a connected stream with multiple operands.
+    with EXTERNAL_SLOTS, EXTERNAL_SLOTS:
+        search = SnapshotSearch(scope, "needle OR ~missing", config=config, streaming=True)
+        started = time.monotonic()
+        assert list(search.stream()) == []
+        elapsed = time.monotonic() - started
+        assert search.partial and not search.usage["files"]
+        assert SCAN_SECONDS <= elapsed < SCAN_SECONDS + 1
+    # After a request ends, a new query can use the released slots.
+    assert list(SnapshotSearch(scope, "needle", config=config, streaming=True).stream()) == [page.pk]

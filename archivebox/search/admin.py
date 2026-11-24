@@ -130,6 +130,7 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
                         search_term,
                         search_mode=search_mode,
                         config=request.archivebox_config,
+                        scope=queryset,
                     ).values("pk"),
                 ), False
             except Exception as err:

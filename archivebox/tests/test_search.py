@@ -1284,7 +1284,10 @@ class TestSearchBackendsE2E:
                     assert initial_page.status_code == 200
                     assert "archivebox-search-stream-status" in initial_page.text
                     assert query in initial_page.text
-                    assert f'name="search_mode" value="{search_mode}"' in initial_page.text
+                    # Legacy deep links remain usable, but newly submitted forms
+                    # use the canonical single-provider mode.
+                    canonical_mode = search_mode.replace("deep:", "contents:")
+                    assert f'name="search_mode" value="{canonical_mode}"' in initial_page.text
                     assert initial_page_elapsed < 1.0, (surface_name, search_mode, initial_page_elapsed)
 
                     stream_started = time.monotonic()
@@ -1372,7 +1375,7 @@ class TestSearchBackendsE2E:
                     assert rendered_page.status_code == 200
                     assert "No snapshots found." not in rendered_page.text
                     assert any(expected_url in rendered_page.text for expected_url in expected_urls)
-                    assert search_mode in rendered_page.text
+                    assert canonical_mode in rendered_page.text
 
                     cleared_page = requester.get(
                         f"http://127.0.0.1:{archivebox_port}{list_path}",

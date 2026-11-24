@@ -20,7 +20,7 @@ from django.db.models import Case, Exists, OuterRef, Q, Value, When
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
-from archivebox.search.backends import get_available_backends, get_backend, search_backend_command_env
+from archivebox.search.backends import get_backend, search_backend_command_env
 from archivebox.search.language import (
     Term,
     has_uppercase,
@@ -41,6 +41,7 @@ PAGE_SIZE = 64
 # ordinary lazy Django queries and never consume this file budget.
 DISK_LIMITS = {"files": 96, "entries": 512, "bytes": 4 << 20}
 MAX_SECONDS = 8.0
+SCAN_SECONDS = 2.0
 # Only external work competes for these slots. A missing or slow mounted drive
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
@@ -138,8 +139,10 @@ class SnapshotSearch:
         self.reverse = {}
         self.legacy_hits = {}
         self.word_hits = defaultdict(set)
+        self.exhausted_words = set()
         self.hinted_ids = {}
-        self.deadline = None
+        self.scan_deadline = None
+        self.deadline = math.inf
 
     @cached_property
     def env(self):
@@ -149,7 +152,7 @@ class SnapshotSearch:
     @cached_property
     def backend(self):
         self.config = self.config or get_config()
-        return get_backend(config=self.config) if get_available_backends() else None
+        return get_backend(config=self.config)
 
     def active(self):
         if self.stop_event and self.stop_event.is_set():
@@ -211,10 +214,23 @@ class SnapshotSearch:
     def disk_budget_available(self):
         return self.streaming or all(self.usage[name] < maximum for name, maximum in DISK_LIMITS.items())
 
-    def command_records(self, command, payload, *, env=None):
+    def scan_seconds_left(self):
+        # Start the single scan budget at first use, after cheap indexed/SQL
+        # matches. Every branch, candidate page and semaphore wait shares it.
+        now = time.monotonic()
+        if self.scan_deadline is None:
+            self.scan_deadline = now + SCAN_SECONDS
+            if not self.streaming:
+                self.scan_deadline = min(self.deadline, self.scan_deadline)
+        return max(0, self.scan_deadline - now)
+
+    def scan_available(self):
+        return self.scan_seconds_left() > 0 and all(self.usage[key] < limit for key, limit in DISK_LIMITS.items())
+
+    def command_records(self, command, payload, *, env=None, scan=False):
         from abx_dl.execution import iter_plugin_command
 
-        if not self.streaming:
+        if not self.streaming and not scan:
             lines = iter_plugin_command(
                 command,
                 stdin=[json.dumps(payload)],
@@ -230,8 +246,8 @@ class SnapshotSearch:
                 lines.close()
             return
 
-        while not EXTERNAL_SLOTS.acquire(timeout=0.1):
-            if not self.active():
+        while not EXTERNAL_SLOTS.acquire(timeout=min(0.1, self.scan_seconds_left()) if scan else 0.1):
+            if not self.active() or (scan and not self.scan_available()):
                 return
         last_activity = time.monotonic()
         cancellation = self.stop_event
@@ -245,13 +261,15 @@ class SnapshotSearch:
                 return False
 
         try:
+            if scan and not self.scan_available():
+                return
             lines = iter_plugin_command(
                 command,
                 stdin=[json.dumps(payload)],
                 cwd=CONSTANTS.DATA_DIR,
                 env=env,
                 stop_event=ScanCancellation(),
-                timeout=None,
+                timeout=self.scan_seconds_left() if scan else None,
             )
             try:
                 for line in lines:
@@ -262,6 +280,10 @@ class SnapshotSearch:
                     yield record
             finally:
                 lines.close()
+        except subprocess.TimeoutExpired:
+            if not scan:
+                raise
+            self.partial = True
         finally:
             EXTERNAL_SLOTS.release()
 
@@ -389,6 +411,10 @@ class SnapshotSearch:
         if not backend or not rows or not terms or not self.active():
             return
         command = get_plugin_catalog().command(backend.name, "search_candidates")
+        scan = backend.config.search_scan
+        if scan and (not command or not self.scan_available()):
+            self.partial = True
+            return
         if not command:
             # Older third-party indexes still supply positive evidence via
             # their registered search command. A limited posting list cannot prove NOT.
@@ -417,24 +443,38 @@ class SnapshotSearch:
                         yield pk, {term: True}, {term: self.legacy_hits[term][pk]}
             return
         keys = {str(i): term for i, term in enumerate(terms)}
-        admitted = rows.keys()
+        candidates = []
+        for pk, snap in rows.items():
+            candidate = {"id": pk}
+            if scan:
+                # Derive the path from the DB. The child opens it under the
+                # archive root so blocked storage I/O is covered by its timeout.
+                candidate["path"] = str(snap.get_storage_path_for_version(snap.fs_version))
+            candidates.append(candidate)
+        unbounded_stream = self.streaming and not scan
         payload = {
-            "streaming": self.streaming,
+            "streaming": unbounded_stream,
             "terms": [{"key": k, "mode": t.field, "value": t.value} for k, t in keys.items()],
-            "candidates": [{"id": pk} for pk in rows],
+            "candidates": candidates,
             "limits": {
-                **{k: v if self.streaming else max(0, v - self.usage[k]) for k, v in DISK_LIMITS.items()},
-                "seconds": MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
+                **{k: v if unbounded_stream else max(0, v - self.usage[k]) for k, v in DISK_LIMITS.items()},
+                "seconds": self.scan_seconds_left()
+                if scan
+                else MAX_SECONDS
+                if self.streaming
+                else max(0.01, self.deadline - time.monotonic()),
                 "per_file": 512 << 10,
             },
         }
+        if scan:
+            payload["archive_root"] = str(CONSTANTS.ARCHIVE_DIR)
         checked = set()
         self.archive_batch = (0, len(rows))
-        iterator = self.command_records(command, payload, env=self.env)
+        iterator = self.command_records(command, payload, env=self.env, scan=scan)
         try:
             for record in iterator:
                 pk = str(record["id"]).replace("-", "")
-                if pk not in admitted:
+                if pk not in rows:
                     continue
                 checked.add(pk)
                 self.archive_batch = (len(checked), len(rows))
@@ -450,10 +490,26 @@ class SnapshotSearch:
         finally:
             iterator.close()
 
+    def scan_content_ids(self, backend):
+        """Legacy contents-only search uses the same scoped, bounded candidate command."""
+        (term,) = self.terms
+        cursor = None
+        snapshots = self.scope.select_related("crawl__created_by").order_by("pk")
+        while self.active() and self.scan_available():
+            page = list((snapshots.filter(pk__gt=cursor) if cursor else snapshots)[:PAGE_SIZE])
+            if not page:
+                return
+            rows = {snap.pk.hex: snap for snap in page}
+            for pk, evidence, _ in self.provider(backend, (term,), rows):
+                if evidence.get(term):
+                    yield pk
+            cursor = page[-1].pk
+        self.partial = True
+
     def stream(self):
         qs = self.scope
-        if len(self.sql) == len(self.terms):
-            matches = self.sql_queryset()
+        matches = self.sql_queryset()
+        if matches is not None:
             if not qs.query.order_by and self.sql_queryset(ranked=True) is None:
                 # Bound the exclusion list; a large archive never needs to
                 # collect all its URL matches before showing a page.
@@ -539,6 +595,14 @@ class SnapshotSearch:
                     self.partial |= not self.reverse[self.tree][1]
                     return
                 qs = qs.exclude(certain)
+            if words and set(words) == self.exhausted_words:
+                # All SQL proofs were streamed above. In a positive expression
+                # every further match must have a posting for at least one word.
+                # The last contributing posting checks the full expression. A
+                # negative or unenumerated operand still needs candidate checks.
+                # Exhaustion does not certify that every snapshot was indexed.
+                self.partial = True
+                return
             if confirmed:
                 qs = qs.exclude(pk__in=confirmed)
             # Revisit scoped postings whose remaining operands still need verification.
@@ -561,6 +625,16 @@ class SnapshotSearch:
             else:
                 page = list((qs.filter(pk__gt=cursor) if cursor else qs)[:PAGE_SIZE])
             if not page:
+                break
+            # Unordered SQL proofs have already streamed. If file verification
+            # is all that remains, stop paging the DB once its budget is spent.
+            if (
+                not ordered
+                and self.scan_deadline is not None
+                and not self.scan_available()
+                and not any(term.field in {"linksto", "linkedfrom"} for term in self.terms)
+            ):
+                self.partial = True
                 break
             hits = self.page(page, flags)
             if ordered:
@@ -619,16 +693,24 @@ class SnapshotSearch:
             cursor = ids[-1]
 
     def indexed_hits(self, qs, flags, words):
-        if not words or not self.backend:
+        if not words or not self.backend or self.backend.config.search_scan:
             return
         # Spread a bounded set of early postings across Boolean alternatives;
         # a rare or empty first operand must not starve the next OR branch.
+        # Full enumeration replaces the tail of the plan only when every
+        # non-SQL operand is a positive index word. Negation and other
+        # providers still need verification, so retain bounded hints there.
+        exhaustive = (
+            self.streaming
+            and set(self.terms).difference(self.sql) == set(words)
+            and not any(term in words for term in positive_terms(self.tree, negated=True))
+        )
         for word in words:
             if not self.active():
                 return
-            yield from self.word_postings(qs, flags, word, 500 // len(words))
+            yield from self.word_postings(qs, flags, word, 500 // len(words), exhaustive=exhaustive)
 
-    def word_postings(self, qs, flags, word, limit):
+    def word_postings(self, qs, flags, word, limit, *, exhaustive):
         from abx_dl.execution import iter_plugin_command
         from archivebox.search.views import normalize_search_result_id
 
@@ -639,9 +721,13 @@ class SnapshotSearch:
         # Some providers can answer a word in one cheap call inside the web
         # worker. Its positives need no second subprocess to verify the same
         # term. Legacy search commands supply hints for candidate verification.
-        lookup = getattr(get_plugin_app(self.backend.name), "search_word_hits", None)
+        app = get_plugin_app(self.backend.name)
+        pages = getattr(app, "search_word_pages", None) if exhaustive else None
+        lookup = getattr(app, "search_word_hits", None)
         postings = None
-        if lookup:
+        if pages:
+            postings = chain.from_iterable(pages(word.value, environ=self.env, timeout=timeout))
+        elif lookup:
             try:
                 postings = lookup(word.value, environ=self.env, timeout=timeout)
             except (ImportError, OSError, RuntimeError, ValueError) as err:
@@ -660,7 +746,7 @@ class SnapshotSearch:
             )
         visited = set()
         try:
-            bounded = islice(postings, limit)
+            bounded = iter(postings) if pages else islice(postings, limit)
             # Start verifying a handful before decoding all the output-file
             # metadata for a full index page. Command-only providers retain
             # larger batches to amortize their candidate subprocess startup.
@@ -679,6 +765,9 @@ class SnapshotSearch:
                     yield from self.page([by_id[pk] for pk in ids if pk in by_id], flags, index_only=True)
                 if not self.active():
                     break
+            else:
+                if pages:
+                    self.exhausted_words.add(word)
         except (ImportError, OSError, ValueError, TypeError, KeyError, SubprocessError, RuntimeError) as err:
             stderr = getattr(err, "stderr", "") or ""
             if isinstance(stderr, bytes):

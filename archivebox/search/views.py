@@ -358,7 +358,7 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
     elif search_mode_base == "meta":
         provider = iter_meta_search_ids(query, base_queryset)
     else:
-        provider = iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event)
+        provider = iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event, scope=base_queryset)
     try:
         yield from iter_filtered_search_result_ids(provider, base_queryset)
     finally:
