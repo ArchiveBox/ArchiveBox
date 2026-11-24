@@ -699,7 +699,24 @@ def test_new_smart_folder_starts_with_search_and_saves_advanced_rules(browser_ru
         expect(dialog.locator(".folder-save")).to_be_enabled()
         expect(dialog.locator(".folder-advanced")).not_to_have_attribute("open", "")
         dialog.get_by_label("Name", exact=True).fill("Energy")
-        dialog.get_by_role("combobox", name="Search snapshots").fill(query)
+        editor = dialog.get_by_role("combobox", name="Search snapshots")
+        for width, height in ((1400, 900), (390, 844)):
+            page.set_viewport_size({"width": width, "height": height})
+            editor.click()
+            option = dialog.get_by_role("option", name="url:", exact=False)
+            # Visibility alone passes for a clipped child. Hit-test its center
+            # before Playwright can scroll the entire rules pane on our behalf.
+            expect(option).to_be_visible()
+            assert option.evaluate("""el => {
+                const {x, y, width, height} = el.getBoundingClientRect();
+                return el.contains(document.elementFromPoint(x + width / 2, y + height / 2));
+            }"""), (width, height)
+            option.click()
+            expect(dialog.locator('input[name="folder_query"]')).to_have_value("url:")
+            editor.fill("")
+            editor.press("Escape")
+            dialog.get_by_label("Name", exact=True).click()
+        editor.fill(query)
         expect(dialog.locator(".folder-match")).to_have_count(2)
         dialog.locator("summary").click()
         dialog.get_by_role("button", name="+ Rule", exact=True).click()

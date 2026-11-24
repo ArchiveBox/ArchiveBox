@@ -72,6 +72,16 @@
     }
 
 .abx-search-field .suggestions {position:absolute; top:100%; left:0; width:100%; z-index:1001;}
+/* Keep suggestions in the dialog flow on browsers without anchored popovers. */
+dialog .abx-search-field { anchor-name: --abx-search-field; }
+dialog .abx-search-field .suggestions { position: static; }
+dialog .abx-search-field .suggestion-detail { min-width: 0; white-space: normal; }
+dialog .abx-search-field .suggestions[popover] {
+  position: fixed; position-anchor: --abx-search-field; position-visibility: anchors-visible;
+  inset: auto; left: anchor(left); top: anchor(bottom); width: anchor-size(width);
+  margin: 5px 0; padding: 0; color: inherit;
+}
+dialog .abx-search-field .suggestions[popover][data-above] { top: auto; bottom: anchor(top); }
 .abx-search-field [hidden] {display:none !important;}
 .abx-search-field:not([data-ready]) .enhanced {display:none;}
 .abx-search-field .feedback:empty {display:none;}

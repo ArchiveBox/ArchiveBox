@@ -29,6 +29,11 @@
     const hidden = root.querySelector('input[name]'), clear = root.querySelector('.abx-query-clear');
     const precedenceHint = root.querySelector('.precedence-hint');
 
+    // A dialog's scroll pane clips ordinary dropdowns. Keep the list in this
+    // editor for focus/ARIA, but let the browser paint it in the top layer.
+    const dialogMenu = root.closest('dialog') && 'showPopover' in menu && CSS.supports('width: anchor-size(width)');
+    if (dialogMenu) menu.popover = 'manual';
+
     const operators = JSON.parse(root.dataset.operators);
     for (const op of operators) op.values = op.choices || [];
     const lookup = {__proto__: null, ...Object.fromEntries(operators.flatMap(op => [op.key,...(op.aliases || [])].map(key => [key,op])))};
@@ -305,7 +310,18 @@
         if (menu.hidden || !root.isConnected) return;
         const viewport = window.visualViewport;
         const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-        const room = bottom - options.getBoundingClientRect().top - menu.querySelector('.menu-foot').offsetHeight - 10;
+        let room;
+        if (dialogMenu) {
+          const anchor = root.getBoundingClientRect();
+          const below = bottom - anchor.bottom;
+          const above = anchor.top - (viewport?.offsetTop || 0);
+          const chrome = menu.offsetHeight - options.offsetHeight;
+          const flip = below < menu.offsetHeight + 10 && above > below;
+          menu.toggleAttribute('data-above', flip);
+          room = (flip ? above : below) - chrome - 10;
+        } else {
+          room = bottom - options.getBoundingClientRect().top - menu.querySelector('.menu-foot').offsetHeight - 10;
+        }
         options.style.setProperty('--menu-room', Math.max(60, Math.floor(room)) + 'px');
       });
     }
@@ -319,6 +335,7 @@
     }
     function hideMenu() {
       if (menu.hidden) return;
+      if (dialogMenu) menu.hidePopover();
       menu.hidden = true;
       editor.setAttribute('aria-expanded','false');
       editor.removeAttribute('aria-activedescendant');
@@ -350,6 +367,7 @@
       suggestions = completions(token, wholeToken, parts);
       selected = suggestions.findIndex(suggestion => suggestion.replacement === previous);
       menu.hidden = suggestions.length === 0;
+      if (dialogMenu) menu.togglePopover(!menu.hidden);
       editor.setAttribute('aria-expanded',String(!menu.hidden));
       root.querySelector('.menu-label').textContent = lookup[token.key] ? lookup[token.key].description : 'Narrow your search';
       options.innerHTML = suggestions.map((s,i) => `<button type="button" class="suggestion cursor-interaction" role="option" id="${hidden.id}-option-${i}" data-index="${i}" aria-selected="${i===selected}">${icon(s.icon)}<span class="suggestion-name">${esc(s.label)}</span><span class="suggestion-detail">${esc(s.detail)}</span></button>`).join('');
