@@ -12,6 +12,16 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.fixture(autouse=True)
+def isolate_search_result_cache(settings, tmp_path):
+    # xdist gives each test its own collection, but Django configures this
+    # file cache at import time. Keep generations from different DBs apart.
+    settings.CACHES = {
+        **settings.CACHES,
+        "search_results": {**settings.CACHES["search_results"], "LOCATION": tmp_path / "search-results"},
+    }
+
+
 def complete_search(client, params):
     path = "/admin/core/snapshot/"
     response = client.get(path + "search-stream/", {**params, "search_url": path + "?" + urlencode(params)}, HTTP_HOST=ADMIN_TEST_HOST)
