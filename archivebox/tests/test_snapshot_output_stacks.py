@@ -1,6 +1,7 @@
 """Snapshot grouping uses real stored outputs, including portable exports."""
 
 import cProfile
+import json
 import pstats
 import shutil
 import re
@@ -19,6 +20,27 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 pytestmark = pytest.mark.django_db
 FIXTURE = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
 IMAGE_FIXTURE = Path(__file__).parents[2] / "publicsite" / "assets" / "social-card.png"
+
+
+def _file_pile_plugin_order(html, group=None):
+    from lxml.html import fromstring
+
+    document = fromstring(html)
+    piles = document.find_class(f"files-icon-pile--{group}" if group else "files-icon-pile")
+    plugins = []
+    for pile in piles:
+        plugins.extend(
+            token.removeprefix("files-icon-plugin--")
+            for node in pile.iterdescendants()
+            for token in node.classes
+            if token.startswith("files-icon-plugin--")
+        )
+        if data := pile.get("data-files-icons"):
+            for plugin, fragment in json.loads(data):
+                assert fragment.startswith("#")
+                assert document.get_element_by_id(f"abx-file-icon-{plugin}").tag == "template"
+                plugins.append(plugin)
+    return plugins
 
 
 @pytest.mark.parametrize("surface", ["admin", "static", "prefetched", "public", "started"])
@@ -79,9 +101,7 @@ def test_icon_piles_match_detail_stack_priority(snapshot, client, settings, surf
         rendered = str(snapshot.icons(quote_paths=True))
 
     # Each group contains its cover first, then popup members in priority order.
-    assert re.findall(r'class="[^"\n]*files-icon-plugin--([\w-]+)', rendered) == [
-        plugin for group in expected_groups for plugin in [group[0], *group]
-    ]
+    assert _file_pile_plugin_order(rendered) == [plugin for group in expected_groups for plugin in [group[0], *group]]
 
 
 @pytest.mark.parametrize(
@@ -1868,20 +1888,10 @@ def test_metadata_priority_matches_rendered_snapshot_and_file_piles(snapshot, ad
         visitor.get("/public/", HTTP_HOST=WEB_TEST_HOST),
     ):
         assert response.status_code == 200
-        piles = fromstring(response.content).find_class("files-icon-pile--metadata")
-        assert len(piles) == 1
-        plugins = [
-            token.removeprefix("files-icon-plugin--")
-            for node in piles[0].iterdescendants()
-            for token in node.classes
-            if token.startswith("files-icon-plugin--")
-        ]
-        assert plugins == [preferred[0], *preferred]
+        assert _file_pile_plugin_order(response.content, "metadata") == [preferred[0], *preferred]
 
 
 def test_specific_media_precedes_large_generic_responses(snapshot, admin_client):
-    from lxml.html import fromstring
-
     for plugin, extra in (
         ("responses", ("two.html", "three.html", "four.html", "five.html")),
         ("forumdl", ()),
@@ -1899,14 +1909,7 @@ def test_specific_media_precedes_large_generic_responses(snapshot, admin_client)
 
     response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    piles = fromstring(response.content).find_class("files-icon-pile--embedded_media")
-    assert len(piles) == 1
-    assert [
-        token.removeprefix("files-icon-plugin--")
-        for node in piles[0].iterdescendants()
-        for token in node.classes
-        if token.startswith("files-icon-plugin--")
-    ] == [expected[0], *expected]
+    assert _file_pile_plugin_order(response.content, "embedded_media") == [expected[0], *expected]
 
 
 def test_generic_media_remains_last_even_with_explicit_presentation_rank():

@@ -1975,6 +1975,8 @@ class TestUrlRouting:
             """
             import re
 
+            from archivebox.core.context_processors import get_static_cache_key
+
             ensure_admin_user()
             snapshot = get_snapshot()
             snapshot.write_html_details()
@@ -2009,7 +2011,9 @@ class TestUrlRouting:
             assert resp.status_code == 200
             live_html = response_body(resp).decode("utf-8", "ignore")
             assert f"http://{snapshot_host}/" in live_html
-            assert f"http://{web_host}/static/archive.png" in live_html
+            logo_path = f"/static/v/{get_static_cache_key()}/archive.png"
+            assert f'src="http://{web_host}{logo_path}"' in live_html
+            assert client.get(logo_path, HTTP_HOST=web_host).status_code == 200
             assert "?preview=1" in live_html
             assert "function createMainFrame()" in live_html
             assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in live_html
@@ -2040,7 +2044,7 @@ class TestUrlRouting:
 
             static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8", errors="ignore")
             assert f"http://{snapshot_host}/" not in static_html
-            assert f"http://{web_host}/static/archive.png" not in static_html
+            assert f"http://{web_host}{logo_path}" not in static_html
             # Static pages are opened directly from disk or a plain HTTP server,
             # where Django's live-only ?files=1 directory browser does not exist.
             # Even hidden controls and JavaScript fallbacks must therefore use
