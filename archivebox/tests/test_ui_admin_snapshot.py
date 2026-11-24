@@ -1497,8 +1497,8 @@ class TestAdminSnapshotListView:
         assert "_admin_archiveresults" not in rendered_snapshot.__dict__
         output_results = rendered_snapshot.__dict__["_admin_output_results"]
         assert [result.plugin for result in output_results] == ["hashes", "screenshot", "title", "wget"]
-        screenshot_result = next(result for result in output_results if result.plugin == "screenshot")
-        assert f"_card/{screenshot_result.id}".encode() in response.content
+        preview_url = reverse("admin:core_snapshot_preview", args=(snapshot.pk, "screenshot", "screenshot.png"))
+        assert f'src="{preview_url}?'.encode() in response.content
         # Rows the list never renders must not ship their output manifest:
         # responses/wget manifests can hold thousands of entries per row.
         unrendered_results = [
@@ -1540,7 +1540,8 @@ class TestAdminSnapshotListView:
             many_response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert many_response.status_code == 200
-        assert many_response.content.count(b"_card/") == 6
+        assert many_response.content.count(b"/preview/screenshot/screenshot.png?") == 6
+        assert b"/_card/" not in many_response.content
         single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         # Status totals, file icons, and preview candidates share one bulk query.
@@ -1940,20 +1941,23 @@ def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, clien
     assert b"".join(download.streaming_content) == raw_file.read_bytes()
 
 
-def test_snapshot_grid_and_list_use_responses_plugin_card(client, admin_user, snapshot):
+def test_snapshot_grid_and_list_use_initial_when_only_responses_are_saved(client, admin_user, snapshot):
     from archivebox.core.models import ArchiveResult
 
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="responses",
-        status=ArchiveResult.StatusChoices.FAILED,
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_files={"all/largest.png": {"size": 500, "mimetype": "image/png"}},
     )
     client.force_login(admin_user)
     for route in ("admin:grid", "admin:core_snapshot_changelist"):
         response = client.get(reverse(route), HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        assert f"_card/{result.id}".encode() in response.content
+        html = response.content.decode()
+        assert f"_card/{result.id}" not in html
+        assert "/preview/responses/" not in html
+        assert re.search(r'class="snapshot-thumbnail-initial"[^>]*>E</span>', html)
 
 
 def test_snapshot_thumbnail_selection_uses_plugin_declarations(snapshot):
@@ -2214,6 +2218,7 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     from playwright.sync_api import sync_playwright, expect
     from archivebox.core.models import Snapshot, Tag
     from archivebox.config.common import get_config
+    from archivebox.machine.models import Machine
 
     title = "A long snapshot title that remains readable without pushing the URL and tags out of alignment"
     today = Snapshot.objects.create(
@@ -2252,6 +2257,9 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     Snapshot.objects.filter(pk=older.pk).update(created_at=old_date)
     admin_url = live_server.url
     settings.CONFIG = get_config(overrides={"BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"}
+    machine.save(update_fields=["config"])
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(has_touch=True)
