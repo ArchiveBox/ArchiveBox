@@ -1318,6 +1318,10 @@ def get_worker(supervisor, daemon_name):
         # BAD_NAME is expected when checking a worker before it has been created.
         if err.faultCode != 10:
             _warn_background_cleanup(f"Could not query supervisord worker {daemon_name}", err)
+    except BrokenPipeError as err:
+        # The retiring supervisord can close this socket during foreground takeover.
+        # Keep the warning without printing a traceback for the expected disconnect.
+        logger.warning("Could not query supervisord worker %s: %s", daemon_name, err)
     except _SUPERVISORD_ERRORS as err:
         _warn_background_cleanup(f"Could not query supervisord worker {daemon_name}", err)
     return None
