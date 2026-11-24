@@ -390,7 +390,12 @@ def snapshot_search_stream_response(
 
         try:
             search = SnapshotSearch(
-                base_queryset, query, config=config, public=public, streaming=True, allow_sonic_fallback=allow_sonic_fallback
+                base_queryset,
+                query,
+                config=config,
+                public=public,
+                streaming=True,
+                allow_sonic_fallback=allow_sonic_fallback,
             )
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")

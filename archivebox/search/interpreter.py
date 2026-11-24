@@ -90,7 +90,17 @@ def sql_snapshot_search(scope, query, *, public=False, ranked=False):
 
 class SnapshotSearch:
     def __init__(
-        self, scope, query, *, config=None, stop_event=None, rules=None, stack=(), public=False, streaming=False, allow_sonic_fallback=False
+        self,
+        scope,
+        query,
+        *,
+        config=None,
+        stop_event=None,
+        rules=None,
+        stack=(),
+        public=False,
+        streaming=False,
+        allow_sonic_fallback=False,
     ):
         self.scope = scope
         self.tree = parse(query)
