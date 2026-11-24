@@ -4,10 +4,13 @@ import gzip
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
 from io import BytesIO
+from datetime import datetime, timezone
+from uuid import UUID
 from importlib.metadata import version
 
 import pytest
@@ -145,7 +148,6 @@ def test_sentry_asgi_transport_cancellation(initialized_archive, httpserver):
             """
 import asyncio, gc, json, logging
 from asgiref.testing import ApplicationCommunicator
-from django.apps import apps
 from archivebox.core.asgi import application
 from archivebox.workers.request_activity import request_activity
 from opentelemetry.trace import get_current_span
@@ -163,6 +165,8 @@ class ObserveContextErrors(logging.Handler):
 logging.getLogger('opentelemetry.context').addHandler(ObserveContextErrors())
 
 async def run():
+    caller_context = get_current_span().get_span_context()
+    assert caller_context.is_valid
     # Real Django waits for an HTTP body before constructing the request.
     for cancel in (False, True):
         client = ApplicationCommunicator(application, dict(scope))
@@ -210,7 +214,7 @@ async def run():
                 await asyncio.wait_for(task, 5)
         assert not spans[-1].is_recording()
         assert sum(request_activity().values()) == 0
-        assert not get_current_span().get_span_context().is_valid
+        assert get_current_span().get_span_context() == caller_context
         if not cancel:
             assert b'OK' in b''.join(m.get('body', b'') for m in messages)
     gc.collect()
@@ -218,7 +222,6 @@ async def run():
     return [format(span.get_span_context().span_id, '016x') for span in spans]
 
 ids = asyncio.run(run())
-apps.get_app_config('abx_sentry').shutdown()
 print(json.dumps(ids))
 """,
         ],
@@ -243,11 +246,18 @@ print(json.dumps(ids))
                 for scope in resource.scope_spans
                 for span in scope.spans
             )
-    server_spans = [span for span in spans if span.kind == 2]
+    # Direct ASGI calls inherit the real manage-command span. Verify restoration
+    # and native HTTP child spans; network requests are checked separately below.
+    command_span = next(span for span in spans if span.name == "archivebox manage")
+    server_spans = [span for span in spans if any(attr.key == "http.method" for attr in span.attributes)]
     assert len(server_spans) == 4  # Both pre-body disconnects and both real responses.
     assert expected <= {span.span_id.hex() for span in server_spans}
-    assert len({span.trace_id for span in server_spans}) == 4
-    assert all(not span.parent_span_id and span.end_time_unix_nano > span.start_time_unix_nano for span in server_spans)
+    body_spans = [span for span in server_spans if span.span_id.hex() in expected]
+    disconnected_spans = [span for span in server_spans if span.span_id.hex() not in expected]
+    assert len({span.trace_id for span in disconnected_spans}) == 2
+    assert all(not span.parent_span_id and span.kind == 2 for span in disconnected_spans)
+    assert all(span.parent_span_id == command_span.span_id and span.trace_id == command_span.trace_id for span in body_spans)
+    assert all(span.end_time_unix_nano > span.start_time_unix_nano for span in server_spans)
 
 
 def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver, free_tcp_port, recursive_test_site, browser_runtime):
@@ -303,28 +313,37 @@ def test_sentry_sends_logging_and_django_errors(initialized_archive, httpserver,
             response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/", headers={"Host": "localhost"}, timeout=10)
             assert response.status_code == 200
             time.sleep(1)
+        run_archivebox_cmd(
+            ["config", "--set", "SENTRY_RELEASE=plugin-test@1"],
+            cwd=initialized_archive,
+            env=env,
+            check=True,
+        )
+        capture = run_archivebox_cmd(
+            # Two completions in one worker exercise its persistent completion queue:
+            # the second write must not inherit the first event's trace context.
+            ["add", "--plugins=wget", recursive_test_site["root_url"], recursive_test_site["root_url"] + "about"],
+            cwd=initialized_archive,
+            check=True,
+            timeout=120,
+        )
+        (initialized_archive / "sentry-capture.log").write_text(capture.stdout + capture.stderr)
+        # The already-running worker reads machine config, not the environment
+        # of this separate CLI process. Exercise a real invalid wget setting.
+        run_archivebox_cmd(
+            ["config", "--set", 'WGET_ARGS_EXTRA=["--timeout=invalid"]'],
+            cwd=initialized_archive,
+            check=True,
+        )
+        failed_capture = run_archivebox_cmd(
+            ["add", "--plugins=wget", recursive_test_site["root_url"] + "missing-sentry-acceptance-page"],
+            cwd=initialized_archive,
+            timeout=120,
+        )
+        (initialized_archive / "sentry-failed-capture.log").write_text(failed_capture.stdout + failed_capture.stderr)
+        run_archivebox_cmd(["config", "--set", "WGET_ARGS_EXTRA=[]"], cwd=initialized_archive, check=True)
     finally:
         stop_archivebox_process(server)
-    run_archivebox_cmd(
-        ["config", "--set", "SENTRY_RELEASE=plugin-test@1"],
-        cwd=initialized_archive,
-        env=env,
-        check=True,
-    )
-    capture = run_archivebox_cmd(
-        ["add", "--plugins=wget", recursive_test_site["root_url"]],
-        cwd=initialized_archive,
-        check=True,
-        timeout=120,
-    )
-    (initialized_archive / "sentry-capture.log").write_text(capture.stdout + capture.stderr)
-    failed_capture = run_archivebox_cmd(
-        ["add", "--plugins=wget", recursive_test_site["root_url"] + "missing-sentry-acceptance-page"],
-        cwd=initialized_archive,
-        timeout=120,
-        env={"WGET_ARGS_EXTRA": '["--timeout=invalid"]'},
-    )
-    (initialized_archive / "sentry-failed-capture.log").write_text(failed_capture.stdout + failed_capture.stderr)
     # A plugin-owned head template must not take down the host's login page.
     head_template = initialized_archive / "custom_templates" / "sentry" / "head.html"
     head_template.parent.mkdir(parents=True, exist_ok=True)
@@ -423,6 +442,13 @@ for enabled in [False, True]:
         env={"SENTRY_ENABLED": "false"},
         check=True,
     )
+    with sqlite3.connect(initialized_archive / "index.sqlite3") as database:
+        replay_snapshot_id, replay_crawl_id, replay_path = database.execute(
+            "SELECT s.id, s.crawl_id, a.output_str FROM core_snapshot s "
+            "JOIN core_archiveresult a ON a.snapshot_id = s.id "
+            "WHERE s.url = ? AND a.plugin = 'wget' AND a.status = 'succeeded'",
+            (recursive_test_site["root_url"],),
+        ).fetchone()
     server = start_archivebox_server(initialized_archive, port=free_tcp_port, log_name="sentry-user-server.log")
     try:
         origin = f"http://localhost:{free_tcp_port}"
@@ -446,6 +472,9 @@ for enabled in [False, True]:
             assert browser_config["user"]["email"] == "apitestadmin@example.com"
             assert browser_config["release"] == "plugin-test@1"
             user_id = browser_config["user"]["id"]
+            replay = session.get(f"{origin}/snapshot/{replay_snapshot_id}/{replay_path}", timeout=10)
+            assert replay.status_code == 200, replay.text
+            assert "<title>Root</title>" in replay.text
         anonymous = requests.get(f"{origin}/admin/login/", timeout=10)
         assert anonymous.status_code == 200
         assert '"user": null' in anonymous.text
@@ -489,6 +518,8 @@ for enabled in [False, True]:
                                 "span_id": span.span_id.hex(),
                                 "parent_span_id": span.parent_span_id.hex(),
                                 "kind": span.kind,
+                                "start_time_unix_nano": span.start_time_unix_nano,
+                                "end_time_unix_nano": span.end_time_unix_nano,
                                 "scope": scope.scope.name,
                                 "resource": resource_attributes,
                                 "attributes": {a.key: getattr(a.value, a.value.WhichOneof("value")) for a in span.attributes},
@@ -508,6 +539,19 @@ for enabled in [False, True]:
     events = [payload for kind, payload in items if kind == "event"]
     (initialized_archive / "sentry-envelopes.json").write_text(json.dumps(items))
     (initialized_archive / "sentry-otlp-spans.json").write_text(json.dumps(spans))
+    # Compare exported identities with rows written by the real capture, not
+    # just with other telemetry that could repeat the same incorrect identity.
+    with sqlite3.connect(initialized_archive / "index.sqlite3") as database:
+        database.row_factory = sqlite3.Row
+        processes = {
+            row["id"]: dict(row)
+            for row in database.execute(
+                "SELECT id, parent_id, process_type, worker_type, pid, status, started_at, ended_at, exit_code FROM machine_process",
+            )
+        }
+        snapshot_rows = list(database.execute("SELECT id, crawl_id, url FROM core_snapshot"))
+        snapshots = {row["id"]: row["crawl_id"] for row in snapshot_rows}
+        snapshot_urls = {row["id"]: row["url"] for row in snapshot_rows}
     logged = next(event for event in events if event.get("logger") == "archivebox.sentry_test")
     hook_failure = next(event for event in events if event.get("tags", {}).get("plugin.name") == "wget")
     assert hook_failure["level"] == "error"
@@ -577,22 +621,137 @@ for enabled in [False, True]:
     assert any("admin/login" in item["name"] for item in server_requests)
     assert any(item["resource"]["service.version"] == installed_release for item in server_requests)
     assert any(item["resource"]["service.version"] == "plugin-test@1" for item in server_requests)
+    for request_span in server_requests:
+        attrs = request_span["attributes"]
+        process = processes[UUID(attrs["process.id"]).hex]
+        assert attrs["process.type"] == process["process_type"]
+        assert request_span["resource"]["process.pid"] == process["pid"]
+        assert process["worker_type"] == "worker_uvicorn"
+        assert process["status"] == "exited"
+        assert process["exit_code"] == 0
+        assert (UUID(attrs["process.parent_id"]).hex if attrs["process.parent_id"] else None) == process["parent_id"]
+        assert process["ended_at"] is not None
+    replay_requests = [span for span in server_requests if span["attributes"].get("snapshot.id")]
+    assert replay_requests
+    assert all(UUID(span["attributes"]["snapshot.id"]).hex == replay_snapshot_id for span in replay_requests)
+    assert all(UUID(span["attributes"]["crawl.id"]).hex == replay_crawl_id for span in replay_requests)
+    assert all(span["attributes"]["snapshot.url"] == snapshot_urls[replay_snapshot_id] for span in replay_requests)
     request_trace_ids = {item["trace_id"] for item in server_requests}
     sql_spans = [span for span in spans if span["attributes"].get("db.system") == "sqlite"]
     assert sql_spans
     assert all(span["attributes"].get("db.statement") for span in sql_spans)
     assert all(span["resource"].get("process.command") for span in sql_spans)
     assert all(span["resource"].get("process.parent_pid") for span in sql_spans)
+    # Queries must belong to the actual request, worker operation, or event
+    # that issued them; standalone SQL traces cannot explain that workload.
     root_sql = [span for span in sql_spans if not span["parent_span_id"]]
-    assert any(span["resource"].get("supervisor.process.name") == "worker_runner" for span in root_sql)
-    assert any(span["resource"].get("supervisor.process.name") == "worker_uvicorn" for span in root_sql)
+    # SDK initialization and Process registration precede usable operation
+    # scopes, and shutdown records run after them. Neither should excuse SQL
+    # emitted without parents between a worker's first and last real operation.
+    work_by_process = {}
+    for span in spans:
+        if span["scope"] == "archivebox" or span in server_requests:
+            work_by_process.setdefault(span["resource"]["process.pid"], []).append(span)
+    for sql in root_sql:
+        work = work_by_process.get(sql["resource"]["process.pid"], [])
+        if sql["attributes"].get("thread.name") == "archivebox-importers":
+            # The importer reads its config once before entering its first poll.
+            work = [span for span in work if span["name"] == "archivebox.importers.service._background_run"]
+        if work:
+            first = min(span["start_time_unix_nano"] for span in work)
+            last = max(span["end_time_unix_nano"] for span in work)
+            assert sql["end_time_unix_nano"] <= first or sql["start_time_unix_nano"] >= last, sql
     assert any("SELECT" in span["attributes"]["db.statement"] and span["trace_id"] in request_trace_ids for span in sql_spans)
     assert any(span["trace_id"] in crawl_trace_ids for span in sql_spans)
     spans_by_id = {span["span_id"]: span for span in spans}
+    assert len(spans_by_id) == len(spans)
+    for crawl_span in crawl_traces:
+        operation = spans_by_id[crawl_span["parent_span_id"]]
+        assert operation["name"] == "CrawlRunner.run"
+        assert operation["trace_id"] == crawl_span["trace_id"]
+        assert operation["attributes"]["crawl.id"] == crawl_span["attributes"]["crawl.id"]
+    for operation_name in ("run_pending_crawls", "archivebox.importers.service._background_run"):
+        operations = [span for span in spans if span["name"] == operation_name]
+        assert operations, operation_name
+        for operation in operations:
+            attrs = operation["attributes"]
+            process = processes[UUID(attrs["process.id"]).hex]
+            assert attrs["process.type"] == process["process_type"]
+            assert attrs["worker.type"] == process["worker_type"]
+            assert UUID(attrs["process.parent_id"]).hex == process["parent_id"]
+            assert operation["resource"]["process.pid"] == process["pid"]
+        assert any(sql["parent_span_id"] in {operation["span_id"] for operation in operations} for sql in sql_spans)
+
+    process_events = [span for span in crawl_spans if span["name"].endswith(".emit(ProcessEvent)")]
+    assert len(process_events) >= 3
+    process_spans = {}
+    for span in process_events:
+        attrs = span["attributes"]
+        process_id = UUID(attrs["hook.process.id"]).hex
+        process = processes[process_id]
+        process_spans[process_id] = span
+        assert attrs["plugin.name"] == "wget"
+        assert attrs["hook.name"].startswith("on_Snapshot__")
+        assert attrs["hook.process.type"] == process["process_type"] == "hook"
+        assert attrs["hook.process.pid"] == process["pid"]
+        assert UUID(attrs["hook.process.parent_id"]).hex == process["parent_id"]
+        assert UUID(attrs["process.id"]).hex == process["parent_id"]
+        assert UUID(attrs["crawl.id"]).hex == snapshots[UUID(attrs["snapshot.id"]).hex]
+        assert attrs["snapshot.url"] == snapshot_urls[UUID(attrs["snapshot.id"]).hex]
+        started_at = datetime.fromisoformat(process["started_at"]).replace(tzinfo=timezone.utc)
+        ended_at = datetime.fromisoformat(process["ended_at"]).replace(tzinfo=timezone.utc)
+        assert attrs["process.exit_code"] == process["exit_code"]
+        assert attrs["process.duration"] == pytest.approx((ended_at - started_at).total_seconds() * 1000, abs=1)
+        assert datetime.fromisoformat(attrs["process.started_at"]) == started_at
+        assert datetime.fromisoformat(attrs["process.ended_at"]) == ended_at
+        # A background process span must cover its actual execution, not end
+        # when its launch handler returns and leaves the child running.
+        assert span["start_time_unix_nano"] <= started_at.timestamp() * 1e9
+        assert span["end_time_unix_nano"] + 1000 >= ended_at.timestamp() * 1e9
+
+    completed_events = [span for span in crawl_spans if span["name"].endswith(".emit(ProcessCompletedEvent)")]
+    completed_updates = {span["span_id"]: [] for span in completed_events}
+    for sql in sql_spans:
+        if not sql["attributes"]["db.statement"].startswith('UPDATE "machine_process"'):
+            continue
+        parent_id = sql["parent_span_id"]
+        while parent_id in spans_by_id:
+            if parent_id in completed_updates:
+                completed_updates[parent_id].append(sql)
+                break
+            parent_id = spans_by_id[parent_id]["parent_span_id"]
+    assert completed_events
+    assert all(completed_updates.values()), completed_updates
+    assert {UUID(span["attributes"]["hook.process.id"]).hex for span in completed_events} == set(process_spans)
+    assert len({span["attributes"]["hook.process.parent_id"] for span in process_events}) < len(process_events)
     for item in hook_logs:
+        attrs = {key: value["value"] for key, value in item["attributes"].items()}
+        process_id = UUID(attrs["hook.process.id"]).hex
+        process = processes[process_id]
+        process_span = process_spans[process_id]
+        assert item["trace_id"] == process_span["trace_id"]
+        for key in (
+            "hook.process.id",
+            "hook.process.parent_id",
+            "hook.process.type",
+            "plugin.name",
+            "hook.name",
+            "snapshot.id",
+            "snapshot.url",
+            "crawl.id",
+        ):
+            assert attrs[key] == process_span["attributes"][key], (key, item["body"])
+        assert UUID(attrs["process.id"]).hex == process["parent_id"]
+        assert attrs["hook.process.pid"] == process["pid"]
         resource = spans_by_id[item["span_id"]]["resource"]
         for key in ("process.pid", "process.parent_pid", "process.command", "supervisor.process.name"):
             assert item["attributes"].get(key, {}).get("value") == resource.get(key), (key, item["body"])
+    failure_attrs = hook_failure["contexts"]["hook"]
+    failed_process_id = UUID(failure_attrs["hook.process.id"]).hex
+    assert processes[failed_process_id]["exit_code"] != 0
+    assert hook_failure["contexts"]["trace"]["trace_id"] == process_spans[failed_process_id]["trace_id"]
+    for key in ("hook.process.id", "hook.process.parent_id", "plugin.name", "hook.name", "snapshot.id", "snapshot.url", "crawl.id"):
+        assert hook_failure["tags"][key] == process_spans[failed_process_id]["attributes"][key]
     access_logs = [item for item in logs if item["attributes"].get("logger.name", {}).get("value") == "uvicorn.access"]
     assert access_logs
     for item in access_logs:
@@ -600,14 +759,18 @@ for enabled in [False, True]:
         request_span = spans_by_id[item["span_id"]]
         assert request_span in server_requests
         assert item["trace_id"] == request_span["trace_id"]
+        for key in ("process.id", "user.id", "user.name", "snapshot.id", "crawl.id"):
+            if key in request_span["attributes"]:
+                assert item["attributes"].get(key, {}).get("value") == request_span["attributes"][key], (key, item)
     assert len({item["span_id"] for item in access_logs}) == len(access_logs)
     assert all(item["scope"] == "opentelemetry.instrumentation.asgi" for item in server_requests)
     assert not any(item["scope"] == "opentelemetry.instrumentation.django" for item in spans)
     assert not any(event.get("logger") == "opentelemetry.context" for event in events)
     assert head_log["span_id"] in spans_by_id
     assert head_failure["contexts"]["trace"]["span_id"] in spans_by_id
+    operation_trace_ids = {span["trace_id"] for work in work_by_process.values() for span in work}
     for span in sql_spans:
-        if span["trace_id"] in request_trace_ids | crawl_trace_ids:
+        if span["trace_id"] in request_trace_ids | crawl_trace_ids | operation_trace_ids:
             assert span["parent_span_id"] in spans_by_id, span
             assert spans_by_id[span["parent_span_id"]]["trace_id"] == span["trace_id"]
     assert any(item["attributes"].get("user.id") == user_id for item in server_requests)
@@ -633,7 +796,11 @@ for enabled in [False, True]:
     for metric in metrics:
         if metric["name"] in {"archivebox.spans", "archivebox.span.duration"}:
             assert metric["span_id"] in spans_by_id, metric
-            assert metric["trace_id"] == spans_by_id[metric["span_id"]]["trace_id"]
+            source_span = spans_by_id[metric["span_id"]]
+            assert metric["trace_id"] == source_span["trace_id"]
+            for key in ("process.id", "hook.process.id", "plugin.name", "hook.name", "crawl.id", "snapshot.id", "snapshot.url"):
+                if key in source_span["attributes"]:
+                    assert metric["attributes"].get(key, {}).get("value") == source_span["attributes"][key], (key, metric)
     profiles = [payload for kind, payload in items if kind == "profile_chunk"]
     assert profiles
     assert any(profile["profile"]["samples"] for profile in profiles)
