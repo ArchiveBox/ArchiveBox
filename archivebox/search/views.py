@@ -5,6 +5,7 @@ import hashlib
 import json
 import threading
 import time
+from contextlib import ExitStack
 from copy import copy
 from itertools import batched
 from queue import Empty, Full, Queue
@@ -17,6 +18,7 @@ from django.db import close_old_connections, connections
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
+from archivebox.search.progress import SearchProgress
 from archivebox.search.config import get_search_mode, get_search_mode_base
 from archivebox.misc.util import equivalent_urls
 from archivebox.search.language import url_prefix_upper_bound
@@ -345,20 +347,27 @@ def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05)
         yield from flush_batch()
 
 
-def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None):
+def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None, progress=None):
     """Yield filtered Snapshot IDs from the selected search provider."""
     search_mode_base = get_search_mode_base(search_mode, config=config)
     if search_mode_base == "query":
         from archivebox.search.interpreter import SnapshotSearch
 
-        yield from SnapshotSearch(base_queryset, query, config=config, stop_event=stop_event).stream()
+        yield from SnapshotSearch(base_queryset, query, config=config, stop_event=stop_event, progress=progress).stream()
         return
     if search_mode_base == "url":
         provider = base_queryset.filter(url_search_q(query.strip())).values_list("pk", flat=True).iterator(chunk_size=1000)
     elif search_mode_base == "meta":
         provider = iter_meta_search_ids(query, base_queryset)
     else:
-        provider = iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event, scope=base_queryset)
+        provider = iter_query_search_ids(
+            query,
+            search_mode=search_mode,
+            config=config,
+            stop_event=stop_event,
+            scope=base_queryset,
+            progress=progress,
+        )
     try:
         yield from iter_filtered_search_result_ids(provider, base_queryset)
     finally:
@@ -382,6 +391,7 @@ def snapshot_search_stream_response(
     if not query:
         return StreamingHttpResponse((), content_type="text/plain")
 
+    progress = SearchProgress() if report_work == "2" else None
     search = None
     page_query = None
     page_token = None
@@ -396,6 +406,7 @@ def snapshot_search_stream_response(
                 public=public,
                 streaming=True,
                 allow_sonic_fallback=allow_sonic_fallback,
+                progress=progress,
             )
         except (ValueError, ValidationError) as err:
             return HttpResponseBadRequest(str(err), content_type="text/plain")
@@ -502,6 +513,13 @@ def snapshot_search_stream_response(
             return batch
 
         def run_search():
+            with ExitStack() as stack:
+                if progress:
+                    stack.enter_context(progress.phase("sql" if page_query is not None else "python"))
+                    stack.enter_context(connections[base_queryset.db].execute_wrapper(progress.sql))
+                produce()
+
+        def produce():
             iterator = None
             try:
                 close_old_connections()
@@ -519,7 +537,14 @@ def snapshot_search_stream_response(
                     search.stop_event = stop_event
                     iterator = search.stream()
                 else:
-                    iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config, stop_event=stop_event)
+                    iterator = iter_search_result_ids(
+                        query,
+                        base_queryset,
+                        search_mode=search_mode,
+                        config=config,
+                        stop_event=stop_event,
+                        progress=progress,
+                    )
                 for snapshot_id in iterator:
                     if stop_event.is_set():
                         break
@@ -566,11 +591,20 @@ def snapshot_search_stream_response(
                         yield f"{last_sent}{stream_padding}\n"
                 # File workers already know their current batch. Opt in on this
                 # stream so older clients still receive only numeric match counts.
-                if report_work and search and not done and now - work_sent_at >= 0.5:
+                if report_work == "1" and search and not done and now - work_sent_at >= 0.5:
                     work = search.archive_batch
                     if work[1] and work != last_work:
                         yield f"batch {work[0]} {work[1]}\n"
                         last_work, work_sent_at = work, now
+                # The browser advances the clock locally. Piggyback state changes
+                # on the existing half-second cadence, and use the normal
+                # heartbeat to resync idle timers even when no new row matches.
+                if progress and not done and now - work_sent_at >= 0.5:
+                    work_sent_at = now
+                    key, sample = progress.sample()
+                    if key != last_work or now - heartbeat >= 10:
+                        yield "work " + json.dumps(sample, separators=(",", ":")) + "\n"
+                        last_work, heartbeat = key, now
                 if done:
                     break
                 if now - heartbeat >= 10:
@@ -648,7 +682,7 @@ def admin_snapshot_search_stream_view(model_admin, request):
         thread_name="admin-snapshot-search-stream",
         allow_sonic_fallback=request.user.is_authenticated and request.user.is_staff,
         page_request=(request, search_url) if ordered else None,
-        report_work=request.headers.get("X-ArchiveBox-Search-Progress") == "1",
+        report_work=request.headers.get("X-ArchiveBox-Search-Progress"),
     )
 
 
@@ -677,5 +711,5 @@ def public_snapshot_search_stream_view(request):
         thread_name="public-snapshot-search-stream",
         public=True,
         page_request=(request, search_url) if ordered else None,
-        report_work=request.headers.get("X-ArchiveBox-Search-Progress") == "1",
+        report_work=request.headers.get("X-ArchiveBox-Search-Progress"),
     )

@@ -192,6 +192,7 @@ def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_
 
         page.screenshot(path=str(evidence / "all-snapshots.png"))
         open_anchored_menu(sidebar.get_by_role("button", name="Choose sidebar view"))
+        expect(page.locator("#library-mode-menu")).to_have_css("animation-duration", "0.05s")
         page.screenshot(path=str(evidence / "view-menu.png"))
         page.keyboard.press("Escape")
         sidebar.get_by_role("link", name="Web archiving", exact=True).click()

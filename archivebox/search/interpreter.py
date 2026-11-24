@@ -9,6 +9,7 @@ import sys
 import time
 import threading
 from collections import Counter, defaultdict
+from contextlib import nullcontext
 from functools import cached_property
 from itertools import batched, chain, islice
 from pathlib import Path
@@ -101,7 +102,9 @@ class SnapshotSearch:
         public=False,
         streaming=False,
         allow_sonic_fallback=False,
+        progress=None,
     ):
+        self.progress = progress
         self.scope = scope
         self.tree = parse(query)
         self.terms = tuple(dict.fromkeys(leaves(self.tree)))
@@ -161,6 +164,9 @@ class SnapshotSearch:
         self.sonic_started = None
         self.fallback_candidates = SONIC_FALLBACK_CANDIDATES
         self.deadline = math.inf
+
+    def phase(self, name, provider="", **timing):
+        return self.progress.phase(name, provider, **timing) if self.progress else nullcontext()
 
     @cached_property
     def env(self):
@@ -266,7 +272,7 @@ class SnapshotSearch:
     def scan_available(self):
         return self.scan_seconds_left() > 0 and all(self.usage[key] < limit for key, limit in DISK_LIMITS.items())
 
-    def command_records(self, command, payload, *, env=None, scan=False):
+    def command_records(self, command, payload, *, env=None, scan=False, activity="provider"):
         from abx_dl.execution import iter_plugin_command
 
         if not self.streaming and not scan:
@@ -285,9 +291,10 @@ class SnapshotSearch:
                 lines.close()
             return
 
-        while not EXTERNAL_SLOTS.acquire(timeout=min(0.1, self.scan_seconds_left()) if scan else 0.1):
-            if not self.active() or (scan and not self.scan_available()):
-                return
+        with self.phase("queue", timeout=self.scan_seconds_left() if scan else None):
+            while not EXTERNAL_SLOTS.acquire(timeout=min(0.1, self.scan_seconds_left()) if scan else 0.1):
+                if not self.active() or (scan and not self.scan_available()):
+                    return
         last_activity = time.monotonic()
         cancellation = self.stop_event
 
@@ -310,6 +317,14 @@ class SnapshotSearch:
                 stop_event=ScanCancellation(),
                 timeout=self.scan_seconds_left() if scan else None,
             )
+            if self.progress:
+                lines = self.progress.reading(
+                    lines,
+                    activity,
+                    command.plugin_name if activity == "provider" else "",
+                    timeout=self.scan_seconds_left() if scan else None,
+                    idle_since=lambda: (last_activity, STALL_SECONDS),
+                )
             try:
                 for line in lines:
                     last_activity = time.monotonic()
@@ -352,7 +367,7 @@ class SnapshotSearch:
 
             reader = Path(__file__).with_name("outlinks.py")
             command = PluginCommand(name="outlinks", plugin_name="archivebox", path=Path(sys.executable), args=["-I", str(reader)])
-            records = self.command_records(command, {"root": str(root), "snapshots": paths})
+            records = self.command_records(command, {"root": str(root), "snapshots": paths}, activity="links")
             try:
                 self.archive_batch = (0, len(pending))
                 for index, snapshot in enumerate(pending, 1):
@@ -430,9 +445,11 @@ class SnapshotSearch:
             yield from page
             cursor = page[-1].pk
 
-    def target_batches(self, term):
+    def target_batches(self, term, *, report_sources=False):
         seen, complete = set(), True
         for _, links, done in self.link_rows(self.sources(term)):
+            if report_sources and self.progress:
+                self.progress.checked += 1
             complete &= done
             new = links - seen
             seen.update(new)
@@ -470,6 +487,8 @@ class SnapshotSearch:
                         timeout=MAX_SECONDS if self.streaming else max(0.01, self.deadline - time.monotonic()),
                         stop_event=self.stop_event,
                     )
+                    if self.progress:
+                        iterator = self.progress.reading(iterator, "provider", backend.name, timeout=MAX_SECONDS)
                     try:
                         self.legacy_hits[term] = {
                             str(pk).replace("-", ""): 1 / rank
@@ -509,7 +528,7 @@ class SnapshotSearch:
             payload["archive_root"] = str(CONSTANTS.ARCHIVE_DIR)
         checked = set()
         self.archive_batch = (0, len(rows))
-        iterator = self.command_records(command, payload, env=self.env, scan=scan)
+        iterator = self.command_records(command, payload, env=self.env, scan=scan, activity="files" if scan else "provider")
         try:
             for record in iterator:
                 pk = str(record["id"]).replace("-", "")
@@ -547,7 +566,8 @@ class SnapshotSearch:
 
     def stream(self):
         qs = self.scope
-        matches = self.sql_queryset()
+        with self.phase("planning"):
+            matches = self.sql_queryset()
         if matches is not None:
             if not qs.query.order_by and self.sql_queryset(ranked=True) is None:
                 # Bound the exclusion list; a large archive never needs to
@@ -558,7 +578,8 @@ class SnapshotSearch:
             yield from matches.values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
             return
         self.deadline = time.monotonic() + MAX_SECONDS
-        certain, possible = sql_bounds(self.tree, self.sql, self.evidence)
+        with self.phase("planning"):
+            certain, possible = sql_bounds(self.tree, self.sql, self.evidence)
         if possible is False:
             return
         if isinstance(possible, Q):
@@ -626,7 +647,7 @@ class SnapshotSearch:
                     # Parsed destinations are exact saved URLs. Probe the URL
                     # index within scope without rerunning the source search for
                     # every file batch. target_batches already deduplicates URLs.
-                    for targets in self.target_batches(self.tree):
+                    for targets in self.target_batches(self.tree, report_sources=True):
                         for batch in batched(targets, 256):
                             for pk in self.scope.filter(url__in=batch).order_by().values_list("pk", flat=True):
                                 if pk not in confirmed:
@@ -675,12 +696,18 @@ class SnapshotSearch:
             ):
                 self.partial = True
                 break
-            hits = self.page(page, flags)
+            # A short final DB page gives an exact denominator for free. Never
+            # issue a COUNT or walk a second cursor just to animate the toolbar.
+            if self.progress and len(page) < PAGE_SIZE:
+                self.progress.total = offset + len(page)
+            hits = self.page(page, flags, offset=offset)
             if ordered:
                 matched = set(hits)
                 yield from (snap.pk for snap in page if snap.pk in matched)
             else:
                 yield from hits
+            if self.progress:
+                self.progress.checked = offset + len(page)
             if len(page) < PAGE_SIZE:
                 break
             if self.streaming:
@@ -778,10 +805,14 @@ class SnapshotSearch:
                 lookup = observed
         postings = None
         if pages:
-            postings = chain.from_iterable(pages(word.value, **options))
+            page_iterator = pages(word.value, **options)
+            if self.progress:
+                page_iterator = self.progress.reading(page_iterator, "provider", self.backend.name, timeout=timeout, per_read=True)
+            postings = chain.from_iterable(page_iterator)
         elif lookup:
             try:
-                postings = lookup(word.value, **options)
+                with self.phase("provider", self.backend.name, timeout=timeout):
+                    postings = lookup(word.value, **options)
             except (ImportError, OSError, RuntimeError, ValueError) as err:
                 logger.warning("In-process search unavailable: %s", type(err).__name__)
         confirmed_word = postings is not None
@@ -796,6 +827,8 @@ class SnapshotSearch:
                 timeout=timeout,
                 stop_event=self.stop_event,
             )
+        if self.progress and not pages:
+            postings = self.progress.reading(postings, "provider", self.backend.name, timeout=timeout)
         visited = set()
         try:
             bounded = iter(postings) if pages else islice(postings, limit)
@@ -862,7 +895,7 @@ class SnapshotSearch:
                     matches[pk.hex] = pk
         yield from (matches[pk] for pk in ids if pk in matches)
 
-    def page(self, page, flags, *, index_only=False):
+    def page(self, page, flags, *, index_only=False, offset=None):
         pending, rows = {}, {}
         for snap in page:
             pk = snap.pk.hex
@@ -873,6 +906,16 @@ class SnapshotSearch:
                 yield snap.pk
             elif expr is not False:
                 rows[pk], pending[pk] = snap, expr
+        # Only the final candidate pass advances the counter. Index hints and
+        # nested source lookups can revisit a row or use a different scope.
+        unchecked = set(pending) if self.progress and offset is not None else None
+
+        def checked(pk=None):
+            if unchecked is not None:
+                unchecked.discard(pk)
+                self.progress.checked = offset + len(page) - len(unchecked)
+
+        checked()
         if not pending or not self.active():
             self.partial |= bool(pending)
             return
@@ -899,6 +942,7 @@ class SnapshotSearch:
                 for pk, answers, scores in self.provider(backend, terms, batch):
                     if pk not in pending:
                         continue
+                    checked(pk)
                     expr = simplify(pending[pk], answers)
                     if isinstance(expr, bool):
                         del pending[pk]
@@ -923,6 +967,7 @@ class SnapshotSearch:
         outgoing = [rows[pk] for pk, expr in pending.items() if any(term.field == "linksto" for term in leaves(expr))]
         for snapshot, urls, done in self.link_rows(outgoing):
             pk = snapshot.pk.hex
+            checked(pk)
             expr = pending[pk]
             answers = {}
             for term in dict.fromkeys(leaves(expr)):

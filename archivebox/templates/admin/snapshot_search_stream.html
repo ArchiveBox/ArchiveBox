@@ -301,6 +301,7 @@
         .catch(failSearch)
         .finally(function() {
           if (!failed) clearSearchLoading(controller);
+          controller.progress.stop();
           if (activeSearch === controller) activeSearch = null;
         });
     }

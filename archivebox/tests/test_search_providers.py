@@ -439,6 +439,27 @@ def test_connected_reverse_links_visit_late_sources_and_manifest_tail(crawl):
     assert list(SnapshotSearch(scope, "linksto:late.example", streaming=True).stream()) == [sources[-1].pk]
 
 
+def test_saved_link_progress_spans_pages_without_counting_the_scope(crawl):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.search.interpreter import PAGE_SIZE
+    from archivebox.search.progress import SearchProgress
+
+    snapshots = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://source.example/{i}") for i in range(PAGE_SIZE + 2)]
+    for snap in snapshots:
+        output(snap, "custom_parser/urls.jsonl", "https://target.example/")
+    progress = SearchProgress()
+    scope = Snapshot.objects.filter(crawl=crawl).order_by()
+    search = SnapshotSearch(scope, "linksto:target.example", streaming=True, progress=progress)
+    with CaptureQueriesContext(connection) as queries:
+        samples = [(pk, progress.sample()[1]) for pk in search.stream()]
+    assert [pk for pk, _ in samples] == [snap.pk for snap in snapshots]
+    assert [state["checked"] for _, state in samples] == list(range(1, len(snapshots) + 1))
+    assert "total" not in samples[0][1]
+    assert samples[-1][1]["total"] == len(snapshots)
+    assert not any("COUNT(" in query["sql"].upper() for query in queries)
+
+
 def test_link_lookup_has_no_snapshot_quota(crawl):
     sources = [Snapshot.objects.create(id=UUID(int=i + 1), crawl=crawl, url=f"https://many.example/{i}") for i in range(16)]
     target = Snapshot.objects.create(crawl=crawl, url="https://destination.example/story")

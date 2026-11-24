@@ -303,6 +303,7 @@ def iter_query_search_ids(
     max_results: int | None = None,
     scope: QuerySet | None = None,
     stop_event=None,
+    progress=None,
     **config_kwargs: Any,
 ):
     """Yield snapshot IDs from configured search backend modules."""
@@ -334,6 +335,7 @@ def iter_query_search_ids(
             config=config,
             stop_event=stop_event,
             streaming=True,
+            progress=progress,
         )
         yield from islice(search.scan_content_ids(backend), max_results)
         return
@@ -350,14 +352,17 @@ def iter_query_search_ids(
         command = get_plugin_catalog().command(backend.name, "search")
         if command is None:
             raise RuntimeError(f'Plugin "{backend.name}" does not expose a search command')
+        limit = max(1, int(config.get("TIMEOUT", 60))) * 4
         ids = iter_plugin_command(
             command,
             arguments={"query": query, "search_mode": "contents"},
             env=search_backend_command_env(config=config),
             cwd=CONSTANTS.DATA_DIR,
-            timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
+            timeout=limit,
             stop_event=stop_event,
         )
+        if progress:
+            ids = progress.reading(ids, "provider", backend.name, timeout=limit)
         seen = set()
         try:
             for snapshot_id in ids:

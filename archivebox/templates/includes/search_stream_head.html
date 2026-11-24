@@ -7,7 +7,7 @@
         url.searchParams.set('search_url', list.pathname + list.search);
         return fetch(url, {signal, headers: {
             'X-ArchiveBox-Search-Page': 'first',
-            'X-ArchiveBox-Search-Progress': '1',
+            'X-ArchiveBox-Search-Progress': '2',
             'X-ArchiveBox-Search-First-Row': '1'
         }});
     }
