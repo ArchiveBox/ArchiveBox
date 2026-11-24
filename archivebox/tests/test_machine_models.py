@@ -293,6 +293,44 @@ class TestMachineModel:
         assert third.status_code == 200
         assert third.context["FOOTER_INFO"] == newer_footer
 
+    @pytest.mark.parametrize("fields", [None, ("id",)])
+    def test_machine_current_readonly_preserves_guid_preference(self, machine, fields):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.config.paths import get_native_machine_guid
+
+        native_guid = get_native_machine_guid()
+        legacy = None
+        # Minimal containers may have no OS machine ID. Exercise their absent
+        # fallback too; where one exists, use that real legacy identity.
+        if native_guid:
+            assert native_guid != machine.guid
+            values = Machine.objects.filter(pk=machine.pk).values().get()
+            values.pop("id")
+            values.update(guid=native_guid, os_arch=machine.os_arch.upper())
+            legacy = Machine.objects.create(**values)
+
+        with CaptureQueriesContext(connection) as queries:
+            preferred = Machine.current_readonly(fields=fields)
+            assert preferred is not None and preferred.pk == machine.pk
+            assert preferred.guid == machine.guid
+        assert len(queries) == 1
+        if fields is not None:
+            assert queries[0]["sql"].split(" FROM ")[0] == 'SELECT "machine_machine"."id", "machine_machine"."guid"'
+            assert {"config", "stats", "hostname"} <= preferred.get_deferred_fields()
+        else:
+            assert not preferred.get_deferred_fields()
+
+        Machine.objects.filter(pk=machine.pk).delete()
+        with CaptureQueriesContext(connection) as queries:
+            fallback = Machine.current_readonly(fields=fields)
+            if legacy is not None:
+                assert fallback is not None and fallback.pk == legacy.pk
+                assert fallback.guid == native_guid
+            else:
+                assert fallback is None
+        assert len(queries) == 1
+
     def test_machine_current_recreates_stale_cached_row(self):
         """Machine.current() should recreate the cached machine if the row was deleted."""
         import archivebox.machine.models as models
@@ -873,6 +911,9 @@ class TestProcessLifecycle:
 
     def test_process_is_running_current_pid(self):
         """is_running should be True for current PID."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
@@ -880,7 +921,16 @@ class TestProcessLifecycle:
             started_at=_current_process_started_at(),
         )
 
-        assert proc.is_running
+        with CaptureQueriesContext(connection) as queries:
+            assert proc.is_running
+        machine_reads = [row["sql"] for row in queries if 'FROM "machine_machine"' in row["sql"]]
+        assert len(machine_reads) == 1, machine_reads
+        assert machine_reads[0].split(" FROM ")[0] == 'SELECT "machine_machine"."id", "machine_machine"."guid"'
+        # A stale row with this live PID must still fail start-time validation;
+        # projecting Machine fields must not turn PID equality into ownership.
+        proc.started_at -= timedelta(minutes=1)
+        proc.save(update_fields=["started_at"])
+        assert proc.proc is None
 
     def test_process_is_running_reaped_process(self):
         """is_running should be False after the recorded OS process exits."""

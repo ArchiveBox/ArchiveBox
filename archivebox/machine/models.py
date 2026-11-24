@@ -9,6 +9,7 @@ import sys
 import time
 import uuid
 import socket
+from collections.abc import Iterable
 from pathlib import Path
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from datetime import timedelta, datetime
@@ -220,7 +221,7 @@ class Machine(ModelWithHealthStats):
         app_label = "machine"
 
     @classmethod
-    def current_readonly(cls) -> Machine | None:
+    def current_readonly(cls, *, fields: Iterable[str] | None = None) -> Machine | None:
         """Read the current machine without registration, refresh, or config writes.
 
         Web requests must see committed DB edits even if mirroring them to
@@ -232,7 +233,13 @@ class Machine(ModelWithHealthStats):
         if native_guid := get_native_machine_guid():
             # Reuse records created before the architecture became part of the GUID.
             identity |= Q(guid=native_guid, os_arch__iexact=platform.machine())
-        return min(cls.objects.filter(identity), key=lambda machine: machine.guid != guid, default=None)
+        machines = cls.objects.filter(identity)
+        if fields is not None:
+            # Frequent liveness checks need identity only, not config/stats JSON
+            # and hardware details. Keep GUID loaded for the existing preference
+            # when both legacy and architecture-specific records match.
+            machines = machines.only(*fields, "guid")
+        return min(machines, key=lambda machine: machine.guid != guid, default=None)
 
     @classmethod
     def current(cls) -> Machine:
@@ -1732,7 +1739,7 @@ class Process(ModelWithDeleteAfter, models.Model):
             return None
 
         # Can't validate processes on other machines
-        machine = Machine.current_readonly()
+        machine = Machine.current_readonly(fields=("id", "guid"))
         if machine is None or self.machine_id != machine.id:
             return None
 
