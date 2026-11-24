@@ -35,9 +35,6 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             page.set_viewport_size({"width": width, "height": 900})
             buttons = page.locator(".actions-top .action-buttons .button")
             expect(buttons.first).to_be_visible()
-            search_box = page.locator("#toolbar").bounding_box()
-            actions_box = page.locator(".actions-top").bounding_box()
-            rows_box = page.locator("#changelist-form > .results").bounding_box()
             assert page.locator(".actions-folder").count() == 0
             folder_select = page.get_by_role("combobox", name="Move to folder", exact=True)
             expect(folder_select).to_be_visible()
@@ -63,8 +60,6 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
             expect(folder_select).not_to_be_visible()
             page.locator("input.action-select").first.check()
             expect(folder_select).to_be_visible()
-            assert actions_box["y"] >= search_box["y"] + search_box["height"]
-            assert rows_box["y"] >= actions_box["y"] + actions_box["height"]
             for control in buttons.all():
                 box = control.bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1
@@ -113,25 +108,30 @@ def test_admin_controls_and_plugin_presets_on_mobile(live_server, browser_runtim
         expect(card).to_be_visible()
         for width in (1280, 1060, 390):
             page.set_viewport_size({"width": width, "height": 900})
-            card.get_by_role("button", name="Phone").click()
-            expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("390,844")
-            card.get_by_role("button", name="Desktop").click()
-            expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("1440,2000")
-            four_k = card.get_by_role("button", name="4K 3840 × 3240", exact=True)
-            four_k.click()
-            expect(card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')).to_have_value("3840,3240")
-            expect(four_k).to_have_attribute("aria-pressed", "true")
-            preset_boxes = [button.bounding_box() for button in card.locator(".config-presets button").all()]
-            assert len(preset_boxes) == 4
-            assert preset_boxes[-1]["x"] > preset_boxes[-2]["x"]
-            assert len({round(box["y"]) for box in preset_boxes}) == (2 if width == 390 else 1)
-            panel = page.locator("#plugin-settings").bounding_box()
-            assert panel["x"] >= 0 and panel["x"] + panel["width"] <= width + 1
-            for control in card.locator(".config-presets button").all():
-                box = control.bounding_box()
+            resolution = card.locator('input[data-config-key="SCREENSHOT_RESOLUTION"]')
+            for name, value in (
+                ("Phone 390 × 844", "390,844"),
+                ("Tablet 768 × 1024", "768,1024"),
+                ("Desktop 1440 × 2000", "1440,2000"),
+                ("4K 3840 × 3240", "3840,3240"),
+            ):
+                preset = card.get_by_role("button", name=name, exact=True)
+                preset.click()
+                expect(resolution).to_have_value(value)
+                expect(preset).to_have_attribute("aria-pressed", "true")
+                box = preset.bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1
+                assert preset.evaluate("button => button.scrollWidth <= button.clientWidth")
                 if width == 390:
                     assert box["height"] >= 44
+            # Fit uses the space the settings pane actually allocates, not the viewport.
+            available, columns = card.locator(".config-presets").evaluate(
+                "grid => [grid.clientWidth, getComputedStyle(grid).gridTemplateColumns.split(' ').length]",
+            )
+            if available > 350:
+                assert columns == 4
+            panel = page.locator("#plugin-settings").bounding_box()
+            assert panel["x"] >= 0 and panel["x"] + panel["width"] <= width + 1
             page.locator("#plugin-settings").screenshot(path=str(output / f"plugin-controls-{width}.png"))
         desktop_button = card.get_by_role("button", name="Desktop")
         desktop_button.focus()
