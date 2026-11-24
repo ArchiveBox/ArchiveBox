@@ -331,6 +331,13 @@ DATABASE_ROUTERS = []
 
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    # A search stream and the HTTP request that renders its rows can land
+    # on different workers. Use the collection's local scratch volume for IDs.
+    "search_results": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": CONFIG.TMP_DIR / "search-results",
+        "KEY_PREFIX": hashlib.sha256(str(CONSTANTS.DATA_DIR).encode()).hexdigest(),
+    },
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" if CONFIG.EMAIL_HOST else "django.core.mail.backends.console.EmailBackend"

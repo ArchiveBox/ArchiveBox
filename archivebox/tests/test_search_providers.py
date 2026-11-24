@@ -105,9 +105,46 @@ def test_quoted_and_unquoted_link_values_match_the_same_substring(crawl):
     output(other, "parser/urls.jsonl", child.url)
     scope = Snapshot.objects.all()
     assert set(SnapshotSearch(scope, "linkedfrom:ycombinator.com").stream()) == {target.pk, child.pk}
-    for field, value, expected in (("linkedfrom", page, {target.pk, child.pk}), ("linksto", target.url, {first.pk, other.pk})):
+    for field, value, expected in (
+        ("linkedfrom", page, {target.pk, child.pk}),
+        ("linksto", target.url, {first.pk, other.pk}),
+        ("linkedto", target.url, {first.pk, other.pk}),
+    ):
         for operand in (value, json.dumps(value)):
             assert set(SnapshotSearch(scope, f"{field}:{operand}").stream()) == expected
+
+
+def test_indexed_url_proofs_preserve_off_host_and_file_only_matches(crawl):
+    source = Snapshot.objects.create(crawl=crawl, url="https://sub.library.example/a")
+    other = Snapshot.objects.create(crawl=crawl, url="https://elsewhere.example/path/LIBRARY.EXAMPLE")
+    linked = Snapshot.objects.create(crawl=crawl, url="https://article.example/1", parent_snapshot=source)
+    indirect = Snapshot.objects.create(crawl=crawl, url="https://article.example/2")
+    output(other, "parser/urls.jsonl", indirect.url)
+    scope = Snapshot.objects.all().order_by()
+    search = SnapshotSearch(scope, "linkedfrom:library.example", streaming=True)
+    assert list(search.witnesses(search.indexed_evidence[search.tree])) == [linked.pk]
+    assert list(search.stream()) == [linked.pk, indirect.pk]
+    for operator in ("linkedto", "linksto"):
+        search = SnapshotSearch(scope, f"{operator}:article.example", streaming=True)
+        assert list(search.witnesses(search.indexed_evidence[search.tree])) == [source.pk]
+        assert list(search.stream()) == [source.pk, other.pk]
+    assert list(SnapshotSearch(scope, "linkedfrom:LIBRARY.EXAMPLE", streaming=True).stream()) == [indirect.pk]
+
+
+def test_native_substrings_preserve_literal_unicode_and_punctuation(crawl):
+    import re
+    from archivebox.search.language import has_uppercase, substring
+
+    names = ["a%_b", "aXXb", "Key", "Key", "key", "ſtudy", "İstanbul", "café", "CAFÉ"]
+    for i, name in enumerate(names):
+        Snapshot.objects.create(crawl=crawl, url=f"https://strings.example/{i}", title=name)
+    for text in ("%_", "key", "Key", "study", "istanbul", "café", "CAFÉ"):
+        # The original regex lookup is the reference for this database's
+        # Unicode folding (PostgreSQL uses its configured collation).
+        reference = Snapshot.objects.filter(**{"title__regex" if has_uppercase(text) else "title__iregex": re.escape(text)})
+        assert set(Snapshot.objects.filter(substring("title", text)).values_list("title", flat=True)) == set(
+            reference.values_list("title", flat=True),
+        )
 
 
 def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):

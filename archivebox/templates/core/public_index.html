@@ -904,6 +904,8 @@
                 streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
                 fetch(streamUrl, {headers: {'X-ArchiveBox-Search-Page': 'first', 'X-ArchiveBox-Search-Progress': '1'}, signal: controller.signal})
                     .then(async function(response) {
+                        const generation = response.headers.get("X-ArchiveBox-Search-Generation");
+                        if (generation) renderHeaders["X-ArchiveBox-Search-Generation"] = generation;
                         const token = response.headers.get('X-ArchiveBox-Search-Page')
                         if (token) renderHeaders['X-ArchiveBox-Search-Page'] = token
                         if (response.status === 204) return renderNow()

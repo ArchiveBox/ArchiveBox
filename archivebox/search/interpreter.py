@@ -34,6 +34,7 @@ from archivebox.search.language import (
     sql_leaf,
     substring,
     text_metadata,
+    url_substring_hint,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,17 +102,27 @@ class SnapshotSearch:
             rules = RuleQuery()
         self.sql = {t: q for t in self.terms if (q := sql_leaf(t, scope.db, rules=rules, stack=stack, public=public)) is not None}
         self.evidence = {t: text_metadata(t, public=public) for t in self.terms if t.field in {"word", "literal"}}
-        # Recursive captures preserve the discovering parent even when the
-        # parser output is missing. Other edges can still exist on disk,
-        # so a missing database edge is unknown, including under negation.
+        self.url_hints = {}
+        self.indexed_evidence = {}
         for term in self.terms:
-            if term.field in {"linkedfrom", "linksto"}:
-                endpoints = self.link_endpoints(term)
-                self.evidence[term] = (
-                    Q(parent_snapshot_id__in=endpoints.values("pk"))
-                    if term.field == "linkedfrom"
-                    else Q(pk__in=endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id"))
-                )
+            if term.field not in {"word", "literal", "linkedfrom", "linksto"}:
+                continue
+            hint = url_substring_hint(term.value, scope.db)
+            if hint is not None:
+                self.url_hints[term] = hint
+            if term.field in {"word", "literal"}:
+                if hint is not None:
+                    self.indexed_evidence[term] = hint & substring("url", term.value)
+                continue
+            endpoints = self.link_endpoints(term)
+            if hint is not None:
+                self.indexed_evidence[term] = self.recorded_links(term, endpoints.filter(hint))
+            # Only actual parents/children can provide database link evidence.
+            # Keep the broader substring pass for paths, lookalikes and ports.
+            if term.field == "linkedfrom":
+                children = scope.order_by().filter(parent_snapshot_id__isnull=False)
+                endpoints = endpoints.filter(pk__in=children.values("parent_snapshot_id").distinct())
+            self.evidence[term] = self.recorded_links(term, endpoints)
         self.config = config
         self.streaming = streaming
         self.stop_event = stop_event
@@ -312,6 +323,12 @@ class SnapshotSearch:
             self.link_cache[snapshot.pk] = set(), False
         return self.link_cache[snapshot.pk]
 
+    @staticmethod
+    def recorded_links(term, endpoints):
+        if term.field == "linkedfrom":
+            return Q(parent_snapshot_id__in=endpoints.values("pk"))
+        return Q(pk__in=endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id"))
+
     def link_endpoints(self, term):
         return self.scope.order_by().filter(substring("url", term.value), Q(url__istartswith="http://") | Q(url__istartswith="https://"))
 
@@ -323,6 +340,12 @@ class SnapshotSearch:
             .only("pk", "url", "fs_version", "timestamp", "bookmarked_at", "created_at", "crawl__created_by__username")
             .order_by("pk")
         )
+        if self.streaming and term in self.url_hints:
+            # Captures with no parent edges still have plugin outputs. Read
+            # the first indexed source page before searching unrelated URLs.
+            first = list(qs.filter(self.url_hints[term]).order_by()[:PAGE_SIZE])
+            yield from first
+            qs = qs.exclude(pk__in=[snap.pk for snap in first])
         if not self.streaming:
             yield from qs[: MAX_SNAPSHOTS + 1]
             return
@@ -472,7 +495,11 @@ class SnapshotSearch:
             # plan for everything the index did not confirm.
             confirmed = set()
             words = tuple(dict.fromkeys(positive_words(self.tree)))
-            quick, narrow = sql_bounds(self.tree, {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)})
+            quick, narrow = sql_bounds(
+                self.tree,
+                {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)},
+                self.indexed_evidence,
+            )
             if not isinstance(quick, Q) and isinstance(narrow, Q) and isinstance(certain, Q):
                 # An indexed restriction can be necessary without being
                 # sufficient (e.g. domain AND text). Check metadata for one
@@ -502,6 +529,7 @@ class SnapshotSearch:
                     if pk not in confirmed:
                         confirmed.add(pk)
                         yield pk
+            reverse_lookup = isinstance(self.tree, Term) and self.tree.field == "linkedfrom"
             if isinstance(certain, Q):
                 # Each SQL witness is sufficient on its own. Do not repeat
                 # expensive "possible" predicates, such as inspecting JSON keys.
@@ -512,7 +540,20 @@ class SnapshotSearch:
                     if not self.active():
                         return
                     if pk not in confirmed:
+                        if reverse_lookup:
+                            confirmed.add(pk)
                         yield pk
+                if reverse_lookup:
+                    # Parsed destinations are exact saved URLs. Probe the URL
+                    # index within scope without rerunning the source search for
+                    # every file batch. target_batches already deduplicates URLs.
+                    for targets in self.target_batches(self.tree):
+                        for batch in batched(targets, 256):
+                            for pk in self.scope.filter(url__in=batch).order_by().values_list("pk", flat=True):
+                                if pk not in confirmed:
+                                    yield pk
+                    self.partial |= not self.reverse[self.tree][1]
+                    return
                 qs = qs.exclude(certain)
             if confirmed:
                 qs = qs.exclude(pk__in=confirmed)
@@ -522,12 +563,6 @@ class SnapshotSearch:
                 for batch in batched(remaining, PAGE_SIZE):
                     yield from self.page(list(qs.filter(pk__in=batch)), flags)
                 qs = qs.exclude(pk__in=remaining)
-        if isinstance(self.tree, Term) and self.tree.field == "linkedfrom" and not ordered:
-            for targets in self.target_batches(self.tree):
-                for batch in batched(targets, 256):
-                    yield from qs.filter(url__in=batch).values_list("pk", flat=True)
-            self.partial |= not self.reverse[self.tree][1]
-            return
         if ordered:
             if not qs.totally_ordered:
                 qs = qs.order_by(*qs.query.order_by, "pk")

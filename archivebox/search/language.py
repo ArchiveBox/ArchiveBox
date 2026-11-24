@@ -8,10 +8,10 @@ from functools import lru_cache, reduce
 from operator import and_, or_
 
 from django.db import connections
-from django.db.models import BooleanField, Exists, Func, OuterRef, Q, TextField, Value
+from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, TextField, Value, When
 from django.db.models.expressions import RawSQL
-from django.db.models.functions import Cast, Coalesce
-from django.db.models.lookups import IRegex, Regex
+from django.db.models.functions import Cast, Coalesce, Length, Lower, StrIndex
+from django.db.models.lookups import Exact, GreaterThan, IRegex
 
 from archivebox.core.models import ArchiveResult, SnapshotQuerySet, SnapshotTag, Tag
 
@@ -34,7 +34,7 @@ class Expr:
 TOKEN = re.compile(r'\s+|[()~]|[^\s()~"]+')
 UNQUOTED_ITEM = re.compile(r'[^",\s]+')
 JSON_STRING = json.JSONDecoder()
-ALIASES = {"tag": "tags", "site": "domain"}
+ALIASES = {"tag": "tags", "site": "domain", "linkedto": "linksto"}
 OPERATORS = {
     "folder": ("folder", "Folder name or nested path"),
     "tags": ("tag", "Tag name contains this text"),
@@ -227,14 +227,53 @@ def literal_pattern(value):
     return re.compile(re.escape(value), 0 if has_uppercase(value) else re.IGNORECASE)
 
 
+class InsensitiveLiteral(Func):
+    output_field = BooleanField()
+
+    def as_sql(self, compiler, connection, **extra_context):
+        text, needle = self.get_source_expressions()
+        return compiler.compile(IRegex(text, Value(re.escape(needle.value))))
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        text, needle = self.get_source_expressions()
+        if not needle.value.isascii():
+            return self.as_sql(compiler, connection)
+        # SQLite's built-in lower() handles ASCII in C. Only non-ASCII
+        # haystacks can need Django's Python Unicode regex after a miss.
+        return compiler.compile(
+            Case(
+                When(GreaterThan(StrIndex(Lower(text), Value(needle.value.lower())), Value(0)), then=True),
+                When(Exact(Length(text), Length(Cast(text, BinaryField()))), then=False),
+                default=IRegex(text, Value(re.escape(needle.value))),
+            ),
+        )
+
+
 def substring(field, value, *, match_case=None):
-    # SQLite LIKE only folds ASCII. Django's regex lookups support Unicode,
-    # and escaping the whole needle keeps punctuation and spaces literal.
     if match_case is None:
         match_case = has_uppercase(value)
-    lookup = Regex if match_case else IRegex
     text = Coalesce(field, Value(""), output_field=TextField())
-    return Q(lookup(text, Value(re.escape(value))))
+    if match_case:
+        return Q(GreaterThan(StrIndex(text, Value(value)), Value(0)))
+    return Q(InsensitiveLiteral(text, Value(value)))
+
+
+def url_substring_hint(value, db):
+    """An indexed subset of URL matches. Always verify with the literal predicate."""
+    if re.fullmatch(r"[\w-]+(?:\.[\w-]+)+", value):
+        try:
+            return SnapshotQuerySet.domain_q(f"*.{value}")
+        except ValueError:
+            return None
+    if value.lower().startswith(("https://", "http://")):
+        if connections[db].vendor == "sqlite" and value.isascii():
+            return Q(url__gte=value, url__lt=url_prefix_upper_bound(value))
+        return Q(url__startswith=value)
+    return None
+
+
+def url_prefix_upper_bound(prefix):
+    return prefix[:-1] + chr(ord(prefix[-1]) + 1) if prefix else prefix
 
 
 class ConfigContains(Func):

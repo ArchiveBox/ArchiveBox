@@ -32,6 +32,7 @@
     const operators = JSON.parse(root.dataset.operators);
     for (const op of operators) op.values = op.choices || [];
     const lookup = {__proto__: null, ...Object.fromEntries(operators.flatMap(op => [op.key,...(op.aliases || [])].map(key => [key,op])))};
+    lookup.tag = lookup.tags; // Accepted on input; suggest only the canonical tags: spelling.
     const listFields = new Set(['tags','plugins','filetype']);
     const literalFields = new Set(['meta','deep']);
     const freeSuggestions = new Set(['title','linksto','linkedfrom','after','before','bookmarked', ...literalFields]);
@@ -91,9 +92,10 @@
         const operand = raw.slice(neg.length);
         // Only an unquoted field name at the beginning can introduce an operator.
         const parts = operand.startsWith('"') ? null : /^([a-z][a-z0-9_]*):(.*)$/i.exec(operand);
+        const key = parts?.[1].toLowerCase();
         result.push({
           start, end, raw, neg,
-          key: parts?.[1].toLowerCase() === 'tag' ? 'tags' : parts?.[1].toLowerCase(), value: parts?.[2],
+          key: lookup[key]?.key || key, writtenKey: key, value: parts?.[2],
           exact: quotedText.test(operand)
         });
       }
@@ -288,8 +290,10 @@
       // Inventory choices (plugins, folders, tags, etc.) must actually exist.
       if (prefix && freeSuggestions.has(token.key) && !matches.includes(typed)) matches.unshift(typed);
       const forceQuotes = literalFields.has(token.key) || operand.startsWith('"');
+      // Preserve visible aliases such as site: when completing their value.
+      const field = op.aliases?.includes(token.writtenKey) ? token.writtenKey : op.key;
       return (op.key === 'plugins' ? matches : matches.slice(0,8)).map(value => ({label:value,detail:'',icon:op.icon,
-        replacement:token.neg+token.key+':'+[...prior,quote(value, forceQuotes || (listFields.has(token.key) && value.includes(',')))].join(','),operator:false}));
+        replacement:token.neg+field+':'+[...prior,quote(value, forceQuotes || (listFields.has(token.key) && value.includes(',')))].join(','),operator:false}));
     }
     let menuFrame;
     function fitMenu() {

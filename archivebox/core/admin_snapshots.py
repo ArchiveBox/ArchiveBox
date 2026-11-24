@@ -740,7 +740,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         try:
             try:
                 response = super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
-                patch_vary_headers(response, ("X-ArchiveBox-Search-Rows",))
+                patch_vary_headers(response, ("X-ArchiveBox-Search-Rows", "X-ArchiveBox-Search-Generation", "X-ArchiveBox-Search-Page"))
                 cl = (getattr(response, "context_data", None) or {}).get("cl")
                 if cl and hasattr(cl, "row_cursor"):
                     response["X-ArchiveBox-Search-Rows"] = cl.row_cursor

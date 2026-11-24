@@ -16,7 +16,7 @@ from archivebox.config.common import get_request_config
 from archivebox.core.domain_grouping import domain_authority_from_key
 from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.core.permissions import discoverable_snapshots_queryset, is_admin_user
-from archivebox.search.language import literal_pattern, substring
+from archivebox.search.language import ALIASES, literal_pattern, substring
 
 
 def snapshot_plugin_choices():
@@ -58,6 +58,7 @@ def suggestions(request):
         else:
             return JsonResponse({"values": []}, status=400)
     key = request.GET.get("operator", "")
+    key = ALIASES.get(key, key)
     prefix = request.GET.get("prefix", "")[:256]
 
     def choices(qs, field):
@@ -65,7 +66,7 @@ def suggestions(request):
             qs = qs.filter(substring(field, prefix))
         return list(qs.exclude(**{field: ""}).order_by(field).values_list(field, flat=True).distinct()[:12])
 
-    if key in ("tags", "tag"):
+    if key == "tags":
         values = choices(scope.filter(tags__isnull=False), "tags__name")
     elif key == "folder":
         if is_admin_user(request):
@@ -95,7 +96,7 @@ def suggestions(request):
     elif key in ("owner", "title", "status", "permissions"):
         field = "crawl__created_by__username" if key == "owner" else key
         values = choices(scope.filter(**{field + "__isnull": False}), field)
-    elif key in ("domain", "site"):
+    elif key == "domain":
         hosts = scope.exclude(reversed_domain="")
         if prefix:
             hosts = hosts.filter(hosts.domain_rule_q("icontains", prefix))
@@ -110,4 +111,4 @@ def suggestions(request):
         values = ["html", "png", "pdf", "jpg", "mp4", "webp", "json", "txt", "warc", "gz"]
     else:
         values = []
-    return JsonResponse({"values": [v for v in values if v and (key in ("domain", "site") or literal_pattern(prefix).search(v))]})
+    return JsonResponse({"values": [v for v in values if v and (key == "domain" or literal_pattern(prefix).search(v))]})

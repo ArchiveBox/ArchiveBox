@@ -11,7 +11,7 @@ from queue import Empty, Full, Queue
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connections
 from django.db.models import Q
@@ -19,15 +19,20 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbid
 
 from archivebox.search.config import get_search_mode, get_search_mode_base
 from archivebox.misc.util import equivalent_urls
+from archivebox.search.language import url_prefix_upper_bound
 from archivebox.search.query import crawl_config_values_search_wave, iter_query_search_ids, url_search_q
 
 
 SEARCH_RESULT_CACHE_TTL = 60
 URL_PREFIX_SEARCH_LIMIT = 500
-# The stock LocMemCache is process-local. Serialize ownership changes and
-# writes so a retired producer cannot replace newer membership for its key.
-_search_cache_lock = threading.Lock()
-_search_cache_owners: dict[str, object] = {}
+
+
+def search_state(request, key):
+    cache = caches["search_results"]
+    generation = request.headers.get("X-ArchiveBox-Search-Generation") or cache.get(key)
+    if not isinstance(generation, str) or len(generation) != 32 or not all(c in "0123456789abcdef" for c in generation):
+        return None
+    return cache.get(f"{key}:{generation}")
 
 
 def ranked_page_ids(scope, ids, *, start, size):
@@ -75,7 +80,7 @@ def sql_page_key(request, url, token):
 def streamed_page_ids(request):
     token = request.headers.get("X-ArchiveBox-Search-Page")
     if token and len(token) == 32:
-        state = cache.get(sql_page_key(request, request.get_full_path(), token))
+        state = search_state(request, sql_page_key(request, request.get_full_path(), token))
         if state is not None:
             return [UUID(pk) for pk in state["ids"]]
     return None
@@ -124,7 +129,7 @@ def get_public_search_cache_key(request, url: str | None = None) -> str:
 
 def get_cached_admin_search_state(request):
     """Read one membership cache once for consistent IDs and completion state."""
-    cached = cache.get(get_admin_search_cache_key(request))
+    cached = search_state(request, get_admin_search_cache_key(request))
     return cached if isinstance(cached, dict) else None
 
 
@@ -144,7 +149,7 @@ def get_cached_public_search_ids(request) -> list[str] | None:
 
 def get_cached_public_search_state(request) -> dict | None:
     """Return streamed public search state from Django cache."""
-    cached = cache.get(get_public_search_cache_key(request))
+    cached = search_state(request, get_public_search_cache_key(request))
     return cached if isinstance(cached, dict) else None
 
 
@@ -191,13 +196,6 @@ def iter_url_search_prefixes(query: str):
                 add(f"{scheme}www.{trimmed}")
 
     yield from prefixes
-
-
-def url_prefix_upper_bound(prefix: str) -> str:
-    """Return the exclusive upper bound for an indexed URL prefix range."""
-    if not prefix:
-        return prefix
-    return f"{prefix[:-1]}{chr(ord(prefix[-1]) + 1)}"
 
 
 def iter_url_prefix_search_ids(prefix: str, queryset):
@@ -410,6 +408,8 @@ def snapshot_search_stream_response(
             if search is not None:
                 search.scope = base_queryset
 
+    generation = uuid4().hex
+
     async def snapshot_ids():
         seen = set()
         ids = []
@@ -419,19 +419,19 @@ def snapshot_search_stream_response(
         stream_padding = " " * 4096
         queue = Queue(maxsize=256)
         stop_event = threading.Event()
-        owner = object()
-        with _search_cache_lock:
-            cache.set(cache_key, {"ids": [], "done": False}, SEARCH_RESULT_CACHE_TTL)
-            _search_cache_owners[cache_key] = owner
+        cache = caches["search_results"]
+        state_key = f"{cache_key}:{generation}"
+        last_cached_at = time.monotonic()
 
         def cache_results(done):
-            with _search_cache_lock:
-                if _search_cache_owners.get(cache_key) is owner:
-                    cache.set(
-                        cache_key,
-                        {"ids": list(ids), "done": done, "partial": bool(search and search.partial)},
-                        SEARCH_RESULT_CACHE_TTL,
-                    )
+            nonlocal last_cached_at
+            cache.set(state_key, {"ids": ids, "done": done, "partial": bool(search and search.partial)}, SEARCH_RESULT_CACHE_TTL)
+            last_cached_at = time.monotonic()
+
+        await asyncio.to_thread(cache_results, False)
+        # Sorts and exports resolve the latest submission by scope. Each stream
+        # updates only its own generation, even when another tab repeats it.
+        await cache.aset(cache_key, generation, timeout=None)
 
         def emit(item):
             while not stop_event.is_set():
@@ -506,8 +506,10 @@ def snapshot_search_stream_response(
                     else:
                         ids.append(item)
                 now = time.monotonic()
+                if now - last_cached_at >= SEARCH_RESULT_CACHE_TTL / 2:
+                    await asyncio.to_thread(cache_results, False)
                 if done or (len(ids) != last_sent and (not last_sent or now - last_sent_at >= stream_max_delay)):
-                    cache_results(done)
+                    await asyncio.to_thread(cache_results, done)
                     if len(ids) != last_sent:
                         last_sent, last_sent_at = len(ids), now
                         yield f"{last_sent}{stream_padding}\n"
@@ -521,18 +523,13 @@ def snapshot_search_stream_response(
                 if done:
                     break
                 if now - heartbeat >= 10:
-                    with _search_cache_lock:
-                        if _search_cache_owners.get(cache_key) is owner:
-                            cache.touch(cache_key, SEARCH_RESULT_CACHE_TTL)
                     heartbeat = now
                     yield "\n"
         finally:
             stop_event.set()
-            with _search_cache_lock:
-                if _search_cache_owners.get(cache_key) is owner:
-                    del _search_cache_owners[cache_key]
 
     response = StreamingHttpResponse(snapshot_ids(), content_type="text/plain")
+    response["X-ArchiveBox-Search-Generation"] = generation
     if page_token:
         response["X-ArchiveBox-Search-Page"] = page_token
     response["X-Accel-Buffering"] = "no"

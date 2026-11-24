@@ -1,7 +1,7 @@
 import json
 from django import template
 from archivebox.core.context_processors import get_static_cache_key
-from archivebox.search.language import OPERATORS
+from archivebox.search.language import ALIASES, OPERATORS
 from archivebox.search.fields import snapshot_plugin_choices
 from archivebox.core.permissions import is_admin_user
 
@@ -11,7 +11,12 @@ register = template.Library()
 @register.inclusion_tag("search/field.html", takes_context=True)
 def search_field(context, value="", name="q", field_id="searchbar"):
     operators = [
-        {"key": key, "icon": icon, "description": description, "aliases": ["site"] if key == "domain" else []}
+        {
+            "key": key,
+            "icon": icon,
+            "description": description,
+            "aliases": [alias for alias, field in ALIASES.items() if field == key and alias != "tag"],
+        }
         for key, (icon, description) in OPERATORS.items()
     ]
     request = context.get("request")

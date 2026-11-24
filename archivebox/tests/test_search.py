@@ -1509,3 +1509,57 @@ def test_live_public_search_disconnect_reaps_backend(initialized_archive):
             except psutil.NoSuchProcess:
                 pass
         stop_archivebox_process(server)
+
+
+def test_admin_stream_and_row_render_share_results_across_processes(initialized_archive):
+    """The stream and a later table fetch need not land on the same HTTP worker."""
+    create_admin_and_token(initialized_archive)
+    setup = """
+from django.test import Client
+from urllib.parse import urlencode
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+client = Client(HTTP_HOST="admin.archivebox.localhost:5797")
+assert client.login(username="apitestadmin", password="testpass123")
+params = {"q": "linkedfrom:source.example", "search_mode": "query"}
+path = "/admin/core/snapshot/"
+"""
+    producer = (
+        setup
+        + """
+from asgiref.sync import async_to_sync
+crawl = Crawl.objects.create(urls="https://source.example/")
+parent = Snapshot.objects.create(crawl=crawl, url="https://source.example/")
+Snapshot.objects.create(crawl=crawl, parent_snapshot=parent, url="https://destination.example/", title="Cross-worker destination")
+response = client.get(path + "search-stream/", {**params, "search_url": path + "?" + urlencode(params)})
+assert response.status_code == 200
+async def consume():
+    return b"".join([chunk async for chunk in response.streaming_content])
+assert b"1" in async_to_sync(consume)().split()
+print("GENERATION=" + response.headers["X-ArchiveBox-Search-Generation"])
+params["q"] = "title:Cross-worker"
+response = client.get(path + "search-stream/", {**params, "search_url": path + "?" + urlencode(params)}, headers={"X-ArchiveBox-Search-Page": "first"})
+assert response.status_code == 200 and b"1" in async_to_sync(consume)().split()
+print("PAGE=" + response.headers["X-ArchiveBox-Search-Page"])
+print("PAGE_GENERATION=" + response.headers["X-ArchiveBox-Search-Generation"])
+"""
+    )
+    produced = run_archivebox_cmd(["manage", "shell", "-c", producer], cwd=initialized_archive, default_cli_env=True)
+    assert produced.returncode == 0, produced.stderr
+    tokens = dict(re.findall(r"^(GENERATION|PAGE|PAGE_GENERATION)=([0-9a-f]{32})$", produced.stdout, re.MULTILINE))
+    consumer = (
+        setup
+        + f"""
+for headers in ({{"X-ArchiveBox-Search-Generation": "{tokens["GENERATION"]}"}}, {{}}):
+    response = client.get(path, params, headers={{"X-Requested-With": "XMLHttpRequest", **headers}})
+    assert response.status_code == 200
+    assert b"Cross-worker destination" in response.content
+from archivebox.search.views import streamed_page_ids
+params["q"] = "title:Cross-worker"
+response = client.get(path, params, headers={{"X-ArchiveBox-Search-Page": "{tokens["PAGE"]}", "X-ArchiveBox-Search-Generation": "{tokens["PAGE_GENERATION"]}"}})
+assert response.status_code == 200
+assert streamed_page_ids(response.wsgi_request) == [Snapshot.objects.get(url="https://destination.example/").pk]
+"""
+    )
+    consumed = run_archivebox_cmd(["manage", "shell", "-c", consumer], cwd=initialized_archive, default_cli_env=True)
+    assert consumed.returncode == 0, consumed.stderr

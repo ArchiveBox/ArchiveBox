@@ -1962,7 +1962,10 @@ class PublicIndexView(ListView):
             phase = self.request.headers.get("X-ArchiveBox-Search-Fragment")
             self.search_fragment = phase if phase in {"preview", "rows"} and self.request.GET.get("q") else None
             response = super().get(*args, **kwargs)
-            patch_vary_headers(response, ("X-ArchiveBox-Search-Fragment", "X-ArchiveBox-Search-Rows"))
+            patch_vary_headers(
+                response,
+                ("X-ArchiveBox-Search-Fragment", "X-ArchiveBox-Search-Rows", "X-ArchiveBox-Search-Generation", "X-ArchiveBox-Search-Page"),
+            )
             if hasattr(self, "row_cursor"):
                 response["X-ArchiveBox-Search-Rows"] = self.row_cursor
                 response["X-ArchiveBox-Search-Retained"] = str(self.retained_rows)
