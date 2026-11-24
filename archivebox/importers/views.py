@@ -127,7 +127,6 @@ def detail(request, source_id):
             "source_tags": [(name, tag_ids.get(name)) for name in tag_names],
             "activity_query": history.get_query_string({"p": history.page_num}),
             "active": active,
-            "settings_links": importer_settings_links(definition, source),
             "state_path": CONSTANTS.DATA_DIR / "importers" / str(source.pk) / "state",
         },
     )

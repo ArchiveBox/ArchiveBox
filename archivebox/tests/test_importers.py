@@ -1000,6 +1000,7 @@ def test_importer_navigation_table_and_paginated_history(admin_client, import_si
     assert document.xpath("//a[normalize-space()='Edit settings']/../form/button[normalize-space()='Dry Run']")
     persona_url = reverse("admin:personas_persona_change", args=[persona.pk])
     assert document.xpath(f"//main//span[@class='tag-pill']/a[@href='{persona_url}']/text()") == ["Reading profile"]
+    assert not document.xpath(f"//main//a[starts-with(@href, '{persona_url}#')]")
     assert document.xpath(f"//main//span[@class='tag-pill']/a[contains(@href, 'folder={folder.pk}')]/text()") == ["📚 Reading"]
     assert document.xpath("//dt[normalize-space()='Persona']/svg/use[contains(@href, '#user')]")
     assert document.xpath("//dt[normalize-space()='Folder']/svg/use[contains(@href, '#folder')]")

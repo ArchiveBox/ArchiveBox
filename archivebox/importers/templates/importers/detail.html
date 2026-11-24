@@ -27,10 +27,9 @@
       {% if source.persona_id %}
         <span class="tag-pill"><a class="tag-link" href="{% url 'admin:personas_persona_change' source.persona_id %}">{{ source.persona.name }}</a></span>
       {% else %}<span class="importer-property-value">Server defaults</span>{% endif %}
-      {% if source.account.id or definition.auth == "persona" %}
-        <span class="importer-property-detail">Account · {% if source.account.id %}{% firstof source.account.label source.account.id %}{% else %}Detected during a run{% endif %}</span>
+      {% if source.account.id %}
+        <span class="importer-property-detail">Account · {% firstof source.account.label source.account.id %}</span>
       {% endif %}
-      {% if settings_links %}<span class="importer-property-detail">{% include "importers/settings_links.html" %}</span>{% endif %}
     </dd>
   </div>
   <div>

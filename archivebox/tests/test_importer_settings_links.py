@@ -93,11 +93,15 @@ def test_x_bookmark_setup_links_to_persona_browser_state(admin_client, admin_use
         created_by=admin_user,
     )
     persona_url = reverse("admin:personas_persona_change", args=[persona.pk])
-    for endpoint in (reverse("importers:edit", args=[source.pk]), source.get_absolute_url()):
-        page = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
-        assert page.status_code == 200
-        assert (persona_url + "#persona-browser-state").encode() in page.content
-        assert b"Open Persona browser state" in page.content
+    edit = admin_client.get(reverse("importers:edit", args=[source.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert edit.status_code == 200
+    assert (persona_url + "#persona-browser-state").encode() in edit.content
+    assert b"Open Persona browser state" in edit.content
+    detail = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST)
+    assert detail.status_code == 200
+    assert f'href="{persona_url}">Browser Persona</a>'.encode() in detail.content
+    assert b"#persona-browser-state" not in detail.content
+    assert b"Open Persona browser state" not in detail.content
     settings = admin_client.get(persona_url, HTTP_HOST=ADMIN_TEST_HOST)
     assert settings.status_code == 200
     assert b'id="persona-browser-state"' in settings.content
