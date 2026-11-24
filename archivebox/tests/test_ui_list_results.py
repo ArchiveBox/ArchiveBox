@@ -274,7 +274,7 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
             expect(checkbox).not_to_be_checked()
             for result in results:
                 page.goto(listing)
-                pile = page.locator(".files-icon-pile").filter(has=page.locator(f".files-icon-plugin--{result.plugin}"))
+                pile = page.locator(f"""[data-files-icons*='"{result.plugin}"']""")
                 pile.locator(".files-icon-pile-top").hover()
                 pile.locator(f".files-icon-pile-popup .files-icon-plugin--{result.plugin}").click()
                 expect(page.locator(f'.selected-card[data-plugin-name="{result.plugin}"]')).to_have_count(1)
@@ -394,7 +394,10 @@ def _expected_links(snapshot):
 
 
 def _rendered_fragments(row_html):
-    """Every icon link in a row as {plugin: "#fragment"}; each plugin must agree on one link."""
+    """Every icon destination in a row, including deferred admin popups."""
+    piles = fromstring(row_html).find_class("files-icon-pile")
+    if any(pile.get("data-files-icons") is not None for pile in piles):
+        return dict(item for pile in piles for item in json.loads(pile.get("data-files-icons")))
     fragments = {}
     for href, plugin in re.findall(r'<a href="([^"]*)" class="[^"]*files-icon-plugin--([a-z0-9_]+)', row_html):
         fragment = "#" + unescape(href).split("#", 1)[1]
@@ -491,18 +494,19 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
     fragments, card_id, _sizes = _expected_links(sealed)
     # The admin lists plugins whose first successful result saved bytes; here
     # that is every linked plugin, so both pages show the same links.
+    piles = fromstring(row).find_class("files-icon-pile")
     assert _rendered_fragments(row) == fragments
+    assert len(fromstring(row).find_class("files-icon-pile-top")) == len(piles)
+    assert not fromstring(row).find_class("files-icon-pile-popup")
     assert f"_card/{card_id}" in row
     assert re.search(r'class="snapshot-url-favicon" src="[^"]*favicon/favicon\.ico"', row)
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries)
-    _assert_icons_drawn_from_one_sprite(response.content.decode())
     html = response.content.decode()
-    used = set(re.findall(r'<use href="#(abx-icon-[a-z0-9_]+)">', html))
-    defined = set(re.findall(r'<symbol id="(abx-icon-[a-z0-9_]+)"', html))
-    assert defined == used, "the list must not ship drawings for plugins absent from its rows"
-    for symbol_id in used:
-        assert html.index(f'<symbol id="{symbol_id}"') < html.index(f'<use href="#{symbol_id}"')
+    used = {plugin for pile in fromstring(html).find_class("files-icon-pile") for plugin, _ in json.loads(pile.get("data-files-icons"))}
+    defined = re.findall(r'<template id="abx-file-icon-([a-z0-9_]+)"', html)
+    assert len(defined) == len(set(defined))
+    assert set(defined) == used, "the list must not ship artwork for plugins absent from its rows"
 
 
 def test_admin_grid_keeps_running_and_sealed_cards_without_hidden_file_icons(client, admin_user, list_collection):
@@ -531,7 +535,8 @@ def test_admin_icon_order_counts_all_hook_files_once(client, admin_user, list_co
     response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
     row = _row(response.content.decode(), f'value="{snapshot.pk}"')
-    assert row.index('data-tooltip="chrome"') < row.index('data-tooltip="hashes"')
+    plugins = list(_rendered_fragments(row))
+    assert plugins.index("chrome") < plugins.index("hashes")
 
 
 @pytest.mark.parametrize("title", [None, "Pending...", "https://list-results.example/article", "Saved title"])

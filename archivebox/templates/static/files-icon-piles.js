@@ -3,10 +3,38 @@
     const initializedPiles = new WeakSet();
     let activePopup = null;
 
+    function createPopup(pile) {
+        const cover = pile.querySelector('.files-icon-pile-cover');
+        const icons = JSON.parse(pile.dataset.filesIcons);
+        const popup = document.createElement('span');
+        popup.className = 'files-icon-pile-popup';
+        popup.popover = 'manual';
+        popup.style.setProperty('--files-icon-rows', Math.ceil(icons.length / 5));
+        icons.forEach(([plugin, fragment], index) => {
+            const artwork = document.getElementById('abx-file-icon-' + plugin);
+            const link = document.createElement('a');
+            link.href = cover.href + fragment;
+            link.className = 'files-icon-plugin--' + plugin;
+            link.dataset.tooltip = plugin;
+            link.setAttribute('aria-label', artwork?.dataset.label || plugin);
+            const row = Math.floor(index / 5);
+            const count = Math.min(5, icons.length - row * 5);
+            link.style.setProperty('--files-icon-member-left', (6 + (5 - count) * 11 + (index % 5) * 22) + 'px');
+            if (row) link.style.setProperty('--files-icon-member-top', (8 + row * 18) + 'px');
+            if (artwork) link.append(artwork.content.cloneNode(true));
+            popup.append(link);
+        });
+        const caption = document.createElement('span');
+        caption.className = 'files-icon-pile-label';
+        caption.textContent = cover.dataset.tooltip;
+        popup.append(caption);
+        pile.append(popup);
+        return popup;
+    }
+
     function initializePile(pile) {
         if (initializedPiles.has(pile)) return;
-        const popup = pile.querySelector('.files-icon-pile-popup[popover]');
-        if (!popup) return;
+        const popup = createPopup(pile);
         initializedPiles.add(pile);
         let hideTimer;
         let trackingPosition = false;
@@ -82,11 +110,15 @@
         pile.addEventListener('focusout', scheduleClose);
         popup.addEventListener('pointerenter', openPopup);
         popup.addEventListener('pointerleave', scheduleClose);
+        openPopup();
     }
 
-    window.archiveboxInitFilesIconPiles = (root = document) => {
-        if (root === document && activePopup) activePopup.closeImmediately();
-        root.querySelectorAll('.files-icon-pile').forEach(initializePile);
-    };
-    window.archiveboxInitFilesIconPiles();
+    function openFirstTime(event) {
+        const pile = event.target.closest('.files-icon-pile[data-files-icons]');
+        if (pile) initializePile(pile);
+    }
+
+    document.addEventListener('pointerover', openFirstTime);
+    document.addEventListener('focusin', openFirstTime);
+    window.archiveboxCloseFilesIconPile = () => activePopup?.closeImmediately();
 })();

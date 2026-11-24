@@ -10,6 +10,8 @@ from django.test import RequestFactory
 from django.urls import reverse
 from lxml.html import fromstring
 import html
+import json
+from urllib.parse import urlsplit
 from uuid import uuid4
 from abx_plugins.plugins.opencode.archivebox.host_cases import (
     test_admin_navigation_hides_agent_link_when_opencode_is_disabled as test_admin_navigation_hides_agent_link_when_opencode_is_disabled,
@@ -316,11 +318,10 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     )
     assert result_admin.get_output_zip_url(root_result).endswith("/?files=1&download=zip")
     file_icons = str(admin.files(snapshot))
-    expected_path = f"/{snapshot.archive_path_from_db}#singlefile"
+    expected_path = f"/{snapshot.archive_path_from_db}"
     assert expected_path in html.unescape(file_icons)
     assert f"/{snapshot.archive_path_from_db}/singlefile/" not in html.unescape(file_icons)
     assert "files-icon-pile--html" in file_icons
-    assert file_icons.count(expected_path) == 2
     # Verify the rendered defaults as well as explicit styles: compact rows omit
     # redundant CSS variables, but the popup must retain its size and centering.
     from playwright.sync_api import expect, sync_playwright
@@ -334,19 +335,28 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         pile = page.locator(".files-icon-pile--html")
+        expect(pile.locator(".files-icon-pile-popup")).to_have_count(0)
+        assert urlsplit(pile.locator(".files-icon-pile-top").get_attribute("href")).path == expected_path
+        artwork = pile.locator(".files-icon-pile-top img")
+        expect(artwork).to_have_js_property("naturalWidth", 16)
+        icon_response = page.request.get(f"{live_server.url}{artwork.get_attribute('src')}")
+        assert icon_response.status == 200
+        assert icon_response.headers["cache-control"] == "public, max-age=31536000, immutable"
         pile.locator(".files-icon-pile-top").hover()
         popup = pile.locator(".files-icon-pile-popup")
         expect(popup).to_be_visible()
         assert popup.evaluate("el => el.getBoundingClientRect().width") == 116
         member = popup.locator("a")
+        expect(member).to_have_attribute("data-tooltip", "singlefile")
+        expect(member.locator("img")).to_have_attribute("src", artwork.get_attribute("src"))
+        expect(popup.locator(".files-icon-pile-label")).to_have_text("Web")
+        assert urlsplit(member.get_attribute("href")).fragment == "singlefile"
         assert member.evaluate("el => parseFloat(getComputedStyle(el).left) + el.getBoundingClientRect().width / 2") == 58
         browser.close()
-    assert 'class="files-icon-pile-popup" popover="manual"' in file_icons
-    assert 'class="files-icon-pile-label">Web</span>' in file_icons
+    assert "files-icon-pile-popup" not in file_icons
     assert "interestfor=" not in file_icons
     assert 'style="font-size: 1em; opacity: 0.8;"' not in file_icons
     assert 'data-tooltip="Web"' in file_icons
-    assert 'data-tooltip="singlefile"' in file_icons
     assert 'title="singlefile"' not in file_icons
 
     plugin_result = ArchiveResult.objects.create(
@@ -401,7 +411,9 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
             output_size=1,
         )
     all_file_icons = str(admin.files(snapshot))
-    assert all_file_icons.count("<a href=") == 22
+    piles = fromstring(all_file_icons).find_class("files-icon-pile")
+    assert sum(len(json.loads(pile.get("data-files-icons"))) for pile in piles) == 18
+    assert all_file_icons.count("<a href=") == len(piles)
     assert "+" not in all_file_icons
 
     from django.template.loader import render_to_string
@@ -652,15 +664,15 @@ def test_concurrent_snapshot_admin_lists_keep_icons_and_page_sizes(live_server, 
         return {
             "embedded": embedded,
             "rows": len(re.findall('name="_selected_action"', body)),
-            "sprites": body.count('id="abx-icon-singlefile"'),
+            "icons": body.count('id="abx-file-icon-singlefile"'),
         }
 
     sequential = [read(False), read(True)]
     assert sequential == [
-        {"embedded": False, "rows": 50, "sprites": 1},
-        {"embedded": True, "rows": 60, "sprites": 1},
+        {"embedded": False, "rows": 50, "icons": 1},
+        {"embedded": True, "rows": 60, "icons": 1},
     ]
     barrier = threading.Barrier(8)
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(lambda index: read(bool(index % 2), barrier), range(8)))
-    assert all(result["rows"] == (60 if result["embedded"] else 50) and result["sprites"] == 1 for result in results), results
+    assert all(result["rows"] == (60 if result["embedded"] else 50) and result["icons"] == 1 for result in results), results

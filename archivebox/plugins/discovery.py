@@ -734,6 +734,25 @@ _ICON_NAMESPACES = {"xmlns": "http://www.w3.org/2000/svg", "xmlns:xlink": "http:
 
 
 @lru_cache(maxsize=512)
+def get_plugin_icon_asset(plugin: str) -> tuple[str, bytes] | None:
+    """Return a content-addressed standalone SVG for a plugin's list icon."""
+    from hashlib import sha256
+
+    if not re.fullmatch(r"[a-z0-9_]+", plugin) or plugin not in get_plugin_catalog():
+        return None
+    match = _ICON_SVG_RE.fullmatch(str(get_plugin_icon(plugin)))
+    if match is None:
+        return None
+    _, attributes, drawing = match.groups()
+    if not re.search(r'\bxmlns="', attributes):
+        attributes = f'xmlns="{_ICON_NAMESPACES["xmlns"]}" {attributes}'
+    if "xlink:" in drawing and "xmlns:xlink=" not in attributes:
+        attributes = f'xmlns:xlink="{_ICON_NAMESPACES["xmlns:xlink"]}" {attributes}'
+    svg = f"<svg {attributes}>{drawing}</svg>".encode()
+    return sha256(svg).hexdigest()[:20], svg
+
+
+@lru_cache(maxsize=512)
 def _plugin_icon_sprite_parts(plugin: str) -> tuple[str, str] | None:
     """(symbol, inline markup using it) for a single-SVG icon; None keeps the icon inline."""
     if not re.fullmatch(r"[a-z0-9_]+", plugin):

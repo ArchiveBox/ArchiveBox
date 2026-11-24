@@ -174,7 +174,6 @@
               }
               if (added.length || boxes.length !== previousSize) {
                 window.archiveboxInitLibraryRows?.(added);
-                for (const row of added) window.archiveboxInitFilesIconPiles?.(row);
               }
               previousSize = boxes.length;
               const summary = currentMain.querySelector('.action-summary');

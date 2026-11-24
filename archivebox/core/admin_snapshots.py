@@ -3,7 +3,6 @@ __package__ = "archivebox.core"
 import json
 from copy import copy
 from html import escape
-from typing import Any
 from urllib.parse import urlsplit
 
 from django.contrib import admin, messages
@@ -44,7 +43,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon
+from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_asset
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -1378,92 +1377,63 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
         sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
-        icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
+        icons_by_group: dict[str, list[tuple[str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         request = self.request
-        # Every icon links into this one detail page and differs only in its
-        # #fragment. Resolving the request's web origin takes several urlparse
-        # calls, so do it once per row instead of once per icon.
-        detail_url = self.get_snapshot_view_url(obj)
-        # Plugin presentation is identical across the page's rows. Resolve and
-        # escape it once per request, without caching snapshot data across users.
+        detail_url = escape(self.get_snapshot_view_url(obj))
         icon_metadata = request.__dict__.setdefault("_archivebox_file_icon_metadata", {})
+        defined_plugins = request.__dict__.setdefault("_archivebox_file_icon_templates", set())
+        definitions = []
         for result in sorted_results:
-            if result.plugin not in icon_metadata:
-                icon_metadata[result.plugin] = (
-                    None
-                    if plugin_icon_is_hidden(result.plugin) or not str(get_plugin_icon(result.plugin)).strip()
-                    else (
-                        output_group_for_plugin(result.plugin),
-                        escape(result.plugin),
-                        str(get_plugin_list_icon(result.plugin)),
-                        escape(display_plugin_name(result.plugin)),
-                    )
-                )
-            metadata = icon_metadata[result.plugin]
+            plugin = result.plugin
+            if plugin not in icon_metadata:
+                icon = str(get_plugin_icon(plugin))
+                if not plugin_icon_is_hidden(plugin) and icon.strip():
+                    if asset := get_plugin_icon_asset(plugin):
+                        url = reverse("plugin-icon", kwargs={"plugin": plugin, "fingerprint": asset[0]})
+                        icon = f'<img src="{escape(url)}" width="16" height="16" alt="">'
+                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon)
+                else:
+                    icon_metadata[plugin] = None
+            metadata = icon_metadata[plugin]
             if metadata is None:
                 continue
-            group_id, plugin, icon, label = metadata
-            # The detail page resolves this plugin's representative output.
-            # Showing a successful capture needs no file-manifest scan here.
             if isinstance(result, ArchiveResult):
                 output_path = result.embed_path()
-                anchor_path = get_snapshot_output_anchor(result.plugin, output_path) if output_path else None
+                anchor_path = get_snapshot_output_anchor(plugin, output_path) if output_path else None
             else:
                 anchor_path = result.icon_anchor()
             if not anchor_path:
                 continue
-            icons_by_group[group_id].append(
-                {
-                    "plugin": plugin,
-                    "label": label,
-                    # The page draws each icon's SVG once (see get_plugin_list_icon).
-                    "icon": icon,
-                    "href": escape(detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix="")),
-                },
-            )
 
-        # ~40 icons per row: plain strings instead of format_html, and only the
-        # CSS variables admin.css/files-icon-piles.js read, left out where they
-        # equal their var()/JS fallback. Every icon, link, label and position stays.
+            group, label, icon = metadata
+            icons_by_group[group].append((plugin, build_snapshot_detail_path("", output_path=anchor_path, prefix="")))
+            if plugin not in defined_plugins:
+                # Template contents remain inert. Off-cover image requests and
+                # popup DOM are both deferred until a pile is opened.
+                definitions.append(f'<template id="abx-file-icon-{escape(plugin)}" data-label="{label}">{icon}</template>')
+                defined_plugins.add(plugin)
+
         output = []
         for group_id, label in OUTPUT_GROUPS:
             icons = icons_by_group[group_id]
             if not icons:
                 continue
             column = len(output)
-            rows = (len(icons) + 4) // 5
             label = escape(label)
-            pile_vars = ([f"--files-icon-popup-left:{column * -22}px"] if column else []) + (
-                [f"--files-icon-rows:{rows}"] if rows > 1 else []
-            )
-            pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
-            top = icons[0]
-            members = []
-            for icon_index, item in enumerate(icons):
-                row = icon_index // 5
-                row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
-                member_vars = [f"--files-icon-member-left:{3 + row_offset + (icon_index % 5) * 22}px"]
-                if row:
-                    member_vars.append(f"--files-icon-member-top:{8 + row * 18}px")
-                members.append(
-                    f'<a href="{item["href"]}" class="files-icon-plugin--{item["plugin"]}" aria-label="{item["label"]}" '
-                    f'data-tooltip="{item["plugin"]}" style="{";".join(member_vars)}">{item["icon"]}</a>',
-                )
+            pile_style = f' style="--files-icon-popup-left:{column * -22}px"' if column else ""
+            top_plugin = icons[0][0]
+            cover = icon_metadata[top_plugin][2]
+            members = escape(json.dumps(icons, ensure_ascii=False, separators=(",", ":")))
             output.append(
-                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>'
-                f'<a href="{top["href"]}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{top["plugin"]}" aria-label="{label}" data-tooltip="{label}">{top["icon"]}</a>'
-                f'<span class="files-icon-pile-popup" popover="manual">{"".join(members)}<span class="files-icon-pile-label">{label}</span></span>'
-                "</span>",
+                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs" '
+                f'data-files-icons="{members}"{pile_style}>'
+                f'<a href="{detail_url}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" '
+                f'aria-label="{label}" data-tooltip="{label}">{cover}</a></span>',
             )
 
-        # Define each drawing before its first row uses it. Shipping the whole
-        # catalog also sent hundreds of KB of unrelated plugin icons per page.
-        # Keep the sprite outside .files-icons, whose sizing rules give SVGs a box.
-        defined_plugins = request.__dict__.setdefault("_archivebox_icon_sprite_plugins", set())
-        row_plugins = {item["plugin"] for icons in icons_by_group.values() for item in icons}
-        sprite = get_plugin_icon_sprite(row_plugins - defined_plugins)
-        defined_plugins.update(row_plugins)
-        return mark_safe(f'{sprite}<span class="files-icons files-icons--compact" style="font-size: 1em;">{"".join(output)}</span>')
+        return mark_safe(
+            f'{"".join(definitions)}<span class="files-icons files-icons--compact" style="font-size: 1em;">{"".join(output)}</span>',
+        )
 
     @admin.display(empty_value="")
     def size(self, obj):
