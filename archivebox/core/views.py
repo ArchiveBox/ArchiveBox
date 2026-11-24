@@ -1090,6 +1090,11 @@ def _plugin_card_document_response(request: HttpRequest, snapshot: Snapshot, res
             f"</style>{CARD_OVERFLOW_STYLE}{render_to_string('core/typography.html')}</head><body>"
             f"{fragment}</body></html>"
         )
+    if request.GET.get("_abx_thumbnail") == "1":
+        # A painted card must cover the parent thumbnail's fallback letter.
+        # Empty cards (such as a missing favicon after its onerror) stay transparent.
+        thumbnail_style = "<style>body:has(> :not(style,script,link,meta,noscript,[hidden])){background-color:Canvas}</style>"
+        card_html = card_html.replace("</head>", f"{thumbnail_style}</head>", 1)
     from archivebox.plugins.discovery import add_replay_document_metadata
 
     response = HttpResponse(add_replay_document_metadata(card_html, snapshot.url), content_type="text/html; charset=utf-8")

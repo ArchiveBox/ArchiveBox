@@ -1,14 +1,16 @@
 {% load core_tags %}
-<p class="paginator">
-  {% if cl.previous_page_url %}<a href="{{ cl.previous_page_url }}">Previous</a>{% endif %}
-  {% if cl.display_page_links %}
+<nav class="paginator snapshot-pagination" aria-label="Snapshot pages">
+  <div class="snapshot-pagination-controls">
+    {% if cl.previous_page_url %}<a class="snapshot-pagination-control" href="{{ cl.previous_page_url }}" rel="prev">Previous</a>{% endif %}
     {% for link in cl.display_page_links %}
-      {% if link.number == cl.page_num %}<span class="this-page" aria-current="page">{{ link.number }}</span>
-      {% elif link.url %}<a href="{{ link.url }}" aria-label="Page {{ link.number }}">{{ link.number }}</a>
-      {% else %}<span>{{ link.number }}</span>{% endif %}
-    {% endfor %}
-  {% else %}<span class="this-page">{{ cl.page_num }}</span>{% endif %}
-  {% if cl.next_page_url %}<a href="{{ cl.next_page_url }}">Next</a>{% endif %}
-  {% if cl.display_num_pages %}<span>Page {{ cl.page_num }} of {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_num_pages|intcomma }}</span> · {% endif %}
-  {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %} {{ cl.opts.verbose_name_plural|lower }}
-</p>
+      {% if link.number == cl.page_num %}<span class="snapshot-pagination-control" aria-current="page">{{ link.number }}</span>
+      {% elif link.url %}<a class="snapshot-pagination-control" data-page-width="{{ link.widths|join:' ' }}" href="{{ link.url }}" aria-label="Page {{ link.number }}">{{ link.number }}</a>
+      {% else %}<span class="snapshot-pagination-gap" data-page-width="{{ link.widths|join:' ' }}" aria-hidden="true">{{ link.number }}</span>{% endif %}
+    {% empty %}<span class="snapshot-pagination-control" aria-current="page">{{ cl.page_num }}</span>{% endfor %}
+    {% if cl.next_page_url %}<a class="snapshot-pagination-control" href="{{ cl.next_page_url }}" rel="next">Next</a>{% endif %}
+  </div>
+  <p class="snapshot-pagination-summary">
+    {% if cl.display_num_pages %}Page {{ cl.page_num }} of {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_num_pages|intcomma }} · {% endif %}
+    {% if cl.result_count_cached %}≈{% endif %}{{ cl.display_result_count|intcomma }}{% if not cl.result_count_exact and not cl.result_count_cached %}+{% endif %} {{ cl.opts.verbose_name_plural|lower }}
+  </p>
+</nav>

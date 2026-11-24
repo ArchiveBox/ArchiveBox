@@ -36,7 +36,7 @@ def test_only_admin_thumbnail_defers_card_navigation(snapshot):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("view", ["admin", "public"])
-def test_missing_favicon_card_reveals_existing_hostname_initial(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
+def test_thumbnail_card_covers_the_initial_only_when_it_has_content(snapshot, admin_user, live_server, browser_runtime, tmp_path, view):
     from urllib.parse import urlsplit
     from playwright.sync_api import expect, sync_playwright
     from archivebox.core.models import ArchiveResult, Snapshot
@@ -46,6 +46,13 @@ def test_missing_favicon_card_reveals_existing_hostname_initial(snapshot, admin_
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}", "PUBLIC_INDEX": True}
     machine.save(update_fields=["config"])
+    responses_snapshot = Snapshot.objects.create(
+        url="https://responses.example/",
+        title="Captured responses",
+        crawl=snapshot.crawl,
+        config={"PERMISSIONS": "public"},
+    )
+    save_output(responses_snapshot, "responses")
     for host, available in (("missing.example", False), ("available.example", True)):
         saved = Snapshot.objects.create(url=f"https://{host}/", title=host, crawl=snapshot.crawl, config={"PERMISSIONS": "public"})
         content = b'<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" fill="green"/></svg>'
@@ -82,11 +89,17 @@ def test_missing_favicon_card_reveals_existing_hostname_initial(snapshot, admin_
         expect(broken.locator(".snapshot-thumbnail-initial")).to_have_text("M")
         overlay = broken.locator(':scope > span[aria-hidden="true"]')
         assert overlay.evaluate("node => getComputedStyle(node).backgroundColor") == "rgba(0, 0, 0, 0)"
+        expect(broken.frame_locator("iframe").locator("body")).to_have_css("background-color", "rgba(0, 0, 0, 0)")
         working = page.get_by_role("img", name="Preview of available.example", exact=True)
         working.scroll_into_view_if_needed()
         icon = working.frame_locator("iframe").locator(".favicon-thumbnail img")
         expect(icon).to_be_visible()
         expect(icon).to_have_js_property("naturalWidth", 28)
+        responses = page.get_by_role("img", name="Preview of responses.example", exact=True)
+        responses.scroll_into_view_if_needed()
+        card = responses.frame_locator("iframe")
+        expect(card.get_by_text("Captured responses", exact=True)).to_be_visible()
+        expect(card.locator("body")).not_to_have_css("background-color", "rgba(0, 0, 0, 0)")
         page.screenshot(path=str(tmp_path / f"{view}-favicon-fallback.png"))
         assert not errors
         browser.close()

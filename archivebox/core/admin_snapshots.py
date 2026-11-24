@@ -401,10 +401,22 @@ class SnapshotChangeList(SearchResultsChangeList):
         if self.result_count_exact or self.result_count_cached:
             display_paginator = AcceleratedPaginator(range(self.display_result_count), self.list_per_page)
             self.display_num_pages = display_paginator.num_pages
-            self.display_page_links = [
-                {"number": number, "url": self.get_query_string({"p": number}, remove=["all"]) if isinstance(number, int) else None}
-                for number in display_paginator.get_elided_page_range(self.page_num, on_each_side=2, on_ends=1)
-            ]
+            page_links = {}
+            for width, neighbors in (("compact", 1), ("medium", 4), ("wide", 8)):
+                # Merge Django's ranges so each page link is rendered once.
+                # The left and right ellipses occupy separate positions.
+                before_current = True
+                for number in display_paginator.get_elided_page_range(self.page_num, on_each_side=neighbors, on_ends=1):
+                    if isinstance(number, int):
+                        position = (number, 0)
+                        before_current = before_current and number != self.page_num
+                    else:
+                        position = (1, 1) if before_current else (self.display_num_pages, -1)
+                    page_links.setdefault(position, {"number": number, "widths": []})["widths"].append(width)
+            self.display_page_links = [link for _, link in sorted(page_links.items())]
+            for link in self.display_page_links:
+                number = link["number"]
+                link["url"] = self.get_query_string({"p": number}, remove=["all"]) if isinstance(number, int) else None
         self.next_page_url = self.get_query_string({"p": self.page_num + 1}, remove=["all"]) if len(page_ids) > size else None
         self.previous_page_url = self.get_query_string({"p": self.page_num - 1}, remove=["all"]) if self.page_num > 1 else None
         previous = request.headers.get("X-ArchiveBox-Search-Rows")

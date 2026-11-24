@@ -839,6 +839,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
                 **context.flatten(),
                 "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
                 "card_modified_at": snapshot.modified_at,
+                "card_is_thumbnail": True,
                 "defer_admin_card": admin,
                 "host": host,
                 "initial": host[:1].upper(),
@@ -1044,6 +1045,8 @@ def plugin_card(context, result) -> str:
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
+        if context.get("card_is_thumbnail"):
+            card_url += "?_abx_thumbnail=1"
         sandbox = "allow-scripts" if context.get("opaque_plugin_card") else "allow-scripts allow-same-origin"
         card_html = (
             f'<iframe src="{escape(_version_card_url(context, result, card_url))}" title="{escape(plugin)} card" '

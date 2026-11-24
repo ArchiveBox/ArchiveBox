@@ -196,3 +196,63 @@ def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, ad
         page.get_by_role("link", name="Page 1", exact=True).click()
         expect(page.locator("input.action-select")).to_have_count(50)
         browser.close()
+
+
+def test_snapshot_pagination_fits_the_table(live_server, browser_runtime, admin_user, crawl, paginated_snapshots):
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot
+    from archivebox.progressmonitor.collection import collection_summary
+
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(url=f"https://example.org/page/{index}", timestamp=str(1901000000 + index), crawl=crawl, status="sealed")
+            for index in range(1200)
+        ],
+    )
+    collection_summary(admin_user)
+    for thread in threads():
+        if thread.name == "collection-summary":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    assert collection_summary(admin_user, refresh=False)["snapshots"] == 1323
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1600, "height": 900})
+        page.goto(f"{live_server.url}/admin/login/?next=/admin/core/snapshot/%3Fp%3D12")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        pager = page.get_by_role("navigation", name="Snapshot pages")
+        expect(pager.get_by_role("link", name="Page 4", exact=True)).to_be_visible()
+        expect(pager.get_by_role("link", name="Page 27", exact=True)).to_be_visible()
+        expect(pager.locator("[aria-current=page]")).to_have_text("12")
+        assert pager.get_by_role("link", name="Next", exact=True).evaluate(
+            """link => {
+                const style = getComputedStyle(link);
+                const toolbar = getComputedStyle(document.querySelector('#changelist-toolbar-filter-toggle'));
+                return style.backgroundColor === toolbar.backgroundColor &&
+                    style.borderTopColor === toolbar.borderTopColor &&
+                    style.borderTopWidth === toolbar.borderTopWidth;
+            }""",
+        )
+        alignment = pager.evaluate(
+            """nav => {
+                const previous = nav.querySelector('a[rel=prev]').getBoundingClientRect();
+                const next = nav.querySelector('a[rel=next]').getBoundingClientRect();
+                const resultTable = document.querySelector('#result_list');
+                const table = resultTable.getBoundingClientRect();
+                const results = resultTable.closest('.results').getBoundingClientRect();
+                const pager = nav.getBoundingClientRect();
+                return {buttons: (previous.left + next.right) / 2, table: (table.left + table.right) / 2,
+                    results: (results.left + results.right) / 2, pager: (pager.left + pager.right) / 2};
+            }""",
+        )
+        assert abs(alignment["buttons"] - alignment["table"]) < 2, alignment
+        page.set_viewport_size({"width": 390, "height": 800})
+        expect(pager.get_by_role("link", name="Page 4", exact=True)).to_have_count(0)
+        expect(pager.get_by_role("link", name="Page 13", exact=True)).to_be_visible()
+        expect(pager.get_by_role("link", name="Page 27", exact=True)).to_be_visible()
+        pager.get_by_role("link", name="Page 13", exact=True).click()
+        expect(pager.locator("[aria-current=page]")).to_have_text("13")
+        browser.close()
