@@ -1,7 +1,7 @@
 """Snapshot table alignment and compact tag sizing."""
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import Error, expect, sync_playwright
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -261,14 +261,14 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
                 ],
             },
         )
-        held_assets = []
+        held_assets = {}
         asset_paths = ("/admin-snapshot-previews.js", "/open-sans/latin-normal.woff2")
         delayed_filter_picker = width == 390
         if delayed_filter_picker:
             asset_paths += ("/record-picker.js",)
 
         def hold_asset(event):
-            held_assets.append(event)
+            held_assets[event["requestId"]] = event["request"]["url"]
 
         network.on("Fetch.requestPaused", hold_asset)
         network.send(
@@ -282,13 +282,19 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
             page.wait_for_load_state("domcontentloaded")
 
         page.wait_for_function("window.snapshotLayoutFrames.length > 0")
-        assert all(any(path in event["request"]["url"] for event in held_assets) for path in asset_paths)
+        assert all(any(path in url for url in held_assets.values()) for path in asset_paths)
         first_frame = page.evaluate("JSON.parse(window.snapshotLayoutFrames[0])")
 
         # Release the actual assets only after the fallback-font list has painted.
         # On phones the filter picker must not shift the stacked filter panel.
-        for event in held_assets:
-            network.send("Fetch.continueRequest", {"requestId": event["requestId"]})
+        for request_id in tuple(held_assets):
+            try:
+                network.send("Fetch.continueRequest", {"requestId": request_id})
+            except Error as error:
+                # A request Chromium canceled is no longer paused. The
+                # successful post-paint response for each asset is checked below.
+                if "Protocol error (Fetch.continueRequest): Invalid InterceptionId." not in str(error):
+                    raise
         network.send("Fetch.disable")
         page.wait_for_load_state("load")
         page.evaluate(

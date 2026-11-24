@@ -78,7 +78,7 @@
                                     {{ form.url }}
                                 </div>
                                 <div class="url-upload-controls">
-                                    <button type="button" id="url-upload-button"><span aria-hidden="true">↥</span> Upload</button>
+                                    <button type="button" id="url-upload-button" disabled><span aria-hidden="true">↥</span> Upload</button>
                                     <span>or drag &amp; drop in files containing URLs</span>
                                     <button type="button" id="edit-url-list" aria-controls="{{ form.url.id_for_label }}" hidden>Edit URL list</button>
                                 </div>
@@ -1222,6 +1222,7 @@
                     fileInput.value = '';
                     importURLFiles(files);
                 });
+                uploadButton.disabled = false;
                 document.addEventListener('dragover', function(event) {
                     if (!Array.from(event.dataTransfer.types).includes('Files')) return;
                     event.preventDefault();

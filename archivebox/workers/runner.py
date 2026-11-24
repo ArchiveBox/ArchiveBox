@@ -10,8 +10,10 @@ import shutil
 import sys
 import threading
 import time
+from collections.abc import Callable
 from contextlib import nullcontext
 from datetime import datetime, timedelta
+from functools import partial
 from itertools import batched
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -201,6 +203,7 @@ class CrawlRunner:
         schedule_all_crawls: bool = False,
         wait_for_resources: bool = True,
         claimed_snapshot: tuple[str, str, datetime] | None = None,
+        on_admission: Callable[[], None] | None = None,
     ):
         self.crawl = crawl
         self.catalog = get_plugin_catalog()
@@ -224,6 +227,7 @@ class CrawlRunner:
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.schedule_all_crawls = schedule_all_crawls
         self.wait_for_resources = wait_for_resources
+        self.on_admission = on_admission
         self.claimed_snapshot = claimed_snapshot
         self._scheduler_yielded = False
         self.show_progress = show_progress
@@ -473,6 +477,8 @@ class CrawlRunner:
             try:
                 if not await self.wait_for_resource_admission(claimed_snapshot=self.claimed_snapshot):
                     return
+                if self.on_admission is not None:
+                    self.on_admission()
                 # Startup and its first snapshot are one admission. Browser
                 # startup can itself cause reclaim; checking again immediately
                 # would tear it down and repeat startup without doing any work.
@@ -1562,6 +1568,7 @@ def run_crawl(
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
     claimed_snapshot: tuple[str, str, datetime] | None = None,
+    on_admission: Callable[[], None] | None = None,
 ) -> None:
     with crawl_lifecycle_lock(crawl_id):
         _run_crawl_locked(
@@ -1575,6 +1582,7 @@ def run_crawl(
             schedule_all_crawls=schedule_all_crawls,
             wait_for_resources=wait_for_resources,
             claimed_snapshot=claimed_snapshot,
+            on_admission=on_admission,
         )
 
 
@@ -1590,6 +1598,7 @@ def _run_crawl_locked(
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
     claimed_snapshot: tuple[str, str, datetime] | None = None,
+    on_admission: Callable[[], None] | None = None,
 ) -> None:
     from archivebox.crawls.models import Crawl
     from django.db import close_old_connections
@@ -1610,6 +1619,7 @@ def _run_crawl_locked(
                 schedule_all_crawls=schedule_all_crawls,
                 wait_for_resources=wait_for_resources,
                 claimed_snapshot=claimed_snapshot,
+                on_admission=on_admission,
             )
             asyncio.run(runner.run())
             if runner._resource_deferred and wait_for_resources and schedule_all_crawls:
@@ -1887,9 +1897,9 @@ def _run_due_crawl_locked(
         if crawl.status == crawl.StatusChoices.STARTED and crawl.is_finished():
             crawl.advance_lifecycle()
             return True
-        _runner_console_line(crawl=crawl)
         run_crawl(
             str(crawl.id),
+            on_admission=partial(_runner_console_line, crawl=crawl),
             process_discovered_snapshots_inline=True,
             interactive_interrupts=interactive_interrupts,
             schedule_all_crawls=schedule_all_crawls,
@@ -1970,9 +1980,9 @@ def _run_due_snapshot_locked(
             return True
         retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
         if retry_plugins:
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
             run_crawl(
                 str(snapshot.crawl_id),
+                on_admission=partial(_runner_console_line, crawl_id=snapshot.crawl_id, snapshot=snapshot),
                 snapshot_ids=[str(snapshot.id)],
                 selected_plugins=retry_plugins,
                 process_discovered_snapshots_inline=False,
@@ -2020,9 +2030,9 @@ def _run_due_snapshot_locked(
                 return False
         if not snapshot.crawl.claim_processing_lock(lock_seconds=lock_seconds):
             return False
-        _runner_console_line(crawl=snapshot.crawl)
         _run_crawl_locked(
             str(snapshot.crawl_id),
+            on_admission=partial(_runner_console_line, crawl=snapshot.crawl),
             process_discovered_snapshots_inline=True,
             interactive_interrupts=interactive_interrupts,
             schedule_all_crawls=schedule_all_crawls,
@@ -2053,9 +2063,9 @@ def _run_due_snapshot_locked(
         snapshot.refresh_from_db()
     if snapshot.status != Snapshot.StatusChoices.STARTED:
         return True
-    _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
     run_crawl(
         str(snapshot.crawl_id),
+        on_admission=partial(_runner_console_line, crawl_id=snapshot.crawl_id, snapshot=snapshot),
         claimed_snapshot=(str(snapshot.id), snapshot.status, snapshot.retry_at),
         snapshot_ids=[str(snapshot.id)],
         selected_plugins=None,
