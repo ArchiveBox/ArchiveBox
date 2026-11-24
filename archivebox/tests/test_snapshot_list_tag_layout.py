@@ -1,7 +1,7 @@
 """Snapshot table alignment and compact tag sizing."""
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import Error, expect, sync_playwright
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -23,6 +23,11 @@ def test_snapshot_list_select_all_aligns_with_grid_toggle(browser_runtime, live_
 
             controls = page.locator("#snapshot-view-toggle, #action-toggle, #result_list tbody .action-select")
             expect(controls).to_have_count(4)
+            scripts = page.locator("script[src]").evaluate_all(
+                "nodes => Object.fromEntries(nodes.map(node => [new URL(node.src).pathname.split('/').pop(), node.defer]))",
+            )
+            assert scripts.get("jsi18n.js") and scripts.get("actions.js")
+            assert not any("jquery" in name or "select2" in name or "xregexp" in name for name in scripts)
             for width, sidebar_visible in ((1920, True), (1440, True), (1440, False)):
                 if sidebar_visible:
                     page.set_viewport_size({"width": width, "height": 1000})
@@ -258,24 +263,45 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
                         "downloadThroughput": 128 * 1024 if row_count == 50 else -1,
                         "uploadThroughput": -1,
                     },
-                    {
-                        "urlPattern": f"{live_server.url}/static/v/*/admin-snapshot-previews.js*",
-                        "latency": 1000,
-                        "downloadThroughput": -1,
-                        "uploadThroughput": -1,
-                    },
-                    {
-                        "urlPattern": f"{live_server.url}/static/v/*/fonts/open-sans/*.woff2",
-                        "latency": 750,
-                        "downloadThroughput": -1,
-                        "uploadThroughput": -1,
-                    },
                 ],
             },
         )
-        page.goto(f"{live_server.url}/admin/core/snapshot/{query}")
-        expect(page.locator("#changelist-search .query")).to_be_visible()
-        expect(page.locator("#result_list tbody tr")).to_have_count(row_count)
+        held_assets = {}
+        asset_paths = ("/admin-snapshot-previews.js", "/open-sans/latin-normal.woff2")
+        delayed_filter_picker = width == 390
+        if delayed_filter_picker:
+            asset_paths += ("/record-picker.js",)
+
+        def hold_asset(event):
+            held_assets[event["requestId"]] = event["request"]["url"]
+
+        network.on("Fetch.requestPaused", hold_asset)
+        network.send(
+            "Fetch.enable",
+            {"patterns": [{"urlPattern": f"*{path}*"} for path in asset_paths]},
+        )
+        page.goto(f"{live_server.url}/admin/core/snapshot/{query}", wait_until="commit")
+        expect(page.locator("#changelist-search .query")).to_be_visible(timeout=15000)
+        expect(page.locator("#result_list tbody tr")).to_have_count(row_count, timeout=15000)
+        if not delayed_filter_picker:
+            page.wait_for_load_state("domcontentloaded")
+
+        page.wait_for_function("window.snapshotLayoutFrames.length > 0")
+        assert all(any(path in url for url in held_assets.values()) for path in asset_paths)
+        first_frame = page.evaluate("JSON.parse(window.snapshotLayoutFrames[0])")
+
+        # Release the actual assets only after the fallback-font list has painted.
+        # On phones the filter picker must not shift the stacked filter panel.
+        for request_id in tuple(held_assets):
+            try:
+                network.send("Fetch.continueRequest", {"requestId": request_id})
+            except Error as error:
+                # A request Chromium canceled is no longer paused. The
+                # successful post-paint response for each asset is checked below.
+                if "Protocol error (Fetch.continueRequest): Invalid InterceptionId." not in str(error):
+                    raise
+        network.send("Fetch.disable")
+        page.wait_for_load_state("load")
         page.evaluate(
             "async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); }",
         )
@@ -284,17 +310,12 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
         assert frames[-1]["counters"]
         assert frames[-1]["actions"] is None
         assert bool(frames[-1]["clear"]) == bool(query)
-        assert frames == [frames[-1]]
         assert page.evaluate("window.snapshotLayoutShifts") == []
+        assert frames == [first_frame]
         assert page.evaluate(
-            """slowDocument => {
-            const paint = slowDocument
-                ? performance.getEntriesByName('first-contentful-paint')[0].startTime
-                : window.snapshotFirstFrame;
-            const resources = performance.getEntriesByType('resource');
-            return ['/admin-snapshot-previews.js', '/open-sans/latin-normal.woff2'].every(path =>
-                resources.some(entry => entry.name.includes(path) && paint < entry.responseEnd));
-        }""",
-            row_count == 50,
+            """paths => paths.every(path => performance.getEntriesByType('resource').some(entry =>
+                entry.name.includes(path) && entry.responseStatus === 200 && entry.responseEnd > window.snapshotFirstFrame
+            ))""",
+            asset_paths,
         )
         browser.close()

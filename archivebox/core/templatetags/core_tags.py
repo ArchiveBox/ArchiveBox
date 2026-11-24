@@ -804,11 +804,13 @@ def snapshot_result_file_url(context, snapshot, result, path: str, preview: bool
 @register.simple_tag(takes_context=True)
 def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="100px"):
     from django.template.loader import render_to_string
+    from django.urls import reverse
 
-    from archivebox.plugins.output_groups import snapshot_thumbnail_result
+    from archivebox.plugins.output_groups import snapshot_thumbnail_image_paths, snapshot_thumbnail_result
 
     # List pages pick the card with their batch of results (list_results_util).
-    precomputed = "_snapshot_thumbnail_result" in snapshot.__dict__
+    cache_key = "_snapshot_thumbnail_image_paths" if admin else "_snapshot_thumbnail_result"
+    precomputed = cache_key in snapshot.__dict__
     results = () if precomputed else snapshot.__dict__.get("_snapshot_card_results")
     if results is None:
         results = snapshot.__dict__.get("_admin_output_results")
@@ -817,7 +819,10 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
     if results is None:
         results = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
     if results is None:
-        results = snapshot.archiveresult_set.exclude(plugin="").only(
+        from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, get_snapshot_thumbnail_image_names
+
+        names = get_snapshot_thumbnail_image_names(screenshots_only=True) if admin else tuple(get_snapshot_thumbnail_card_order())
+        results = snapshot.archiveresult_set.filter(plugin__in=names).only(
             "id",
             "snapshot_id",
             "plugin",
@@ -833,15 +838,32 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
         host = "Archive"
     host = host.removeprefix("www.")
     hue = int(hashlib.sha256(host.encode()).hexdigest()[:6], 16) % 360
+    card, images = None, ()
+    if admin:
+        paths = snapshot.__dict__[cache_key] if precomputed else snapshot_thumbnail_image_paths(results, screenshots_only=True)
+        # Reuse the authenticated image endpoint so all thumbnails share the
+        # admin connection, including images belonging to private snapshots.
+        images = tuple(
+            _version_card_url(
+                context,
+                snapshot,
+                reverse("admin:core_snapshot_preview", args=(snapshot.pk, plugin, path.removeprefix(f"{plugin}/"))),
+            )
+            for plugin, path in paths
+        )
+    else:
+        card = snapshot.__dict__[cache_key] if precomputed else snapshot_thumbnail_result(results)
     return mark_safe(
         render_to_string(
             "core/snapshot_thumbnail.html",
             {
                 **context.flatten(),
-                "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
+                "card_result": card,
                 "card_modified_at": snapshot.modified_at,
                 "card_is_thumbnail": True,
-                "defer_admin_card": admin,
+                "thumbnail_admin": admin,
+                "thumbnail_src": images[0] if images else "",
+                "thumbnail_fallbacks": "\n".join(images[1:]),
                 "host": host,
                 "initial": host[:1].upper(),
                 "hue": hue,
@@ -1054,10 +1076,6 @@ def plugin_card(context, result) -> str:
             f'loading="lazy" fetchpriority="low" sandbox="{sandbox}" '
             'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>'
         )
-        if context.get("defer_admin_card"):
-            # Keep both offscreen navigation and browsing-context creation inert.
-            # The visible initial/native link remains usable without JavaScript.
-            return mark_safe(f"<template data-admin-preview>{card_html}</template>")
         return mark_safe(card_html)
     return render_plugin_card_document(context, result)
 

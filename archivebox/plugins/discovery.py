@@ -263,6 +263,23 @@ def get_snapshot_role_names(role: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(name for _, plugin in sorted(providers) for name in get_archive_result_names(plugin)))
 
 
+@lru_cache(maxsize=2)
+def get_snapshot_thumbnail_image_names(*, screenshots_only: bool = False) -> tuple[str, ...]:
+    """Prefer primary previews, followed by the declared thumbnail order."""
+    thumbnail_order = get_snapshot_thumbnail_card_order()
+    names = dict.fromkeys((*get_snapshot_role_names("primary_preview"), *sorted(thumbnail_order, key=thumbnail_order.__getitem__)))
+    if not screenshots_only:
+        return tuple(names)
+    # Other thumbnails may show a favicon or a document preview. The admin
+    # list takes the image providers, including their original result aliases.
+    catalog = get_plugin_catalog()
+    return tuple(
+        name
+        for name in names
+        if (plugin := catalog.get(get_plugin_name(name))) and plugin.manifest.get("snapshot_output_group") == "images"
+    )
+
+
 def get_snapshot_role_result(results, role: str):
     """Select the first successful result declared for a presentation role."""
     results_by_name = {result.plugin: result for result in results if result.status == "succeeded"}

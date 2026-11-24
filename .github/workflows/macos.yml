@@ -24,6 +24,10 @@ jobs:
         uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
 
   install-cli:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     uses: ./.github/workflows/test.yml
@@ -32,6 +36,10 @@ jobs:
     secrets: inherit
 
   python-artifacts:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     uses: ./.github/workflows/pip.yml

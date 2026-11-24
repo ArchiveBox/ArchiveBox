@@ -93,6 +93,10 @@ jobs:
           retention-days: 7
 
   install-smoke:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     name: install ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
     if: inputs.full_tests
     needs: build
@@ -105,6 +109,17 @@ jobs:
         artifact: [wheel, sdist]
 
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@9dabfac1097d945bcf94281b7756cc215a460e44
+        with:
+          proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_CLIENT_ID_DEV' || 'SQUID_TAILSCALE_CLIENT_ID'] }}
+          tailscale-audience: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_AUDIENCE_DEV' || 'SQUID_TAILSCALE_AUDIENCE'] }}
+
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

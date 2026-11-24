@@ -65,10 +65,10 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
             checkboxes = page.locator("#result_list input.action-select")
             expect(checkboxes).to_have_count(50)
             old_row = page.locator("#result_list tbody tr").first.element_handle()
-            preview = page.locator("#result_list tbody tr").first.locator(".snapshot-thumbnail iframe")
-            expect(preview).to_have_count(1)
-            frame = preview.element_handle()
-            window = frame.evaluate_handle("el => el.contentWindow")
+            preview = page.locator("#result_list tbody tr").first.locator(".snapshot-thumbnail img.screenshot-thumbnail")
+            expect(preview).to_be_visible()
+            image = preview.element_handle()
+            source = image.get_attribute("src")
             selected_id = checkboxes.first.input_value()
             if across:
                 page.locator(".action-total-select").click()
@@ -78,7 +78,10 @@ def test_search_waves_preserve_selection(archivebox_daemon_server, browser_runti
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
         page.wait_for_load_state("networkidle")
         assert old_row.evaluate("row => row.isConnected")
-        assert frame.evaluate("(el, original) => el.isConnected && el.contentWindow === original", window)
+        assert image.evaluate(
+            "(el, original) => el.isConnected && el.getAttribute('src') === original && el.complete && el.naturalWidth > 0",
+            source,
+        )
         expect(page.locator(f'input.action-select[value="{selected_id}"]')).to_be_checked()
         expect(page.locator("input.action-select:checked")).to_have_count(50 if across else 1)
         expect(page.locator("input.select-across")).to_have_value("1" if across else "0")

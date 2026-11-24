@@ -21,6 +21,11 @@ MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
 # Select gallery coverage only; captures still run every configured plugin.
 PLUGIN_VIEWS="${UI_SCREENSHOT_PLUGINS:-}"
 MANIFEST_OUT="${UI_SCREENSHOT_MANIFEST_OUT:-}"
+UNAVAILABLE_OUT="${UI_SCREENSHOT_UNAVAILABLE_OUT:-}"
+if [[ -n "$UNAVAILABLE_OUT" && ( "$UNAVAILABLE_OUT" != /* || "$MANIFEST_OUT" != /* || "$MAX_VIEWS" != 0 ) ]]; then
+    echo '[!] Availability reports require a complete lane and absolute output paths' >&2
+    exit 1
+fi
 SPLIT_PUBLIC="${UI_SCREENSHOT_SPLIT_PUBLIC:-0}"
 if [[ "$SPLIT_PUBLIC" == 1 && ( "$MANIFEST_OUT" != /* || -n "$PLUGIN_VIEWS" || "$MAX_VIEWS" != 0 ) ]]; then
     echo '[!] Split base capture must export its native manifest and retain all base views' >&2
@@ -39,6 +44,9 @@ SCREENSHOT_CHROME_BINARY=""
 CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
 : >"$MANIFEST_FILE"
+if [[ -n "$UNAVAILABLE_OUT" ]]; then
+    : >"$UNAVAILABLE_OUT"
+fi
 PERSONAS_DIR="$CAPTURE_ROOT/personas"
 ACTIVE_PERSONA="Screenshots"
 CAPTURE_PROFILES=$'desktop|1600|1000\ntablet|1024|1366\nmobile|390|844'
@@ -445,6 +453,15 @@ add_supplementary_template_capture() {
         fi
         if [[ -z "$discovered_preview_url" ]]; then
             echo "[!] The $supplementary_plugin snapshot did not expose its own verified output in the real snapshot UI" >&2
+            if [[ -n "$UNAVAILABLE_OUT" ]] && (
+                cd "$DATA_DIR"
+                UI_SCREENSHOT_PLAN="$PLUGIN_SCREENSHOT_PLAN" UI_SCREENSHOT_SNAPSHOT_ID="$snapshot_id" \
+                    UI_SCREENSHOT_OWNER="$supplementary_plugin" UI_SCREENSHOT_SOURCE_URL="$source_url" \
+                    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                    'import json, os; from pathlib import Path; from screenshot_gallery_helpers import record_unavailable_recipe; plan=json.loads(Path(os.environ["UI_SCREENSHOT_PLAN"]).read_text()); raise SystemExit(not record_unavailable_recipe(plan, os.environ["UI_SCREENSHOT_SNAPSHOT_ID"], os.environ["UI_SCREENSHOT_OWNER"], os.environ["UI_SCREENSHOT_SOURCE_URL"], Path(os.environ["UI_SCREENSHOT_UNAVAILABLE_OUT"])))'
+            ); then
+                continue
+            fi
             cat "$capture_log" >&2
             cat "$discovery_report" >&2
             exit 1
@@ -968,8 +985,12 @@ done
 if [[ "$MAX_VIEWS" != 0 || -n "$PLUGIN_VIEWS" || "$SPLIT_PUBLIC" == 1 ]]; then
     export UI_SCREENSHOT_ALLOW_PARTIAL=1
 fi
+build_availability=()
+if [[ -n "$UNAVAILABLE_OUT" ]]; then
+    build_availability=(--unavailable "$UNAVAILABLE_OUT")
+fi
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" build \
-    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
+    "$MANIFEST_FILE" "$(dirname "$OUTPUT_DIR")/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html" ${build_availability[@]+"${build_availability[@]}"}
 
 if [[ -n "$MANIFEST_OUT" ]]; then
     cp "$MANIFEST_FILE" "$MANIFEST_OUT"

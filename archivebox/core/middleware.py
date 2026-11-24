@@ -8,6 +8,7 @@ from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import DisallowedHost, ImproperlyConfigured
 from django.http import HttpResponseForbidden
+from django.middleware.gzip import GZipMiddleware
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.cache import patch_cache_control, patch_vary_headers
@@ -156,6 +157,23 @@ def AdminCookieIsolationMiddleware(get_response):
     return middleware
 
 
+class UIGZipMiddleware(GZipMiddleware):
+    def process_response(self, request, response):
+        # Keep captured output and range responses byte-for-byte. Compress the
+        # list and its text assets at the origin for installs without a CDN.
+        if request.method not in {"GET", "HEAD"} or request.headers.get("Range"):
+            return response
+        asset = request.path_info.startswith("/static/") and request.path_info.endswith((".css", ".js", ".mjs", ".svg")) and not request.GET
+        match = request.resolver_match
+        snapshot_list = match and match.url_name in {"core_snapshot_changelist", "grid"} and match.app_name == "admin"
+        if asset and response.status_code in (200, 304):
+            # Small and revalidated assets use the same cache key as gzip variants.
+            patch_vary_headers(response, ("Accept-Encoding",))
+        if response.status_code == 200 and (asset or snapshot_list):
+            return super().process_response(request, response)
+        return response
+
+
 def CacheControlMiddleware(get_response):
     def middleware(request):
         response = get_response(request)
@@ -174,16 +192,16 @@ def CacheControlMiddleware(get_response):
             # Keep raw artifacts' policy intact; these are crawler hints only.
             response["X-Robots-Tag"] = ", ".join(filter(None, (response.get("X-Robots-Tag"), "noindex, follow")))
 
-        if (
+        static_asset = (
             (request.path.startswith("/static/") or request.path == "/favicon.ico")
             and response.status_code in (200, 206, 304)
             and response.has_header("ETag")
-        ):
-            return response
-
-        if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
-            # The same raw favicon bytes are shared across authenticated viewers.
-            # Session middleware may have added Cookie to Vary during authorization.
+        )
+        favicon = response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL
+        # Session middleware may add Vary during authorization. Public,
+        # cookie-independent asset bytes keep one browser cache entry as
+        # sessions change. Keep User-Agent for the crawler access policy.
+        if favicon or (static_asset and not response.cookies and response.get("Cache-Control", "").startswith("public,")):
             vary = [
                 value.strip()
                 for value in response.get("Vary", "").split(",")
@@ -193,6 +211,7 @@ def CacheControlMiddleware(get_response):
                 response["Vary"] = ", ".join(vary)
             else:
                 response.headers.pop("Vary", None)
+        if static_asset or favicon:
             return response
 
         # Other private/unlisted artifacts remain private; auth errors stay unstored.

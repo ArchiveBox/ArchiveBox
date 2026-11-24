@@ -8,6 +8,15 @@
 {% include 'includes/search_stream_head.html' with complete=cl.search_stream_complete mode=cl.search_mode %}
 {% endif %}
 {% endblock %}
+{# Snapshot list controls use native inputs and the record picker. #}
+{% block admin_form_assets %}{% endblock %}
+{% block changelist_scripts %}
+{# Django's row selection is independent of its change-form media. Keep its translations first. #}
+{% if action_form %}
+<script src="{% static 'admin/jsi18n.js' %}" defer></script>
+<script src="{% static 'admin/js/actions.js' %}" defer></script>
+{% endif %}
+{% endblock %}
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% endblock %}
 {% block extrahead %}
 {% if not embedded_changelist %}

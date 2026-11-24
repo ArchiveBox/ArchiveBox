@@ -50,6 +50,7 @@
     const rows = [];
     let counterWidths = [];
     let frame = 0;
+    let measuredContainerWidth;
 
     function spacing(element, properties) {
       const css = getComputedStyle(element);
@@ -61,6 +62,7 @@
       // Install all temporary measurement styles and probes before the first
       // geometry read, so the header and natural pills share one layout.
       const probes = dirty.length && title && tags ? prepareTagMeasurement(dirty) : [];
+      measuredContainerWidth = table.parentElement.clientWidth;
       if (!header?.getBoundingClientRect().height || !title || !tags) {
         clearTagMeasurement(probes);
         table?.classList.remove('library-tag-fit');
@@ -183,10 +185,11 @@
       let lastWidth;
       const observer = new ResizeObserver(([entry]) => {
         const width = entry.contentRect.width;
-        if (width !== lastWidth) {
-          lastWidth = width;
-          scheduleFit();
-        }
+        // The first notification also fires at the size already fitted during
+        // parsing. Refit only if that size changed, for example from a scrollbar.
+        const changed = lastWidth === undefined ? entry.target.clientWidth !== measuredContainerWidth : width !== lastWidth;
+        lastWidth = width;
+        if (changed) scheduleFit();
       });
       observer.observe(table.parentElement);
       window.addEventListener('resize', scheduleFit);

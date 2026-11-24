@@ -1,14 +1,20 @@
 """Versioned UI assets cache publicly and legacy URLs can revalidate."""
 
+import gzip
 from urllib.parse import urljoin
 
 import pytest
+from django.conf import settings
 from django.templatetags.static import static
 from playwright.sync_api import sync_playwright
 
 
 @pytest.mark.django_db
-def test_static_asset_cache_headers(client):
+def test_static_asset_cache_headers(client, admin_user):
+    login = client.post("/admin/login/", {"username": admin_user.username, "password": "testpassword"})
+    assert login.status_code == 302
+    assert settings.SESSION_COOKIE_NAME in client.cookies
+
     css_url = static("admin.css")
     typography_url = urljoin(css_url, "typography.css")
     font_css_url = urljoin(typography_url, "fonts/open-sans/font.css")
@@ -19,7 +25,8 @@ def test_static_asset_cache_headers(client):
         response = client.get(url)
         assert response.status_code == 200
         assert response["Cache-Control"] == immutable
-        assert response["Vary"] == "User-Agent"
+        expected_vary = {"User-Agent", "Accept-Encoding"} if url.endswith((".css", ".js")) else {"User-Agent"}
+        assert set(response["Vary"].split(", ")) == expected_vary
         etag = response["ETag"]
         modified = response["Last-Modified"]
         response.close()
@@ -28,6 +35,7 @@ def test_static_asset_cache_headers(client):
         assert validation.status_code == 304
         assert validation["ETag"] == etag
         assert validation["Cache-Control"] == immutable
+        assert set(validation["Vary"].split(", ")) == expected_vary
         changed = client.head(url, HTTP_IF_NONE_MATCH='"superseded"', HTTP_IF_MODIFIED_SINCE=modified)
         assert changed.status_code == 200
 
@@ -35,6 +43,20 @@ def test_static_asset_cache_headers(client):
     assert partial.status_code == 206
     assert partial["Cache-Control"] == immutable
     assert b"".join(partial.streaming_content) == b"wOF2"
+
+    plain = client.get(css_url)
+    uncompressed_css = b"".join(plain.streaming_content)
+    compressed = client.get(css_url, HTTP_ACCEPT_ENCODING="gzip")
+    assert compressed["Content-Encoding"] == "gzip"
+    assert compressed["Cache-Control"] == immutable
+    assert compressed["ETag"] == f"W/{plain['ETag']}"
+    compressed_css = b"".join(compressed.streaming_content)
+    assert len(compressed_css) < len(uncompressed_css)
+    assert gzip.decompress(compressed_css) == uncompressed_css
+    partial = client.get(css_url, HTTP_ACCEPT_ENCODING="gzip", HTTP_RANGE="bytes=0-19")
+    assert partial.status_code == 206
+    assert not partial.has_header("Content-Encoding")
+    assert b"".join(partial.streaming_content) == uncompressed_css[:20]
 
     for url in ("/static/admin.css", "/static/v/previous/admin.css", "/favicon.ico"):
         response = client.head(url)
@@ -69,7 +91,11 @@ def test_snapshot_navigation_reuses_static_assets(browser_runtime, live_server, 
         page.locator("#id_password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         url = f"{live_server.url}/admin/core/snapshot/"
-        page.goto(url)
+        response = page.goto(url)
+        assert response and response.status == 200
+        assert response.headers["content-encoding"] == "gzip"
+        assert "no-store" in response.headers["cache-control"] and "private" in response.headers["cache-control"]
+        assert page.locator("#changelist-form").count() == 1
         page.evaluate("document.fonts.ready")
         page.goto("about:blank")
         page.goto(url)

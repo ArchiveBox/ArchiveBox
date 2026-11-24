@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
 from django.utils import timezone
 from django.utils.formats import date_format
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.cache import patch_vary_headers
 from django.utils.translation import gettext
@@ -262,7 +262,7 @@ class SnapshotChangeList(SearchResultsChangeList):
         # Progress counts, file icons, favicons and thumbnails come from plain
         # rows plus the few manifest entries their links need: responses/wget
         # manifests hold thousands of entries (see list_results_util).
-        list_results = load_snapshot_list_results(snapshots)
+        list_results = load_snapshot_list_results(snapshots, images_only=True)
         for obj in snapshots:
             summary = list_results[obj.pk]
             counts = summary.status_counts + summary.unnamed_status_counts
@@ -289,7 +289,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             # hook to count shared plugin files once and order the icons.
             obj.__dict__["_admin_output_results"] = summary.results
             obj.__dict__["_snapshot_card_results"] = summary.results
-            obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
+            obj.__dict__["_snapshot_thumbnail_image_paths"] = summary.thumbnail_image_paths
 
     def get_results(self, request):
         if getattr(request, "_archivebox_search_filter_only", False):
@@ -861,11 +861,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         snapshot = get_object_or_404(Snapshot, pk=object_id)
         if not self.has_view_or_change_permission(request, snapshot):
             raise PermissionDenied
-        result = snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).first()
-        try:
-            output_path = result.output_file_path(filename) if result else None
-        except (TypeError, ValueError, OverflowError):
-            output_path = None
+        results = (
+            snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED)
+            .only("plugin", "output_files", "output_str")
+            .order_by("id")
+        )
+        output_path = None
+        for result in results:
+            try:
+                manifest = result.output_file_map()
+                output_path = result.output_file_path(filename, output_file_map=manifest)
+                if not manifest:
+                    # Legacy captures can have a saved image path and no manifest.
+                    primary = result.embed_path_db(manifest)
+                    if primary and primary.removeprefix(f"{plugin}/") == filename:
+                        output_path = primary
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if output_path:
+                break
         if not output_path:
             raise Http404("Snapshot image does not exist")
         request.archivebox_cache_policy = "private"
@@ -952,9 +966,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         needs_files_sort = "files" in ordering_fields
         needs_tags_sort = "tags_inline" in ordering_fields
         is_change_view = request.resolver_match.url_name == "core_snapshot_change"
-        prefetches = ["tags"]
         if is_change_view:
-            prefetches.append(
+            prefetches = [
+                "tags",
                 Prefetch(
                     "archiveresult_set",
                     queryset=ArchiveResult.objects.only(
@@ -968,9 +982,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                         "output_files",
                     ),
                 ),
-            )
+            ]
         else:
-            prefetches.append(
+            prefetches = [
+                # The table and grid only display tag IDs and names, so fetching
+                # ownership and converting timestamps would add work per pill.
+                Prefetch("tags", queryset=Tag.objects.only("id", "name")),
                 Prefetch(
                     "crawl",
                     queryset=Crawl.objects.select_related("created_by").only(
@@ -980,7 +997,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                         "created_by__username",
                     ),
                 ),
-            )
+            ]
 
         qs = super().get_queryset(request)
         try:
@@ -1018,6 +1035,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         return qs
 
+    def snapshot_permissions_choices(self):
+        return [(value, label, SNAPSHOT_PERMISSION_META[value][0]) for value, label in PERMISSIONS_CHOICES]
+
     @admin.display(
         description=format_html('<span title="Visibility" aria-label="Visibility">{}</span>', render_permission_icon("private")),
         ordering="permissions",
@@ -1027,39 +1047,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if permissions is None:
             permissions = obj.permissions
         permissions = normalize_permissions(permissions)
-        icon, label, fg, bg = SNAPSHOT_PERMISSION_META[permissions]
-        menu_items = format_html_join(
-            "",
-            (
-                '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true">{}</span>'
-                "<span>{}</span>"
-                "</button>"
-            ),
-            (
-                (
-                    " is-active" if choice_value == permissions else "",
-                    choice_value,
-                    SNAPSHOT_PERMISSION_META[choice_value][0],
-                    choice_label,
-                )
-                for choice_value, choice_label in PERMISSIONS_CHOICES
-            ),
-        )
+        icon, label, _, _ = SNAPSHOT_PERMISSION_META[permissions]
         return format_html(
             '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
-            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change snapshot permissions: {}" aria-expanded="false">'
+            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change snapshot permissions: {}" aria-haspopup="menu" aria-expanded="false">'
             '<span class="snapshot-permissions-icon" aria-hidden="true">{}</span>'
-            "</button>"
-            '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
-            "</span>",
+            "</button></span>",
             permissions,
             reverse(f"{self.admin_site.name}:core_snapshot_set_permissions", args=[obj.pk]),
             permissions,
             label,
             label,
             icon,
-            menu_items,
         )
 
     @admin.display(description="Imported Timestamp")
@@ -1372,6 +1371,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         empty_value="",
     )
     def files(self, obj):
+        from archivebox.plugins.discovery import get_plugin_name
+
         results = self._get_prefetched_results(obj)
         if results is None:
             results = load_snapshot_list_results([obj])[obj.pk].results
@@ -1389,7 +1390,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
         sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
-        icons_by_group: dict[str, list[tuple[str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
+        icons_by_group: dict[str, list[str | tuple[str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         request = self.request
         detail_url = escape(self.get_snapshot_view_url(obj))
         icon_metadata = request.__dict__.setdefault("_archivebox_file_icon_metadata", {})
@@ -1402,27 +1403,37 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 if not plugin_icon_is_hidden(plugin) and icon.strip():
                     if asset := get_plugin_icon_asset(plugin):
                         url = reverse("plugin-icon", kwargs={"plugin": plugin, "fingerprint": asset[0]})
-                        icon = f'<img src="{escape(url)}" width="16" height="16" alt="">'
-                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon)
+                        # Keep the original badge styling around the cached SVG.
+                        icon = f'{icon[: icon.index("<svg")]}<img src="{escape(url)}" width="16" height="16" alt="">{icon[icon.rindex("</svg>") + 6 :]}'
+                    fragment = build_snapshot_detail_path("", output_path=get_plugin_name(plugin), prefix="")
+                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon, fragment)
                 else:
                     icon_metadata[plugin] = None
             metadata = icon_metadata[plugin]
             if metadata is None:
                 continue
+            group, label, icon, fragment = metadata
             if isinstance(result, ArchiveResult):
                 output_path = result.embed_path()
                 anchor_path = get_snapshot_output_anchor(plugin, output_path) if output_path else None
+                if not anchor_path:
+                    continue
+                target_fragment = build_snapshot_detail_path("", output_path=anchor_path, prefix="")
+            elif result.icon_anchor():
+                target_fragment = fragment
             else:
-                anchor_path = result.icon_anchor()
-            if not anchor_path:
                 continue
 
-            group, label, icon = metadata
-            icons_by_group[group].append((plugin, build_snapshot_detail_path("", output_path=anchor_path, prefix="")))
+            # List results link to the same plugin card on each snapshot. Keep
+            # only alternate file fragments in the row and share the usual link
+            # with the existing artwork template.
+            icons_by_group[group].append(plugin if target_fragment == fragment else (plugin, target_fragment))
             if plugin not in defined_plugins:
                 # Template contents remain inert. Off-cover image requests and
                 # popup DOM are both deferred until a pile is opened.
-                definitions.append(f'<template id="abx-file-icon-{escape(plugin)}" data-label="{label}">{icon}</template>')
+                definitions.append(
+                    f'<template id="abx-file-icon-{escape(plugin)}" data-label="{label}" data-fragment="{escape(fragment)}">{icon}</template>',
+                )
                 defined_plugins.add(plugin)
 
         output = []
@@ -1433,12 +1444,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             column = len(output)
             label = escape(label)
             pile_style = f' style="--files-icon-popup-left:{column * -22}px"' if column else ""
-            top_plugin = icons[0][0]
+            top_plugin = icons[0] if isinstance(icons[0], str) else icons[0][0]
             cover = icon_metadata[top_plugin][2]
-            members = escape(json.dumps(icons, ensure_ascii=False, separators=(",", ":")))
+            # JSON strings use double quotes. A single-quoted attribute avoids
+            # escaping those quotes while still protecting plugin names.
+            members = escape(json.dumps(icons, ensure_ascii=False, separators=(",", ":")), quote=False).replace("'", "&#x27;")
             output.append(
                 f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs" '
-                f'data-files-icons="{members}"{pile_style}>'
+                f"data-files-icons='{members}'{pile_style}>"
                 f'<a href="{detail_url}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" '
                 f'aria-label="{label}" data-tooltip="{label}">{cover}</a></span>',
             )

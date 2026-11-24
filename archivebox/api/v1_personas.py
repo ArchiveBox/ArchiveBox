@@ -223,7 +223,8 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
     auth_written = auth is not None
     if auth_written:
         with atomic_write(persona.path / "auth.json", overwrite=True, encoding="utf-8") as stream:
-            stream.write(json.dumps(auth, indent=2, sort_keys=True) + "\n")
+            json.dump(auth, stream, indent=2, sort_keys=True)
+            stream.write("\n")
 
     return {
         "success": True,

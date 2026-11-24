@@ -63,13 +63,17 @@
     if (mounted.has(select)) return mounted.get(select);
     const type = select.dataset.picker;
     const label = type === "folder" ? "Find a folder" : "Find a tag";
-    const wrapper = document.createElement("span");
+    const renderedWrapper = select.parentElement.matches(".record-picker") ? select.parentElement : null;
+    const wrapper = renderedWrapper || document.createElement("span");
     wrapper.className = "record-picker";
-    const input = document.createElement("input");
-    input.type = "search";
-    input.autocomplete = "off";
-    input.placeholder = label + "…";
-    input.setAttribute("aria-label", label);
+    const renderedInput = renderedWrapper?.querySelector(":scope > input");
+    const input = renderedInput || document.createElement("input");
+    if (!renderedInput) {
+      input.type = "search";
+      input.autocomplete = "off";
+      input.placeholder = label + "…";
+      input.setAttribute("aria-label", label);
+    }
     const status = document.createElement("span");
     status.className = "record-picker-status";
     status.setAttribute("role", "status");
@@ -79,7 +83,7 @@
     more.hidden = true;
     const nativeFolder = type === "folder";
     input.hidden = nativeFolder;
-    select.before(wrapper);
+    if (!renderedWrapper) select.before(wrapper);
     wrapper.append(input, select, more, status);
     let next = "";
     const panel = document.createElement("div");
@@ -286,6 +290,11 @@
       next = "";
       if (nativeFolder) search();
     };
+    if (renderedInput) input.disabled = false;
+    if (select.inert && select.getAttribute("aria-disabled") === "true") {
+      select.inert = false;
+      select.removeAttribute("aria-disabled");
+    }
     mounted.set(select, { input, reset });
     return mounted.get(select);
   }

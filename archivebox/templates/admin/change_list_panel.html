@@ -13,6 +13,19 @@
 {% else %}
     <div class="module{% if cl.has_filters %} filtered{% endif %}" id="changelist">
 {% endif %}
+  {% if cl.opts.model_name == "snapshot" and not cl.snapshot_is_grid_view %}
+    {# One inert menu also covers rows added by streamed search. #}
+    <template data-snapshot-permissions-menu>
+      <span class="snapshot-permissions-menu" role="menu" data-snapshot-permissions-menu>
+        {% for value, label, icon in cl.model_admin.snapshot_permissions_choices %}
+          <button type="button" class="snapshot-permissions-menu-item" data-permissions="{{ value }}" role="menuitemradio" aria-checked="false">
+            <span class="snapshot-permissions-icon" aria-hidden="true">{{ icon }}</span>
+            <span>{{ label }}</span>
+          </button>
+        {% endfor %}
+      </span>
+    </template>
+  {% endif %}
   <div class="changelist-form-container">
     <div>
       {% search_form cl %}

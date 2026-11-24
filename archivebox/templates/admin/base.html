@@ -1748,12 +1748,14 @@
             {% endif %}
         {% endblock %}
         
+        {% block admin_form_assets %}
         <script
             src="{% static 'jquery-3.7.1.slim.min.js' %}"
             integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
             crossorigin="anonymous"></script>
         <link href="{% static 'select2.min.css' %}" rel="stylesheet"/>
         <script src="{% static 'select2.min.js' %}"></script>
+        {% endblock %}
 
         <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
         
@@ -1924,13 +1926,12 @@
             }
 
             // Controls are server-rendered; initialization only attaches their behavior.
-            function fix_actions() {
-                const container = $('div.actions')
-                if (!container.find('.action-buttons').length || container.data('actionsReady')) return
-                container.data('actionsReady', true)
+            function fix_actions(container) {
+                if (!container.querySelector('.action-buttons') || container.dataset.actionsReady) return
+                container.dataset.actionsReady = '1'
 
                 function flushPendingActionTags() {
-                    const tagContainer = document.querySelector('.actions-tags')
+                    const tagContainer = container.querySelector('.actions-tags')
                     const input = tagContainer?.querySelector('.tag-inline-input')
                     const hidden = tagContainer?.querySelector('input[type="hidden"][name="tags"]')
                     const pending = (input?.value || '').trim()
@@ -1972,31 +1973,37 @@
                         return
                     }
                     if (action === 'add_tags' || action === 'remove_tags') flushPendingActionTags()
-                    container.find('select[name=action]').val(action).trigger('change')
-                    $('#changelist-form button[name="index"]').click()
+                    const actionInput = container.querySelector('select[name=action]')
+                    actionInput.value = action
+                    actionInput.dispatchEvent(new Event('change', { bubbles: true }))
+                    container.closest('form').querySelector('button[name="index"]').click()
                     document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
                 }
 
-                container.find('button[data-admin-action]').on('click', function(e) {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    submitAction(this.dataset.adminAction, this)
+                container.querySelectorAll('button[data-admin-action]').forEach(function(button) {
+                    button.addEventListener('click', function(event) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        submitAction(button.dataset.adminAction, button)
+                    })
                 })
-                container.find('.action-folder-select').on('change', function() {
-                    if (this.value === '__choose__') return
-                    submitAction('move_to_folder', this)
-                })
-                container.find('.action-rearchive-select').on('change', function() {
-                    if (this.value) submitAction(this.value, this)
-                })
-                container.find('.action-permissions-select').on('change', function() {
-                    if (!this.value) return
-                    let permissionsInput = container.find('input[name=permissions]')
-                    if (!permissionsInput.length) {
-                        permissionsInput = $('<input type="hidden" name="permissions">').appendTo(container)
+                container.addEventListener('change', function(event) {
+                    const control = event.target
+                    if (control.matches('.action-folder-select') && control.value !== '__choose__') {
+                        submitAction('move_to_folder', control)
+                    } else if (control.matches('.action-rearchive-select') && control.value) {
+                        submitAction(control.value, control)
+                    } else if (control.matches('.action-permissions-select') && control.value) {
+                        let permissionsInput = container.querySelector('input[name=permissions]')
+                        if (!permissionsInput) {
+                            permissionsInput = document.createElement('input')
+                            permissionsInput.type = 'hidden'
+                            permissionsInput.name = 'permissions'
+                            container.append(permissionsInput)
+                        }
+                        permissionsInput.value = control.value
+                        submitAction(control.dataset.adminAction, control)
                     }
-                    permissionsInput.val(this.value)
-                    submitAction(this.dataset.adminAction, this)
                 })
                 if (window.jQuery && window.jQuery.fn.select2) {
                     window.jQuery('select[multiple]').select2();
@@ -2211,25 +2218,67 @@
             function setupSnapshotPermissionsQuickEdit() {
                 if (document.body.dataset.snapshotPermissionsReady) return
                 document.body.dataset.snapshotPermissionsReady = '1'
+                function closeMenu(wrapper, restoreFocus) {
+                    wrapper.classList.remove('is-open')
+                    const toggle = wrapper.querySelector('.snapshot-permissions-button')
+                    toggle?.setAttribute('aria-expanded', 'false')
+                    const menu = wrapper.querySelector('.snapshot-permissions-menu')
+                    if (menu?.hasAttribute('data-snapshot-permissions-menu')) menu.remove()
+                    else if (menu) menu.hidden = true
+                    if (restoreFocus) toggle?.focus()
+                }
+                document.addEventListener('keydown', function(event) {
+                    const wrapper = event.target.closest('.snapshot-permissions-quick.is-open')
+                    if (!wrapper) return
+                    if (event.key === 'Escape') {
+                        event.preventDefault()
+                        closeMenu(wrapper, true)
+                        return
+                    }
+                    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
+                    const menu = wrapper.querySelector('.snapshot-permissions-menu[data-snapshot-permissions-menu]')
+                    if (!menu) return
+                    event.preventDefault()
+                    const items = Array.from(menu.querySelectorAll('.snapshot-permissions-menu-item'))
+                    const index = items.indexOf(event.target)
+                    if (event.key === 'Home') items[0].focus()
+                    else if (event.key === 'End') items[items.length - 1].focus()
+                    else if (event.key === 'ArrowDown') items[(index + 1) % items.length].focus()
+                    else items[index > 0 ? index - 1 : items.length - 1].focus()
+                })
                 document.addEventListener('click', function(event) {
                     const toggle = event.target.closest('.snapshot-permissions-button')
                     const item = event.target.closest('.snapshot-permissions-menu-item')
                     document.querySelectorAll('.snapshot-permissions-quick.is-open').forEach(function(openMenu) {
-                        if (!openMenu.contains(event.target)) {
-                            openMenu.classList.remove('is-open')
-                            openMenu.querySelector('.snapshot-permissions-button')?.setAttribute('aria-expanded', 'false')
-                            const menu = openMenu.querySelector('.snapshot-permissions-menu')
-                            if (menu) menu.hidden = true
-                        }
+                        if (!openMenu.contains(event.target)) closeMenu(openMenu)
                     })
                     if (toggle) {
                         event.preventDefault()
                         const wrapper = toggle.closest('.snapshot-permissions-quick')
-                        const menu = wrapper?.querySelector('.snapshot-permissions-menu')
-                        if (!wrapper || !menu) return
-                        const isOpen = wrapper.classList.toggle('is-open')
-                        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
-                        menu.hidden = !isOpen
+                        if (!wrapper) return
+                        if (wrapper.classList.contains('is-open')) {
+                            closeMenu(wrapper)
+                            return
+                        }
+                        let menu = wrapper.querySelector('.snapshot-permissions-menu')
+                        if (!menu) {
+                            // Resolve the current panel so streamed rows use its template too.
+                            const template = wrapper.closest('#changelist')?.querySelector(':scope > template[data-snapshot-permissions-menu]')
+                            menu = template?.content.firstElementChild?.cloneNode(true)
+                            if (!menu) return
+                            for (const button of menu.querySelectorAll('.snapshot-permissions-menu-item')) {
+                                const selected = button.dataset.permissions === wrapper.dataset.currentPermissions
+                                button.classList.toggle('is-active', selected)
+                                button.setAttribute('aria-checked', selected)
+                            }
+                            wrapper.append(menu)
+                        }
+                        wrapper.classList.add('is-open')
+                        toggle.setAttribute('aria-expanded', 'true')
+                        menu.hidden = false
+                        if (!event.detail && menu.hasAttribute('data-snapshot-permissions-menu')) {
+                            (menu.querySelector('.is-active') || menu.firstElementChild).focus()
+                        }
                         return
                     }
                     if (!item) return
@@ -2253,7 +2302,7 @@
                             button.classList.toggle('is-active', button.dataset.permissions === data.permissions)
                         })
                         const icon = wrapper.querySelector('.snapshot-permissions-icon')
-                        const selectedIcon = wrapper.querySelector('.snapshot-permissions-menu-item.is-active svg')
+                        const selectedIcon = item.querySelector('svg')
                         if (icon && selectedIcon) {
                             icon.replaceChildren(selectedIcon.cloneNode(true))
                         }
@@ -2268,11 +2317,9 @@
                             toggle.className = 'snapshot-permissions-button snapshot-permissions-' + data.permissions
                             toggle.title = data.label
                             toggle.setAttribute('aria-label', toggle.getAttribute('aria-label').split(':')[0] + ': ' + data.label)
-                            toggle.setAttribute('aria-expanded', 'false')
                         }
-                        wrapper.classList.remove('is-open')
                         const menu = wrapper.querySelector('.snapshot-permissions-menu')
-                        if (menu) menu.hidden = true
+                        closeMenu(wrapper, menu?.contains(document.activeElement))
                     }).catch(function(error) {
                         window.alert(error.message)
                     }).finally(function() {
@@ -2284,7 +2331,17 @@
                 const form = document.querySelector('#changelist-form')
                 if (form && !form.dataset.archiveboxActionsReady) {
                     form.dataset.archiveboxActionsReady = '1'
-                    form.addEventListener('change', updateActionControlVisibility)
+                    form.addEventListener('change', function(event) {
+                        const input = event.target
+                        if (input.matches('.card input[type="checkbox"]')) {
+                            input.closest('.card').classList.toggle('selected-card', input.checked)
+                            if (!input.checked) {
+                                const selectAcross = form.querySelector('div.actions input.select-across')
+                                if (selectAcross) selectAcross.value = '0'
+                            }
+                        }
+                        updateActionControlVisibility()
+                    })
                 }
             }
             function fixInlineAddRow() {
@@ -2292,28 +2349,6 @@
                 $('.add-row').show()
             }
 
-            function setupSnapshotGridListToggle() {
-                $("#snapshot-view-list").click(selectSnapshotListView)
-                $("#snapshot-view-grid").click(selectSnapshotGridView)
-
-                // Set active class based on current view
-                const isGridView = window.location.pathname === "{% url 'admin:grid' %}"
-                if (isGridView) {
-                    $("#snapshot-view-grid").addClass('active')
-                    $("#snapshot-view-list").removeClass('active')
-                } else {
-                    $("#snapshot-view-list").addClass('active')
-                    $("#snapshot-view-grid").removeClass('active')
-                }
-
-                $('#changelist-form').off('change.snapshotCard').on('change.snapshotCard', '.card input:checkbox', function() {
-                    $(this).closest('.card').toggleClass('selected-card', this.checked)
-                    if (!this.checked) {
-                        const selectAcross = document.querySelector('div.actions input.select-across')
-                        if (selectAcross) selectAcross.value = '0'
-                    }
-                })
-            };
             function selectSnapshotIfHotlinked() {
                 // if we arrive at the index with a url like ??id__startswith=...
                 // we were hotlinked here with the intention of making it easy for the user to perform some
@@ -2328,11 +2363,8 @@
             window.archiveboxInitAdminChangelist = function() {
                 if (window.archiveboxInitLibraryRows) window.archiveboxInitLibraryRows()
                 window.archiveboxCloseFilesIconPile?.()
-                if (window.jQuery) {
-                    fix_actions()
-                    fixInlineAddRow()
-                    setupSnapshotGridListToggle()
-                }
+                document.querySelectorAll('div.actions').forEach(fix_actions)
+                if ($) fixInlineAddRow()
                 updateActionControlVisibility()
                 setupActionSummary()
                 setupSearchModeSelect()

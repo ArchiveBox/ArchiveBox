@@ -1386,33 +1386,24 @@ def serve_static_with_byterange_support(
                 body = ""
                 if request.method != "HEAD":
                     from archivebox.core.routes_util import build_snapshot_url
-                    from archivebox.plugins.discovery import get_snapshot_role_names, get_snapshot_thumbnail_card_order
+                    from archivebox.plugins.discovery import get_snapshot_thumbnail_image_names
+                    from archivebox.plugins.output_groups import snapshot_thumbnail_image_paths
 
                     snapshot = request.__dict__.get("archivebox_snapshot")
                     image_url = ""
                     if snapshot is not None:
-                        thumbnail_order = get_snapshot_thumbnail_card_order()
-                        names = list(
-                            dict.fromkeys((*get_snapshot_role_names("primary_preview"), *sorted(thumbnail_order, key=thumbnail_order.get))),
-                        )
-                        results = snapshot.archiveresult_set.filter(plugin__in=names, status="succeeded").only(
+                        results = snapshot.archiveresult_set.filter(
+                            plugin__in=get_snapshot_thumbnail_image_names(),
+                            status="succeeded",
+                        ).only(
                             "snapshot_id",
                             "plugin",
+                            "status",
                             "output_str",
                             "output_files",
                         )
-                        for result in sorted(results, key=lambda result: names.index(result.plugin)):
-                            files = result.output_file_map()
-                            path = result.embed_path_db(files)
-                            if not path:
-                                continue
-                            mime = next(
-                                (info.get("mimetype") for name, info in files.items() if result.output_file_path(name, files) == path),
-                                None,
-                            )
-                            if (mime or mimetypes.guess_type(path)[0] or "").startswith("image/"):
-                                image_url = build_snapshot_url(str(snapshot.id), path, request=request, config=config)
-                                break
+                        if image := next(snapshot_thumbnail_image_paths(results), None):
+                            image_url = build_snapshot_url(str(snapshot.id), image[1], request=request, config=config)
                     body = loader.render_to_string(
                         "static/thumbnail_fallback.html",
                         {

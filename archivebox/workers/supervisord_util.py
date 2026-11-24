@@ -719,7 +719,7 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
     return procs_by_name
 
 
-def get_existing_supervisord_process(*, quiet: bool = False):
+def get_existing_supervisord_process(*, quiet: bool = False, waiting_for_startup: bool = False):
     SOCK_FILE = get_sock_file()
     try:
         transport = SupervisorTransport(None, None, f"unix://{SOCK_FILE}")
@@ -744,7 +744,8 @@ def get_existing_supervisord_process(*, quiet: bool = False):
             logger.exception(f"Error connecting to existing supervisord: {err!s}")
         return None
     except _SUPERVISORD_ERRORS as e:
-        if not quiet:
+        # Supervisor publishes its Unix socket before it starts listening.
+        if not quiet and not (waiting_for_startup and isinstance(e, ConnectionRefusedError)):
             logger.exception(f"Error connecting to existing supervisord: {e!s}")
         return None
 
@@ -1069,7 +1070,7 @@ def wait_for_supervisord_ready(max_wait_sec: float = 5.0, interval_sec: float = 
     deadline = time.monotonic() + max_wait_sec
     supervisor = None
     while time.monotonic() < deadline:
-        supervisor = get_existing_supervisord_process(quiet=quiet)
+        supervisor = get_existing_supervisord_process(quiet=quiet, waiting_for_startup=True)
         if supervisor is not None:
             return supervisor
         time.sleep(interval_sec)

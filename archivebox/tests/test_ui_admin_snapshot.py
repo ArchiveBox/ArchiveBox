@@ -312,7 +312,7 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert b"Searching matching snapshots..." in response.content
 
 
-def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client, snapshot, real_hash_projection):
+def test_snapshot_changelist_thumbnail_uses_prefetched_screenshot(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
     snapshot.title = "Preview destination test"
@@ -329,11 +329,12 @@ def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client,
 
     assert response.status_code == 200
     assert b'class="snapshot-preview' in response.content
-    assert f"_card/{result.id}".encode() in response.content
     html = response.content.decode()
     preview_cell = re.search(r'<td class="field-preview_icon">(.*?)</td>', html, re.S)
     title_cell = re.search(r'<td class="field-title_str">(.*?)</td>', html, re.S)
     assert preview_cell and title_cell
+    assert "screenshot.png?" in preview_cell.group(1)
+    assert "<iframe" not in preview_cell.group(1)
     preview_link = re.search(r'<a href="([^"]+)"', preview_cell.group(1))
     title_link = re.search(r'<a href="([^"]+)"', title_cell.group(1))
     assert preview_link and title_link
@@ -364,7 +365,9 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     assert thumbnail_link.group(1) == title_link.group(1)
     assert thumbnail_link.group(1).endswith(f"/{snapshot.archive_path_from_db}")
     assert 'aria-label="Preview of example.com"' in thumbnail_link.group(2)
-    assert "▤" in thumbnail_link.group(2)
+    assert re.search(r'class="snapshot-thumbnail-initial"[^>]*>E</span>', thumbnail_link.group(2))
+    assert "<iframe" not in thumbnail_link.group(2)
+    assert "snapshot-thumbnail-caption" not in thumbnail_link.group(2)
     # Completed non-HTML captures can have no page title. They are not pending.
     assert '<span class="title-text">example.com</span>' in html
     assert "Pending..." not in html
@@ -389,8 +392,8 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
         "admin:core_snapshot_preview",
         args=(snapshot.pk, "chrome_extension_screenshot", "screenshot.png"),
     )
-    assert f"_card/{result.id}" in html
-    assert "data-candidates=" not in html
+    assert f'src="{preview_url}?' in html
+    assert f"_card/{result.id}" not in html
 
     preview_response = admin_client.get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -588,7 +591,8 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
     assert snapshot.config["PERMISSIONS"] == "private"
 
 
-def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_screenshot_missing(snapshot, real_hash_projection):
+@pytest.mark.parametrize("provider", ["chrome_extension_screenshot", "chrome_extension_viewport"])
+def test_snapshot_admin_thumbnail_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection, provider):
     from archivebox.config.common import get_config
     from archivebox.core.admin_site import archivebox_admin
     from archivebox.core.admin_snapshots import SnapshotAdmin
@@ -596,7 +600,7 @@ def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_s
 
     _process, result = real_hash_projection
     ArchiveResult.objects.filter(pk=result.pk).update(
-        plugin="chrome_extension_screenshot",
+        plugin=provider,
         output_files={
             "screenshot-1.png": {"size": 2},
             "screenshot.png": {"size": 1},
@@ -612,9 +616,9 @@ def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_s
     snapshot._snapshot_card_results = [result]
     thumbnail = str(admin._render_thumbnail(snapshot))
 
-    assert f"_card/{result.id}" in thumbnail
-    assert "screenshot-1.png" not in thumbnail
-    assert "data-candidates=" not in thumbnail
+    assert "<iframe" not in thumbnail
+    assert re.search(rf'src="[^"]*{provider}/screenshot-1\.png\?', thumbnail)
+    assert re.search(rf'data-fallbacks="[^"]*{provider}/screenshot\.png\?', thumbnail)
 
 
 def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):
@@ -1493,8 +1497,8 @@ class TestAdminSnapshotListView:
         assert "_admin_archiveresults" not in rendered_snapshot.__dict__
         output_results = rendered_snapshot.__dict__["_admin_output_results"]
         assert [result.plugin for result in output_results] == ["hashes", "screenshot", "title", "wget"]
-        screenshot_result = next(result for result in output_results if result.plugin == "screenshot")
-        assert f"_card/{screenshot_result.id}".encode() in response.content
+        preview_url = reverse("admin:core_snapshot_preview", args=(snapshot.pk, "screenshot", "screenshot.png"))
+        assert f'src="{preview_url}?'.encode() in response.content
         # Rows the list never renders must not ship their output manifest:
         # responses/wget manifests can hold thousands of entries per row.
         unrendered_results = [
@@ -1536,7 +1540,8 @@ class TestAdminSnapshotListView:
             many_response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert many_response.status_code == 200
-        assert many_response.content.count(b"_card/") == 6
+        assert many_response.content.count(b"/preview/screenshot/screenshot.png?") == 6
+        assert b"/_card/" not in many_response.content
         single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         # Status totals, file icons, and preview candidates share one bulk query.
@@ -1545,7 +1550,7 @@ class TestAdminSnapshotListView:
         assert len(single_snapshot_queries.captured_queries) == len(many_snapshot_queries.captured_queries)
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
-        """Changelist tag rendering should reuse the prefetched tag cache."""
+        """The changelist should bulk fetch the tag fields used by the editor."""
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import Snapshot, Tag
@@ -1566,12 +1571,16 @@ class TestAdminSnapshotListView:
             response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
-        per_row_tag_queries = [
+        tag_queries = [
             query["sql"]
             for query in ctx.captured_queries
-            if 'FROM "core_tag"' in query["sql"] and '"core_snapshot_tags"."snapshot_id"' in query["sql"] and " IN " not in query["sql"]
+            if 'FROM "core_tag"' in query["sql"] and '"core_snapshot_tags"."snapshot_id"' in query["sql"]
         ]
-        assert per_row_tag_queries == []
+        assert len(tag_queries) == 1
+        assert '"core_snapshot_tags"."snapshot_id" IN' in tag_queries[0]
+        assert '"core_tag"."id", "core_tag"."name" FROM' in tag_queries[0]
+        for tag in tags:
+            assert f'data-tag="{tag.name}"'.encode() in response.content
 
     def test_grid_view_renders(self, client, admin_user, snapshot):
         """Test that the grid view renders successfully."""
@@ -1932,20 +1941,23 @@ def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, clien
     assert b"".join(download.streaming_content) == raw_file.read_bytes()
 
 
-def test_snapshot_grid_and_list_use_responses_plugin_card(client, admin_user, snapshot):
+def test_snapshot_grid_and_list_use_initial_when_only_responses_are_saved(client, admin_user, snapshot):
     from archivebox.core.models import ArchiveResult
 
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="responses",
-        status=ArchiveResult.StatusChoices.FAILED,
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_files={"all/largest.png": {"size": 500, "mimetype": "image/png"}},
     )
     client.force_login(admin_user)
     for route in ("admin:grid", "admin:core_snapshot_changelist"):
         response = client.get(reverse(route), HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        assert f"_card/{result.id}".encode() in response.content
+        html = response.content.decode()
+        assert f"_card/{result.id}" not in html
+        assert "/preview/responses/" not in html
+        assert re.search(r'class="snapshot-thumbnail-initial"[^>]*>E</span>', html)
 
 
 def test_snapshot_thumbnail_selection_uses_plugin_declarations(snapshot):
@@ -2206,6 +2218,7 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     from playwright.sync_api import sync_playwright, expect
     from archivebox.core.models import Snapshot, Tag
     from archivebox.config.common import get_config
+    from archivebox.machine.models import Machine
 
     title = "A long snapshot title that remains readable without pushing the URL and tags out of alignment"
     today = Snapshot.objects.create(
@@ -2244,6 +2257,9 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
     Snapshot.objects.filter(pk=older.pk).update(created_at=old_date)
     admin_url = live_server.url
     settings.CONFIG = get_config(overrides={"BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": admin_url, "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"}
+    machine.save(update_fields=["config"])
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(has_touch=True)
@@ -2328,14 +2344,39 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
         assert button.locator("svg").is_visible()
         assert button.locator("svg").bounding_box()["width"] == 18
         assert button.locator(".snapshot-permissions-icon").evaluate("(node) => getComputedStyle(node).color") == "rgb(148, 163, 184)"
-        button.click()
+        expect(page.locator("template[data-snapshot-permissions-menu]")).to_have_count(1)
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+        button.press("Enter")
+        selected_permission = row.get_by_role("menuitemradio", name="Unlisted")
+        expect(selected_permission).to_be_focused()
+        expect(selected_permission).to_have_attribute("aria-checked", "true")
+        selected_permission.press("Escape")
+        expect(button).to_be_focused()
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+        button.press("Enter")
+        selected_permission.press("ArrowUp")
+        public_permission = row.get_by_role("menuitemradio", name="Public")
+        expect(public_permission).to_be_focused()
+        public_permission.press("ArrowDown")
+        selected_permission.press("ArrowDown")
+        private_permission = row.get_by_role("menuitemradio", name="Private")
+        expect(private_permission).to_be_focused()
         with page.expect_response(lambda response: "set-permissions" in response.url and response.request.method == "POST") as saved:
-            row.locator('.snapshot-permissions-menu-item[data-permissions="private"]').click()
+            private_permission.press("Enter")
         assert saved.value.ok, (saved.value.status, saved.value.headers)
         page.wait_for_function("document.querySelectorAll('.snapshot-permissions-quick[data-current-permissions=private]').length === 2")
+        expect(button).to_be_focused()
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
         assert button.locator("svg").is_visible()
         page.set_viewport_size({"width": 390, "height": 900})
         assert row.locator(".snapshot-row-permission").get_attribute("aria-label") == "Private"
+        page.set_viewport_size({"width": 1920, "height": 1000})
+        page.goto(admin_url + reverse("admin:crawls_crawl_change", args=[crawl.pk]))
+        panel = page.locator(".snapshot-changelist-widget")
+        expect(panel.locator("template[data-snapshot-permissions-menu]")).to_have_count(1)
+        row = panel.locator("#result_list tbody tr").filter(has_text=title)
+        row.locator(".snapshot-permissions-button").click()
+        expect(row.get_by_role("menuitemradio", name="Private")).to_have_attribute("aria-checked", "true")
         browser.close()
     today.refresh_from_db()
     assert today.permissions == "private"

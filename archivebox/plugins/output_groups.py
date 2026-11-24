@@ -1,5 +1,6 @@
 """Snapshot output taxonomy. Display preference is independent of hook order."""
 
+from mimetypes import guess_file_type
 from typing import Any
 
 from archivebox.plugins.discovery import (
@@ -7,6 +8,7 @@ from archivebox.plugins.discovery import (
     get_plugin_catalog,
     get_plugin_name,
     get_snapshot_thumbnail_card_order,
+    get_snapshot_thumbnail_image_names,
 )
 
 # Labels belong to the UI; plugin membership and ordering come from the catalog.
@@ -94,8 +96,7 @@ def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
 def snapshot_thumbnail_result(results):
     """Select the first available card using plugin-owned thumbnail priority."""
     card_order = get_snapshot_thumbnail_card_order()
-    # Resolve paths in priority order and stop at the first hit: embed_path()
-    # can scan a whole output manifest, and lower-priority cards never show.
+    # Stop at the first hit: embed_path() can scan a whole output manifest.
     candidates = sorted(
         (result for result in results if result.plugin in card_order),
         key=lambda result: (card_order[result.plugin], str(result.id)),
@@ -108,6 +109,49 @@ def snapshot_thumbnail_result(results):
         if path:
             return result
     return None
+
+
+def snapshot_thumbnail_image_paths(results, *, screenshots_only=False):
+    """Resolve saved images in the same plugin order as snapshot thumbnails."""
+    from archivebox.core.models import ArchiveResult
+
+    order = {name: index for index, name in enumerate(get_snapshot_thumbnail_image_names(screenshots_only=screenshots_only))}
+    candidates = sorted(
+        (result for result in results if result.plugin in order and result.status == ArchiveResult.StatusChoices.SUCCEEDED),
+        key=lambda result: order[result.plugin],
+    )
+    seen = set()
+    for result in candidates:
+        try:
+            manifest = result.output_file_map()
+            primary = ArchiveResult.resolve_embed_path(result.plugin, result.output_str, manifest)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not primary and not screenshots_only:
+            continue
+        primary_mime = None
+        other_images = []
+        entries = sorted(manifest.items()) if screenshots_only else manifest.items()
+        for name, metadata in entries:
+            if not isinstance(metadata, dict):
+                continue
+            path = ArchiveResult._resolve_output_file_path(result.plugin, name, manifest)
+            mime = str(metadata.get("mimetype") or "")
+            if path and path == primary and primary_mime is None:
+                primary_mime = mime
+                if not screenshots_only:
+                    break
+            elif screenshots_only and path and (mime or guess_file_type(path)[0] or "").startswith("image/"):
+                other_images.append(path)
+        # Start with the existing selected path. The admin can also try other
+        # saved images if the preferred file fails to load over HTTP.
+        if primary and (primary_mime or guess_file_type(primary)[0] or "").startswith("image/") and primary not in seen:
+            seen.add(primary)
+            yield result.plugin, primary
+        for path in other_images:
+            if path not in seen:
+                seen.add(path)
+                yield result.plugin, path
 
 
 def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:

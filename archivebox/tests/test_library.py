@@ -975,7 +975,7 @@ def test_browser_drag_checked_preview_after_streamed_search(live_server, admin_u
         expect(rows.first).to_have_attribute("draggable", "true")
         for snapshot in snapshots:
             page.locator(f'input.action-select[value="{snapshot.pk}"]').check()
-        image = rows.first.frame_locator(".field-preview_icon iframe").get_by_role("img", name="Screenshot of page", exact=True)
+        image = rows.first.locator(".field-preview_icon img.screenshot-thumbnail")
         expect(image).to_be_visible()
         assert rows.first.locator(".field-preview_icon > a").get_attribute("draggable") == "false"
         rows.first.locator(".field-preview_icon").drag_to(page.locator(f'.folder-row[data-folder-id="{destination.pk}"]'))

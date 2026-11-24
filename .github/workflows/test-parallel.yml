@@ -97,6 +97,10 @@ jobs:
           "$JQ_BINARY" -e '[.[] | select(.environment == "")] | length > 0' <<< "${output[1]}"
 
   tests:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     name: ${{ matrix.test.name }}
     needs: discover-tests
     if: needs.discover-tests.outputs.tests != '[]'
@@ -114,6 +118,18 @@ jobs:
         test: ${{ fromJson(needs.discover-tests.outputs.tests) }}
 
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@9dabfac1097d945bcf94281b7756cc215a460e44
+        with:
+          proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_CLIENT_ID_DEV' || 'SQUID_TAILSCALE_CLIENT_ID'] }}
+          tailscale-audience: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_AUDIENCE_DEV' || 'SQUID_TAILSCALE_AUDIENCE'] }}
+          browser: 'true'
+
       - name: Set job-local runtime paths
         env:
           CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}

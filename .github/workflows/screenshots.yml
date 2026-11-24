@@ -172,13 +172,14 @@ jobs:
           UI_SCREENSHOT_OUTPUT_DIR: ${{ runner.temp }}/public-recipe-docs/screenshots
           UI_SCREENSHOT_PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/public-recipe-png
           UI_SCREENSHOT_MANIFEST_OUT: ${{ runner.temp }}/public-recipe-capture.jsonl
+          UI_SCREENSHOT_UNAVAILABLE_OUT: ${{ runner.temp }}/public-recipe-unavailable.txt
 
       - name: Validate and package native public recipe
         env:
           PUBLIC_RECIPE: ${{ matrix.lane }}
         run: |
           uv run --no-sync python bin/screenshot_gallery_helpers.py pack "$PUBLIC_RECIPE" \
-            "$RUNNER_TEMP/public-recipe-capture.jsonl" "$RUNNER_TEMP/public-recipe-png" "$RUNNER_TEMP/public-recipe-bundle"
+            "$RUNNER_TEMP/public-recipe-capture.jsonl" "$RUNNER_TEMP/public-recipe-png" "$RUNNER_TEMP/public-recipe-bundle" --unavailable "$RUNNER_TEMP/public-recipe-unavailable.txt"
 
       - name: Upload anonymous capture shard
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -400,12 +401,13 @@ jobs:
           SCREENSHOT_FAILURE_DIR: ${{ runner.temp }}/gallery-failure-diagnostics
           UI_SCREENSHOT_SPLIT_PUBLIC: ${{ inputs.plugin_revision == '' && '1' || '0' }}
           UI_SCREENSHOT_MANIFEST_OUT: ${{ runner.temp }}/base-capture.jsonl
+          UI_SCREENSHOT_UNAVAILABLE_OUT: ${{ inputs.plugin_revision == '' && format('{0}/base-unavailable.txt', runner.temp) || '' }}
 
       - name: Validate and package the native base captures
         if: inputs.plugin_revision == ''
         run: |
           uv run --no-sync python bin/screenshot_gallery_helpers.py pack base \
-            "$RUNNER_TEMP/base-capture.jsonl" publicsite/screenshots "$RUNNER_TEMP/base-bundle"
+            "$RUNNER_TEMP/base-capture.jsonl" publicsite/screenshots "$RUNNER_TEMP/base-bundle" --unavailable "$RUNNER_TEMP/base-unavailable.txt"
 
       - name: Upload native base capture shard
         if: inputs.plugin_revision == ''
@@ -546,11 +548,11 @@ jobs:
       - name: Assemble and render the complete gallery
         run: |
           uv run --no-sync python bin/screenshot_gallery_helpers.py merge \
-            "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl"
+            "$RUNNER_TEMP/gallery-captures" "$RUNNER_TEMP/screenshots" "$RUNNER_TEMP/gallery.jsonl" --unavailable-out "$RUNNER_TEMP/gallery-unavailable.txt"
           mkdir -p publicsite/screenshots
           cp "$RUNNER_TEMP/screenshots/"*.png publicsite/screenshots/
           env -u UI_SCREENSHOT_ALLOW_PARTIAL -u UI_SCREENSHOT_PLUGINS uv run --no-sync python bin/screenshot_gallery_helpers.py build \
-            "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html
+            "$RUNNER_TEMP/gallery.jsonl" "$RUNNER_TEMP/Screenshots.md" publicsite/screenshots/index.html --unavailable "$RUNNER_TEMP/gallery-unavailable.txt"
 
       - name: Verify gallery was generated from this exact revision
         run: |

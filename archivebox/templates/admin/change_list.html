@@ -8,9 +8,6 @@
   {% if cl.formset %}
     <link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
   {% endif %}
-  {% if cl.formset or action_form %}
-    <script src="{% static 'admin/jsi18n.js' %}"></script>
-  {% endif %}
   {{ media.css }}
   <style>
     {% if not actions_on_top and not actions_on_bottom %}
@@ -42,7 +39,12 @@
 
 {% block extrahead %}
 {{ block.super }}
-{{ media.js }}
+{% block changelist_scripts %}
+  {% if cl.formset or action_form %}
+    <script src="{% static 'admin/jsi18n.js' %}"></script>
+  {% endif %}
+  {{ media.js }}
+{% endblock %}
 <script src="{% static 'admin/js/filters.js' %}" defer></script>
 {% endblock %}
 

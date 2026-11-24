@@ -2,9 +2,12 @@
 <details data-filter-title="{{ title }}" open>
   <summary>{{ title }}</summary>
   {% with clear=choices.0 selected=choices.1 %}
-    <select aria-label="{{ title }}" data-picker="{{ spec.picker_kind }}" data-picker-filter="{{ spec.parameter_name }}" data-picker-filter-url="{{ clear.query_string }}">
-      <option value="">{% translate "All" %}</option>
-      {% if spec.value and selected.selected %}<option value="{{ spec.value }}" selected>{{ selected.display }}</option>{% endif %}
-    </select>
+    <span class="record-picker">
+      {% if spec.picker_kind == "tag" %}<input type="search" autocomplete="off" disabled placeholder="{% translate 'Find a tag' %}…" aria-label="{% translate 'Find a tag' %}">{% endif %}
+      <select aria-label="{{ title }}" data-picker="{{ spec.picker_kind }}" data-picker-filter="{{ spec.parameter_name }}" data-picker-filter-url="{{ clear.query_string }}">
+        <option value="">{% translate "All" %}</option>
+        {% if spec.value and selected.selected %}<option value="{{ spec.value }}" selected>{{ selected.display }}</option>{% endif %}
+      </select>
+    </span>
   {% endwith %}
 </details>

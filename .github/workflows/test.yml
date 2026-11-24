@@ -19,6 +19,10 @@ env:
 
 jobs:
   install_cli_platform:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     name: CLI install / ${{ matrix.os_name }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
 
@@ -28,6 +32,17 @@ jobs:
         include: ${{ fromJSON(inputs.platform == 'macos' && '[{"os":"macos-15","os_name":"macOS","python":"3.13"},{"os":"macos-15","os_name":"macOS","python":"3.14"}]' || '[{"os":"ubuntu-24.04","os_name":"linux","python":"3.14"}]') }}
 
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@9dabfac1097d945bcf94281b7756cc215a460e44
+        with:
+          proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_CLIENT_ID_DEV' || 'SQUID_TAILSCALE_CLIENT_ID'] }}
+          tailscale-audience: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_AUDIENCE_DEV' || 'SQUID_TAILSCALE_AUDIENCE'] }}
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true

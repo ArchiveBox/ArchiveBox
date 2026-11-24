@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import BooleanField, Case, CharField, Exists, Func, OuterRef, Q, TextField, Value, When
+from django.db.models import BooleanField, Case, CharField, Exists, Func, IntegerField, OuterRef, Q, TextField, Value, When
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -160,7 +160,7 @@ class ListResult:
     output_str: str
     # Undecoded JSON for link resolution and multi-hook size deduplication.
     output_files_json: str | None = None
-    has_saved_output: bool | None = None
+    has_saved_output: int | bool | None = None
     _embed_path: Any = _UNRESOLVED
     _output_files: dict[str, dict[str, Any]] | None = None
     _retain_output_files: bool = True
@@ -200,6 +200,7 @@ class SnapshotListResults:
     # Legacy rows without a plugin only count towards admin progress totals.
     unnamed_status_counts: Counter[str] = field(default_factory=Counter)
     thumbnail_result: ArchiveResult | None = None
+    thumbnail_image_paths: tuple[tuple[str, str], ...] = ()
 
     @property
     def status_counts(self) -> Counter[str]:
@@ -228,21 +229,21 @@ class SnapshotListResults:
         ]
 
 
-def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotListResults]:
+def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = False) -> dict[Any, SnapshotListResults]:
     """Load a page of snapshots' results in one query, keyed by snapshot id.
 
     Embed paths and each snapshot's thumbnail card are resolved here, from the
     same rows, so rendering never queries per snapshot or per result.
     """
-    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, plugin_output_is_text
-    from archivebox.plugins.output_groups import snapshot_thumbnail_result
+    from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order, get_snapshot_thumbnail_image_names, plugin_output_is_text
+    from archivebox.plugins.output_groups import snapshot_thumbnail_image_paths, snapshot_thumbnail_result
 
     snapshots_by_hex = {snapshot.id.hex: snapshot for snapshot in snapshots}
     summaries = {snapshot_hex: SnapshotListResults() for snapshot_hex in snapshots_by_hex}
     if not summaries:
         return {}
 
-    card_plugins = get_snapshot_thumbnail_card_order()
+    card_plugins = get_snapshot_thumbnail_image_names(screenshots_only=True) if images_only else tuple(get_snapshot_thumbnail_card_order())
     # File icons open plugin cards, not individual files. Only favicons and
     # thumbnail candidates need a file path on a list page.
     links_output = Q(plugin__in=list(card_plugins)) | Q(
@@ -250,14 +251,17 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
         plugin__in=get_snapshot_role_names("list_icon"),
     )
     path_plugins = [name for name in set(card_plugins) | set(get_snapshot_role_names("list_icon")) if not plugin_output_is_text(name)]
+    icon_results = Q(status=ArchiveResult.StatusChoices.SUCCEEDED)
+    if images_only:
+        # The admin only opens piles for outputs with stored bytes.
+        icon_results &= Q(output_size__gt=0)
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
-        # Probe the existing (snapshot, plugin, hook) index only when needed.
-        # A window count sorted/copied the large manifests for the entire page;
-        # EXISTS avoids that work and stops at the first sibling hook.
+        # A second hook is enough to require the full manifest. Skipping the
+        # first index entry avoids reading a sibling row just to compare its id.
         .alias(
             has_sibling_result=Exists(
-                ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin")).exclude(id=OuterRef("id")),
+                ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin"))[1:2],
             ),
         )
         # Avoid copying full manifests into a database sort. Sort the small
@@ -275,15 +279,23 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             "output_str",
             Case(
                 When(has_sibling_result=True, then=Cast("output_files", output_field=TextField())),
+                # The admin may try another image from the same capture if its
+                # primary image is unavailable. These captures have small manifests.
+                When(plugin__in=list(card_plugins) if images_only else (), then=Cast("output_files", output_field=TextField())),
                 When(links_output & Q(plugin__in=path_plugins), then=_LinkManifest("output_files", "plugin", "output_str")),
                 When(links_output, then=Cast("output_files", output_field=TextField())),
                 default=Value(None),
                 output_field=TextField(),
             ),
-            Case(
-                When(status=ArchiveResult.StatusChoices.SUCCEEDED, then=_HasSavedOutput("output_files")),
-                default=Value(False),
-                output_field=BooleanField(null=True),
+            Cast(
+                # The icon selector only needs truthiness and a distinct NULL
+                # for legacy rows. Return that directly from both databases.
+                Case(
+                    When(icon_results, then=_HasSavedOutput("output_files")),
+                    default=Value(False),
+                    output_field=BooleanField(null=True),
+                ),
+                output_field=IntegerField(),
             ),
         )
     )
@@ -313,8 +325,9 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             # A single hook uses the stored size and caches its resolved link.
             # Only siblings reuse the parsed map to deduplicate shared files.
             result._retain_output_files = plugin_counts[result.plugin] > 1
-        card_row = snapshot_thumbnail_result(summary.results)
-        if card_row is not None:
+        if images_only:
+            summary.thumbnail_image_paths = tuple(snapshot_thumbnail_image_paths(summary.results, screenshots_only=True))
+        elif (card_row := snapshot_thumbnail_result(summary.results)) is not None:
             summary.thumbnail_result = _archive_result_from_row(card_row)
             # Card URLs may read result.snapshot; share the page's loaded parent.
             summary.thumbnail_result.snapshot = snapshots_by_hex[snapshot_hex]
