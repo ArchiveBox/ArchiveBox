@@ -633,9 +633,10 @@ def system_warnings_banner(context):
 
     config = context.get("CONFIG")
     if config is None:
-        from archivebox.config.common import get_config
+        from archivebox.config.common import get_config, get_request_config
 
-        config = get_config(resolve_plugins=False)
+        request = context.get("request")
+        config = get_request_config(request) if request is not None else get_config(resolve_plugins=False)
 
     if not config.BASE_URL and config.SERVER_SECURITY_MODE != "safe-onedomain-nojsreplay":
         return get_setup_wizard_context(context.get("request"), config)

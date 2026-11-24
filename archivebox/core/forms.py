@@ -6,7 +6,7 @@ from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from django import forms
 
 from archivebox.base_models.admin import KeyValueWidget
-from archivebox.config.common import get_config, host_config_keys, parse_delete_after
+from archivebox.config.common import get_config, get_request_config, host_config_keys, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
 from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget, URLFiltersWidget
@@ -354,7 +354,14 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             or persona_queryset.filter(name__iexact="Default").first()
             or persona_queryset.first()
         )
-        default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config)
+        machine_inputs = {}
+        if self.request is not None:
+            # Persona overrides still resolve independently, but every part of
+            # this request must use the same committed Machine settings.
+            get_request_config(self.request)
+            machine = self.request._archivebox_config_machine
+            machine_inputs = {"machine": machine, "include_machine": machine is not None}
+        default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config, **machine_inputs)
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
         self.fields["permissions"].initial = default_config.PERMISSIONS

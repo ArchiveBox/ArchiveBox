@@ -225,6 +225,7 @@ class TestMachineModel:
         assert Machine.current_readonly().config["USER_AGENT"] == "edited-here"
 
     def test_add_requests_see_machine_config_committed_by_another_process(self, client):
+        import json
         from django.contrib.auth import get_user_model
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
@@ -235,6 +236,9 @@ class TestMachineModel:
 
         user = get_user_model().objects.create_superuser(username="machine-config-reader", password="testpassword")
         Persona.get_or_create_default()
+        alternative = Persona.get_or_create_named("Research")
+        alternative.config = {"TIMEOUT": 63}
+        alternative.save(update_fields=["config"])
         client.force_login(user)
         first = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
         assert first.status_code == 200
@@ -267,7 +271,14 @@ class TestMachineModel:
         )
         assert updated.returncode == 0, updated.stderr
         assert Machine.objects.get(pk=machine.pk).config["FOOTER_INFO"] == footer
-        second = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+        with CaptureQueriesContext(connection) as request_queries:
+            second = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+        machine_reads = [
+            row["sql"] for row in request_queries if row["sql"].startswith("SELECT") and 'FROM "machine_machine"' in row["sql"]
+        ]
+        assert len(machine_reads) == 1, machine_reads
+        persona_configs = json.loads(second.context["persona_config_map_json"])
+        assert persona_configs["Research"]["effective_config"]["TIMEOUT"] == 63
         assert second.status_code == 200
         assert second.context["FOOTER_INFO"] == footer
         newer_footer = "Machine config committed after the request resolved"

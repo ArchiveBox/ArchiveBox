@@ -19,11 +19,15 @@ def get_static_cache_key() -> str:
 
 
 def archivebox_globals(request):
-    from archivebox.machine.models import Machine
+    from archivebox.config.common import get_request_config
 
+    machine = None
+    if getattr(getattr(request, "user", None), "is_superuser", False):
+        get_request_config(request)
+        machine = request._archivebox_config_machine
     return {
         "VERSION": VERSION,
         "STATIC_CACHE_KEY": get_static_cache_key(),
         "password_reset_enabled": settings.ALLAUTH_ENABLED and bool(settings.EMAIL_HOST),
-        "current_machine": Machine.current_readonly() if getattr(getattr(request, "user", None), "is_superuser", False) else None,
+        "current_machine": machine,
     }

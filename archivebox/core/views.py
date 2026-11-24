@@ -2094,9 +2094,19 @@ class AddView(UserPassesTestMixin, FormView):
         persona_queryset = context["form"].fields["persona"].queryset
         if not can_override_crawl_config:
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
-        # Public Add exposes only core capture defaults, not plugin settings.
+        # Personas share this request's Machine row; resolving their overrides
+        # must not re-fetch the same config once for every Persona in the menu.
+        machine = self.request._archivebox_config_machine
         persona_configs = [
-            (persona, get_config(persona=persona, resolve_plugins=can_override_crawl_config))
+            (
+                persona,
+                get_config(
+                    persona=persona,
+                    resolve_plugins=can_override_crawl_config,
+                    machine=machine,
+                    include_machine=machine is not None,
+                ),
+            )
             for persona in persona_queryset.order_by("name")
         ]
         # Personas share the installed binaries; only their configured names and
