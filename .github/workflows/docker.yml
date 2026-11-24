@@ -251,14 +251,13 @@ jobs:
           # a cache hit larger than the released image. :dev advances only
           # after both architectures pass the release checks.
           cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
-          # Inline metadata reuses the released compressed blobs directly;
-          # force-compression would recompress the whole ~740 MiB image. The
-          # compressed-size gate below remains the regression guard.
+          # Match the downloader's zstd compression and convert inherited
+          # gzip blobs. Inline metadata keeps these blobs reusable.
           cache-to: |
             ${{ inputs.push_digests && 'type=inline' || '' }}
           outputs: |
-            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=8', runner.temp) || '' }}
-            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=8', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=10,force-compression=true', runner.temp) || '' }}
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=10,force-compression=true', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
         id: docker_build_pr
@@ -278,8 +277,8 @@ jobs:
           # second cache whose compression can drift from the released image.
           cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
           outputs: |
-            type=docker,name=${{ matrix.local_tag }}
-            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
+            type=docker,name=${{ matrix.local_tag }},compression=zstd,compression-level=10,force-compression=true
+            type=oci,dest=${{ runner.temp }}/archivebox-image.tar,compression=zstd,compression-level=10,force-compression=true
 
       - name: Image digest
         if: inputs.push_digests
