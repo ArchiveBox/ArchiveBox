@@ -25,6 +25,7 @@ from archivebox.plugins.discovery import (
     discover_plugin_configs,
     get_plugin_catalog,
     get_plugin_default_output_path,
+    get_plugin_icon,
     get_plugin_name,
     get_snapshot_role_names,
     get_snapshot_role_result,
@@ -802,6 +803,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 process_records_by_crawl.setdefault(crawl_id, []).append((payload, proc_run_at))
 
         active_crawls = []
+        badge_icons = {}
         total_workers = len(running_worker_ids)
         # The header's "active" means captures in progress. STARTED rows also
         # include captures interrupted by a restart that wait for their crawl's
@@ -968,6 +970,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         "process_id": str(process.id) if process else None,
                         "admin_url": f"/admin/core/archiveresult/{ar.id}/change/",
                     }
+                    if status in (ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.PAUSED) and ar.plugin not in badge_icons:
+                        badge_icons[ar.plugin] = get_plugin_icon(ar.plugin)
                     output_path = output_paths[ar.id]
                     if output_path:
                         plugin_payload["output_path"] = output_path
@@ -1179,6 +1183,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
         if detail_key:
             cache.set(header_key, {k: v for k, v in payload.items() if k not in ("is_admin", "scope", "server_time")}, timeout=15)
         if include_tree:
+            if badge_icons:
+                payload["badge_icons"] = badge_icons
             payload["active_crawls"] = active_crawls
             payload["hidden_crawls"] = hidden_crawls
         _add_telemetry(payload, request)

@@ -734,6 +734,11 @@
         flex: 0 0 12px;
         text-align: center;
     }
+    #progress-monitor .badge-icon svg, #progress-monitor .badge-icon img {
+        width: 12px;
+        height: 12px;
+        vertical-align: middle;
+    }
     #progress-monitor .extractor-badge.started .badge-icon::before {
         content: '';
         display: block;
@@ -1302,23 +1307,7 @@
         }
     }
 
-    function getPluginIcon(plugin) {
-        const icons = {
-            'screenshot': '▧',
-            'chrome_mhtml': '▧',
-            'favicon': '◆',
-            'dom': '&lt;/&gt;',
-            'pdf': 'PDF',
-            'title': 'T',
-            'headers': '{}',
-            'singlefile': '▣',
-            'readability': 'R',
-            'mercury': 'M',
-            'wget': '↓',
-            'media': '▶',
-        };
-        return icons[plugin] || '•';
-    }
+    let badgeIcons = new Map();
 
     function formatDuration(seconds) {
         seconds = Math.max(0, Math.floor(seconds || 0));
@@ -1690,7 +1679,7 @@
                     status === 'failed' ? '✕' :
                     status === 'backoff' ? '↻' :
                     status === 'skipped' ? '–' :
-                    status === 'noresults' ? '∅' : getPluginIcon(extractor.plugin);
+                    status === 'noresults' ? '∅' : (badgeIcons.get(extractor.plugin) || '•');
         const href = extractor.output_url || extractor.admin_url || '';
         const hrefAttr = href ? ` href="${escapeAttr(href)}"` : '';
         const baseTitle = (extractor.output_path
@@ -2149,6 +2138,7 @@
         // Collapsed polls omit the tree (tree=0); keep the hidden DOM as-is.
         if (!data.active_crawls || !detailsVisible()) return;
 
+        badgeIcons = new Map(Object.entries(data.badge_icons || {}));
         updateScreencastPanel(data);
 
         // Render crawl tree
