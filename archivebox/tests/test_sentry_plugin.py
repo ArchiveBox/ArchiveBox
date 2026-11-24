@@ -657,9 +657,13 @@ for enabled in [False, True]:
             work_by_process.setdefault(span["resource"]["process.pid"], []).append(span)
     for sql in root_sql:
         work = work_by_process.get(sql["resource"]["process.pid"], [])
-        if sql["attributes"].get("thread.name") == "archivebox-importers":
-            # The importer reads its config once before entering its first poll.
-            work = [span for span in work if span["name"] == "archivebox.importers.service._background_run"]
+        # Worker threads initialize and stop independently: the importer may
+        # finish its final poll after MainThread records process shutdown.
+        # Executor threads without their own operation still use the process
+        # window, so losing a request's context is not mistaken for startup.
+        thread_work = [span for span in work if span["attributes"].get("thread.id") == sql["attributes"].get("thread.id")]
+        if thread_work:
+            work = thread_work
         if work:
             first = min(span["start_time_unix_nano"] for span in work)
             last = max(span["end_time_unix_nano"] for span in work)
