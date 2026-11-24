@@ -32,6 +32,10 @@ jobs:
     secrets: inherit
 
   install-cli-platform:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: prepare
     if: needs.prepare.outputs.run_jobs == 'true'
     name: Install and CLI platform compatibility
@@ -39,6 +43,10 @@ jobs:
     secrets: inherit
 
   tests:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: prepare
     if: needs.prepare.outputs.run_jobs == 'true'
     name: Discovered test matrix
@@ -53,6 +61,10 @@ jobs:
     secrets: inherit
 
   python-artifacts:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: prepare
     if: needs.prepare.outputs.run_jobs == 'true'
     name: Tested Python artifacts
