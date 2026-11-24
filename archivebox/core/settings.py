@@ -100,6 +100,7 @@ MIDDLEWARE = [
     "archivebox.core.middleware.HealthCheckMiddleware",
     "archivebox.core.middleware.TimezoneMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",
+    "archivebox.core.middleware.UIGZipMiddleware",
     "archivebox.core.middleware.AdminCookieIsolationMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

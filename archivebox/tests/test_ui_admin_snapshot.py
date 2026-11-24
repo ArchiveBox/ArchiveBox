@@ -1549,7 +1549,7 @@ class TestAdminSnapshotListView:
         assert len(single_snapshot_queries.captured_queries) == len(many_snapshot_queries.captured_queries)
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
-        """Changelist tag rendering should reuse the prefetched tag cache."""
+        """The changelist should bulk fetch the tag fields used by the editor."""
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import Snapshot, Tag
@@ -1570,12 +1570,16 @@ class TestAdminSnapshotListView:
             response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
-        per_row_tag_queries = [
+        tag_queries = [
             query["sql"]
             for query in ctx.captured_queries
-            if 'FROM "core_tag"' in query["sql"] and '"core_snapshot_tags"."snapshot_id"' in query["sql"] and " IN " not in query["sql"]
+            if 'FROM "core_tag"' in query["sql"] and '"core_snapshot_tags"."snapshot_id"' in query["sql"]
         ]
-        assert per_row_tag_queries == []
+        assert len(tag_queries) == 1
+        assert '"core_snapshot_tags"."snapshot_id" IN' in tag_queries[0]
+        assert '"core_tag"."id", "core_tag"."name" FROM' in tag_queries[0]
+        for tag in tags:
+            assert f'data-tag="{tag.name}"'.encode() in response.content
 
     def test_grid_view_renders(self, client, admin_user, snapshot):
         """Test that the grid view renders successfully."""
@@ -2332,14 +2336,39 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
         assert button.locator("svg").is_visible()
         assert button.locator("svg").bounding_box()["width"] == 18
         assert button.locator(".snapshot-permissions-icon").evaluate("(node) => getComputedStyle(node).color") == "rgb(148, 163, 184)"
-        button.click()
+        expect(page.locator("template[data-snapshot-permissions-menu]")).to_have_count(1)
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+        button.press("Enter")
+        selected_permission = row.get_by_role("menuitemradio", name="Unlisted")
+        expect(selected_permission).to_be_focused()
+        expect(selected_permission).to_have_attribute("aria-checked", "true")
+        selected_permission.press("Escape")
+        expect(button).to_be_focused()
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+        button.press("Enter")
+        selected_permission.press("ArrowUp")
+        public_permission = row.get_by_role("menuitemradio", name="Public")
+        expect(public_permission).to_be_focused()
+        public_permission.press("ArrowDown")
+        selected_permission.press("ArrowDown")
+        private_permission = row.get_by_role("menuitemradio", name="Private")
+        expect(private_permission).to_be_focused()
         with page.expect_response(lambda response: "set-permissions" in response.url and response.request.method == "POST") as saved:
-            row.locator('.snapshot-permissions-menu-item[data-permissions="private"]').click()
+            private_permission.press("Enter")
         assert saved.value.ok, (saved.value.status, saved.value.headers)
         page.wait_for_function("document.querySelectorAll('.snapshot-permissions-quick[data-current-permissions=private]').length === 2")
+        expect(button).to_be_focused()
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
         assert button.locator("svg").is_visible()
         page.set_viewport_size({"width": 390, "height": 900})
         assert row.locator(".snapshot-row-permission").get_attribute("aria-label") == "Private"
+        page.set_viewport_size({"width": 1920, "height": 1000})
+        page.goto(admin_url + reverse("admin:crawls_crawl_change", args=[crawl.pk]))
+        panel = page.locator(".snapshot-changelist-widget")
+        expect(panel.locator("template[data-snapshot-permissions-menu]")).to_have_count(1)
+        row = panel.locator("#result_list tbody tr").filter(has_text=title)
+        row.locator(".snapshot-permissions-button").click()
+        expect(row.get_by_role("menuitemradio", name="Private")).to_have_attribute("aria-checked", "true")
         browser.close()
     today.refresh_from_db()
     assert today.permissions == "private"

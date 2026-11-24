@@ -10,10 +10,11 @@
         popup.className = 'files-icon-pile-popup';
         popup.popover = 'manual';
         popup.style.setProperty('--files-icon-rows', Math.ceil(icons.length / 5));
-        icons.forEach(([plugin, fragment], index) => {
+        icons.forEach((member, index) => {
+            const [plugin, fragment] = Array.isArray(member) ? member : [member, null];
             const artwork = document.getElementById('abx-file-icon-' + plugin);
             const link = document.createElement('a');
-            link.href = cover.href + fragment;
+            link.href = cover.href + (fragment ?? artwork?.dataset.fragment ?? '');
             link.className = 'files-icon-plugin--' + plugin;
             link.dataset.tooltip = plugin;
             link.setAttribute('aria-label', artwork?.dataset.label || plugin);

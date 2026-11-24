@@ -36,9 +36,12 @@ def _file_pile_plugin_order(html, group=None):
             if token.startswith("files-icon-plugin--")
         )
         if data := pile.get("data-files-icons"):
-            for plugin, fragment in json.loads(data):
+            for member in json.loads(data):
+                plugin, fragment = (member, None) if isinstance(member, str) else member
+                artwork = document.get_element_by_id(f"abx-file-icon-{plugin}")
+                assert artwork.tag == "template"
+                fragment = fragment or artwork.get("data-fragment")
                 assert fragment.startswith("#")
-                assert document.get_element_by_id(f"abx-file-icon-{plugin}").tag == "template"
                 plugins.append(plugin)
     return plugins
 
@@ -83,10 +86,14 @@ def test_icon_piles_match_detail_stack_priority(snapshot, client, settings, surf
     ]
 
     if surface == "admin":
+        from lxml.html import fromstring
+
         model_admin = SnapshotAdmin(Snapshot, AdminSite())
         model_admin.request = RequestFactory().get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
         model_admin.request.archivebox_config = ServerConfig()
         rendered = str(model_admin.files(snapshot))
+        article_pile = fromstring(rendered).find_class("files-icon-pile--article_text")[0]
+        assert ["readability", "#readability/content.html"] in json.loads(article_pile.get("data-files-icons"))
     elif surface in {"public", "started"}:
         settings.PUBLIC_INDEX = True
         snapshot.permissions = "public"

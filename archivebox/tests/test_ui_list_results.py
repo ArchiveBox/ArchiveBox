@@ -397,7 +397,11 @@ def _rendered_fragments(row_html):
     """Every icon destination in a row, including deferred admin popups."""
     piles = fromstring(row_html).find_class("files-icon-pile")
     if any(pile.get("data-files-icons") is not None for pile in piles):
-        return dict(item for pile in piles for item in json.loads(pile.get("data-files-icons")))
+        return dict(
+            (item, build_snapshot_detail_path("", output_path=get_plugin_name(item), prefix="")) if isinstance(item, str) else item
+            for pile in piles
+            for item in json.loads(pile.get("data-files-icons"))
+        )
     fragments = {}
     for href, plugin in re.findall(r'<a href="([^"]*)" class="[^"]*files-icon-plugin--([a-z0-9_]+)', row_html):
         fragment = "#" + unescape(href).split("#", 1)[1]
@@ -505,10 +509,14 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries, images_only=True)
     html = response.content.decode()
-    used = {plugin for pile in fromstring(html).find_class("files-icon-pile") for plugin, _ in json.loads(pile.get("data-files-icons"))}
+    document = fromstring(html)
+    used = {plugin for pile in document.find_class("files-icon-pile") for plugin in json.loads(pile.get("data-files-icons"))}
     defined = re.findall(r'<template id="abx-file-icon-([a-z0-9_]+)"', html)
     assert len(defined) == len(set(defined))
     assert set(defined) == used, "the list must not ship artwork for plugins absent from its rows"
+    for plugin in used:
+        template = document.get_element_by_id(f"abx-file-icon-{plugin}")
+        assert template.get("data-fragment") == fragments.get(plugin, f"#{plugin}")
 
 
 def test_admin_grid_keeps_running_and_sealed_cards_without_hidden_file_icons(client, admin_user, list_collection):

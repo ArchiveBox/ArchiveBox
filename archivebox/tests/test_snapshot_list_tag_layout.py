@@ -23,6 +23,11 @@ def test_snapshot_list_select_all_aligns_with_grid_toggle(browser_runtime, live_
 
             controls = page.locator("#snapshot-view-toggle, #action-toggle, #result_list tbody .action-select")
             expect(controls).to_have_count(4)
+            scripts = page.locator("script[src]").evaluate_all(
+                "nodes => Object.fromEntries(nodes.map(node => [new URL(node.src).pathname.split('/').pop(), node.defer]))",
+            )
+            assert scripts.get("jsi18n.js") and scripts.get("actions.js")
+            assert not any("jquery" in name or "select2" in name or "xregexp" in name for name in scripts)
             for width, sidebar_visible in ((1920, True), (1440, True), (1440, False)):
                 if sidebar_visible:
                     page.set_viewport_size({"width": width, "height": 1000})

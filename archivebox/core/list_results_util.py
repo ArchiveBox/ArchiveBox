@@ -257,12 +257,11 @@ def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = 
         icon_results &= Q(output_size__gt=0)
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
-        # Probe the existing (snapshot, plugin, hook) index only when needed.
-        # A window count sorted/copied the large manifests for the entire page;
-        # EXISTS avoids that work and stops at the first sibling hook.
+        # A second hook is enough to require the full manifest. Skipping the
+        # first index entry avoids reading a sibling row just to compare its id.
         .alias(
             has_sibling_result=Exists(
-                ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin")).exclude(id=OuterRef("id")),
+                ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin"))[1:2],
             ),
         )
         # Avoid copying full manifests into a database sort. Sort the small

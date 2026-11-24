@@ -37,6 +37,25 @@ def test_completed_search_browsing(live_server, admin_user, crawl, browser_runti
         page.wait_for_load_state("networkidle")
         assert len(streams) == 1
 
+        # The last streamed row uses the panel's one permission menu template.
+        expect(page.locator("template[data-snapshot-permissions-menu]")).to_have_count(1)
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+        row = page.locator("#result_list tbody tr").last
+        snapshot_id = row.get_attribute("data-snapshot-id")
+        permissions = row.locator(".snapshot-permissions-quick")
+        current = permissions.get_attribute("data-current-permissions")
+        selected = "private" if current != "private" else "unlisted"
+        action_url = permissions.get_attribute("data-permissions-url")
+        permissions.locator(".snapshot-permissions-button").click()
+        expect(permissions.get_by_role("menuitemradio", name=current.title())).to_have_attribute("aria-checked", "true")
+        with page.expect_response(
+            lambda response: urlsplit(response.url).path == action_url and response.request.method == "POST"
+        ) as saved:
+            permissions.get_by_role("menuitemradio", name=selected.title()).click()
+        assert saved.value.ok
+        expect(permissions).to_have_attribute("data-current-permissions", selected)
+        expect(page.locator(".snapshot-permissions-menu")).to_have_count(0)
+
         def ids():
             return page.locator("#result_list input.action-select").evaluate_all("(els)=>els.map(e=>e.value)")
 
@@ -67,3 +86,4 @@ def test_completed_search_browsing(live_server, admin_user, crawl, browser_runti
         assert len(streams) == 1, f"History restarted search: {len(streams)}"
         print("Completed search: 65 matches, pages50/15, title asc/desc exact, Back/Forward exact, total streams=1")
         browser.close()
+    assert Snapshot.objects.get(pk=snapshot_id).permissions == selected

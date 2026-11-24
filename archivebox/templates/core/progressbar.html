@@ -16,33 +16,26 @@
     @-moz-keyframes bugfix { from { padding-right: 1px ; } to { padding-right: 0; } }
 </style>
 <script>
-    // Page Loading Bar
-    const archiveboxJQuery = (window.django && window.django.jQuery) || window.jQuery;
+    let progressInterval;
     window.loadStart = function(distance) {
-        if (!archiveboxJQuery) return;
-        var distance = distance || 0;
-        // only add progrstess bar if not already present
-        if (archiveboxJQuery("#loading-bar").length == 0) {
-            archiveboxJQuery("body").add("<div id=\"loading-bar\"></div>");
-        }
-        if (archiveboxJQuery("#progress").length === 0) {
-            archiveboxJQuery("body").append(archiveboxJQuery("<div></div>").attr("id", "progress"));
-            let last_distance = (distance || (30 + (Math.random() * 30)))
-            document.getElementById("progress")?.style.setProperty("width", last_distance + "%");
-            setInterval(function() {
-                last_distance += Math.random()
-                document.getElementById("progress")?.style.setProperty("width", last_distance + "%");
-            }, 1000)
-        }
+        if (document.getElementById('progress')) return;
+        const progress = document.createElement('div');
+        progress.id = 'progress';
+        document.body.append(progress);
+        let position = distance || 30 + Math.random() * 30;
+        progress.style.width = position + '%';
+        progressInterval = setInterval(function() {
+            position += Math.random();
+            progress.style.width = position + '%';
+        }, 1000);
     };
 
     window.loadFinish = function() {
-        if (!archiveboxJQuery) return;
-        const progress = archiveboxJQuery("#progress");
-        progress[0]?.style.setProperty("width", "101%");
-        window.setTimeout(function() {
-            progress.remove();
-        }, 600);
+        clearInterval(progressInterval);
+        const progress = document.getElementById('progress');
+        if (!progress) return;
+        progress.style.width = '101%';
+        window.setTimeout(() => progress.remove(), 600);
     };
     window.loadStart();
     window.addEventListener('beforeunload', function() {window.loadStart(27)});
