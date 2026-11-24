@@ -133,6 +133,103 @@ def test_sentry_disabled_never_imports_sdk(initialized_archive, dsn, free_tcp_po
         stop_archivebox_process(server)
 
 
+@pytest.mark.parametrize("send_pii", [True, False])
+def test_sentry_forwarded_client_address(initialized_archive, httpserver, free_tcp_port, send_pii):
+    httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({})
+    httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
+        b"",
+        content_type="application/x-protobuf",
+    )
+    run_archivebox_cmd(["install", "sentry"], cwd=initialized_archive, env={"SENTRY_ENABLED": "false"}, check=True, timeout=120)
+    dsn = httpserver.url_for("/1").replace("http://", "http://public@")
+    run_archivebox_cmd(
+        [
+            "config",
+            "--set",
+            "SENTRY_ENABLED=True",
+            f"SENTRY_DSN={dsn}",
+            "SENTRY_TRACES_SAMPLE_RATE=1",
+            "SENTRY_ENABLE_LOGS=True",
+            f"SENTRY_SEND_DEFAULT_PII={send_pii}",
+        ],
+        cwd=initialized_archive,
+        env={"SENTRY_ENABLED": "false"},
+        check=True,
+    )
+    create_admin_and_token(initialized_archive)
+    cases = {
+        "ipv4": ("198.51.100.23, 172.19.0.3", "198.51.100.23"),
+        "ipv6": ("2001:db8::23, 172.19.0.3", "2001:db8::23"),
+        "invalid": ("unknown, 172.19.0.3", None),
+        "direct": (None, None),
+    }
+    server = start_archivebox_server(
+        initialized_archive,
+        port=free_tcp_port,
+        env={"DEBUG": "False"},
+        log_name="sentry-forwarded-server.log",
+    )
+    try:
+        for name, (forwarded, _) in cases.items():
+            headers = {"Host": "localhost", "Remote-User": "apitestadmin"}
+            if forwarded:
+                headers["X-Forwarded-For"] = forwarded
+            response = requests.get(f"http://127.0.0.1:{free_tcp_port}/admin/login/?case={name}", headers=headers, timeout=10)
+            assert response.status_code == 200
+            # Forwarded telemetry must not authenticate a Remote-User header.
+            assert '"user": null' in response.text
+        response = requests.get(
+            f"http://127.0.0.1:{free_tcp_port}/admin/login/",
+            headers={"Host": "invalid_host", "X-Forwarded-For": cases["ipv4"][0]},
+            timeout=10,
+        )
+        assert response.status_code == 400
+    finally:
+        stop_archivebox_process(server)
+    spans = []
+    items = []
+    for request, _ in httpserver.log:
+        data = gzip.decompress(request.data) if request.headers.get("Content-Encoding") == "gzip" else request.data
+        if not request.path.endswith("/otlp/v1/traces/"):
+            envelope = BytesIO(data)
+            json.loads(envelope.readline())
+            while header := envelope.readline():
+                metadata = json.loads(header)
+                if "length" in metadata:
+                    payload = json.loads(envelope.read(metadata["length"]))
+                    envelope.readline()
+                else:
+                    payload = json.loads(envelope.readline())
+                items.append((metadata["type"], payload))
+            continue
+        for resource in ExportTraceServiceRequest.FromString(data).resource_spans:
+            for scope in resource.scope_spans:
+                for span in scope.spans:
+                    if span.kind == 2:
+                        spans.append({a.key: getattr(a.value, a.value.WhichOneof("value")) for a in span.attributes})
+    (initialized_archive / "sentry-forwarded-spans.json").write_text(json.dumps(spans))
+    logs = [item for kind, payload in items if kind == "log" for item in payload["items"]]
+    failure = next(payload for kind, payload in items if kind == "event" and payload.get("logger") == "django.security.DisallowedHost")
+    if send_pii:
+        assert failure["user"]["ip_address"] == cases["ipv4"][1]
+    else:
+        assert "ip_address" not in failure.get("user", {})
+    for name, (_, address) in cases.items():
+        attrs = next(a for a in spans if a.get("http.url", a.get("url.full", "")).endswith(f"?case={name}"))
+        access = next(item for item in logs if f"?case={name} " in item["body"])
+        assert attrs["net.peer.ip"] == "127.0.0.1"
+        if send_pii and address:
+            assert attrs["client.address"] == address
+            assert attrs["user.ip_address"] == address
+            assert access["attributes"]["client.address"]["value"] == address
+            assert access["attributes"]["user.ip_address"]["value"] == address
+        else:
+            assert "client.address" not in attrs
+            assert "user.ip_address" not in attrs
+            assert "client.address" not in access["attributes"]
+            assert "user.ip_address" not in access["attributes"]
+
+
 def test_sentry_asgi_transport_cancellation(initialized_archive, httpserver):
     httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({})
     httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
