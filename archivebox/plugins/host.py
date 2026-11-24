@@ -474,7 +474,6 @@ class ArchiveBoxHost:
     def process_records(self, request, *, after=None, ids=(), limit=128):
         """Bounded current-machine processes plus newly created lifecycle rows."""
         from archivebox.machine.models import Machine, Process
-        from archivebox.core.models import Snapshot
 
         self._require_collection_admin(request)
         limit = min(max(limit, 1), 128)
@@ -496,7 +495,13 @@ class ArchiveBoxHost:
         snapshot_ids = list(
             dict.fromkeys(row["archiveresult__snapshot_id"] for row in [*active, *rows, *tracked] if row["archiveresult__snapshot_id"]),
         )[:16]
-        directories = {
+        return {"records": records, "cursor": cursor, "output_dirs": self._snapshot_output_dirs(snapshot_ids)}
+
+    @staticmethod
+    def _snapshot_output_dirs(snapshot_ids):
+        from archivebox.core.models import Snapshot
+
+        return {
             str(snapshot.pk): str(snapshot.get_storage_path_for_version(snapshot.fs_version))
             for snapshot in Snapshot.objects.filter(pk__in=snapshot_ids)
             .select_related("crawl__created_by")
@@ -511,10 +516,46 @@ class ArchiveBoxHost:
                 "crawl__created_by__username",
             )
         }
-        return {"records": records, "cursor": cursor, "output_dirs": directories}
 
     def process_history_records(self, request, *, before=None, since=None, limit=128):
         """Page recorded downloads for the collection across machine identities."""
+        self._require_collection_admin(request)
+        reporters = self.download_reporters(request, self.plugin_catalog())
+        return self._process_history_page(request, reporters, before, since, limit)
+
+    def process_artifact_history_records(self, request, *, plugin, before=None, since=None, limit=32):
+        """Page completed plugin captures with their saved output directories."""
+        page = self._process_history_page(request, (plugin,), before, since, limit)
+        page["output_dirs"] = self._snapshot_output_dirs({row["archiveresult__snapshot_id"] for row in page["records"]})
+        return page
+
+    def bandwidth_groups(self, request, *, before=None, limit=256):
+        """Page the collection's crawl, plugin, and interface identities."""
+        from archivebox.core.models import ArchiveResult
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import NetworkInterface
+
+        self._require_collection_admin(request)
+        limit = min(max(limit, 1), 256)
+        crawls = Crawl.objects.order_by("-pk")
+        if before:
+            crawls = crawls.filter(pk__lt=UUID(before))
+        rows = list(crawls.values_list("pk", "label")[: limit + 1])
+        plugins, interfaces = [], {}
+        if not before:
+            plugins = list(ArchiveResult.objects.exclude(plugin="").order_by("plugin").values_list("plugin", flat=True).distinct())
+            for name, local, wan in (
+                NetworkInterface.objects.exclude(iface="").order_by("-modified_at", "-pk").values_list("iface", "ip_local", "ip_public")
+            ):
+                interfaces.setdefault(name, {"local": local, "wan": wan})
+        return {
+            "crawls": [(str(pk), label) for pk, label in rows[:limit]],
+            "plugins": plugins,
+            "interfaces": interfaces,
+            "cursor": str(rows[limit - 1][0]) if len(rows) > limit else None,
+        }
+
+    def _process_history_page(self, request, plugins, before, since, limit):
         from datetime import timedelta
 
         from django.utils import timezone
@@ -524,7 +565,6 @@ class ArchiveBoxHost:
 
         self._require_collection_admin(request)
         limit = min(max(limit, 1), 128)
-        reporters = self.download_reporters(request, self.plugin_catalog())
         before_id = UUID(before) if before else None
         complete = Process.objects.filter(status=Process.StatusChoices.EXITED, ended_at__isnull=False)
         if since:
@@ -539,12 +579,12 @@ class ArchiveBoxHost:
             ).order_by()
             if before_id:
                 recent = recent.filter(pk__lt=before_id)
-            query = complete.filter(pk__in=recent.values("pk"), archiveresult__plugin__in=reporters)
+            query = complete.filter(pk__in=recent.values("pk"), archiveresult__plugin__in=plugins)
             ids = list(query.order_by("-pk").values_list("pk", flat=True)[: limit + 1])
         else:
             # Select a bounded page of actual reporter results before reading
             # Process rows. Old or incomplete captures can yield an empty page.
-            reports = ArchiveResult.objects.filter(plugin__in=reporters, process_id__isnull=False)
+            reports = ArchiveResult.objects.filter(plugin__in=plugins, process_id__isnull=False)
             if before_id:
                 reports = reports.filter(process_id__lt=before_id)
             ids = list(reports.order_by("-process_id").values_list("process_id", flat=True)[: limit + 1])
