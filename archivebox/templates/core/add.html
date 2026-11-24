@@ -119,6 +119,13 @@
                                 <button type="button" class="folder-new">＋ New folder</button>
                             </div>
                             {{ form.folder }}
+                            <script>
+                                {
+                                    const folderPicker = document.getElementById('id_folder');
+                                    folderPicker.inert = true;
+                                    folderPicker.setAttribute('aria-disabled', 'true');
+                                }
+                            </script>
                             {% if form.folder.errors %}<div class="error">{{ form.folder.errors }}</div>{% endif %}
                         </div>
                         {% endif %}

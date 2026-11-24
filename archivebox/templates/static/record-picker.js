@@ -291,6 +291,10 @@
       if (nativeFolder) search();
     };
     if (renderedInput) input.disabled = false;
+    if (select.inert && select.getAttribute("aria-disabled") === "true") {
+      select.inert = false;
+      select.removeAttribute("aria-disabled");
+    }
     mounted.set(select, { input, reset });
     return mounted.get(select);
   }
