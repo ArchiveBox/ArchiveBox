@@ -251,6 +251,7 @@ def version(
     seen_failures: set[str] = set()
 
     from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
+    from archivebox.search.backends import get_available_backends
     from abx_dl.config import get_required_binary_requests
     from abx_dl.dependencies import resolve_binary_requests
     from abx_dl.orchestrator import create_bus
@@ -258,6 +259,7 @@ def version(
 
     plugins = get_plugin_catalog()
     enabled_plugin_names = set(get_enabled_plugins(config=config))
+    available_search_plugins = {plugin.name for plugin in get_available_backends(config).values()}
     runtime_config = normalize_runtime_config(dict(config.items()), json_safe=False)
     derived_config: dict[str, object] = {}
     if in_data_dir:
@@ -340,6 +342,10 @@ def version(
             for dependency in plugins.select([plugin_name]).values()
             if not config.get(dependency.enabled_key, True)
         )
+        if plugin_enabled and plugin.config.search_scan and plugin_name not in available_search_plugins:
+            # The scanner cannot run under this configuration; its binaries aren't required.
+            plugin_enabled = False
+            disabled_by = "search backend configuration"
         binary_records = binary_records_by_plugin[plugin_name]
         for binary_record in binary_records:
             binary_record["no_cache"] = no_cache

@@ -471,7 +471,21 @@ def test_relevance_orders_domain_url_title_metadata_then_index(crawl):
     ]
 
 
-def test_scan_is_only_available_without_a_configured_index(crawl):
+@pytest.fixture(scope="session")
+def ripgrep_binary():
+    from abx_plugins.plugins.base.utils import load_required_binary_from_config
+
+    binary = load_required_binary_from_config(
+        "rg",
+        get_plugins_dir() / "search_backend_ripgrep" / "config.json",
+        global_config={"RIPGREP_BINARY": "rg"},
+        install=True,
+    )
+    assert binary.loaded_abspath is not None
+    return str(binary.loaded_abspath)
+
+
+def test_scan_is_only_available_without_a_configured_index(crawl, ripgrep_binary):
     from archivebox.search.backends import get_available_backends, get_backend
     from archivebox.search.config import get_search_mode
     from archivebox.search.query import apply_snapshot_search
@@ -495,6 +509,7 @@ def test_scan_is_only_available_without_a_configured_index(crawl):
                 "SEARCH_BACKEND_SONIC_ENABLED": sonic,
                 "SEARCH_BACKEND_SQLITE_ENABLED": sqlite,
                 "SEARCH_BACKEND_RIPGREP_ENABLED": True,
+                "RIPGREP_BINARY": ripgrep_binary,
             },
         )
         assert get_backend(config).name == f"search_backend_{expected}"
@@ -515,7 +530,7 @@ def test_scan_is_only_available_without_a_configured_index(crawl):
     assert not list(SnapshotSearch(scope, "content-only-needle", config=disabled).stream())
 
 
-def test_ripgrep_budget_is_shared_across_pages_and_negation(crawl):
+def test_ripgrep_budget_is_shared_across_pages_and_negation(crawl, ripgrep_binary):
     import time
     from archivebox.search.interpreter import EXTERNAL_SLOTS, SCAN_SECONDS
 
@@ -525,6 +540,7 @@ def test_ripgrep_budget_is_shared_across_pages_and_negation(crawl):
             "SEARCH_BACKEND_SONIC_ENABLED": False,
             "SEARCH_BACKEND_SQLITE_ENABLED": False,
             "SEARCH_BACKEND_RIPGREP_ENABLED": True,
+            "RIPGREP_BINARY": ripgrep_binary,
         },
     )
     scope = Snapshot.objects.filter(crawl=crawl)
