@@ -1,6 +1,6 @@
 {% load static %}
 {% if request.user.is_active and request.user.is_staff and perms.crawls.add_crawl %}
-<link rel="stylesheet" href="{% static 'admin/crawl-upload.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+<link rel="stylesheet" href="{% static 'admin/crawl-upload.css' %}">
 <div id="crawl-drop-overlay" data-add-url="{% url 'add' %}" hidden>
   <section class="crawl-drop-card" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="crawl-drop-title">
     <svg class="crawl-drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M24 30V8m-8 8 8-8 8 8M9 30v9a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2v-9"/></svg>
@@ -10,6 +10,6 @@
     <button id="crawl-drop-close" type="button" hidden>Close</button>
   </section>
 </div>
-<script src="{% static 'add-input-handoff.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
-<script src="{% static 'admin/crawl-upload.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
+<script src="{% static 'add-input-handoff.js' %}" defer></script>
+<script src="{% static 'admin/crawl-upload.js' %}" defer></script>
 {% endif %}

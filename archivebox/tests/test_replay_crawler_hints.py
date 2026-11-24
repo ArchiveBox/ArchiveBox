@@ -28,8 +28,7 @@ ASSISTANT_AGENTS = [
 
 
 @pytest.mark.django_db(transaction=True)
-def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapshot, live_server, client):
-    django_client = client
+def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapshot, live_server):
     machine = Machine.current()
     machine.config = {
         **machine.config,
@@ -120,17 +119,12 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
             assert preview.status_code == 200, agent
             assert preview.headers["X-Robots-Tag"] == "noindex, follow"
 
-        # The live_server fixture intercepts /static outside Django middleware.
-        # Exercise the application's real static route for its UA cache policy.
-        asset = django_client.get("/static/typography.css", HTTP_HOST=detail_url.netloc)
+        asset_url = f"{live_server.url}/static/typography.css"
+        asset = client.get(asset_url, headers={"Host": detail_url.netloc}, timeout=10)
         assert asset.status_code == 200
         assert "User-Agent" in asset.headers["Vary"]
         asset.close()
-        training_asset = django_client.get(
-            "/static/typography.css",
-            HTTP_HOST=detail_url.netloc,
-            HTTP_USER_AGENT="GPTBot/1.4",
-        )
+        training_asset = client.get(asset_url, headers={"Host": detail_url.netloc, "User-Agent": "GPTBot/1.4"}, timeout=10)
         assert training_asset.status_code == 403
 
         snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}

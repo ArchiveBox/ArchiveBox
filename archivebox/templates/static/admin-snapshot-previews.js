@@ -1,5 +1,9 @@
 /* Admin list previews: create a real iframe only when its thumbnail is visible. */
-(() => {
+(function observeSnapshotPreviews() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observeSnapshotPreviews, {once: true});
+        return;
+    }
     const selector = 'template[data-admin-preview]';
     const load = holder => {
         const template = holder.querySelector(selector);

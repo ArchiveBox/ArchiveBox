@@ -1,8 +1,8 @@
 {% extends "admin/base.html" %}{% load static %}
 {% block title %}Rules{% endblock %}
 {% block bodyclass %}{{ block.super }} webhook-page{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'api/webhooks.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">{% endblock %}
-{% block extrahead %}{{ block.super }}<script src="{% static 'api/webhooks.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'api/webhooks.css' %}">{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'api/webhooks.js' %}" defer></script>{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="/admin/">Admin</a> &rsaquo; Rules</div>{% endblock %}
 {% block content %}
 <div class="webhooks" id="webhooks" data-url="{% url 'webhooks:index' %}" data-api-url="/api/v1/openapi.json">

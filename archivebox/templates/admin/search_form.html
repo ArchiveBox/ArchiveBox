@@ -23,7 +23,7 @@
         onclick="return selectSnapshotGridView(event)"
       ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
     {% endif %}
-    {% include "core/folder_context.html" %}
+    {% include "core/folder_context.html" with admin_sidebar=True %}
 {% endif %}
 {% if cl.inline_tag_create %}<div class="tag-list-create">{{ cl.inline_tag_create }}</div>{% endif %}
 {% if cl.embedded_changelist %}
@@ -33,7 +33,7 @@
 {% endif %}
 <div><!-- DIV needed for valid HTML -->
 {% if cl.opts.model_name == 'snapshot' and not cl.embedded_changelist %}
-{% search_field cl.query %}
+{% with search_field_assets_in_head=True %}{% search_field cl.query %}{% endwith %}
 {% if cl.params.search_mode %}<input type="hidden" name="search_mode" value="{{ cl.search_mode }}">{% endif %}
 {% else %}
 <span class="search-input-wrap">
@@ -66,7 +66,8 @@
     class="button filter-pane-toggle"
     id="changelist-toolbar-filter-toggle"
     aria-expanded="false"
-  >{% translate "Filters" %} ▸</button>
+  ><span class="filters-open-label">{% translate "Filters" %} ◂</span><span class="filters-closed-label">{% translate "Filters" %} ▸</span></button>
+  <script>document.currentScript.previousElementSibling.setAttribute('aria-expanded', String(!document.body.classList.contains('filters-collapsed')));</script>
 {% endif %}
 </div>
 </div>

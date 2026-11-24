@@ -5,7 +5,7 @@
 
 {% block extrastyle %}{{ block.super }}
 <link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
-<link rel="stylesheet" href="{% static 'archivebox/auth/login.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+<link rel="stylesheet" href="{% static 'archivebox/auth/login.css' %}">
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} login auth-login{% endblock %}

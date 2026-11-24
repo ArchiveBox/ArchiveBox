@@ -17,17 +17,19 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
 
+from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
 from django.template import TemplateDoesNotExist, loader
 from django.utils._os import safe_join
-from django.utils.cache import patch_vary_headers
+from django.utils.cache import get_conditional_response, patch_vary_headers
 from django.utils.http import content_disposition_header, http_date
 from django.utils.translation import gettext as _
 from django.views import static
 from markdown import markdown
 
 from archivebox.config.common import get_config
+from archivebox.core.context_processors import get_static_cache_key
 from archivebox.misc.logging_util import printable_filesize
 from abx_plugins.plugins.base.html import Resources
 from abx_plugins.plugins.base.django import RangedFileReader, _is_asgi_request, _stream_ranged_file_async
@@ -929,7 +931,14 @@ def _apply_archive_replay_headers(
     return response
 
 
-def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool = False):
+def serve_static_with_byterange_support(
+    request,
+    path,
+    document_root=None,
+    show_indexes=False,
+    is_archive_replay: bool = False,
+    check_modified_since=True,
+):
     """
     Overrides Django's built-in django.views.static.serve function to support byte range requests.
     This allows you to do things like seek into the middle of a huge mp4 or WACZ without downloading the whole file.
@@ -1071,7 +1080,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     preview_as_image_html = bool(request.GET.get("preview")) and not thumbnail and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
     if (
-        not request.GET.get("preview")
+        check_modified_since
+        and not request.GET.get("preview")
         and not enrich_document
         and not content_type.startswith(("text/plain", "text/html"))
         and not static.was_modified_since(
@@ -1522,7 +1532,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     )
 
 
-def serve_static(request, path, **kwargs):
+def serve_static(request, path, version=None, **kwargs):
     """
     Serve static files below a given point in the directory structure or
     from locations inferred from the staticfiles finders.
@@ -1545,7 +1555,27 @@ def serve_static(request, path, **kwargs):
             raise Http404("Directory indexes are not allowed here.")
         raise Http404(f"'{path}' could not be found")
     document_root, path = os.path.split(absolute_path)
-    return serve_static_with_byterange_support(request, path, document_root=document_root, **kwargs)
+    if request.GET.get("preview"):
+        return serve_static_with_byterange_support(request, path, document_root=document_root, **kwargs)
+
+    source = Path(absolute_path)
+    try:
+        file_stat = source.stat()
+    except OSError as exc:
+        raise Http404(f"'{normalized_path}' could not be found") from exc
+    cache_key = get_static_cache_key()
+    etag = f'"{cache_key}:{file_stat.st_mtime_ns}:{file_stat.st_size}"'
+    modified = int(file_stat.st_mtime)
+    response = get_conditional_response(request, etag=etag, last_modified=modified)
+    if response is None:
+        response = serve_static_with_byterange_support(request, path, document_root=document_root, check_modified_since=False, **kwargs)
+    if response.status_code in (200, 206, 304):
+        response.headers["ETag"] = etag
+        response.headers["Last-Modified"] = http_date(modified)
+        custom_asset = settings.CUSTOM_TEMPLATES_ENABLED and source.is_relative_to(settings.STATICFILES_DIRS[0])
+        immutable = version == cache_key and not request.GET and not settings.DEBUG and not custom_asset
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "public, no-cache"
+    return response
 
 
 def parse_range_header(header, resource_size):

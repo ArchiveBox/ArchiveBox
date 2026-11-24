@@ -548,15 +548,18 @@
     paint();
   }
   function mount(container) {
+    if (container.matches?.('.abx-search-field')) init(container);
     container.querySelectorAll('.abx-search-field').forEach(init);
   }
   window.archiveboxSearchField = mount;
-  mount(document);
-  new MutationObserver(records => {
-    for (const record of records) for (const node of record.addedNodes) {
-      if (node.nodeType === 1 && !node.closest('.abx-search-field[data-ready]')) {
-        if (node.matches('.abx-search-field')) init(node); else mount(node);
+  function observeFields() {
+    mount(document);
+    new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node.nodeType === 1 && !node.closest('.abx-search-field[data-ready]')) mount(node);
       }
-    }
-  }).observe(document.body,{childList:true,subtree:true});
+    }).observe(document.body,{childList:true,subtree:true});
+  }
+  if (document.body) observeFields();
+  else document.addEventListener('DOMContentLoaded', observeFields, {once:true});
 })();

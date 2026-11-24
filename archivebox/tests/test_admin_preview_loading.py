@@ -10,13 +10,11 @@ pytestmark = pytest.mark.django_db
 
 
 def test_admin_preview_loader_uses_release_cache_key(admin_client):
-    from django.utils.http import urlencode
-
     response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
 
     assert response.status_code == 200
-    query = urlencode({"v": response.context["STATIC_CACHE_KEY"]})
-    assert f'/static/admin-snapshot-previews.js?{query}"' in response.content.decode()
+    version = response.context["STATIC_CACHE_KEY"]
+    assert f'/static/v/{version}/admin-snapshot-previews.js"' in response.content.decode()
 
 
 def test_only_admin_thumbnail_defers_card_navigation(snapshot):

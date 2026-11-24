@@ -6,8 +6,9 @@
 {% block search_stream_head %}{% url 'public-search-stream' as endpoint %}{% if public_search_stream_pending %}{% include 'includes/search_stream_head.html' with complete=False mode=search_mode %}{% else %}{% include 'includes/search_stream_head.html' with complete=True mode=search_mode %}{% endif %}{% endblock %}
 {% block jquery %}<script defer src="{% static 'jquery.min.js' %}"></script>{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
-<script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
+<link rel="stylesheet" href="{% static 'library/folders.css' %}">
+<script src="{% static 'library/layout.js' %}" defer></script>
+<script src="{% static 'library/folders.js' %}" defer></script>
 <style>
     #content.flex {
         padding: 0;

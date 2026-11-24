@@ -2,7 +2,7 @@
 {% load core_tags static %}
 
 {% block extrastyle %}{{ block.super }}
-<link rel="stylesheet" href="{% static 'admin/core/archiveresult/change_form.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+<link rel="stylesheet" href="{% static 'admin/core/archiveresult/change_form.css' %}">
 {% endblock %}
 
 {% block field_sets %}

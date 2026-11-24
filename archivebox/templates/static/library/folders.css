@@ -1,4 +1,7 @@
 .snapshot-library{--archivebox-accent:#a51c50;--library-control-size:32px;--library-row-height:32px;--folder-indent:20px;--library-toolbar-height:44px;display:grid;grid-template-columns:244px minmax(0,1fr);gap:0;clear:both;padding:0;box-sizing:border-box;align-items:stretch}
+/* The browser can paint between chunks of HTML. Fit the whole results page
+   before painting the library, while leaving the admin header visible. */
+body.model-snapshot.change-list .snapshot-library:not(:has(> .snapshot-library-ready)){visibility:hidden}
 .snapshot-library>#content-main{min-width:0;float:none;margin:0!important}
 .library-symbols{position:absolute;width:0;height:0;overflow:hidden}
 .folder-sidebar{position:relative;display:flex;flex-direction:column;min-width:0;padding:0;background:var(--body-bg,#fff);border-right:1px solid var(--hairline-color,#e4e7ec)}
@@ -15,7 +18,7 @@ body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-c
 .snapshot-library #changelist #toolbar .filter-pane-toggle{width:auto;min-width:70px;padding:0 10px;font-size:12px;align-self:center}
 .snapshot-library #changelist #toolbar .search-input-addon{width:44px;min-width:44px;max-width:44px;border-radius:0;background:var(--darkened-bg,#f7f8fa)}
 .snapshot-library #changelist #toolbar .search-mode-select{width:44px!important;min-width:44px!important;max-width:44px!important;padding:0!important}
-.snapshot-library #changelist #toolbar .search-input-wrap-with-mode .search-input-addon::before{left:8px;top:50%;width:16px;height:16px;border:0;border-radius:0;background:url('/static/admin/img/search.svg') center/16px no-repeat;transform:translateY(-50%)}
+.snapshot-library #changelist #toolbar .search-input-wrap-with-mode .search-input-addon::before{left:8px;top:50%;width:16px;height:16px;border:0;border-radius:0;background:url('../admin/img/search.svg') center/16px no-repeat;transform:translateY(-50%)}
 .snapshot-library #changelist #toolbar .search-input-wrap-with-mode .search-input-addon::after{display:none}
 .snapshot-library #changelist #toolbar .search-mode-caret{right:7px;top:50%;border-left-width:3px;border-right-width:3px;border-top-width:4px;transform:translateY(-50%)}
 body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.actions-top{height:var(--library-toolbar-height)!important;min-height:var(--library-toolbar-height)!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}

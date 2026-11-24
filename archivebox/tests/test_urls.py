@@ -1073,14 +1073,14 @@ class TestUrlRouting:
                 static_asset = public_client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
                 assert static_asset.status_code == 200
                 assert static_asset.headers.get("ETag")
-                assert_cache(static_asset, "public", "max-age=31536000", "immutable")
+                assert_cache(static_asset, "public", "no-cache")
                 static_not_modified = public_client.get(
                     "/static/jquery.min.js",
                     HTTP_HOST=snapshot_host,
                     HTTP_IF_NONE_MATCH=static_asset["ETag"],
                 )
                 assert static_not_modified.status_code == 304
-                assert_cache(static_not_modified, "public", "max-age=31536000", "immutable")
+                assert_cache(static_not_modified, "public", "no-cache")
 
                 # Tightening permissions must still run authorization before honoring
                 # a stale validator presented in a new request.

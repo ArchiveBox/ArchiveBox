@@ -1,5 +1,11 @@
 {% load i18n admin_list core_tags %}
 
+{% if cl.has_filters and not embedded_changelist %}
+  <script>
+    try { document.body.classList.toggle('filters-collapsed', localStorage.getItem('admin-filters-collapsed') !== 'false'); } catch (_) {}
+  </script>
+{% endif %}
+
 {% if cl.model_admin.show_search_mode_selector %}
   {% with current_search_mode=cl.params.search_mode|default:cl.model_admin.get_default_search_mode %}
     <div class="module{% if cl.has_filters %} filtered{% endif %}{% if current_search_mode == 'contents' %} search-mode-contents{% elif current_search_mode|slice:':4' == 'deep' %} search-mode-deep{% endif %}" id="changelist">
@@ -32,6 +38,9 @@
         {% if cl.formset and cl.result_count %}<input type="submit" name="_save" class="default" value="{% translate 'Save' %}">{% endif %}
       </div>
       </form>
+      {% if cl.opts.model_name == "snapshot" and not embedded_changelist %}
+        <script>window.archiveboxLibraryLayout?.initializeTags(document.getElementById('changelist-form'));</script>
+      {% endif %}
     </div>
   </div>
   {% if cl.has_filters and not embedded_changelist %}
@@ -71,35 +80,30 @@
       var toolbarToggle = document.getElementById('changelist-toolbar-filter-toggle');
       if (!toggle) return;
 
-      function applyState() {
-        var collapsed = localStorage.getItem(storageKey) !== 'false';
+      function applyState(collapsed) {
         document.body.classList.toggle('filters-collapsed', collapsed);
         toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
         toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        if (toolbarToggle) {
-          toolbarToggle.textContent = collapsed ? 'Filters ▸' : 'Filters ◂';
-          toolbarToggle.style.display = 'inline-flex';
-          toolbarToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        }
+        if (toolbarToggle) toolbarToggle.setAttribute('aria-expanded', String(!collapsed));
+      }
+
+      function toggleFilters() {
+        var collapsed = !document.body.classList.contains('filters-collapsed');
+        try { localStorage.setItem(storageKey, String(collapsed)); } catch (_) {}
+        applyState(collapsed);
       }
 
       if (!toggle.dataset.archiveboxFiltersReady) {
         toggle.dataset.archiveboxFiltersReady = '1';
-        toggle.addEventListener('click', function() {
-          localStorage.setItem(storageKey, document.body.classList.contains('filters-collapsed') ? 'false' : 'true');
-          applyState();
-        });
+        toggle.addEventListener('click', toggleFilters);
       }
 
       if (toolbarToggle && !toolbarToggle.dataset.archiveboxFiltersReady) {
         toolbarToggle.dataset.archiveboxFiltersReady = '1';
-        toolbarToggle.addEventListener('click', function() {
-          localStorage.setItem(storageKey, document.body.classList.contains('filters-collapsed') ? 'false' : 'true');
-          applyState();
-        });
+        toolbarToggle.addEventListener('click', toggleFilters);
       }
 
-      applyState();
+      applyState(document.body.classList.contains('filters-collapsed'));
     };
     window.archiveboxInitChangelistFilters();
   </script>

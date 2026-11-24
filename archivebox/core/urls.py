@@ -4,11 +4,9 @@ from importlib.util import find_spec
 
 from django.conf import settings
 from django.urls import path, re_path, include
-from django.views import static
 from django.views.generic.base import RedirectView
 from django.http import HttpRequest, HttpResponseRedirect
 
-from archivebox.config.constants import CONSTANTS
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
@@ -43,8 +41,9 @@ urlpatterns = [
     path("admin/core/snapshot/sidebar/", archivebox_admin.admin_view(sidebar_view), name="admin-sidebar"),
     path("public/sidebar/", sidebar_view, {"public": True}, name="public-sidebar"),
     path("admin/machine/url-rules/preview/", url_rules_preview, name="config-url-rules-preview"),
+    re_path(r"^static/v/(?P<version>[\w.+-]+)/(?P<path>.*)$", serve_static),
     re_path(r"^static/(?P<path>.*)$", serve_static),
-    path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
+    path("favicon.ico", serve_static, {"path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *(route for app in get_plugin_apps().values() if (routes := getattr(app, "get_urlpatterns", None)) for route in routes(host)),
     path("admin/importers/", include("archivebox.importers.urls")),

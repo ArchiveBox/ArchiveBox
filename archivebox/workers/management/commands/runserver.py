@@ -8,6 +8,8 @@ from django.core.management import CommandError
 
 class Command(DaphneCommand):
     def handle(self, *args, **options):
+        # ArchiveBox serves assets through its versioned URLs and cache policy.
+        options["use_static_handler"] = False
         self.ipv6_scope = None
         addrport = options.get("addrport") or ""
         if addrport.startswith("[") and "]:" in addrport:

@@ -3112,6 +3112,11 @@ body.model-snapshot.change-list #changelist-form > .results {
     line-height: 1;
 }
 
+.filters-collapsed .filter-pane-toggle .filters-open-label,
+body:not(.filters-collapsed) .filter-pane-toggle .filters-closed-label {
+    display: none;
+}
+
 #toolbar .search-input-addon {
     position: absolute;
     left: 0;

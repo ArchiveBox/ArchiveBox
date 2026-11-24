@@ -7,16 +7,17 @@
     <head>
         {% block search_stream_head %}{% endblock %}
         {% plugin_page_head %}
-        <script src="{% static 'zip-download.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>
+        <script src="{% static 'zip-download.js' %}" defer></script>
         <title>{% block title %}Home{% endblock %} | ArchiveBox</title>
+        <link rel="icon" href="{% static 'favicon.ico' %}">
         
         {% block blockbots %}
             <meta name="robots" content="NONE,NOARCHIVE">
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
-        <link rel="stylesheet" href="{% static 'tag-badges.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" />
-        <script src="{% static 'tag-colors.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
+        <link rel="stylesheet" href="{% static 'tag-badges.css' %}" />
+        <script src="{% static 'tag-colors.js' %}"></script>
         {% include "core/record_picker_assets.html" %}
         {% api_token as api_token %}
         <script>
@@ -1754,7 +1755,7 @@
         <link href="{% static 'select2.min.css' %}" rel="stylesheet"/>
         <script src="{% static 'select2.min.js' %}"></script>
 
-        <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+        <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
         
         <script>
             function selectSnapshotListView(e) {

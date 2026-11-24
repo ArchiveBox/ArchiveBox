@@ -409,6 +409,21 @@ def pytest_configure():
 
 
 @pytest.fixture(scope="session")
+def live_server(request):
+    from pytest_django.live_server_helper import LiveServer
+
+    address = request.config.getvalue("liveserver") or os.getenv("DJANGO_LIVE_TEST_SERVER_ADDRESS") or "localhost"
+    server = LiveServer(address, start=False)
+    # Use ArchiveBox's actual static route and middleware, as runserver does.
+    server.thread.static_handler = lambda application: application
+    server.start()
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+@pytest.fixture(scope="session")
 def django_db_modify_db_settings(
     django_db_modify_db_settings_parallel_suffix,
     request,

@@ -4,7 +4,7 @@
 <html lang="en">
     <head>
     {% include "core/typography.html" %}
-    {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endif %}
+    {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
         <meta charset="utf-8">
         <title>{{title}}</title>
         <link rel="canonical" href="{{ url }}">
@@ -1250,8 +1250,9 @@
                     <div class="header-col header-left">
                         {% web_base_url as web_base %}
                         {% static_export_root_url as static_root %}
+                        {% static 'archive.png' as archivebox_logo %}
                         <a href="{% if STATIC_EXPORT %}{{ static_root }}index.html{% elif web_base %}{{ web_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
-                            <img src="{% if STATIC_EXPORT %}data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;rect x='8' y='5' width='48' height='54' rx='7' fill='%23fff' opacity='.95'/&gt;&lt;path d='M18 16h28M18 26h28M18 36h20M18 46h24' stroke='%23aa1e55' stroke-width='5' stroke-linecap='round'/&gt;&lt;/svg&gt;{% elif web_base %}{{ web_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="">
+                            <img src="{% if STATIC_EXPORT %}data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;rect x='8' y='5' width='48' height='54' rx='7' fill='%23fff' opacity='.95'/&gt;&lt;path d='M18 16h28M18 26h28M18 36h20M18 46h24' stroke='%23aa1e55' stroke-width='5' stroke-linecap='round'/&gt;&lt;/svg&gt;{% else %}{{ web_base }}{{ archivebox_logo }}{% endif %}" alt="">
                             ArchiveBox
                         </a>
                     </div>

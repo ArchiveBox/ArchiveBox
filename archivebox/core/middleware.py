@@ -2,23 +2,18 @@ __package__ = "archivebox.core"
 
 import ipaddress
 import re
-from pathlib import Path
 
 from asgiref.sync import iscoroutinefunction
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
-from django.contrib.staticfiles import finders
 from django.core.exceptions import DisallowedHost, ImproperlyConfigured
-from django.http import HttpResponseForbidden, HttpResponseNotModified
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.utils.http import http_date
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.decorators import sync_and_async_middleware
 
-from archivebox.config import VERSION
 from archivebox.config.common import get_config, get_request_config
-from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
     build_admin_url,
     build_snapshot_url,
@@ -162,8 +157,6 @@ def AdminCookieIsolationMiddleware(get_response):
 
 
 def CacheControlMiddleware(get_response):
-    static_cache_key = (get_COMMIT_HASH() or VERSION or "dev").strip()
-
     def middleware(request):
         response = get_response(request)
 
@@ -181,30 +174,12 @@ def CacheControlMiddleware(get_response):
             # Keep raw artifacts' policy intact; these are crawler hints only.
             response["X-Robots-Tag"] = ", ".join(filter(None, (response.get("X-Robots-Tag"), "noindex, follow")))
 
-        if request.path.startswith("/static/") and response.status_code in (200, 304):
-            rel_path = request.path[len("/static/") :]
-            static_path = finders.find(rel_path)
-            if static_path:
-                try:
-                    mtime = Path(static_path).stat().st_mtime
-                except OSError:
-                    mtime = None
-                etag = f'"{static_cache_key}:{int(mtime) if mtime else 0}"'
-                inm = request.META.get("HTTP_IF_NONE_MATCH")
-                if inm:
-                    inm_list = [item.strip() for item in inm.split(",")]
-                    if etag in inm_list or etag.strip('"') in [i.strip('"') for i in inm_list]:
-                        not_modified = HttpResponseNotModified()
-                        not_modified.headers["ETag"] = etag
-                        not_modified.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-                        if mtime:
-                            not_modified.headers["Last-Modified"] = http_date(mtime)
-                        return not_modified
-                response.headers["ETag"] = etag
-                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-                if mtime and not response.headers.get("Last-Modified"):
-                    response.headers["Last-Modified"] = http_date(mtime)
-                return response
+        if (
+            (request.path.startswith("/static/") or request.path == "/favicon.ico")
+            and response.status_code in (200, 206, 304)
+            and response.has_header("ETag")
+        ):
+            return response
 
         if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
             # The same raw favicon bytes are shared across authenticated viewers.

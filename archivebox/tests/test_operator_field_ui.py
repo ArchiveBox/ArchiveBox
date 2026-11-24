@@ -32,6 +32,12 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
         page.get_by_role("button", name="Log in", exact=True).click()
         field = page.get_by_role("combobox", name="Search snapshots")
         hidden = page.locator("#changelist-search [name=q]")
+
+        def expect_icon_painted(icon):
+            # Newly inserted SVG uses resolve on a render frame even when the
+            # sprite is already in the browser's HTTP cache.
+            page.wait_for_function("use => use.getBBox().width > 0", arg=icon.element_handle())
+
         field.fill('"ABC:DEF" tag:"ABC:DEF" ')
         field.press("Escape")
         field.press("Tab")
@@ -54,21 +60,21 @@ def test_operator_editor_on_phone(live_server, admin_user, crawl, browser_runtim
         field.fill("ur")
         url_option = page.get_by_role("option", name="url:", exact=False)
         expect(url_option).to_be_visible()
-        assert url_option.locator("svg use").evaluate("use => use.getBBox().width") > 0
+        expect_icon_painted(url_option.locator("svg use"))
         field.press("Tab")
         expect(hidden).to_have_value("url:")
         field.fill("url:example.org ")
         field.press("Escape")
         field.press("Tab")
-        assert field.locator(".badge-icon use").evaluate("use => use.getBBox().width") > 0
+        expect_icon_painted(field.locator(".badge-icon use"))
         field.fill("fol")
         folder_option = page.get_by_role("option", name="folder:", exact=False)
         expect(folder_option).to_be_visible()
-        assert folder_option.locator("svg use").evaluate("use => use.getBBox().width") > 0
+        expect_icon_painted(folder_option.locator("svg use"))
         field.fill('folder:"Research" ')
         field.press("Escape")
         field.press("Tab")
-        assert field.locator(".badge-icon use").evaluate("use => use.getBBox().width") > 0
+        expect_icon_painted(field.locator(".badge-icon use"))
 
         field.fill("tag")
         expect(page.locator('[role="option"] .suggestion-name')).to_have_text(["tags:"])

@@ -355,7 +355,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "archivebox.core.staticfiles.VersionedStaticFilesStorage",
     },
     "archive": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",

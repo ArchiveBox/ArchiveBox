@@ -1,13 +1,35 @@
 {% extends "admin/change_list.html" %}{% load static %}
-{% block search_stream_head %}{% if not embedded_changelist %}{% url 'admin:core_snapshot_search_stream' as endpoint %}{% include 'includes/search_stream_head.html' with complete=cl.search_stream_complete mode=cl.search_mode %}{% endif %}{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">{% endblock %}
+{% block search_stream_head %}
+{% if not embedded_changelist %}
+<link rel="preload" as="font" type="font/woff2" href="{% static 'fonts/open-sans/latin-normal.woff2' %}" crossorigin>
+<link rel="preload" as="style" href="{% static 'typography.css' %}">
+<link rel="preload" as="style" href="{% static 'fonts/open-sans/font.css' %}">
+{% url 'admin:core_snapshot_search_stream' as endpoint %}
+{% include 'includes/search_stream_head.html' with complete=cl.search_stream_complete mode=cl.search_mode %}
+{% endif %}
+{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'library/folders.css' %}">{% endblock %}
 {% block extrahead %}
+{% if not embedded_changelist %}
+<link rel="stylesheet" href="{% static 'search/field.css' %}">
+<script src="{% static 'search/field.js' %}"></script>
+<script src="{% static 'library/layout.js' %}"></script>
+{% endif %}
 {% if admin_timing_clean_url %}<script>history.replaceState(history.state, '', '{{ admin_timing_clean_url|escapejs }}' + location.hash);</script>{% endif %}
-{{ block.super }}<script src="{% static 'admin-snapshot-previews.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script><script src="{% static 'library/folders.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}" defer></script>{% endblock %}
+{{ block.super }}
+<script src="{% static 'admin-snapshot-previews.js' %}" async></script>
+<script src="{% static 'library/folders.js' %}" defer></script>
+{% endblock %}
 {% block content %}
 {% if not embedded_changelist %}<div class="snapshot-library">
-{% include "core/folder_sidebar.html" %}{% endif %}
+{% include "core/folder_sidebar.html" %}
+<script>
+  window.archiveboxLibraryLayout?.initializeSidebar(document.getElementById('folder-sidebar'));
+</script>
+{% endif %}
 {{ block.super }}
-{% if not embedded_changelist %}</div>
-{% include "core/folder_dialog.html" %}{% endif %}
+{% if not embedded_changelist %}
+<span class="snapshot-library-ready" hidden></span>
+</div>
+{% include "core/folder_dialog.html" with search_field_assets_in_head=True %}{% endif %}
 {% endblock %}

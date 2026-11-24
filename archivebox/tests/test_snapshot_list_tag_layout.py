@@ -175,3 +175,126 @@ def test_snapshot_list_tag_column_fits_title_budget(browser_runtime, live_server
             check_snapshot_list_tag_layout(browser, live_server.url, admin_user, few_tag)
         finally:
             browser.close()
+
+
+@pytest.mark.parametrize(("width", "query"), [(1440, ""), (390, ""), (1320, "?q=domain%3Aexample.com&status__exact=sealed")])
+def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_server, admin_user, crawl, width, query):
+    create_snapshot_tag_layout_rows(crawl)
+    row_count = 4
+    if width == 1440:
+        from archivebox.core.models import Snapshot
+
+        for index in range(46):
+            Snapshot.objects.create(
+                title=f"Capture {index} with a longer title so the browser has to fit the title and tag columns",
+                url=f"https://example.com/first-paint/{index}",
+                status="sealed",
+                crawl=crawl,
+            )
+        row_count = 50
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": width, "height": 900}, has_touch=width < 768)
+        page.goto(f"{live_server.url}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        page.evaluate(
+            """hidden => {
+            localStorage.setItem('archivebox.sidebar-hidden', String(hidden));
+            localStorage.setItem('admin-filters-collapsed', 'false');
+        }""",
+            not query,
+        )
+        page.add_init_script("""(() => {
+            const frames = window.snapshotLayoutFrames = [];
+            const shifts = window.snapshotLayoutShifts = [];
+            new PerformanceObserver(list => {
+                for (const entry of list.getEntries()) {
+                    const sources = entry.sources.map(source => source.node).filter(node => node?.closest?.('.snapshot-library'));
+                    if (!entry.hadRecentInput && sources.length) {
+                        shifts.push([entry.startTime, entry.value, sources.map(node => [node.tagName, node.id, node.className])]);
+                    }
+                }
+            }).observe({type: 'layout-shift', buffered: true});
+            const visible = node => node?.checkVisibility({visibilityProperty: true});
+            const geometry = node => {
+                if (!visible(node)) return null;
+                const {x, y, width, height} = node.getBoundingClientRect();
+                return [x, y, width, height].map(Math.round);
+            };
+            const sample = () => {
+                const row = document.querySelector('#result_list tbody tr');
+                if (visible(row) && performance.getEntriesByName('first-contentful-paint').length) {
+                    const state = JSON.stringify({
+                        search: geometry(document.querySelector('#toolbar .abx-query-control')),
+                        filter: document.querySelector('#changelist-toolbar-filter-toggle')?.getAttribute('aria-expanded'),
+                        sidebar: geometry(document.querySelector('#folder-sidebar')),
+                        reopen: geometry(document.querySelector('.folder-sidebar-reopen')),
+                        row: geometry(row),
+                        tags: geometry(document.querySelector('#result_list .column-tags_inline')),
+                        counters: [...document.querySelectorAll('.library-tags-toggle')].filter(visible).map(node => node.textContent),
+                        actions: geometry(document.querySelector('.actions .action-buttons')),
+                        clear: geometry(document.querySelector('#toolbar .abx-query-clear')),
+                    });
+                    if (!frames.length) window.snapshotFirstFrame = performance.now();
+                    if (frames.at(-1) !== state) frames.push(state);
+                }
+                requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
+        })();""")
+        network = page.context.new_cdp_session(page)
+        network.send("Network.enable")
+        network.send("Network.setCacheDisabled", {"cacheDisabled": True})
+        network.send(
+            "Network.emulateNetworkConditionsByRule",
+            {
+                "offline": False,
+                "matchedNetworkConditions": [
+                    {
+                        "urlPattern": f"{live_server.url}/admin/core/snapshot/",
+                        "latency": 0,
+                        "downloadThroughput": 128 * 1024 if row_count == 50 else -1,
+                        "uploadThroughput": -1,
+                    },
+                    {
+                        "urlPattern": f"{live_server.url}/static/v/*/admin-snapshot-previews.js*",
+                        "latency": 1000,
+                        "downloadThroughput": -1,
+                        "uploadThroughput": -1,
+                    },
+                    {
+                        "urlPattern": f"{live_server.url}/static/v/*/fonts/open-sans/*.woff2",
+                        "latency": 750,
+                        "downloadThroughput": -1,
+                        "uploadThroughput": -1,
+                    },
+                ],
+            },
+        )
+        page.goto(f"{live_server.url}/admin/core/snapshot/{query}")
+        expect(page.locator("#changelist-search .query")).to_be_visible()
+        expect(page.locator("#result_list tbody tr")).to_have_count(row_count)
+        page.evaluate(
+            "async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); }",
+        )
+        frames = page.evaluate("window.snapshotLayoutFrames.map(JSON.parse)")
+        assert frames[-1]["search"]
+        assert frames[-1]["counters"]
+        assert frames[-1]["actions"] is None
+        assert bool(frames[-1]["clear"]) == bool(query)
+        assert frames == [frames[-1]]
+        assert page.evaluate("window.snapshotLayoutShifts") == []
+        assert page.evaluate(
+            """slowDocument => {
+            const paint = slowDocument
+                ? performance.getEntriesByName('first-contentful-paint')[0].startTime
+                : window.snapshotFirstFrame;
+            const resources = performance.getEntriesByType('resource');
+            return ['/admin-snapshot-previews.js', '/open-sans/latin-normal.woff2'].every(path =>
+                resources.some(entry => entry.name.includes(path) && paint < entry.responseEnd));
+        }""",
+            row_count == 50,
+        )
+        browser.close()
