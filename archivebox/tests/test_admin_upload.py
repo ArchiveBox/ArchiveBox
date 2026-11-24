@@ -119,8 +119,26 @@ def test_large_csv_upload_preserves_full_input(live_server, admin_user, browser_
             page.locator('[name="password"]').fill("testpassword")
             page.get_by_role("button", name="Log in", exact=True).click()
             expect(page.get_by_role("button", name="Upload file", exact=True)).to_have_count(0)
+            page.wait_for_url("**/admin/crawls/crawl/")
+            target = page.locator("#content")
+            target.evaluate("""node => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.id = 'native-drop-source';
+                input.hidden = true;
+                node.append(input);
+            }""")
             started = perf_counter()
-            page.locator("#content").drop({"files": source})
+            # Keep the browser's disk-backed File; locator.drop base64-decodes a copy before dispatch.
+            target.locator("#native-drop-source").set_input_files(source)
+            target.evaluate("""node => {
+                const input = node.querySelector('#native-drop-source');
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(input.files[0]);
+                for (const type of ['dragenter', 'dragover', 'drop'])
+                    node.dispatchEvent(new DragEvent(type, { dataTransfer, bubbles: true, cancelable: true, composed: true }));
+                input.remove();
+            }""")
             page.wait_for_url("**/add/")
             expect(page.locator("#url-upload-status")).to_have_text("File text added.")
             expect(page.locator(".detected-url-item")).to_have_count(100)
