@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.templatetags.static import static
 from django.test import RequestFactory
 
 from archivebox.base_models.admin import KeyValueWidget
@@ -261,7 +262,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'aria-controls="archivebox-setup-dns-options"' in html
     assert 'data-status-id="archivebox-setup-tls-status"' in html
     assert 'aria-controls="archivebox-setup-tls-options"' in html
-    assert "setup_wizard.js?v=20261118-1" in html
+    assert f'src="{static("setup_wizard.js")}"' in html
 
 
 def test_first_admin_setup_suppresses_unconfigured_warning():
