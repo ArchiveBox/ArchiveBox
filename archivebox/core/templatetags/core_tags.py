@@ -638,7 +638,10 @@ def system_warnings_banner(context):
         request = context.get("request")
         config = get_request_config(request) if request is not None else get_config(resolve_plugins=False)
 
-    if not config.BASE_URL and config.SERVER_SECURITY_MODE != "safe-onedomain-nojsreplay":
+    # Request routing resolves "auto" to safe single-domain replay on a public
+    # host. That effective policy is not an operator's completed setup choice.
+    configured_mode = getattr(context.get("request"), "_archivebox_config_security_mode", config.SERVER_SECURITY_MODE)
+    if not config.BASE_URL and configured_mode != "safe-onedomain-nojsreplay":
         return get_setup_wizard_context(context.get("request"), config)
     mismatch = get_base_url_mismatch_context(context.get("request"), config)
     if mismatch and not _is_web_subdomain_alias(mismatch["browser_url"], mismatch["configured_base_url"]):
