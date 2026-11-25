@@ -84,13 +84,16 @@ def test_schedule_poll_reuses_latest_run_timestamp_for_one_pass():
         schedule=schedule,
         status="sealed",
         retry_at=None,
-        created_at=now - timedelta(hours=1),
+        # Daily means midnight, not 24 hours after the previous run. A run
+        # one hour ago can be yesterday when CI executes shortly after midnight.
+        created_at=now.replace(hour=0, minute=0, second=0, microsecond=0),
     )
     latest = Crawl.objects.filter(schedule_id=OuterRef("pk")).order_by("-created_at").values("created_at")[:1]
     with CaptureQueriesContext(connection) as queries:
         sampled = CrawlSchedule.objects.select_related("template").annotate(_last_run_created_at=Subquery(latest)).get(pk=schedule.pk)
         assert sampled.last_run_at == previous.created_at
         assert not sampled.is_due(now)
+        assert sampled.is_due(now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
     assert len(queries) == 1, queries.captured_queries
     # Reusing this object after its own dispatch must see the new durable run.
     dispatched = sampled.enqueue(queued_at=now)

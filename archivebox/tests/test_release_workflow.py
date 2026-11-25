@@ -182,7 +182,12 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
     assert prepare["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
     for name, job in ci["jobs"].items():
-        if name not in {"prepare", "required", "dev-image"}:
+        if name == "tests":
+            # The complete matrix follows early publication so it cannot queue
+            # ahead of that publisher. Skipped PR/main publication still runs it.
+            assert job["needs"] == ["prepare", "dev-image"]
+            assert job["if"] == "${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}"
+        elif name not in {"prepare", "required", "dev-image"}:
             assert job["needs"] == "prepare"
             assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     early = ci["jobs"]["dev-image"]
