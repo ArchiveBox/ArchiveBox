@@ -120,12 +120,26 @@ RUN cp /VERSION.txt /ABX-DL-VERSION.txt \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env uv \
     ) | tee -a /VERSION.txt
 
+FROM archivebox-runtime-base AS archivebox-dependencies
+
+# Every prepared release changes the root version in pyproject.toml and uv.lock.
+# Export the locked dependencies separately so an unchanged dependency set has
+# identical bytes and can reuse its installed layer across those releases.
+# pylock preserves the locked artifact URLs, hashes, extras and platform markers.
+RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=/app/uv.lock \
+    /usr/bin/uv export --project /app --locked --no-cache --no-sources \
+        --no-dev --extra saml --no-emit-project --no-emit-workspace \
+        --no-emit-package abxbus --no-emit-package abxpkg \
+        --no-emit-package abx-plugins --no-emit-package abx-dl \
+        --format pylock.toml --no-header --no-annotate \
+        --output-file /tmp/pylock.toml >/dev/null
+
 FROM archivebox-runtime-base AS archivebox-builder
 
 WORKDIR "$CODE_DIR"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
-    --mount=type=bind,source=uv.lock,target=/app/uv.lock \
+    --mount=type=bind,from=archivebox-dependencies,source=/tmp/pylock.toml,target=/tmp/pylock.toml \
     <<'EOF'
 echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
 export UV_NO_CACHE=true
@@ -138,25 +152,15 @@ apt-get install -qq -y --no-install-recommends x11-utils
 # Do not rewrite inherited native libraries merely to strip them again.
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print > /tmp/archivebox-inherited-libraries
 
-# The old Docker-only dependency rewrite predated this checkout's lockfile:
-# it fetched version JSON to avoid stale PyPI Simple listings. That extra API
-# can itself lag or return 503s. The verified lock already records exact public
-# artifact URLs and hashes, including extras and platform markers. Consume it
-# directly, retaining the freshness check instead of resolving a second graph.
-/usr/bin/uv sync \
-    --project /app \
-    --locked \
+# Export already checked lock freshness and selected all transitive dependencies.
+# Install those exact URLs without resolving a second graph or removing packages
+# inherited from abx-dl (the previous sync used --inexact for the same reason).
+/usr/bin/uv pip install \
+    --python /venv/bin/python \
     --no-cache \
-    --no-dev \
-    --extra saml \
-    --inexact \
-    --no-install-project \
-    --no-install-workspace \
-    --no-install-package abxbus \
-    --no-install-package abxpkg \
-    --no-install-package abx-plugins \
-    --no-install-package abx-dl \
-    --no-sources
+    --no-deps \
+    --require-hashes \
+    --requirements /tmp/pylock.toml
 # Sync may replace inherited dependencies (e.g. pydantic/rich-click), removing
 # their bytecode. Runtime writes are disabled, so missing caches would make
 # every hook compile them again. Compile only missing entries: compileall's
