@@ -11,11 +11,11 @@ from django.db import connections
 from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, QuerySet, TextField, Value, When
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast, Coalesce, Length, Lower, StrIndex
-from django.db.models.lookups import Exact, GreaterThan, IRegex
+from django.db.models.lookups import Exact, GreaterThan, IRegex, Regex
 from django.db.models.sql import Query
 from django.db.models.sql.where import WhereNode
 
-from archivebox.core.models import ArchiveResult, SnapshotQuerySet
+from archivebox.core.models import ArchiveResult, Snapshot, SnapshotQuerySet
 from archivebox.core.tag_util import tag_assignments_matching
 
 
@@ -43,13 +43,13 @@ OPERATORS = {
     "tags": ("tag", "Tag name contains this text"),
     "plugins": ("puzzle", "Successful plugin name contains this text"),
     "owner": ("user", "Username contains this text"),
-    "domain": ("globe", "Website domain"),
+    "domain": ("globe", "Website domain contains this text"),
     "url": ("link", "Snapshot URL contains this text"),
     "after": ("calendar", "Bookmarked on or after a date"),
     "before": ("calendar", "Bookmarked before a date"),
     "bookmarked": ("calendar", "Bookmarked in a year, month or day"),
     "status": ("check", "Snapshot state"),
-    "filetype": ("file", "Contains a saved file of this type"),
+    "filetype": ("file", "Saved file extension contains this text"),
     "permissions": ("lock", "Snapshot visibility"),
     "title": ("type", "Title contains this text"),
     "meta": ("database", "Search database metadata"),
@@ -314,6 +314,44 @@ def substring(field, value, *, match_case=None):
     return Q(InsensitiveLiteral(text, Value(value)))
 
 
+def domain_substring(value, db):
+    from archivebox.core.domain_grouping import domain_authority_from_key
+    from archivebox.misc.util import equivalent_urls
+
+    hosts = Snapshot.objects.using(db)
+    keys = hosts.none()
+    matching = Q(pk__in=[])
+    idn_terms = []
+    for part in value.split(","):
+        term = part.strip().lower()
+        if not term:
+            continue
+        if term.startswith("*."):
+            matching |= SnapshotQuerySet.domain_q(term)
+            continue
+        if not term.isascii() or "xn--" in term:
+            idn_terms.append(term)
+        elif re.fullmatch(r"[\w-]+", term):
+            # Reversing labels and moving the port preserves a single
+            # fragment. Read the hostname index without fetching URLs.
+            keys |= hosts.filter(reversed_domain__icontains=term)
+        else:
+            # A dot or colon can span labels or the port boundary; prove
+            # the match against the authority in its original order.
+            keys |= hosts._domain_key_candidates(term).filter(hosts.domain_rule_q("icontains", term))
+    if idn_terms:
+        # Encoding a partial Unicode label changes its punycode. Compare the
+        # two spellings of each distinct IDN host, never every snapshot URL.
+        idns = hosts.filter(Q(reversed_domain__contains="xn--") | Q(reversed_domain__regex=r"[^\x01-\x7f]"))
+        matched = []
+        for key in idns.order_by("reversed_domain").values_list("reversed_domain", flat=True).distinct().iterator():
+            spellings = equivalent_urls("//" + domain_authority_from_key(key))
+            if any(term in spelling[2:].lower() for term in idn_terms for spelling in spellings):
+                matched.append(key)
+        matching |= Q(reversed_domain__in=matched)
+    return matching | Q(reversed_domain__in=keys.order_by().values("reversed_domain").distinct())
+
+
 def url_substring_hint(value, db):
     """An indexed subset of URL matches. Always verify with the literal predicate."""
     if re.fullmatch(r"[\w-]+(?:\.[\w-]+)+", value):
@@ -443,7 +481,6 @@ def text_metadata(term, *, public):
 
 def sql_leaf(term, db, *, rules=None, stack=(), public=False):
     f, v = term.field, term.value
-    vendor = connections[db].vendor
     if "__" in f:
         # Advanced search uses the same field/lookup allowlist, type conversion
         # and relationship semantics as the manual Smart Folder builder.
@@ -468,7 +505,7 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
 
         return (rules or RuleQuery()).named_folders(v, stack, public=public)
     if f == "domain":
-        return SnapshotQuerySet.domain_q(v)
+        return domain_substring(v, db)
     if f in {"permissions", "status", "title", "url"}:
         return substring(f, v)
     if f == "owner":
@@ -513,18 +550,14 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
                     for s in parts
                 ),
             )
-        if not all(re.fullmatch(r"[a-zA-Z0-9]+", s) for s in parts):
-            raise ValueError("Invalid extension")
-        comparison, prefix = "lower(j.key) LIKE %s", "%."
-        if match_case:
-            # SQLite LIKE still folds ASCII; GLOB preserves filename case.
-            comparison, prefix = ("j.key GLOB %s", "*.") if vendor == "sqlite" else ("j.key LIKE %s", "%.")
-        clause = " OR ".join(comparison for _ in parts)
-        keys = RawSQL(
-            clause,
-            [prefix + (s if match_case else s.lower()) for s in parts],
-            output_field=BooleanField(),
-        )
+        # Recorded paths include directories and compound filenames. Anchor
+        # the match to the last extension so e.g. report.pdf.html is HTML.
+        needles = [re.escape(part) for part in parts if "." not in part and "/" not in part]
+        if not needles:
+            return Q(pk__in=[])
+        pattern = rf"\.[^./]*(?:{'|'.join(needles)})[^./]*\Z"
+        lookup = Regex if match_case else IRegex
+        keys = lookup(RawSQL("j.key", (), output_field=TextField()), Value(pattern))
         return Q(Exists(results.filter(OutputPathExists("output_files", keys))))
     if f == "meta":
         fields = (

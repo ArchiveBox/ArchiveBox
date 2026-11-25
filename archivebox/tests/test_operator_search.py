@@ -55,6 +55,43 @@ def test_operator_membership(crawl):
     assert not SnapshotSearch(scope, "meta:LabNote", public=True).queryset().exists()
 
 
+def test_domain_substrings_match_authorities_in_display_order(crawl):
+    urls = [
+        "https://NEWS.YCombinator.com/item",
+        "https://combinator.net/",
+        "https://com.ycombinator.news/",
+        "https://ycombinator.com:8443/",
+        "https://[2001:db8::1]:8080/",
+        "https://ycombinator.com@lobste.rs/s/ycombinator.com?domain=ycombinator.com",
+        "https://bücher.de/",
+        "https://xn--bcher-kva.de/",
+    ]
+    rows = [Snapshot.objects.create(crawl=crawl, url=url) for url in urls]
+    scope = Snapshot.objects.filter(pk__in=[row.pk for row in rows])
+    for expr, indices in (
+        ("domain:BINATOR", [0, 1, 2, 3]),
+        ("site:s.ycomb", [0]),
+        ("domain:tor.co", [0, 3]),
+        ("domain:com:84", [3]),
+        ("domain:db8::1", [4]),
+        ("domain:*.ycombinator.com", [0]),
+        ("domain:*.ycombinator.com,db8", [0, 4]),
+        ("domain:tor.co,db8", [0, 3, 4]),
+        ("domain:BÜCHER.DE", [6, 7]),
+        ("domain:bÜch", [6, 7]),
+        ("domain:XN--BCH", [6, 7]),
+        ("domain:news.ycombinator.com:443", []),
+        ('domain:"https://news.ycombinator.com/"', []),
+        ("domain__exact:ycombinator.com", []),
+        ("~(domain:binator OR domain:db8)", [5, 6, 7]),
+    ):
+        search = SnapshotSearch(scope, expr)
+        expected = {rows[i].pk for i in indices}
+        assert set(search.queryset().values_list("pk", flat=True)) == expected, expr
+        assert set(search.stream()) == expected, expr
+    assert not scope.filter(domain="ycombinator.com").exists()
+
+
 def test_tag_stream_prefers_exact_csv_matches_and_retains_substring_matches(crawl):
     exact = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/exact")
     overlap = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/overlap")
@@ -78,6 +115,18 @@ def test_tag_stream_prefers_exact_csv_matches_and_retains_substring_matches(craw
     assert not SnapshotSearch(scope, "tags:missing").queryset().exists()
     assert set(SnapshotSearch(scope, 'tags__name__icontains:"WEB,NOTES"').stream()) == {exact.pk, overlap.pk}
     assert list(SnapshotSearch(scope, 'tags__name__exact:"web,notes" AND ~tags:Research').stream()) == [exact.pk]
+
+
+def test_filetype_matches_literal_substrings_of_the_final_extension(crawl):
+    report = Snapshot.objects.create(crawl=crawl, url="https://arxiv.org/pdf/1706.03762")
+    other = Snapshot.objects.create(crawl=crawl, url="https://arxiv.org/abs/1706.03762")
+    ArchiveResult.objects.create(snapshot=report, plugin="wget", output_files={"paper/report.PDF": {}, "main.c++": {}})
+    ArchiveResult.objects.create(snapshot=other, plugin="wget", output_files={"paper.pdf/index": {}, "report.pdf.html": {}})
+    scope = Snapshot.objects.filter(pk__in=[report.pk, other.pk])
+    for query in ("filetype:df", "filetype:zip,DF", 'filetype:"++"'):
+        assert list(SnapshotSearch(scope, query).stream()) == [report.pk], query
+    for query in ("filetype:Df", 'filetype:"%"', 'filetype:"."'):
+        assert not SnapshotSearch(scope, query).queryset().exists(), query
 
 
 def test_nested_sql_predicates_keep_membership_across_operand_orders(crawl):

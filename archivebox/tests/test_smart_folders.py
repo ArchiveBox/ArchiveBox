@@ -530,6 +530,48 @@ def test_smart_folder_preview_permissions_order_limits_and_no_writes(admin_clien
     assert client.post(route, {**data, "folder_id": str(folder.pk)}, **host).status_code == 403
 
 
+def test_folder_preview_windows_preserve_order_and_limit_across_sparse_matches(admin_user):
+    from archivebox.core.admin_folders import _preview_page
+
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
+    snapshots = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://news.ycombinator.com/item?id={i}",
+                timestamp=str(1800000000 + i),
+                title=f"{i:04}",
+                crawl=crawl,
+            )
+            for i in range(1034)
+        ],
+        batch_size=100,
+    )
+    base = Snapshot.objects.filter(crawl=crawl)
+    # With only one match in the first full window, its continuation must
+    # advance past the non-matches while retaining the remaining row allowance.
+    matching = [snapshots[i].pk for i in (1024, 1026, 1027, 1033)]
+    matches = base.filter(pk__in=matching)
+    ids, after = _preview_page(base, matches, ["title", "pk"], 3, (1, 1024))
+    assert ids == matching[:1]
+    assert after == (1025, 1024)
+    # A real intervening insert shifts a returned row onto the next page.
+    # The signed cursor's displayed IDs leave room for the missing match.
+    Snapshot.objects.create(crawl=crawl, url="https://news.ycombinator.com/newest", title="0000a")
+    assert _preview_page(base, matches, ["title", "pk"], 2, after, [matching[0].hex]) == (matching[1:3], None)
+
+    # The candidate order and the final filtered order use the same null
+    # placement and PK tiebreaker, including the UUID-seeded shuffle.
+    for sort in ("bookmarked_at", "-bookmarked_at", "?"):
+        ordering = RuleQuery.ordering(Folder(rules={"sort": sort}))
+        expected = [pk for pk in base.order_by(*ordering).values_list("pk", flat=True)[1:] if pk in matching]
+        ids, after = _preview_page(base, matches, ordering, 6, (1, 1024))
+        if after is not None:
+            tail, after = _preview_page(base, matches, ordering, 6 - len(ids), after)
+            ids += tail
+        assert after is None
+        assert ids == expected
+
+
 @pytest.mark.django_db(transaction=True)
 def test_browser_smart_folder_preview_updates_without_saving(live_server, admin_user, request):
     import os
@@ -599,7 +641,12 @@ def test_browser_smart_folder_preview_updates_without_saving(live_server, admin_
         expect(matches).to_have_count(1)
         dialog.get_by_label("Value", exact=True).last.fill("missing")
         expect(dialog.get_by_text("No matching snapshots.")).to_be_visible()
+        page.context.set_offline(True)
         dialog.get_by_label("Value", exact=True).last.fill("reading")
+        retry = dialog.get_by_role("button", name="Retry")
+        expect(retry).to_be_visible()
+        page.context.set_offline(False)
+        retry.click()
         expect(matches).to_have_count(1)
         dialog.get_by_role("button", name="Cancel").click()
         expect(dialog).not_to_be_visible()
@@ -625,7 +672,7 @@ def test_search_rule_uses_snapshot_query_and_preserves_advanced_conditions(crawl
     folder.refresh_from_db()
     assert folder.rules == {**rule, "query": query, "sort": "url", "limit": 1}
     other.tags.add(tag)
-    other.title = "new atlas"
+    other.title = "Western atlas"
     other.save(update_fields=["title"])
     folder.rules["sort"] = "title"
     folder.save()

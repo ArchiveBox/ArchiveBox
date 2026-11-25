@@ -10,11 +10,11 @@ The public index, Snapshot admin, mobile search, REST search, and `archivebox li
 | --- | --- |
 | `panel`, `"solar panel"` | A search term, or a literal contiguous substring. Quotes preserve punctuation, including colons. |
 | `AND`, `OR`, `~`, `( … )` | Negation binds first, then AND, then OR. A space between operands also means AND. |
-| `domain:example.com`, `site:*.example.com` | An HTTP(S) host. A wildcard includes its subdomains and the host itself. |
+| `domain:example`, `site:*.example.com` | A literal substring of the HTTP(S) hostname and its non-default port. Commas separate alternatives. A leading `*.` matches the complete domain and its subdomains. |
 | `tags:solar,research`, `plugins:pdf,reader` | Every listed substring must match a tag or a successful plugin name, respectively. Quote an item containing spaces or commas. |
 | `owner:alice`, `title:"field guide"`, `status:sealed`, `permissions:public` | The corresponding snapshot metadata contains the supplied value. |
 | `after:2026`, `before:2028`, `bookmarked:2026-12-31` | Bookmark time in UTC. After is inclusive, before is exclusive, and bookmarked matches a whole year, month, or day. |
-| `filetype:pdf,png` | A saved output filename ends in any listed extension. |
+| `filetype:pdf,png` | The final extension of a saved output filename contains any listed substring. |
 | `meta:"solar panel"` | A substring in database metadata. Public searches use public metadata. |
 | `linksto:example.com`, `linkedfrom:example.com` | Match a literal substring anywhere in the outgoing or source HTTP(S) URL. For example, `linkedfrom:ycombinator.com` includes links from `news.ycombinator.com`. |
 | `output_size__gte:"1 MB"` | A Smart Folder field and comparison using the builder's types and relationship IDs. Administrative searches support the full builder schema. |

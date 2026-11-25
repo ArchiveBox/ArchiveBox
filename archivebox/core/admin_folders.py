@@ -7,9 +7,10 @@ from time import monotonic
 from django import forms
 from django.apps import apps
 from django.contrib import admin
+from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connections, OperationalError, router, transaction
-from django.db.models import Max, Q
+from django.db.models import Exists, Max, OuterRef, Q
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -21,23 +22,83 @@ from archivebox.uuid_compat import compact_uuid
 
 
 @contextmanager
-def _preview_query_budget(using):
+def _preview_query_budget(using, milliseconds=200):
     """Do not let a typed predicate or an unindexed sort monopolize the DB."""
     connection = connections[using]
     if connection.vendor == "sqlite":
         connection.ensure_connection()
         raw = connection.connection
-        deadline = monotonic() + 0.2
+        deadline = monotonic() + milliseconds / 1000
         raw.set_progress_handler(lambda: int(monotonic() >= deadline), 1_000)
         try:
             yield
         finally:
             raw.set_progress_handler(None, 0)
     else:
+        nested = connection.in_atomic_block
         with transaction.atomic(using=using):
             with connection.cursor() as cursor:
-                cursor.execute("SET LOCAL statement_timeout = '200ms'")
-            yield
+                # SET LOCAL lasts until the outer transaction commits. Restore
+                # its deadline on success; PostgreSQL restores it on rollback.
+                if nested:
+                    cursor.execute("SHOW statement_timeout")
+                    previous = cursor.fetchone()[0]
+                cursor.execute("SELECT set_config('statement_timeout', %s, true)", [f"{milliseconds}ms"])
+                yield
+                if nested:
+                    cursor.execute("SELECT set_config('statement_timeout', %s, true)", [previous])
+
+
+def _preview_timed_out(error):
+    cause = error.__cause__
+    return getattr(cause, "sqlite_errorcode", None) == 9 or getattr(cause, "sqlstate", None) == "57014"
+
+
+def _preview_page(base, matches, ordering, size, after=None, shown=()):
+    using = base.db
+    if after is None:
+        # Selective indexes can prove a sparse or empty result much faster than
+        # walking the library in display order. Bound the initial sort so a slow
+        # plan cannot consume the entire interactive preview budget.
+        try:
+            with _preview_query_budget(using, 90):
+                return list(matches.order_by(*ordering).values_list("pk", flat=True)[:size]), None
+        except OperationalError as error:
+            if not _preview_timed_out(error):
+                raise
+
+    # Evaluate the exact predicate only for the next ordered candidate window.
+    # Counting candidates (including non-matches) lets the next request resume
+    # after this window without counting or sorting the entire matching scope.
+    ordered = base.order_by(*ordering)
+    deadline = monotonic() + 0.15
+    offset, window = after or (0, 1024)
+    start_offset = offset
+    while True:
+        candidates = ordered.values("pk")[offset : offset + window]
+        probe = ordered.filter(pk__in=candidates).annotate(_matches=Exists(matches.filter(pk=OuterRef("pk"))))
+        try:
+            milliseconds = max(1, round((deadline - monotonic()) * 1000))
+            with _preview_query_budget(using, milliseconds):
+                rows = list(probe.values_list("pk", "_matches"))
+        except OperationalError as error:
+            if not _preview_timed_out(error):
+                raise
+            # A later window may have had only a few milliseconds left. Give
+            # it a fresh request, reducing it only if a full budget was spent.
+            if offset == start_offset:
+                if window <= 64:
+                    raise
+                window //= 2
+            return [], (offset, window)
+        # New snapshots can shift offsets between requests. Repeated rows do
+        # not use up the draft's remaining preview slots.
+        ids = [pk for pk, matched in rows if matched and pk.hex not in shown][:size]
+        offset += len(rows)
+        if len(ids) == size or len(rows) < window:
+            return ids, None
+        if ids or monotonic() >= deadline:
+            return ids, (offset, window)
 
 
 # Only human-facing models with deliberately safe labels/search fields can be
@@ -305,7 +366,6 @@ class FolderAdmin(admin.ModelAdmin):
 
     def preview_rules(self, request):
         from archivebox.core.smart_folders import RuleQuery
-        from archivebox.misc.paginators import snapshot_page
 
         snapshot_admin = self.admin_site.get_model_admin(Snapshot)
         if not snapshot_admin.has_view_or_change_permission(request):
@@ -324,7 +384,18 @@ class FolderAdmin(admin.ModelAdmin):
         except (ValueError, RecursionError):
             return JsonResponse({"error": "Invalid rules."}, status=400)
 
+        # An unsaved folder's stable shuffle is seeded by its UUID. Carry that
+        # UUID and the remaining row allowance across this exact draft's pages.
+        salt = f"folder-preview:{request.user.pk}:{folder_id}:{parent_id}:{serialized}"
+        window, shown, draft_id = None, [], None
+        if after := request.POST.get("after"):
+            try:
+                window, shown, draft_id = signing.loads(after, salt=salt)
+            except signing.BadSignature:
+                return JsonResponse({"error": "Invalid preview cursor."}, status=400)
         folder = get_object_or_404(self.get_queryset(request), pk=folder_id) if folder_id else Folder(parent_id=parent_id)
+        if draft_id and not folder_id:
+            folder.pk = compact_uuid(draft_id)
         allowed = self.has_change_permission(request, folder) if folder_id else self.has_add_permission(request)
         if not allowed:
             raise PermissionDenied
@@ -339,27 +410,23 @@ class FolderAdmin(admin.ModelAdmin):
                 ordering = RuleQuery.ordering(folder)
                 # A top-six preview never needs to evaluate the proposed larger
                 # limit. Keep referenced folders' limits and ordering intact.
-                size = min(rules.get("limit", 6), 6)
+                size = min(rules.get("limit", 6), 6) - len(shown)
                 folder.rules = {key: value for key, value in rules.items() if key != "limit"}
                 compiler = RuleQuery(folders.values())
                 base = Snapshot.objects.using(using)
-                matches = base.filter(compiler.folder(folder.pk)).order_by(*ordering)
-                ids = snapshot_page(
-                    matches.values_list("pk", flat=True),
-                    base_queryset=base.values_list("pk", flat=True),
-                    start=0,
-                    size=size,
-                )
-                rows = base.only("id", "title", "url", "created_at").in_bulk(ids)
+                matches = base.filter(compiler.folder(folder.pk))
+            ids, window = _preview_page(base, matches, ordering, size, window, shown)
+            rows = base.only("id", "title", "url", "created_at").in_bulk(ids)
         except (TypeError, ValidationError) as error:
             return JsonResponse({"error": " ".join(error.messages) if isinstance(error, ValidationError) else "Invalid rules."}, status=400)
         except OperationalError as error:
-            cause = error.__cause__
-            if getattr(cause, "sqlite_errorcode", None) != 9 and getattr(cause, "sqlstate", None) != "57014":
+            if not _preview_timed_out(error):
                 raise
             return JsonResponse({"error": "Preview timed out."}, status=503)
+        shown.extend(pk.hex for pk in ids if pk in rows)
         return JsonResponse(
             {
+                "next": signing.dumps([window, shown, str(folder.pk)], salt=salt) if window else "",
                 "snapshots": [
                     {"title": rows[pk].title_stripped, "domain": rows[pk].domain, "date": rows[pk].created_at.date().isoformat()}
                     for pk in ids

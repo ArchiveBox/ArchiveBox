@@ -106,48 +106,65 @@ document.addEventListener('DOMContentLoaded', () => {
         previewRequest?.abort();
       }
       dialog.addEventListener('close', cancelPreview, {once:true});
-      function schedulePreview() {
+      function previewRow(snapshot) {
+        const row = element('div', 'folder-match');
+        const monogram = element('span', 'folder-match-icon', (snapshot.domain || '?').slice(0, 1).toUpperCase());
+        monogram.setAttribute('aria-hidden', 'true');
+        const text = element('div', 'folder-match-body');
+        text.append(element('strong', '', snapshot.title || snapshot.domain),
+          element('small', '', [snapshot.domain, snapshot.date].filter(Boolean).join(' · ')));
+        row.append(monogram, text);
+        return row;
+      }
+      function schedulePreview(delay) {
         const serialized = folderForm.elements.rules.value;
         if (serialized === lastPreview) return;
         lastPreview = serialized;
         cancelPreview();
         matches.replaceChildren();
         if (!serialized || layout.hidden || layout.querySelector(':invalid') || dialog.querySelector('.folder-options :invalid')) return;
-        previewTimer = setTimeout(async () => {
+        previewTimer = setTimeout(() => {
           if (!dialog.open || version !== editorVersion) return;
           const controller = new AbortController();
           previewRequest = controller;
           const body = new FormData();
           for (const name of ['csrfmiddlewaretoken', 'folder_id', 'parent']) body.set(name, folderForm.elements[name].value);
           body.set('rules', serialized);
-          matches.replaceChildren(element('p', '', 'Loading…'));
-          try {
-            const response = await fetch(folderForm.dataset.rulesUrl, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
-            const result = await response.json();
-            if (controller.signal.aborted || !dialog.open || version !== editorVersion) return;
-            if (!response.ok) {
-              matches.replaceChildren(element('p', '', result.error || 'Preview unavailable.'));
-              return;
+          const status = element('p');
+          matches.append(status);
+          const current = () => !controller.signal.aborted && dialog.open && version === editorVersion;
+          async function load() {
+            status.textContent = 'Loading…';
+            try {
+              // Bound automatic requests for sparse rules. Keep the cursor so
+              // continuing a long preview or retrying an outage preserves its rows.
+              for (let page = 0; page < 4; page++) {
+                const response = await fetch(folderForm.dataset.rulesUrl, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
+                if (!current()) return;
+                if (!response.ok) {
+                  const error = await response.json().catch(() => ({}));
+                  if (!current()) return;
+                  status.textContent = error.error || `Preview unavailable (HTTP ${response.status}).`;
+                  if (response.status >= 500 || response.status === 429) status.append(' ', button('Retry', load));
+                  return;
+                }
+                const result = await response.json();
+                if (!current()) return;
+                status.before(...result.snapshots.map(previewRow));
+                if (!result.next) {
+                  if (matches.querySelector('.folder-match')) status.remove();
+                  else status.textContent = 'No matching snapshots.';
+                  return;
+                }
+                body.set('after', result.next);
+              }
+              status.replaceChildren(button('Continue preview', load));
+            } catch (_) {
+              if (current()) status.replaceChildren('Preview unavailable. ', button('Retry', load));
             }
-            if (!result.snapshots.length) {
-              matches.replaceChildren(element('p', '', 'No matching snapshots.'));
-              return;
-            }
-            matches.replaceChildren(...result.snapshots.map(snapshot => {
-              const row = element('div', 'folder-match');
-              const monogram = element('span', 'folder-match-icon', (snapshot.domain || '?').slice(0, 1).toUpperCase());
-              monogram.setAttribute('aria-hidden', 'true');
-              const text = element('div', 'folder-match-body');
-              text.append(element('strong', '', snapshot.title || snapshot.domain),
-                element('small', '', [snapshot.domain, snapshot.date].filter(Boolean).join(' · ')));
-              row.append(monogram, text);
-              return row;
-            }));
-          } catch (_) {
-            if (!controller.signal.aborted && dialog.open && version === editorVersion)
-              matches.replaceChildren(element('p', '', 'Preview unavailable.'));
           }
-        }, 300);
+          load();
+        }, delay);
       }
       const defaultRule = () => ({field:'url', lookup:'icontains', value:''});
       const negatives={not_exact:'exact',not_contains:'icontains',not_in:'in',not_in_folder:'in_folder'};
@@ -172,8 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
       layout.querySelector('.folder-query').hidden = schema.container;
       queryInput.value = savedQuery;
       queryInput.dispatchEvent(new Event('archivebox:load'));
-      queryInput.oninput = serialize;
-      queryInput.onchange = serialize;
+      queryInput.oninput = () => serialize(300);
+      queryInput.onchange = () => serialize();
       const specs = new Map(schema.fields.map(field => [field.name, field]));
       const relationLookups = new Set(['exact', 'in', 'isnull', 'present']);
       const labels = new Map(Object.entries(schema.related_selected || {}).map(([model, choices]) =>
@@ -206,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         control.addEventListener('click', action);
         return control;
       }
-      function serialize() {
+      function serialize(delay = 0) {
         function compact(node) {
           if (!node.op) return node;
           const children=node.rules.map(compact);
@@ -216,13 +233,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = queryInput.value.trim();
         const predicate = {...(rules ? compact(rules) : {}), ...(query ? {query} : {})};
         folderForm.elements.rules.value = kind.value === 'smart' ? JSON.stringify({...predicate, ...options}) : '';
-        schedulePreview();
+        schedulePreview(delay);
       }
       function input(type, value, label, change) {
         const control = element('input'); control.type = type; control.value = value ?? '';
         control.setAttribute('aria-label', label); control.required = true;
         if (type === 'number') {control.step='any';control.inputMode='decimal';}
-        control.addEventListener('input', () => {change(control.value); serialize();});
+        control.addEventListener('input', () => {change(control.value); serialize(300);});
         return control;
       }
       function renderRelatedValues(row, node, model) {
