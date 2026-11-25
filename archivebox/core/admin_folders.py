@@ -9,7 +9,7 @@ from django.apps import apps
 from django.contrib import admin
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import connections, OperationalError, router, transaction
+from django.db import connections, IntegrityError, OperationalError, router, transaction
 from django.db.models import Exists, Max, OuterRef, Q
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
@@ -470,6 +470,24 @@ class FolderAdmin(admin.ModelAdmin):
             Folder.objects.bulk_update(siblings, ["position"])
         return JsonResponse({"id": str(folder.pk)})
 
+    def rename_folder(self, request, folder):
+        from archivebox.core.templatetags.core_tags import folder_display_name
+
+        # Name-based smart-folder rules can change when a folder is renamed,
+        # so keep the normal validation and membership hooks but write only the name.
+        folder.name = request.POST.get("name", "")
+        try:
+            with transaction.atomic(using=folder._state.db):
+                folder.save(update_fields=["name"])
+        except ValidationError as error:
+            return JsonResponse({"error": " ".join(error.messages)}, status=400)
+        except IntegrityError:
+            return JsonResponse({"error": "A folder with this name already exists here."}, status=400)
+
+        return JsonResponse(
+            {"name": folder.name, "display": folder_display_name(folder.name), "path_label": Folder.picker_choices([folder])[0]["name"]},
+        )
+
     def save_folder(self, request):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
@@ -482,6 +500,10 @@ class FolderAdmin(admin.ModelAdmin):
         allowed = self.has_change_permission(request, folder) if folder else self.has_add_permission(request)
         if not allowed:
             raise PermissionDenied
+        if request.POST.get("rename") == "1":
+            if not folder:
+                return JsonResponse({"error": "Choose a folder to rename."}, status=400)
+            return self.rename_folder(request, folder)
         form = FolderForm(request.POST, instance=folder)
         if not form.is_valid():
             return JsonResponse({"error": " ".join(error for errors in form.errors.values() for error in errors)}, status=400)

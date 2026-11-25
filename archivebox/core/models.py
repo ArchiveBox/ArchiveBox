@@ -214,7 +214,7 @@ class Folder(models.Model):
             super().save(*args, **kwargs)
             # Only folder metadata is atomic. Never hold that transaction while
             # moving the (potentially million-row) snapshot membership.
-            if self.parent_id:
+            if self.parent_id and set(kwargs.get("update_fields") or ()) != {"name"}:
                 type(self).objects.get(pk=self.parent_id).collect_children()
 
     def collect_children(self):

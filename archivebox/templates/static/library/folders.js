@@ -471,7 +471,120 @@ document.addEventListener('DOMContentLoaded', () => {
       kind.onchange = render;
       render();
     }
+    let activeRename;
+    function renameFolder(button) {
+      if (activeRename?.busy) return;
+      activeRename?.finish(false);
+      const row = button.closest('.folder-row');
+      const link = row.querySelector('a.folder-link');
+      const label = link.querySelector('[data-folder-label]');
+      const action = row.querySelector('.folder-menu-toggle');
+      const status = sidebar.querySelector('.folder-drop-status');
+      const originalName = row.dataset.folderName;
+      const originalPath = link.title;
+      const wasDraggable = row.draggable;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'folder-inline-name';
+      input.setAttribute('aria-label', 'Folder name');
+      input.maxLength = 100;
+      input.value = originalName;
+      const editor = document.createElement('span');
+      editor.className = 'library-link folder-link folder-inline-editor';
+      if (!link.firstElementChild.matches('.folder-title-emoji')) editor.append(link.firstElementChild.cloneNode(true));
+      editor.append(input);
+      const state = activeRename = {
+        busy: false,
+        finish(focus = true) {
+          link.hidden = false;
+          editor.remove();
+          row.draggable = wasDraggable;
+          status.textContent = '';
+          activeRename = null;
+          if (focus) action.focus();
+        },
+      };
+
+      button.closest('.folder-menu:popover-open')?.hidePopover();
+      row.draggable = false;
+      link.hidden = true;
+      link.after(editor);
+      input.focus();
+      input.select();
+      input.addEventListener('keydown', async event => {
+        if (event.isComposing || !['Enter', 'Escape'].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (state.busy) return;
+        if (event.key === 'Escape' || input.value.trim() === originalName) return state.finish();
+        if (!input.value.trim()) return;
+        state.busy = input.readOnly = true;
+        const body = new FormData();
+        body.set('csrfmiddlewaretoken', folderForm.elements.csrfmiddlewaretoken.value);
+        body.set('folder_id', row.dataset.folderId);
+        body.set('name', input.value.trim());
+        body.set('rename', '1');
+        try {
+          const response = await fetch(folderForm.action, {method:'POST', body, credentials:'same-origin'});
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Could not rename folder.');
+          const [emoji, name] = result.display;
+          const icon = link.firstElementChild;
+          if (emoji) {
+            const lead = document.createElement('span');
+            lead.className = 'folder-title-emoji';
+            lead.setAttribute('aria-hidden', 'true');
+            lead.textContent = emoji;
+            icon.replaceWith(lead);
+            link.setAttribute('aria-label', result.name);
+          } else {
+            if (icon.matches('.folder-title-emoji')) {
+              const ns = 'http://www.w3.org/2000/svg';
+              const svg = document.createElementNS(ns, 'svg');
+              const use = document.createElementNS(ns, 'use');
+              svg.setAttribute('aria-hidden', 'true');
+              use.setAttribute('href', row.dataset.smart === 'true' ? '#library-smart' : '#library-folder');
+              svg.append(use);
+              icon.replaceWith(svg);
+            }
+            link.removeAttribute('aria-label');
+          }
+          label.textContent = name;
+          link.title = result.path_label;
+          row.dataset.folderName = result.name;
+          for (const command of row.querySelectorAll('.folder-edit')) command.dataset.name = result.name;
+          const menu = button.closest('.folder-menu');
+          menu.setAttribute('aria-label', result.name);
+          for (const control of row.querySelectorAll(':scope > .folder-toggle, :scope > .folder-row-actions [aria-label]')) {
+            const aria = control.getAttribute('aria-label');
+            if (!aria.endsWith(originalName)) continue;
+            const next = aria.slice(0, -originalName.length) + result.name;
+            control.setAttribute('aria-label', next);
+            control.title = next;
+          }
+          // Keep loaded descendant paths correct without replacing lazy or expanded rows.
+          for (const child of rows) {
+            let ancestor = child.dataset.parentId;
+            while (ancestor && ancestor !== row.dataset.folderId) ancestor = rowsById.get(ancestor)?.dataset.parentId;
+            if (ancestor !== row.dataset.folderId) continue;
+            const childLink = child.querySelector('a.folder-link');
+            if (childLink?.title.startsWith(originalPath + ' / ')) {
+              childLink.title = result.path_label + childLink.title.slice(originalPath.length);
+            }
+          }
+          if (link.getAttribute('aria-current') === 'page') sidebar.querySelector('.folder-current').textContent = result.name;
+          state.finish();
+        } catch (error) {
+          status.textContent = error.message;
+          input.focus();
+        } finally {
+          state.busy = input.readOnly = false;
+        }
+      });
+    }
     document.addEventListener('click', event => {
+      const rename = event.target.closest('.folder-rename');
+      if (rename) return renameFolder(rename);
       const button = event.target.closest('.folder-new,.folder-edit');
       if (button) openFolder(button);
     });

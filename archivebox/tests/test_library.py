@@ -531,6 +531,38 @@ def test_inline_folder_save_validates_normalized_name(admin_client):
     assert Folder.objects.get(pk=response.json()["id"]).name == "Reading list"
 
 
+def test_inline_folder_rename_updates_only_name_and_respects_permissions(admin_client, django_user_model):
+    from django.contrib.auth.models import Permission
+    from django.test import Client
+
+    from archivebox.core.models import Folder
+
+    parent = Folder.objects.create(name="Collection")
+    rules = {"field": "title", "lookup": "icontains", "value": "notes"}
+    child = Folder.objects.create(name="Reading", parent=parent, position=9, rules=rules)
+    Folder.objects.create(name="Occupied", parent=parent)
+    url = "/admin/core/folder/save/"
+    data = {"folder_id": child.pk, "rename": "1"}
+    staff = django_user_model.objects.create_user(username="folder-read", is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename="view_folder"))
+    client = Client()
+    client.force_login(staff)
+    assert client.post(url, {**data, "name": "Blocked"}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 403
+    for invalid in ("<b></b>", "Occupied", "z" * 101):
+        assert admin_client.post(url, {**data, "name": invalid}, HTTP_HOST=ADMIN_TEST_HOST).status_code == 400
+    assert Folder.objects.get(pk=child.pk).name == "Reading"
+    response = admin_client.post(url, {**data, "name": "📚 <b>Notes</b>", "parent": "", "rules": ""}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response.json() == {"name": "📚 Notes", "path_label": "Collection / 📚 Notes", "display": ["📚", "Notes"]}
+    child.refresh_from_db()
+    assert (child.name, child.parent_id, child.position, child.rules) == ("📚 Notes", parent.pk, 9, rules)
+    named_reference = Folder.objects.create(name="No cycle", rules={"query": "folder:Alias"})
+    response = admin_client.post(url, {"folder_id": named_reference.pk, "name": "Alias", "rename": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 400 and "cycle" in response.json()["error"]
+    named_reference.refresh_from_db()
+    assert named_reference.name == "No cycle"
+
+
 @pytest.mark.django_db(transaction=True)
 def test_public_folder_browser_keeps_navigation_readonly(live_server, admin_user, browser_runtime):
     from playwright.sync_api import sync_playwright, expect
@@ -616,19 +648,33 @@ def test_browser_drag_single_and_checked_snapshots(live_server, admin_user, brow
             page.locator(f'.folder-row[data-folder-id="{parent.pk}"]'),
         )
         expect(page.locator(".messagelist")).to_contain_text("Moved 2 snapshot(s) to Research")
+        child_row = page.locator(f'.folder-row[data-folder-id="{child.pk}"]')
+        child_row.hover()
+        child_row.get_by_role("button", name="Actions for Papers", exact=True).click()
+        expect(child_row.get_by_role("menuitem", name="Edit Rules", exact=True)).to_have_count(0)
+        child_row.get_by_role("menuitem", name="Rename", exact=True).click()
+        child_name = child_row.get_by_role("textbox", name="Folder name")
+        expect(child_name).to_be_focused()
+        child_name.fill("Papers archive")
+        child_name.press("Enter")
+        expect(child_row.get_by_role("link", name="Papers archive", exact=True)).to_be_visible()
+        expect(child_row).to_have_attribute("draggable", "true")
         page.locator(f'.folder-row[data-folder-id="{parent.pk}"]').hover()
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu = page.locator(f"#folder-menu-{parent.pk}")
         expect(menu).to_be_visible()
         expect(menu.get_by_role("menuitem", name="Rename", exact=True)).to_be_focused()
         page.keyboard.press("ArrowDown")
+        expect(menu.get_by_role("menuitem", name="Edit Rules", exact=True)).to_be_focused()
+        page.keyboard.press("ArrowDown")
         expect(menu.get_by_role("menuitem", name="Move...", exact=True)).to_be_focused()
         page.keyboard.press("Escape")
         expect(menu).to_be_hidden()
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu.get_by_role("menuitem", name="Rename", exact=True).click()
-        expect(page.locator("#folder-name")).to_have_value("Research")
-        page.locator(".folder-dialog-close").first.click()
+        inline_name = page.get_by_role("textbox", name="Folder name")
+        expect(inline_name).to_have_value("Research")
+        inline_name.press("Escape")
         page.get_by_role("button", name="Actions for Research", exact=True).click()
         menu.get_by_role("menuitem", name="Add subfolder", exact=True).click()
         expect(page.locator("#folder-parent")).to_have_value(str(parent.pk))
