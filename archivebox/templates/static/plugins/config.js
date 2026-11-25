@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // A toolbar can be clicked while the browser is still parsing the form.
         // Enable submission only after widgets and change tracking are ready.
-        for (const control of form.elements) {
-            if (control.hasAttribute('data-settings-submit')) control.disabled = false;
-        }
+        document.querySelectorAll('[data-settings-submit]').forEach(control => {
+            if (control.form === form) control.disabled = false;
+        });
     });
 }, {capture: true});
 
@@ -114,24 +114,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const advanced = event.target.closest('.plugin-advanced');
             if (advanced) advanced.open = true;
         }, true);
-        function updateStatus() {
+        function updateStatus(tab, toggle) {
+            const sidebar = tab?.closest('.plugin-settings-nav-row').querySelector('.plugin-sidebar-toggle');
+            const checked = Boolean(toggle?.checked);
+            if (sidebar && sidebar.checked !== checked) sidebar.checked = checked;
+        }
+        function updateAllStatuses() {
             tabs.forEach(tab => {
                 const panel = panelFor(tab);
-                const toggle = panel.querySelector('.plugin-section-toggle') || getCardEnabledInput(panel);
-                const sidebar = tab.closest('.plugin-settings-nav-row').querySelector('.plugin-sidebar-toggle');
-                if (sidebar) sidebar.checked = Boolean(toggle?.checked);
+                updateStatus(tab, getCardSectionToggle(panel) || getCardEnabledInput(panel));
             });
         }
         settings.addEventListener('change', event => {
-            if (event.target.matches('.plugin-sidebar-toggle')) {
-                const tab = tabs.find(item => item.dataset.plugin === event.target.dataset.plugin);
+            const input = event.target;
+            if (input.matches('.plugin-sidebar-toggle')) {
+                const tab = input.closest('.plugin-settings-nav-row').querySelector('[role="tab"]');
                 const panel = panelFor(tab);
-                const toggle = panel.querySelector('.plugin-section-toggle') || getCardEnabledInput(panel);
-                setChecked(toggle, event.target.checked);
+                const toggle = getCardSectionToggle(panel) || getCardEnabledInput(panel);
+                setChecked(toggle, input.checked);
+                updateStatus(tab, toggle);
+                return;
             }
-            updateStatus();
+            const panel = input.closest('.plugin-card');
+            if (!panel || (input.dataset.configKey !== panel.dataset.pluginEnabledKey && !input.matches('.plugin-section-toggle'))) return;
+            const toggle = getCardSectionToggle(panel) || getCardEnabledInput(panel);
+            if (input === toggle) updateStatus(document.getElementById(panel.getAttribute('aria-labelledby')), toggle);
         });
-        settings.addEventListener('plugin-config-updated', updateStatus);
+        let statusUpdateQueued = false;
+        settings.addEventListener('plugin-config-updated', () => {
+            // Applying a persona can update both the fields and the switches.
+            // Reflect their final state once instead of revisiting every row twice.
+            if (statusUpdateQueued) return;
+            statusUpdateQueued = true;
+            queueMicrotask(() => {
+                statusUpdateQueued = false;
+                updateAllStatuses();
+            });
+        });
         // Every field is initially visible in the server markup. An empty
         // search just needs the first tab, without rewriting each field.
         if (search.value || !tabs.length) filter();
@@ -153,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectSettingsPanel(link.hash.slice(1), true);
             });
         });
-        updateStatus();
+        updateAllStatuses();
         // Do not lose sidebar interactions while the settings form is still parsing.
         tabs.forEach(tab => { tab.disabled = false; });
         search.disabled = false;
@@ -192,7 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateWidgets() {
-        document.querySelectorAll('.plugin-config-field').forEach(updateWidget);
+        // Most settings are plain inputs with nothing to update.
+        const widgets = document.querySelectorAll('[data-editor-count], .config-range-slider, [data-config-preset]');
+        new Set([...widgets].map(widget => widget.closest('.plugin-config-field')).filter(Boolean)).forEach(updateWidget);
     }
     document.addEventListener('click', event => {
         const snippet = event.target.closest('[data-config-insert], [data-config-wrap]');
@@ -240,15 +261,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setPluginInputValue(input, value) {
-        if (!input) return;
         if (input.multiple) {
             const selected = new Set((Array.isArray(value) ? value : []).map(String));
-            [...input.options].forEach(option => { option.selected = selected.has(option.value); });
+            let changed = false;
+            for (const option of input.options) {
+                const enabled = selected.has(option.value);
+                if (option.selected === enabled) continue;
+                option.selected = enabled;
+                changed = true;
+            }
+            return changed;
         } else if (input.type === 'checkbox') {
-            input.checked = value === true || value === 'true' || value === '1' || value === 'on';
-        } else {
-            input.value = valueToFieldString(value);
+            const checked = value === true || value === 'true' || value === '1' || value === 'on';
+            if (input.checked === checked) return false;
+            input.checked = checked;
+            return true;
         }
+        const text = valueToFieldString(value);
+        if (input.value === text) return false;
+        input.value = text;
+        return true;
     }
 
     function getPluginInputValue(input) {
@@ -258,8 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncMatchingPluginInputs(source) {
         if (syncing || !source || !source.dataset.configKey) return;
         syncing = true;
+        const value = getPluginInputValue(source);
         document.querySelectorAll(`.plugin-config-input[data-config-key="${CSS.escape(source.dataset.configKey)}"]`).forEach((input) => {
-            if (input !== source) setPluginInputValue(input, getPluginInputValue(source));
+            if (input !== source) {
+                if (!setPluginInputValue(input, value)) return;
+                window.archiveboxRefreshQuantities?.(input);
+            }
             const field = input.closest('.plugin-config-field');
             if (field) updateWidget(field);
         });
@@ -306,10 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
             container.textContent = '';
             container.appendChild(code);
         }
-        code.textContent = valueToFieldString(value);
+        const text = valueToFieldString(value);
+        if (code.textContent !== text) code.textContent = text;
         const existingLink = container.querySelector('a');
         if (currentUrl && existingLink) {
-            existingLink.href = currentUrl;
+            if (existingLink.getAttribute('href') !== currentUrl) existingLink.href = currentUrl;
         } else if (currentUrl && !existingLink) {
             const link = document.createElement('a');
             link.href = currentUrl;

@@ -430,6 +430,10 @@ class PluginConfigFormMixin:
                 for card in group["plugins"]:
                     if not card.get("is_core"):
                         card["system_default"] = True
+        # Match the first tab the browser can select, including when a group has no cards.
+        first_card = next((group["plugins"][0] for group in self.plugin_groups if group["plugins"]), None)
+        if first_card:
+            first_card["selected"] = True
         if self.plugin_groups:
             self.plugin_groups[0]["changed_keys"] = self.data.getlist("settings_changed") if self.is_bound else []
         for group in self.plugin_groups:

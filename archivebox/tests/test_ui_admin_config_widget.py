@@ -16,6 +16,7 @@ from archivebox.core.templatetags.core_tags import system_warnings_banner
 from archivebox.core.views import HealthCheckView
 
 STATIC_DIR = Path(__file__).parents[1] / "templates" / "static"
+KEY_VALUE_JS = (STATIC_DIR / "key-value-editor.js").read_text()
 SETUP_WIZARD_CSS = (STATIC_DIR / "setup_wizard.css").read_text()
 SETUP_WIZARD_JS = (STATIC_DIR / "setup_wizard.js").read_text()
 
@@ -32,9 +33,10 @@ def test_key_value_widget_renders_enum_autocomplete_metadata():
     assert '"enum": ["domcontentloaded", "load", "networkidle0", "networkidle2"]' in html
     assert 'class="kv-value-options"' in html
     assert 'class="kv-help"' in html
-    assert "configureValueInput_id_config" in html
-    assert "describeMeta_id_config" in html
-    assert "validateValueAgainstMeta_id_config" in html
+    assert static("key-value-editor.js") in str(KeyValueWidget().media)
+    assert "configureValueInput" in KEY_VALUE_JS
+    assert "describeMeta" in KEY_VALUE_JS
+    assert "validateValueAgainstMeta" in KEY_VALUE_JS
 
 
 def test_cold_config_widget_metadata_does_not_validate_live_values():
@@ -70,29 +72,31 @@ def test_key_value_widget_renders_numeric_and_pattern_constraints():
 
     assert '"minimum": 0' in html
     assert '"pattern": "^\\\\d+,\\\\d+$"' in html
-    assert "Expected: " in html
-    assert "Example: " in html
-    assert "setValueValidationState_id_config" in html
-    assert "coerceValueForStorage_id_config" in html
+    assert "Expected: " in KEY_VALUE_JS
+    assert "Example: " in KEY_VALUE_JS
+    assert "setValueValidationState" in KEY_VALUE_JS
+    assert "coerceValueForStorage" in KEY_VALUE_JS
 
 
 def test_key_value_widget_accepts_common_boolean_spellings():
     html = str(KeyValueWidget().render("config", {"CHECK_SSL_VALIDITY": "True"}, attrs={"id": "id_config"}))
 
-    assert "enumValues = ['True', 'False']" in html
-    assert "raw.toLowerCase()" in html
-    assert "lowered === 'true' || raw === '1'" in html
-    assert "lowered === 'false' || raw === '0'" in html
+    assert 'type="application/json"' in html
+    assert "enumValues = ['True', 'False']" in KEY_VALUE_JS
+    assert "raw.toLowerCase()" in KEY_VALUE_JS
+    assert "lowered === 'true' || raw === '1'" in KEY_VALUE_JS
+    assert "lowered === 'false' || raw === '0'" in KEY_VALUE_JS
 
 
 def test_key_value_widget_shows_array_and_object_examples_and_binary_rules():
     html = str(KeyValueWidget().render("config", {"NODE_BINARY": "node"}, attrs={"id": "id_config"}))
 
-    assert 'Example: ["--extra-arg"]' in html
-    assert "Example: wget or /usr/bin/wget" in html
-    assert "validateBinaryValue_id_config" in html
-    assert "meta.key.endsWith('_BINARY')" in html
-    assert "Binary paths cannot contain quotes" in html
+    assert 'type="application/json"' in html
+    assert 'Example: ["--extra-arg"]' in KEY_VALUE_JS
+    assert "Example: wget or /usr/bin/wget" in KEY_VALUE_JS
+    assert "validateBinaryValue" in KEY_VALUE_JS
+    assert "meta.key.endsWith('_BINARY')" in KEY_VALUE_JS
+    assert "Binary paths cannot contain quotes" in KEY_VALUE_JS
 
 
 def test_key_value_widget_falls_back_to_binary_validation_for_unknown_binary_keys():
@@ -104,22 +108,24 @@ def test_key_value_widget_falls_back_to_binary_validation_for_unknown_binary_key
         ),
     )
 
-    assert "function getMetaForKey_id_config" in html
-    assert "if (key.endsWith('_BINARY'))" in html
-    assert "Path to binary executable" in html
+    assert 'type="application/json"' in html
+    assert "function getMetaForKey" in KEY_VALUE_JS
+    assert "if (key.endsWith('_BINARY'))" in KEY_VALUE_JS
+    assert "Path to binary executable" in KEY_VALUE_JS
 
 
 def test_key_value_widget_prefills_known_config_values_from_query_string():
     html = str(KeyValueWidget().render("config", {}, attrs={"id": "id_config"}))
 
-    assert "new URLSearchParams(window.location.search)" in html
-    assert "prefillConfigFromQuery_id_config" in html
-    assert "configMeta_id_config[key]" in html
-    assert "valueInput.value = value" in html
-    assert "params.forEach(function(value, key)" in html
-    assert "configMeta_id_config[key]" in html
-    assert "consumedConfigKeys.forEach" in html
-    assert "window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash)" in html
+    assert 'type="application/json"' in html
+    assert "new URLSearchParams(window.location.search)" in KEY_VALUE_JS
+    assert "prefillConfigFromQuery" in KEY_VALUE_JS
+    assert "configMeta[key]" in KEY_VALUE_JS
+    assert "valueInput.value = value" in KEY_VALUE_JS
+    assert "params.forEach(function(value, key)" in KEY_VALUE_JS
+    assert "configMeta[key]" in KEY_VALUE_JS
+    assert "consumedConfigKeys.forEach" in KEY_VALUE_JS
+    assert "window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash)" in KEY_VALUE_JS
 
 
 @pytest.mark.parametrize("enabled", [True, False])

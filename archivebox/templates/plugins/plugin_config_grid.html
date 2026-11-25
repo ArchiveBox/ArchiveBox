@@ -13,7 +13,7 @@
                 {% if group.title %}<div class="plugin-settings-category">{{ group.title }}</div>{% endif %}
                 {% for plugin in group.plugins %}
                 <div class="plugin-settings-nav-row">
-                <button type="button" role="tab" disabled id="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" aria-controls="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-selected="false" tabindex="-1" data-plugin="{{ plugin.name }}">
+                <button type="button" role="tab" disabled id="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" aria-controls="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-selected="{% if plugin.selected %}true{% else %}false{% endif %}" tabindex="{% if plugin.selected %}0{% else %}-1{% endif %}" data-plugin="{{ plugin.name }}">
                     {{ plugin.label }}
                 </button>
                 {% if group.show_selectors or plugin.enabled_field %}
@@ -30,7 +30,7 @@
         {% for group in plugin_groups %}{% if group.plugins %}
         <div class="plugin-group"{% if group.dom_id %} id="{{ group.dom_id }}"{% endif %}>
             {% for plugin in group.plugins %}
-            <section class="plugin-card{% if plugin.system_default %} system-defaults{% endif %}" role="tabpanel" tabindex="0" id="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-labelledby="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" data-plugin-name="{{ plugin.name }}"{% if plugin.enabled_config_key %} data-plugin-enabled-key="{{ plugin.enabled_config_key }}"{% endif %}>
+            <section{% if plugin.selected %} data-initial-panel{% endif %} class="plugin-card{% if plugin.system_default %} system-defaults{% endif %}" role="tabpanel" tabindex="0" id="plugin-panel-{{ group.field_name }}-{{ plugin.name }}" aria-labelledby="plugin-tab-{{ group.field_name }}-{{ plugin.name }}" data-plugin-name="{{ plugin.name }}"{% if plugin.enabled_config_key %} data-plugin-enabled-key="{{ plugin.enabled_config_key }}"{% endif %}>
                 <header class="plugin-card-main">
                     {% if group.title %}<div class="plugin-settings-breadcrumb">{{ group.title }}</div>{% endif %}
                     <div class="plugin-title-row">

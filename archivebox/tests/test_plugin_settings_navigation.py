@@ -36,8 +36,45 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
             page.get_by_label("Password:", exact=True).fill(env["DJANGO_SUPERUSER_PASSWORD"])
             page.get_by_role("button", name="Log in", exact=True).click()
             expect(page.locator(".navbar-username")).to_have_text(env["DJANGO_SUPERUSER_USERNAME"])
+            page.goto(base + "/admin/machine/machine/")
+            machine_url = page.locator('#result_list a[href$="/change/"]').first.get_attribute("href")
             page.goto(base + "/admin/personas/persona/")
-            page.get_by_role("link", name="Navigation Review", exact=True).click()
+            persona_url = page.get_by_role("link", name="Navigation Review", exact=True).get_attribute("href")
+            fallback = browser.new_context(java_script_enabled=False, storage_state=page.context.storage_state())
+            plain = fallback.new_page()
+            # Hold the real settings script while Chromium renders the original HTML/CSS.
+            for route in ("/add/", machine_url, persona_url):
+                delayed_scripts = []
+                page.route("**/plugins/config.js", lambda request: delayed_scripts.append(request))
+                page.goto(base + route, wait_until="commit")
+                page.wait_for_function("document.readyState !== 'loading'")
+                first_tab = page.locator('#plugin-settings [role="tab"]').first
+                expect(first_tab).to_be_disabled()
+                expect(first_tab).to_have_attribute("aria-selected", "true")
+                visible_panels = page.locator(".plugin-card:visible")
+                expect(visible_panels).to_have_count(1)
+                first_panel_id = first_tab.get_attribute("aria-controls")
+                expect(visible_panels).to_have_id(first_panel_id)
+                grid = page.locator("#plugin-settings")
+                if route == "/add/":
+                    screenshot_panel = page.locator('[role="tab"][data-plugin="screenshot"]').get_attribute("aria-controls")
+                before = visible_panels.locator(".plugin-title-row").bounding_box()
+                top_before = before["y"] - grid.bounding_box()["y"]
+                assert len(delayed_scripts) == 1
+                delayed_scripts[0].continue_()
+                expect(first_tab).to_be_enabled()
+                expect(visible_panels).to_have_id(first_panel_id)
+                after = visible_panels.locator(".plugin-title-row").bounding_box()
+                assert abs(before["width"] - after["width"]) < 2
+                top_after = after["y"] - grid.bounding_box()["y"]
+                assert abs(top_before - top_after) < 2, route
+                page.unroute("**/plugins/config.js")
+
+                plain.goto(base + route)
+                panels = plain.get_by_role("tabpanel")
+                assert panels.count() > 10
+                expect(panels.last).to_be_visible()
+            fallback.close()
             expect(page.locator("#plugin-settings")).to_be_visible()
             page.locator("#plugin-settings").scroll_into_view_if_needed()
             posted_urls = []
@@ -138,7 +175,9 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
             expect(timeout).to_have_value(str(expected_large_timeout))
             expect(timeout_slider).to_have_value(str(expected_large_timeout))
 
-            page.goto(base + "/add/")
+            page.goto(f"{base}/add/#{screenshot_panel}")
+            expect(screenshot_tab).to_have_attribute("aria-selected", "true")
+            expect(page.locator(".plugin-card:visible")).to_have_id(screenshot_panel)
             persona = page.locator('select[name="persona"]')
             persona.select_option(label="Default")
             screenshot_tab.click()

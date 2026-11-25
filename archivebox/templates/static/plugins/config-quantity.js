@@ -151,7 +151,10 @@
             input.before(slider);
             slider.addEventListener('input', () => { input.value = slider.value; input.dispatchEvent(new Event('input', {bubbles:true})); });
         }
+        let lastRaw;
         const refresh = () => {
+            if (input.value === lastRaw) return;
+            lastRaw = input.value;
             if (slider) { slider.max = String(Math.max(1000000, Number(input.value) || 0)); slider.value = input.value; }
             amount.value = Number(input.value) === 0 ? '' : input.value;
             if (slider) slider.setAttribute('aria-valuetext', Number(input.value) === 0 ? label : input.value);
@@ -164,18 +167,23 @@
         amount.addEventListener('change', () => input.dispatchEvent(new Event('change', {bubbles: true})));
         zeroWidgets.set(input, {refresh}); refresh();
     }
-    window.archiveboxRefreshQuantities = () => {
-        document.querySelectorAll('input[data-quantity-kind]').forEach(input => { if (!widgets.has(input)) enhance(input); });
-        widgets.forEach(widget => widget.refresh());
-        document.querySelectorAll('input[data-config-key][name], #add-form input[name]').forEach(enhanceZero);
-        zeroWidgets.forEach(widget => widget.refresh());
+    const refreshQuantity = input => (widgets.get(input) || zeroWidgets.get(input))?.refresh();
+    window.archiveboxRefreshQuantities = input => {
+        if (input) {
+            refreshQuantity(input);
+            return;
+        }
+        // A page load or a bulk settings operation can supply new controls.
+        // A normal input or change event only updates its own quantity.
+        document.querySelectorAll('input[data-quantity-kind], input[data-config-key][name], #add-form input[name]').forEach(control => {
+            if (widgets.has(control) || zeroWidgets.has(control)) refreshQuantity(control);
+            else if (control.dataset.quantityKind) enhance(control);
+            else enhanceZero(control);
+        });
     };
-    document.addEventListener('input', event => {
-        if (widgets.has(event.target)) widgets.get(event.target).refresh();
-        if (zeroWidgets.has(event.target)) zeroWidgets.get(event.target).refresh();
-    });
-    document.addEventListener('change', event => { if (!event.target.closest('.config-quantity')) window.archiveboxRefreshQuantities(); });
-    document.addEventListener('DOMContentLoaded', window.archiveboxRefreshQuantities);
+    document.addEventListener('input', event => refreshQuantity(event.target));
+    document.addEventListener('change', event => refreshQuantity(event.target));
+    document.addEventListener('DOMContentLoaded', () => window.archiveboxRefreshQuantities());
     // Django admin uses novalidate; quantity widgets still validate their own units before submission.
     document.addEventListener('submit', event => {
         for (const [input, widget] of widgets) {

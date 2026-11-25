@@ -16,6 +16,12 @@
 }
 #plugin-settings *, #plugin-settings *::before, #plugin-settings *::after { box-sizing: border-box; }
 #plugin-settings [hidden] { display: none !important; }
+/* The disabled search marks the interval before the tab controller takes over.
+   With scripting disabled, every settings panel remains in document order. */
+@media (scripting: enabled) {
+    #plugin-settings:has(.plugin-settings-search input:disabled) .plugin-card:not([data-initial-panel]):not(:target),
+    #plugin-settings:has(.plugin-settings-search input:disabled):has(.plugin-card:target) .plugin-card:not(:target) { display: none; }
+}
 #plugin-settings button, #plugin-settings input, #plugin-settings select, #plugin-settings textarea { font: inherit; }
 #plugin-settings a { color: var(--settings-blue); text-decoration: none; }
 #plugin-settings a:hover { text-decoration: underline; }

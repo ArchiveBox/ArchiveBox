@@ -8,6 +8,7 @@ from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import DisallowedHost, ImproperlyConfigured
 from django.http import HttpResponseForbidden
+from django.http.request import MediaType
 from django.middleware.gzip import GZipMiddleware
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -33,6 +34,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.replay_timing import mark_replay_phase
 from archivebox.core.views import REPLAY_COOKIE_PREFIX, HealthCheckView, OriginalDomainHostView, SnapshotHostView
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
+from archivebox.plugins.forms import PluginConfigFormMixin
 
 ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
 
@@ -159,17 +161,27 @@ def AdminCookieIsolationMiddleware(get_response):
 
 class UIGZipMiddleware(GZipMiddleware):
     def process_response(self, request, response):
-        # Keep captured output and range responses byte-for-byte. Compress the
-        # list and its text assets at the origin for installs without a CDN.
+        # Keep captured output and range responses byte-for-byte. Compress UI
+        # pages and their text assets at the origin for installs without a CDN.
         if request.method not in {"GET", "HEAD"} or request.headers.get("Range"):
             return response
         asset = request.path_info.startswith("/static/") and request.path_info.endswith((".css", ".js", ".mjs", ".svg")) and not request.GET
         match = request.resolver_match
+        media_type = response.get("Content-Type", "").partition(";")[0]
         snapshot_list = match and match.url_name in {"core_snapshot_changelist", "grid"} and match.app_name == "admin"
+        add = match and match.view_name == "add" and media_type in {"text/html", "application/json"}
+        admin_form = (getattr(response, "context_data", None) or {}).get("adminform") if match and match.app_name == "admin" else None
+        settings_form = media_type == "text/html" and isinstance(getattr(admin_form, "form", None), PluginConfigFormMixin)
         if asset and response.status_code in (200, 304):
             # Small and revalidated assets use the same cache key as gzip variants.
             patch_vary_headers(response, ("Accept-Encoding",))
-        if response.status_code == 200 and (asset or snapshot_list):
+        if response.status_code == 200 and (add or settings_form):
+            patch_vary_headers(response, ("Accept-Encoding",))
+            # Django's gzip check also matches gzip;q=0, which opts out.
+            encodings = map(MediaType, request.headers.get("Accept-Encoding", "").split(","))
+            if not any(encoding.main_type == "gzip" and not encoding.sub_type and encoding.quality > 0 for encoding in encodings):
+                return response
+        if response.status_code == 200 and (asset or snapshot_list or add or settings_form):
             return super().process_response(request, response)
         return response
 

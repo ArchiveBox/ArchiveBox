@@ -68,6 +68,11 @@ def test_machine_admin_uses_shared_settings_and_preserves_custom_config(live_ser
         assert read_ini_config(tmp_path / "ArchiveBox.conf")["WGET_TIMEOUT"] == "77"
 
         custom = page.locator(".key-value-row").filter(has=page.locator('input.kv-key[value="CUSTOM_SETTING"]'))
+        # The native list of config keys should cost nothing to parse until a
+        # key is edited, then include the same installed plugin options.
+        expect(page.locator("#id_config_keys")).to_have_count(0)
+        custom.locator(".kv-key").focus()
+        expect(page.locator('#id_config_keys option[value="WGET_TIMEOUT"]')).to_have_count(1)
         custom.locator(".kv-value").fill('{"keep": [42, "edited"]}')
         save.click()
         expect(page.locator(".success")).to_be_visible()
