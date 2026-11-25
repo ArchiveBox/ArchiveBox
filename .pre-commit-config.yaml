@@ -11,8 +11,8 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        # Captured and bundled third-party JavaScript is not prose.
-        exclude: ^archivebox/tests/fixtures/crontab-resources/index\.js$
+        # Captured JavaScript and exact model vocabulary are not prose.
+        exclude: ^archivebox/(tests/fixtures/crontab-resources/index\.js|templates/static/tag-color-hues\.js)$
         additional_dependencies:
           - tomli
 

@@ -52,7 +52,8 @@ def _sidebar_catalog(request):
         providers.update(
             (_provider_key(provider), provider)
             for provider in sorted(
-                get_importer_providers(ordinary), key=lambda provider: (provider["name"].casefold(), _provider_key(provider))
+                get_importer_providers(ordinary),
+                key=lambda provider: (provider["name"].casefold(), _provider_key(provider)),
             )
         )
         request._library_importer_catalog = definitions, providers
