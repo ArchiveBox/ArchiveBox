@@ -17,6 +17,7 @@
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
         <link rel="stylesheet" href="{% static 'tag-badges.css' %}" />
+        <script src="{% static 'tag-color-hues.js' %}"></script>
         <script src="{% static 'tag-colors.js' %}"></script>
         {% include "core/record_picker_assets.html" %}
         {% api_token as api_token %}
