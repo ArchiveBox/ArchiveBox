@@ -52,7 +52,6 @@ ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
-ARG ARCHIVEBOX_COMMIT_HASH=""
 
 ENV TZ=UTC \
     LANGUAGE=en_US:en \
@@ -201,6 +200,9 @@ EOF
 # the package and static assets. Keeping /app/archivebox duplicates them.
 # Compile only ArchiveBox's installed package. Touching all of /venv here would
 # copy every inherited abx-dl file into a new layer merely to change its mtime.
+# Keep the commit argument out of dependency layers: ARG values participate in
+# every following RUN cache key, even when the shell does not reference them.
+ARG ARCHIVEBOX_COMMIT_HASH=""
 RUN --mount=type=bind,source=.,target=/app,rw \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && COMMIT_HASH="$( \

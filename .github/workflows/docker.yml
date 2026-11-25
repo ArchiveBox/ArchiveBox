@@ -379,12 +379,12 @@ jobs:
           build-contexts: ${{ steps.abx_dl_image.outputs.context }}
           pull: true
           platforms: ${{ matrix.platform }}
-          # Keep the released image as the one cache authority. A second GHA
-          # cache can hold gzip variants of identical layers, and BuildKit may
-          # prefer those over :dev's zstd blobs. That counter-intuitively makes
-          # a cache hit larger than the released image. :dev advances only
-          # after both architectures pass the release checks.
-          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          # Both tags contain tested images with the same zstd layer lineage.
+          # The early channel advances while full CI is pending; reusing it
+          # avoids rebuilding layers absent from the older full-release tag.
+          cache-from: |
+            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev-unstable
+            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
           # Match abx-dl's compression for the added server layers and convert
           # any inherited gzip blobs. Existing zstd blobs remain reusable.
           # Inline metadata keeps those compressed blobs as the cache authority.
@@ -409,9 +409,10 @@ jobs:
           build-contexts: ${{ steps.abx_dl_image.outputs.context }}
           pull: true
           platforms: ${{ matrix.platform }}
-          # Test the same layer lineage users receive. Reusing :dev avoids a
-          # second cache whose compression can drift from the released image.
-          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          # Reuse tested image layers, including the newer early-channel build.
+          cache-from: |
+            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev-unstable
+            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
           outputs: |
             type=docker,name=${{ matrix.local_tag }},compression=zstd,compression-level=10,force-compression=true
             type=oci,dest=${{ runner.temp }}/archivebox-image.tar,compression=zstd,compression-level=10,force-compression=true
