@@ -262,8 +262,8 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
 
     For each ArchiveResult without a process_id:
     1. Parse cmd field (handle both JSON array and space-separated string)
-    2. Extract binary name/path from cmd[0]
-    3. Get or create Binary record with machine, name, abspath, version
+    2. Preserve the recorded command
+    3. Preserve any recorded version in the linked Binary record
     4. Create Process record with mapped fields
     5. Link ArchiveResult.process_id to new Process
 
@@ -330,18 +330,17 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
 
         # Extract binary info from cmd[0] if available
         binary_id = None
-        if cmd_array and cmd_array[0]:
+        if cmd_array and cmd_array[0] and cmd_version:
             binary_name = Path(cmd_array[0]).name or plugin  # Fallback to plugin name
             binary_abspath = cmd_array[0]
-            binary_version = cmd_version or ""
 
-            # Get or create Binary record
+            # Keep the recorded version accessible after removing the legacy column.
             binary_id = get_or_create_binary(
                 cursor,
                 machine_id,
                 binary_name,
                 binary_abspath,
-                binary_version,
+                cmd_version,
             )
         elif cmd_version:
             raise RuntimeError(f"ArchiveResult {ar_id} has cmd_version metadata but no command")

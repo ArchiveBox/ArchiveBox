@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from django.db import migrations
 from django.utils import timezone
@@ -40,33 +39,13 @@ def _ensure_placeholder_iface(NetworkInterface, machine_id, hostname):
     )
 
 
-def _get_or_create_binary(Binary, machine_id, reference):
-    reference = str(reference or "").strip()
-    if not reference:
-        return None
-
-    name = Path(reference).name or reference
-    qs = Binary.objects.filter(machine_id=machine_id)
-    binary = qs.filter(abspath=reference).order_by("-modified_at", "-created_at").first()
-    if binary is None:
-        binary = qs.filter(name=name).order_by("-modified_at", "-created_at").first()
-    if binary is not None:
-        return binary
-
-    now = timezone.now()
-    return Binary.objects.create(
-        machine_id=machine_id,
-        created_at=now,
-        modified_at=now,
-        name=name[:63],
-        binproviders="env",
-        overrides={},
-        binprovider="env",
-        abspath=reference[:255],
-        version="",
-        sha256="",
-        status="installed",
-        retry_at=None,
+def _find_existing_binary(Binary, machine_id, reference):
+    # Old command lines preserve what was recorded, not proof of an installation.
+    return (
+        Binary.objects.filter(machine_id=machine_id, abspath=reference, status="installed")
+        .exclude(version="", sha256="")
+        .order_by("-modified_at", "-created_at")
+        .first()
     )
 
 
@@ -105,10 +84,9 @@ def repair_process_binary_iface_links(apps, schema_editor):
             reference = str(cmd[0]).strip() if cmd else ""
             if reference:
                 key = (process.machine_id, reference)
-                binary = binary_by_key.get(key)
-                if binary is None:
-                    binary = _get_or_create_binary(Binary, process.machine_id, reference)
-                    binary_by_key[key] = binary
+                if key not in binary_by_key:
+                    binary_by_key[key] = _find_existing_binary(Binary, process.machine_id, reference)
+                binary = binary_by_key[key]
                 if binary is not None:
                     process.binary_id = binary.id
                     update_fields.append("binary_id")

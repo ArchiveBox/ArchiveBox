@@ -8,13 +8,14 @@ from urllib.parse import quote, urlencode
 
 from admin_data_views.typing import ItemContext, SectionData, TableContext
 from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
+from django.db.models import Exists, OuterRef, Q
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from archivebox.config import CONSTANTS
-from archivebox.machine.models import Binary
+from archivebox.machine.models import Binary, Process
 from archivebox.misc.util import parse_date
 
 ENVIRONMENT_BINARIES_BASE_URL = "/admin/environment/binaries/"
@@ -130,18 +131,36 @@ def get_db_binaries_by_name() -> dict[str, Binary]:
     """
     from archivebox.machine.models import _canonical_binary_name
 
-    grouped: dict[str, list[Binary]] = {}
+    grouped: dict[str, Binary] = {}
     binary_name_aliases = {
         "youtube-dl": "yt-dlp",
     }
-    for binary in Binary.objects.all():
+    # Legacy Process-link repairs manufactured installed env records from
+    # argv[0], including captured filenames. Keep those rows for historical
+    # Process references, but don't present unverified backfills as dependencies.
+    links = Process.objects.filter(binary_id=OuterRef("pk"))
+    inferred = Q(
+        status=Binary.StatusChoices.INSTALLED,
+        binprovider="env",
+        binproviders="env",
+        version="",
+        sha256="",
+        overrides={},
+        retry_at__isnull=True,
+        num_uses_failed=0,
+        num_uses_succeeded=0,
+    ) & Exists(links)
+    binaries = Binary.objects.exclude(inferred)
+    for binary in binaries.iterator(chunk_size=500):
         canonical_name = _canonical_binary_name(binary.name)
         canonical_name = binary_name_aliases.get(canonical_name, canonical_name)
         if not canonical_name:
             continue
-        grouped.setdefault(canonical_name, []).append(binary)
+        previous = grouped.get(canonical_name)
+        if previous is None or _binary_sort_key(binary) > _binary_sort_key(previous):
+            grouped[canonical_name] = binary
 
-    return {name: max(records, key=_binary_sort_key) for name, records in grouped.items()}
+    return grouped
 
 
 @render_with_table_view

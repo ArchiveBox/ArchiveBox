@@ -114,6 +114,79 @@ def test_binaries_page_labels_removed_installation_as_recorded_metadata(admin_cl
     assert binary.abspath == str(binary_path)
 
 
+def test_dependencies_omit_inferred_process_backfills_without_deleting_provenance(admin_client, machine):
+    from pathlib import Path
+
+    from archivebox.machine.models import Binary, Process
+
+    filenames = ["archive/cached-page/responses/index.html", "responses/vendor.chunk.js"]
+    # Represent a database already upgraded by the original repair.
+    inferred = [
+        Binary.objects.create(
+            machine=machine,
+            name=Path(path).name,
+            abspath=path,
+            binproviders="env",
+            binprovider="env",
+            status=Binary.StatusChoices.INSTALLED,
+            retry_at=None,
+        )
+        for path in filenames
+    ]
+    processes = [
+        Process.objects.create(
+            machine=machine,
+            binary=binary,
+            cmd=[path],
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.EXITED,
+        )
+        for binary, path in zip(inferred, filenames, strict=True)
+    ]
+    manual = Binary.from_json(
+        {"name": "manual-tool", "abspath": "/opt/bin/manual-tool", "binproviders": "env", "binprovider": "env"},
+    )
+    Binary.objects.create(
+        machine=machine,
+        name="node",
+        abspath="/usr/local/bin/node",
+        version="",
+        sha256="a" * 64,
+        binproviders="env",
+        binprovider="env",
+        status=Binary.StatusChoices.INSTALLED,
+        retry_at=None,
+    )
+    Binary.objects.create(
+        machine=machine,
+        name="ublock",
+        abspath="/data/lib/chromewebstore/packages/ublock/manifest.json",
+        version="1.2.3",
+        binproviders="chromewebstore",
+        binprovider="chromewebstore",
+        status=Binary.StatusChoices.INSTALLED,
+        retry_at=None,
+    )
+
+    result = admin_client.get("/admin/environment/binaries/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert result.status_code == 200
+    assert "/admin/environment/binaries/node/" in result.text
+    assert "/admin/environment/binaries/ublock/" in result.text
+    assert "/admin/environment/binaries/manual-tool/" in result.text
+    assert "manifest.json" in result.text
+    assert all(path not in result.text for path in filenames)
+    assert "vendor.chunk.js" not in result.text
+
+    detail = admin_client.get("/admin/environment/binaries/vendor.chunk.js/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert detail.status_code == 200
+    assert "No persisted Binary record found" in detail.text
+    assert Binary.objects.filter(pk__in=[binary.pk for binary in inferred]).count() == len(inferred)
+    assert list(
+        Process.objects.filter(pk__in=[process.pk for process in processes]).order_by("pk").values_list("binary_id", flat=True),
+    ) == [binary.pk for binary in inferred]
+    assert manual and manual.version == manual.sha256 == "" and not manual.process_set.exists()
+
+
 @pytest.mark.django_db(transaction=True)
 def test_binary_detail_view_uses_canonical_db_record(admin_request, machine):
     db_binary = install_real_binary(

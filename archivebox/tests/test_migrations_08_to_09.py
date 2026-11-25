@@ -202,8 +202,14 @@ def test_migration_preserves_supported_extended_08_metadata(migration_08_data, u
 def test_migration_preserves_08_collection(migration_08_data):
     """One real upgrade preserves every field and relationship in the same collection."""
     work_dir, db_path, original_data = migration_08_data
+    unverified_result_id = original_data["archiveresults"][0]["uuid"]
+    unverified_cmd = ["/legacy/archive/site/saved.html"]
     with sqlite3.connect(db_path) as conn:
         original_tag_count = conn.execute("SELECT COUNT(*) FROM core_snapshot_tags").fetchone()[0]
+        conn.execute(
+            "UPDATE core_archiveresult SET cmd = ?, cmd_version = '' WHERE uuid = ?",
+            (json.dumps(unverified_cmd), unverified_result_id),
+        )
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
@@ -332,25 +338,21 @@ def test_migration_preserves_08_collection(migration_08_data):
     assert ("retry_at",) in indexed_columns
 
     cursor.execute("""
-        SELECT COUNT(*)
-        FROM machine_process
-        WHERE cmd != '[]' AND binary_id IS NULL
-    """)
-    missing_binary_count = cursor.fetchone()[0]
-    assert missing_binary_count == 0
-
-    cursor.execute("""
-        SELECT p.cmd, b.name, b.abspath
-        FROM machine_process p
-        JOIN machine_binary b ON p.binary_id = b.id
-        WHERE p.cmd != '[]'
+        SELECT ar.id, p.cmd, p.binary_id, b.name, b.abspath, b.version
+        FROM core_archiveresult ar
+        JOIN machine_process p ON ar.process_id = p.id
+        LEFT JOIN machine_binary b ON p.binary_id = b.id
     """)
     rows = cursor.fetchall()
-    assert rows
-    for cmd_raw, binary_name, binary_abspath in rows:
+    assert len(rows) == len(original_data["archiveresults"])
+    for result_id, cmd_raw, binary_id, binary_name, binary_abspath, binary_version in rows:
         cmd = json.loads(cmd_raw)
-        assert binary_name == cmd[0]
-        assert binary_abspath == cmd[0]
+        if result_id == unverified_result_id:
+            assert cmd == unverified_cmd
+            assert binary_id is None
+        else:
+            assert binary_name == binary_abspath == cmd[0]
+            assert binary_version == "1.0.0"
 
     cursor.execute("SELECT COUNT(*) FROM machine_process WHERE iface_id IS NULL")
     missing_iface_count = cursor.fetchone()[0]
