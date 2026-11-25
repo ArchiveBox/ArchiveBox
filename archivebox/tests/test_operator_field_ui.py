@@ -428,8 +428,13 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
         assert page.evaluate("window.pendingSearchFooter") == ""
         expect(rows).to_have_count(1)
         first = rows.filter(has_text="Early metadata")
-        frame = first.locator("iframe")
-        expect(frame).to_be_visible()
+        # Admin lists load a saved screenshot directly; the public list keeps
+        # the plugin card iframe. Preserve each surface's actual preview state
+        # while late search results append, rather than requiring an iframe.
+        preview = first.locator("iframe" if view == "public" else "img.screenshot-thumbnail")
+        expect(preview).to_be_visible()
+        if view != "public":
+            assert preview.evaluate("image => image.complete && image.naturalWidth > 0")
         # Observe the live result container itself. A same-looking replacement
         # would discard focus, text selection and native preview state.
         first_row = first.element_handle()
@@ -440,9 +445,12 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
             }).observe(row.parentElement, {childList: true});
             return removed;
         }""")
-        original = frame.element_handle()
-        browsing_context = original.evaluate_handle("el => el.contentWindow")
-        target = frame.get_attribute("src")
+        original = preview.element_handle()
+        if view == "public":
+            browsing_context = original.evaluate_handle("el => el.contentWindow")
+        else:
+            image_state = original.evaluate("image => [image.currentSrc, image.naturalWidth, image.naturalHeight]")
+        target = preview.get_attribute("src")
         repeat_requests = []
         page.on("request", lambda request: repeat_requests.append(request.url) if request.url.endswith(target) else None)
         bar = page.get_by_role("progressbar", name="Snapshots checked")
@@ -455,7 +463,12 @@ def test_progress_stays_visible_until_late_file_hit(archivebox_daemon_server, br
         expect(rows.filter(has_text="Late content")).to_be_visible(timeout=30000)
         expect(page.locator(".archivebox-search-stream-status:visible")).to_have_count(0)
         expect(rows).to_have_count(2)
-        assert original.evaluate("(el, previous) => el.isConnected && el.contentWindow === previous", browsing_context)
+        assert original.evaluate("el => el.isConnected")
+        if view == "public":
+            assert original.evaluate("(el, previous) => el.contentWindow === previous", browsing_context)
+        else:
+            assert original.evaluate("image => [image.currentSrc, image.naturalWidth, image.naturalHeight]") == image_state
+            assert original.evaluate("image => image.complete")
         assert first_row.evaluate("row => row.isConnected && row === row.parentElement.firstElementChild")
         assert removals.evaluate("removed => removed.length") == 0
         assert not repeat_requests
