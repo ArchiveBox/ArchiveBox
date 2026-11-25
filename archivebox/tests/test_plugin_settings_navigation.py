@@ -64,6 +64,8 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
                 delayed_scripts[0].continue_()
                 expect(first_tab).to_be_enabled()
                 expect(visible_panels).to_have_id(first_panel_id)
+                deferred = page.locator("noscript[data-plugin-field-details]")
+                assert deferred.count() > 0, route
                 after = visible_panels.locator(".plugin-title-row").bounding_box()
                 assert abs(before["width"] - after["width"]) < 2
                 top_after = after["y"] - grid.bounding_box()["y"]
@@ -74,6 +76,24 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
                 panels = plain.get_by_role("tabpanel")
                 assert panels.count() > 10
                 expect(panels.last).to_be_visible()
+                # Even before a tab is visited, native form serialization must
+                # include the same field names and repeated checkbox/select entries.
+                plugin_fields = """grid => [...new FormData(grid.closest('form'))]
+                    .filter(([key]) => key.startsWith('plugin_config__'))"""
+                before_use = page.locator("#plugin-settings").evaluate(plugin_fields)
+                assert before_use == page.locator("#plugin-settings").evaluate(plugin_fields)
+                assert [key for key, _ in before_use] == [key for key, _ in plain.locator("#plugin-settings").evaluate(plugin_fields)]
+                # Switching tabs reveals its help and Details before focus moves.
+                panel_id = page.locator('[role="tabpanel"]').filter(has=deferred).first.get_attribute("id")
+                plugin = page.locator(f"#{panel_id}")
+                tab_id = plugin.get_attribute("aria-labelledby")
+                prior = deferred.count()
+                page.locator(f"#{tab_id}").click()
+                expect(plugin.locator("noscript[data-plugin-field-details]")).to_have_count(0)
+                details = plugin.locator(".plugin-config-meta").first
+                details.locator("summary").click()
+                expect(details.locator(".plugin-config-current")).to_be_visible()
+                assert 0 < deferred.count() < prior
             fallback.close()
             expect(page.locator("#plugin-settings")).to_be_visible()
             page.locator("#plugin-settings").scroll_into_view_if_needed()
@@ -165,10 +185,21 @@ def test_settings_keyboard_validation_and_persona_state(initialized_archive, bro
             assert not received_amount.evaluate("input => input.validity.valid"), "The schema maximum is 256 KiB"
             received_amount.fill("192")
             expect(received_bytes).to_have_value("196608")
+            # A saved value must remain text when an unopened tab reveals its Details.
+            user_agent = page.locator('[name="plugin_config__wget__WGET_USER_AGENT"]')
+            saved_agent = 'ArchiveBox </noscript> & "Browser" <em>test</em>'
+            search.fill("WGET_USER_AGENT")
+            user_agent.fill(saved_agent)
             save = page.locator('button[name="_continue"]')
             save.click()
             expect(page.locator(".success")).to_be_visible()
             assert posted_urls
+            search.fill("WGET_USER_AGENT")
+            expect(user_agent).to_have_value(saved_agent)
+            current = page.locator('.plugin-card:visible .plugin-config-current[data-config-key="WGET_USER_AGENT"]')
+            expect(current).to_have_text(saved_agent)
+            expect(current.locator("em")).to_have_count(0)
+            search.fill("")
             page.locator('[role="tab"][data-plugin="chrome_screencast"]').click()
             expect(scale).to_have_value("0.25")
             screenshot_tab.click()

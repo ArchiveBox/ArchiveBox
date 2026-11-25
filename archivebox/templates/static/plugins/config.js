@@ -36,6 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.archiveboxPluginConfigSyncLoaded) return;
     window.archiveboxPluginConfigSyncLoaded = true;
     let syncing = false;
+
+    function showFieldDetails(root) {
+        // All controls stay in the form. Only help and the closed Details
+        // disclosure of an unopened tab need inserting on its first visit.
+        for (const source of root.querySelectorAll('noscript[data-plugin-field-details]')) {
+            const template = document.createElement('template');
+            template.innerHTML = source.textContent;
+            source.replaceWith(template.content);
+        }
+    }
+
     document.querySelectorAll('.plugin-config-form').forEach(settings => {
         const tabs = Array.from(settings.querySelectorAll('[role="tab"]'));
         const search = settings.querySelector('input[type="search"]');
@@ -44,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let selected = null;
 
         function select(tab, focus = false) {
+            if (tab && tab !== selected) showFieldDetails(panelFor(tab));
             const changed = selected && selected !== tab;
             selected = tab;
             tabs.forEach(item => {
@@ -363,6 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.archiveboxSetPluginConfigValues = function(values, binaryUrls) {
         if (!values || typeof values !== 'object') return;
+        // A persona replaces the displayed current values across all tabs.
+        showFieldDetails(document);
         syncing = true;
         document.querySelectorAll('.plugin-config-input[data-config-key]').forEach((input) => {
             if (Object.prototype.hasOwnProperty.call(values, input.dataset.configKey)) {

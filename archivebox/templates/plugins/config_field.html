@@ -51,6 +51,7 @@
     {% endif %}
     {% endblock %}
     </div>
+    {% if defer_field_details %}<noscript data-plugin-field-details>{% endif %}
     {% if field.description %}
         <div class="plugin-config-help" id="help_{{ field.input_name }}">{% block help %}{{ field.description }}{% endblock %}</div>
     {% endif %}
@@ -69,4 +70,5 @@
         · Default: <code>{{ field.default }}</code>
     </div>
     </details>
+    {% if defer_field_details %}</noscript>{% endif %}
 </div>

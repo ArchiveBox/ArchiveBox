@@ -1587,10 +1587,14 @@ def api_token(context) -> str:
 @register.simple_tag(takes_context=True)
 def plugin_config_field(context, plugin, field):
     """A conventional field template overrides the shared schema renderer."""
+    from django.conf import settings
     from django.template.loader import render_to_string
 
     values = {**context.flatten(), "plugin": plugin, "field": field}
     source = None if plugin.get("is_core") else get_plugin_template(plugin["name"], f"config/{field['key']}", fallback=False)
     if source is not None:
         return template.engines["django"].from_string(source).render(values)
+    # User-supplied templates may read surrounding help or metadata while their
+    # scripts load. Only defer the stock field's descriptive markup.
+    values["defer_field_details"] = not (plugin.get("selected") or plugin.get("is_core") or settings.CUSTOM_TEMPLATES_ENABLED)
     return render_to_string([f"config/fields/{field['key']}.html", "plugins/config_field.html"], values)
