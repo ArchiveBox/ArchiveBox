@@ -24,6 +24,7 @@ from archivebox.config.constants import CONSTANTS
 from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
 from archivebox.search.backends import get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.language import (
+    HostnameFragmentIn,
     Term,
     has_uppercase,
     leaves,
@@ -55,6 +56,8 @@ STALL_SECONDS = 30.0
 def indexed_predicate(model, predicate):
     """Recognize direct B-tree probes in a compiled Django Q, regardless of operator name."""
     for part in predicate.children:
+        if isinstance(part, HostnameFragmentIn):
+            part = ("reversed_domain__in", part.rhs)
         if isinstance(part, Q):
             if not indexed_predicate(model, part):
                 return False

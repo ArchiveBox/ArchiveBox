@@ -80,6 +80,8 @@ def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chun
         stops = (initial_limit,)
         if not start:
             stops = (min(16, size), size, initial_limit, min(total * 16, 8000), min(total * 24, 8000))
+        candidate = queryset.filter(pk=OuterRef("pk"))
+        candidate.query._archivebox_candidate_row = True
         lower = 0
         for upper in dict.fromkeys(stops):
             # With enough matches in the initial window, the next few index
@@ -87,9 +89,7 @@ def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chun
             # Keep the normal filtered plan for sparse or empty results.
             if lower == initial_limit and (total - size) * 3 < total:
                 break
-            probe = (
-                base_queryset.filter(pk__in=ordered_ids[lower:upper]).filter(Exists(queryset.filter(pk=OuterRef("pk")))).order_by(*ordering)
-            )
+            probe = base_queryset.filter(pk__in=ordered_ids[lower:upper]).filter(Exists(candidate)).order_by(*ordering)
             served = 0
             for pk in probe[start : start + size].iterator(chunk_size=chunk_size):
                 served += 1

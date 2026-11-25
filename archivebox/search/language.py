@@ -8,10 +8,10 @@ from functools import lru_cache, reduce
 from operator import and_, or_
 
 from django.db import connections
-from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, QuerySet, TextField, Value, When
+from django.db.models import BinaryField, BooleanField, Case, Exists, F, Func, OuterRef, Q, QuerySet, TextField, Value, When
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast, Coalesce, Length, Lower, StrIndex
-from django.db.models.lookups import Exact, GreaterThan, IRegex, Regex
+from django.db.models.lookups import Exact, GreaterThan, IContains, In, IRegex, Regex
 from django.db.models.sql import Query
 from django.db.models.sql.where import WhereNode
 
@@ -314,6 +314,19 @@ def substring(field, value, *, match_case=None):
     return Q(InsensitiveLiteral(text, Value(value)))
 
 
+class HostnameFragmentIn(In):
+    """Keep the indexed scan for collections and check known page rows directly."""
+
+    def __init__(self, lhs, rhs, fragments):
+        self.fragments = tuple(fragments)
+        super().__init__(lhs, rhs)
+
+    def as_sql(self, compiler, connection):
+        if connection.vendor == "sqlite" and getattr(compiler.query, "_archivebox_candidate_row", False):
+            return compiler.compile(WhereNode([IContains(self.lhs, fragment) for fragment in self.fragments], connector=Q.OR))
+        return super().as_sql(compiler, connection)
+
+
 def domain_substring(value, db):
     from archivebox.core.domain_grouping import domain_authority_from_key
     from archivebox.misc.util import equivalent_urls
@@ -322,20 +335,26 @@ def domain_substring(value, db):
     keys = hosts.none()
     matching = Q(pk__in=[])
     idn_terms = []
+    fragments = []
+    fragment_only = True
     for part in value.split(","):
         term = part.strip().lower()
         if not term:
             continue
         if term.startswith("*."):
+            fragment_only = False
             matching |= SnapshotQuerySet.domain_q(term)
             continue
         if not term.isascii() or "xn--" in term:
+            fragment_only = False
             idn_terms.append(term)
         elif re.fullmatch(r"[\w-]+", term):
             # Reversing labels and moving the port preserves a single
             # fragment. Read the hostname index without fetching URLs.
             keys |= hosts.filter(reversed_domain__icontains=term)
+            fragments.append(term)
         else:
+            fragment_only = False
             # A dot or colon can span labels or the port boundary; prove
             # the match against the authority in its original order.
             keys |= hosts._domain_key_candidates(term).filter(hosts.domain_rule_q("icontains", term))
@@ -349,7 +368,12 @@ def domain_substring(value, db):
             if any(term in spelling[2:].lower() for term in idn_terms for spelling in spellings):
                 matched.append(key)
         matching |= Q(reversed_domain__in=matched)
-    return matching | Q(reversed_domain__in=keys.order_by().values("reversed_domain").distinct())
+    indexed = keys.order_by().values("reversed_domain").distinct()
+    if fragment_only and fragments and connections[db].vendor == "sqlite":
+        # Test only the candidate's hostname instead of rebuilding every
+        # matching hostname in the archive for each small paginator probe.
+        return Q(HostnameFragmentIn(F("reversed_domain"), indexed.query, fragments))
+    return matching | Q(reversed_domain__in=indexed)
 
 
 def url_substring_hint(value, db):

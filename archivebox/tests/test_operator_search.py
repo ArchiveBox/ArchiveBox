@@ -245,3 +245,25 @@ def test_folder_search_uses_tree_membership_and_public_picker(client, crawl):
     assert "Papers / Some folder name" in choices and smart.name in choices and hidden.name not in choices
     with pytest.raises(ValidationError, match="cycle"):
         RuleQuery().compile({"query": 'folder:"Recent studies"'}, stack=(str(smart.pk),))
+
+
+def test_hostname_page_probes_only_the_selected_rows(crawl):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.misc.paginators import snapshot_page
+
+    fragments = "solar sun energy grid battery power electric inverter photovoltaic storage charge panel".split()
+    hosts = ["unmatched.example"] + [f"{part}.example" for part in fragments]
+    rows = [Snapshot.objects.create(crawl=crawl, url=f"https://{hosts[index % len(hosts)]}/{index}") for index in range(28)]
+    scope = Snapshot.objects.order_by("-created_at", "-pk").values_list("pk", flat=True)
+    query = SnapshotSearch(scope, " OR ".join(f"domain:{part}" for part in fragments)).sql_queryset()
+    expected = [row.pk for index, row in reversed(list(enumerate(rows))) if index % len(hosts)]
+    assert list(query.all()) == expected
+    with CaptureQueriesContext(connection) as queries:
+        assert snapshot_page(query, base_queryset=scope, start=0, size=3) == expected[:3]
+    assert snapshot_page(query, base_queryset=scope, start=3, size=3) == expected[3:6]
+    assert query.count() == len(expected)
+    if connection.vendor == "sqlite":
+        assert queries
+        assert all("SELECT DISTINCT" not in statement["sql"] for statement in queries)
