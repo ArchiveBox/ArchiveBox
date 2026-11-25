@@ -299,7 +299,7 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
             expect(cover).to_be_hidden()
             plain.set_viewport_size({"width": 1920, "height": 1080})
             cover.click()
-            expect(plain).to_have_url(re.compile(re.escape(snapshot.get_absolute_url()) + "$"))
+            expect(plain).to_have_url(re.compile(re.escape(snapshot.get_absolute_url()) + "#git$"))
         finally:
             browser.close()
 

@@ -14,7 +14,7 @@
             const [plugin, fragment] = Array.isArray(member) ? member : [member, null];
             const artwork = document.getElementById('abx-file-icon-' + plugin);
             const link = document.createElement('a');
-            link.href = cover.href + (fragment ?? artwork?.dataset.fragment ?? '');
+            link.href = new URL(fragment ?? artwork?.dataset.fragment ?? '', cover.href);
             link.className = 'files-icon-plugin--' + plugin;
             link.dataset.tooltip = plugin;
             link.setAttribute('aria-label', artwork?.dataset.label || plugin);

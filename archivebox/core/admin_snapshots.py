@@ -1518,16 +1518,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             column = len(output)
             label = escape(label)
             pile_style = f' style="--files-icon-popup-left:{column * -22}px"' if column else ""
-            top_plugin = icons[0] if isinstance(icons[0], str) else icons[0][0]
-            cover = icon_metadata[top_plugin][3]
+            top = icons[0]
+            top_plugin = top if isinstance(top, str) else top[0]
+            _, top_label, _, cover, default_fragment = icon_metadata[top_plugin]
+            top_fragment = default_fragment if isinstance(top, str) else top[1]
             # JSON strings use double quotes. A single-quoted attribute avoids
             # escaping those quotes while still protecting plugin names.
             members = escape(json.dumps(icons, ensure_ascii=False, separators=(",", ":")), quote=False).replace("'", "&#x27;")
             output.append(
                 f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs" '
                 f"data-files-icons='{members}'{pile_style}>"
-                f'<a href="{detail_url}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" '
-                f'aria-label="{label}" data-tooltip="{label}">{cover}</a></span>',
+                f'<a href="{detail_url}{escape(top_fragment)}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" '
+                f'aria-label="{top_label}" data-tooltip="{label}">{cover}</a></span>',
             )
 
         return mark_safe(

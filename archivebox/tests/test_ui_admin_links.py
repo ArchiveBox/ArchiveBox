@@ -352,7 +352,16 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
         expect(member.locator("img")).to_have_attribute("src", artwork.get_attribute("src"))
         expect(popup.locator(".files-icon-pile-label")).to_have_text("Web")
         assert urlsplit(member.get_attribute("href")).fragment == "singlefile"
+        assert pile.locator(".files-icon-pile-cover").get_attribute("href") == member.get_attribute("href")
         assert member.evaluate("el => parseFloat(getComputedStyle(el).left) + el.getBoundingClientRect().width / 2") == 58
+        output_url = member.get_attribute("href")
+        cover = pile.locator(".files-icon-pile-cover")
+        cover.focus()
+        page.keyboard.press("Tab")
+        expect(member).to_be_focused()
+        cover.click()
+        expect(page).to_have_url(output_url)
+        expect(page.locator('.selected-card[data-plugin-name="singlefile"]')).to_be_visible()
         browser.close()
     assert "files-icon-pile-popup" not in file_icons
     assert "interestfor=" not in file_icons
