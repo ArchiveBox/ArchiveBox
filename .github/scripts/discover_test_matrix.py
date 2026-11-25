@@ -38,8 +38,7 @@ def main() -> None:
         raise SystemExit("ci-workers must be positive")
     requested = os.environ.get("TEST_FILE", "")
     batches: list[list[str]] = []
-    batch: list[str] = []
-    batch_seconds = 0
+    compatible: list[tuple[int, str]] = []
     for path in archivebox_tests:
         if path in environments:
             continue
@@ -56,14 +55,18 @@ def main() -> None:
         ):
             batches.append([test_path])
             continue
-        if batch and (len(batch) == 8 or batch_seconds + duration > 180):
-            batches.append(batch)
-            batch = []
-            batch_seconds = 0
-        batch.append(test_path)
-        batch_seconds += duration
-    if batch:
-        batches.append(batch)
+        compatible.append((duration, test_path))
+    # Fit shorter measured files into gaps instead of paying fresh runner setup.
+    measured_batches: list[tuple[list[str], int]] = []
+    for duration, test_path in sorted(compatible, key=lambda item: (-item[0], item[1])):
+        for index, (paths, seconds) in enumerate(measured_batches):
+            if len(paths) < 8 and seconds + duration <= 180:
+                paths.append(test_path)
+                measured_batches[index] = paths, seconds + duration
+                break
+        else:
+            measured_batches.append(([test_path], duration))
+    batches.extend(sorted(paths) for paths, _ in measured_batches)
 
     matrix: list[dict[str, object]] = []
     for paths in batches:
