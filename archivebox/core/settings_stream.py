@@ -14,7 +14,10 @@ from archivebox.config import CONSTANTS
 from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, get_plugin_catalog
 
 _TEMPLATES = CONSTANTS.PACKAGE_DIR / "templates"
-_SETTINGS_TEMPLATES = {
+FIRST_SNAPSHOT_ROWS = 12
+_SNAPSHOT_LIST = "admin/core/snapshot/change_list.html"
+_STREAM_TEMPLATES = {
+    _SNAPSHOT_LIST: _SNAPSHOT_LIST,
     "add.html": "core/add.html",
     "admin/machine/machine/change_form.html": "admin/machine/machine/change_form.html",
     "admin/personas/persona/change_form.html": "admin/personas/persona/change_form.html",
@@ -41,7 +44,7 @@ def render_settings_grid(context, form):
         return template.render(context)
 
 
-def stream_settings_response(request, response):
+def stream_ui_response(request, response):
     if (
         not isinstance(request, ASGIRequest)
         or request.method != "GET"
@@ -59,11 +62,25 @@ def stream_settings_response(request, response):
     name = response.template_name
     if isinstance(name, (tuple, list)) and len(name) == 1:
         name = name[0]
-    if not isinstance(name, str) or name not in _SETTINGS_TEMPLATES:
+    if not isinstance(name, str) or name not in _STREAM_TEMPLATES:
         return response
     context = response.context_data or {}
     form = context.get("form") if name == "add.html" else getattr(context.get("adminform"), "form", None)
-    if form is None or form.is_bound or (name == "add.html" and not context.get("can_override_crawl_config")):
+    defer_key = "defer_settings_grid"
+    if name == _SNAPSHOT_LIST:
+        cl = context.get("cl")
+        if (
+            not cl
+            or cl.query
+            or cl.formset
+            or cl.snapshot_is_grid_view
+            or context.get("embedded_changelist")
+            or "tags_inline" not in cl.list_display
+            or not 2 * FIRST_SNAPSHOT_ROWS <= len(cl.result_list) <= cl.list_max_show_all
+        ):
+            return response
+        defer_key = "defer_snapshot_rows"
+    elif form is None or form.is_bound or (name == "add.html" and not context.get("can_override_crawl_config")):
         return response
 
     # Admin's native csrf_protect callback only sets headers and cookies. It
@@ -90,38 +107,47 @@ def stream_settings_response(request, response):
         return response
     if any(plugin.path.parent != BUILTIN_PLUGINS_DIR for plugin in get_plugin_catalog().values()):
         return response
-    if Path(response.resolve_template(name).origin.name) != _TEMPLATES / _SETTINGS_TEMPLATES[name]:
+    if Path(response.resolve_template(name).origin.name) != _TEMPLATES / _STREAM_TEMPLATES[name]:
         return response
 
-    marker = f"archivebox-grid-{token_hex(16)}"
-    grids = []
+    marker = f"archivebox-render-{token_hex(16)}"
+    renderers = []
 
-    def defer(render_grid):
-        grids.append(render_grid)
+    def defer(renderer):
+        renderers.append(renderer)
         return marker
 
+    # Template conditions may check whether a deferred block is available.
+    # Only the corresponding template tag should invoke its renderer.
+    defer.do_not_call_in_templates = True
+
     def after_render(rendered):
-        rendered.context_data.pop("defer_settings_grid", None)
-        if not grids:
+        rendered.context_data.pop(defer_key, None)
+        if not renderers:
             return rendered
         boundary = marker.encode(rendered.charset)
         # Outer middleware can register a callback after this one. Give it a
-        # complete buffered document, just as if the grid had rendered inline.
-        if len(grids) != 1 or rendered.content.count(boundary) != 1 or rendered._post_render_callbacks != [*callbacks, after_render]:
+        # complete buffered document, just as if the remaining content had rendered inline.
+        if len(renderers) != 1 or rendered.content.count(boundary) != 1:
             rendered.content = rendered.rendered_content
             return rendered
 
         prefix, _, suffix = rendered.content.partition(boundary)
-        render_grid = grids.pop()
+        render_remaining = renderers.pop()
         charset = rendered.charset
+        if rendered._post_render_callbacks != [*callbacks, after_render]:
+            # Complete the already-rendered document in place. Re-rendering its
+            # prefix could discard per-request icon definitions emitted there.
+            rendered.content = prefix + render_remaining().encode(charset) + suffix
+            return rendered
 
         async def body():
             yield prefix
-            grid = (await sync_to_async(render_grid, thread_sensitive=True)()).encode(charset)
+            remaining = (await sync_to_async(render_remaining, thread_sensitive=True)()).encode(charset)
             # Django flushes gzip per yield. Bound each compression step on
             # the ASGI loop while still streaming one complete HTML form.
-            for offset in range(0, len(grid), ASGIHandler.chunk_size):
-                yield grid[offset : offset + ASGIHandler.chunk_size]
+            for offset in range(0, len(remaining), ASGIHandler.chunk_size):
+                yield remaining[offset : offset + ASGIHandler.chunk_size]
             yield suffix
 
         streamed = StreamingHttpResponse(
@@ -137,6 +163,6 @@ def stream_settings_response(request, response):
         streamed._resource_closers.extend(rendered._resource_closers)
         return streamed
 
-    response.context_data["defer_settings_grid"] = defer
+    response.context_data[defer_key] = defer
     response.add_post_render_callback(after_render)
     return response

@@ -33,9 +33,9 @@
   const cleanupTagRows = [];
   let refreshSearchTags;
   let initializedForm;
-  function initializeTags(form, added) {
+  function initializeTags(form, added, immediate = false) {
     if (form === initializedForm) {
-      if (added) refreshSearchTags?.(added);
+      if (added) refreshSearchTags?.(added, immediate);
       return;
     }
     initializedForm = form;
@@ -173,7 +173,7 @@
     }
     form?.querySelectorAll('.tag-pills-inline').forEach(bindPills);
     cleanupTagRows.push(() => bindings.forEach(disconnect => disconnect()));
-    refreshSearchTags = added => {
+    refreshSearchTags = (added, immediate) => {
       for (const [pills, disconnect] of bindings) {
         if (!pills.isConnected) {
           disconnect();
@@ -184,7 +184,13 @@
         if (!rows[i].pills.isConnected) rows.splice(i, 1);
       }
       for (const row of added) row.querySelectorAll('.tag-pills-inline').forEach(bindPills);
-      if (table && rows.length) scheduleFit();
+      if (!table || !rows.length) return;
+      if (immediate) {
+        cancelAnimationFrame(frame);
+        fitTableTags();
+      } else {
+        scheduleFit();
+      }
     };
     if (table) {
       let lastWidth;
@@ -205,6 +211,43 @@
       });
       fitTableTags();
     }
+  }
+
+  let finishInitialRows;
+  function startSnapshotRows(template) {
+    const form = template.closest('form');
+    const last = template.previousElementSibling;
+    // With filters open their sidebar below the table also participates in layout.
+    if (!form || !last || !document.body.classList.contains('filters-collapsed')) return;
+    const probes = [...template.content.children];
+    template.before(template.content);
+    try {
+      initializeTags(form);
+    } finally {
+      probes.forEach(probe => probe.remove());
+    }
+    const reveal = last.getBoundingClientRect().bottom >= innerHeight;
+    if (reveal) {
+      // Row links and individual checkboxes work immediately. The page-wide
+      // controls need all rows and Django’s DOM-ready selection handlers.
+      const bulk = form.querySelectorAll('.actions, #action-toggle');
+      bulk.forEach(control => { control.inert = true; });
+      document.addEventListener('DOMContentLoaded', () => {
+        bulk.forEach(control => { control.inert = false; });
+      }, {once: true});
+      const ready = document.createElement('span');
+      ready.className = 'snapshot-library-ready';
+      ready.hidden = true;
+      form.closest('.snapshot-library').append(ready);
+    }
+    finishInitialRows = () => {
+      const added = [];
+      for (let row = last.nextElementSibling; row; row = row.nextElementSibling) {
+        if (row.matches('tr[data-snapshot-id]')) added.push(row);
+      }
+      // Finish the complete native table before the parser reveals its footer.
+      initializeTags(form, added, true);
+    };
   }
 
   const sidebars = new WeakMap();
@@ -259,6 +302,11 @@
   window.archiveboxLibraryLayout = {
     initializeTags,
     initializeSidebar,
+    startSnapshotRows,
+    finishSnapshotRows() {
+      finishInitialRows?.();
+      finishInitialRows = undefined;
+    },
     bindCompactTags(pills) {
       const row = {pills, editor: pills.parentElement};
       bindBadgeToggle(row, () => updateCompactBadges(row));

@@ -100,3 +100,52 @@ def test_settings_streaming_leaves_timing_custom_templates_and_validation_buffer
     custom = request(method="GET", path="/add/", headers=[*headers])
     assert custom.status_code == 200 and not custom.streaming
     assert b'id="plugin-settings"' in custom.content
+
+
+@pytest.mark.django_db(transaction=True)
+def test_snapshot_stream_preserves_native_rows_selection_and_tag_editors(client, admin_user, crawl):
+    from archivebox.core.models import Snapshot, Tag
+
+    tag = Tag.objects.create(name="ArchiveBox release notes", created_by=admin_user)
+    for i in range(25):
+        snapshot = Snapshot.objects.create(
+            crawl=crawl,
+            url=f"https://github.com/ArchiveBox/ArchiveBox/issues/{i + 1}",
+            status=Snapshot.StatusChoices.SEALED,
+        )
+        if i == 0:
+            snapshot.tags.add(tag)
+    path = reverse("admin:core_snapshot_changelist")
+    client.force_login(admin_user)
+    buffered = client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
+    assert buffered.status_code == 200 and not buffered.streaming
+    browser = AsyncClient()
+    browser.cookies.update(client.cookies)
+
+    body_queries = []
+    reading_body = False
+
+    def record_query(execute, sql, params, many, context):
+        if reading_body:
+            body_queries.append(sql)
+        return execute(sql, params, many, context)
+
+    async def read():
+        nonlocal reading_body
+        response = await browser.request(method="GET", path=path, headers=[(b"host", ADMIN_TEST_HOST.encode())])
+        assert response.status_code == 200 and response.streaming and response.is_async
+        reading_body = True
+        return [block async for block in response.streaming_content]
+
+    with connection.execute_wrapper(record_query):
+        chunks = async_to_sync(read)()
+    assert not body_queries
+    document = html.fromstring(b"".join(chunks))
+    expected = html.fromstring(buffered.content)
+    selector = '//table[@id="result_list"]/tbody/tr[@data-snapshot-id]'
+    assert len(html.fromstring(chunks[0]).xpath(selector)) == 12
+    assert html.fromstring(chunks[0]).xpath('//template//span[@class="tag-pill"]')
+    rows = document.xpath(selector)
+    assert len(rows) == 25
+    assert [html.tostring(r, with_tail=False) for r in rows] == [html.tostring(r, with_tail=False) for r in expected.xpath(selector)]
+    assert len({r.xpath('.//input[@name="_selected_action"]/@value')[0] for r in rows}) == len(rows)

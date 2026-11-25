@@ -1605,3 +1605,50 @@ def plugin_config_field(context, plugin, field):
     # scripts load. Only defer the stock field's descriptive markup.
     values["defer_field_details"] = not (plugin.get("selected") or plugin.get("is_core") or settings.CUSTOM_TEMPLATES_ENABLED)
     return render_to_string([f"config/fields/{field['key']}.html", "plugins/config_field.html"], values)
+
+
+@register.inclusion_tag("admin/change_list_results.html", takes_context=True)
+def snapshot_result_list(context, cl):
+    from copy import copy
+
+    from django.contrib.admin.templatetags.admin_list import result_list, results
+    from django.template.loader import get_template
+
+    from archivebox.core.settings_stream import FIRST_SNAPSHOT_ROWS
+
+    # Keep the complete ChangeList for bulk actions, pagination and exports.
+    # Only the two native Django result renderers see a slice of its page.
+    first, rest = copy(cl), copy(cl)
+    first.result_list, rest.result_list = cl.result_list[:FIRST_SNAPSHOT_ROWS], cl.result_list[FIRST_SNAPSHOT_ROWS:]
+    head_statuses = {obj.status for obj in first.result_list}
+    if any(obj.status == "started" or obj.status not in head_statuses for obj in rest.result_list):
+        # A progress bar or status first appearing below the fold can widen the table.
+        return result_list(cl)
+
+    label_sets = []
+    for obj in cl.result_list:
+        tags = cl.model_admin._get_prefetched_tags(obj)
+        if tags is None:
+            return result_list(cl)
+        label_sets.append(frozenset(tag.name for tag in tags))
+
+    # A subset cannot exceed the width of the same widget with more pills.
+    # Measure only maximal sets not already present above the fold.
+    tail = dict(zip(label_sets[FIRST_SNAPSHOT_ROWS:], rest.result_list, strict=True))
+    probes = [
+        cl.model_admin.tags_inline(obj)
+        for labels, obj in tail.items()
+        if not any(labels <= first_labels for first_labels in label_sets[:FIRST_SNAPSHOT_ROWS])
+        and not any(labels < other for other in tail)
+    ]
+    row_template = get_template("admin/change_list_results.html#snapshot_rows")
+
+    def remaining_rows():
+        return row_template.render({"cl": rest, "results": results(rest)})
+
+    return {
+        **result_list(first),
+        "snapshot_tag_probes": probes,
+        "snapshot_tag_column": cl.list_display.index("tags_inline"),
+        "snapshot_row_boundary": context["defer_snapshot_rows"](remaining_rows),
+    }

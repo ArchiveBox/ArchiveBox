@@ -42,6 +42,7 @@
 </thead>
 {% endif %}
 <tbody>
+{% partialdef snapshot_rows inline %}
 {% for result in results %}
 {% if result.form and result.form.non_field_errors %}
     <tr><td colspan="{{ result|length }}">{{ result.form.non_field_errors }}</td></tr>
@@ -50,6 +51,13 @@
 <tr{% if cl.opts.model_name == "snapshot" %} data-snapshot-id="{{ row_obj.pk }}"{% endif %}{% if row_obj and row_obj.search_rank is not None %} class="search-rank-{{ row_obj.search_rank }}"{% endif %}>{% for item in result %}{{ item }}{% endfor %}</tr>
 {% endwith %}
 {% endfor %}
+{% endpartialdef %}
+{% if snapshot_row_boundary %}
+<template>{% for widget in snapshot_tag_probes %}<tr inert aria-hidden="true" style="visibility:collapse"><td colspan="{{ snapshot_tag_column }}"></td><td class="field-tags_inline">{{ widget }}</td></tr>{% endfor %}</template>
+<script>window.archiveboxLibraryLayout?.startSnapshotRows(document.currentScript.previousElementSibling);</script>
+{{ snapshot_row_boundary }}
+<script>window.archiveboxLibraryLayout?.finishSnapshotRows();</script>
+{% endif %}
 </tbody>
 </table>
 </div>

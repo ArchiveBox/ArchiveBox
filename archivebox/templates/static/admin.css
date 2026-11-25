@@ -835,6 +835,11 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
     font-weight: 500;
 }
 
+.model-snapshot.change-list #result_list tbody .field-title_str > a > b {
+    /* A long unbroken title must not change the width of every row. */
+    overflow-wrap: anywhere;
+}
+
 #result_list tbody .field-title_str > .snapshot-title-url {
     margin-top: 1px;
     position: relative;

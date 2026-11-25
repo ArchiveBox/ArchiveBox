@@ -32,7 +32,7 @@ from archivebox.core.routes_util import (
     split_host_port,
 )
 from archivebox.core.replay_timing import mark_replay_phase
-from archivebox.core.settings_stream import stream_settings_response
+from archivebox.core.settings_stream import stream_ui_response
 from archivebox.core.views import REPLAY_COOKIE_PREFIX, HealthCheckView, OriginalDomainHostView, SnapshotHostView
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
 from archivebox.plugins.forms import PluginConfigFormMixin
@@ -162,7 +162,7 @@ def AdminCookieIsolationMiddleware(get_response):
 
 class UIGZipMiddleware(GZipMiddleware):
     def process_template_response(self, request, response):
-        return stream_settings_response(request, response)
+        return stream_ui_response(request, response)
 
     def process_response(self, request, response):
         # Keep captured output and range responses byte-for-byte. Compress UI
