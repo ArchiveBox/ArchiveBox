@@ -1,0 +1,5 @@
+<button type="button" class="library-create-toggle icon-button" aria-label="{{ button_label }}" title="{{ button_label }}" aria-haspopup="menu" aria-expanded="false" popovertarget="{{ menu_id }}"><svg><use href="#library-plus"/></svg></button>
+<div id="{{ menu_id }}" class="folder-menu" popover role="menu" aria-label="Create">
+  <button type="button" class="folder-new" role="menuitem"{% if parent_id %} data-parent="{{ parent_id }}"{% endif %}>New folder</button>
+  <button type="button" class="folder-new" data-smart="true" role="menuitem"{% if parent_id %} data-parent="{{ parent_id }}"{% endif %}>New smart folder</button>
+</div>

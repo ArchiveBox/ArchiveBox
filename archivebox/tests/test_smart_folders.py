@@ -722,6 +722,7 @@ def test_new_smart_folder_starts_with_search_and_saves_advanced_rules(browser_ru
 
     from playwright.sync_api import expect, sync_playwright
 
+    from archivebox.core.smart_folders import CHILDREN_RULES
     from archivebox.machine.models import Machine
 
     machine = Machine.current()
@@ -733,6 +734,7 @@ def test_new_smart_folder_starts_with_search_and_saves_advanced_rules(browser_ru
     panel.tags.add(tag)
     atlas.tags.add(tag)
     query = 'tags:solar AND (title:"Solar Panel" OR title:Atlas)'
+    parent = Folder.objects.create(name="Permissions", rules=CHILDREN_RULES)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(viewport={"width": 1400, "height": 900})
@@ -740,9 +742,18 @@ def test_new_smart_folder_starts_with_search_and_saves_advanced_rules(browser_ru
         page.get_by_label("Username").fill(admin_user.username)
         page.get_by_label("Password").fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
+        parent_row = page.locator(f'.folder-row[data-folder-id="{parent.pk}"]')
+        dialog = page.locator("#folder-dialog")
+        for label in ("New folder", "New smart folder"):
+            parent_row.hover()
+            page.get_by_role("button", name="Add folder in Permissions", exact=True).click()
+            parent_row.get_by_role("menuitem", name=label, exact=True).click()
+            expect(dialog.get_by_role("heading", name=label, exact=True)).to_be_visible()
+            expect(dialog.locator("#folder-parent")).to_have_value(str(parent.pk))
+            page.keyboard.press("Escape")
+            expect(dialog).not_to_be_visible()
         page.get_by_role("button", name="Create folder", exact=True).click()
         page.get_by_role("menuitem", name="New smart folder", exact=True).click()
-        dialog = page.locator("#folder-dialog")
         expect(dialog.locator(".folder-save")).to_be_enabled()
         expect(dialog.locator(".folder-advanced")).not_to_have_attribute("open", "")
         dialog.get_by_label("Name", exact=True).fill("Energy")
