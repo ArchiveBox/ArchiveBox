@@ -82,41 +82,6 @@ def test_snapshot_page_does_not_count_all_matches(admin_client, admin_user, sett
     assert response.context["cl"].display_result_count == len(snapshots)
 
 
-@pytest.mark.parametrize("page", [1, 2])
-def test_snapshot_page_uses_exact_domain_smart_folder_membership(admin_client, admin_user, settings, page):
-    settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 10})
-    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
-    domains = ("news.ycombinator.com", "lobste.rs")
-    folder = Folder.objects.create(
-        name="News domains",
-        rules={"op": "OR", "rules": [{"field": "domain", "lookup": "exact", "value": domain} for domain in domains]},
-    )
-    Snapshot.objects.bulk_create(
-        [
-            Snapshot(url=f"https://{domain}/stories/{i}", timestamp=str(1900500000 + i), crawl=crawl)
-            for i, domain in enumerate([*domains, "github.com"] * 12)
-        ],
-    )
-    ordered = list(Snapshot.objects.in_folder(folder.pk).order_by("-created_at", "-pk").values_list("pk", flat=True))
-    offset = (page - 1) * 10
-    with CaptureQueriesContext(connection) as queries:
-        params = {"folder": folder.pk, "p": page} if offset else {"folder": folder.pk}
-        response = admin_client.get("/admin/core/snapshot/", params, HTTP_HOST=ADMIN_TEST_HOST)
-    assert response.status_code == 200
-    changelist = response.context["cl"]
-    assert [snapshot.pk for snapshot in changelist.result_list] == ordered[offset : offset + 10]
-    assert changelist.result_count_exact
-    assert changelist.display_result_count == len(ordered) == 24
-    membership_count = [query["sql"] for query in queries if "COUNT(" in query["sql"] and '"core_snapshot"' in query["sql"]]
-    assert len(membership_count) == 1
-    assert '."reversed_domain"' in membership_count[0]
-    assert "LIMIT 8001" in membership_count[0]
-    bounds = f"LIMIT 11 OFFSET {offset}" if offset else "LIMIT 11"
-    projection = [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and query["sql"].endswith(bounds)]
-    assert len(projection) == 1
-    assert "EXISTS(" not in projection[0]
-
-
 @pytest.mark.django_db(transaction=True)
 def test_display_count_refresh_aggregates_in_database_and_is_debounced(admin_user):
     from threading import enumerate as threads

@@ -6,10 +6,6 @@ from django.db.models import Exists, F, OrderBy, OuterRef, QuerySet
 from django.utils.functional import cached_property
 
 
-ORDER_INDEX_PROBE_WINDOW = 1000
-ORDER_INDEX_PROBE_CANDIDATES = 8000
-
-
 class AcceleratedPaginator(Paginator):
     """Paginator that accepts exact count hints for already-optimized query paths."""
 
@@ -48,7 +44,7 @@ def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chun
     if queryset._result_cache is not None:
         yield from queryset[start : start + size]
         return
-    if count is not None and count <= ORDER_INDEX_PROBE_CANDIDATES:
+    if count is not None and count <= 8000:
         yield from queryset[start : start + size].iterator(chunk_size=chunk_size)
         return
     ordering = queryset.query.order_by or queryset.model._meta.ordering
@@ -65,7 +61,7 @@ def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chun
     )
     if (
         queryset.query.where
-        and start + size < ORDER_INDEX_PROBE_WINDOW
+        and start + size < 1000
         and not nulls_first_with_ties
         and all(
             (isinstance(field, str) and field.lstrip("-") in fields)
@@ -83,13 +79,7 @@ def iter_snapshot_page(queryset, *, base_queryset, start, size, count=None, chun
         initial_limit = total * 8
         stops = (initial_limit,)
         if not start:
-            stops = (
-                min(16, size),
-                size,
-                initial_limit,
-                min(total * 16, ORDER_INDEX_PROBE_CANDIDATES),
-                min(total * 24, ORDER_INDEX_PROBE_CANDIDATES),
-            )
+            stops = (min(16, size), size, initial_limit, min(total * 16, 8000), min(total * 24, 8000))
         lower = 0
         for upper in dict.fromkeys(stops):
             # With enough matches in the initial window, the next few index

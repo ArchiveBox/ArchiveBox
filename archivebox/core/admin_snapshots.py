@@ -18,9 +18,6 @@ from django.utils.safestring import mark_safe
 from django.utils.cache import patch_vary_headers
 from django.utils.translation import gettext
 from django.db.models import Count, Prefetch
-from django.db.models.expressions import Col
-from django.db.models.lookups import Exact, In
-from django.db.models.sql.where import WhereNode
 from django import forms
 from django.template import Context, Template, RequestContext
 from django.template.loader import render_to_string
@@ -29,7 +26,7 @@ from django.contrib.admin.options import ActionLocation
 
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
-from archivebox.misc.paginators import ORDER_INDEX_PROBE_CANDIDATES, ORDER_INDEX_PROBE_WINDOW, AcceleratedPaginator, snapshot_page
+from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
@@ -242,27 +239,6 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
         return apply_snapshot_filters(queryset, archiveresult_status=self.value())
 
 
-def _has_exact_domain_membership(where, table):
-    if isinstance(where, WhereNode):
-        return (
-            not where.negated
-            and where.connector in {"AND", "OR"}
-            and bool(where.children)
-            and all(_has_exact_domain_membership(child, table) for child in where.children)
-        )
-    if isinstance(where, In) and where.rhs in ([], ()):
-        # The domain rule starts with an empty union. Django removes it
-        # when compiling the SQL, so it doesn't add a lookup or scan.
-        return True
-    return (
-        isinstance(where, (Exact, In))
-        and isinstance(where.lhs, Col)
-        and where.lhs.alias == table
-        and where.lhs.target.name == "reversed_domain"
-        and where.rhs_is_direct_value()
-    )
-
-
 class SnapshotChangeList(SearchResultsChangeList):
     def get_filters_params(self, params=None):
         lookup_params = super().get_filters_params(params)
@@ -355,26 +331,12 @@ class SnapshotChangeList(SearchResultsChangeList):
                     # The single tag's unique links already produce one ID per snapshot.
                     queryset_ids = root_ids.filter(tags__id=tag_id).order_by(*queryset_ids.query.order_by)
             elif scope == {"folder"}:
-                query = self.queryset.query
-                if (
-                    not self.show_all
-                    and start + size + 1 < ORDER_INDEX_PROBE_WINDOW
-                    and not query.distinct
-                    and not query.group_by
-                    and _has_exact_domain_membership(query.where, query.base_table)
-                ):
-                    # A small smart folder can have no matches among hundreds of
-                    # recent snapshots. Count indexed domain keys up to the probe
-                    # budget so paging can go straight to the matching rows.
-                    count = self.queryset.order_by().values("reversed_domain")[: ORDER_INDEX_PROBE_CANDIDATES + 1].count()
-                    if count <= ORDER_INDEX_PROBE_CANDIDATES:
-                        indexed_count = count
-                else:
-                    folder_id = request.GET["folder"]
-                    folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
-                    if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
-                        # Regular-folder membership is covered by the folder index.
-                        indexed_count = self.queryset.order_by().values("folder_id").count()
+                folder_id = request.GET["folder"]
+                folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
+                if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
+                    # Regular-folder membership is covered by the folder index.
+                    # Smart folders and combined filters retain async counts.
+                    indexed_count = self.queryset.order_by().values("folder_id").count()
 
         def read_page(offset, limit):
             if streamed_ids is not None:

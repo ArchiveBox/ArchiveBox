@@ -19,6 +19,7 @@ _SETTINGS_TEMPLATES = {
     "admin/machine/machine/change_form.html": "admin/machine/machine/change_form.html",
     "admin/personas/persona/change_form.html": "admin/personas/persona/change_form.html",
 }
+_SENTRY_REQUEST_MIDDLEWARE = "abx_plugins.plugins.sentry.app.RequestAttributesMiddleware"
 
 
 def _csrf_callback(callback, request):
@@ -73,7 +74,12 @@ def stream_settings_response(request, response):
 
     # A custom template, plugin or middleware may set cookies or transform HTML
     # during rendering. Keep those on the ordinary render-before-headers path.
-    if tuple(settings.MIDDLEWARE) != settings.BUILTIN_MIDDLEWARE or tuple(settings.INSTALLED_APPS) != settings.BUILTIN_INSTALLED_APPS:
+    # The bundled Sentry app appends middleware that only records request
+    # attributes and never reads or modifies the response body.
+    middleware = tuple(settings.MIDDLEWARE)
+    if middleware not in (settings.BUILTIN_MIDDLEWARE, (*settings.BUILTIN_MIDDLEWARE, _SENTRY_REQUEST_MIDDLEWARE)):
+        return response
+    if tuple(settings.INSTALLED_APPS) != settings.BUILTIN_INSTALLED_APPS:
         return response
     if len(settings.TEMPLATES) != 1 or set(settings.TEMPLATES[0].get("OPTIONS", ())) - {"context_processors"}:
         return response

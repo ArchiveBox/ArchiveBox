@@ -230,6 +230,64 @@ def test_sentry_forwarded_client_address(initialized_archive, httpserver, free_t
             assert "user.ip_address" not in access["attributes"]
 
 
+def test_sentry_preserves_settings_streaming(initialized_archive, httpserver, free_tcp_port):
+    from lxml import html
+
+    httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({})
+    httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
+        b"",
+        content_type="application/x-protobuf",
+    )
+    run_archivebox_cmd(["install", "sentry"], cwd=initialized_archive, env={"SENTRY_ENABLED": "false"}, check=True, timeout=120)
+    create_admin_and_token(initialized_archive)
+    origin = f"http://localhost:{free_tcp_port}"
+    server = start_archivebox_server(
+        initialized_archive,
+        port=free_tcp_port,
+        env={
+            "BASE_URL": origin,
+            "DEBUG": "False",
+            "SENTRY_ENABLED": "true",
+            "SENTRY_DSN": httpserver.url_for("/1").replace("http://", "http://public@"),
+            "SENTRY_BROWSER_ENABLED": "true",
+            "SENTRY_TRACES_SAMPLE_RATE": "1",
+        },
+        log_name="sentry-settings-stream-server.log",
+    )
+    try:
+        with requests.Session() as browser:
+            login = origin + "/admin/login/"
+            login_page = browser.get(login, timeout=10)
+            assert login_page.status_code == 200
+            token = html.fromstring(login_page.content).xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
+            signed_in = browser.post(
+                login,
+                data={"username": "apitestadmin", "password": "testpass123", "csrfmiddlewaretoken": token},
+                allow_redirects=False,
+                timeout=10,
+            )
+            assert signed_in.status_code == 302
+            with browser.get(origin + "/add/", headers={"Accept-Encoding": "gzip"}, stream=True, timeout=10) as response:
+                assert response.status_code == 200
+                assert response.headers["Content-Encoding"] == "gzip"
+                assert response.headers["Transfer-Encoding"] == "chunked"
+                assert "Content-Length" not in response.headers
+                assert {"private", "no-store"} <= set(response.headers["Cache-Control"].split(", "))
+                chunks = response.iter_content(chunk_size=65536)
+                prefix = bytearray()
+                for chunk in chunks:
+                    prefix.extend(chunk)
+                    if b'id="id_url"' in prefix:
+                        break
+                assert b'id="id_url"' in prefix
+                assert b"</head>" in prefix and b'id="sentry-config"' in prefix
+                assert b'id="plugin-settings"' not in prefix
+                grid_and_suffix = b"".join(chunks)
+                assert b'id="plugin-settings"' in grid_and_suffix and b"</html>" in grid_and_suffix
+    finally:
+        stop_archivebox_process(server)
+
+
 def test_sentry_asgi_transport_cancellation(initialized_archive, httpserver):
     httpserver.expect_request("/api/1/envelope/", method="POST").respond_with_json({})
     httpserver.expect_request("/api/1/integration/otlp/v1/traces/", method="POST").respond_with_data(
