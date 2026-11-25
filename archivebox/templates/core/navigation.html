@@ -18,13 +18,17 @@
                 <svg class="navbar-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
             <div class="navbar-menu">
-                {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">Reset password</a>{% endif %}
-                <a href="{% url 'admin:auth_user_change' user.pk %}">Profile</a>
+                {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4m-4 4v2"/></svg>Reset password</a>{% endif %}
+                <a href="{% url 'admin:auth_user_change' user.pk %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2"/></svg>Profile</a>
                 <hr>
-                <div class="navbar-menu-pair"><a href="{% url 'admin:api_apitoken_changelist' %}">API Keys</a><a href="/api/v1/docs">API Docs</a></div>
-                <div class="navbar-menu-pair"><a href="{% url 'Docs' %}" target="_blank" rel="noopener noreferrer">Documentation</a><a href="https://github.com/ArchiveBox/ArchiveBox/issues/new/choose" target="_blank" rel="noopener noreferrer">Report a Bug</a></div>
+                <div class="navbar-account-links">
+                    <a href="{% url 'admin:api_apitoken_changelist' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 1 1-3 3-2-2"/></svg>API Keys</a>
+                    <a href="/api/v1/docs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-12-2 14"/></svg>API Docs</a>
+                    <a href="{% url 'Docs' %}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a8 8 0 0 0-9-1v15a8 8 0 0 1 9 1 8 8 0 0 1 9-1V4a8 8 0 0 0-9 1Zm0 0v15"/></svg>Documentation</a>
+                    <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new/choose" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="6" width="10" height="14" rx="5"/><path d="m9 7-2-4m8 4 2-4M3 8l4 3m10 0 4-3M3 14h4m10 0h4M4 20l4-3m8 0 4 3m-8-8v8"/></svg>Report a Bug</a>
+                </div>
                 <hr>
-                <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">{% trans 'Log Out' %}</button></form>
+                <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5m4-12 4 4-4 4m-6-4h10"/></svg>{% trans 'Log Out' %}</button></form>
             </div>
         </details>
     {% elif request.COOKIES.archivebox_admin_logged_in == "1" %}
