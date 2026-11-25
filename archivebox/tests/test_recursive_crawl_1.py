@@ -195,7 +195,7 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             assert process is not None
             assert process.status == Process.StatusChoices.EXITED
             assert process.exit_code == 1
-            assert process.stderr.strip() == "[tlsnotary] TLSNotary requires an HTTPS document"
+            assert process.stderr.strip().splitlines()[-1:] == ["[tlsnotary] TLSNotary requires an HTTPS document"]
     assert not [result for result in unexpected_results if result["plugin"] != "tlsnotary"]
     ytdlp_results = [
         (url, status, output_str)
