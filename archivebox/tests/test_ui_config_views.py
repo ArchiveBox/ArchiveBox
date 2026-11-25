@@ -6,6 +6,7 @@ from archivebox.config import views as config_views
 from archivebox.plugins import views as plugin_views
 from archivebox.core import views as core_views
 from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config_with_sources
 from archivebox.machine.models import Machine
 from archivebox.tests.conftest import ADMIN_TEST_HOST, install_real_binary
 
@@ -250,12 +251,15 @@ def test_live_config_value_view_escapes_machine_config_source_values(admin_reque
 
 
 def test_find_config_source_prefers_machine_over_file(machine):
-    machine.config = {"CHECK_SSL_VALIDITY": "true"}
+    machine.config = {"CHECK_SSL_VALIDITY": "true", "TIMEOUT": 83}
     machine.save(update_fields=["config"])
     CONSTANTS.CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     CONSTANTS.CONFIG_FILE.write_text("[SERVER_CONFIG]\nCHECK_SSL_VALIDITY = true\n")
 
     assert core_views.find_config_source("CHECK_SSL_VALIDITY", {"CHECK_SSL_VALIDITY": False}) == "Machine"
+    settings = get_config_with_sources(machine=machine)
+    assert settings["CHECK_SSL_VALIDITY"] == {"value": True, "source": "Machine"}
+    assert settings["WGET_TIMEOUT"] == {"value": 83, "source": "Machine"}
 
 
 def test_live_config_value_view_priority_text_matches_runtime_precedence(admin_request, machine):

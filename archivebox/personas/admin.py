@@ -15,7 +15,6 @@ from django.views.decorators.http import require_POST
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.personas.forms import PersonaAdminForm
-from archivebox.personas.importers import discover_local_browser_profiles
 from archivebox.personas.models import Persona
 from archivebox.personas.state_forms import PersonaStateForm, browser_state_summary
 
@@ -273,7 +272,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
 
             obj._browser_state_can_change = self.has_change_permission(request, obj)
             obj._browser_state_server_url = get_api_base_url(request=request)
-        context["detected_profile_count"] = len(discover_local_browser_profiles()) if add else 0
+        context["detected_profile_count"] = len(context["adminform"].form.discovered_profiles) if add else 0
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def save_model(self, request, obj, form, change):

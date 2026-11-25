@@ -1236,6 +1236,7 @@ def find_config_source(
     *,
     machine: Any = None,
     source_inputs: tuple[tuple[str, Mapping[str, Any]], ...] | None = None,
+    plugin_properties: Mapping[str, dict[str, Any]] | None = None,
 ) -> str:
     """Classify current-machine inputs; values remain owned by get_config()."""
     if source_inputs is None:
@@ -1247,13 +1248,14 @@ def find_config_source(
 
     if key in RUNTIME_REPORTING_CONFIG_KEYS:
         return "Environment" if any(source == "Environment" and key in inputs for source, inputs in source_inputs) else "Derived"
-    properties = _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)
-    prop = properties.get(key)
+    if plugin_properties is None:
+        plugin_properties = _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)
+    prop = plugin_properties.get(key)
     candidate = key
     visited: set[str] = set()
     while candidate not in visited:
         visited.add(candidate)
-        candidate_prop = properties.get(candidate) or {}
+        candidate_prop = plugin_properties.get(candidate) or {}
         input_names = [candidate, *candidate_prop.get("x-aliases", [])]
         field = ArchiveBoxConfig.model_fields.get(candidate)
         if field is not None and field.alias:
@@ -1273,7 +1275,7 @@ def find_config_source(
     if key in ArchiveBoxConfig.computed_config_keys or key in ArchiveBoxConfig.runtime_derived_config_keys():
         return "Derived"
     if key in _plugin_enabled_config_keys().values() and merged_config.get("PLUGINS"):
-        return find_config_source("PLUGINS", merged_config, source_inputs=source_inputs)
+        return find_config_source("PLUGINS", merged_config, source_inputs=source_inputs, plugin_properties=plugin_properties)
     if prop is not None:
         return "Plugin Default"
     return "Default"
@@ -1292,7 +1294,13 @@ def get_config_with_sources(*, machine: Any = None) -> dict[str, dict[str, Any]]
         machine = Machine.current_readonly()
     values = get_config(machine=machine).model_dump(mode="json")
     source_inputs = _config_source_inputs(machine, values)
-    return {key: {"value": value, "source": find_config_source(key, values, source_inputs=source_inputs)} for key, value in values.items()}
+    # Source labels all look up the same aliases and fallbacks. Flatten the
+    # schema once for the form instead of rebuilding it for every field.
+    plugin_properties = _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)
+    return {
+        key: {"value": value, "source": find_config_source(key, values, source_inputs=source_inputs, plugin_properties=plugin_properties)}
+        for key, value in values.items()
+    }
 
 
 def get_request_config(request: Any, *, resolve_plugins: bool = False) -> ArchiveBoxBaseConfig:

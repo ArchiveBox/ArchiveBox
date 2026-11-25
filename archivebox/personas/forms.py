@@ -4,6 +4,7 @@ from typing import Any
 from copy import copy
 
 from django import forms
+from django.conf import settings
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 
@@ -121,7 +122,10 @@ class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.discovered_profiles = discover_local_browser_profiles()
+        # The stock change page has browser-state tools rather than the import
+        # picker. Creation, submitted choices and custom templates still use it.
+        show_profile_choices = self.instance._state.adding or self.is_bound or settings.CUSTOM_TEMPLATES_ENABLED
+        self.discovered_profiles = discover_local_browser_profiles() if show_profile_choices else []
         self._resolved_import_source: PersonaImportSource | None = None
 
         self.fields["import_mode"].widget.attrs["class"] = "abx-import-mode"

@@ -1,3 +1,6 @@
+from cProfile import Profile
+from pstats import Stats
+
 import pytest
 
 from django.urls import reverse
@@ -116,12 +119,16 @@ def test_persona_admin_add_view_skips_unreadable_chrome_profile_entries(admin_cl
     assert b"Persona Template" in response.content
 
 
-def test_persona_admin_add_view_renders_import_ui(admin_client):
+def test_persona_admin_add_view_renders_import_ui(admin_client, admin_user, settings):
     source = _make_persona_template_source("RenderImportPersona")
 
-    response = admin_client.get(reverse("admin:personas_persona_add"), HTTP_HOST=ADMIN_TEST_HOST)
+    profile = Profile()
+    response = profile.runcall(admin_client.get, reverse("admin:personas_persona_add"), HTTP_HOST=ADMIN_TEST_HOST)
+    discovery_calls = sum(record[1] for (_, _, name), record in Stats(profile).stats.items() if name == "discover_local_browser_profiles")
 
     assert response.status_code == 200
+    assert discovery_calls == 1
+    assert response.context["detected_profile_count"] == len(response.context["adminform"].form.discovered_profiles)
     assert source.source_name.encode() in response.content
     assert b"Persona Template" in response.content
     assert b"auth.json" in response.content
@@ -131,6 +138,19 @@ def test_persona_admin_add_view_renders_import_ui(admin_client):
     assert b'href="https://extension.archivebox.io/"' in response.content
     assert b"import cookies into this persona from another browser" in response.content
     assert "wide" in response.context["adminform"].fieldsets[0][1]["classes"]
+
+    existing = Persona.objects.create(name="Existing Persona", created_by=admin_user)
+    profile = Profile()
+    change_url = reverse("admin:personas_persona_change", args=[existing.pk])
+    changed = profile.runcall(admin_client.get, change_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert changed.status_code == 200
+    assert not any(name == "discover_local_browser_profiles" for (_, _, name) in Stats(profile).stats)
+    assert source.source_name.encode() not in changed.content
+
+    settings.CUSTOM_TEMPLATES_ENABLED = True
+    custom = admin_client.get(change_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert custom.status_code == 200
+    assert source in custom.context["adminform"].form.discovered_profiles
 
 
 def test_import_persona_from_source_copies_profile_without_browser_export(admin_user):
