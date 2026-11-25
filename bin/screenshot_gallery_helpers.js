@@ -901,16 +901,17 @@ async function openImportMenu(page) {
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items,mobileLinks,mobileIconsOverlap,aiLinks};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
+  const bookmarksLabel = 'Bookmark Services';
   const expected = [
     'Using AI', 'Upload file', 'Google Sheets, Docs, Slides',
     'Via browser extension', 'Via mobile app', 'Via chat bot', 'Via MITM proxy',
-    'RSS Feed', 'Social Media', 'Pinboard, Wallabag, Shaarli, Instapaper, ...',
+    'RSS Feed', 'Social Media', bookmarksLabel,
     'Clone an entire site', 'Watch a site for changes',
   ];
   if (JSON.stringify(menu.items.map(item => item.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
   if (menu.items.some(item => !item.hasIcon)) throw new Error('Import menu is missing an icon.');
   if (menu.items.find(item => item.text === 'RSS Feed').href !== '/admin/importers/new/importer_rss/feed/') throw new Error('RSS import does not open the feed form.');
-  if (menu.items.find(item => item.text.startsWith('Pinboard,')).href !== 'https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive') throw new Error('Bookmarking services do not open the Quickstart.');
+  if (menu.items.find(item => item.text === bookmarksLabel).href !== 'https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive') throw new Error('Bookmarking services do not open the Quickstart.');
   if (JSON.stringify(menu.mobileLinks) !== JSON.stringify(['https://app.archivebox.io/', 'https://android.archivebox.io/'])) throw new Error('Mobile app links are missing.');
   if (menu.mobileIconsOverlap) throw new Error('Mobile app links overlap.');
   const expectedAiLinks = [
