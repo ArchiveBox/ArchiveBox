@@ -159,3 +159,7 @@
 .plugin-advanced { margin-top: 18px; }
 .plugin-advanced > summary { cursor: pointer; color: #697386; font-size: 12px; padding: 10px 0; }
 .plugin-config-grid:empty { display: none; }
+
+.config-plugin-preview { display: inline-block; margin-top: 12px; border: 1px solid #dce0e7; border-radius: 8px; overflow: hidden; vertical-align: top; background: white; }
+.config-plugin-preview[hidden] { display: none; }
+.config-plugin-preview img { display: block; width: 144px; height: 90px; object-fit: cover; object-position: top; }

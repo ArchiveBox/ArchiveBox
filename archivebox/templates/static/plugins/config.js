@@ -1,3 +1,5 @@
+// Snapshot the submitted values after deferred Add initialization, before
+// Machine's DOMContentLoaded handler applies edits from the setup wizard.
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.plugin-config-form').forEach(settings => {
         const form = settings.closest('form');
@@ -28,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (control.hasAttribute('data-settings-submit')) control.disabled = false;
         }
     });
-});
+}, {capture: true});
 
 (function() {
     if (window.archiveboxPluginConfigSyncLoaded) return;
@@ -132,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settings.addEventListener('plugin-config-updated', updateStatus);
         // Every field is initially visible in the server markup. An empty
         // search just needs the first tab, without rewriting each field.
-        if (search.value) filter();
+        if (search.value || !tabs.length) filter();
         else select(tabs[0]);
         function selectSettingsPanel(panelId, focus = false) {
             const linkedTab = tabs.find(tab => tab.getAttribute('aria-controls') === panelId);
@@ -361,4 +363,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+})();
+
+(() => {
+    if (window.archiveboxPluginPreviewsInstalled) return;
+    window.archiveboxPluginPreviewsInstalled = true;
+    const initialize = () => {
+        const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            observer.unobserve(entry.target);
+            const image = entry.target.querySelector('[data-plugin-preview-src]');
+            if (!image) return;
+            const link = image.closest('.config-plugin-preview');
+            image.addEventListener('load', () => { link.hidden = false; }, {once: true});
+            image.addEventListener('error', () => { link.remove(); }, {once: true});
+            image.src = image.dataset.pluginPreviewSrc;
+        }));
+        document.querySelectorAll('[data-plugin-preview-src]').forEach(image => {
+            const card = image.closest('.plugin-card');
+            if (card) observer.observe(card);
+        });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, {once: true}); else initialize();
 })();

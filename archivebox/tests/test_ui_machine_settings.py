@@ -78,6 +78,14 @@ def test_machine_admin_uses_shared_settings_and_preserves_custom_config(live_ser
         output = Path(os.environ.get("ARCHIVEBOX_UI_SCREENSHOT_DIR", tmp_path))
         output.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(output / "machine-admin-settings.png"), full_page=True)
+        # Setup review edits the switch during DOMContentLoaded, before the
+        # user presses Save. Change tracking must include this explicit opt-out.
+        page.goto(f"{live_server.url}{change_url}?BASE_URL={live_server.url}&ARCHIVEDOTORG_ENABLED=False")
+        expect(page.locator('[role="tab"][data-plugin="archivedotorg"]')).to_have_attribute("aria-selected", "true")
+        expect(page.locator('input[type="checkbox"][name="plugin_config__archivedotorg__ARCHIVEDOTORG_ENABLED"]')).not_to_be_checked()
+        save.click()
+        expect(page.locator(".success")).to_be_visible()
+        assert stored_config()["ARCHIVEDOTORG_ENABLED"] is False
         browser.close()
 
 
