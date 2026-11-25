@@ -2024,7 +2024,17 @@ def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):
     assert urlsplit(source[1].decode()).path == "/archivewebpage/archivewebpage.wacz"
 
 
-def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime, admin_user, crawl):
+@pytest.fixture
+def configured_snapshot_admin(live_server):
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
+    return live_server
+
+
+def test_snapshot_rows_on_mobile_tablet_and_desktop(configured_snapshot_admin, browser_runtime, admin_user, crawl):
     from datetime import timedelta
     from django.utils import timezone
     from playwright.sync_api import sync_playwright
@@ -2060,11 +2070,11 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page()
-        page.goto(f"{live_server.url}/admin/login/")
+        page.goto(f"{configured_snapshot_admin.url}/admin/login/")
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
         page.locator('input[type="submit"]').click()
-        page.goto(f"{live_server.url}/admin/core/snapshot/")
+        page.goto(f"{configured_snapshot_admin.url}/admin/core/snapshot/")
         for width, height in (
             (320, 900),
             (390, 900),
@@ -2195,7 +2205,7 @@ def test_snapshot_rows_on_mobile_tablet_and_desktop(live_server, browser_runtime
                 ("created_at_display", [str(older.pk), str(today.pk)]),
                 ("tags_inline", [str(older.pk), str(today.pk)]),
             ):
-                page.goto(f"{live_server.url}/admin/core/snapshot/")
+                page.goto(f"{configured_snapshot_admin.url}/admin/core/snapshot/")
                 header = page.locator(f"#result_list thead th.column-{column}")
                 link = header.locator(".text a")
                 directions = set()
@@ -2384,7 +2394,7 @@ def test_compact_snapshot_grid_and_svg_permissions(live_server, browser_runtime,
 
 
 @pytest.mark.parametrize("status", ["queued", "deleting"])
-def test_compact_rows_keep_untitled_capture_readable(live_server, browser_runtime, admin_user, crawl, status):
+def test_compact_rows_keep_untitled_capture_readable(configured_snapshot_admin, browser_runtime, admin_user, crawl, status):
     from playwright.sync_api import sync_playwright
     from archivebox.core.models import Snapshot
 
@@ -2397,11 +2407,11 @@ def test_compact_rows_keep_untitled_capture_readable(live_server, browser_runtim
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page()
-        page.goto(f"{live_server.url}/admin/login/")
+        page.goto(f"{configured_snapshot_admin.url}/admin/login/")
         page.locator("#id_username").fill(admin_user.username)
         page.locator("#id_password").fill("testpassword")
         page.locator('input[type="submit"]').click()
-        page.goto(f"{live_server.url}/admin/core/snapshot/")
+        page.goto(f"{configured_snapshot_admin.url}/admin/core/snapshot/")
         row = page.locator("#result_list tbody tr").filter(has=page.locator(f'input[value="{snapshot.pk}"]'))
         for width in (320, 390, 700):
             page.set_viewport_size({"width": width, "height": 900})
