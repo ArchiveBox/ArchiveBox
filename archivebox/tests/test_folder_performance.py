@@ -128,7 +128,11 @@ def test_display_count_refresh_aggregates_in_database_and_is_debounced(admin_use
     assert queryset.count() == 1000
 
 
-def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user):
+@pytest.mark.parametrize(
+    "interval, first_order, extends_probe",
+    [(11, "-created_at", True), (29, "-created_at", False), (11, "title", False)],
+)
+def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user, interval, first_order, extends_probe):
     from archivebox.misc.paginators import snapshot_page
 
     crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=admin_user)
@@ -139,19 +143,27 @@ def test_ordered_page_probe_preserves_sparse_filters_and_order(admin_user):
                 url=f"https://news.ycombinator.com/item?id={i}",
                 timestamp=str(1900200000 + i),
                 crawl=crawl,
-                title="match" if i % 29 == 0 else "exclude",
-                folder=folder,
+                title=None if i % interval == 0 else "exclude",
+                folder=folder if first_order != "title" or i % 3 == 0 else None,
             )
             for i in range(400)
         ],
         batch_size=100,
     )
-    base = Snapshot.objects.order_by("-created_at", "-pk")
-    query = base.filter(title="match", folder=folder)
+    base = Snapshot.objects.order_by(first_order, "-pk")
+    query = base.filter(title__isnull=True, folder=folder)
     expected = list(query.all())
-    first = snapshot_page(query, base_queryset=base, start=0, size=10)
+    with CaptureQueriesContext(connection) as queries:
+        first = snapshot_page(query, base_queryset=base, start=0, size=10)
+    if first_order == "title" and connection.vendor == "sqlite":
+        assert len(queries) == 1, "Sort the leading NULLs once in the filtered query"
+    elif first_order != "title":
+        assert any("LIMIT 80 OFFSET 80" in query["sql"] for query in queries) == extends_probe
+        if extends_probe:
+            assert len(queries) == 3, "Skip the full filtered query when the extra probe fills the page"
     second = snapshot_page(query, base_queryset=base, start=10, size=10)
-    assert first + second == expected
+    assert first == expected[:10]
+    assert second == expected[10:20]
 
 
 @pytest.mark.parametrize("sort", ["title", "-title", "-downloaded_at"])

@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from itertools import permutations
 from urllib.parse import urlencode
 
 import pytest
@@ -52,6 +53,32 @@ def test_operator_membership(crawl):
     with pytest.raises(ValueError, match="Invalid quoted text"):
         parse('title:"unfinished')
     assert not SnapshotSearch(scope, "meta:LabNote", public=True).queryset().exists()
+
+
+def test_nested_sql_predicates_keep_membership_across_operand_orders(crawl):
+    match = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://sqlite.org/optoverview.html",
+        title="Query planner",
+        config={"guide": "manual"},
+    )
+    other = Snapshot.objects.create(crawl=crawl, url="https://lucene.apache.org/core/", title="Iterator API")
+    match.save_tags(["database"])
+    ArchiveResult.objects.create(snapshot=match, plugin="wget", status="succeeded", output_files={"manual.html": {}})
+    scope = Snapshot.objects.filter(pk__in=[match.pk, other.pk]).order_by("pk")
+    terms = ("meta:manual", "filetype:html", "tags:data", "title:query", "after:2000")
+
+    for a, b, c, d, e in list(permutations(terms))[::11]:
+        # Re-parenthesizing the same conjunction must still allow the scalar
+        # date comparison to short-circuit the correlated manifest lookup.
+        conjunction = f"({a} AND ({b} AND {c})) AND ({d} AND {e})"
+        search = SnapshotSearch(scope, conjunction)
+        ids = search.sql_queryset().values_list("pk", flat=True)
+        assert list(ids) == [match.pk]
+        sql, _ = ids.query.sql_with_params()
+        assert sql.index("bookmarked_at") < sql.index("core_archiveresult")
+        complement = SnapshotSearch(scope, f"~(({conjunction}) OR domain:sqlite.org)")
+        assert list(complement.stream()) == [other.pk]
 
 
 def test_public_search_scope_completion_and_invalid_query(client, crawl):

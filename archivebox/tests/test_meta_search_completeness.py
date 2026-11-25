@@ -1,5 +1,5 @@
 import pytest
-from archivebox.core.models import Snapshot
+from archivebox.core.models import Snapshot, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.search.views import iter_meta_search_ids
 
@@ -19,3 +19,19 @@ def test_meta_retains_crawl_only_and_config_only_matches(crawl):
     assert set(ids) == expected
     assert len(ids) == len(expected)
     assert ids.index(direct.pk) < ids.index(metadata.pk) < ids.index(config.pk)
+
+
+def test_meta_tag_wave_matches_case_insensitively_inside_the_scope(crawl):
+    matching_tag = Tag.objects.create(name="Library_Tag%")
+    other_tag = Tag.objects.create(name="LibraryXTagElse")
+    earlier = Snapshot.objects.create(url="https://www.python.org/about/", title="Library_Tag%", crawl=crawl)
+    tagged = Snapshot.objects.create(url="https://www.python.org/downloads/", crawl=crawl)
+    outside = Snapshot.objects.create(url="https://www.python.org/doc/", crawl=crawl)
+    decoy = Snapshot.objects.create(url="https://www.python.org/community/", crawl=crawl)
+    for snapshot in (earlier, tagged, outside):
+        snapshot.tags.add(matching_tag)
+    decoy.tags.add(other_tag)
+
+    scope = Snapshot.objects.filter(pk__in=[earlier.pk, tagged.pk, decoy.pk]).order_by("-pk")
+
+    assert list(iter_meta_search_ids("lIBRARY_tAG%", scope)) == [earlier.pk, tagged.pk]

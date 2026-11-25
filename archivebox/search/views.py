@@ -16,7 +16,8 @@ from uuid import UUID, uuid4
 from django.core.cache import caches
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connections
-from django.db.models import Q
+from django.db.models import CharField, Q
+from django.db.models.functions import Cast
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
 from archivebox.search.progress import SearchProgress
@@ -244,7 +245,7 @@ def iter_url_prefix_search_ids(prefix: str, queryset):
     if not raw_ids:
         return
 
-    valid_ids = {str(pk).replace("-", "") for pk in queryset.filter(pk__in=raw_ids).values_list("pk", flat=True)}
+    valid_ids = {pk.hex for pk in queryset.filter(pk__in=raw_ids).order_by().values_list("pk", flat=True)}
     for snapshot_id in raw_ids:
         if snapshot_id in valid_ids:
             yield snapshot_id
@@ -253,57 +254,57 @@ def iter_url_prefix_search_ids(prefix: str, queryset):
 def iter_meta_search_ids(query, queryset):
     """Yield metadata search matches from a filtered Snapshot queryset."""
     seen = set()
+
+    def unseen_ids(ids):
+        # The URL index yields strings while ORM waves yield UUIDs. Both can
+        # find the same snapshot and the first matching wave determines rank.
+        for pk in ids:
+            snapshot_id = normalize_search_result_id(pk)
+            if snapshot_id and snapshot_id not in seen:
+                seen.add(snapshot_id)
+                yield pk
+
     try:
         snapshot_id = UUID(query)
     except ValueError:
         snapshot_id = None
     if snapshot_id:
-        for pk in queryset.filter(pk=snapshot_id).values_list("pk", flat=True):
-            seen.add(pk)
-            yield pk
+        yield from unseen_ids(queryset.filter(pk=snapshot_id).values_list("pk", flat=True))
 
     # A URL query may be spelled as IRI (/über) or URI (/%C3%BCber), and the
     # snapshot stored in the other spelling; prefix-scan each of them.
     for url_query in equivalent_urls(query):
         for prefix in iter_url_search_prefixes(url_query):
-            for pk in iter_url_prefix_search_ids(prefix, queryset):
-                if pk in seen:
-                    continue
-                seen.add(pk)
-                yield pk
+            yield from unseen_ids(iter_url_prefix_search_ids(prefix, queryset))
 
-    waves = [
-        Q(timestamp__startswith=query) | Q(title__istartswith=query),
-        url_search_q(query),
-        Q(title__icontains=query),
-        Q(tags__name__icontains=query),
-        Q(notes__icontains=query),
-    ]
-    for wave in waves:
-        for pk in queryset.filter(wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
-            if pk in seen:
-                continue
-            seen.add(pk)
-            yield pk
+    def waves():
+        yield Q(timestamp__startswith=query) | Q(title__istartswith=query)
+        yield url_search_q(query)
+        yield Q(title__icontains=query)
+        if connections[queryset.db].vendor == "sqlite":
+            from archivebox.core.models import Tag
 
-    crawl_metadata_wave = Q(crawl__notes__icontains=query) | Q(crawl__label__icontains=query) | Q(crawl__created_by__username=query)
-    for pk in queryset.filter(crawl_metadata_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
-        if pk in seen:
-            continue
-        seen.add(pk)
-        yield pk
+            # Test each name once, then join matching assignments by tag ID.
+            # Older SQLite tables need a text RHS to use that index.
+            tags = Tag.objects.using(queryset.db).filter(name__icontains=query).order_by()
+            yield Q(tags__id__in=tags.values_list(Cast("pk", output_field=CharField()), flat=True))
+        else:
+            yield Q(tags__name__icontains=query)
+        yield Q(notes__icontains=query)
+        yield Q(crawl__notes__icontains=query) | Q(crawl__label__icontains=query) | Q(crawl__created_by__username=query)
+
+    for wave in waves():
+        yield from unseen_ids(queryset.filter(wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500))
 
     config_wave = crawl_config_values_search_wave(query, crawl_ids=queryset.order_by().values("crawl_id"))
     if config_wave is not None:
-        for pk in queryset.filter(config_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500):
-            if pk in seen:
-                continue
-            seen.add(pk)
-            yield pk
+        yield from unseen_ids(queryset.filter(config_wave).values_list("pk", flat=True).distinct().iterator(chunk_size=500))
 
 
 def normalize_search_result_id(snapshot_id) -> str | None:
     """Return a compact Snapshot ID string from a search provider result."""
+    if isinstance(snapshot_id, UUID):
+        return snapshot_id.hex
     snapshot_id = str(snapshot_id).strip().lower().replace("-", "")
     if len(snapshot_id) != 32 or any(char not in "0123456789abcdef" for char in snapshot_id):
         return None
@@ -313,9 +314,8 @@ def normalize_search_result_id(snapshot_id) -> str | None:
 def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05):
     """Yield provider IDs that still match the filtered queryset.
 
-    This is the single intersection/dedupe path used for metadata and every
-    search backend. It flushes by elapsed time so sparse providers stream rows
-    as soon as IDs are found instead of waiting for a fixed batch size.
+    Search backends can discover IDs outside the current list scope. Flush by
+    elapsed time so sparse providers do not wait for a fixed batch size.
     """
     batch = []
     seen = set()
@@ -330,7 +330,7 @@ def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05)
         batch = []
         queued = set()
         last_flush_at = time.monotonic()
-        valid = {str(pk).replace("-", "") for pk in queryset.filter(pk__in=batch_ids).values_list("pk", flat=True)}
+        valid = {pk.hex for pk in queryset.filter(pk__in=batch_ids).order_by().values_list("pk", flat=True)}
         for snapshot_id in batch_ids:
             if snapshot_id in valid and snapshot_id not in seen:
                 seen.add(snapshot_id)
@@ -357,7 +357,8 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
         yield from SnapshotSearch(base_queryset, query, config=config, stop_event=stop_event, progress=progress).stream()
         return
     if search_mode_base == "url":
-        provider = base_queryset.filter(url_search_q(query.strip())).values_list("pk", flat=True).iterator(chunk_size=1000)
+        chunk_size = 64 if connections[base_queryset.db].vendor == "sqlite" else 1000
+        provider = base_queryset.filter(url_search_q(query.strip())).values_list("pk", flat=True).iterator(chunk_size=chunk_size)
     elif search_mode_base == "meta":
         provider = iter_meta_search_ids(query, base_queryset)
     else:
@@ -370,7 +371,19 @@ def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_ev
             progress=progress,
         )
     try:
-        yield from iter_filtered_search_result_ids(provider, base_queryset)
+        # The SQL providers already apply the caller's scope. Rechecking them
+        # would buffer matches and repeat the same joins.
+        if search_mode_base == "meta":
+            yield from map(normalize_search_result_id, provider)
+        elif search_mode_base == "url":
+            seen = set()
+            for pk in provider:
+                snapshot_id = normalize_search_result_id(pk)
+                if snapshot_id and snapshot_id not in seen:
+                    seen.add(snapshot_id)
+                    yield snapshot_id
+        else:
+            yield from iter_filtered_search_result_ids(provider, base_queryset)
     finally:
         provider.close()
 
@@ -522,8 +535,17 @@ def snapshot_search_stream_response(
 
         def produce():
             iterator = None
+            raw_sqlite = None
             try:
                 close_old_connections()
+                db = connections[base_queryset.db]
+                if db.vendor == "sqlite":
+                    # A replaced search may still be inside one long SQL scan
+                    # with no rows to yield. Stop that worker's own statement
+                    # as soon as the HTTP stream disconnects.
+                    db.ensure_connection()
+                    raw_sqlite = db.connection
+                    raw_sqlite.set_progress_handler(stop_event.is_set, 10_000)
                 if page_query is not None:
                     from archivebox.misc.paginators import iter_snapshot_page
 
@@ -562,6 +584,8 @@ def snapshot_search_stream_response(
                         iterator.close()
                     except AttributeError:
                         pass
+                if raw_sqlite is not None and db.connection is raw_sqlite:
+                    raw_sqlite.set_progress_handler(None, 0)
                 close_old_connections()
                 emit(None)
 

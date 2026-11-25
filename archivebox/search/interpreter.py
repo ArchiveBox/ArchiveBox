@@ -17,7 +17,7 @@ from subprocess import SubprocessError
 
 from django.db import connections
 from django.core.exceptions import FieldDoesNotExist, ValidationError
-from django.db.models import Case, Exists, OuterRef, Q, Value, When
+from django.db.models import Case, Exists, OuterRef, Q, QuerySet, Value, When
 
 from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
@@ -65,7 +65,14 @@ def indexed_predicate(model, predicate):
                 field = model._meta.pk if field_name == "pk" else model._meta.get_field(field_name)
             except FieldDoesNotExist:
                 return False
-            if not (field.primary_key or field.unique or field.db_index):
+            # Generated domains and compound indexes are declared on Meta.
+            # An unconditional leading column supports the same B-tree seek.
+            if not (
+                field.primary_key
+                or field.unique
+                or field.db_index
+                or any(i.fields and not i.condition and i.fields[0].lstrip("-") == field.name for i in model._meta.indexes)
+            ):
                 return False
         else:
             return False
@@ -148,7 +155,9 @@ class SnapshotSearch:
                     indexed_endpoints = indexed_endpoints.filter(Exists(children))
                     self.indexed_evidence[term] = Q(parent_snapshot_id__in=indexed_endpoints.values("pk")[:PAGE_SIZE])
                 else:
-                    parents = indexed_endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id")
+                    # Limit distinct sources, so hundreds of children sharing
+                    # a parent do not crowd other matching sources off page one.
+                    parents = indexed_endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id").distinct()
                     self.indexed_evidence[term] = Q(pk__in=parents[:PAGE_SIZE])
             # Only actual parents/children can provide database link evidence.
             # Keep the broader substring pass for paths, lookalikes and ports.
@@ -431,7 +440,12 @@ class SnapshotSearch:
     def recorded_links(term, endpoints):
         if term.field == "linkedfrom":
             return Q(parent_snapshot_id__in=endpoints.values("pk"))
-        return Q(pk__in=endpoints.exclude(parent_snapshot_id=None).values("parent_snapshot_id"))
+        # Walk distinct recorded parents through the relationship index. Each
+        # candidate needs just one child satisfying the scoped URL predicate.
+        parents = (
+            endpoints.model.objects.using(endpoints.db).exclude(parent_snapshot_id=None).order_by().values("parent_snapshot_id").distinct()
+        )
+        return Q(pk__in=parents) & Q(Exists(endpoints.filter(parent_snapshot_id=OuterRef("pk"))))
 
     def link_endpoints(self, term, *, scope=None):
         scope = self.scope if scope is None else scope
@@ -588,7 +602,11 @@ class SnapshotSearch:
                 url_match = substring("url", value)
                 early = set()
                 tiers = []
-                if hint := self.indexed_evidence.get(self.tree):
+                if value.isascii() and value.isalnum():
+                    # Streaming a bounded hostname index scan yields the first
+                    # matching label without materializing all distinct hosts.
+                    tiers.append((Q(reversed_domain__icontains=value) & url_match, "reversed_domain"))
+                elif hint := self.indexed_evidence.get(self.tree):
                     tiers.append((hint, "reversed_domain"))
                 tiers.extend([(url_match, "url"), (substring("title", value), "title")])
                 for predicate, order in tiers:
@@ -602,15 +620,22 @@ class SnapshotSearch:
                             early.add(pk)
                             yield pk
                 matches = matches.exclude(pk__in=early).order_by("pk")
-                yield from matches.values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
-                return
-            if not qs.query.order_by and self.sql_queryset(ranked=True) is None:
-                # Bound the exclusion list; a large archive never needs to
-                # collect all its URL matches before showing a page.
-                head = list(self.witnesses(self.indexed_bounds[0], indexed=True)[:PAGE_SIZE])
-                yield from head
+            elif not qs.query.order_by and self.sql_queryset(ranked=True) is None:
+                # Keep subsequent queries disjoint, but publish the first index
+                # hit immediately even if the rest of the bounded probe is slow.
+                head = set()
+                for pk in self.indexed_witnesses(self.indexed_bounds[0]):
+                    head.add(pk)
+                    yield pk
                 matches = matches.exclude(pk__in=head).order_by()
-            yield from matches.values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
+            # On a sparse predicate, fetching a batch delays its first match
+            # until SQLite finds the last one (or exhausts the collection).
+            if not self.active():
+                return
+            for pk in matches.values_list("pk", flat=True).iterator(chunk_size=1 if self.streaming else PAGE_SIZE):
+                if not self.active():
+                    return
+                yield pk
             return
         self.deadline = time.monotonic() + MAX_SECONDS
         with self.phase("planning"):
@@ -660,7 +685,7 @@ class SnapshotSearch:
                 yield from self.ranked_metadata(text, certain, quick)
                 qs = qs.exclude(certain)
             elif isinstance(quick, Q):
-                for pk in self.witnesses(quick, indexed=True)[:PAGE_SIZE].iterator(chunk_size=1):
+                for pk in self.indexed_witnesses(quick):
                     confirmed.add(pk)
                     yield pk
             for pk in self.indexed_hits(qs, flags, words):
@@ -756,6 +781,31 @@ class SnapshotSearch:
         scope = self.index_probe_scope if indexed else self.scope
         return scope.filter(predicate).order_by().values_list("pk", flat=True)
 
+    def indexed_witnesses(self, predicate):
+        # SQLite can turn A OR B into a full snapshot scan even when both
+        # alternatives have an index. Each outer disjunct is a sufficient
+        # proof; keep AND and negated groups together. Seek direct keys before
+        # materializing a subquery such as the set of matching hostnames.
+        waves = [predicate]
+        if predicate.connector == Q.OR and not predicate.negated:
+            waves = [Q(child) for child in predicate.children]
+            waves.sort(key=lambda wave: any(isinstance(value, QuerySet) for value in wave.flatten()))
+        seen = set()
+        # A second page can be requested while the remaining SQL is running.
+        # Keep the exclusion list bounded for the exhaustive pass below.
+        limit = 2 * PAGE_SIZE
+        for wave in waves:
+            if not self.active():
+                return
+            for pk in self.witnesses(wave, indexed=True)[:limit].iterator(chunk_size=1):
+                if not self.active():
+                    return
+                if pk not in seen:
+                    seen.add(pk)
+                    yield pk
+                    if len(seen) == limit:
+                        return
+
     def ranked_metadata(self, terms, certain, quick):
         # These are disjoint lazy queries, without a database-wide score sort.
         # The first host/prefix seek can return a row while the later tiers have
@@ -773,8 +823,10 @@ class SnapshotSearch:
         tiers = [Q(*hosts, _connector=Q.OR)]
         tiers.extend(Q(*(substring(field, t.value) for t in terms), _connector=Q.OR) for field in ("url", "title"))
         if isinstance(quick, Q):
-            first = list(self.witnesses(quick & tiers[0] & certain, indexed=True)[:PAGE_SIZE])
-            yield from first
+            first = []
+            for pk in self.indexed_witnesses(quick & tiers[0] & certain):
+                first.append(pk)
+                yield pk
             remaining = remaining.exclude(pk__in=first)
         for tier in tiers:
             for pk in remaining.filter(tier).filter(certain).values_list("pk", flat=True).iterator(chunk_size=1):

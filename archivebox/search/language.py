@@ -8,10 +8,12 @@ from functools import lru_cache, reduce
 from operator import and_, or_
 
 from django.db import connections
-from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, TextField, Value, When
+from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, QuerySet, TextField, Value, When
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast, Coalesce, Length, Lower, StrIndex
 from django.db.models.lookups import Exact, GreaterThan, IRegex
+from django.db.models.sql import Query
+from django.db.models.sql.where import WhereNode
 
 from archivebox.core.models import ArchiveResult, SnapshotQuerySet, SnapshotTag, Tag
 
@@ -196,27 +198,77 @@ def simplify(node, values):
     return remaining[0] if len(remaining) == 1 else Expr(node.op, remaining)
 
 
+def sql_predicate_cost(predicate):
+    """Prefer column checks over related-row probes and JSON iteration within each WHERE group."""
+    # Inspect the actual proof: a metadata term can compile to a simple
+    # hostname seek in one wave and recursive JSON traversal in the next.
+    json_iterations = subqueries = expressions = 0
+
+    def count(expr):
+        nonlocal json_iterations, subqueries, expressions
+        expressions += 1
+        if isinstance(expr, (ConfigContains, OutputPathExists)):
+            json_iterations += 1
+        if isinstance(expr, QuerySet):
+            expr = expr.query
+        if isinstance(expr, Query):
+            subqueries += 1
+            count(expr.where)
+        elif isinstance(expr, (Q, WhereNode)):
+            for child in expr.children:
+                count(child)
+        elif isinstance(expr, tuple) and len(expr) == 2 and isinstance(expr[0], str):
+            count(expr[1])
+        elif hasattr(expr, "get_source_expressions"):
+            for child in expr.get_source_expressions():
+                count(child)
+
+    count(predicate)
+    return json_iterations, subqueries, expressions
+
+
 def sql_bounds(node, sql, text=None):
     """Bound membership before file/index I/O. NOT reverses possible and certain."""
-    if isinstance(node, Term):
-        return (sql[node], sql[node]) if node in sql else ((text or {}).get(node, False), True)
-    bounds = [sql_bounds(arg, sql, text) for arg in node.args]
-    if node.op == "not":
-        return tuple(not q if isinstance(q, bool) else ~q for q in reversed(bounds[0]))
-    decisive = node.op == "or"
 
-    def combine(seq):
-        if any(v is decisive for v in seq):
-            return decisive
-        parts = [v for v in seq if isinstance(v, Q)]
-        return reduce(or_ if decisive else and_, parts) if parts else not decisive
+    def visit(node, negated=False):
+        if isinstance(node, Term):
+            bounds = (sql[node], sql[node]) if node in sql else ((text or {}).get(node, False), True)
+            return tuple(not q if isinstance(q, bool) else ~q for q in reversed(bounds)) if negated else bounds
+        if node.op == "not":
+            return visit(node.args[0], not negated)
 
-    # For an AND, test cheap positive text witnesses before a restrictive
-    # file/relationship predicate. SQLite evaluates correlated EXISTS clauses
-    # in WHERE order; a failed text check can skip all output JSON for that row.
-    if node.op == "and":
-        bounds.sort(key=lambda pair: pair[1] is not True)
-    return tuple(combine(col) for col in zip(*bounds))
+        # Push negation to the leaves using De Morgan's laws. Flatten only
+        # associative groups: distributing AND over OR could grow exponentially.
+        disjunction = (node.op == "or") != negated
+        connector = Q.OR if disjunction else Q.AND
+        bounds = [visit(arg, negated) for arg in node.args]
+
+        def combine(column):
+            if any(part is disjunction for part in column):
+                return disjunction
+            parts = []
+            for part in column:
+                if isinstance(part, Q):
+                    if part.children and not part.negated and part.connector == connector:
+                        parts.extend(part.children)
+                    else:
+                        parts.append(part)
+            if not parts:
+                return not disjunction
+            if len(parts) == 1 and isinstance(parts[0], Q):
+                return parts[0]
+            # Short-circuit inexpensive proofs/rejections first, including
+            # siblings that were originally inside a parenthesized group.
+            if len(parts) > 1:
+                parts.sort(key=sql_predicate_cost)
+            return Q(*parts, _connector=connector)
+
+        lower = combine(tuple(pair[0] for pair in bounds))
+        if all(pair[0] is pair[1] for pair in bounds):
+            return lower, lower
+        return lower, combine(tuple(pair[1] for pair in bounds))
+
+    return visit(node)
 
 
 def has_uppercase(value):

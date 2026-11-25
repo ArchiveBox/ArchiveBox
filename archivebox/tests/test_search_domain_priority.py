@@ -21,6 +21,7 @@ def test_bare_domain_prefers_real_host_and_www_before_lexical_lookalikes(crawl):
     result = list(iter_meta_search_ids("example.com", queryset))
     normalized = [str(pk).replace("-", "") for pk in result]
     assert set(normalized[:2]) == direct
+    assert len(normalized) == len(snapshots)
     assert set(normalized) == {str(item.pk).replace("-", "") for item in snapshots}
     # Membership intersection still excludes a higher-priority unauthorized row.
     scoped = queryset.exclude(pk=snapshots[-1].pk)

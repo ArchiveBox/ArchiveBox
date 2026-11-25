@@ -5,7 +5,8 @@ import pytest
 
 
 @pytest.mark.django_db(transaction=True)
-def test_completed_search_browsing(live_server, admin_user, crawl, browser_runtime):
+@pytest.mark.parametrize("mode", ["query", "meta"])
+def test_completed_search_browsing(live_server, admin_user, crawl, browser_runtime, mode):
     from playwright.sync_api import expect, sync_playwright
     from archivebox.core.models import Snapshot
     from archivebox.machine.models import Machine
@@ -30,7 +31,9 @@ def test_completed_search_browsing(live_server, admin_user, crawl, browser_runti
         page.locator('[name="username"]').fill(admin_user.username)
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
-        page.locator('#changelist-search [role="combobox"]').fill("meta:amazon.com")
+        if mode == "meta":
+            page.goto(f"{origin}/admin/core/snapshot/?search_mode=meta")
+        page.locator('#changelist-search [role="combobox"]').fill("amazon.com" if mode == "meta" else "meta:amazon.com")
         page.locator('#changelist-search [role="combobox"]').press("Enter")
         expect(page.locator("#result_list input.action-select")).to_have_count(50)
         expect(page.locator("#changelist-search")).not_to_have_attribute("aria-busy", "true")
