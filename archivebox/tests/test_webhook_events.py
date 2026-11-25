@@ -20,7 +20,7 @@ def subscription(name, signal, actions, **kwargs):
 
 
 def records(hook):
-    return Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk)).order_by("created_at", "pk")
+    return Process.objects.filter(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk)).order_by("created_at", "pk")
 
 
 def test_create_delete_payload_and_transaction_commit():
@@ -130,7 +130,7 @@ def test_blocking_preparation_changes_native_config_and_failure_stops_capture():
     assert records(hook).get().exit_code == 0
     hook.actions = [{"type": "shell", "command": "printf 'preparation failed' >&2; exit 4"}]
     hook.save()
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         webhook_event.send(sender=Snapshot, instance=snapshot, event="BEFORE_CAPTURE")
     assert records(hook).last().exit_code == 4
     assert not snapshot.archiveresult_set.exists()

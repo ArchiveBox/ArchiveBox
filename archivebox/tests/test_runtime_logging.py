@@ -103,4 +103,4 @@ def test_outbound_http_logs_leave_json_stdout_and_full_plain_stderr(initialized_
     assert json.loads(result.stdout) == {"status": 404}
     assert "\x1b[" not in result.stderr
     assert sum(url in line for line in result.stderr.splitlines()) == 1, result.stderr
-    assert "OutboundWebhook:" in result.stderr
+    assert "HTTP Request:" in result.stderr

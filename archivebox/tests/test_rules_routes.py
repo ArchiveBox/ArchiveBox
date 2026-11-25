@@ -13,11 +13,11 @@ HOST = "admin.archivebox.localhost:5797"
 
 
 def test_rules_canonical_page_and_native_model_labels(admin_client):
-    assert reverse("webhooks:index") == "/admin/rules/"
+    assert reverse("rules:index") == "/admin/rules/"
     response = admin_client.get("/admin/rules/", HTTP_HOST=HOST)
     assert response.status_code == 200
     body = response.content.decode()
-    for label in ("<h1>Rules</h1>", "New rule", "Save rule", "Rule editor", 'href="/admin/rules/"'):
+    for label in ("<h1>Rules</h1>", "New rule", "Save rule", "Rule editor", "Stop processing other rules", 'href="/admin/rules/"'):
         assert label in body
     assert "New webhook" not in body
     assert Rule._meta.verbose_name == "Rule"
@@ -26,7 +26,7 @@ def test_rules_canonical_page_and_native_model_labels(admin_client):
     assert not archivebox_admin.is_registered(Rule)
     native = admin_client.get("/admin/api/outboundwebhook/add/", HTTP_HOST=HOST)
     assert native.status_code == 302
-    assert native["Location"] == "/admin/rules/?webhook=new"
+    assert native["Location"] == "/admin/rules/?rule=new"
 
 
 def test_old_model_admin_opens_the_same_rule_without_accepting_writes(admin_client, admin_user):
@@ -45,7 +45,7 @@ def test_old_model_admin_opens_the_same_rule_without_accepting_writes(admin_clie
         url = f"/admin/api/outboundwebhook/{rule.pk}/{suffix}"
         response = admin_client.get(url, HTTP_HOST=HOST)
         assert response.status_code == 302
-        assert response["Location"] == f"/admin/rules/?webhook={rule.pk}"
+        assert response["Location"] == f"/admin/rules/?rule={rule.pk}"
         assert admin_client.post(url, {"name": "Changed elsewhere"}, HTTP_HOST=HOST).status_code == 405
     rule.refresh_from_db()
     assert rule.name == "Existing HTTP rule"

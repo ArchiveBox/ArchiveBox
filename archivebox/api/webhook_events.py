@@ -136,7 +136,8 @@ def register_relationship_signals():
 
 def action_in_progress():
     # Process.launch passes provenance to child Python/shell environments too.
-    return executing_webhook.get() or bool(os.environ.get("ARCHIVEBOX_WEBHOOK_ID"))
+    # An action started by the previous version can still be running during upgrade.
+    return executing_webhook.get() or bool(os.environ.get("ARCHIVEBOX_RULE_ID") or os.environ.get("ARCHIVEBOX_WEBHOOK_ID"))
 
 
 class WebhookActionMiddleware:
@@ -286,7 +287,7 @@ def emit_event(instance, signal, **metadata):
         if transaction.get_connection().in_atomic_block:
             raise RuntimeError("Blocking webhooks must run outside a database transaction")
         if not deliver_webhooks(instance, data, signal, metadata=metadata):
-            raise RuntimeError(f"{signal} webhook failed; see the Process logs")
+            raise RuntimeError(f"{signal} rule failed; see the Process logs")
     else:
         transaction_on_commit_task_handler(default_hook_handler, instance=instance, data=data, method=signal, metadata=metadata)
 

@@ -417,6 +417,14 @@ class ProcessExitCodeFilter(admin.AllValuesFieldListFilter):
 
 
 class ProcessChangeList(ChangeList):
+    def get_filters_params(self, params=None):
+        filters = super().get_filters_params(params)
+        if "worker_type__in" not in filters and filters.get("worker_type") in (["rule"], ["webhook"]):
+            # Keep rule history and existing Process links usable across upgrades.
+            del filters["worker_type"]
+            filters["worker_type__in"] = ["rule,webhook"]
+        return filters
+
     def get_results(self, request):
         if request.method != "GET" or (request.GET.keys() - {"p"}):
             return super().get_results(request)

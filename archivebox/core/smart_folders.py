@@ -294,7 +294,7 @@ class RuleQuery:
                 except (ValueError, OverflowError, RecursionError) as error:
                     raise ValidationError(str(error)) from error
                 if len(plan.sql) != len(plan.terms):
-                    # This same predicate drives folder deletion, bulk moves and webhooks,
+                    # This same predicate drives folder deletion, bulk moves and rules,
                     # sometimes inside a write transaction. Missing evidence from a bounded
                     # backend scan must never be interpreted as a definitive non-match.
                     raise ValidationError(

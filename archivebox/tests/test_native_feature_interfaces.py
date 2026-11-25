@@ -163,13 +163,13 @@ def test_importer_actions_dispatch_real_webhooks(client, api_headers):
     response = client.post(f"/api/v1/importers/source/{source['id']}/pause", **api_headers)
     assert response.status_code == 200, response.content
     for (model, event), hook in hooks.items():
-        records = Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk))
+        records = Process.objects.filter(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk))
         payload = json.loads(records.get().stdout)
         assert payload["event"] == event
         assert payload["id"] == (source["id"] if model == "ImporterSource" else run["id"])
     # An already-paused source and already-terminal run are no-op writes.
     assert client.post(f"/api/v1/importers/source/{source['id']}/pause", **api_headers).status_code == 200
-    assert Process.objects.filter(worker_type="webhook").count() == 3
+    assert Process.objects.filter(worker_type="rule").count() == 3
 
 
 def test_importer_ui_api_tables_and_private_access(admin_client, client, api_headers):
@@ -241,7 +241,7 @@ def test_import_to_folder_completion_payload(client, api_headers, tmp_path):
         run = ImporterRun.objects.get(pk=run_data["id"])
         assert run.status == "succeeded", run.message
         assert str(run.crawl.folder_id) == folder["id"]
-        payload = json.loads(Process.objects.get(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk)).stdout)
+        payload = json.loads(Process.objects.get(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk)).stdout)
         assert payload["crawl"] == str(run.crawl_id)
         run_crawl(str(run.crawl_id), selected_plugins=["title", "wget"])
         snapshot = run.crawl.snapshot_set.get()

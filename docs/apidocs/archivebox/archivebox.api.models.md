@@ -19,7 +19,7 @@
   - ```{autodoc2-docstring} archivebox.api.models.APIToken
     :summary:
     ```
-* - {py:obj}`OutboundWebhook <archivebox.api.models.OutboundWebhook>`
+* - {py:obj}`Rule <archivebox.api.models.Rule>`
   -
 ````
 
@@ -189,196 +189,196 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 ``````
 
-``````{py:class} OutboundWebhook
-:canonical: archivebox.api.models.OutboundWebhook
+``````{py:class} Rule
+:canonical: archivebox.api.models.Rule
 
 Bases: {py:obj}`signal_webhooks.models.WebhookBase`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
 
 ````{py:attribute} emoji
-:canonical: archivebox.api.models.OutboundWebhook.emoji
+:canonical: archivebox.api.models.Rule.emoji
 :type: str
 :value: >
    '🪝'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.emoji
+```{autodoc2-docstring} archivebox.api.models.Rule.emoji
 ```
 
 ````
 
 ````{py:attribute} id
-:canonical: archivebox.api.models.OutboundWebhook.id
+:canonical: archivebox.api.models.Rule.id
 :value: >
    'CompactUUIDField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.id
+```{autodoc2-docstring} archivebox.api.models.Rule.id
 ```
 
 ````
 
 ````{py:attribute} created_by
-:canonical: archivebox.api.models.OutboundWebhook.created_by
+:canonical: archivebox.api.models.Rule.created_by
 :value: >
    'ForeignKey(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.created_by
+```{autodoc2-docstring} archivebox.api.models.Rule.created_by
 ```
 
 ````
 
 ````{py:attribute} created_at
-:canonical: archivebox.api.models.OutboundWebhook.created_at
+:canonical: archivebox.api.models.Rule.created_at
 :value: >
    'DateTimeField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.created_at
+```{autodoc2-docstring} archivebox.api.models.Rule.created_at
 ```
 
 ````
 
 ````{py:attribute} modified_at
-:canonical: archivebox.api.models.OutboundWebhook.modified_at
+:canonical: archivebox.api.models.Rule.modified_at
 :value: >
    'DateTimeField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.modified_at
+```{autodoc2-docstring} archivebox.api.models.Rule.modified_at
 ```
 
 ````
 
 ````{py:attribute} endpoint
-:canonical: archivebox.api.models.OutboundWebhook.endpoint
+:canonical: archivebox.api.models.Rule.endpoint
 :value: >
    'URLField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.endpoint
+```{autodoc2-docstring} archivebox.api.models.Rule.endpoint
 ```
 
 ````
 
 ````{py:attribute} last_success
-:canonical: archivebox.api.models.OutboundWebhook.last_success
+:canonical: archivebox.api.models.Rule.last_success
 :value: >
    'DateTimeField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.last_success
+```{autodoc2-docstring} archivebox.api.models.Rule.last_success
 ```
 
 ````
 
 ````{py:attribute} last_failure
-:canonical: archivebox.api.models.OutboundWebhook.last_failure
+:canonical: archivebox.api.models.Rule.last_failure
 :value: >
    'DateTimeField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.last_failure
+```{autodoc2-docstring} archivebox.api.models.Rule.last_failure
 ```
 
 ````
 
 ````{py:attribute} signal
-:canonical: archivebox.api.models.OutboundWebhook.signal
+:canonical: archivebox.api.models.Rule.signal
 :value: >
    'CharField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.signal
+```{autodoc2-docstring} archivebox.api.models.Rule.signal
 ```
 
 ````
 
 ````{py:attribute} actions
-:canonical: archivebox.api.models.OutboundWebhook.actions
+:canonical: archivebox.api.models.Rule.actions
 :value: >
    'JSONField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.actions
+```{autodoc2-docstring} archivebox.api.models.Rule.actions
 ```
 
 ````
 
 ````{py:attribute} folder
-:canonical: archivebox.api.models.OutboundWebhook.folder
+:canonical: archivebox.api.models.Rule.folder
 :value: >
    'ForeignKey(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.folder
+```{autodoc2-docstring} archivebox.api.models.Rule.folder
 ```
 
 ````
 
 ````{py:attribute} position
-:canonical: archivebox.api.models.OutboundWebhook.position
+:canonical: archivebox.api.models.Rule.position
 :value: >
    'PositiveIntegerField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.position
+```{autodoc2-docstring} archivebox.api.models.Rule.position
 ```
 
 ````
 
 ````{py:attribute} stop_processing
-:canonical: archivebox.api.models.OutboundWebhook.stop_processing
+:canonical: archivebox.api.models.Rule.stop_processing
 :value: >
    'BooleanField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.stop_processing
+```{autodoc2-docstring} archivebox.api.models.Rule.stop_processing
 ```
 
 ````
 
 ````{py:attribute} stop_on_failure
-:canonical: archivebox.api.models.OutboundWebhook.stop_on_failure
+:canonical: archivebox.api.models.Rule.stop_on_failure
 :value: >
    'BooleanField(...)'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.stop_on_failure
+```{autodoc2-docstring} archivebox.api.models.Rule.stop_on_failure
 ```
 
 ````
 
 `````{py:class} Meta
-:canonical: archivebox.api.models.OutboundWebhook.Meta
+:canonical: archivebox.api.models.Rule.Meta
 
 Bases: {py:obj}`signal_webhooks.models.WebhookBase.Meta`
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta
+```{autodoc2-docstring} archivebox.api.models.Rule.Meta
 ```
 
 ````{py:attribute} app_label
-:canonical: archivebox.api.models.OutboundWebhook.Meta.app_label
+:canonical: archivebox.api.models.Rule.Meta.app_label
 :value: >
    'api'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.app_label
+```{autodoc2-docstring} archivebox.api.models.Rule.Meta.app_label
 ```
 
 ````
 
 ````{py:attribute} verbose_name
-:canonical: archivebox.api.models.OutboundWebhook.Meta.verbose_name
+:canonical: archivebox.api.models.Rule.Meta.verbose_name
 :value: >
-   'API Outbound Webhook'
+   'Rule'
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.verbose_name
+```{autodoc2-docstring} archivebox.api.models.Rule.Meta.verbose_name
 ```
 
 ````
 
 ````{py:attribute} ordering
-:canonical: archivebox.api.models.OutboundWebhook.Meta.ordering
+:canonical: archivebox.api.models.Rule.Meta.ordering
 :value: >
    ('position', 'created_at', 'pk')
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.ordering
+```{autodoc2-docstring} archivebox.api.models.Rule.Meta.ordering
 ```
 
 ````
 
 ````{py:attribute} constraints
-:canonical: archivebox.api.models.OutboundWebhook.Meta.constraints
+:canonical: archivebox.api.models.Rule.Meta.constraints
 :value: >
    []
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.Meta.constraints
+```{autodoc2-docstring} archivebox.api.models.Rule.Meta.constraints
 ```
 
 ````
@@ -386,17 +386,17 @@ Bases: {py:obj}`signal_webhooks.models.WebhookBase.Meta`
 `````
 
 ````{py:method} clean()
-:canonical: archivebox.api.models.OutboundWebhook.clean
+:canonical: archivebox.api.models.Rule.clean
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.clean
+```{autodoc2-docstring} archivebox.api.models.Rule.clean
 ```
 
 ````
 
 ````{py:method} __str__() -> str
-:canonical: archivebox.api.models.OutboundWebhook.__str__
+:canonical: archivebox.api.models.Rule.__str__
 
-```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.__str__
+```{autodoc2-docstring} archivebox.api.models.Rule.__str__
 ```
 
 ````

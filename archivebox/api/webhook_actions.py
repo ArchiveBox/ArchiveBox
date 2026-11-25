@@ -105,7 +105,7 @@ def validate_actions(hook):
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError("Enter code to execute.")
                 if kind == "python":
-                    compile(value, "<webhook>", "exec")
+                    compile(value, "<rule>", "exec")
             elif kind == "http_request":
                 endpoint = action.get("endpoint", "")
                 if not isinstance(endpoint, str) or not endpoint:
@@ -222,7 +222,7 @@ def _request(action, hook, payload):
         # HTTP timeout or releasing capture ownership. Native actions can still
         # change preparation settings; post-event HTTP runs after lock release.
         raise ValueError(
-            "A blocking webhook cannot call a mutating ArchiveBox API while a lifecycle lock is held. Use a native action or a post-capture event.",
+            "A blocking rule cannot call a mutating ArchiveBox API while a lifecycle lock is held. Use a native action or a post-capture event.",
         )
     if self_request:
         base = get_api_base_url()
@@ -257,7 +257,7 @@ def execute_actions(hook, instance, signal, payload) -> bool:
     from archivebox.machine.models import Machine, Process
 
     if connection.in_atomic_block:
-        raise RuntimeError("Webhook actions must run after commit, outside database transactions.")
+        raise RuntimeError("Rule actions must run after commit, outside database transactions.")
     success = True
     last_process = None
     for index, action in enumerate(hook.actions, 1):
@@ -266,18 +266,18 @@ def execute_actions(hook, instance, signal, payload) -> bool:
             machine=Machine.current(),
             parent=Process.current_readonly(),
             process_type=Process.TypeChoices.HOOK,
-            worker_type="webhook",
+            worker_type="rule",
             timeout=int(webhook_settings.TIMEOUT),
             started_at=timezone.now(),
-            cmd=["webhook", str(hook.pk), str(index), kind],
+            cmd=["rule", str(hook.pk), str(index), kind],
             env={
-                "ARCHIVEBOX_WEBHOOK_ID": str(hook.pk),
+                "ARCHIVEBOX_RULE_ID": str(hook.pk),
                 "ARCHIVEBOX_OBJECT_ID": str(payload["id"]),
                 "ARCHIVEBOX_OBJECT_TYPE": payload["object_type"],
                 "ARCHIVEBOX_EVENT": signal,
             },
         )
-        process.pwd = str(CONSTANTS.LOGS_DIR / "webhooks" / str(process.pk))
+        process.pwd = str(CONSTANTS.LOGS_DIR / "rules" / str(process.pk))
         process.save()
         process.ensure_log_files()
         last_process = process
@@ -316,7 +316,7 @@ def execute_actions(hook, instance, signal, payload) -> bool:
             process.save(update_fields=["stderr", "modified_at"])
             process.mark_exited(exit_code=process.exit_code or 1)
             logger.error(
-                "Webhook %s (%s) action %s %s failed: %s; /admin/machine/process/%s/change/",
+                "Rule %s (%s) action %s %s failed: %s; /admin/machine/process/%s/change/",
                 hook.pk,
                 hook.name,
                 index,

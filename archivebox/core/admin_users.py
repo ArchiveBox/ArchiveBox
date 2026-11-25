@@ -143,14 +143,14 @@ class CustomUserAdmin(UserAdmin):
             "<br/>".join(
                 format_html(
                     '<code><a href="{}"><b>[{}]</b></a></code> {} -> {}',
-                    reverse("webhooks:index", query={"webhook": str(rule.pk)}),
+                    reverse("rules:index", query={"rule": str(rule.pk)}),
                     str(rule.id)[:8],
                     rule.referenced_model,
                     rule.endpoint,
                 )
                 for rule in obj.rule_set.order_by("-modified_at")[:10]
             )
-            + format_html('<br/>{} · <a href="{}">Rules</a>', total_count, reverse("webhooks:index")),
+            + format_html('<br/>{} · <a href="{}">Rules</a>', total_count, reverse("rules:index")),
         )
 
 

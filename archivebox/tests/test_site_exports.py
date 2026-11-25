@@ -326,7 +326,7 @@ assert token.token not in " ".join(process.cmd)
 assert "--query" in process.cmd and "--user" in process.cmd
 assert process.cmd[process.cmd.index("--max-bytes") + 1] == str(4 * 1024**3)
 assert process.wait(timeout=30) == 0, process.stderr_file.read_text()
-deliveries = [json.loads(row.stdout) for row in Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk))]
+deliveries = [json.loads(row.stdout) for row in Process.objects.filter(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk))]
 export_events = [row for row in deliveries if row["id"] == str(process.pk)]
 assert len(export_events) == 1, export_events
 assert export_events[0]["worker_type"] == "site-export" and export_events[0]["exit_code"] == 0

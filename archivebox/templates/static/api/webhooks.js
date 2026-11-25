@@ -710,7 +710,7 @@
       renderList();
       renderActivity();
       toast("Rule saved");
-      history.replaceState(null, "", baseURL + "?webhook=" + current.id);
+      history.replaceState(null, "", baseURL + "?rule=" + current.id);
     } catch (error) {
       toast(error.message);
     }
@@ -758,7 +758,7 @@
   $("close-preview").onclick = () => ($("preview").hidden = true);
   function processLogsURL(id) {
     return (
-      "/admin/machine/process/?worker_type=webhook&q=" + encodeURIComponent(id)
+      "/admin/machine/process/?worker_type=rule&q=" + encodeURIComponent(id)
     );
   }
   function renderActivity() {
@@ -1302,7 +1302,15 @@
 
   renderList();
   renderActivity();
-  const selected = new URLSearchParams(location.search).get("webhook");
+  const params = new URLSearchParams(location.search);
+  const selected = params.get("rule") || params.get("webhook");
+  if (params.has("webhook")) {
+    // Keep existing bookmarks usable while copying the current URL gives a Rule link.
+    params.delete("webhook");
+    if (selected) params.set("rule", selected);
+    const query = params.toString();
+    history.replaceState(null, "", baseURL + (query ? "?" + query : "") + location.hash);
+  }
   if (selected === "new") {
     openEditor(null);
   } else if (selected && hooks.some((h) => h.id === selected)) {

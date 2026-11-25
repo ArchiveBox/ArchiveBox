@@ -36,7 +36,7 @@ def make_snapshot(admin_user):
 def action_processes(hook):
     from archivebox.machine.models import Process
 
-    return list(Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk)).order_by("created_at", "pk"))
+    return list(Process.objects.filter(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk)).order_by("created_at", "pk"))
 
 
 def test_python_and_shell_receive_full_input_and_ordered_arguments(admin_user, tmp_path):
@@ -90,7 +90,7 @@ def test_failed_action_logs_and_stop_sequence_are_visible_in_admin(admin_user, a
         stop_on_failure=True,
     )
     snapshot = make_snapshot(admin_user)
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         emit_event(snapshot, "BEFORE_CAPTURE")
     assert not marker.exists()
     failed = action_processes(hook)[0]
@@ -104,7 +104,7 @@ def test_failed_action_logs_and_stop_sequence_are_visible_in_admin(admin_user, a
     assert hook.last_failure and str(failed.pk) in hook.last_response
     hook.stop_on_failure = False
     hook.save(update_fields=["stop_on_failure"])
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         emit_event(snapshot, "BEFORE_CAPTURE")
     assert marker.read_text() == "continued"
     assert [process.exit_code for process in action_processes(hook)] == [7, 7, 0]
@@ -150,7 +150,7 @@ def test_capture_actions_refuse_to_relabel_saved_capture_config(admin_user):
     snapshot.status = "sealed"
     snapshot.save(update_fields=["status"])
     original = dict(snapshot.config)
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         emit_event(snapshot, "BEFORE_CAPTURE")
     snapshot.refresh_from_db()
     assert snapshot.config == original
@@ -201,7 +201,7 @@ def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, a
 
     hook.actions[0]["endpoint"] = f"{live_server.url}/api/v1/core/missing-webhook-target"
     hook.save(update_fields=["actions"])
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         emit_event(snapshot, "BEFORE_CAPTURE")
     hook.refresh_from_db()
     assert (hook.num_uses_succeeded, hook.num_uses_failed) == (1, 1)
@@ -212,15 +212,27 @@ def test_http_action_calls_actual_archivebox_api_and_logs_response(admin_user, a
     assert activity.status_code == 200
     hook_data = next(row for row in activity.json()["hooks"] if row["id"] == str(hook.pk))
     assert (hook_data["num_uses_succeeded"], hook_data["num_uses_failed"]) == (1, 1)
-    logs = admin_client.get(f"/admin/machine/process/?worker_type=webhook&q={hook.pk}", HTTP_HOST="admin.archivebox.localhost:5797")
-    assert logs.status_code == 200
-    assert logs.context["cl"].result_count == 2
-    assert sorted(process.exit_code for process in logs.context["cl"].result_list) == [0, 1]
+    # Process links must include actions logged by releases before the rename.
+    processes[0].worker_type = "webhook"
+    processes[0].save(update_fields=["worker_type"])
+    for worker_type in ("rule", "webhook"):
+        logs = admin_client.get(
+            f"/admin/machine/process/?worker_type={worker_type}&q={hook.pk}",
+            HTTP_HOST="admin.archivebox.localhost:5797",
+        )
+        assert logs.status_code == 200
+        assert logs.context["cl"].result_count == 2
+        assert sorted(process.exit_code for process in logs.context["cl"].result_list) == [0, 1]
 
 
 def test_endpoint_only_webhook_increments_preserved_counters(admin_user, live_server):
+    from django.db import transaction
+    from signal_webhooks.utils import get_webhook_model
+
+    from archivebox.api.models import Rule
     from archivebox.api.webhook_events import emit_event
 
+    assert get_webhook_model() is Rule
     hook = make_hook(
         admin_user,
         [],
@@ -228,13 +240,30 @@ def test_endpoint_only_webhook_increments_preserved_counters(admin_user, live_se
         headers={"Host": "admin.archivebox.localhost:5797"},
         num_uses_succeeded=7,
         num_uses_failed=3,
+        keep_last_response=True,
     )
     snapshot = make_snapshot(admin_user)
-    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+    with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
         emit_event(snapshot, "BEFORE_CAPTURE")
     hook.refresh_from_db()
     assert hook.last_failure
     assert (hook.num_uses_succeeded, hook.num_uses_failed) == (7, 4)
+
+    # The token endpoint accepts a POST without credentials and returns a
+    # predictable JSON body, so we can exercise the real HTTP response path.
+    hook.signal = "UPDATE"
+    hook.endpoint = f"{live_server.url}/api/v1/auth/get_api_token"
+    hook.save(update_fields=["signal", "endpoint"])
+    with transaction.atomic():
+        snapshot.title = "Hacker News updated"
+        snapshot.save(update_fields=["title"])
+        hook.refresh_from_db()
+        assert hook.last_success is None
+
+    hook.refresh_from_db()
+    assert hook.last_success > hook.last_failure
+    assert (hook.num_uses_succeeded, hook.num_uses_failed) == (8, 4)
+    assert json.loads(hook.last_response) == {"success": False, "errors": ["Invalid credentials"]}
 
 
 def test_failed_action_in_initialized_collection_appears_in_admin_log_views(initialized_archive):
@@ -257,7 +286,7 @@ hook = Rule(name="Log integration", created_by=user, ref="archivebox.core.models
 hook.full_clean()
 hook.save()
 emit_event(snapshot, "UPDATE")
-process = Process.objects.get(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk))
+process = Process.objects.get(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk))
 assert process.exit_code == 1
 assert Path(ERROR_LOG).name == "errors.log"
 assert str(process.pk) in Path(ERROR_LOG).read_text()
@@ -283,7 +312,7 @@ def test_process_stdin_timeout_reaps_the_child(tmp_path):
     process = Process.objects.create(
         machine=Machine.current(),
         process_type="hook",
-        worker_type="webhook",
+        worker_type="rule",
         pwd=str(tmp_path),
         cmd=[sys.executable, "-c", "import time; time.sleep(60)"],
         timeout=1,
@@ -365,7 +394,7 @@ hook.save()
 emit_event(snapshot, "UPDATE")
 snapshot.refresh_from_db()
 assert snapshot.title == "child saved"
-processes = list(Process.objects.filter(worker_type="webhook", env__ARCHIVEBOX_WEBHOOK_ID=str(hook.pk)))
+processes = list(Process.objects.filter(worker_type="rule", env__ARCHIVEBOX_RULE_ID=str(hook.pk)))
 assert len(processes) == 1, len(processes)
 assert processes[0].exit_code == 0, processes[0].stderr
 print("child Django mutation did not recurse")
@@ -396,7 +425,7 @@ def test_blocking_native_actions_run_under_lifecycle_lock_and_self_api_fails_fas
             },
         ]
         hook.save(update_fields=["actions"])
-        with pytest.raises(RuntimeError, match="BEFORE_CAPTURE webhook failed"):
+        with pytest.raises(RuntimeError, match="BEFORE_CAPTURE rule failed"):
             emit_event(snapshot, "BEFORE_CAPTURE")
         failed = action_processes(hook)[1]
         assert failed.exit_code == 1

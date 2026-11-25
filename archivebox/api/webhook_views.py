@@ -1,4 +1,4 @@
-"""The webhook editor uses Rule and existing folder selections."""
+"""Edit rules and their folder scopes."""
 
 import json
 from functools import wraps
@@ -24,7 +24,7 @@ from .webhook_actions import configurable_fields
 from .webhook_events import RELATIONSHIP_EVENTS, TAG_EVENTS, event_catalog, event_payload
 
 
-def webhook_admin(view):
+def rule_admin(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -97,7 +97,7 @@ def editor_data():
     }
 
 
-@webhook_admin
+@rule_admin
 @require_GET
 @ensure_csrf_cookie
 def index(request):
@@ -108,33 +108,33 @@ def index(request):
     )
 
 
-@webhook_admin
+@rule_admin
 @require_safe
 def legacy_model_redirect(request, suffix=""):
     """Keep old admin bookmarks without offering another way to edit rules."""
     target = (suffix or "").partition("/")[0]
     if target == "add":
-        return redirect(reverse("webhooks:index", query={"webhook": "new"}))
+        return redirect(reverse("rules:index", query={"rule": "new"}))
     if target:
         try:
-            webhook_id = UUID(target).hex
+            rule_id = UUID(target).hex
         except ValueError:
             pass
         else:
-            return redirect(reverse("webhooks:index", query={"webhook": webhook_id}))
-    return redirect("webhooks:index")
+            return redirect(reverse("rules:index", query={"rule": rule_id}))
+    return redirect("rules:index")
 
 
-@webhook_admin
+@rule_admin
 @require_GET
 def data(request):
     return JsonResponse(editor_data())
 
 
-def submitted_webhook(request):
+def submitted_rule(request):
     payload = json.loads(request.body)
     if not isinstance(payload, dict):
-        raise ValidationError("Expected a webhook object.")
+        raise ValidationError("Expected a rule object.")
     allowed = {
         "id",
         "name",
@@ -152,7 +152,7 @@ def submitted_webhook(request):
         "keep_last_response",
     }
     if payload.keys() - allowed:
-        raise ValidationError("Unknown webhook fields.")
+        raise ValidationError("Unknown rule fields.")
     for field in ("enabled", "stop_processing", "stop_on_failure", "clear_auth_token", "keep_last_response"):
         if field in payload and not isinstance(payload[field], bool):
             raise ValidationError(f"{field} must be a boolean.")
@@ -195,32 +195,32 @@ def submitted_webhook(request):
 
 
 def validation_error(error):
-    return JsonResponse({"error": "; ".join(error.messages) if isinstance(error, ValidationError) else "Invalid webhook data."}, status=400)
+    return JsonResponse({"error": "; ".join(error.messages) if isinstance(error, ValidationError) else "Invalid rule data."}, status=400)
 
 
-@webhook_admin
+@rule_admin
 @require_POST
 def save(request):
     try:
-        hook = submitted_webhook(request)
+        hook = submitted_rule(request)
         hook.save()
     except (ValidationError, ValueError, TypeError, IntegrityError) as error:
         return validation_error(error)
     return JsonResponse({"hook": webhook_data(hook)})
 
 
-@webhook_admin
+@rule_admin
 @require_POST
-def delete(request, webhook_id):
-    get_object_or_404(Rule, pk=webhook_id).delete()
+def delete(request, rule_id):
+    get_object_or_404(Rule, pk=rule_id).delete()
     return JsonResponse({"deleted": True})
 
 
-@webhook_admin
+@rule_admin
 @require_POST
 def preview(request):
     try:
-        hook = submitted_webhook(request)
+        hook = submitted_rule(request)
         model = model_from_reference(hook.ref)
         candidates = model._default_manager.all()
         if hook.folder_id:

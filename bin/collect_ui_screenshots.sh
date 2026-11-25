@@ -623,7 +623,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     export SCREENSHOT_REPLAY_URL=""
     [[ "$capture_mode" != wait-replay-url:* ]] || export SCREENSHOT_REPLAY_URL="${capture_mode#wait-replay-url:}"
     config_selector=""
-    [[ "$name" != "Webhook scripts" ]] || config_selector="#actions"
+    [[ "$name" != "Rule scripts" ]] || config_selector="#actions"
     [[ "$capture_mode" != "persona-state" ]] || config_selector=".persona-browser-state"
     config_click_selector=""
     config_after_click_selector=""

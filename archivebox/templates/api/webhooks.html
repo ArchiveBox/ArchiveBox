@@ -5,7 +5,7 @@
 {% block extrahead %}{{ block.super }}<script src="{% static 'api/webhooks.js' %}" defer></script>{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="/admin/">Admin</a> &rsaquo; Rules</div>{% endblock %}
 {% block content %}
-<div class="webhooks" id="webhooks" data-url="{% url 'webhooks:index' %}" data-api-url="/api/v1/openapi.json">
+<div class="webhooks" id="webhooks" data-url="{% url 'rules:index' %}" data-api-url="/api/v1/openapi.json">
 {% csrf_token %}
 {{ webhook_editor|json_script:"webhook-editor-data" }}
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
@@ -23,7 +23,7 @@
 <div class="event-arguments">
 <div class="field" id="scope-field"><label for="scope" id="scope-label">Folder</label><div class="scope-line"><div id="scope-control"></div><button class="icon-btn scope-open" id="open-scope" title="Open folder" aria-label="Open folder"><svg class="icon"><use href="#external"/></svg></button></div></div>
 </div>
-<div class="divider"></div><div id="local-fields"><div class="section-head" style="margin-top:0"><h3>Actions <span class="count" id="action-count">0</span></h3><span class="small muted">Run in order</span></div><div id="actions"></div><select id="add-action" class="add-action" aria-label="Add action"><option value="">＋ Add action…</option></select><div class="execution-options"><label class="execution"><input type="checkbox" id="stop">Stop processing other hooks</label><label class="execution"><input type="checkbox" id="stop-on-failure">Stop the sequence if any fail</label><label class="execution" id="keep-last-response-option" hidden><input type="checkbox" id="keep-last-response">Keep last response</label></div></div>
+<div class="divider"></div><div id="local-fields"><div class="section-head" style="margin-top:0"><h3>Actions <span class="count" id="action-count">0</span></h3><span class="small muted">Run in order</span></div><div id="actions"></div><select id="add-action" class="add-action" aria-label="Add action"><option value="">＋ Add action…</option></select><div class="execution-options"><label class="execution"><input type="checkbox" id="stop">Stop processing other rules</label><label class="execution"><input type="checkbox" id="stop-on-failure">Stop the sequence if any fail</label><label class="execution" id="keep-last-response-option" hidden><input type="checkbox" id="keep-last-response">Keep last response</label></div></div>
 <section class="preview" id="preview" hidden><div class="preview-heading"><span>Preview <span class="count">Saved objects</span></span><button class="icon-btn" id="close-preview" aria-label="Close preview"><svg class="icon"><use href="#close"/></svg></button></div><div id="preview-content"></div></section>
 </div><footer class="editor-footer"><button class="btn" id="preview-button"><svg class="icon"><use href="#play"/></svg>Preview</button><span class="unsaved" id="save-state"></span><a class="icon-btn" id="process-logs" aria-label="Process logs" title="Process logs" hidden><svg class="icon"><use href="#external"/></svg></a><button class="icon-btn danger" id="delete-hook" aria-label="Delete rule" hidden><svg class="icon"><use href="#delete"/></svg></button><button class="btn primary" id="save">Save rule</button></footer></aside>
 <div class="toast" role="status" id="toast" hidden></div>

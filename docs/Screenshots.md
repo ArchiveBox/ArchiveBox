@@ -326,24 +326,24 @@ View: [`/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/`](http://ad
 <td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/api-token-detail-desktop.png?v=92c8339c5404" alt="API token detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="https://archivebox.io/screenshots/api-token-detail-tablet.png?v=9462f25bd39f" alt="API token detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="https://archivebox.io/screenshots/api-token-detail-mobile.png?v=008c58201c27" alt="API token detail — mobile" width="390"></td>
 </tr></tbody></table>
 
-## Webhooks
+## Rules
 
-View: [`/admin/api/outboundwebhook/`](http://admin.archivebox.localhost:5797/admin/api/outboundwebhook/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/rules/`](http://admin.archivebox.localhost:5797/admin/rules/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/webhook_views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/webhooks-desktop.png?v=6dd2258672c3" alt="Webhooks — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="https://archivebox.io/screenshots/webhooks-tablet.png?v=65d930e50737" alt="Webhooks — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="https://archivebox.io/screenshots/webhooks-mobile.png?v=c6426bc1ed16" alt="Webhooks — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/rules-desktop.png?v=19d1e94e63b7" alt="Rules — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="https://archivebox.io/screenshots/rules-tablet.png?v=81f3e5393ef9" alt="Rules — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="https://archivebox.io/screenshots/rules-mobile.png?v=4f51e48a322d" alt="Rules — mobile" width="390"></td>
 </tr></tbody></table>
 
-## Webhook detail
+## Rule actions
 
-View: [`/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/`](http://admin.archivebox.localhost:5797/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/rules/`](http://admin.archivebox.localhost:5797/admin/rules/?rule=06b066c710047ded800029d3edd2e745) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/api/webhooks.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/webhook-detail-desktop.png?v=be3b63e6681d" alt="Webhook detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="https://archivebox.io/screenshots/webhook-detail-tablet.png?v=0f0ae6887375" alt="Webhook detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="https://archivebox.io/screenshots/webhook-detail-mobile.png?v=eaf920f8e615" alt="Webhook detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/rule-actions-desktop.png?v=2b0e05e12c69" alt="Rule actions — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="https://archivebox.io/screenshots/rule-actions-tablet.png?v=437d61b424b1" alt="Rule actions — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="https://archivebox.io/screenshots/rule-actions-mobile.png?v=dd531a07155f" alt="Rule actions — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Environment

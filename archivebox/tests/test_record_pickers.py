@@ -37,7 +37,7 @@ def test_folder_picker_search_is_bounded_and_respects_destination_rules(admin_cl
 
 def test_rules_and_add_only_render_saved_folder_options(admin_client):
     root = Folder.objects.create(name="Unused Folder")
-    editor = admin_client.get(reverse("webhooks:data"), HTTP_HOST=ADMIN_TEST_HOST)
+    editor = admin_client.get(reverse("rules:data"), HTTP_HOST=ADMIN_TEST_HOST)
     assert editor.status_code == 200
     assert str(root.pk) not in editor.content.decode()
     response = admin_client.get("/add/", HTTP_HOST=ADMIN_TEST_HOST)

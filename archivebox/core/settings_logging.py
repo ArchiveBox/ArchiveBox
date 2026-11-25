@@ -114,12 +114,6 @@ class AsyncioCancelledShieldFilter(logging.Filter):
         return True
 
 
-class CustomOutboundWebhookLogFormatter(logging.Formatter):
-    def format(self, record):
-        result = super().format(record)
-        return result.replace("HTTP Request: ", "OutboundWebhook: ")
-
-
 class StripANSIColorCodesFilter(logging.Filter):
     _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
     _bare_re = re.compile(r"\[[0-9;]*m")
@@ -164,11 +158,6 @@ SETTINGS_LOGGING = {
         "plain": {
             "datefmt": "[%Y-%m-%d %H:%M:%S]",
             "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
-        },
-        "outbound_webhooks": {
-            "()": CustomOutboundWebhookLogFormatter,
-            "datefmt": "[%Y-%m-%d %H:%M:%S]",
-            "format": "%(name)s %(message)s" if sys.stderr.isatty() else "%(asctime)s %(levelname)s %(name)s %(message)s",
         },
     },
     "filters": {
@@ -219,7 +208,7 @@ SETTINGS_LOGGING = {
             "formatter": "plain",
             "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
         },
-        "outbound_webhooks": {
+        "httpx": {
             **(
                 {
                     "class": "rich.logging.RichHandler",
@@ -231,7 +220,7 @@ SETTINGS_LOGGING = {
                 if sys.stderr.isatty()
                 else {"class": "logging.StreamHandler", "stream": "ext://sys.stderr"}
             ),
-            "formatter": "outbound_webhooks",
+            "formatter": "rich" if sys.stderr.isatty() else "plain",
         },
         # "mail_admins": {
         #     "level": "ERROR",
@@ -274,9 +263,8 @@ SETTINGS_LOGGING = {
             "propagate": False,
         },
         "httpx": {
-            "handlers": ["outbound_webhooks"],
+            "handlers": ["httpx"],
             "level": "INFO",
-            "formatter": "outbound_webhooks",
             "propagate": False,
         },
         "django": {

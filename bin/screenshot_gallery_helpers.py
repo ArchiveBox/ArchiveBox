@@ -147,10 +147,10 @@ def verify_actions(base_url, username, password, webhook_ids):
 
 
 def gallery_entries(base_url, webhook_ids):
-    editor = f"/admin/rules/?webhook={webhook_ids[0]}"
+    editor = f"/admin/rules/?rule={webhook_ids[0]}"
     event_input = f"{editor}&preview=1"
-    scripts = f"/admin/rules/?webhook={webhook_ids[2]}"
-    processes = f"/admin/machine/process/?worker_type=webhook&q={webhook_ids[2]}"
+    scripts = f"/admin/rules/?rule={webhook_ids[2]}"
+    processes = f"/admin/machine/process/?worker_type=rule&q={webhook_ids[2]}"
     return [
         f"Rules|{base_url}/admin/rules/|/admin/rules/|archivebox/api/webhook_views.py|wait-text:Hacker News capture settings",
         f"Rule actions|{base_url}{editor}|{editor}|archivebox/templates/api/webhooks.html|wait-text:Save rule",
@@ -158,7 +158,7 @@ def gallery_entries(base_url, webhook_ids):
         f"Rule activity|{base_url}/admin/rules/?view=activity|/admin/rules/?view=activity|archivebox/templates/api/webhooks.html|wait-text:Succeeded",
         f"Rule events|{base_url}/admin/rules/?view=events|/admin/rules/?view=events|archivebox/templates/api/webhooks.html|wait-text:Before capture",
         f"Rule scripts|{base_url}{scripts}|{scripts}|archivebox/templates/api/webhooks.html|wait-text:JSON stdin",
-        f"Webhook process logs|{base_url}{processes}|{processes}|archivebox/machine/admin.py|wait-text:bash -c cat",
+        f"Rule process logs|{base_url}{processes}|{processes}|archivebox/machine/admin.py|wait-text:bash -c cat",
     ]
 
 
@@ -1260,8 +1260,13 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
 
 
 def render_gallery(gallery_header: str, gallery_sections: str) -> str:
-    # Older capture bundles contain the Django admin form for the same Rules.
-    gallery_sections = re.sub(r'<article id="(?:webhooks|webhook-detail)">.*?</article>', "", gallery_sections, flags=re.DOTALL)
+    # Older captures can include retired Rules pages and Process log labels.
+    gallery_sections = re.sub(
+        r'<article id="(?:webhooks|webhook-detail|webhook-process-logs)">.*?</article>',
+        "",
+        gallery_sections,
+        flags=re.DOTALL,
+    )
     # Some plugins are captured during library setup. Keep their snapshot
     # outputs together regardless of when the underlying captures ran.
     snapshot_outputs = []

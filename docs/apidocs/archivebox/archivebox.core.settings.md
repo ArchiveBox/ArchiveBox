@@ -1162,7 +1162,7 @@
 ````{py:data} SIGNAL_WEBHOOKS_CUSTOM_MODEL
 :canonical: archivebox.core.settings.SIGNAL_WEBHOOKS_CUSTOM_MODEL
 :value: >
-   'archivebox.api.models.OutboundWebhook'
+   'archivebox.api.models.Rule'
 
 ```{autodoc2-docstring} archivebox.core.settings.SIGNAL_WEBHOOKS_CUSTOM_MODEL
 ```

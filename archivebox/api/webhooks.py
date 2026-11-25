@@ -55,10 +55,10 @@ def register_delete_webhook_field_loader() -> None:
 
 def warning_error_handler(hook: Any, error: Exception | None) -> None:
     if error is not None:
-        logger.warning("Outbound webhook %r failed: %s", hook.name, error)
+        logger.warning("Rule %r HTTP delivery failed: %s", hook.name, error)
         return
 
-    logger.warning("Outbound webhook %r returned a non-success response.", hook.name)
+    logger.warning("Rule %r HTTP delivery returned a non-success response.", hook.name)
 
 
 def transaction_on_commit_task_handler(hook: Callable[..., None], **kwargs: Any) -> None:
@@ -89,12 +89,12 @@ def transaction_on_commit_task_handler(hook: Callable[..., None], **kwargs: Any)
             else:
                 hook(**kwargs)
         except Exception:
-            logger.warning("Outbound webhook failed after transaction commit.", exc_info=True)
+            logger.warning("Rule failed after transaction commit.", exc_info=True)
 
     try:
         transaction.on_commit(run_webhook)
     except Exception:
-        logger.warning("Could not schedule outbound webhook after transaction commit.", exc_info=True)
+        logger.warning("Could not schedule rule after transaction commit.", exc_info=True)
 
 
 def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=None, payload=None):
@@ -145,7 +145,7 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
                                 pass  # HTTP/script payload still describes the committed event.
                         deliver_webhooks(instance, data, method, metadata=metadata, subscriptions=remaining, payload=payload)
                     except Exception:
-                        logger.warning("Outbound webhook failed after lifecycle lock release.", exc_info=True)
+                        logger.warning("Rule failed after lifecycle lock release.", exc_info=True)
 
                 if after_lifecycle_locks(after_release):
                     return succeeded
