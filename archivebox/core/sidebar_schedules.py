@@ -108,6 +108,7 @@ def schedule_entries_page(request, *, term, parent, cursor, limit):
 
     model_name = "crawl" if parent else "crawlschedule"
     action = "Edit" if user.has_perm(f"crawls.change_{model_name}") else "View"
+    can_delete = user.has_perm(f"crawls.delete_{model_name}")
     page = list(rows.order_by("-created_at", "-pk")[: limit + 1])
     next_key = None
     if len(page) > limit:
@@ -130,6 +131,8 @@ def schedule_entries_page(request, *, term, parent, cursor, limit):
                 "parent_id": parent,
                 "has_children": row.get("has_children", False),
                 "expand": not parent and row["pk"] == selected,
+                "delete_url": reverse(f"admin:crawls_{model_name}_delete", args=[pk]) if can_delete else "",
+                "delete_label": "Delete Crawl" if parent else "Delete Scheduled Crawl",
                 "actions": [{"label": action, "url": reverse(f"admin:crawls_{model_name}_change", args=[pk])}],
             },
         )

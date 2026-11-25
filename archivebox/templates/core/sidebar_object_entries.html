@@ -15,6 +15,11 @@
         {% for action in entry.actions %}<a role="menuitem" href="{{ action.url }}"><span class="folder-menu-label">{{ action.label }}</span></a>{% endfor %}
         {% if entry.actions and entry.export_urls %}<hr>{% endif %}
         {% if entry.export_urls %}{% include "core/snapshot_export_links.html" with export_urls=entry.export_urls export_menu=True %}{% endif %}
+        {% if not folder_readonly and entry.url %}
+          {% if entry.delete_url or perms.core.delete_snapshot %}<hr>{% endif %}
+          {% if entry.delete_url %}<a class="library-delete" role="menuitem" href="{{ entry.delete_url }}"><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">{{ entry.delete_label }}</span></a>{% endif %}
+          {% if perms.core.delete_snapshot %}<a class="library-delete" role="menuitem" href="{% url 'admin:core_snapshot_changelist' %}{{ entry.url }}#delete-snapshots"><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span class="folder-menu-label">Delete Snapshots</span></a>{% endif %}
+        {% endif %}
       </div>
     {% endif %}
   </div>

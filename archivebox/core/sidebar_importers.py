@@ -97,6 +97,8 @@ def _source_row(pk, name, definition, parent):
         "parent_id": parent,
         "has_children": False,
         "icon_url": _icon(definition),
+        "delete_url": reverse("importers:detail", args=(key,)) + "#delete-importer",
+        "delete_label": "Delete Importer",
         "actions": [
             {"label": "Open importer", "url": reverse("importers:detail", args=(key,))},
             {"label": "Edit importer", "url": reverse("importers:edit", args=(key,))},

@@ -73,6 +73,10 @@ def persona_entries_page(request, *, term, parent, cursor, limit):
                 "filter_value": persona_id,
                 "parent_id": "",
                 "has_children": False,
+                "delete_url": reverse("admin:personas_persona_delete", args=[persona.pk])
+                if model_admin.has_delete_permission(request, persona)
+                else "",
+                "delete_label": "Delete Persona",
                 "actions": [
                     {
                         "label": "Edit" if model_admin.has_change_permission(request, persona) else "View",

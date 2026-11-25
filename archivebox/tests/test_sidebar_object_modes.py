@@ -115,6 +115,19 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
             assert exported_body_ids(exported.body(), "csv") == {str(snapshot.pk) for snapshot in expected_snapshots}
             page.keyboard.press("Escape")
 
+        def check_snapshot_deletion(pk, parameter, expected):
+            previous = page.url
+            menu = action_menu(row(pk))
+            link = menu.get_by_role("menuitem", name="Delete Snapshots", exact=True)
+            href = urlsplit(link.get_attribute("href"))
+            assert href.fragment == "delete-snapshots"
+            params = parse_qs(href.query)
+            assert params[parameter] == [str(pk)] and params["q"] == [search]
+            link.click()
+            expect(page.get_by_role("button", name="Yes, queue deletion")).to_be_visible()
+            assert set(page.locator("#content ul li").all_text_contents()) == {snapshot.url for snapshot in expected}
+            page.goto(previous)
+
         choose("Personas", "personas")
         add_persona = sidebar.get_by_role("link", name="Add Persona", exact=True)
         expect(add_persona).to_have_attribute("href", reverse("admin:personas_persona_add"))
@@ -128,6 +141,11 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
         )
         page.keyboard.press("Escape")
         select(row(persona.pk), "persona", persona.pk, [persona_snapshot])
+        check_snapshot_deletion(persona.pk, "persona", [persona_snapshot])
+        action_menu(row(persona.pk)).get_by_role("menuitem", name="Delete Persona").click()
+        assert urlsplit(page.url).path == reverse("admin:personas_persona_delete", args=[persona.pk])
+        expect(page.locator('form[method="post"] input[name="post"]')).to_have_count(1)
+        page.goto(origin + view)
 
         choose("Importers", "importers")
         sidebar.get_by_role("button", name="New importer", exact=True).click()
@@ -136,6 +154,9 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
         expect(new_menu.locator(f'a[href="{native_add}"]')).to_be_visible()
         page.keyboard.press("Escape")
         expect(row(importer.pk)).to_have_count(0)
+        family_menu = action_menu(row(family_id))
+        expect(family_menu.get_by_role("menuitem", name="Delete", exact=False)).to_have_count(0)
+        page.keyboard.press("Escape")
         row(family_id).locator("button.library-branch-label").click()
         expect(row(importer.pk)).to_be_visible()
         menu = action_menu(row(importer.pk))
@@ -143,6 +164,13 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
             expect(menu.get_by_role("menuitem", name=name, exact=True)).to_have_attribute("href", reverse(route, args=[importer.pk]))
         page.keyboard.press("Escape")
         select(row(importer.pk), "importer", importer.pk, [imported_snapshot])
+        check_snapshot_deletion(importer.pk, "importer", [imported_snapshot])
+        action_menu(row(importer.pk)).get_by_role("menuitem", name="Delete Importer", exact=True).click()
+        assert urlsplit(page.url).fragment == "delete-importer"
+        importer_form = page.locator('#delete-importer form[method="post"]')
+        expect(importer_form.get_by_role("button", name="Delete importer")).to_be_visible()
+        expect(importer_form).to_have_attribute("action", reverse("importers:action", args=[importer.pk, "delete"]))
+        page.goto(origin + view)
 
         choose("Scheduled Crawls", "scheduled-crawls")
         expect(sidebar.get_by_role("link", name="New Scheduled Crawl", exact=True)).to_have_attribute(
@@ -176,4 +204,10 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
             toggle.click()
         expect(row(later_runs[-1].pk)).to_be_visible()
         select(row(later_runs[-1].pk), "crawl", later_runs[-1].pk, [related_snapshot])
+        check_snapshot_deletion(later_runs[-1].pk, "crawl", [related_snapshot])
+        check_snapshot_deletion(schedule.pk, "crawl_schedule", [first_run_snapshot, related_snapshot])
+        menu = action_menu(row(schedule.pk))
+        menu.get_by_role("menuitem", name="Delete Scheduled Crawl", exact=True).click()
+        assert urlsplit(page.url).path == reverse("admin:crawls_crawlschedule_delete", args=[schedule.pk])
+        expect(page.locator('form[method="post"] input[name="post"]')).to_have_count(1)
         browser.close()

@@ -75,6 +75,8 @@ def test_persona_sidebar_matches_existing_native_admin_permissions(rf, django_us
             "filter_value": str(persona.pk),
             "parent_id": "",
             "has_children": False,
+            "delete_url": "",
+            "delete_label": "Delete Persona",
             "actions": [{"label": "View", "url": reverse("admin:personas_persona_change", args=[persona.pk])}],
         },
     ]

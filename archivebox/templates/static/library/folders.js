@@ -676,21 +676,24 @@ document.addEventListener('DOMContentLoaded', () => {
   window.archiveboxInitDomainRows(document);
   if (!sidebar) return;
   let form = document.querySelector('#changelist-form');
-  if (location.hash === '#delete-snapshots' && form && ['folder','tag','domain'].some(key => new URLSearchParams(location.search).has(key))) {
+  function confirmScopedSnapshotDeletion() {
+    if (location.hash !== '#delete-snapshots' || !['folder','tag','domain','persona','importer','crawl_schedule','crawl'].some(key => new URLSearchParams(location.search).has(key))) return false;
+    const currentForm = document.querySelector('#changelist-form');
+    const action = currentForm?.querySelector('select[name=action]');
+    const selection = currentForm?.querySelector('input.action-select');
+    const across = currentForm?.querySelector('input[name=select_across]');
+    const submit = currentForm?.querySelector('button[name=index]');
+    if (!selection || !across || !submit || !action?.querySelector('option[value=delete_selected]')) return false;
     history.replaceState(null, '', location.pathname + location.search);
-    const action = form.querySelector('select[name=action]');
-    const selection = form.querySelector('input.action-select');
-    const across = form.querySelector('input[name=select_across]');
-    const submit = form.querySelector('button[name=index]');
-    if (selection && across && submit && action?.querySelector('option[value=delete_selected]')) {
-      selection.checked = true;
-      across.value = '1';
-      action.value = 'delete_selected';
-      // Django's existing action displays confirmation before requesting deletion.
-      form.requestSubmit(submit);
-      return;
-    }
+    selection.checked = true;
+    across.value = '1';
+    action.value = 'delete_selected';
+    // Django's existing action displays confirmation before requesting deletion.
+    currentForm.requestSubmit(submit);
+    return true;
   }
+  window.addEventListener('hashchange', confirmScopedSnapshotDeletion);
+  if (confirmScopedSnapshotDeletion()) return;
   const status = sidebar.querySelector('.folder-drop-status');
   const tree = sidebar.querySelector('.folder-tree');
   const folderMode = sidebar.dataset.mode === 'folders';
