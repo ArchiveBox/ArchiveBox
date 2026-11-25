@@ -66,7 +66,9 @@ def index(request):
         source.definition = definitions.get((source.plugin, source.feed))
         source.latest_run = next(iter(source.latest_runs), None)
     return page(
-        request, "importers/index.html", {"sources": sources, "providers": get_importer_providers(definitions), "title": "Importers"}
+        request,
+        "importers/index.html",
+        {"sources": sources, "providers": get_importer_providers(definitions), "title": "Importers"},
     )
 
 
