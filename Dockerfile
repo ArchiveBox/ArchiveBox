@@ -338,7 +338,9 @@ WORKDIR "$DATA_DIR"
 VOLUME "$DATA_DIR"
 EXPOSE 5797
 
-HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
+# Check promptly while starting so Compose and deployment observers can see a
+# ready server immediately, then return to the normal low-overhead interval.
+HEALTHCHECK --interval=30s --start-period=30s --start-interval=1s --timeout=20s --retries=15 \
     CMD ["uv", "run", "--no-project", "python", "/app/bin/docker_healthcheck.py"]
 
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
