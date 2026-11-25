@@ -205,6 +205,7 @@ EOF
 # the package and static assets. Keeping /app/archivebox duplicates them.
 # Compile only ArchiveBox's installed package. Touching all of /venv here would
 # copy every inherited abx-dl file into a new layer merely to change its mtime.
+# Fingerprint the installed static tree with default settings in an empty directory.
 # Keep the commit argument out of dependency layers: ARG values participate in
 # every following RUN cache key, even when the shell does not reference them.
 ARG ARCHIVEBOX_COMMIT_HASH=""
@@ -229,6 +230,10 @@ RUN --mount=type=bind,source=.,target=/app,rw \
     && ARCHIVEBOX_PY_DIR="$(/venv/bin/python -c 'import pathlib, archivebox; print(pathlib.Path(archivebox.__file__).parent)')" \
     && /venv/bin/python -m compileall --invalidation-mode checked-hash -q "$ARCHIVEBOX_PY_DIR" \
     && test -f "$(/venv/bin/python -c 'import archivebox; print(archivebox.__cached__)')" \
+    && (asset_build_dir="$(mktemp -d)" && trap 'rm -rf "$asset_build_dir"' EXIT \
+        && chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" "$asset_build_dir" && cd "$asset_build_dir" \
+        && DJANGO_SETTINGS_MODULE=archivebox.core.settings /venv/bin/python -m archivebox.core.static_asset_build static.json \
+        && install -m 0644 static.json "$ARCHIVEBOX_PY_DIR/STATIC_CACHE_KEY.json") \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
 COPY --chown=root:root --chmod=755 bin "$CODE_DIR/bin/"

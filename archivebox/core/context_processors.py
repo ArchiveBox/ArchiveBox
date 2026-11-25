@@ -4,6 +4,7 @@ from django.conf import settings
 
 from archivebox.config import VERSION
 from archivebox.config.version import IN_DOCKER, get_COMMIT_HASH
+from archivebox.core.static_asset_build import built_static_cache_key
 
 
 ADMIN_STYLESHEET = Path(__file__).resolve().parent.parent / "templates" / "static" / "admin.css"
@@ -12,10 +13,10 @@ ADMIN_STYLESHEET = Path(__file__).resolve().parent.parent / "templates" / "stati
 def get_static_cache_key() -> str:
     """Version the static asset tree for this build."""
     commit = get_COMMIT_HASH()
-    # Released assets are part of the image. The commit already versions them,
-    # so rendering a page does not need to stat the stylesheet for every URL.
-    if IN_DOCKER and commit and not settings.DEBUG:
-        return commit
+    if IN_DOCKER and not settings.DEBUG:
+        # Older images and runtime overrides keep their release-scoped URLs.
+        if key := built_static_cache_key() or commit:
+            return key
     base_key = (commit or VERSION or "dev").strip()
     try:
         return f"{base_key}-{ADMIN_STYLESHEET.stat().st_mtime_ns}"
