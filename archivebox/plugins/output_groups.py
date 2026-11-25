@@ -1,7 +1,7 @@
 """Snapshot output taxonomy. Display preference is independent of hook order."""
 
 from mimetypes import guess_file_type
-from typing import Any
+from typing import Any, NamedTuple
 
 from archivebox.plugins.discovery import (
     get_extra_snapshot_output_cards,
@@ -20,6 +20,8 @@ OUTPUT_GROUPS = (
     ("metadata", "Metadata"),
     ("other", "Other files"),
 )
+
+_OUTPUT_GROUP_ORDER = {group: index for index, (group, _) in enumerate(OUTPUT_GROUPS)}
 
 
 # The Metadata stack tells the story of a capture, not the size of its files.
@@ -88,10 +90,38 @@ def plugin_output_sizes(results) -> dict[str, int]:
     return sizes
 
 
+class OutputPluginOrder(NamedTuple):
+    group: str
+    prefix: tuple[int, ...]
+    rank: int | None
+    plugin: str
+
+    def sort_key(self, size):
+        return (*self.prefix, self.rank is None, self.rank if self.rank is not None else -int(size or 0), self.plugin)
+
+
+def output_plugin_order(name: str, *, group=None, rank=None) -> OutputPluginOrder:
+    """Resolve the part of the stack ordering shared across a plugin's results."""
+    plugin = get_plugin_name(name)
+    if not (group in _OUTPUT_GROUP_ORDER and isinstance(rank, int) and not isinstance(rank, bool)):
+        item = get_plugin_catalog().get(plugin)
+        group = item.manifest.get("snapshot_output_group", "other") if item else "other"
+        rank = item.manifest.get("snapshot_output_order") if item else None
+        if group not in _OUTPUT_GROUP_ORDER:
+            group, rank = "other", None
+
+    prefix = (_OUTPUT_GROUP_ORDER[group],)
+    if group == "metadata":
+        fallback = 14 if plugin.startswith("parse_") else 9
+        prefix += (_METADATA_OUTPUT_ORDER.get(plugin, fallback),)
+    elif group == "embedded_media":
+        prefix += (plugin in {"responses", "liteparse"},)
+    return OutputPluginOrder(group, prefix, rank, plugin)
+
+
 def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
-    """Use the detail-card ordering for icon piles, without synthetic cards."""
-    outputs = [{"name": plugin, "size": sizes.get(plugin, 0)} for plugin in plugins]
-    return [output["name"] for output in order_snapshot_outputs(outputs, include_extra_cards=False)]
+    """Use the detail-card ordering for the real plugin outputs."""
+    return sorted(plugins, key=lambda plugin: output_plugin_order(plugin).sort_key(sizes.get(plugin)))
 
 
 def snapshot_thumbnail_result(results):
@@ -157,33 +187,12 @@ def snapshot_thumbnail_image_paths(results, *, screenshots_only=False):
 
 def order_snapshot_outputs(outputs: list[dict[str, Any]], *, include_extra_cards=True) -> list[dict[str, Any]]:
     """Annotate and order available cards; unknown plugins stay visible in Other files."""
-    group_order = {group_id: index for index, (group_id, _) in enumerate(OUTPUT_GROUPS)}
-    catalog = get_plugin_catalog()
-
-    # Icon piles have actual results only. Their name/size records cannot
-    # supply the files that plugin hooks use to construct detail cards.
     if include_extra_cards and (cards := get_extra_snapshot_output_cards(outputs)):
         outputs = [*outputs, *cards]
 
     def sort_key(output):
-        plugin = get_plugin_name(output["name"])
-        declared_group = output.get("output_group")
-        declared_order = output.get("output_order")
-        if declared_group in group_order and isinstance(declared_order, int) and not isinstance(declared_order, bool):
-            group_id, rank = declared_group, declared_order
-        else:
-            item = catalog.get(plugin)
-            group_id = item.manifest.get("snapshot_output_group", "other") if item else "other"
-            rank = item.manifest.get("snapshot_output_order") if item else None
-            if group_id not in group_order:
-                group_id, rank = "other", None
-        output["output_group"] = group_id
-        priority = (rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
-        if group_id == "metadata":
-            fallback = 14 if plugin.startswith("parse_") else 9
-            return (group_order[group_id], _METADATA_OUTPUT_ORDER.get(plugin, fallback), *priority)
-        if group_id == "embedded_media":
-            return (group_order[group_id], plugin in {"responses", "liteparse"}, *priority)
-        return (group_order[group_id], *priority)
+        ordering = output_plugin_order(output["name"], group=output.get("output_group"), rank=output.get("output_order"))
+        output["output_group"] = ordering.group
+        return ordering.sort_key(output.get("size"))
 
     return sorted(outputs, key=sort_key)

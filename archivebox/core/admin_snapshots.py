@@ -18,6 +18,9 @@ from django.utils.safestring import mark_safe
 from django.utils.cache import patch_vary_headers
 from django.utils.translation import gettext
 from django.db.models import Count, Prefetch
+from django.db.models.expressions import Col
+from django.db.models.lookups import Exact, In
+from django.db.models.sql.where import WhereNode
 from django import forms
 from django.template import Context, Template, RequestContext
 from django.template.loader import render_to_string
@@ -26,7 +29,7 @@ from django.contrib.admin.options import ActionLocation
 
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
-from archivebox.misc.paginators import AcceleratedPaginator, snapshot_page
+from archivebox.misc.paginators import ORDER_INDEX_PROBE_CANDIDATES, ORDER_INDEX_PROBE_WINDOW, AcceleratedPaginator, snapshot_page
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
@@ -48,8 +51,7 @@ from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, get_plugin_catalog
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
-    output_group_for_plugin,
-    order_output_plugins,
+    output_plugin_order,
     plugin_icon_is_hidden,
     plugin_output_sizes,
 )
@@ -240,6 +242,27 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
         return apply_snapshot_filters(queryset, archiveresult_status=self.value())
 
 
+def _has_exact_domain_membership(where, table):
+    if isinstance(where, WhereNode):
+        return (
+            not where.negated
+            and where.connector in {"AND", "OR"}
+            and bool(where.children)
+            and all(_has_exact_domain_membership(child, table) for child in where.children)
+        )
+    if isinstance(where, In) and where.rhs in ([], ()):
+        # The domain rule starts with an empty union. Django removes it
+        # when compiling the SQL, so it doesn't add a lookup or scan.
+        return True
+    return (
+        isinstance(where, (Exact, In))
+        and isinstance(where.lhs, Col)
+        and where.lhs.alias == table
+        and where.lhs.target.name == "reversed_domain"
+        and where.rhs_is_direct_value()
+    )
+
+
 class SnapshotChangeList(SearchResultsChangeList):
     def get_filters_params(self, params=None):
         lookup_params = super().get_filters_params(params)
@@ -332,12 +355,26 @@ class SnapshotChangeList(SearchResultsChangeList):
                     # The single tag's unique links already produce one ID per snapshot.
                     queryset_ids = root_ids.filter(tags__id=tag_id).order_by(*queryset_ids.query.order_by)
             elif scope == {"folder"}:
-                folder_id = request.GET["folder"]
-                folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
-                if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
-                    # Regular-folder membership is covered by the folder index.
-                    # Smart folders and combined filters retain async counts.
-                    indexed_count = self.queryset.order_by().values("folder_id").count()
+                query = self.queryset.query
+                if (
+                    not self.show_all
+                    and start + size + 1 < ORDER_INDEX_PROBE_WINDOW
+                    and not query.distinct
+                    and not query.group_by
+                    and _has_exact_domain_membership(query.where, query.base_table)
+                ):
+                    # A small smart folder can have no matches among hundreds of
+                    # recent snapshots. Count indexed domain keys up to the probe
+                    # budget so paging can go straight to the matching rows.
+                    count = self.queryset.order_by().values("reversed_domain")[: ORDER_INDEX_PROBE_CANDIDATES + 1].count()
+                    if count <= ORDER_INDEX_PROBE_CANDIDATES:
+                        indexed_count = count
+                else:
+                    folder_id = request.GET["folder"]
+                    folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
+                    if folder_id == "unfiled" or (folder is not None and not folder.is_smart):
+                        # Regular-folder membership is covered by the folder index.
+                        indexed_count = self.queryset.order_by().values("folder_id").count()
 
         def read_page(offset, limit):
             if streamed_ids is not None:
@@ -1404,8 +1441,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         empty_value="",
     )
     def files(self, obj):
-        from archivebox.plugins.discovery import get_plugin_name
-
         results = self._get_prefetched_results(obj)
         if results is None:
             results = load_snapshot_list_results([obj])[obj.pk].results
@@ -1421,16 +1456,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if not plugins_with_output:
             return ""
 
-        output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
-        sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
         icons_by_group: dict[str, list[str | tuple[str, str]]] = {group_id: [] for group_id, _ in OUTPUT_GROUPS}
         request = self.request
         detail_url = escape(self.get_snapshot_view_url(obj))
         icon_metadata = request.__dict__.setdefault("_archivebox_file_icon_metadata", {})
         defined_plugins = request.__dict__.setdefault("_archivebox_file_icon_templates", set())
         definitions = []
-        for result in sorted_results:
-            plugin = result.plugin
+        plugins_with_icons = []
+        plugins_to_size = set()
+        for plugin in plugins_with_output:
             if plugin not in icon_metadata:
                 icon = str(get_plugin_icon(plugin))
                 if not plugin_icon_is_hidden(plugin) and icon.strip():
@@ -1450,14 +1484,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                             wrapper,
                         ):
                             cover = f'<img class="{badge}" {image}>'
-                    fragment = build_snapshot_detail_path("", output_path=get_plugin_name(plugin), prefix="")
-                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon, cover, fragment)
+                    ordering = output_plugin_order(plugin)
+                    fragment = build_snapshot_detail_path("", output_path=ordering.plugin, prefix="")
+                    icon_metadata[plugin] = (ordering, escape(display_plugin_name(plugin)), icon, cover, fragment)
                 else:
                     icon_metadata[plugin] = None
             metadata = icon_metadata[plugin]
             if metadata is None:
                 continue
-            group, label, icon, _, fragment = metadata
+            plugins_with_icons.append(plugin)
+            if metadata[0].rank is None:
+                plugins_to_size.add(plugin)
+
+        # Ranked outputs ignore size. For unranked outputs include every
+        # sibling so shared-file deduplication still matches the detail stack.
+        sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_to_size) if plugins_to_size else {}
+        plugins_with_icons.sort(key=lambda plugin: icon_metadata[plugin][0].sort_key(sizes.get(plugin)))
+        for plugin in plugins_with_icons:
+            ordering, label, icon, _, fragment = icon_metadata[plugin]
+            result = plugins_with_output[plugin]
             if isinstance(result, ArchiveResult):
                 output_path = result.embed_path()
                 anchor_path = get_snapshot_output_anchor(plugin, output_path) if output_path else None
@@ -1472,7 +1517,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             # List results link to the same plugin card on each snapshot. Keep
             # only alternate file fragments in the row and share the usual link
             # with the existing artwork template.
-            icons_by_group[group].append(plugin if target_fragment == fragment else (plugin, target_fragment))
+            icons_by_group[ordering.group].append(plugin if target_fragment == fragment else (plugin, target_fragment))
             if plugin not in defined_plugins:
                 # Template contents remain inert. Off-cover image requests and
                 # popup DOM are both deferred until a pile is opened.

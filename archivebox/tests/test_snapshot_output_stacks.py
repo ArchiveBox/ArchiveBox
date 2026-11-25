@@ -420,6 +420,29 @@ def test_equal_outputs_sort_by_whole_output_size_without_double_counting_hooks(s
     assert len(metadata[0]["result_ids"].split(",")) == 2
 
 
+def test_changelist_files_sort_unranked_outputs_using_all_sibling_manifests(snapshot, admin_client):
+    save_output(snapshot, "extra_beta", extra_files=("first.html",))
+    failed = save_output(snapshot, "extra_beta", hook="60", extra_files=("second.html",))
+    failed.status = ArchiveResult.StatusChoices.FAILED
+    failed.output_size = 0
+    failed.save(update_fields=["status", "output_size"])
+    save_output(snapshot, "extra_alpha", extra_files=("first.html",))
+    save_output(snapshot, "extra_zulu", extra_files=("first.html", "second.html", "third.html"))
+    save_output(snapshot, "archivedotorg")
+
+    response = admin_client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    # The retained files from both hooks put beta between four-file zulu and
+    # two-file alpha. The shared content.html counts only once.
+    assert _file_pile_plugin_order(response.content, "other") == [
+        "extra_zulu",
+        "extra_zulu",
+        "extra_beta",
+        "extra_alpha",
+    ]
+    assert b'id="abx-file-icon-archivedotorg"' not in response.content
+
+
 @pytest.mark.parametrize("static_export", [False, True])
 @pytest.mark.parametrize(
     ("filename", "root_relative", "expected_folder"),
