@@ -450,3 +450,9 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
     font-family: var(--font-family-primary);
   }
 }
+
+/* Share the existing folder popovers and child pager for library object rows. */
+.library-object-icon{height:16px;width:16px;flex:0 0 16px;object-fit:contain}
+.folder-sidebar .library-branch-label{border:0;background:none;text-align:left;cursor:pointer}
+.library-object-create-menu .library-menu-group{padding:6px 8px 2px;color:var(--body-quiet-color,#667085);font-size:11px;font-weight:600}
+.library-object-create-menu .folder-menu-label{white-space:normal}

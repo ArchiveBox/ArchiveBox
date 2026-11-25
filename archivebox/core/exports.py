@@ -157,7 +157,12 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
     from django.db.models import Count, Subquery
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.core.permissions import public_snapshots_queryset
-    from archivebox.search.query import apply_snapshot_filters, apply_snapshot_search
+    from archivebox.search.query import (
+        SNAPSHOT_PROVENANCE_SCOPES,
+        apply_snapshot_filters,
+        apply_snapshot_search,
+        require_snapshot_provenance_permissions,
+    )
 
     params = normalize_export_query(query)
     for api_name, view_name in (("folder_id", "folder"), ("search", "q"), ("status", "snapshot_status")):
@@ -201,6 +206,8 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
     } | {"domain", "folder", "permissions", "snapshot_status", "archiveresult_status", "archive_state", "size", "tag"}
     if public_only and set(params) - allowed:
         raise ValueError("Invalid public snapshot filters.")
+    if not public_only:
+        require_snapshot_provenance_permissions(params, user=user, request=request)
     queryset = Snapshot.objects.all()
     if selection_before is not None:
         queryset = queryset.filter(created_at__lte=selection_before)
@@ -215,6 +222,7 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
             site_scopes=params.getlist("site_scope"),
             domain_search=params.get("domain_search"),
             folder_id=params.get("folder"),
+            provenance=params if not public_only else None,
             status=params.get("snapshot_status")
             if params.get("snapshot_status") in dict(Snapshot._meta.get_field("status").choices)
             else None,
@@ -230,6 +238,7 @@ def get_export_queryset(query, *, user=None, public_only=True, config=None, requ
     if permissions := params.get("permissions"):
         queryset = queryset.filter(permissions=permissions)
     controls = {
+        *SNAPSHOT_PROVENANCE_SCOPES,
         "q",
         "search_mode",
         "o",

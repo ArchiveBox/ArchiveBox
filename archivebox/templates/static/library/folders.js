@@ -693,6 +693,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const status = sidebar.querySelector('.folder-drop-status');
   const tree = sidebar.querySelector('.folder-tree');
+  const folderMode = sidebar.dataset.mode === 'folders';
+  const treeNavigation = sidebar.hasAttribute('data-tree-navigation');
+  const objectMode = treeNavigation && !folderMode;
   const search = sidebar.querySelector('.folder-search');
   const empty = sidebar.querySelector('.folder-search-empty');
   const more = sidebar.querySelector('.library-load-more');
@@ -706,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let loadError = '';
   let rows = [...sidebar.querySelectorAll('.folder-row')];
   let rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
-  const folderExpansionKey = 'archivebox.folder-expansion';
+  const folderExpansionKey = folderMode ? 'archivebox.folder-expansion' : `archivebox.library-expansion.${sidebar.dataset.mode}`;
   const folderExpansion = new Map();
   const searchCollapsed = new Set();
   try {
@@ -722,19 +725,21 @@ document.addEventListener('DOMContentLoaded', () => {
     try {localStorage.setItem(folderExpansionKey, JSON.stringify({expanded, collapsed}));} catch (_) {}
   }
   function isFolderExpanded(id) {
-    return sidebarQuery ? !searchCollapsed.has(id) : revealedFolders.has(id) || folderExpansion.get(id) === true;
+    return sidebarQuery && folderMode ? !searchCollapsed.has(id) : revealedFolders.has(id) || folderExpansion.get(id) === true;
   }
 
   function initializeTreeRows() {
     rows.forEach(row => {
       if (row.dataset.treeInitialized) return;
       row.dataset.treeInitialized = 'true';
+      if (row.hasAttribute('data-expanded')) revealedFolders.add(row.dataset.folderId);
       const toggle = row.querySelector('.folder-toggle');
       if (!toggle) return;
+      row.querySelector('.library-branch-label')?.addEventListener('click', () => toggle.click());
       toggle.addEventListener('click', () => {
         const id = row.dataset.folderId;
         const open = !isFolderExpanded(id);
-        if (sidebarQuery) {
+        if (sidebarQuery && folderMode) {
           if (open) searchCollapsed.delete(id);
           else searchCollapsed.add(id);
         } else {
@@ -749,8 +754,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initializeTreeRows();
   function renderTree() {
-    if (sidebar.dataset.mode !== 'folders') return;
-    const loadedParents = sidebarQuery ? new Set(rows.map(row => row.dataset.parentId)) : null;
+    if (!treeNavigation) return;
+    const loadedParents = sidebarQuery && folderMode ? new Set(rows.map(row => row.dataset.parentId)) : null;
     rows.forEach(row => {
       let parent = row.dataset.parentId;
       let hidden = false;
@@ -764,9 +769,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const expanded = isFolderExpanded(row.dataset.folderId) && (!loadedParents || loadedParents.has(row.dataset.folderId));
         const label = `${expanded ? 'Collapse' : 'Expand'} ${row.dataset.folderName}`;
         toggle.setAttribute('aria-expanded', String(expanded));
+        row.querySelector('.library-branch-label')?.setAttribute('aria-expanded', String(expanded));
         toggle.setAttribute('aria-label', label);
         toggle.title = label;
-        if (expanded && !hidden && !sidebarQuery && !row.dataset.childrenRequested) loadChildren(row);
+        if (expanded && !hidden && (!sidebarQuery || !folderMode) && !row.dataset.childrenRequested) loadChildren(row);
       }
     });
     sidebar.querySelectorAll('.library-child-more').forEach(button => {
@@ -800,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
     rowsById = new Map(rows.map(row => [row.dataset.folderId, row]));
     initializeTreeRows();
     initializeMenus(sidebar);
-    if (sidebar.dataset.moveUrl) {
+    if (sidebar.dataset.moveUrl && folderMode) {
       const fresh = rows.filter(row => !row.dataset.dragInitialized);
       initializeFolderDragging(fresh); initializeDropTargets(fresh);
       fresh.forEach(row => row.dataset.dragInitialized = 'true');
@@ -866,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (replace) {
         replaceTree(fragment.content, result.next);
       } else {
-        if (sidebarQuery && sidebar.dataset.mode === 'folders') {
+        if (sidebarQuery && treeNavigation && !button.dataset.parent) {
           appendSearchFolders(fragment.content);
         } else {
           fragment.content.querySelectorAll('.folder-row').forEach(row => {
@@ -897,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   function loadChildren(row) {
-    if (sidebarQuery || !tree.contains(row)) return;
+    if ((sidebarQuery && folderMode) || !tree.contains(row)) return;
     row.dataset.childrenRequested = 'true';
     let button = [...tree.querySelectorAll('.library-child-more')].find(item => item.dataset.parent === row.dataset.folderId);
     if (!button) {
@@ -1175,11 +1181,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
-  initializeFolderDragging(rows);
-  rows.forEach(row => row.dataset.dragInitialized = 'true');
+  if (folderMode) {
+    initializeFolderDragging(rows);
+    rows.forEach(row => row.dataset.dragInitialized = 'true');
+  }
   const rootTarget = sidebar.querySelector('.library-root-link');
   rootTarget.dataset.folderId = '';
-  rootTarget.classList.add('folder-drop-target');
+  if (!objectMode) rootTarget.classList.add('folder-drop-target');
   function placement(target, event) {
     if (!movingFolder || !target.dataset.folderId) return 'inside';
     const rect = target.getBoundingClientRect();
@@ -1273,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (added && form === initializedForm) {
       window.archiveboxLibraryLayout?.initializeTags(form, added);
       for (const row of added) {
-        initializeSnapshotDragging(row);
+        if (!objectMode) initializeSnapshotDragging(row);
         window.ArchiveBoxPicker.initialize(row);
       }
       return;
@@ -1288,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       window.archiveboxLibraryLayout?.initializeTags(form);
       if (form) window.ArchiveBoxPicker.initialize(form);
-      initializeSnapshotDragging();
+      if (!objectMode) initializeSnapshotDragging();
     }
     selectionChanged();
   };

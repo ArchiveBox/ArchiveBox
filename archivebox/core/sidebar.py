@@ -29,6 +29,38 @@ DOMAIN_SIDEBAR_PAGE_SIZE = 50
 INITIAL_FOLDER_PAGE_SIZE = 50
 SIDEBAR_SCOPES = {"folders": "folder", "tags": "tag", "domains": "domain"}
 
+OBJECT_SIDEBAR_MODES = {
+    "personas": ("Personas", "Find a persona", "library-persona", ("persona",)),
+    "importers": ("Importers", "Find an importer", "library-tray", ("importer",)),
+    "scheduled-crawls": ("Scheduled Crawls", "Find a scheduled crawl", "library-schedule", ("crawl_schedule", "crawl")),
+}
+
+
+def _object_sidebar_adapters(request, public):
+    if public:
+        return {}
+    from archivebox.core.sidebar_importers import importer_add_actions, importer_entries_page, importer_sidebar_allowed
+    from archivebox.core.sidebar_personas import persona_add_actions, persona_entries_page, persona_sidebar_allowed
+    from archivebox.core.sidebar_schedules import schedule_add_actions, schedule_entries_page, schedule_sidebar_allowed
+
+    return {
+        mode: (page, actions)
+        for mode, allowed, page, actions in (
+            ("personas", persona_sidebar_allowed, persona_entries_page, persona_add_actions),
+            ("importers", importer_sidebar_allowed, importer_entries_page, importer_add_actions),
+            ("scheduled-crawls", schedule_sidebar_allowed, schedule_entries_page, schedule_add_actions),
+        )
+        if allowed(request)
+    }
+
+
+def _sidebar_template(mode):
+    if mode == "folders":
+        return "core/folder_tree.html"
+    if mode in OBJECT_SIDEBAR_MODES:
+        return "core/sidebar_object_entries.html"
+    return "core/sidebar_entries.html"
+
 
 def _sidebar_view_filters(request):
     filters = normalize_export_query(request.GET)
@@ -76,34 +108,58 @@ def sidebar_search_placeholder(request, *, entries=(), folder_tree=None, public=
 
 
 def sidebar_context(request, *, public=False, folder_tree=None):
+    adapters = _object_sidebar_adapters(request, public)
+    modes = {
+        "folders": ("Folders", "Find a folder", "library-pages", ("folder",)),
+        "tags": ("Tags", "Find a tag", "library-tag", ("tag",)),
+        "domains": ("Domains", "Find a domain", "library-globe", ("domain",)),
+        **{key: OBJECT_SIDEBAR_MODES[key] for key in adapters},
+    }
     mode = request.GET.get("sidebar", "folders")
-    if mode not in SIDEBAR_SCOPES:
+    if mode not in modes:
         mode = "folders"
+    label, search_label, icon, active_scopes = modes[mode]
     export_filters = _sidebar_view_filters(request)
     mode_filters = export_filters.copy()
-    scopes = [scope for scope in SIDEBAR_SCOPES.values() if scope in mode_filters]
-    # A sidebar click sets one scope. Keep explicitly combined snapshot filters.
-    if scopes == [SIDEBAR_SCOPES[mode]]:
-        mode_filters.pop(scopes[0])
+    selected = [scope for _, _, _, scopes in modes.values() for scope in scopes if export_filters.get(scope)]
+    if len(selected) == 1 and selected[0] in active_scopes:
+        mode_filters.pop(selected[0], None)
+
     mode_queries = {}
-    for option in SIDEBAR_SCOPES:
+    mode_items = []
+    for option, (item_label, _, item_icon, _) in modes.items():
         query = mode_filters.copy()
         if option != "folders":
             query["sidebar"] = option
         mode_queries[option] = query.urlencode()
-    export_filters.pop(SIDEBAR_SCOPES[mode], None)
+        mode_items.append({"mode": option, "label": item_label, "icon": item_icon, "query": mode_queries[option]})
+
+    root_filters = export_filters.copy()
+    for scope in active_scopes:
+        export_filters.pop(scope, None)
+        root_filters.pop(scope, None)
+    if mode != "folders":
+        root_filters["sidebar"] = mode
+
     return {
         "sidebar_mode_queries": mode_queries,
+        "sidebar_mode_items": mode_items,
         "sidebar_mode": mode,
-        "sidebar_label": {"folders": "Folders", "tags": "Tags", "domains": "Domains"}[mode],
-        "sidebar_search_label": {"folders": "Find a folder", "tags": "Find a tag", "domains": "Find a domain"}[mode],
+        "sidebar_label": label,
+        "sidebar_search_label": search_label,
+        "sidebar_object_icon": icon,
+        "sidebar_object_mode": mode in adapters,
+        "sidebar_tree_navigation": mode == "folders" or mode in adapters,
+        "sidebar_active_scope": bool(selected),
+        "sidebar_root_query": root_filters.urlencode(),
         "sidebar_url": reverse("public-sidebar" if public else "admin-sidebar"),
+        "sidebar_add_actions": adapters[mode][1](request) if mode in adapters else [],
         "sidebar_export_urls": build_snapshot_export_urls(export_filters, api=public, request=request),
-        **sidebar_page(request, mode=mode, public=public, folder_tree=folder_tree),
+        **sidebar_page(request, mode=mode, public=public, folder_tree=folder_tree, adapters=adapters),
     }
 
 
-def sidebar_page(request, *, mode, public=False, folder_tree=None):
+def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None):
     term = request.GET.get("sidebar_q", "").strip()[:253]
     parent = request.GET.get("parent", "")
     cursor = None
@@ -114,8 +170,27 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
         cursor = cursor[3:]
     entries, folders, next_key = [], [], None
     snapshots = public_snapshots_queryset(Snapshot.objects.all()) if public else Snapshot.objects.all()
-    snapshot_admin_url = reverse("admin:core_snapshot_changelist") if mode != "folders" and not public else ""
-    if mode == "tags":
+    snapshot_admin_url = reverse("admin:core_snapshot_changelist") if mode in ("tags", "domains") and not public else ""
+    if mode in OBJECT_SIDEBAR_MODES:
+        if adapters is None:
+            adapters = _object_sidebar_adapters(request, public)
+        if mode not in adapters:
+            raise PermissionDenied
+        entries, next_key = adapters[mode][0](request, term=term, parent=parent, cursor=cursor, limit=INITIAL_FOLDER_PAGE_SIZE)
+        filters = _sidebar_view_filters(request)
+        # A click chooses one sidebar entry. The remaining search, sort and
+        # explicit non-sidebar filters keep their current values.
+        for scope in (*SIDEBAR_SCOPES.values(), *(scope for _, _, _, scopes in OBJECT_SIDEBAR_MODES.values() for scope in scopes)):
+            filters.pop(scope, None)
+        filters["sidebar"] = mode
+        for entry in entries:
+            if scope := entry.get("scope"):
+                scope_filters = filters.copy()
+                scope_filters[scope] = entry["filter_value"]
+                entry["url"] = "?" + scope_filters.urlencode()
+                entry["selected"] = request.GET.get(scope) == entry["filter_value"]
+                entry["export_urls"] = build_snapshot_export_urls(scope_filters, request=request)
+    elif mode == "tags":
         membership = _tag_snapshot_memberships()
         if public:
             membership = membership.filter(snapshot__permissions="public")
@@ -311,20 +386,21 @@ def sidebar_view(request, *, public=False):
     elif not request.user.has_perm("core.view_snapshot"):
         raise PermissionDenied
     mode = request.GET.get("sidebar", "folders")
-    if mode not in SIDEBAR_SCOPES:
+    adapters = _object_sidebar_adapters(request, public)
+    if mode not in SIDEBAR_SCOPES and mode not in adapters:
         return JsonResponse({"error": "Invalid sidebar mode"}, status=400)
     try:
-        context = sidebar_page(request, mode=mode, public=public)
+        context = sidebar_page(request, mode=mode, public=public, adapters=adapters)
     except (ValueError, signing.BadSignature):
         return JsonResponse({"error": "Invalid sidebar cursor"}, status=400)
-    template = "core/folder_tree.html" if mode == "folders" else "core/sidebar_entries.html"
     html = render_to_string(
-        template,
+        _sidebar_template(mode),
         {
             **context,
             "folder_tree": context["sidebar_folder_tree"],
             "folder_readonly": public,
             "sidebar_mode": mode,
+            "sidebar_object_icon": OBJECT_SIDEBAR_MODES[mode][2] if mode in adapters else "",
             "sidebar_rows_only": True,
             "selected_folder": request.GET.get("folder", ""),
         },

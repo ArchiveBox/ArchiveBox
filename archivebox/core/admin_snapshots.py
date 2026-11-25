@@ -31,7 +31,7 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList, cached_search_rank_page
 from archivebox.search.views import admin_snapshot_search_stream_view, search_row_cursor, streamed_page_ids
-from archivebox.search.query import apply_snapshot_filters
+from archivebox.search.query import SNAPSHOT_PROVENANCE_SCOPES, apply_snapshot_filters, require_snapshot_provenance_permissions
 from archivebox.core.routes_util import (
     build_snapshot_detail_path,
     build_snapshot_detail_url,
@@ -245,6 +245,8 @@ class SnapshotChangeList(SearchResultsChangeList):
         lookup_params.pop("sidebar", None)
         lookup_params.pop("site_scope", None)
         lookup_params.pop("domain_search", None)
+        for scope in SNAPSHOT_PROVENANCE_SCOPES:
+            lookup_params.pop(scope, None)
         return lookup_params
 
     def __init__(self, request, *args, **kwargs):
@@ -764,12 +766,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # Streamed results replace only #content-main. The live sidebar retains
         # its expanded folders, pagination and export menus across submissions.
         if not search_fragment:
-            from archivebox.core.sidebar import sidebar_context
+            from archivebox.core.sidebar import OBJECT_SIDEBAR_MODES, sidebar_context
 
-            extra_context["folder_tree"] = Folder.tree()
-            if not embedded_changelist:
-                extra_context.update(sidebar_context(request, folder_tree=extra_context["folder_tree"]))
             extra_context["selected_folder"] = request.GET.get("folder", "")
+            # Object modes use their own bounded sidebar query, not the folder tree.
+            folder_tree = (
+                None
+                if not embedded_changelist and request.GET.get("sidebar") in OBJECT_SIDEBAR_MODES and not extra_context["selected_folder"]
+                else Folder.tree()
+            )
+            extra_context["folder_tree"] = folder_tree or []
+            if not embedded_changelist:
+                extra_context.update(sidebar_context(request, folder_tree=folder_tree))
             selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
             folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
             breadcrumbs = []
@@ -1005,7 +1013,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ordering_fields = self._get_ordering_fields(request)
         needs_files_sort = "files" in ordering_fields
         needs_tags_sort = "tags_inline" in ordering_fields
-        is_change_view = request.resolver_match.url_name == "core_snapshot_change"
+        route_name = request.resolver_match.url_name
+        is_change_view = route_name == "core_snapshot_change"
         if is_change_view:
             prefetches = [
                 "tags",
@@ -1039,14 +1048,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 ),
             ]
 
+        provenance = request.GET if route_name in {"core_snapshot_changelist", "grid", "core_snapshot_search_stream"} else {}
+
+        require_snapshot_provenance_permissions(provenance, user=request.user, request=request)
         qs = super().get_queryset(request)
         try:
             qs = apply_snapshot_filters(
                 qs,
                 site_scopes=request.GET.getlist("site_scope"),
                 domain_search=request.GET.get("domain_search"),
+                provenance=provenance,
             )
-        except ValueError:
+        except (ValueError, ValidationError):
             qs = qs.none()
         if is_change_view:
             qs = qs.select_related("crawl__created_by").defer("notes")

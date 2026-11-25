@@ -1,0 +1,14 @@
+{% if sidebar_mode == "importers" %}
+<button type="button" class="library-create-toggle icon-button" aria-label="New importer" title="New importer" aria-haspopup="menu" aria-expanded="false" popovertarget="library-object-create-menu"><svg aria-hidden="true"><use href="#library-plus"/></svg></button>
+<div id="library-object-create-menu" class="folder-menu library-object-create-menu" popover role="menu" aria-label="New importer">
+  {% regroup sidebar_add_actions by family as families %}
+  {% for family in families %}
+    <div class="library-menu-group">{{ family.grouper }}</div>
+    {% for action in family.list %}
+      <a role="menuitem" href="{{ action.url }}">{% if action.icon_url %}<img class="library-object-icon" src="{{ action.icon_url }}" alt="" loading="lazy">{% endif %}<span class="folder-menu-label">{{ action.label }}</span></a>
+    {% endfor %}
+  {% endfor %}
+</div>
+{% else %}
+  {% for action in sidebar_add_actions %}<a class="library-add icon-button" href="{{ action.url }}" aria-label="{{ action.label }}" title="{{ action.label }}"><svg aria-hidden="true"><use href="#library-plus"/></svg></a>{% endfor %}
+{% endif %}

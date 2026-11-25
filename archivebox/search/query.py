@@ -1,9 +1,12 @@
 __package__ = "archivebox.search"
 
 import json
+from copy import copy
 from subprocess import CalledProcessError
+from types import SimpleNamespace
 from typing import Any
 
+from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 
@@ -13,8 +16,33 @@ from archivebox.misc.util import enforce_types, equivalent_urls
 from archivebox.search.backends import get_available_backends, get_backend, search_backend_command_env
 from archivebox.search.config import get_search_mode, get_search_mode_backend, get_search_mode_base
 
-
 MAX_SEARCH_RANK_IDS = 500
+SNAPSHOT_PROVENANCE_SCOPES = ("persona", "importer", "crawl_schedule", "crawl")
+
+
+def require_snapshot_provenance_permissions(provenance, *, user, request=None):
+    """Match native admin visibility, including for deferred export workers."""
+    selected = {key for key in SNAPSHOT_PROVENANCE_SCOPES if provenance.get(key)}
+    if not selected or user is None:
+        return
+    if not (user.is_active and user.is_staff):
+        raise PermissionDenied
+    if "persona" in selected:
+        from archivebox.core.admin_site import archivebox_admin
+        from archivebox.personas.models import Persona
+
+        principal = copy(request) if request is not None else SimpleNamespace()
+        principal.user = user
+        if not archivebox_admin.is_registered(Persona) or not archivebox_admin.get_model_admin(Persona).has_view_or_change_permission(
+            principal,
+        ):
+            raise PermissionDenied
+    if "importer" in selected and not user.is_superuser:
+        raise PermissionDenied
+    if selected.intersection(("crawl_schedule", "crawl")) and not all(
+        user.has_perm(f"crawls.view_{model}") or user.has_perm(f"crawls.change_{model}") for model in ("crawl", "crawlschedule")
+    ):
+        raise PermissionDenied
 
 
 def apply_snapshot_filters(
@@ -24,6 +52,7 @@ def apply_snapshot_filters(
     domain_search=None,
     site_scopes=(),
     folder_id=None,
+    provenance=None,
     status=None,
     archive_state=None,
     size=None,
@@ -48,6 +77,31 @@ def apply_snapshot_filters(
         if not Folder.objects.filter(pk=folder_id).exists():
             raise ValueError("Folder does not exist.")
         queryset = queryset.in_folder(folder_id)
+    if provenance:
+        if crawl_id := provenance.get("crawl"):
+            queryset = queryset.filter(crawl_id=crawl_id)
+        crawl_filters = {
+            field: value
+            for param, field in (("persona", "persona_id"), ("crawl_schedule", "schedule_id"))
+            if (value := provenance.get(param))
+        }
+        if crawl_filters:
+            from archivebox.crawls.models import Crawl
+
+            crawls = Crawl.objects.using(queryset.db).filter(**crawl_filters).order_by().values("pk")
+            queryset = queryset.filter(crawl_id__in=crawls)
+        if importer_id := provenance.get("importer"):
+            from archivebox.importers.models import ImporterRun
+
+            # ImporterSource.persona/name can change. Only ImporterRun.crawl
+            # records actual origin; a semijoin also avoids duplicate rows.
+            crawl_ids = (
+                ImporterRun.objects.using(queryset.db)
+                .filter(source_id=importer_id, action=ImporterRun.Action.IMPORT, crawl_id__isnull=False)
+                .order_by()
+                .values("crawl_id")
+            )
+            queryset = queryset.filter(crawl_id__in=crawl_ids)
     queryset = filter_snapshots_by_status(queryset, status)
     if archive_state == "downloaded":
         queryset = queryset.filter(downloaded_at__isnull=False)

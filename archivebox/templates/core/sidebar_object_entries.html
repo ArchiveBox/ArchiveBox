@@ -1,0 +1,23 @@
+{% for entry in sidebar_entries %}
+  <div class="folder-row library-object-row" data-folder-id="{{ entry.id }}" data-folder-name="{{ entry.name }}" data-parent-id="{{ entry.parent_id }}"{% if entry.expand %} data-expanded{% endif %}{% if entry.children_loaded %} data-children-loaded="true" data-children-requested="true"{% endif %} style="--folder-depth:{% if entry.parent_id %}1{% else %}0{% endif %}">
+    {% if entry.url %}<a class="library-link folder-link" title="{{ entry.name }}" href="{{ entry.url }}"{% if entry.selected %} aria-current="page"{% endif %}>
+    {% else %}<button type="button" class="library-link folder-link library-branch-label" title="{{ entry.name }}" aria-expanded="false">{% endif %}
+      {% if entry.icon_url %}<img class="library-object-icon" src="{{ entry.icon_url }}" alt="" loading="lazy">
+      {% else %}<svg aria-hidden="true"><use href="#{{ sidebar_object_icon }}"/></svg>{% endif %}
+      <span>{{ entry.name }}</span>
+    {% if entry.url %}</a>{% else %}</button>{% endif %}
+    {% if entry.has_children %}
+      <button class="folder-toggle icon-button" type="button" aria-label="Expand {{ entry.name }}" title="Expand {{ entry.name }}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+    {% endif %}
+    {% if entry.actions or entry.export_urls %}
+      <div class="folder-row-actions"><button type="button" class="folder-menu-toggle icon-button" aria-label="Actions for {{ entry.name }}" title="Actions for {{ entry.name }}" aria-haspopup="menu" aria-expanded="false" popovertarget="library-object-menu-{{ entry.id }}"><svg aria-hidden="true"><use href="#library-more"/></svg></button></div>
+      <div id="library-object-menu-{{ entry.id }}" class="folder-menu" popover role="menu" aria-label="{{ entry.name }}">
+        {% for action in entry.actions %}<a role="menuitem" href="{{ action.url }}"><span class="folder-menu-label">{{ action.label }}</span></a>{% endfor %}
+        {% if entry.actions and entry.export_urls %}<hr>{% endif %}
+        {% if entry.export_urls %}{% include "core/snapshot_export_links.html" with export_urls=entry.export_urls export_menu=True %}{% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% empty %}
+  {% if not sidebar_query and not sidebar_rows_only %}<div class="folder-empty"><p>No {{ sidebar_label|lower }} yet.</p></div>{% endif %}
+{% endfor %}
