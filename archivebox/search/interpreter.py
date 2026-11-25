@@ -25,11 +25,13 @@ from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
 from archivebox.search.backends import get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.language import (
     HostnameFragmentIn,
+    OPERATORS,
     Term,
     has_uppercase,
     leaves,
     literal_pattern,
     parse,
+    plugin_operators,
     simplify,
     sql_bounds,
     sql_leaf,
@@ -51,6 +53,9 @@ SONIC_FALLBACK_CANDIDATES = 32
 # must not block ordinary metadata searches or multiply disk load per browser.
 EXTERNAL_SLOTS = threading.BoundedSemaphore(2)
 STALL_SECONDS = 30.0
+BUILTIN_TERMS = OPERATORS.keys() | {"word", "literal"}
+OPERATOR_SCOPE_LIMIT = 65536
+OPERATOR_RESULT_LIMIT = 256
 
 
 def indexed_predicate(model, predicate):
@@ -119,6 +124,14 @@ class SnapshotSearch:
         self.scope = scope
         self.tree = parse(query)
         self.terms = tuple(dict.fromkeys(leaves(self.tree)))
+        self.operator_terms = {
+            t: plugin_operators()[t.field][0] for t in self.terms if t.field not in BUILTIN_TERMS and "__" not in t.field
+        }
+        if self.operator_terms:
+            if public:
+                raise ValueError("Plugin search operators are available only in administrative searches")
+            if any(t in self.operator_terms for t in positive_terms(self.tree, negated=True)):
+                raise ValueError("Plugin search operators cannot be negated")
         if rules is None and any(t.field == "folder" or "__" in t.field for t in self.terms):
             from archivebox.core.smart_folders import RuleQuery
 
@@ -304,10 +317,10 @@ class SnapshotSearch:
     def scan_available(self):
         return self.scan_seconds_left() > 0 and all(self.usage[key] < limit for key, limit in DISK_LIMITS.items())
 
-    def command_records(self, command, payload, *, env=None, scan=False, activity="provider"):
+    def command_records(self, command, payload, *, env=None, scan=False, activity="provider", deadline_bound=False):
         from abx_dl.execution import iter_plugin_command
 
-        if not self.streaming and not scan:
+        if not self.streaming and not scan and not deadline_bound:
             lines = iter_plugin_command(
                 command,
                 stdin=[json.dumps(payload)],
@@ -323,9 +336,14 @@ class SnapshotSearch:
                 lines.close()
             return
 
-        with self.phase("queue", timeout=self.scan_seconds_left() if scan else None):
+        def time_left():
+            if scan:
+                return self.scan_seconds_left()
+            return max(0, self.deadline - time.monotonic()) if deadline_bound else None
+
+        with self.phase("queue", timeout=time_left()):
             while not EXTERNAL_SLOTS.acquire(timeout=min(0.1, self.scan_seconds_left()) if scan else 0.1):
-                if not self.active() or (scan and not self.scan_available()):
+                if not self.active() or time_left() == 0 or (scan and not self.scan_available()):
                     return
         last_activity = time.monotonic()
         cancellation = self.stop_event
@@ -339,7 +357,7 @@ class SnapshotSearch:
                 return False
 
         try:
-            if scan and not self.scan_available():
+            if time_left() == 0 or (scan and not self.scan_available()):
                 return
             lines = iter_plugin_command(
                 command,
@@ -347,20 +365,25 @@ class SnapshotSearch:
                 cwd=CONSTANTS.DATA_DIR,
                 env=env,
                 stop_event=ScanCancellation(),
-                timeout=self.scan_seconds_left() if scan else None,
+                timeout=time_left(),
             )
             if self.progress:
                 lines = self.progress.reading(
                     lines,
                     activity,
                     command.plugin_name if activity == "provider" else "",
-                    timeout=self.scan_seconds_left() if scan else None,
+                    timeout=time_left(),
                     idle_since=lambda: (last_activity, STALL_SECONDS),
                 )
             try:
                 for line in lines:
                     last_activity = time.monotonic()
-                    record = json.loads(line)
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        if deadline_bound:
+                            continue
+                        raise
                     if isinstance(record, dict) and record.get("progress") is True:
                         continue
                     yield record
@@ -601,7 +624,67 @@ class SnapshotSearch:
             cursor = page[-1].pk
         self.partial = True
 
+    def operator_hits(self):
+        # Only exact database filters can narrow a ranked provider's input.
+        # An unverified or bounded provider result cannot prove NOT or widen
+        # an unrelated SQL branch, including in destructive folder rules.
+        if len(self.operator_terms) != 1:
+            raise ValueError("Use one plugin search operator at a time")
+        ((term, backend),) = self.operator_terms.items()
+        filters = simplify(self.tree, {term: True})
+        if simplify(self.tree, {term: False}) is not False or (
+            not isinstance(filters, bool) and any(t not in self.sql for t in leaves(filters))
+        ):
+            raise ValueError("Combine plugin search operators with database filters using AND")
+        self.config = self.config or get_config()
+        if not self.config.get(backend.enabled_key, True):
+            raise ValueError("This plugin search operator is disabled")
+        if filters is False:
+            return
+        scope = self.scope if filters is True else self.scope.filter(sql_bounds(filters, self.sql)[1])
+        self.deadline = time.monotonic() + MAX_SECONDS
+        with self.phase("planning"):
+            ids = list(scope.order_by().values_list("pk", flat=True).distinct()[: OPERATOR_SCOPE_LIMIT + 1])
+        if len(ids) > OPERATOR_SCOPE_LIMIT:
+            raise ValueError(f"Narrow the search to {OPERATOR_SCOPE_LIMIT} snapshots or fewer to use this operator")
+        if not ids or not self.active():
+            return
+        command = get_plugin_catalog().command(backend.name, "search_scope")
+        if not command:
+            raise ValueError("This plugin search operator is unavailable")
+        candidates = {pk.hex: pk for pk in ids}
+        results = {}
+        request = {"ids": list(candidates), "query": term.value, "limit": OPERATOR_RESULT_LIMIT}
+        # Use the same collection root as the snapshot hooks that build the index.
+        environment = {**self.env, "DATA_DIR": str(CONSTANTS.DATA_DIR)}
+        records = self.command_records(command, request, env=environment, deadline_bound=True)
+        try:
+            for record in records:
+                if not isinstance(record, dict) or not isinstance(record.get("id"), str):
+                    continue
+                pk = record["id"]
+                score = record.get("score")
+                if pk in candidates and (type(score) is int or (type(score) is float and math.isfinite(score))):
+                    results[pk] = max(results.get(pk, -math.inf), score)
+                    if len(results) == OPERATOR_RESULT_LIMIT:
+                        break
+        finally:
+            records.close()
+        # A ranked provider can omit valid snapshots with missing embeddings
+        # and may return only its best hits. This is not exhaustive membership.
+        self.partial = True
+        # Recheck the live collection after provider work: the original
+        # permissions and metadata filters can change before results return.
+        current_hits = scope.filter(pk__in=results).values_list("pk", flat=True).distinct()
+        if self.scope.query.order_by:
+            yield from current_hits
+        else:
+            yield from sorted(current_hits.order_by(), key=lambda pk: (-results[pk.hex], pk))
+
     def stream(self):
+        if self.operator_terms:
+            yield from self.operator_hits()
+            return
         qs = self.scope
         with self.phase("planning"):
             matches = self.sql_queryset()

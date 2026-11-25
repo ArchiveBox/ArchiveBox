@@ -1,6 +1,7 @@
 """Snapshot search expressions shared by web, API, CLI and Smart Folders."""
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -17,6 +18,8 @@ from django.db.models.sql.where import WhereNode
 
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotQuerySet
 from archivebox.core.tag_util import tag_assignments_matching
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,38 @@ OPERATORS = {
     "linksto": ("out", "Outgoing URL contains this text."),
     "linkedfrom": ("link", "Source URL contains this text."),
 }
+
+
+@lru_cache(maxsize=1)
+def plugin_operators():
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    catalog = get_plugin_catalog()
+    registered, duplicates = {}, set()
+    for plugin in catalog.values():
+        operators = plugin.manifest.get("search_operators")
+        if operators is None:
+            continue
+        if not isinstance(operators, dict) or not catalog.command(plugin.name, "search_scope"):
+            logger.warning("Ignoring invalid search operator declarations for %s", plugin.name)
+            continue
+        for key, display in operators.items():
+            if (
+                not re.fullmatch(r"[a-z][a-z0-9_]*", key)
+                or "__" in key
+                or key in (OPERATORS.keys() | ALIASES.keys() | {"deep", "word", "literal"})
+                or not isinstance(display, dict)
+                or not all(isinstance(display.get(field), str) and display[field] for field in ("icon", "description"))
+            ):
+                logger.warning("Ignoring invalid search operator %r from %s", key, plugin.name)
+                continue
+            if key in registered or key in duplicates:
+                registered.pop(key, None)
+                duplicates.add(key)
+                logger.warning("Ignoring duplicate search operator %r from %s", key, plugin.name)
+                continue
+            registered[key] = (plugin, display["icon"], display["description"])
+    return registered
 
 
 def parse(source):
@@ -103,7 +138,12 @@ def parse(source):
             return Term("word", word)
         field = field.lower()
         field = ALIASES.get(field, field)
-        if field != "deep" and field not in OPERATORS and not re.fullmatch(r"[a-z][a-z0-9_]*__[a-z_]+", field):
+        if (
+            field != "deep"
+            and field not in OPERATORS
+            and not re.fullmatch(r"[a-z][a-z0-9_]*__[a-z_]+", field)
+            and field not in plugin_operators()
+        ):
             raise ValueError(f"Unknown field {field}")
         if field in ("tags", "plugins", "filetype"):
             # A quoted list item can contain commas, spaces or colons. Split
