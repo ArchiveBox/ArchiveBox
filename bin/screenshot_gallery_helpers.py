@@ -1018,6 +1018,7 @@ def plugin_screenshot_plan() -> dict:
     enabled_plugins = []
     capture_opt_ins = {}
     owned_views = {}
+    app_pages = []
     selected = set(filter(None, os.environ.get("UI_SCREENSHOT_PLUGINS", "").split(",")))
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
         if selected and plugin_dir.name not in selected:
@@ -1035,6 +1036,22 @@ def plugin_screenshot_plan() -> dict:
         if recipe.get("enabled") or recipe.get("url"):
             enabled_plugins.append(plugin)
             enabled = True
+        if page := recipe.get("app_page"):
+            app_pages.append({**page, "name": recipe["view"], "plugin": plugin})
+            mode = ""
+            if selector := page.get("wait_for_selector"):
+                mode = f"wait-selector:{selector}"
+            elif page.get("wait_for_text"):
+                mode = f"wait-text:{page['wait_for_text']}"
+            config_views.append(
+                {
+                    "name": recipe["view"],
+                    "plugin": plugin,
+                    "path": page["path"],
+                    "source": f"https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/{plugin}/{page['source']}",
+                    "mode": mode,
+                }
+            )
         if recipe.get("view"):
             required.append(recipe["view"])
             if recipe.get("importer"):
@@ -1086,7 +1103,7 @@ def plugin_screenshot_plan() -> dict:
             enabled_plugins.remove(plugin)
             capture_opt_ins[plugin] = enabled_key
         for name in required[first_view:]:
-            if name in REQUIRED_VIEW_NAMES:
+            if name in REQUIRED_VIEW_NAMES or (recipe.get("app_page") and name == recipe["view"]):
                 continue  # Ownership remains with the required application UI.
             if name in owned_views:
                 raise ValueError(f"Duplicate plugin screenshot view: {name}")
@@ -1097,6 +1114,7 @@ def plugin_screenshot_plan() -> dict:
             owned_views[name] = plugin
     return {
         "required": required,
+        "app_pages": app_pages,
         "owned_views": owned_views,
         "examples": list(examples.values()),
         "overrides": overrides,
@@ -1244,6 +1262,18 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
 
 
 def render_gallery(gallery_header: str, gallery_sections: str) -> str:
+    # Some plugins are captured during library setup. Keep their snapshot
+    # outputs together regardless of when the underlying captures ran.
+    snapshot_outputs = []
+
+    def move_snapshot_output(match):
+        if match[1] in {"snapshot-view-capture-in-progress", "snapshot-view-header-collapsed"}:
+            return match[0]
+        snapshot_outputs.append(match[0])
+        return ""
+
+    gallery_sections = re.sub(r'<article id="(snapshot-view-[^"]+)">.*?</article>', move_snapshot_output, gallery_sections, flags=re.DOTALL)
+    gallery_sections += "".join(snapshot_outputs)
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'

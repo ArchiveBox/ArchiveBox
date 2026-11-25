@@ -218,6 +218,19 @@ echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox install chrome
 )
 
+if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c \
+    'import json,sys; print(int(any(page["plugin"] in {"networkgraph", "bandwidth"} for page in json.load(open(sys.argv[1]))["app_pages"])))' \
+    "$PLUGIN_SCREENSHOT_PLAN")" == 1 ]]; then
+    (
+        cd "$DATA_DIR"
+        # These public pages link to each other, and Wget records the transferred bytes.
+        uv run --no-cache --project "$REPO_DIR" archivebox add --depth=0 \
+            --plugins=title,wget,parse_html_urls --tag=documentation \
+            https://archivebox.io/ https://github.com/ArchiveBox/ArchiveBox \
+            https://docs.archivebox.io/latest/ 'https://news.ycombinator.com/item?id=41860909'
+    )
+fi
+
 if [[ -z "$PLUGIN_VIEWS" ]]; then
 SEED_STATE="$( (
     cd "$DATA_DIR"
@@ -593,6 +606,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
     wait_for_selector=""
     [[ "$expected_path" != /admin/domains/ ]] || wait_for_selector="#result_list"
+    [[ "$capture_mode" != wait-selector:* ]] || wait_for_selector="${capture_mode#wait-selector:}"
     export SCREENSHOT_WAIT_FOR_MODEL=""
     [[ "$capture_mode" != "model" ]] || export SCREENSHOT_WAIT_FOR_MODEL=1
     preview_wait_for_text=""
@@ -733,7 +747,8 @@ PY
             fi
         else
             screenshot_path="$capture_dir/screenshot.png"
-            if [[ "$profile" == "desktop" ]]; then
+            # Data-driven app pages such as Graph Explorer frame their content at startup.
+            if [[ "$profile" == "desktop" || "$capture_mode" == wait-selector:* ]]; then
                 mkdir -p \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
@@ -743,11 +758,12 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
+                [[ "$capture_mode" != wait-selector:* ]] || output_variants="[]"
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$screenshot_user_data_dir" \
-                    SCREENSHOT_WIDTH=1600 \
-                    SCREENSHOT_HEIGHT=1000 \
+                    SCREENSHOT_WIDTH="$_viewport_width" \
+                    SCREENSHOT_HEIGHT="$_viewport_height" \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_FULL_PAGE=0 \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \

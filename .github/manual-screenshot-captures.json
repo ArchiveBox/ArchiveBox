@@ -91,5 +91,25 @@
     "captured_at": "2026-11-19T22:55:37.187200+00:00",
     "source_revision": "67edf368090e013854e9f795ce8675a509209320",
     "source_path": "archivebox/templates/core/library_navigation.html"
+  },
+  "graph-explorer": {
+    "name": "Graph Explorer",
+    "url": "http://admin.archivebox.localhost:5859/admin/graph/",
+    "path": "/admin/graph/",
+    "ttfb_ms": 31,
+    "captured_at": "2026-11-25T07:36:10.306674+00:00",
+    "source_revision": "70d4143e89217e0ed78a3134d760253e82cf6448",
+    "plugin_revision": "74b52e2f35cc197a6d18ce53c283cab6e5bcb102",
+    "source_path": "archivebox/plugins/host.py"
+  },
+  "bandwidth": {
+    "name": "Bandwidth",
+    "url": "http://admin.archivebox.localhost:5859/admin/bandwidth/",
+    "path": "/admin/bandwidth/",
+    "ttfb_ms": 46,
+    "captured_at": "2026-11-25T07:36:10.160025+00:00",
+    "source_revision": "70d4143e89217e0ed78a3134d760253e82cf6448",
+    "plugin_revision": "74b52e2f35cc197a6d18ce53c283cab6e5bcb102",
+    "source_path": "archivebox/plugins/host.py"
   }
 }
