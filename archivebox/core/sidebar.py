@@ -237,7 +237,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None
                     "id": tag.pk,
                     "name": tag.name,
                     "filter_value": str(tag.pk),
-                    "rename_url": reverse("admin:core_tag_change", args=[tag.pk]) if not public else "",
+                    "rename_url": reverse("admin:core_tag_rename", args=[tag.pk]) if not public else "",
                     "delete_tag_url": reverse("admin:core_tag_delete", args=[tag.pk]) if not public else "",
                     "delete_snapshots_url": snapshot_admin_url + url + "#delete-snapshots"
                     if snapshot_admin_url and tag.has_snapshots

@@ -1,9 +1,16 @@
 {# Both controls inherit the same tag color variables and the sidebar owns the shared symbols. #}
 {% for entry in sidebar_entries %}
-<div class="library-entry" data-name="{{ entry.name }}" data-filter-value="{{ entry.filter_value }}"{% if not folder_readonly %}{% if entry.rename_url and perms.core.change_tag %} data-rename-url="{{ entry.rename_url }}"{% endif %}{% if entry.delete_tag_url and perms.core.delete_tag %} data-delete-tag-url="{{ entry.delete_tag_url }}"{% endif %}{% if entry.delete_snapshots_url and perms.core.delete_snapshot %} data-delete-snapshots-url="{{ entry.delete_snapshots_url }}"{% endif %}{% endif %}>
+<div class="library-entry" data-name="{{ entry.name }}" data-filter-value="{{ entry.filter_value }}"{% if not folder_readonly %}{% if entry.rename_url and perms.core.change_tag %} data-tag-rename-url="{{ entry.rename_url }}"{% endif %}{% if entry.delete_tag_url and perms.core.delete_tag %} data-delete-tag-url="{{ entry.delete_tag_url }}"{% endif %}{% if entry.delete_snapshots_url and perms.core.delete_snapshot %} data-delete-snapshots-url="{{ entry.delete_snapshots_url }}"{% endif %}{% endif %}>
   <a class="library-link" href="{{ entry.url }}"{% if entry.selected %} aria-current="page"{% endif %}{% if sidebar_mode == 'tags' %} style="{{ entry.style }}"{% endif %}>
-    {% if sidebar_mode == 'tags' %}<svg class="library-tag-icon" aria-hidden="true"><use href="#library-tag"/></svg><span class="library-tag-label">{{ entry.name }}</span>{% else %}{% include "core/domain_favicon.html" with favicon=entry.favicon favicon_fallbacks=entry.favicon_fallbacks library_symbols=True %}<span>{{ entry.name }}</span>{% endif %}
+    {% if sidebar_mode == 'tags' %}<svg class="library-tag-icon" aria-hidden="true"><use href="#library-tag"/></svg><span class="library-tag-label tag-inline-name">{{ entry.name }}</span>{% else %}{% include "core/domain_favicon.html" with favicon=entry.favicon favicon_fallbacks=entry.favicon_fallbacks library_symbols=True %}<span>{{ entry.name }}</span>{% endif %}
   </a>
+  {% if not folder_readonly and entry.rename_url and perms.core.change_tag %}
+  <span class="library-link library-tag-rename-field" style="{{ entry.style }}" data-tag-rename-field hidden>
+    <svg class="library-tag-icon" aria-hidden="true"><use href="#library-tag"/></svg>
+    <span class="library-tag-label"><input type="text" class="tag-inline-input" aria-label="Tag name" maxlength="100" size="12" autocomplete="off"></span>
+    <span class="tag-inline-error" role="alert" hidden></span>
+  </span>
+  {% endif %}
   {% include "core/sidebar_entry_menu_button.html" with entry_name=entry.name library_symbols=True %}
 
 </div>

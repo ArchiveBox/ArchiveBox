@@ -153,7 +153,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .folder-sidebar .icon-button:hover,.folder-sidebar .icon-button[aria-expanded=true]:not(.folder-toggle):not(.folder-mobile-toggle),.library-entry .folder-menu-toggle:is(:hover,[aria-expanded=true]){color:var(--archivebox-accent,#a51c50);background:color-mix(in srgb,var(--archivebox-accent,#a51c50) 8%,var(--body-bg,#fff))}
 .folder-sidebar button:focus-visible,.folder-sidebar a:focus-visible,.folder-sidebar-reopen:focus-visible,.library-entry .folder-menu-toggle:focus-visible{outline:2px solid var(--archivebox-accent,#a51c50);outline-offset:1px}
 .folder-sidebar .folder-mobile-toggle{margin-left:4px;width:var(--library-control-size);height:var(--library-control-size);flex-basis:var(--library-control-size);border:1px solid var(--border-color,#d0d5dd);border-radius:4px}
-.folder-sidebar a.library-link{display:flex;align-items:center;gap:8px;box-sizing:border-box;min-height:var(--library-row-height);min-width:0;margin:0;padding:6px 8px;border-radius:4px;color:var(--body-quiet-color,#667085);font-size:12px;font-weight:400;line-height:20px;text-decoration:none!important}
+.folder-sidebar :is(a.library-link,.library-tag-rename-field){display:flex;align-items:center;gap:8px;box-sizing:border-box;min-height:var(--library-row-height);min-width:0;margin:0;padding:6px 8px;border-radius:4px;color:var(--body-quiet-color,#667085);font-size:12px;font-weight:400;line-height:20px;text-decoration:none!important}
 .folder-sidebar a.library-link:hover{background:var(--darkened-bg,#f7f8fa);color:var(--body-fg,#1d2939)}
 .folder-sidebar a.library-link[aria-current=page],.folder-row:has(.folder-link[aria-current=page]){background:color-mix(in srgb,var(--archivebox-accent) 8%,var(--body-bg,#fff));color:var(--archivebox-accent);font-weight:600}
 .library-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -314,7 +314,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   .snapshot-library>.folder-sidebar>.folder-tree{min-height:0;flex-shrink:1}
   .snapshot-library:has(>.folder-sidebar.is-collapsed) .snapshot-list-exports{display:block}
   .folder-sidebar.is-collapsed>:not(.folder-section-heading){display:none!important}
-  .folder-sidebar a.library-link{font-size:13px}
+  .folder-sidebar :is(a.library-link,.library-tag-rename-field){font-size:13px}
   .model-snapshot.change-list .snapshot-library #result_list tbody td.field-tags_inline .tag-pills-inline{display:flex}
 }
 @media(pointer:coarse){
@@ -322,7 +322,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   /* Keep the wider grid toggle centered over the same checkbox column. */
   .model-snapshot .snapshot-library{--library-toolbar-inline:4px}
   .folder-sidebar .icon-button{width:36px;height:36px;flex-basis:36px}
-  .folder-row,.folder-sidebar a.library-link{min-height:36px}
+  .folder-row,.folder-sidebar :is(a.library-link,.library-tag-rename-field){min-height:36px}
   .folder-row-actions{opacity:1;pointer-events:auto}.folder-row:has(.folder-row-actions) .folder-link{padding-right:76px!important}.folder-row:not(:has(.folder-row-actions>.folder-new)) .folder-link{padding-right:40px!important}.folder-row .folder-count{display:none}
   .folder-menu :is([role=menuitem],[role=menuitemradio]),.library-import-row{min-height:40px}
 }
@@ -494,6 +494,11 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .library-entry:hover .folder-row-actions,.library-entry:focus-within .folder-row-actions,.library-entry:has(:popover-open) .folder-row-actions{opacity:1;pointer-events:auto;background:var(--body-bg,#fff)}
 .library-entry:is(:hover,:focus-within,:has(:popover-open))>.library-link{padding-right:28px}
 .library-tag-label{padding:1px 6px;border:1px solid var(--tag-border);border-radius:5px;background:var(--tag-bg);color:var(--tag-fg)}
+.library-entry>.library-link[hidden]{display:none}
+.library-tag-rename-field .library-tag-label{min-width:0}
+.library-tag-rename-field .library-tag-label input{field-sizing:content;box-sizing:border-box;width:auto;max-width:100%;min-width:4ch;min-height:0;margin:0;padding:0;border:0;box-shadow:none;background:transparent;color:inherit;font:inherit;vertical-align:top}
+.library-tag-rename-field .tag-inline-error{white-space:normal}
+.folder-menu [data-sidebar-tag-merge-form] .tag-editor-container{min-height:32px;padding:2px 8px;margin:0 6px;box-sizing:border-box}
 .library-entry .library-tag-icon{color:var(--tag-fg)}
 .library-domain-icon{position:relative;display:inline-flex;flex:0 0 16px;width:16px;height:16px}
 .library-domain-icon img{position:absolute;inset:0;width:16px;height:16px;object-fit:contain;background:var(--body-bg,#fff)}

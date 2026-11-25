@@ -4537,6 +4537,17 @@ body.model-tag.change-list #content #changelist #toolbar .changelist-toolbar-row
     gap: 6px;
     min-width: 0;
 }
+.tag-merge-action :is([data-tag-merge-open], [data-tag-merge-editor])[hidden] { display: none !important; }
+#content :is(.tag-merge-action, [data-sidebar-tag-merge-form]) input[data-tag-merge-input] {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    color: var(--body-fg);
+    font: inherit;
+}
 @media (max-width: 767px) {
     body.model-tag.change-list #content #changelist #toolbar .changelist-toolbar-row:has(.tag-list-create) {
         grid-template-columns: minmax(0, 1fr) auto;

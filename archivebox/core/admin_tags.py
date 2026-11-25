@@ -307,6 +307,7 @@ class TagAdmin(BaseModelAdmin):
                 can_create=self.has_add_permission(request),
                 selected_count=request.POST.get("confirm_tag_merge_count"),
                 snapshot_scope=snapshot_scope,
+                sidebar=request.POST.get("merge_from_sidebar") == "1",
             )
         except ValueError as err:
             self.message_user(request, str(err), level=messages.ERROR)

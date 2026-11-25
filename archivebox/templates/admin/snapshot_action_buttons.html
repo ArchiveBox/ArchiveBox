@@ -1,3 +1,4 @@
+{% load core_tags %}
           {% for value, label in action_choices %}
             {% if value == 'crawl_outlinks' or value == 'resnapshot_snapshot' or value == 'update_snapshots' or value == 'overwrite_snapshots' %}
               {% ifchanged 'rearchive' %}
@@ -30,7 +31,10 @@
                 <span class="button" aria-hidden="true">{% include "admin/action_icon.html" with action=value %}<span class="action-folder-label">Move</span><span aria-hidden="true">▾</span></span>
               </span>
             {% elif value == 'merge_tags' %}
-              <button type="button" class="button" data-tag-merge-open aria-haspopup="dialog" disabled>Merge Tags</button>
+              <span class="tag-merge-action" data-tag-merge-max="{{ cl.merge_max_tags }}">
+                <button type="button" class="button" data-tag-merge-open disabled>Merge Tags</button>
+                <span data-tag-merge-editor hidden>{% tag_merge_input "bulk_tag_merge" "Final tag name…" %}</span>
+              </span>
             {% elif value and value != 'add_tags' and value != 'remove_tags' %}
               <button type="button" name="{{ value }}" class="button" data-admin-action="{{ value }}">{% if value == 'delete_selected' or value == 'delete_tagged_snapshots' %}{% include "admin/action_icon.html" with action="delete_selected" %}{% if tagged_list %}{% if value == "delete_selected" %}Delete Tags{% else %}Delete Snapshots{% endif %}{% else %}Delete{% endif %}{% else %}{% include "admin/action_icon.html" with action=value %}{{ label }}{% endif %}</button>
             {% endif %}

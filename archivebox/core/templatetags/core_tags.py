@@ -1660,3 +1660,13 @@ def snapshot_result_list(context, cl):
         "snapshot_tag_column": cl.list_display.index("tags_inline"),
         "snapshot_row_boundary": context["defer_snapshot_rows"](remaining_rows),
     }
+
+
+@register.simple_tag
+def tag_merge_input(widget_id, placeholder):
+    from archivebox.core.widgets import TagEditorWidget
+
+    return TagEditorWidget(
+        attrs={"id": widget_id, "placeholder": placeholder, "aria-label": placeholder.rstrip("…")},
+        single_name=True,
+    ).render("merge_tag_name", None)

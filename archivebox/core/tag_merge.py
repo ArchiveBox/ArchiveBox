@@ -112,14 +112,17 @@ def _check_merge_dependencies(retired, target, final_name, memberships):
 
 
 @transaction.atomic
-def merge_selected_tags(queryset, name, *, user, can_create, selected_count, snapshot_scope):
+def merge_selected_tags(queryset, name, *, user, can_create, selected_count, snapshot_scope, sidebar=False):
     """Merge an admin-scoped selection, without firing per-snapshot capture actions."""
     name = normalize_tag_name(name)
     stored_name = unescape(name).strip()
     if not stored_name or len(stored_name) > Tag._meta.get_field("name").max_length:
         raise ValueError("Enter a tag name between 1 and 100 characters.")
     selected = list(queryset.order_by("pk").values_list("pk", "name").distinct()[: MERGE_MAX_TAGS + 1])
-    if not 2 <= len(selected) <= MERGE_MAX_TAGS:
+    if sidebar:
+        if len(selected) != 1:
+            raise ValueError("Select one tag to merge with another tag.")
+    elif not 2 <= len(selected) <= MERGE_MAX_TAGS:
         raise ValueError(f"Select between 2 and {MERGE_MAX_TAGS} tags to merge.")
     if str(len(selected)) != selected_count:
         raise ValueError("The tag selection changed. Review it before merging.")
@@ -130,6 +133,8 @@ def merge_selected_tags(queryset, name, *, user, can_create, selected_count, sna
         if len(matching) > 1:
             raise ValueError("Several tags use this name with different capitalization. Enter the exact target name.")
         target = matching[0] if matching else None
+    if sidebar and (target is None or target.pk == selected[0][0]):
+        raise ValueError("Choose a different existing tag to merge with.")
     if not target and not can_create:
         raise ValueError("You can merge into an existing tag, but you do not have permission to create a new tag.")
     # Lock the actual Tag rows in a stable order on PostgreSQL before reading

@@ -536,9 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         menu.dataset.entryValue = entry.dataset.filterValue;
         exports.forEach(link => {if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);});
         const rename = menu.querySelector('[data-entry-rename]');
-        if (rename) rename.href = entry.dataset.renameUrl;
-        const merge = menu.querySelector('[data-sidebar-tag-merge]');
-        if (merge) merge.dataset.sidebarTagMerge = entry.dataset.filterValue;
+        if (rename) rename.hidden = !entry.dataset.tagRenameUrl;
         for (const [action, key] of deleteActions) {
           if (!action) continue;
           const url = entry.dataset[key];
@@ -550,6 +548,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteSeparator) deleteSeparator.hidden = !deleteActions.some(([action]) => action && !action.hidden);
       }
       if (id === 'library-entry-menu') {
+        menu.querySelector('[data-entry-rename]')?.addEventListener('click', () => {
+          const entry = button.closest('[data-tag-rename-url]');
+          if (!entry) return;
+          menu.hidePopover();
+          entry.dispatchEvent(new CustomEvent('archivebox:tag-rename', {bubbles:true}));
+        });
         document.addEventListener('click', event => {
           const trigger = event.target.closest('[popovertarget="library-entry-menu"]');
           if (trigger) activate(trigger);
@@ -657,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }));
       menu.addEventListener('keydown', event => {
+        if (event.target.matches("[data-tag-merge-input]")) return;
         if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
           event.preventDefault();
           const visibleItems = items.filter(item => !item.hidden);

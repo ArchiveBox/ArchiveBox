@@ -1,7 +1,19 @@
+{% load core_tags %}
   <div id="library-entry-menu" class="folder-menu" popover role="menu" aria-label="Actions" data-entry-filter="{% if sidebar_mode == 'tags' %}tag{% else %}domain{% endif %}">
     {% if not folder_readonly and sidebar_mode == 'tags' %}
-    {% if perms.core.change_tag %}<a role="menuitem" data-entry-rename href="#"><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></svg><span class="folder-menu-label">Rename</span></a>{% endif %}
-    {% if perms.core.change_tag and perms.core.delete_tag and perms.core.change_snapshot %}<button type="button" role="menuitem" data-sidebar-tag-merge=""><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v4c0 4 7 4 7 8v6M19 3v4c0 4-7 4-7 8m-4 2 4 4 4-4"/></svg><span class="folder-menu-label">Merge...</span></button>{% endif %}
+    {% if perms.core.change_tag %}<button type="button" role="menuitem" data-entry-rename><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></svg><span class="folder-menu-label">Rename</span></button>{% endif %}
+    {% if perms.core.change_tag and perms.core.delete_tag and perms.core.change_snapshot %}<button type="button" role="menuitem" data-sidebar-tag-merge=""><svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v4c0 4 7 4 7 8v6M19 3v4c0 4-7 4-7 8m-4 2 4 4 4-4"/></svg><span class="folder-menu-label">Merge...</span></button>
+    <form method="post" action="{% url 'admin:core_tag_changelist' %}" data-sidebar-tag-merge-form hidden>
+      {% csrf_token %}
+      <input type="hidden" name="action" value="merge_tags">
+      <input type="hidden" name="index" value="0">
+      <input type="hidden" name="_selected_action" data-merge-source>
+      <input type="hidden" name="merge_from_sidebar" value="1">
+      <input type="hidden" name="confirm_tag_merge" value="1">
+      <input type="hidden" name="confirm_tag_merge_count" value="1">
+      {% tag_merge_input "sidebar_tag_merge" "Merge with…" %}
+    </form>
+    {% endif %}
     <hr>{% endif %}
     {% include "core/snapshot_export_links.html" with export_menu=True %}
     {% if not folder_readonly %}{% if perms.core.delete_snapshot or sidebar_mode == 'tags' and perms.core.delete_tag %}

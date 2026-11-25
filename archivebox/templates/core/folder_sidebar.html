@@ -35,6 +35,9 @@
 </nav>
 
 {% if not folder_readonly and sidebar_mode == 'tags' and perms.core.change_tag and perms.core.delete_tag and perms.core.change_snapshot %}
-{% include "core/tag_merge_dialog.html" with sidebar_merge=True merge_max_tags=2 %}
 <script src="{% static 'admin-tag-merge.js' %}" defer></script>
+{% endif %}
+
+{% if not folder_readonly and sidebar_mode == 'tags' and perms.core.change_tag %}
+<script src="{% static 'admin-tag-rename.js' %}" defer></script>
 {% endif %}

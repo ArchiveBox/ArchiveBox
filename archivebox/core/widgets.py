@@ -75,9 +75,10 @@ class TagEditorWidget(forms.Widget):
         css = {"all": []}
         js = []
 
-    def __init__(self, attrs=None, snapshot_id=None, *, create_redirect=None):
+    def __init__(self, attrs=None, snapshot_id=None, *, create_redirect=None, single_name=False):
         self.snapshot_id = snapshot_id
         self.create_redirect = create_redirect
+        self.single_name = single_name
         super().__init__(attrs)
 
     def _escape(self, value):
@@ -158,6 +159,19 @@ class TagEditorWidget(forms.Widget):
                 </span>
             '''
 
+        if self.single_name:
+            name_attrs = f'name="{self._escape(name)}" maxlength="100" data-tag-merge-input'
+        else:
+            name_attrs = f'''onkeydown="handleTagKeydown_{widget_id}(event)"
+                onkeypress="if({str(not self.create_redirect).lower()} && (event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar')){{event.preventDefault(); event.stopPropagation();}}"'''
+        input_html = f'''<input type="text" id="{widget_id}_input" class="tag-inline-input" list="{widget_id}_datalist"
+                 placeholder="{self._escape(attrs.get("placeholder", "Add tag..."))}"
+                 aria-label="{self._escape(attrs.get("aria-label", "Add tag"))}" autocomplete="off"
+                 data-tag-suggestions="/api/v1/core/tags/autocomplete/" {name_attrs}>
+                 <datalist id="{widget_id}_datalist"></datalist>'''
+        if self.single_name:
+            return mark_safe(f'<span class="tag-editor-container">{input_html}</span>')
+
         tags_json = self._json_for_inline_script(tags)
         create_redirect = self._json_for_inline_script(self.create_redirect)
 
@@ -167,18 +181,7 @@ class TagEditorWidget(forms.Widget):
             <div id="{widget_id}_pills" class="tag-pills">
                 {pills_html}
             </div>
-            <input type="text"
-                   id="{widget_id}_input"
-                   class="tag-inline-input"
-                   list="{widget_id}_datalist"
-                   placeholder="{self._escape(attrs.get("placeholder", "Add tag..."))}"
-                   aria-label="{self._escape(attrs.get("aria-label", "Add tag"))}"
-                   autocomplete="off"
-                   onkeydown="handleTagKeydown_{widget_id}(event)"
-                   onkeypress="if({str(not self.create_redirect).lower()} && (event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar')){{event.preventDefault(); event.stopPropagation();}}"
-                   data-tag-suggestions="/api/v1/core/tags/autocomplete/"
-            >
-            <datalist id="{widget_id}_datalist"></datalist>
+            {input_html}
             <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(",".join(tags))}">
         </div>
 

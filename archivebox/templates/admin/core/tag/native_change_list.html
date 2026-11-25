@@ -5,9 +5,3 @@
   {{ block.super }}
   {% if cl.merge_max_tags %}<script src="{% static 'admin-tag-merge.js' %}" defer></script>{% endif %}
 {% endblock %}
-{% block content %}
-  {{ block.super }}
-  {% if cl.merge_max_tags %}
-  {% include "core/tag_merge_dialog.html" with merge_max_tags=cl.merge_max_tags %}
-  {% endif %}
-{% endblock %}

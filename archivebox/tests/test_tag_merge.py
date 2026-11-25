@@ -137,7 +137,7 @@ def test_merge_rejects_select_across_even_when_the_selected_count_matches(admin_
 
 
 @pytest.mark.django_db(transaction=True)
-def test_merge_modal_cancel_and_confirm_from_real_tags_table(live_server, browser_runtime, admin_user, merge_records):
+def test_inline_merge_cancel_and_confirm_from_real_tags_table(live_server, browser_runtime, admin_user, merge_records):
     from playwright.sync_api import expect, sync_playwright
 
     from archivebox.machine.models import Machine
@@ -159,15 +159,21 @@ def test_merge_modal_cancel_and_confirm_from_real_tags_table(live_server, browse
         page.get_by_role("row").filter(has_text=second.name).get_by_role("checkbox").check()
         expect(opener).to_be_enabled()
         opener.click()
-        modal = page.get_by_role("dialog", name="Merge Tags")
-        expect(modal).to_be_visible()
-        expect(modal.locator("#tag-merge-count")).to_have_text("2")
-        modal.get_by_role("button", name="Cancel").click()
-        expect(modal).not_to_be_visible()
-        expect(page.get_by_role("row").filter(has_text=first.name)).to_be_visible()
+        editor = page.get_by_role("combobox", name="Final tag name")
+        expect(editor).to_be_focused()
+        expect(opener).to_be_hidden()
+        editor.fill("not submitting")
+        editor.press("Escape")
+        expect(opener).to_be_focused()
+        expect(editor).to_be_hidden()
+        expect(page.get_by_role("row").filter(has_text=first.name).get_by_role("checkbox")).to_be_checked()
+        expect(page.get_by_role("row").filter(has_text=second.name).get_by_role("checkbox")).to_be_checked()
         opener.click()
-        modal.get_by_label("Final tag name").fill(target.name)
-        modal.get_by_role("button", name="Merge Tags", exact=True).click()
+        with page.expect_response(lambda response: "/tags/autocomplete/" in response.url) as suggestions:
+            editor.fill(target.name)
+        assert suggestions.value.ok
+        expect(page.locator("#bulk_tag_merge_datalist option").first).to_have_attribute("value", target.name)
+        editor.press("Enter")
         expect(page.get_by_text(f'Merged into "{target.name}": retired 2 tag(s); retained 3 Snapshot(s).')).to_be_visible()
         browser.close()
     assert SnapshotTag.objects.filter(tag=target).count() == 3
