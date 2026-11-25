@@ -851,17 +851,13 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
     pointer-events: auto;
 }
 
-#result_list .snapshot-original-url {
+#result_list .snapshot-original-url:any-link {
     font-size: 11.5px;
     display: flex;
     align-items: center;
     gap: 5px;
     color: #596674;
     text-decoration: none;
-}
-
-#result_list .snapshot-original-url:hover {
-    text-decoration: underline;
 }
 
 #result_list .snapshot-original-url .snapshot-url-domain {
@@ -965,11 +961,6 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 #result_list tbody .field-created_at_display a,
 #result_list tbody .field-title_str a {
     text-decoration: none;
-}
-
-#result_list tbody .field-created_at_display a:hover,
-#result_list tbody .field-title_str a:hover {
-    text-decoration: underline;
 }
 
 .snapshot-created-at {
@@ -2712,10 +2703,6 @@ tbody .output-link:hover {opacity: 1;}
 
 #content .cards :is(.card-title a, .card-url, .card-date) {
     text-decoration: none;
-}
-
-#content .cards :is(.card-title a, .card-url, .card-date):hover {
-    text-decoration: underline;
 }
 
 .model-snapshot.change-list .cards .card-tags:has(.library-tags-expanded),

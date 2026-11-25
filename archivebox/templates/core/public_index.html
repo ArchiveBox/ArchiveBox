@@ -204,7 +204,7 @@
         white-space: nowrap;
     }
 
-    .snapshot-time a {
+    .snapshot-time a:any-link {
         display: inline-flex;
         flex-direction: column;
         color: #334155;
@@ -304,7 +304,7 @@
     #content .snapshot-url .link-favicon-empty { display: none; }
     .snapshot-url-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-    .snapshot-title {
+    .snapshot-title:any-link {
         display: block;
         min-width: 0;
         overflow: hidden;
@@ -317,7 +317,7 @@
         text-decoration: none;
     }
 
-    .snapshot-url {
+    .snapshot-url:any-link {
         display: flex;
         align-items: center;
         gap: 5px;
@@ -332,11 +332,6 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         text-decoration: none;
-    }
-
-    .snapshot-url:hover,
-    .snapshot-title:hover {
-        text-decoration: underline;
     }
 
     .snapshot-url .snapshot-url-domain {

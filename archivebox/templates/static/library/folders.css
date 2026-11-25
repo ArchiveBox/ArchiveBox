@@ -1,4 +1,58 @@
 .snapshot-library{--archivebox-accent:#a51c50;--library-control-size:32px;--library-row-height:32px;--folder-indent:20px;--library-toolbar-height:44px;display:grid;grid-template-columns:244px minmax(0,1fr);gap:0;clear:both;padding:0;box-sizing:border-box;align-items:stretch}
+.snapshot-library :is(
+  #result_list .field-title_str > a,
+  #result_list .field-created_at_display > a,
+  .cards .card-title > a,
+  .cards a.card-date,
+  #table-bookmarks .snapshot-title,
+  #table-bookmarks .snapshot-time > a
+):any-link {
+  text-decoration: none;
+}
+.snapshot-library #result_list .field-created_at_display > a:any-link {
+  color: var(--body-fg, #334155);
+}
+.snapshot-library :is(
+  #result_list .snapshot-original-url > code,
+  .cards .card-url > code,
+  #table-bookmarks .snapshot-url > .snapshot-url-text
+) {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+@media (hover: hover) {
+  .snapshot-library :is(
+    #result_list .snapshot-original-url:hover > code,
+    .cards .card-url:hover > code,
+    #table-bookmarks .snapshot-url:hover > .snapshot-url-text
+  ) {
+    text-decoration-color: var(--snapshot-url-underline, color-mix(in srgb, currentColor 45%, transparent));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .snapshot-library :is(
+    #result_list .snapshot-original-url > code,
+    .cards .card-url > code,
+    #table-bookmarks .snapshot-url > .snapshot-url-text
+  ) {
+    transition: text-decoration-color 70ms ease-in-out;
+  }
+}
+.snapshot-library :is(
+  #result_list .field-title_str > a,
+  #result_list .field-created_at_display > a,
+  #result_list .snapshot-original-url,
+  .cards .card-title > a,
+  .cards a.card-date,
+  .cards a.card-url,
+  #table-bookmarks .snapshot-title,
+  #table-bookmarks .snapshot-time > a,
+  #table-bookmarks .snapshot-url
+):focus-visible {
+  outline: 2px solid var(--archivebox-accent, #a51c50);
+  outline-offset: -2px;
+}
 /* The sidebar restores its saved state immediately before #content-main. */
 body.model-snapshot.change-list .snapshot-library:not(:has(> #content-main)) > #folder-sidebar { visibility: hidden; }
 /* Keep titles and tags in their final columns from their first paint. While
