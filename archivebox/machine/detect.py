@@ -1,7 +1,7 @@
 import os
-import json
 import socket
 import urllib.request
+from ipaddress import IPv4Address, ip_address
 from typing import Any
 from pathlib import Path
 import subprocess
@@ -223,27 +223,25 @@ def get_vm_info():
 
 
 def get_public_ip() -> str:
-    def fetch_url(url: str) -> str:
-        with urllib.request.urlopen(url, timeout=5) as response:
-            return response.read().decode("utf-8").strip()
+    try:
+        # OpenDNS returns the public source address of the direct DNS query.
+        result = _run_abxpkg_host_binary(
+            "dig", "-4", "+short", "+time=2", "+tries=1", "myip.opendns.com", "@resolver1.opendns.com",
+        )
+        address = IPv4Address(result.stdout.strip())
+        if address.is_global:
+            return str(address)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+        pass
 
-    def fetch_dns(pubip_lookup_host: str) -> str:
-        return socket.gethostbyname(pubip_lookup_host).strip()
-
-    methods = [
-        (lambda: fetch_url("https://ipinfo.io/ip"), lambda r: r),
-        (lambda: fetch_url("https://api.ipify.org?format=json"), lambda r: json.loads(r)["ip"]),
-        (lambda: fetch_dns("myip.opendns.com"), lambda r: r),
-        (lambda: fetch_url("http://whatismyip.akamai.com/"), lambda r: r),  # try HTTP as final fallback in case of TLS/system time errors
-    ]
-
-    for fetch, parse in methods:
-        try:
-            result = parse(fetch())
-            if result:
-                return result
-        except Exception:
-            continue
+    try:
+        # Restrictive networks can block direct DNS while allowing HTTPS.
+        with urllib.request.urlopen("https://whatismyip.akamai.com/", timeout=5) as response:
+            address = ip_address(response.read(128).decode("ascii").strip())
+        if address.is_global:
+            return str(address)
+    except (OSError, ValueError):
+        pass
 
     return "127.0.0.1"
 
