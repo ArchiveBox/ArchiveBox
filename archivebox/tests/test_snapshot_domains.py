@@ -229,7 +229,8 @@ def test_domain_counts_are_exact_on_first_page_and_after_writes(admin_client, ad
             assert cl.display_result_count == cl.result_count == cl.paginator.count == expected
             assert len(cl.result_list) == (50 if page_number == 1 else expected - 50)
             count_sql = [query["sql"] for query in queries if "COUNT(*)" in query["sql"] and '"reversed_domain"' in query["sql"]]
-            assert len(count_sql) == 1
+            assert len(count_sql) == 1, count_sql
+            assert cl.search_placeholder == "Search in 🌐 claude.ai..."
             if connection.vendor == "sqlite":
                 with connection.cursor() as cursor:
                     cursor.execute("EXPLAIN QUERY PLAN " + count_sql[0])

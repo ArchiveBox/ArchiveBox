@@ -188,6 +188,9 @@ def test_plain_scope_counts_use_existing_membership_indexes(admin_client, crawl,
     )
     params = {"folder": "unfiled"} if scope == "unfiled" else {scope: str(selected.pk)}
     params["sidebar"] = "tags" if is_tag else "folders"
+    if is_tag:
+        # Isolate paginator SQL from the separate count-ranked sidebar.
+        params["sidebar_sort"] = "name"
     with CaptureQueriesContext(connection) as queries:
         response = admin_client.get(reverse("admin:core_snapshot_changelist"), params, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200

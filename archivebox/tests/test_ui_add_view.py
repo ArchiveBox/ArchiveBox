@@ -1188,6 +1188,7 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
             )
         }
         expected -= SYSTEM_PLUGIN_NAMES
+        expected.discard("base")
         expected.add("crawl_defaults")
         expected_keys = {
             key
@@ -1202,6 +1203,7 @@ def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_cl
         }
         core_cards = [plugin for group in form.plugin_groups for plugin in group["plugins"] if plugin.get("is_core")]
         assert [plugin["name"] for plugin in core_cards] == ["crawl_defaults"]
+        expected_keys |= {"TIMEOUT", "MEMORY_LIMIT", "MEMORY_MIN_FREE", "USER_AGENT"}
         assert {field["key"] for field in core_cards[0]["config_fields"]} == expected_keys
     assert set(names) == expected
     assert len(names) == len(expected)

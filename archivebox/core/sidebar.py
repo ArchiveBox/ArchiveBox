@@ -109,7 +109,7 @@ def sidebar_search_placeholder(request, *, entries=(), folder_tree=None, public=
             else:
                 icon = "🌐"
                 if name is None and "," not in value:
-                    Snapshot.domain_q(value)
+                    Snapshot.objects.domain_q(value)
                     name = value.strip().removeprefix("*.")
     except (ValueError, ValidationError):
         return fallback
