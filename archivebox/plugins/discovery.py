@@ -387,6 +387,39 @@ def get_plugin_apps() -> dict[str, ModuleType]:
     return {name: app for name in get_plugin_catalog() if (app := get_plugin_app(name)) is not None}
 
 
+def get_snapshot_detail_cards(request, snapshot_id):
+    """Collect non-file snapshot cards from installed application plugins."""
+    from urllib.parse import urlsplit
+
+    from archivebox.core.routes_util import build_admin_url
+    from archivebox.plugins.host import host
+    from archivebox.plugins.output_groups import OUTPUT_GROUPS
+
+    groups = {group for group, _ in OUTPUT_GROUPS}
+    cards = []
+    for name, app in get_plugin_apps().items():
+        render_card = getattr(app, "snapshot_detail_card", None)
+        if not callable(render_card) or not (card := render_card(host, request, snapshot_id=str(snapshot_id))):
+            continue
+        path = card["path"]
+        parts = urlsplit(path)
+        if parts.scheme or parts.netloc or not parts.path.startswith("/admin/") or "\\" in path:
+            raise ValueError(f"{name}: snapshot_detail_card path must be in the admin")
+        group = card.get("output_group", "other")
+        if group not in groups:
+            raise ValueError(f"{name}: snapshot_detail_card has unknown output group")
+        cards.append(
+            {
+                "name": name,
+                "title": card.get("title") or name,
+                "output_group": group,
+                "url": build_admin_url(path, request=request),
+                "thumbnail": card.get("thumbnail"),
+            },
+        )
+    return cards
+
+
 def register_plugin_eventbus(bus, config) -> None:
     """Offer each application plugin the bus; plugins own registration policy."""
     for app in get_plugin_apps().values():

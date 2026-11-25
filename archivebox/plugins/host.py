@@ -446,6 +446,115 @@ class ArchiveBoxHost:
             )
         return {"records": records, "cursor": str(captures[limit - 1].pk) if len(captures) > limit else None}
 
+    def snapshot_relationships(self, request, *, snapshot_id, limit=2):
+        """Read a small, permission-scoped set of recorded crawl relationships."""
+        from archivebox.core.models import Snapshot
+        from archivebox.core.permissions import PERMISSIONS_PUBLIC, can_view_snapshot, public_snapshots_queryset
+
+        empty = {"root": None, "parent": None, "children": []}
+        try:
+            snapshot = (
+                Snapshot.objects.only("id", "url", "title", "permissions", "parent_snapshot_id").filter(pk=UUID(str(snapshot_id))).first()
+            )
+        except ValueError:
+            return empty
+        if snapshot is None or not can_view_snapshot(request, snapshot):
+            return empty
+
+        user = self.authenticate(request)
+        related = Snapshot.objects.all()
+        # A public detail page must not serialize private relationships, even
+        # when requested by an admin. Public-origin presentation cookies are
+        # never identity or permission to disclose a neighboring capture.
+        if snapshot.permissions == PERMISSIONS_PUBLIC or not (user and user.is_active and user.is_superuser):
+            related = public_snapshots_queryset(related)
+        records = related.values("id", "url", "title")
+        parent = records.filter(pk=snapshot.parent_snapshot_id).first() if snapshot.parent_snapshot_id else None
+        # The parent FK index can stop at the requested few children without sorting a high-fanout crawl.
+        children = records.filter(parent_snapshot_id=snapshot.pk).order_by()[: min(max(limit, 0), 16)]
+
+        def record(row):
+            return {**row, "id": str(row["id"])} if row else None
+
+        return {
+            "root": {"id": str(snapshot.pk), "url": snapshot.url, "title": snapshot.title},
+            "parent": record(parent),
+            "children": [record(row) for row in children],
+        }
+
+    def snapshot_neighborhood_records(self, request, *, ids=(), urls=()):
+        """Resolve an admin's small set of exact capture IDs and link URLs."""
+        from functools import partial
+
+        from archivebox.core.models import Snapshot
+
+        self._require_collection_admin(request)
+        limit = 16
+        queryset = Snapshot.objects.select_related("crawl__created_by", "parent_snapshot").only(
+            "id",
+            "url",
+            "title",
+            "status",
+            "output_size",
+            "downloaded_at",
+            "created_at",
+            "bookmarked_at",
+            "fs_version",
+            "timestamp",
+            "crawl_id",
+            "crawl__created_by__username",
+            "parent_snapshot_id",
+            "parent_snapshot__url",
+        )
+        requested_ids = tuple(dict.fromkeys(UUID(str(pk)) for pk in ids[:limit]))
+        by_id = {snapshot.pk: snapshot for snapshot in queryset.filter(pk__in=requested_ids)}
+        captures = [by_id[pk] for pk in requested_ids if pk in by_id]
+        for url in dict.fromkeys(urls[:limit]):
+            if len(captures) == limit:
+                break
+            # Limit at the indexed exact URL lookup; never take URLs outside
+            # the caller's input or enumerate a global URL/neighborhood index.
+            if snapshot := queryset.filter(url=url).order_by("-created_at", "-pk").first():
+                if snapshot.pk not in by_id:
+                    captures.append(snapshot)
+                    by_id[snapshot.pk] = snapshot
+
+        records = []
+        for snapshot in captures:
+            directories = snapshot.storage_path_candidates()
+            parent = snapshot.parent_snapshot
+            parents = {str(parent.pk): parent.url} if parent else {}
+            if snapshot.url:
+                related_parents = (
+                    Snapshot.objects.filter(url=snapshot.url, parent_snapshot_id__isnull=False)
+                    .order_by("-pk")
+                    .values_list("parent_snapshot_id", "parent_snapshot__url")[:8]
+                )
+                for parent_id, parent_url in related_parents:
+                    parents.setdefault(str(parent_id), parent_url)
+                    if len(parents) >= 2:
+                        break
+            children = Snapshot.objects.filter(parent_snapshot_id=snapshot.pk).order_by().values_list("pk", "url")[:8]
+            records.append(
+                {
+                    "id": str(snapshot.pk),
+                    "url": snapshot.url,
+                    "title": snapshot.title or "",
+                    "status": snapshot.status,
+                    "size": snapshot.output_size or 0,
+                    "created": snapshot.created_at.isoformat(),
+                    "downloaded": snapshot.downloaded_at.isoformat() if snapshot.downloaded_at else None,
+                    "output_dir": str(directories[0]),
+                    "paths": [],
+                    "saved_url_outputs": partial(self._saved_url_outputs, directories),
+                    "parent_id": str(parent.pk) if parent else None,
+                    "parent_url": parent.url if parent else None,
+                    "parents": [{"id": key, "url": value} for key, value in parents.items()],
+                    "children": [{"id": str(pk), "url": url} for pk, url in children],
+                },
+            )
+        return records
+
     def resolve_snapshot_urls(self, request, urls):
         """Resolve a bounded set of saved link targets without scanning captures."""
         from archivebox.core.domain_grouping import domain_key_from_url, group_domain_key

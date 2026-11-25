@@ -50,6 +50,21 @@
                         </div>
                         {% endwith %}
                     {% endfor %}
+                    {% for card in derived_snapshot_cards %}
+                    <div class="thumb-card" data-plugin-name="{{card.name|plugin_name}}" data-output-group="{{card.output_group}}" data-output-size="0">
+                        <div class="thumb-body">
+                            <a href="{{card.url}}" target="_blank" rel="noopener">
+                                <h4><span class="card-title-icon" aria-hidden="true">{% plugin_icon card.name %}</span> {{card.title}}</h4>
+                            </a>
+                        </div>
+                        {% if card.thumbnail %}
+                        <div class="card-img-top thumbnail-wrapper">
+                            <a class="thumbnail-click-overlay" href="{{card.url}}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true"></a>
+                            {{card.thumbnail}}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                     {% if loose_items or not STATIC_EXPORT %}
                     <div class="thumb-card" data-other-files data-preview-url="{% snapshot_files_url snapshot %}" data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
                             <div class="thumb-body">

@@ -4782,7 +4782,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.core.tag_colors import tag_color_style
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
-        from archivebox.plugins.discovery import get_snapshot_role_names
+        from archivebox.plugins.discovery import get_snapshot_detail_cards, get_snapshot_role_names
         from archivebox.plugins.output_groups import OUTPUT_GROUPS, order_snapshot_outputs, plugin_card_is_hidden, plugin_output_sizes
 
         runtime_config = get_request_config(request) if request is not None else get_config()
@@ -4999,6 +4999,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
             "warc_path": warc_path,
             "archiveresults": ordered_outputs,
+            "derived_snapshot_cards": get_snapshot_detail_cards(request, self.pk)
+            if request is not None and static_export_dir is None and not discover_files and runtime_config.CONTROL_PLANE_ENABLED
+            else (),
             "output_dir": str(static_export_dir or self.output_dir),
             "output_files": output_files,
             "primary_preview_plugins": get_snapshot_role_names("primary_preview"),
