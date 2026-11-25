@@ -90,7 +90,7 @@ jobs:
         if: >-
           github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev' &&
           (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@23bfba5982be62bcaf0ea11c69ff29be1a5d6fa5
         with:
           proxy: ${{ vars.SQUID_TAILNET_URL }}
           ca: ${{ vars.SQUID_CA }}
@@ -342,7 +342,7 @@ jobs:
 
       - name: Set up Squid
         if: github.repository == 'ArchiveBox/ArchiveBox'
-        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@23bfba5982be62bcaf0ea11c69ff29be1a5d6fa5
         with:
           proxy: ${{ vars.SQUID_TAILNET_URL }}
           ca: ${{ vars.SQUID_CA }}
