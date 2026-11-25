@@ -4,11 +4,16 @@ from collections import defaultdict
 
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.db.models.functions import Lower
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 
 from archivebox.importers.catalog import get_importer_providers, get_importers
 from archivebox.importers.models import ImporterSource
+from archivebox.plugins.discovery import USER_PLUGINS_DIR, get_plugin_catalog
 from archivebox.uuid_compat import compact_uuid
+
+
+CUSTOM_AI_FAMILY = "importer-family:custom-ai"
+CUSTOM_AI_LABEL = "Custom with AI"
 
 
 def importer_sidebar_allowed(request):
@@ -27,11 +32,30 @@ def _sidebar_catalog(request):
     # Reuse discovery for that response without keeping stale manifests across requests.
     if not hasattr(request, "_library_importer_catalog"):
         definitions = get_importers()
-        providers = sorted(
-            get_importer_providers(definitions),
-            key=lambda provider: (provider["name"].casefold(), _provider_key(provider)),
+        providers = {}
+        try:
+            create_url = reverse("opencode-create-importer")
+        except NoReverseMatch:
+            create_url = ""
+        catalog = get_plugin_catalog()
+        custom_dir = USER_PLUGINS_DIR.resolve()
+        # OpenCode creates manifest-backed plugins here; sources have no
+        # separate authoring-method flag, so use their existing plugin origin.
+        custom_pairs = {pair for pair in definitions if catalog[pair[0]].path.resolve().is_relative_to(custom_dir)}
+        ordinary = {pair: definition for pair, definition in definitions.items() if pair not in custom_pairs}
+        if create_url or custom_pairs:
+            providers[CUSTOM_AI_FAMILY] = {
+                "name": CUSTOM_AI_LABEL,
+                "feeds": [definition for pair, definition in definitions.items() if pair in custom_pairs],
+                "create_url": create_url,
+            }
+        providers.update(
+            (_provider_key(provider), provider)
+            for provider in sorted(
+                get_importer_providers(ordinary), key=lambda provider: (provider["name"].casefold(), _provider_key(provider))
+            )
         )
-        request._library_importer_catalog = definitions, {_provider_key(provider): provider for provider in providers}
+        request._library_importer_catalog = definitions, providers
     return request._library_importer_catalog
 
 
@@ -69,6 +93,19 @@ def _matches_filter(providers, term):
 
 
 def _family_row(provider, *, expand=False):
+    if "create_url" in provider:
+        create_url = provider["create_url"]
+        return {
+            "id": CUSTOM_AI_FAMILY,
+            "name": CUSTOM_AI_LABEL,
+            "scope": "",
+            "filter_value": "",
+            "parent_id": "",
+            "has_children": True,
+            "expand": expand,
+            "icon_symbol": "library-sparkle",
+            "actions": [{"label": "Add importer", "url": create_url, "method": "post"}] if create_url else [],
+        }
     definition = provider["definition"]
     if len(provider["feeds"]) == 1:
         add_url = _feed_action(definition)["url"]
@@ -208,8 +245,14 @@ def importer_add_actions(request):
     if not importer_sidebar_allowed(request):
         return []
     _, providers = _sidebar_catalog(request)
-    return [
-        {**_feed_action(definition), "family": provider["name"]}
-        for provider in providers.values()
-        for definition in sorted(provider["feeds"], key=lambda feed: (feed.title.casefold(), feed.plugin, feed.feed))
-    ]
+    actions = []
+    for provider in providers.values():
+        if "create_url" in provider:
+            if create_url := provider["create_url"]:
+                actions.append({"label": CUSTOM_AI_LABEL, "url": create_url, "method": "post", "icon_symbol": "library-sparkle"})
+            continue
+        actions.extend(
+            {**_feed_action(definition), "family": provider["name"]}
+            for definition in sorted(provider["feeds"], key=lambda feed: (feed.title.casefold(), feed.plugin, feed.feed))
+        )
+    return actions

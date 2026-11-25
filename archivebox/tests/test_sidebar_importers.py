@@ -5,7 +5,7 @@ from urllib.parse import urldefrag
 import pytest
 from django.urls import resolve, reverse
 
-from archivebox.core.sidebar_importers import importer_add_actions, importer_entries_page, importer_sidebar_allowed
+from archivebox.core.sidebar_importers import CUSTOM_AI_FAMILY, importer_add_actions, importer_entries_page, importer_sidebar_allowed
 from archivebox.importers.catalog import get_importer_providers, get_importers
 from archivebox.importers.models import ImporterSource
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -37,7 +37,10 @@ def test_catalog_families_include_empty_groups_without_reading_sources(request_f
     req = request_for()
     with django_assert_num_queries(0):
         rows, cursor = importer_entries_page(req, term="", parent="", cursor=None, limit=1)
+        first_rows, cursor = importer_entries_page(req, term="", parent="", cursor=cursor, limit=1)
         second_rows, _ = importer_entries_page(req, term="", parent="", cursor=cursor, limit=1)
+    assert [row["name"] for row in rows] == ["Custom with AI"]
+    rows = first_rows
     assert [row["name"] for row in rows] == [first["name"]]
     assert [row["name"] for row in second_rows] == [second["name"]]
     assert rows[0]["has_children"] and rows[0]["scope"] == ""
@@ -50,7 +53,9 @@ def test_catalog_families_include_empty_groups_without_reading_sources(request_f
 
 @pytest.mark.django_db
 def test_family_add_links_open_the_correct_importer_options(request_for, providers, admin_client):
-    rows, _ = importer_entries_page(request_for(), term="", parent="", cursor=None, limit=len(providers))
+    rows, _ = importer_entries_page(request_for(), term="", parent="", cursor=None, limit=len(providers) + 1)
+    assert rows[0]["id"] == CUSTOM_AI_FAMILY
+    rows = rows[1:]
     assert len(rows) == len(providers)
     index_url = reverse("importers:index")
     index = admin_client.get(index_url, HTTP_HOST=ADMIN_TEST_HOST)
@@ -82,7 +87,7 @@ def test_importer_siblings_have_stable_bounded_name_id_pages(request_for, admin_
     _create(admin_user, provider, "Before everything", enabled=False)
     req = request_for()
     families, _ = importer_entries_page(req, term="", parent="", cursor=None, limit=10)
-    parent = families[0]["id"]
+    parent = families[1]["id"]
 
     with django_assert_num_queries(1) as queries:
         first, cursor = importer_entries_page(req, term="", parent=parent, cursor=None, limit=2)
@@ -115,7 +120,7 @@ def test_importer_search_and_offpage_selection_reveal_bounded_ancestors(
 
     with django_assert_num_queries(1):
         rows, root_cursor = importer_entries_page(req, term="", parent="", cursor=None, limit=1)
-    assert [row["name"] for row in rows] == [first["name"], second["name"], b.name]
+    assert [row["name"] for row in rows] == ["Custom with AI", second["name"], b.name]
     assert rows[1]["expand"] and rows[2]["parent_id"] == rows[1]["id"]
     assert root_cursor == [rows[0]["id"]]
     with django_assert_num_queries(1):
@@ -145,6 +150,8 @@ def test_catalog_add_options_and_non_superuser_privacy(request_for, providers, d
         actions = importer_add_actions(req)
         importer_entries_page(req, term="", parent="", cursor=None, limit=10)
     catalog_read.assert_called_once_with()
+    ai, *actions = actions
+    assert (ai["label"], ai["method"], ai["url"]) == ("Custom with AI", "post", reverse("opencode-create-importer"))
     assert [(action["family"], action["label"], action["url"]) for action in actions] == [
         (provider["name"], feed.title, reverse("importers:new", args=(feed.plugin, feed.feed)))
         for provider in providers
@@ -160,3 +167,52 @@ def test_catalog_add_options_and_non_superuser_privacy(request_for, providers, d
             assert importer_entries_page(req, term="anything", parent="", cursor=None, limit=1) == ([], None)
         if property_name:
             setattr(user, property_name, True)
+
+
+@pytest.mark.django_db
+def test_custom_importer_sources_keep_native_provenance_and_creation_workflow(request_for, admin_client, admin_user, monkeypatch, tmp_path):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    from django.urls import NoReverseMatch
+    from lxml import html
+
+    from archivebox.core import sidebar_importers
+
+    real_catalog = sidebar_importers.get_plugin_catalog()
+    definitions = get_importers()
+    builtin = next(iter(definitions.values()))
+    custom = replace(builtin, plugin="local_custom", feed="updates", provider="Whatever its author named it")
+    definitions[custom.plugin, custom.feed] = custom
+    monkeypatch.setattr(sidebar_importers, "get_importers", lambda: definitions)
+    monkeypatch.setattr(sidebar_importers, "USER_PLUGINS_DIR", tmp_path)
+    monkeypatch.setattr(
+        sidebar_importers,
+        "get_plugin_catalog",
+        lambda: {**dict(real_catalog), custom.plugin: SimpleNamespace(path=tmp_path / custom.plugin)},
+    )
+    source = _create(admin_user, {"definition": custom}, "Custom feed")
+    root = reverse("admin:core_snapshot_changelist")
+    response = admin_client.get(root, {"sidebar": "importers"}, HTTP_HOST=ADMIN_TEST_HOST)
+    document = html.fromstring(response.content)
+    native_post = reverse("opencode-create-importer")
+    custom_row = document.xpath(f'//*[@data-folder-id="{CUSTOM_AI_FAMILY}"]')[0]
+    assert "Custom with AI" in custom_row.text_content()
+    selector = f'.//form[@method="post" and @action="{native_post}"]/input[@name="csrfmiddlewaretoken"]'
+    assert custom_row.xpath(selector)
+    [picker] = document.xpath('//*[@id="library-object-create-menu"]')
+    assert picker.xpath(selector)
+    assert picker.xpath('.//*[@role="menuitem"]')[0].text_content().strip() == "Custom with AI"
+
+    def reverse_without_opencode(name, *args, **kwargs):
+        if name == "opencode-create-importer":
+            raise NoReverseMatch(name)
+        return reverse(name, *args, **kwargs)
+
+    monkeypatch.setattr(sidebar_importers, "reverse", reverse_without_opencode)
+    req = request_for()
+    assert not any(action.get("method") == "post" for action in importer_add_actions(req))
+    parents, _ = importer_entries_page(req, term="", parent="", cursor=None, limit=1)
+    assert parents[0]["id"] == CUSTOM_AI_FAMILY and parents[0]["actions"] == []
+    children, _ = importer_entries_page(req, term="", parent=CUSTOM_AI_FAMILY, cursor=None, limit=4)
+    assert [(row["id"], row["name"]) for row in children] == [(str(source.pk), source.name)]

@@ -21,6 +21,7 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
     from playwright.sync_api import expect, sync_playwright
 
     from archivebox.core.sidebar import INITIAL_FOLDER_PAGE_SIZE
+    from archivebox.core.sidebar_importers import CUSTOM_AI_FAMILY
 
     machine = Machine.current()
     machine.config = {
@@ -150,10 +151,18 @@ def test_snapshot_object_sidebar_modes_in_browser(live_server, admin_user, brows
         choose("Importers", "importers")
         sidebar.get_by_role("button", name="New importer", exact=True).click()
         new_menu = sidebar.get_by_role("menu", name="New importer", exact=True)
+        ai_setup_url = reverse("opencode-create-importer")
+        ai_setup = new_menu.get_by_role("menuitem").first
+        expect(ai_setup).to_have_text("Custom with AI")
+        expect(ai_setup.locator("xpath=parent::form")).to_have_attribute("action", ai_setup_url)
         native_add = reverse("importers:new", args=[definition.plugin, definition.feed])
         expect(new_menu.locator(f'a[href="{native_add}"]')).to_be_visible()
         page.keyboard.press("Escape")
         expect(row(importer.pk)).to_have_count(0)
+        expect(sidebar.locator(".library-object-row").first).to_have_attribute("data-folder-id", CUSTOM_AI_FAMILY)
+        ai_menu = action_menu(row(CUSTOM_AI_FAMILY))
+        expect(ai_menu.get_by_role("menuitem", name="Add importer").locator("xpath=parent::form")).to_have_attribute("action", ai_setup_url)
+        page.keyboard.press("Escape")
         family_menu = action_menu(row(family_id))
         expect(family_menu.get_by_role("menuitem", name="Delete", exact=False)).to_have_count(0)
         page.keyboard.press("Escape")

@@ -3,7 +3,7 @@
     {% if entry.url %}<a class="library-link folder-link" title="{{ entry.name }}" href="{{ entry.url }}"{% if entry.selected %} aria-current="page"{% endif %}>
     {% else %}<button type="button" class="library-link folder-link library-branch-label" title="{{ entry.name }}" aria-expanded="false">{% endif %}
       {% if entry.icon_url %}<img class="library-object-icon" src="{{ entry.icon_url }}" alt="" loading="lazy">
-      {% else %}<svg aria-hidden="true"><use href="#{{ sidebar_object_icon }}"/></svg>{% endif %}
+      {% else %}<svg aria-hidden="true"><use href="#{{ entry.icon_symbol|default:sidebar_object_icon }}"/></svg>{% endif %}
       <span>{{ entry.name }}</span>
     {% if entry.url %}</a>{% else %}</button>{% endif %}
     {% if entry.has_children %}
@@ -12,7 +12,7 @@
     {% if entry.actions or entry.export_urls %}
       <div class="folder-row-actions"><button type="button" class="folder-menu-toggle icon-button" aria-label="Actions for {{ entry.name }}" title="Actions for {{ entry.name }}" aria-haspopup="menu" aria-expanded="false" popovertarget="library-object-menu-{{ entry.id }}"><svg aria-hidden="true"><use href="#library-more"/></svg></button></div>
       <div id="library-object-menu-{{ entry.id }}" class="folder-menu" popover role="menu" aria-label="{{ entry.name }}">
-        {% for action in entry.actions %}<a role="menuitem" href="{{ action.url }}"><span class="folder-menu-label">{{ action.label }}</span></a>{% endfor %}
+        {% for action in entry.actions %}{% include "core/sidebar_object_action.html" %}{% endfor %}
         {% if entry.actions and entry.export_urls %}<hr>{% endif %}
         {% if entry.export_urls %}{% include "core/snapshot_export_links.html" with export_urls=entry.export_urls export_menu=True %}{% endif %}
         {% if not folder_readonly and entry.url %}

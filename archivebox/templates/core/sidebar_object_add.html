@@ -3,9 +3,9 @@
 <div id="library-object-create-menu" class="folder-menu library-object-create-menu" popover role="menu" aria-label="New importer">
   {% regroup sidebar_add_actions by family as families %}
   {% for family in families %}
-    <div class="library-menu-group">{{ family.grouper }}</div>
+    {% if family.grouper %}<div class="library-menu-group">{{ family.grouper }}</div>{% endif %}
     {% for action in family.list %}
-      <a role="menuitem" href="{{ action.url }}">{% if action.icon_url %}<img class="library-object-icon" src="{{ action.icon_url }}" alt="" loading="lazy">{% endif %}<span class="folder-menu-label">{{ action.label }}</span></a>
+      {% include "core/sidebar_object_action.html" %}
     {% endfor %}
   {% endfor %}
 </div>
