@@ -47,12 +47,10 @@ jobs:
       actions: read
       contents: read
       id-token: write
-    # On dev pushes, publish the opt-in image before admitting the large test
-    # matrix to the shared runner queue. Otherwise its hundreds of queued jobs
-    # get ahead of the publisher after the Docker builds release their runners.
-    # PR/main runs skip dev-image and still execute the complete test matrix.
-    needs: [prepare, dev-image]
-    if: ${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}
+    # Docker builds are admitted immediately after prepare, and their early
+    # publisher runs on ARM. Let this x86 matrix and Docker run in parallel.
+    needs: prepare
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Discovered test matrix
     uses: ./.github/workflows/test-parallel.yml
     secrets: inherit
