@@ -33,18 +33,20 @@ def schedule_add_actions(request):
 
 
 def _schedule_name(row):
-    label = row["label"] or row["template_label"]
-    if not label:
-        first_url = next((line for line in row["url_prefix"].splitlines() if line.strip() and not line.lstrip().startswith("#")), "")
+    hostnames = {}
+    # Reuse Crawl's plain-text/JSONL seed parsing for the rows already paged in.
+    for _, url in Crawl.iter_url_lines(row["urls"]):
+        if not url:
+            continue
         try:
-            label = urlsplit(first_url.strip()).hostname
+            hostname = urlsplit(url).hostname
         except ValueError:
-            label = None
-    label = label or f"Scheduled Crawl {str(row['pk'])[-8:]}"
-    if len(label) > 48:
-        label = label[:47] + "…"
+            continue
+        if hostname:
+            hostnames[hostname] = None
+    label = ",".join(hostnames) or f"Scheduled Crawl {str(row['pk'])[-8:]}"
     frequency = FREQUENCIES.get(normalize_schedule(row["schedule"]), row["schedule"])
-    return f"{label} · {frequency}"
+    return f"{label} ({frequency.lower()})"
 
 
 def _cursor_filter(cursor):
@@ -86,9 +88,10 @@ def schedule_entries_page(request, *, term, parent, cursor, limit):
         scope = "crawl_schedule"
         rows = CrawlSchedule.objects.annotate(
             template_label=F("template__label"),
+            urls=F("template__urls"),
             url_prefix=Substr("template__urls", 1, 256),
             has_children=Exists(Crawl.objects.filter(schedule_id=OuterRef("pk"))),
-        ).values("pk", "created_at", "label", "schedule", "template_label", "url_prefix", "has_children")
+        ).values("pk", "created_at", "schedule", "urls", "has_children")
         if term:
             alias = SCHEDULE_ALIASES.get(term.casefold())
             match = (

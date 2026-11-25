@@ -26,10 +26,19 @@ def _request(user, **query):
     return request
 
 
-def _schedule(owner, *, label="", template_label="", frequency="daily", enabled=True, tick=TICK):
+def _schedule(
+    owner,
+    *,
+    label="",
+    template_label="",
+    urls="# Seed comment\nhttps://feed.example.net/archive/",
+    frequency="daily",
+    enabled=True,
+    tick=TICK,
+):
     template = Crawl.objects.create(
         created_by=owner,
-        urls="# Seed comment\nhttps://feed.example.net/archive/",
+        urls=urls,
         label=template_label,
         created_at=tick,
     )
@@ -48,17 +57,27 @@ def _page(request, *, term="", parent="", cursor=None, limit=2):
 
 
 def test_schedule_sidebar_keysets_roots_and_runs_independently(admin_user):
-    first = _schedule(admin_user, label="Reading feeds")
+    first = _schedule(
+        admin_user,
+        label="Reading feeds",
+        urls=(
+            "# Ignore https://comments.invalid/\n"
+            "https://someone:password@FEED.example.net:8443/archive?a=secret\n"
+            '{"url":"https://api.google.co.uk/feed?x=1"}\n'
+            "http://feed.example.net/dedup\n"
+            "https://github.io/\n"
+        ),
+    )
     same_timestamp = _schedule(admin_user, template_label="Reading feeds", frequency="0 0 * * 0", enabled=False)
     last = _schedule(admin_user, frequency="0 */6 * * *", tick=TICK - timedelta(days=1))
     request = _request(admin_user)
 
     roots, cursor = _page(request)
     assert [item["id"] for item in roots] == sorted([str(first.pk), str(same_timestamp.pk)], reverse=True)
-    assert {item["name"] for item in roots} == {"Reading feeds · Daily", "Reading feeds · Weekly"}
+    assert {item["name"] for item in roots} == {"feed.example.net,api.google.co.uk,github.io (daily)", "feed.example.net (weekly)"}
     assert all(item["scope"] == "crawl_schedule" and item["parent_id"] == "" and item["has_children"] for item in roots)
     tail, end = _page(request, cursor=cursor)
-    assert [(item["id"], item["name"]) for item in tail] == [(str(last.pk), "feed.example.net · 0 */6 * * *")]
+    assert [(item["id"], item["name"]) for item in tail] == [(str(last.pk), "feed.example.net (0 */6 * * *)")]
     assert end is None
     assert [item["id"] for item in _page(request, term="weekly")[0]] == [str(same_timestamp.pk)]
     assert [item["id"] for item in _page(request, term="feed.example")[0]] == [item["id"] for item in roots]

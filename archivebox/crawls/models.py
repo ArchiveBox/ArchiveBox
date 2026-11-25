@@ -712,10 +712,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         }
 
     def _iter_url_lines(self) -> Iterator[tuple[str, str]]:
+        return self.iter_url_lines(self.urls)
+
+    @staticmethod
+    def iter_url_lines(urls: str) -> Iterator[tuple[str, str]]:
         # Lazy: callers such as output_dir only need the first URL, and
         # parsing every JSONL line of a multi-thousand-URL crawl dominated
         # each screencast frame request.
-        for raw_line in (self.urls or "").splitlines():
+        for raw_line in (urls or "").splitlines():
             stripped = raw_line.strip()
             if not stripped:
                 continue
