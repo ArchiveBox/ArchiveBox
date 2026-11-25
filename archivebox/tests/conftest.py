@@ -423,6 +423,15 @@ def live_server(request):
         server.stop()
 
 
+@pytest.fixture
+def configured_single_domain_admin(live_server):
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
+
+
 @pytest.fixture(scope="session")
 def django_db_modify_db_settings(
     django_db_modify_db_settings_parallel_suffix,

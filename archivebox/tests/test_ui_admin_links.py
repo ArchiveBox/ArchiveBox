@@ -287,6 +287,7 @@ def test_snapshot_admin_zip_links(real_hook_result):
     assert f'href="{html.escape(zip_url, quote=True)}"' in actions
 
 
+@pytest.mark.usefixtures("configured_single_domain_admin")
 def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(live_server, admin_user, browser_runtime):
     from archivebox.core.admin_snapshots import SnapshotAdmin
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin

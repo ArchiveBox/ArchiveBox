@@ -6,6 +6,7 @@ from playwright.sync_api import Error, expect, sync_playwright
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.usefixtures("configured_single_domain_admin")
 def test_snapshot_list_select_all_aligns_with_grid_toggle(browser_runtime, live_server, admin_user, crawl):
     from archivebox.core.models import Snapshot
 
@@ -172,6 +173,7 @@ def check_snapshot_list_tag_layout(browser, origin, admin_user, few_tag):
     page.close()
 
 
+@pytest.mark.usefixtures("configured_single_domain_admin")
 def test_snapshot_list_tag_column_fits_title_budget(browser_runtime, live_server, admin_user, crawl):
     few_tag = create_snapshot_tag_layout_rows(crawl)
     with sync_playwright() as playwright:
