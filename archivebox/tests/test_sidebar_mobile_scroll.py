@@ -101,7 +101,15 @@ def test_mobile_sidebar_scroll_and_paginate(live_server, admin_user, browser_run
                         assert items.count() >= 5
                         for item in items.all():
                             expect(item).to_be_in_viewport(ratio=0.95)
-                            assert item.get_attribute("href")
-                        page.keyboard.press("Escape")
+                        for link in items.and_(menu.locator("a")).all():
+                            assert link.get_attribute("href")
+                        if kind == "import":
+                            upload = menu.get_by_role("menuitem", name="Upload file")
+                            expect(upload).to_be_enabled()
+                            with page.expect_file_chooser() as chooser:
+                                upload.click()
+                            assert chooser.value.element.get_attribute("id") == "crawl-upload-files"
+                        else:
+                            page.keyboard.press("Escape")
                         expect(menu).to_be_hidden()
         browser.close()

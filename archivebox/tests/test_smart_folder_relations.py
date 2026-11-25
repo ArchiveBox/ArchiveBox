@@ -98,7 +98,7 @@ def test_smart_folder_selects_m2m_and_fk_values_by_name(browser_runtime, live_se
             row = page.locator(f'.folder-row[data-folder-id="{folder.pk}"]')
             row.hover()
             row.get_by_role("button", name="Actions for Fixture folder", exact=True).click()
-            row.get_by_role("menuitem", name="Rename", exact=True).click()
+            row.get_by_role("menuitem", name="Edit Rules", exact=True).click()
             dialog = page.locator("#folder-dialog")
             first = dialog.locator(".rule-condition").first
             expect(first.get_by_role("button", name="Remove ⭐", exact=True)).to_be_visible()
