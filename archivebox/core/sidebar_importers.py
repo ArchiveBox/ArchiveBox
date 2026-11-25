@@ -2,7 +2,8 @@
 
 from collections import defaultdict
 
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models.functions import Lower
 from django.urls import reverse
 
 from archivebox.importers.catalog import get_importer_providers, get_importers
@@ -19,6 +20,19 @@ def importer_sidebar_allowed(request):
 def _provider_key(provider):
     definition = provider["definition"]
     return f"importer-family:{definition.plugin}:{definition.feed}"
+
+
+def _sidebar_catalog(request):
+    # The initial Library page renders both the entries and the Add menu.
+    # Reuse discovery for that response without keeping stale manifests across requests.
+    if not hasattr(request, "_library_importer_catalog"):
+        definitions = get_importers()
+        providers = sorted(
+            get_importer_providers(definitions),
+            key=lambda provider: (provider["name"].casefold(), _provider_key(provider)),
+        )
+        request._library_importer_catalog = definitions, {_provider_key(provider): provider for provider in providers}
+    return request._library_importer_catalog
 
 
 def _icon(definition):
@@ -90,14 +104,32 @@ def _source_row(pk, name, definition, parent):
     }
 
 
-def _source_page(sources, cursor, limit):
+def _source_page(sources, cursor, limit, *, families=()):
+    sources = sources.annotate(sort_name=Lower("name"))
+    order = ("sort_name", "pk")
+    if families:
+        # Search pages must introduce families in the same order as the root,
+        # even when several pages of matching sources belong to one family.
+        sources = sources.annotate(
+            sort_family=Case(
+                *(When(_pair_filter(provider["feeds"]), then=Value(rank)) for rank, provider in enumerate(families)),
+                output_field=IntegerField(),
+            ),
+        )
+        order = ("sort_family", *order)
     if cursor:
-        name, pk = cursor
-        sources = sources.filter(Q(name__gt=name) | Q(name=name, pk__gt=compact_uuid(pk)))
-    values = list(sources.order_by("name", "pk").values_list("pk", "name", "plugin", "feed")[: limit + 1])
+        *family, sort_name, pk = cursor
+        after = Q(sort_name__gt=sort_name) | Q(sort_name=sort_name, pk__gt=compact_uuid(pk))
+        if families:
+            (rank,) = family
+            after = Q(sort_family__gt=rank) | (Q(sort_family=rank) & after)
+        elif family:
+            raise ValueError("Invalid importer source cursor")
+        sources = sources.filter(after)
+    values = list(sources.order_by(*order).values_list("pk", "name", "plugin", "feed", *order[:-1])[: limit + 1])
     rows = values[:limit]
-    next_key = [rows[-1][1], str(compact_uuid(rows[-1][0]))] if len(values) > limit else None
-    return rows, next_key
+    next_key = [*rows[-1][4:], str(compact_uuid(rows[-1][0]))] if len(values) > limit else None
+    return [row[:4] for row in rows], next_key
 
 
 def _selected_source(request, importer_id):
@@ -115,8 +147,7 @@ def importer_entries_page(request, *, term, parent, cursor, limit):
     if not importer_sidebar_allowed(request):
         return [], None
 
-    definitions = get_importers()
-    providers = {_provider_key(provider): provider for provider in get_importer_providers(definitions)}
+    definitions, providers = _sidebar_catalog(request)
     sources = ImporterSource.objects.filter(enabled=True)
 
     if parent:
@@ -133,7 +164,7 @@ def importer_entries_page(request, *, term, parent, cursor, limit):
         # ancestors in memory. This keeps matching children visible without
         # a separate lookup/query for each family.
         matches = sources.filter(_pair_filter(definitions.values()), _matches_filter(providers.values(), term))
-        matched, next_key = _source_page(matches, cursor, limit)
+        matched, next_key = _source_page(matches, cursor, limit, families=tuple(providers.values()))
         grouped = defaultdict(list)
         for pk, name, plugin, feed in matched:
             key = family_by_pair[plugin, feed]
@@ -174,8 +205,9 @@ def importer_add_actions(request):
     """Advertise the same provider groups and feed options as the native picker."""
     if not importer_sidebar_allowed(request):
         return []
+    _, providers = _sidebar_catalog(request)
     return [
         {**_feed_action(definition), "family": provider["name"]}
-        for provider in get_importer_providers(get_importers())
-        for definition in provider["feeds"]
+        for provider in providers.values()
+        for definition in sorted(provider["feeds"], key=lambda feed: (feed.title.casefold(), feed.plugin, feed.feed))
     ]

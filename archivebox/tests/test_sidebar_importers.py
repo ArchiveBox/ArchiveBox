@@ -23,7 +23,7 @@ def request_for(rf, admin_user):
 
 @pytest.fixture
 def providers():
-    return get_importer_providers(get_importers())
+    return sorted(get_importer_providers(get_importers()), key=lambda provider: provider["name"].casefold())
 
 
 def _create(user, provider, name, **extra):
@@ -75,7 +75,10 @@ def test_family_add_links_open_the_correct_importer_options(request_for, provide
 @pytest.mark.django_db
 def test_importer_siblings_have_stable_bounded_name_id_pages(request_for, admin_user, providers, django_assert_num_queries):
     provider = providers[0]
-    sources = [_create(admin_user, provider, "Same name", settings={"private": "not an entry"}) for _ in range(3)]
+    sources = [
+        _create(admin_user, provider, name, settings={"private": "not an entry"})
+        for name in ("same Name", "SAME NAME", "Same name", "alpha", "Zebra")
+    ]
     _create(admin_user, provider, "Before everything", enabled=False)
     req = request_for()
     families, _ = importer_entries_page(req, term="", parent="", cursor=None, limit=10)
@@ -86,9 +89,11 @@ def test_importer_siblings_have_stable_bounded_name_id_pages(request_for, admin_
     sql = queries.captured_queries[0]["sql"].lower()
     assert all(column not in sql for column in ("settings", "checkpoint", "account", "importerrun"))
     with django_assert_num_queries(1):
-        second, end = importer_entries_page(req, term="", parent=parent, cursor=cursor, limit=2)
+        second, end = importer_entries_page(req, term="", parent=parent, cursor=cursor, limit=3)
     assert end is None
-    assert [row["id"] for row in first + second] == sorted(str(source.pk) for source in sources)
+    assert [row["id"] for row in first + second] == [
+        str(source.pk) for source in sorted(sources, key=lambda item: (item.name.casefold(), item.pk))
+    ]
     for row in first + second:
         assert row["parent_id"] == parent and row["scope"] == "importer" and row["filter_value"] == row["id"]
         assert [resolve(action["url"]).view_name for action in row["actions"]] == ["importers:detail", "importers:edit"]
@@ -102,7 +107,7 @@ def test_importer_search_and_offpage_selection_reveal_bounded_ancestors(
     django_assert_num_queries,
 ):
     first, second = providers[:2]
-    _create(admin_user, first, "Other import")
+    _create(admin_user, first, "Needle Zebra")
     a = _create(admin_user, second, "Needle A")
     b = _create(admin_user, second, "Needle B")
     _create(admin_user, second, "Needle C paused", enabled=False)
@@ -115,6 +120,11 @@ def test_importer_search_and_offpage_selection_reveal_bounded_ancestors(
     assert root_cursor == [rows[0]["id"]]
     with django_assert_num_queries(1):
         rows, search_cursor = importer_entries_page(req, term="needle", parent="", cursor=None, limit=1)
+    # The first alphabetical family stays first, even though its only matching
+    # source sorts after the children from a later family.
+    assert [row["name"] for row in rows] == [first["name"], "Needle Zebra"]
+    with django_assert_num_queries(1):
+        rows, search_cursor = importer_entries_page(req, term="needle", parent="", cursor=search_cursor, limit=1)
     assert [row["name"] for row in rows] == [second["name"], a.name]
     assert rows[0]["expand"] and rows[1]["parent_id"] == rows[0]["id"]
     rows, search_end = importer_entries_page(req, term="needle", parent="", cursor=search_cursor, limit=1)
@@ -123,16 +133,22 @@ def test_importer_search_and_offpage_selection_reveal_bounded_ancestors(
 
 
 @pytest.mark.django_db
-def test_catalog_add_options_and_non_superuser_privacy(request_for, providers, django_assert_num_queries):
+def test_catalog_add_options_and_non_superuser_privacy(request_for, providers, django_assert_num_queries, monkeypatch):
+    from unittest.mock import Mock
+
     from django.contrib.auth.models import AnonymousUser
 
+    catalog_read = Mock(wraps=get_importers)
+    monkeypatch.setattr("archivebox.core.sidebar_importers.get_importers", catalog_read)
     req = request_for()
     with django_assert_num_queries(0):
         actions = importer_add_actions(req)
+        importer_entries_page(req, term="", parent="", cursor=None, limit=10)
+    catalog_read.assert_called_once_with()
     assert [(action["family"], action["label"], action["url"]) for action in actions] == [
         (provider["name"], feed.title, reverse("importers:new", args=(feed.plugin, feed.feed)))
         for provider in providers
-        for feed in provider["feeds"]
+        for feed in sorted(provider["feeds"], key=lambda feed: (feed.title.casefold(), feed.plugin, feed.feed))
     ]
     for property_name, user in (("", AnonymousUser()), ("is_superuser", req.user), ("is_active", req.user)):
         if property_name:
