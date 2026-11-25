@@ -202,8 +202,14 @@ def test_snapshot_pagination_fits_the_table(live_server, browser_runtime, admin_
     from playwright.sync_api import expect, sync_playwright
 
     from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
     from archivebox.progressmonitor.collection import collection_summary
 
+    # This browser uses one localhost origin, so finish that installation's
+    # hosting configuration before testing clicks behind the setup wizard.
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
     Snapshot.objects.bulk_create(
         [
             Snapshot(url=f"https://example.org/page/{index}", timestamp=str(1901000000 + index), crawl=crawl, status="sealed")
