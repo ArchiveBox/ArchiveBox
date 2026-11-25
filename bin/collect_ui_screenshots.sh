@@ -343,7 +343,7 @@ start_gallery_server
 
 # The persistent collection can contain old runnable work unrelated to this
 # gallery. Keep the real server stack, but stop its general queue consumer;
-# the Ars Technica example below runs through its own real foreground runner.
+# the live-progress fixture below runs through its own real foreground runner.
 stop_background_runner
 
 ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
@@ -550,8 +550,10 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'from django.utils import timezone; print(timezone.now().isoformat())'
         ) | tail -1)"
-        echo "[*] Starting a real Ars Technica capture for the live progress view"
-        (run_gallery_add "" "$EXAMPLE_URL") >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
+        # Keep the live frame independent of a repeat visit to the reference site.
+        LIVE_SOURCE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/site-navigation/index.html?gallery=live-progress"
+        echo "[*] Starting a real local site capture for the live progress view"
+        (run_gallery_add "" "$LIVE_SOURCE_URL") >"$CAPTURE_ROOT/article-live-capture.log" 2>&1 &
         ARCHIVE_PID=$!
 
         # Open the detail page once archiving starts, so its initial state and
@@ -560,7 +562,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         for _attempt in $(seq 1 120); do
             LIVE_SNAPSHOT_RECORD="$( (
                 cd "$DATA_DIR"
-                UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" UI_SCREENSHOT_CAPTURE_STARTED_AT="$EXAMPLE_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                UI_SCREENSHOT_SOURCE_URL="$LIVE_SOURCE_URL" UI_SCREENSHOT_CAPTURE_STARTED_AT="$EXAMPLE_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                     'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}\t{snapshot.id}" if snapshot else "")'
             ) | tail -1)"
             if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
@@ -568,14 +570,14 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                 break
             fi
             if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
-                echo "[!] Ars Technica capture exited before an active snapshot could be opened" >&2
+                echo "[!] Live progress fixture capture exited before an active snapshot could be opened" >&2
                 tail -100 "$CAPTURE_ROOT/article-live-capture.log" >&2
                 exit 1
             fi
             sleep 1
         done
         if [[ -z "$LIVE_SNAPSHOT_VIEW_URL" ]]; then
-            echo "[!] Timed out waiting for the live Ars Technica snapshot" >&2
+            echo "[!] Timed out waiting for the live progress fixture snapshot" >&2
             exit 1
         fi
         url="$LIVE_SNAPSHOT_VIEW_URL"
@@ -937,16 +939,15 @@ PY
 
     if [[ "$name" == "Snapshot View (capture in progress)" ]]; then
         if ! wait "$ARCHIVE_PID"; then
-            echo "[!] Ars Technica capture failed after the live progress screenshot" >&2
+            echo "[!] Live progress fixture capture failed after the screenshot" >&2
             tail -100 "$CAPTURE_ROOT/article-live-capture.log" >&2
             exit 1
         fi
         ARCHIVE_PID=""
         stop_background_runner
 
-        # Discover the selectable outputs only after the real foreground
-        # capture finishes. Loading another output-heavy snapshot page while
-        # its extractors are running can starve navigation on the same server.
+        # Use the independently archived Ars reference for genuine plugin
+        # outputs. Wait until the live fixture finishes to avoid contention.
         SNAPSHOT_DISCOVERY_REPORT="$CAPTURE_ROOT/snapshot-output-discovery.json"
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
@@ -954,7 +955,7 @@ PY
             SCREENSHOT_SNAPSHOT_HEADER=expanded \
             SCREENSHOT_WIDTH=1600 \
             SCREENSHOT_HEIGHT=1000 \
-            node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
+            node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_PLAN="$PLUGIN_SCREENSHOT_PLAN" UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
             'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); overrides=json.load(open(os.environ["UI_SCREENSHOT_PLAN"]))["overrides"]; print("\n".join("{}\t{}\t{}".format(output["plugin"], output["outputPath"], "wait-replay:microbial ballistics" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"] if output["plugin"] not in overrides))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
@@ -963,7 +964,7 @@ PY
         fi
         while IFS=$'\t' read -r plugin_name output_path output_capture_mode; do
             [[ -z "$plugin_name" ]] && continue
-            VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
+            VIEWS+=("Snapshot View ($plugin_name)|$SNAPSHOT_VIEW_URL#$output_path|$SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
         # Report malformed partitioning as capture failure, never as an empty
         # process substitution and a best-effort gallery.
@@ -975,7 +976,7 @@ PY
             add_supplementary_template_capture "$example_plugins" "$example_url"
         done <"$supplementary_recipes"
 
-        VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")
+        VIEWS+=("Snapshot View (header collapsed)|$SNAPSHOT_VIEW_URL|$SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")
     fi
     if [[ "$MAX_VIEWS" != "0" && "$capture_index" -ge "$MAX_VIEWS" ]]; then
         break
