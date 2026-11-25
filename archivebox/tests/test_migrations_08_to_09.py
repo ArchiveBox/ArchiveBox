@@ -100,6 +100,11 @@ def convert_legacy_tags_to_uuid(conn: sqlite3.Connection) -> None:
 @pytest.mark.parametrize("uuid_tags", (False, True), ids=("integer-tags", "uuid-tags"))
 def test_migration_preserves_supported_extended_08_metadata(migration_08_data, uuid_tags):
     work_dir, db_path, original_data = migration_08_data
+    tag_memberships_sql = """
+        SELECT membership.id, membership.snapshot_id, tag.name
+        FROM core_snapshot_tags AS membership JOIN core_tag AS tag ON tag.id = membership.tag_id
+        ORDER BY membership.id
+    """
     snapshot = original_data["snapshots"][1]
     parent = original_data["snapshots"][0]
     archiveresult = next(row for row in original_data["archiveresults"] if row["snapshot_id"] == snapshot["id"])
@@ -150,6 +155,7 @@ def test_migration_preserves_supported_extended_08_metadata(migration_08_data, u
             table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             for table in ("core_snapshot", "core_archiveresult", "core_tag", "core_snapshot_tags")
         }
+        expected_tag_memberships = conn.execute(tag_memberships_sql).fetchall()
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
@@ -173,6 +179,10 @@ def test_migration_preserves_supported_extended_08_metadata(migration_08_data, u
             (tag["name"],),
         ).fetchone()
         migrated_counts = {table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in expected_counts}
+        # UUID-era joins used a text column even after 0023 rewrote the values.
+        assert conn.execute("SELECT DISTINCT typeof(tag_id) FROM core_snapshot_tags").fetchall() == [("integer",)]
+        assert conn.execute(tag_memberships_sql).fetchall() == expected_tag_memberships
+        assert conn.execute("PRAGMA foreign_key_check(core_snapshot_tags)").fetchall() == []
 
     assert json.loads(snapshot_row[1]) | metadata["config"] == json.loads(snapshot_row[1])
     assert (snapshot_row[0], *snapshot_row[2:]) == (
