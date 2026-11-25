@@ -7,6 +7,7 @@ from django.db.models import Count
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
+from django.urls import reverse
 
 from archivebox.core.routes_util import build_snapshot_export_urls
 
@@ -141,15 +142,15 @@ class CustomUserAdmin(UserAdmin):
         return mark_safe(
             "<br/>".join(
                 format_html(
-                    '<code><a href="/admin/api/outboundwebhook/{}/change"><b>[{}]</b></a></code> {} -> {}',
-                    outboundwebhook.pk,
+                    '<code><a href="{}"><b>[{}]</b></a></code> {} -> {}',
+                    reverse("webhooks:index", query={"webhook": str(outboundwebhook.pk)}),
                     str(outboundwebhook.id)[:8],
                     outboundwebhook.referenced_model,
                     outboundwebhook.endpoint,
                 )
                 for outboundwebhook in obj.outboundwebhook_set.order_by("-modified_at")[:10]
             )
-            + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+            + format_html('<br/>{} · <a href="{}">Rules</a>', total_count, reverse("webhooks:index")),
         )
 
 

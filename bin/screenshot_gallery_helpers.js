@@ -1563,25 +1563,6 @@ async function selectUser(page, username) {
   if (value) await page.select(selector, value);
 }
 
-async function selectFirstRealOption(page, selector) {
-  if (!(await page.$(selector))) return;
-  const value = await page.$eval(selector, (select) => {
-    const option = [...select.options].find((candidate) => candidate.value);
-    return option ? option.value : '';
-  });
-  if (value) await page.select(selector, value);
-}
-
-async function replaceText(page, selector, value) {
-  if (!(await page.$(selector))) return;
-  await page.click(selector);
-  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-  await page.keyboard.down(modifier);
-  await page.keyboard.press('KeyA');
-  await page.keyboard.up(modifier);
-  await page.type(selector, value);
-}
-
 async function collapseAdminFilters(page, adminBaseUrl) {
   await page.goto(`${adminBaseUrl}/admin/core/snapshot/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const toggle = await page.$('#changelist-filter-toggle');
@@ -1626,18 +1607,6 @@ async function setupGallery(adminBaseUrl, username, phase) {
         await selectUser(page, username);
       });
     }
-
-    if (phase === 'prepare' && process.env.CREATE_WEBHOOK === '1') await submitAdminAdd(page, `${adminBaseUrl}/admin/api/outboundwebhook/add/`, async () => {
-      await replaceText(page, '#id_name', 'Snapshot completion notifications');
-      await selectFirstRealOption(page, '#id_signal');
-      await selectFirstRealOption(page, '#id_ref');
-      await replaceText(page, '#id_endpoint', 'https://httpbin.org/post');
-      if (await page.$('#id_enabled')) {
-        const enabled = await page.$eval('#id_enabled', (input) => input.checked);
-        if (!enabled) await page.click('#id_enabled');
-      }
-      await selectUser(page, username);
-    });
 
     const repoDir = path.resolve(__dirname, '..');
     const dataDir = process.env.UI_LIBRARY_DATA_DIR;

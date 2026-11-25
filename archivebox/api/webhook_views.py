@@ -2,14 +2,16 @@
 
 import json
 from functools import wraps
+from uuid import UUID
 
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_safe
 from signal_webhooks.utils import model_from_reference
 
 from archivebox.core.admin_site import archivebox_admin
@@ -66,6 +68,7 @@ def webhook_data(hook, tag_names=None):
         "stop_processing": hook.stop_processing,
         "stop_on_failure": hook.stop_on_failure,
         "has_auth_token": bool(hook.auth_token),
+        "keep_last_response": hook.keep_last_response,
         "last_success": hook.last_success,
         "last_failure": hook.last_failure,
         "num_uses_succeeded": hook.num_uses_succeeded,
@@ -106,6 +109,23 @@ def index(request):
 
 
 @webhook_admin
+@require_safe
+def legacy_model_redirect(request, suffix=""):
+    """Keep old admin bookmarks without offering another way to edit rules."""
+    target = (suffix or "").partition("/")[0]
+    if target == "add":
+        return redirect(reverse("webhooks:index", query={"webhook": "new"}))
+    if target:
+        try:
+            webhook_id = UUID(target).hex
+        except ValueError:
+            pass
+        else:
+            return redirect(reverse("webhooks:index", query={"webhook": webhook_id}))
+    return redirect("webhooks:index")
+
+
+@webhook_admin
 @require_GET
 def data(request):
     return JsonResponse(editor_data())
@@ -129,10 +149,11 @@ def submitted_webhook(request):
         "stop_on_failure",
         "auth_token",
         "clear_auth_token",
+        "keep_last_response",
     }
     if payload.keys() - allowed:
         raise ValidationError("Unknown webhook fields.")
-    for field in ("enabled", "stop_processing", "stop_on_failure", "clear_auth_token"):
+    for field in ("enabled", "stop_processing", "stop_on_failure", "clear_auth_token", "keep_last_response"):
         if field in payload and not isinstance(payload[field], bool):
             raise ValidationError(f"{field} must be a boolean.")
     if "auth_token" in payload and not isinstance(payload["auth_token"], str):

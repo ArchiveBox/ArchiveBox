@@ -17,6 +17,7 @@ OUTPUT_DIR="${UI_SCREENSHOT_OUTPUT_DIR:-$REPO_DIR/docs/screenshots}"
 PUBLIC_OUTPUT_DIR="${UI_SCREENSHOT_PUBLIC_OUTPUT_DIR:-$REPO_DIR/publicsite/screenshots}"
 REQUESTED_PORT="${UI_SCREENSHOT_PORT:-}"
 EXAMPLE_URL="https://arstechnica.com/science/2017/04/watch-militarized-microbes-use-some-sophisticated-weapons-to-snare-prey/"
+COLLAPSED_HEADER_URL="https://docs.archivebox.io/latest/"
 MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
 # Select gallery coverage only; captures still run every configured plugin.
 PLUGIN_VIEWS="${UI_SCREENSHOT_PLUGINS:-}"
@@ -39,7 +40,6 @@ SITE_EXPORT_SERVER_PID=""
 ARCHIVE_PID=""
 CREATED_TEMP_USER=0
 CREATE_API_TOKEN=0
-CREATE_WEBHOOK=0
 SCREENSHOT_CHROME_BINARY=""
 CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
@@ -218,7 +218,7 @@ echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox install chrome
 )
 
-if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c \
+if [[ -z "$PLUGIN_VIEWS" || "$(uv run --no-cache --project "$REPO_DIR" python -c \
     'import json,sys; print(int(any(page["plugin"] in {"networkgraph", "bandwidth"} for page in json.load(open(sys.argv[1]))["app_pages"])))' \
     "$PLUGIN_SCREENSHOT_PLAN")" == 1 ]]; then
     (
@@ -227,7 +227,7 @@ if [[ "$(uv run --no-cache --project "$REPO_DIR" python -c \
         uv run --no-cache --project "$REPO_DIR" archivebox add --depth=0 \
             --plugins=title,wget,parse_html_urls --tag=documentation \
             https://archivebox.io/ https://github.com/ArchiveBox/ArchiveBox \
-            https://docs.archivebox.io/latest/ 'https://news.ycombinator.com/item?id=41860909'
+            "$COLLAPSED_HEADER_URL" 'https://news.ycombinator.com/item?id=41860909'
     )
 fi
 
@@ -235,13 +235,12 @@ if [[ -z "$PLUGIN_VIEWS" ]]; then
 SEED_STATE="$( (
     cd "$DATA_DIR"
     UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-        'import os; from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult; from archivebox.crawls.models import CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.api.models import APIToken; from signal_webhooks.utils import get_webhook_model; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", "status")[:100]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], status="succeeded").values_list("snapshot_id").annotate(Count("id"))); screenshots=set(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], plugin="screenshot", status="succeeded").values_list("snapshot_id", flat=True)); useful=sum(counts.get(snapshot_id,0)>=8 and snapshot_id in screenshots for snapshot_id,status in recent)>=2; print(int(useful and Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],status=Snapshot.StatusChoices.SEALED).exists())); print(CrawlSchedule.objects.count()); print(Persona.objects.exclude(name="Default").count()); print(APIToken.objects.count()); print(get_webhook_model().objects.count())'
-) | tail -5)"
+        'import os; from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult; from archivebox.crawls.models import CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.api.models import APIToken; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", "status")[:100]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], status="succeeded").values_list("snapshot_id").annotate(Count("id"))); screenshots=set(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], plugin="screenshot", status="succeeded").values_list("snapshot_id", flat=True)); useful=sum(counts.get(snapshot_id,0)>=8 and snapshot_id in screenshots for snapshot_id,status in recent)>=2; print(int(useful and Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],status=Snapshot.StatusChoices.SEALED).exists())); print(CrawlSchedule.objects.count()); print(Persona.objects.exclude(name="Default").count()); print(APIToken.objects.count())'
+) | tail -4)"
 HAS_USEFUL_SNAPSHOT="$(printf '%s\n' "$SEED_STATE" | sed -n '1p')"
 HAS_SCHEDULE="$(printf '%s\n' "$SEED_STATE" | sed -n '2p')"
 HAS_PERSONA="$(printf '%s\n' "$SEED_STATE" | sed -n '3p')"
 HAS_API_TOKEN="$(printf '%s\n' "$SEED_STATE" | sed -n '4p')"
-HAS_WEBHOOK="$(printf '%s\n' "$SEED_STATE" | sed -n '5p')"
 
 if [[ "$HAS_USEFUL_SNAPSHOT" == "0" ]]; then
     echo "[*] Archiving real reference sites so snapshot views have meaningful outputs"
@@ -272,7 +271,6 @@ if [[ "$HAS_PERSONA" == "0" ]]; then
 fi
 
 [[ "$HAS_API_TOKEN" == "0" ]] && CREATE_API_TOKEN=1
-[[ "$HAS_WEBHOOK" == "0" ]] && CREATE_WEBHOOK=1
 fi
 
 ROUTE_CONFIG="$( (
@@ -850,7 +848,6 @@ PY
                 UI_LIBRARY_VIEWS_FILE="$CAPTURE_ROOT/library-views.txt" \
                 UI_SITE_EXPORT_BASE_URL="http://127.0.0.1:$SITE_EXPORT_PORT/" \
                 CREATE_API_TOKEN="$CREATE_API_TOKEN" \
-                CREATE_WEBHOOK="$CREATE_WEBHOOK" \
                 node "$REPO_DIR/bin/screenshot_gallery_helpers.js" setup "$ADMIN_BASE_URL" "$USERNAME" "$gallery_phase"
             if [[ "$gallery_phase" == prepare ]]; then
                 # The real UI has warmed process-local Domains metadata before
@@ -902,7 +899,7 @@ PY
         RECORD_CONFIG="$( (
             cd "$DATA_DIR"
             UI_SCREENSHOT_SOURCE_URL="$EXAMPLE_URL" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult, Tag; from archivebox.crawls.models import Crawl, CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.machine.models import Machine, NetworkInterface, Binary, Process; from archivebox.api.models import APIToken; from django.contrib.auth import get_user_model; from signal_webhooks.utils import get_webhook_model; from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_files_url; from urllib.parse import urlsplit; recent=list(Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", flat=True)[:1000]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=recent,status="succeeded").values_list("snapshot_id").annotate(Count("id"))); snapshot_id=str(max(recent,key=lambda item: counts.get(item,0))); snapshot=Snapshot.objects.get(id=snapshot_id); snapshot_url=build_snapshot_detail_url(snapshot.archive_path_from_db); snapshot_path=urlsplit(snapshot_url).path; snapshot_files_url=build_snapshot_files_url(snapshot_id); snapshot_files_path=urlsplit(snapshot_files_url).path; result=ArchiveResult.objects.filter(snapshot_id=snapshot_id,status="succeeded").order_by("-output_size").first() or ArchiveResult.objects.filter(snapshot_id=snapshot_id).first(); tag=snapshot.tags.first() or Tag.objects.first(); crawl=snapshot.crawl or Crawl.objects.order_by("-created_at").first(); schedule=CrawlSchedule.objects.order_by("-created_at").first(); persona=Persona.objects.exclude(name="Default").order_by("-created_at").first() or Persona.objects.first(); machine=Machine.objects.order_by("-modified_at").first(); interface=NetworkInterface.objects.order_by("-modified_at").first(); binary=Binary.objects.order_by("-modified_at").first(); process=Process.objects.order_by("-created_at").first(); token=APIToken.objects.order_by("-created_at").first(); webhook=get_webhook_model().objects.order_by("-created_at").first(); user=get_user_model().objects.get(username="'"$USERNAME"'"); values={"SNAPSHOT_ID":snapshot_id,"SNAPSHOT_VIEW_URL":snapshot_url,"SNAPSHOT_VIEW_PATH":snapshot_path,"SNAPSHOT_FILES_URL":snapshot_files_url,"SNAPSHOT_FILES_PATH":snapshot_files_path,"ARCHIVERESULT_ID":str(result.id),"TAG_ID":str(tag.id),"USER_ID":str(user.id),"CRAWL_ID":str(crawl.id),"SCHEDULE_ID":str(schedule.id),"PERSONA_ID":str(persona.id),"MACHINE_ID":str(machine.id),"INTERFACE_ID":str(interface.id),"BINARY_ID":str(binary.id),"PROCESS_ID":str(process.id),"TOKEN_ID":str(token.id),"WEBHOOK_ID":str(webhook.id)}; [print(f"{key}={value}") for key,value in values.items()]'
+                'import os; from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult, Tag; from archivebox.crawls.models import Crawl, CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.machine.models import Machine, NetworkInterface, Binary, Process; from archivebox.api.models import APIToken; from django.contrib.auth import get_user_model; from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_files_url; from urllib.parse import urlsplit; recent=list(Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"],status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", flat=True)[:1000]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=recent,status="succeeded").values_list("snapshot_id").annotate(Count("id"))); snapshot_id=str(max(recent,key=lambda item: counts.get(item,0))); snapshot=Snapshot.objects.get(id=snapshot_id); snapshot_url=build_snapshot_detail_url(snapshot.archive_path_from_db); snapshot_path=urlsplit(snapshot_url).path; snapshot_files_url=build_snapshot_files_url(snapshot_id); snapshot_files_path=urlsplit(snapshot_files_url).path; result=ArchiveResult.objects.filter(snapshot_id=snapshot_id,status="succeeded").order_by("-output_size").first() or ArchiveResult.objects.filter(snapshot_id=snapshot_id).first(); tag=snapshot.tags.first() or Tag.objects.first(); crawl=snapshot.crawl or Crawl.objects.order_by("-created_at").first(); schedule=CrawlSchedule.objects.order_by("-created_at").first(); persona=Persona.objects.exclude(name="Default").order_by("-created_at").first() or Persona.objects.first(); machine=Machine.objects.order_by("-modified_at").first(); interface=NetworkInterface.objects.order_by("-modified_at").first(); binary=Binary.objects.order_by("-modified_at").first(); process=Process.objects.order_by("-created_at").first(); token=APIToken.objects.order_by("-created_at").first(); user=get_user_model().objects.get(username="'"$USERNAME"'"); values={"SNAPSHOT_ID":snapshot_id,"SNAPSHOT_VIEW_URL":snapshot_url,"SNAPSHOT_VIEW_PATH":snapshot_path,"SNAPSHOT_FILES_URL":snapshot_files_url,"SNAPSHOT_FILES_PATH":snapshot_files_path,"ARCHIVERESULT_ID":str(result.id),"TAG_ID":str(tag.id),"USER_ID":str(user.id),"CRAWL_ID":str(crawl.id),"SCHEDULE_ID":str(schedule.id),"PERSONA_ID":str(persona.id),"MACHINE_ID":str(machine.id),"INTERFACE_ID":str(interface.id),"BINARY_ID":str(binary.id),"PROCESS_ID":str(process.id),"TOKEN_ID":str(token.id)}; [print(f"{key}={value}") for key,value in values.items()]'
         ) | tail -17)"
         eval "$RECORD_CONFIG"
 
@@ -937,8 +934,6 @@ PY
             "Process detail|$ADMIN_BASE_URL/admin/machine/process/$PROCESS_ID/change/|/admin/machine/process/$PROCESS_ID/change/|archivebox/machine/admin.py"
             "API tokens|$ADMIN_BASE_URL/admin/api/apitoken/|/admin/api/apitoken/|archivebox/api/admin.py"
             "API token detail|$ADMIN_BASE_URL/admin/api/apitoken/$TOKEN_ID/change/|/admin/api/apitoken/$TOKEN_ID/change/|archivebox/api/admin.py"
-            "Webhooks|$ADMIN_BASE_URL/admin/api/outboundwebhook/|/admin/api/outboundwebhook/|archivebox/api/admin.py"
-            "Webhook detail|$ADMIN_BASE_URL/admin/api/outboundwebhook/$WEBHOOK_ID/change/|/admin/api/outboundwebhook/$WEBHOOK_ID/change/|archivebox/api/admin.py"
             "Environment|$ADMIN_BASE_URL/admin/environment/|/admin/environment/|archivebox/core/settings.py"
             "Configuration|$ADMIN_BASE_URL/admin/environment/config/|/admin/environment/config/|archivebox/core/views.py"
             "Configuration detail|$ADMIN_BASE_URL/admin/environment/config/BASE_URL/|/admin/environment/config/BASE_URL/|archivebox/core/views.py"
@@ -992,7 +987,13 @@ PY
             add_supplementary_template_capture "$example_plugins" "$example_url"
         done <"$supplementary_recipes"
 
-        VIEWS+=("Snapshot View (header collapsed)|$SNAPSHOT_VIEW_URL|$SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")
+        # Use a page with no reserved ad space so the archive starts below the collapsed header.
+        collapsed_view="$( (
+            cd "$DATA_DIR"
+            UI_SCREENSHOT_SOURCE_URL="$COLLAPSED_HEADER_URL" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from urllib.parse import urlsplit; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; snapshot = Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"], status=Snapshot.StatusChoices.SEALED).latest("bookmarked_at"); url = build_snapshot_detail_url(snapshot.archive_path_from_db); print(f"{url}|{urlsplit(url).path}")'
+        ) | tail -1)"
+        VIEWS+=("Snapshot View (header collapsed)|$collapsed_view|archivebox/templates/core/snapshot.html|snapshot-collapsed")
     fi
     if [[ "$MAX_VIEWS" != "0" && "$capture_index" -ge "$MAX_VIEWS" ]]; then
         break

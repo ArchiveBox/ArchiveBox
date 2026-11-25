@@ -432,6 +432,8 @@
     }
     window.ArchiveBoxPicker.initialize($("actions"));
     $("action-count").textContent = current.actions.length;
+    $("keep-last-response-option").hidden = !current.actions.some((action) => action.type === "http_request");
+    $("keep-last-response").checked = !!current.keep_last_response;
   }
   async function openEditor(id) {
     current = structuredClone(
@@ -570,6 +572,10 @@
   };
   $("stop-on-failure").onchange = () => {
     current.stop_on_failure = $("stop-on-failure").checked;
+    setDirty();
+  };
+  $("keep-last-response").onchange = () => {
+    current.keep_last_response = $("keep-last-response").checked;
     setDirty();
   };
   function rememberFolder(select) {
@@ -808,6 +814,7 @@
       id: webhook.id,
       auth_token: webhook.auth_token || "",
       clear_auth_token: !!webhook.clear_auth_token,
+      keep_last_response: !!webhook.keep_last_response,
       name: webhook.name,
       ref: webhook.ref,
       signal: webhook.signal,
@@ -1296,7 +1303,9 @@
   renderList();
   renderActivity();
   const selected = new URLSearchParams(location.search).get("webhook");
-  if (selected && hooks.some((h) => h.id === selected)) {
+  if (selected === "new") {
+    openEditor(null);
+  } else if (selected && hooks.some((h) => h.id === selected)) {
     openEditor(selected);
     if (new URLSearchParams(location.search).has("preview"))
       $("preview-button").click();

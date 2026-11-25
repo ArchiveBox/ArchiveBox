@@ -111,5 +111,15 @@
     "source_revision": "70d4143e89217e0ed78a3134d760253e82cf6448",
     "plugin_revision": "74b52e2f35cc197a6d18ce53c283cab6e5bcb102",
     "source_path": "archivebox/plugins/host.py"
+  },
+  "snapshot-view-header-collapsed": {
+    "name": "Snapshot View (header collapsed)",
+    "url": "http://web.archivebox.localhost:5859/web/20261125/docs.archivebox.io/06b068f95e4a711e800054a9dfe331e0",
+    "path": "/web/20261125/docs.archivebox.io/06b068f95e4a711e800054a9dfe331e0",
+    "ttfb_ms": 10,
+    "captured_at": "2026-11-25T07:56:54.502869+00:00",
+    "source_revision": "70d4143e89217e0ed78a3134d760253e82cf6448",
+    "plugin_revision": "74b52e2f35cc197a6d18ce53c283cab6e5bcb102",
+    "source_path": "archivebox/templates/core/snapshot.html"
   }
 }

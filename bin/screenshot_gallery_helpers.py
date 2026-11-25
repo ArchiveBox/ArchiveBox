@@ -886,8 +886,6 @@ REQUIRED_VIEW_NAMES = {
     "Process detail",
     "API tokens",
     "API token detail",
-    "Webhooks",
-    "Webhook detail",
     "Environment",
     "Configuration",
     "Configuration detail",
@@ -1262,6 +1260,8 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
 
 
 def render_gallery(gallery_header: str, gallery_sections: str) -> str:
+    # Older capture bundles contain the Django admin form for the same Rules.
+    gallery_sections = re.sub(r'<article id="(?:webhooks|webhook-detail)">.*?</article>', "", gallery_sections, flags=re.DOTALL)
     # Some plugins are captured during library setup. Keep their snapshot
     # outputs together regardless of when the underlying captures ran.
     snapshot_outputs = []

@@ -1,4 +1,4 @@
-"""Rules naming is presentation-only; legacy native URLs retain method and scope."""
+"""Rules use the shared model, and old URLs lead to the single editor."""
 
 import json
 
@@ -6,6 +6,7 @@ import pytest
 from django.urls import reverse
 
 from archivebox.api.models import OutboundWebhook
+from archivebox.core.admin_site import archivebox_admin
 
 pytestmark = pytest.mark.django_db
 HOST = "admin.archivebox.localhost:5797"
@@ -22,10 +23,32 @@ def test_rules_canonical_page_and_native_model_labels(admin_client):
     assert OutboundWebhook._meta.verbose_name == "Rule"
     assert OutboundWebhook._meta.verbose_name_plural == "Rules"
     assert OutboundWebhook._meta.db_table == "api_outboundwebhook"
+    assert not archivebox_admin.is_registered(OutboundWebhook)
     native = admin_client.get("/admin/api/outboundwebhook/add/", HTTP_HOST=HOST)
-    assert native.status_code == 200
-    assert "Add Rule" in native.content.decode()
-    assert "Rule" in native.context["adminform"].fieldsets[0][0]
+    assert native.status_code == 302
+    assert native["Location"] == "/admin/rules/?webhook=new"
+
+
+def test_old_model_admin_opens_the_same_rule_without_accepting_writes(admin_client, admin_user):
+    rule = OutboundWebhook.objects.create(
+        name="Existing HTTP rule",
+        ref="archivebox.core.models.Snapshot",
+        signal="CREATE",
+        endpoint="https://archivebox.io/",
+        created_by=admin_user,
+        enabled=False,
+    )
+    index = admin_client.get("/admin/api/outboundwebhook/", HTTP_HOST=HOST)
+    assert index.status_code == 302
+    assert index["Location"] == "/admin/rules/"
+    for suffix in ("change/", "delete/", "history/"):
+        url = f"/admin/api/outboundwebhook/{rule.pk}/{suffix}"
+        response = admin_client.get(url, HTTP_HOST=HOST)
+        assert response.status_code == 302
+        assert response["Location"] == f"/admin/rules/?webhook={rule.pk}"
+        assert admin_client.post(url, {"name": "Changed elsewhere"}, HTTP_HOST=HOST).status_code == 405
+    rule.refresh_from_db()
+    assert rule.name == "Existing HTTP rule"
 
 
 @pytest.mark.parametrize(

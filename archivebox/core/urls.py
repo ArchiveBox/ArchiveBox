@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponseRedirect
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
+from archivebox.api.webhook_views import legacy_model_redirect
 from archivebox.core.sidebar import sidebar_view
 from archivebox.core.staticfiles import admin_js_catalog, plugin_icon
 from archivebox.core.views import (
@@ -51,6 +52,7 @@ urlpatterns = [
     *(route for app in get_plugin_apps().values() if (routes := getattr(app, "get_urlpatterns", None)) for route in routes(host)),
     path("admin/importers/", include("archivebox.importers.urls")),
     path("admin/rules/", include("archivebox.api.webhook_urls")),
+    re_path(r"^admin/api/outboundwebhook(?:/(?P<suffix>.*))?$", legacy_model_redirect),
     re_path(r"^admin/webhooks/(?P<suffix>.*)$", legacy_rules_redirect),
     path("admin/domains/", include("archivebox.domains.urls")),
     path("public/search-field/", field_page, name="search-field"),
