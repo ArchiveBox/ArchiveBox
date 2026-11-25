@@ -20,6 +20,10 @@ on:
     - cron: '37 5,17 * * *'
   workflow_dispatch:
     inputs:
+      squid_check:
+        description: Check protected Squid connectivity without capturing
+        type: boolean
+        default: false
       plugin_revision:
         description: Full abx-plugins main revision to capture before its release
         required: false
@@ -37,7 +41,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  squid_check:
+    if: inputs.squid_check && github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: provider-capture
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - name: Confirm configured workload identity inputs
+        env:
+          CLIENT: ${{ vars.SQUID_TAILSCALE_CLIENT_ID_DEV }}
+          AUDIENCE: ${{ vars.SQUID_TAILSCALE_AUDIENCE_DEV }}
+        run: |
+          if [[ -z "$CLIENT" || -z "$AUDIENCE" ]]; then
+            echo "::error title=Squid workload identity not configured::Both protected job OIDC inputs must be present."
+            exit 1
+          fi
+      - name: Set up Squid
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
+        with:
+          proxy: ${{ vars.SQUID_TAILNET_URL }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID_DEV }}
+          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE_DEV }}
+          browser: 'true'
+
   changes:
+    if: ${{ !inputs.squid_check }}
     runs-on: ubuntu-24.04
     outputs:
       changed: ${{ steps.check.outputs.changed }}
@@ -49,7 +80,7 @@ jobs:
   public_recipes:
     name: Gallery public recipe /${{ matrix.lane }}
     needs: changes
-    if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev' && inputs.plugin_revision == ''
+    if: ${{ !inputs.squid_check && needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev' && inputs.plugin_revision == '' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -212,7 +243,7 @@ jobs:
       group: gallery-provider-capture-${{ github.ref }}
       cancel-in-progress: false
       queue: max
-    if: (needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev'
+    if: ${{ !inputs.squid_check && (needs.changes.outputs.changed == 'true' || inputs.plugin_revision != '') && github.ref == 'refs/heads/dev' }}
     runs-on: ubuntu-24.04
     environment: provider-capture
     services:
@@ -540,7 +571,7 @@ jobs:
 
   assemble:
     needs: [deploy, public_recipes]
-    if: inputs.plugin_revision == ''
+    if: ${{ !inputs.squid_check && inputs.plugin_revision == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -605,7 +636,7 @@ jobs:
   complete:
     name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
     needs: [changes, assemble]
-    if: needs.changes.outputs.changed == 'true' && inputs.plugin_revision == ''
+    if: ${{ !inputs.squid_check && needs.changes.outputs.changed == 'true' && inputs.plugin_revision == '' }}
     runs-on: ubuntu-24.04
     steps:
       - run: echo 'Scheduled work completed successfully.'
