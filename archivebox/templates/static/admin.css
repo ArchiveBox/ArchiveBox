@@ -1020,19 +1020,20 @@ body.model-snapshot.change-list #result_list td.field-permissions_badge,
 body.model-crawl.change-list #result_list col.snapshot-permissions-col,
 body.model-crawl.change-list #result_list th.column-permissions_badge,
 body.model-crawl.change-list #result_list td.field-permissions_badge {
-    width: 22px !important;
-    min-width: 22px !important;
-    max-width: 22px !important;
+    width: var(--snapshot-permission-width, 22px) !important;
+    min-width: var(--snapshot-permission-width, 22px) !important;
+    max-width: var(--snapshot-permission-width, 22px) !important;
 }
 
 body.model-snapshot.change-list #result_list th.column-permissions_badge,
 body.model-snapshot.change-list #result_list td.field-permissions_badge,
 body.model-crawl.change-list #result_list th.column-permissions_badge,
 body.model-crawl.change-list #result_list td.field-permissions_badge {
-    padding-left: 0 !important;
+    padding-left: var(--snapshot-permission-inset, 0px) !important;
     padding-right: 0 !important;
     text-align: center !important;
     overflow: visible;
+    box-sizing: border-box;
 }
 
 body.model-snapshot.change-list #result_list th.column-permissions_badge .text,
@@ -1040,8 +1041,8 @@ body.model-snapshot.change-list #result_list th.column-permissions_badge .text s
 body.model-crawl.change-list #result_list th.column-permissions_badge .text,
 body.model-crawl.change-list #result_list th.column-permissions_badge .text span {
     display: inline-flex !important;
-    width: 22px !important;
-    min-width: 22px !important;
+    width: var(--snapshot-permission-content-width, 22px) !important;
+    min-width: var(--snapshot-permission-content-width, 22px) !important;
     justify-content: center !important;
     padding: 0 !important;
 }
@@ -4255,6 +4256,10 @@ body.model-snapshot.change-list #changelist .changelist-form-container > div {
 .model-snapshot.change-list #content #result_list thead th .text span {
     padding-top: 4px;
     padding-bottom: 4px;
+}
+
+.model-snapshot.change-list #result_list th.column-preview_icon .text > :is(a, span) {
+    opacity: 0;
 }
 
 .model-snapshot.change-list #content #result_list th.action-checkbox-column .text span {

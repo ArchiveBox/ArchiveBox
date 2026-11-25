@@ -76,9 +76,24 @@ body.model-snapshot.change-list .snapshot-library:not(:has(> .snapshot-library-r
 .folder-sidebar{position:relative;display:flex;flex-direction:column;min-width:0;padding:0;background:var(--body-bg,#fff);border-right:1px solid var(--hairline-color,#e4e7ec)}
 .folder-sidebar svg,.library-entry .folder-menu-toggle svg,.library-domain-icon svg{width:16px;height:16px;flex:0 0 16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .folder-current{display:none}
-body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizing:border-box;display:flex!important;align-items:center;height:var(--library-toolbar-height);min-height:var(--library-toolbar-height);padding:5px 6px!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
+/* Keep the table's leading columns on the toolbar's search-control grid. */
+.model-snapshot .snapshot-library{
+  --library-toolbar-inline:6px;
+  --library-toolbar-gap:6px;
+  --library-search-icon-width:36px;
+}
+.model-snapshot .snapshot-library:not(.sidebar-hidden){
+  --snapshot-checkbox-width:44px;
+  --snapshot-search-icon-start:calc(var(--library-toolbar-inline) + var(--library-control-size) + var(--library-toolbar-gap) + 1px);
+  --snapshot-permission-inset:calc(var(--snapshot-search-icon-start) - var(--snapshot-checkbox-width));
+  --snapshot-permission-content-width:var(--library-search-icon-width);
+  --snapshot-permission-width:calc(var(--library-search-icon-width) + var(--snapshot-permission-inset));
+}
+.snapshot-library #result_list col.snapshot-selection-col{width:var(--snapshot-checkbox-width)}
+.snapshot-library #changelist #toolbar .abx-query-icon{flex:0 0 var(--library-search-icon-width);padding-inline:0}
+body.model-snapshot.change-list .snapshot-library #changelist #toolbar{box-sizing:border-box;display:flex!important;align-items:center;height:var(--library-toolbar-height);min-height:var(--library-toolbar-height);padding:5px 6px!important;padding-inline-start:var(--library-toolbar-inline)!important;border-bottom:1px solid var(--hairline-color,#e4e7ec)!important}
 body.model-snapshot.change-list .snapshot-library #changelist .changelist-form-container>div{gap:0!important}
-.snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:6px;width:100%}
+.snapshot-library #changelist #toolbar .changelist-toolbar-row{display:flex;align-items:center;gap:var(--library-toolbar-gap,6px);width:100%}
 .snapshot-library #changelist #toolbar #changelist-search{flex:1;min-width:0}
 .snapshot-library #changelist .archivebox-search-stream-status{box-sizing:border-box;margin:0;padding:4px 12px;color:var(--body-fg,#1d2939);background:var(--darkened-bg,#f7f8fa);border-bottom:1px solid var(--hairline-color,#e4e7ec);font-size:12px;font-weight:600;line-height:16px}
 
@@ -266,7 +281,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 .folder-sidebar-reopen svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .folder-sidebar-reopen span{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(min-width:768px){
-  .snapshot-library{--library-column-header-height:44px}
+  .snapshot-library{--library-column-header-height:var(--library-toolbar-height)}
   .public-library{--library-column-header-height:36px}
   .folder-section-heading{height:var(--library-toolbar-height);min-height:var(--library-toolbar-height)}
   .snapshot-library #result_list thead tr{height:var(--library-column-header-height)}
@@ -305,7 +320,7 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
 @media(pointer:coarse){
   .snapshot-library{--library-control-size:36px;--library-toolbar-height:48px;--library-row-height:36px}
   /* Keep the wider grid toggle centered over the same checkbox column. */
-  body.model-snapshot.change-list .snapshot-library #changelist #toolbar{padding-inline-start:4px!important}
+  .model-snapshot .snapshot-library{--library-toolbar-inline:4px}
   .folder-sidebar .icon-button{width:36px;height:36px;flex-basis:36px}
   .folder-row,.folder-sidebar a.library-link{min-height:36px}
   .folder-row-actions{opacity:1;pointer-events:auto}.folder-row:has(.folder-row-actions) .folder-link{padding-right:76px!important}.folder-row:not(:has(.folder-row-actions>.folder-new)) .folder-link{padding-right:40px!important}.folder-row .folder-count{display:none}
