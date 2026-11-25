@@ -653,12 +653,16 @@ def seed_security_metadata(conn: sqlite3.Connection, *, include_api: bool) -> di
 
 
 def verify_preserved_rows(db_path: Path, expected: dict[str, list[tuple]]) -> None:
-    """Assert every captured legacy row still exists unchanged after migration."""
+    """Assert every captured row survives with its original identity."""
     with sqlite3.connect(db_path) as conn:
         for table, expected_rows in expected.items():
             columns = {**AUTH_TABLE_COLUMNS, **API_TABLE_COLUMNS}[table]
             current_rows = {row[0]: row for row in conn.execute(f"SELECT {', '.join(columns)} FROM {table}").fetchall()}
             for expected_row in expected_rows:
+                # Django's RenameModel updates this label on the existing
+                # content type. Its PK and all references must survive.
+                if table == "django_content_type" and expected_row[1:] == ("api", "outboundwebhook"):
+                    expected_row = (expected_row[0], "api", "rule")
                 assert current_rows.get(expected_row[0]) == expected_row, f"{table} row {expected_row[0]!r} changed"
 
 
