@@ -622,6 +622,9 @@ ADMIN_DATA_VIEWS = {
 # only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
 DEBUG_TOOLBAR = False
 DEBUG_TOOLBAR = DEBUG_TOOLBAR and DEBUG and ("--nothreading" in sys.argv) and ("--reload" not in sys.argv)
+BUILTIN_MIDDLEWARE = tuple(MIDDLEWARE)
+BUILTIN_INSTALLED_APPS = tuple(INSTALLED_APPS)
+
 if DEBUG_TOOLBAR:
     try:
         import debug_toolbar  # noqa

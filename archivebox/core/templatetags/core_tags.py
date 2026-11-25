@@ -1585,6 +1585,13 @@ def api_token(context) -> str:
 
 
 @register.simple_tag(takes_context=True)
+def plugin_settings_grid(context, form):
+    from archivebox.core.settings_stream import render_settings_grid
+
+    return render_settings_grid(context, form)
+
+
+@register.simple_tag(takes_context=True)
 def plugin_config_field(context, plugin, field):
     """A conventional field template overrides the shared schema renderer."""
     from django.conf import settings

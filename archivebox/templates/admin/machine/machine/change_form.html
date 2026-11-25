@@ -1,4 +1,5 @@
 {% extends "admin/archivebox_change_form.html" %}
+{% load core_tags %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -48,7 +49,7 @@
     </div>
     <a class="persona-guide-link" href="{% url 'admin:personas_persona_changelist' %}">Edit a Persona →</a>
 </section>
-{% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
+{% plugin_settings_grid adminform.form %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const url = new URL(window.location.href);
