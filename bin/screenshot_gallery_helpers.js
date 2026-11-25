@@ -885,21 +885,26 @@ async function openImportMenu(page) {
       const item = label.closest('[role=menuitem],[role=group]');
       return {text:label.textContent.trim(),href:item.getAttribute('href'),hasIcon:!!item.querySelector('.folder-menu-icon')};
     });
-    const mobileLinks = [...node.querySelectorAll('.library-import-platforms a')].map(link => link.getAttribute('href'));
+    const mobile = [...node.querySelectorAll('.library-import-icons a')];
+    const [ios, android] = mobile.map(link => link.getBoundingClientRect());
+    const mobileLinks = mobile.map(link => link.getAttribute('href'));
+    const mobileIconsOverlap = ios && android && ios.right > android.left;
     const aiLinks = [...node.querySelectorAll('.library-import-links a')].map(link => link.getAttribute('href'));
-    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items,mobileLinks,aiLinks};
+    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items,mobileLinks,mobileIconsOverlap,aiLinks};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
   const expected = [
-    'Upload file', 'RSS Feed', 'Google Sheets, Docs, Slides',
-    'Browser extension', 'Mobile app', 'Via chat bot', 'Using AI', 'Via MITM proxy',
-    'Via Social Media', 'Via Pinboard', 'Via Instapaper', 'Via Reddit Saved Posts', 'Via Shaarli', 'Via Unmark.it', 'Via Wallabag',
+    'Using AI', 'Upload file', 'Google Sheets, Docs, Slides',
+    'Via browser extension', 'Via mobile app', 'Via chat bot', 'Via MITM proxy',
+    'RSS Feed', 'Social Media', 'Pinboard, Wallabag, Shaarli, Instapaper, ...',
     'Clone an entire site', 'Watch a site for changes',
   ];
   if (JSON.stringify(menu.items.map(item => item.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
   if (menu.items.some(item => !item.hasIcon)) throw new Error('Import menu is missing an icon.');
   if (menu.items.find(item => item.text === 'RSS Feed').href !== '/admin/importers/new/importer_rss/feed/') throw new Error('RSS import does not open the feed form.');
+  if (menu.items.find(item => item.text.startsWith('Pinboard,')).href !== 'https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive') throw new Error('Bookmarking services do not open the Quickstart.');
   if (JSON.stringify(menu.mobileLinks) !== JSON.stringify(['https://app.archivebox.io/', 'https://android.archivebox.io/'])) throw new Error('Mobile app links are missing.');
+  if (menu.mobileIconsOverlap) throw new Error('Mobile app links overlap.');
   const expectedAiLinks = [
     '/admin/agent/',
     'https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp',

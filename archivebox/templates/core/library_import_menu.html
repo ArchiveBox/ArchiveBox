@@ -7,6 +7,17 @@
   Import<span aria-hidden="true">▾</span>
 </button>
 <div id="{{ menu_id }}" class="folder-menu library-import-menu" popover role="menu" aria-label="Import">
+  <div class="library-import-row" role="group" aria-labelledby="{{ menu_id }}-ai">
+    <span class="folder-menu-label" id="{{ menu_id }}-ai">
+      <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c0 6-4 10-10 10 6 0 10 4 10 10 0-6 4-10 10-10-6 0-10-4-10-10Z"/></svg>
+      Using AI
+    </span>
+    <span class="library-import-links">
+      <a role="menuitem" href="/admin/agent/">Agent</a>
+      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp">MCP</a>
+      <a role="menuitem" href="https://www.skills.sh/archivebox/archivebox/archivebox">Skill</a>
+    </span>
+  </div>
   {% if request.user.is_active and request.user.is_staff and perms.crawls.add_crawl %}
   <button type="button" role="menuitem" data-crawl-upload>
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/></svg>
@@ -22,17 +33,6 @@
     </span>
   </button>
   {% endif %}
-  {% if request.user.is_superuser %}
-  {% importer_providers as providers %}
-  {% for provider in providers %}
-  {% if provider.definition.plugin == 'importer_rss' %}
-  <a role="menuitem" href="{% url 'importers:new' provider.definition.plugin provider.definition.feed %}">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg>
-    <span class="folder-menu-label">RSS Feed</span>
-  </a>
-  {% endif %}
-  {% endfor %}
-  {% endif %}
   <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Archiving-URLs-from-Google-Sheets">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6Zm8 0v5h4M9 12h6v5H9Zm3 0v5m-3-2.5h6"/></svg>
     <span class="folder-menu-label">Google Sheets, Docs, Slides</span>
@@ -45,7 +45,7 @@
   <hr>
   <a role="menuitem" href="https://extension.archivebox.io/">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01m3 0h.01"/></svg>
-    <span class="folder-menu-label">Browser extension</span>
+    <span class="folder-menu-label">Via browser extension</span>
     <span class="library-import-icons" aria-hidden="true">
       <span title="Chrome"><svg><use href="{{ import_icons }}#chrome"/></svg></span>
       <span title="Safari"><svg><use href="{{ import_icons }}#safari"/></svg></span>
@@ -57,9 +57,9 @@
   <div class="library-import-row" role="group" aria-label="Mobile app">
     <a role="menuitem" href="https://app.archivebox.io/">
       <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
-      <span class="folder-menu-label">Mobile app</span>
+      <span class="folder-menu-label">Via mobile app</span>
     </a>
-    <span class="library-import-platforms">
+    <span class="library-import-icons">
       <a role="menuitem" href="https://app.archivebox.io/" aria-label="ArchiveBox for iOS" title="iOS"><svg aria-hidden="true"><use href="{{ import_icons }}#apple"/></svg></a>
       <a role="menuitem" href="https://android.archivebox.io/" aria-label="ArchiveBox for Android" title="Android"><svg aria-hidden="true"><use href="{{ import_icons }}#android"/></svg></a>
     </span>
@@ -78,25 +78,25 @@
       <span title="Slack"><svg><use href="{{ import_icons }}#slack"/></svg></span>
     </span>
   </a>
-  <div class="library-import-row" role="group" aria-labelledby="{{ menu_id }}-ai">
-    <span class="folder-menu-label" id="{{ menu_id }}-ai">
-      <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c0 6-4 10-10 10 6 0 10 4 10 10 0-6 4-10 10-10-6 0-10-4-10-10Z"/></svg>
-      Using AI
-    </span>
-    <span class="library-import-links">
-      <a role="menuitem" href="/admin/agent/">Agent</a>
-      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp">MCP</a>
-      <a role="menuitem" href="https://www.skills.sh/archivebox/archivebox/archivebox">Skill</a>
-    </span>
-  </div>
   <a role="menuitem" href="https://github.com/ArchiveBox/archivebox-proxy">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 3-3m-2 8 6-6m-2 13 5-5m2 0 2 2-5 5-2-2M3 10l4-4 4 4-4 4Zm8 5 4-4 4 4-4 4Z"/></svg>
     <span class="folder-menu-label">Via MITM proxy</span>
   </a>
   <hr>
+  {% if request.user.is_superuser %}
+  {% importer_providers as providers %}
+  {% for provider in providers %}
+  {% if provider.definition.plugin == 'importer_rss' %}
+  <a role="menuitem" href="{% url 'importers:new' provider.definition.plugin provider.definition.feed %}">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg>
+    <span class="folder-menu-label">RSS Feed</span>
+  </a>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
   <a role="menuitem" href="{% url 'importers:index' %}">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg>
-    <span class="folder-menu-label">Via Social Media</span>
+    <span class="folder-menu-label">Social Media</span>
     {% if providers %}
     <span class="library-import-icons" aria-hidden="true">
       {% for provider in providers %}
@@ -109,29 +109,17 @@
     </span>
     {% endif %}
   </a>
-  <a role="menuitem" href="https://pinboard.in/export/">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 3 6 6-3 1-4 4v4l-8-8h4l4-4ZM10 14l-6 6"/></svg>
-    <span class="folder-menu-label">Via Pinboard</span>
-  </a>
-  <a role="menuitem" href="https://www.instapaper.com/user">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 8h6m-3 0v8m-3 0h6"/></svg>
-    <span class="folder-menu-label">Via Instapaper</span>
-  </a>
-  <a role="menuitem" href="https://github.com/csu/export-saved-reddit">
+  <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg>
-    <span class="folder-menu-label">Via Reddit Saved Posts</span>
-  </a>
-  <a role="menuitem" href="https://www.mypersonnaldata.eu/shaarli/doc/Backup,-restore,-import-and-export.html#export-links-as">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 8l2-2a4 4 0 0 1 6 6l-2 2m-2 2-2 2a4 4 0 0 1-6-6l2-2m1 5 6-6"/></svg>
-    <span class="folder-menu-label">Via Shaarli</span>
-  </a>
-  <a role="menuitem" href="https://unmark.it/">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Zm3 6h6"/></svg>
-    <span class="folder-menu-label">Via Unmark.it</span>
-  </a>
-  <a role="menuitem" href="https://doc.wallabag.org/user/articles/download/">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V5h12a2 2 0 0 1 2 2v13H6a2 2 0 0 1 0-4h12M8 9h6m-6 3h4"/></svg>
-    <span class="folder-menu-label">Via Wallabag</span>
+    <span class="folder-menu-label">Pinboard, Wallabag, Shaarli, Instapaper, ...</span>
+    <span class="library-import-icons" aria-hidden="true">
+      <span title="Pinboard"><img src="{% static 'library/import-icons/pinboard.png' %}" alt="" loading="lazy"></span>
+      <span title="Wallabag"><svg><use href="{{ import_icons }}#wallabag"/></svg></span>
+      <span title="Shaarli"><img src="{% static 'library/import-icons/shaarli.png' %}" alt="" loading="lazy"></span>
+      <span title="Instapaper"><svg><use href="{{ import_icons }}#instapaper"/></svg></span>
+      <span title="Reddit Saved Posts"><img src="{% static 'library/import-icons/reddit.png' %}" alt="" loading="lazy"></span>
+      <span title="Unmark.it"><img src="{% static 'library/import-icons/unmark.png' %}" alt="" loading="lazy"></span>
+    </span>
   </a>
   <hr>
   {% if domains_url %}
