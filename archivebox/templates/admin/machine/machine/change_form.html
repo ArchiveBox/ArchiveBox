@@ -2,6 +2,8 @@
 
 {% block extrastyle %}
 {{ block.super }}
+{% include 'plugins/config_quantity.html' %}
+{% include 'plugins/config_assets.html' %}
 <style>
 #machine_form #plugin-settings,
 #machine_form .system-settings-persona-guide { grid-column: 1 / -1; }

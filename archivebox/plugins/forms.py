@@ -4,22 +4,29 @@ import json
 import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django import forms
+from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from archivebox.config import CONSTANTS_CONFIG
 from archivebox.config.common import ArchiveBoxConfig, get_config, UI_MANAGED_CONFIG_KEYS
 from archivebox.plugins.documentation import get_plugin_documentation
 from archivebox.plugins.discovery import (
+    BUILTIN_PLUGINS_DIR,
     OPENCODE_PROVIDER_SETTINGS_PLUGIN,
     discover_plugin_configs,
     get_opencode_provider_keys,
     get_plugin_catalog,
     get_plugin_icon,
+    get_plugin_icon_asset,
     get_plugins,
 )
+
+if TYPE_CHECKING:
+    from archivebox.machine.models import Machine
 
 
 PLUGIN_CONFIG_FIELD_PREFIX = "plugin_config__"
@@ -55,6 +62,16 @@ def get_plugin_choice_label(plugin_name: str, plugin_configs: dict[str, dict]) -
     if not description:
         return plugin_name
     icon_html = get_plugin_icon(plugin_name)
+    # Each plugin is shown in both the sidebar and its settings panel. Reuse
+    # the snapshot list's immutable artwork URL; an inline currentColor SVG
+    # still needs to inherit the settings theme from its enclosing element.
+    asset = get_plugin_icon_asset(plugin_name)
+    if asset and get_plugin_catalog()[plugin_name].path.parent == BUILTIN_PLUGINS_DIR and b"currentcolor" not in asset[1].lower():
+        url = reverse("plugin-icon", kwargs={"plugin": plugin_name, "fingerprint": asset[0]})
+        image = format_html('<img src="{}" width="17" height="17" loading="lazy" decoding="async" alt="">', url)
+        # get_plugin_icon_asset accepts one wrapped SVG. Preserve the plugin's
+        # accessible wrapper and credits, replacing only the drawing itself.
+        icon_html = mark_safe(icon_html[: icon_html.index("<svg")] + image + icon_html[icon_html.rindex("</svg>") + 6 :])
 
     return format_html(
         '<span class="plugin-choice-icon">{}</span><span class="plugin-choice-name">{}</span>',
@@ -303,7 +320,12 @@ class PluginConfigFormMixin:
             self.add_error("config", f"URL_{error['field'].upper()}: {error['message']}")
         return merged
 
-    def build_plugin_groups(self, runtime_config: Mapping[str, Any] | None = None) -> None:
+    def build_plugin_groups(
+        self,
+        runtime_config: Mapping[str, Any] | None = None,
+        *,
+        binary_url_lookup: Mapping[str, str] | None = None,
+    ) -> None:
         catalog = get_plugin_catalog()
         from archivebox.config.common import SYSTEM_PLUGIN_NAMES
 
@@ -312,7 +334,8 @@ class PluginConfigFormMixin:
             all_plugins.difference_update(SYSTEM_PLUGIN_NAMES)
         plugin_configs = self.settings_schemas()
         runtime_config = runtime_config or get_config()
-        binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
+        if binary_url_lookup is None:
+            binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config, binary_url_lookup)
         grouped_plugins = catalog.groups()
 
@@ -724,6 +747,8 @@ def _iter_required_binary_names(
 def build_required_binary_url_lookup(
     plugin_configs: Mapping[str, dict[str, Any]],
     runtime_configs: Iterable[Mapping[str, Any]],
+    *,
+    machine: "Machine | None" = None,
 ) -> dict[str, str]:
     """Resolve required/configured binary links for all configs in one DB query."""
     from django.db.models import Q
@@ -743,13 +768,15 @@ def build_required_binary_url_lookup(
     if not resolved_names:
         return {}
 
-    machine = Machine.current()
+    # Looking up presentation links should never register or refresh a machine.
+    machine = machine or Machine.current_readonly(fields=("id",))
     name_to_binary: dict[str, Binary] = {}
     path_to_binary: dict[str, Binary] = {}
     names = {name.lower() for name in resolved_names}
     names.update(Path(name).name.lower() for name in resolved_names if "/" in name)
     for binary in (
         Binary.objects.filter(machine=machine)
+        .only("id", "name", "abspath")
         .alias(normalized_name=Lower("name"))
         .filter(Q(normalized_name__in=names) | Q(abspath__in=resolved_names))
         .exclude(abspath="")

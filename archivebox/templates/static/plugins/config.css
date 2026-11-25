@@ -1,4 +1,3 @@
-<style>
 #plugin-settings {
     --settings-blue: var(--link-fg, #a51c50);
     --settings-text: var(--body-fg, #344054);
@@ -38,7 +37,7 @@
 #plugin-settings [role="tab"][aria-selected="true"] { background: var(--body-bg, #fff); border-color: var(--border-color, #d0d5dd); color: var(--settings-text); }
 .plugin-choice-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 25px; height: 25px; border-radius: 6px; background: var(--body-bg, #fff); box-shadow: 0 1px 3px #00000012; color: #535a65; }
 .config-section-heading { margin: 24px 0 10px; color: var(--settings-muted); font-size: 13px; font-weight: 600; }
-#plugin-settings .plugin-choice-icon svg { width: 17px; height: 17px; }
+#plugin-settings .plugin-choice-icon :is(svg, img) { width: 17px; height: 17px; }
 .plugin-choice-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plugin-settings-nav-row { display: flex; align-items: center; gap: 8px; padding-right: 5px; }
 #plugin-settings .plugin-settings-nav-row [role="tab"] { min-width: 0; flex: 1; }
@@ -51,7 +50,7 @@
 .plugin-settings-breadcrumb span { margin: 0 7px; color: #b0b1b8; }
 #plugin-settings .plugin-card-label { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 650; letter-spacing: -.7px; margin: 0 0 12px; width: auto; color: var(--settings-text); }
 .plugin-card-label .plugin-choice-icon { width: 44px; height: 44px; border-radius: 11px; }
-#plugin-settings .plugin-card-label .plugin-choice-icon svg { width: 27px; height: 27px; }
+#plugin-settings .plugin-card-label .plugin-choice-icon :is(svg, img) { width: 27px; height: 27px; }
 #plugin-settings .plugin-choice-description { margin: 0 0 10px; font: inherit; font-size: 13px; color: var(--settings-muted); max-width: 620px; }
 .plugin-settings-links { display: flex; gap: 18px; font-size: 11px; }
 
@@ -152,4 +151,11 @@
     #plugin-settings .config-presets button { min-height: 44px; padding: 12px 6px; }
     .config-editor-toolbar { gap: 8px; }
 }
-</style>
+.system-defaults .plugin-config-field:not(:focus-within):not(.settings-edited) .plugin-config-control { opacity: .55; }
+.system-defaults .plugin-config-control { transition: opacity .15s; }
+.system-default-note { color: #697386; font-size: 13px; }
+
+
+.plugin-advanced { margin-top: 18px; }
+.plugin-advanced > summary { cursor: pointer; color: #697386; font-size: 12px; padding: 10px 0; }
+.plugin-config-grid:empty { display: none; }

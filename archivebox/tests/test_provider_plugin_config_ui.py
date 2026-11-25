@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from xml.etree import ElementTree
 
 from abx_plugins import get_plugins_dir
 from playwright.sync_api import expect, sync_playwright
@@ -56,9 +57,18 @@ def test_provider_config_settings_in_browser(initialized_archive, browser_runtim
                         ),
                     ).to_have_text("Text" if plugin in TEXT_PROVIDERS else "Media")
                     expect(card.locator(".plugin-choice-description")).to_have_text(config["description"])
-                    logo = card.locator(".plugin-choice-icon svg").first
+                    logo = card.locator(".plugin-choice-icon :is(svg, img)").first
                     expect(logo).to_be_visible()
-                    assert logo.locator("path, circle, rect, polygon, ellipse, polyline").count() > 0
+                    if src := logo.get_attribute("src"):
+                        logo.evaluate("image => image.decode()")
+                        artwork = page.request.get(base + src)
+                        assert artwork.ok and "immutable" in artwork.headers["cache-control"]
+                        assert any(
+                            shape.tag.rsplit("}", 1)[-1] in {"path", "circle", "rect", "polygon", "ellipse", "polyline"}
+                            for shape in ElementTree.fromstring(artwork.body()).iter()
+                        )
+                    else:
+                        assert logo.locator("path, circle, rect, polygon, ellipse, polyline").count() > 0
                     timeout = card.locator(f'[name="plugin_config__{plugin}__{plugin.upper()}_TIMEOUT"]')
                     expect(timeout.locator("..").locator(".config-quantity-value")).to_be_visible()
                     assert timeout.input_value()

@@ -5,6 +5,8 @@
 
 {% block extrastyle %}
 {{ block.super }}
+{% include 'plugins/config_quantity.html' %}
+{% include 'plugins/config_assets.html' %}
 <link rel="stylesheet" href="{% static 'add.css' %}">
 <style>
     .persona-import-hero {

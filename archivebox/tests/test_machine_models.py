@@ -225,7 +225,6 @@ class TestMachineModel:
         assert Machine.current_readonly().config["USER_AGENT"] == "edited-here"
 
     def test_add_requests_see_machine_config_committed_by_another_process(self, client):
-        import json
         from django.contrib.auth import get_user_model
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
@@ -277,7 +276,7 @@ class TestMachineModel:
             row["sql"] for row in request_queries if row["sql"].startswith("SELECT") and 'FROM "machine_machine"' in row["sql"]
         ]
         assert len(machine_reads) == 1, machine_reads
-        persona_configs = json.loads(second.context["persona_config_map_json"])
+        persona_configs = second.context["persona_config_map"]
         assert persona_configs["Research"]["effective_config"]["TIMEOUT"] == 63
         assert second.status_code == 200
         assert second.context["FOOTER_INFO"] == footer

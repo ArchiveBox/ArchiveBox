@@ -6,7 +6,9 @@ from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from django import forms
 
 from archivebox.base_models.admin import KeyValueWidget
-from archivebox.config.common import get_config, get_request_config, host_config_keys, parse_delete_after
+from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config, get_request_config, host_config_keys, load_source_config, parse_delete_after
+from archivebox.config.configset import BaseConfigSet
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
 from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget, URLFiltersWidget
@@ -330,7 +332,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         required=False,
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, defer_plugin_groups=False, **kwargs):
         self.request = kwargs.pop("request", None)
         self.can_override_crawl_config = False
         if self.request is not None:
@@ -361,7 +363,16 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             get_request_config(self.request)
             machine = self.request._archivebox_config_machine
             machine_inputs = {"machine": machine, "include_machine": machine is not None}
-        default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config, **machine_inputs)
+        # All presets displayed together inherit the same collection defaults.
+        self.config_sources = (load_source_config(), BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)) if defer_plugin_groups else None
+        default_config = get_config(
+            persona=selected_persona,
+            resolve_plugins=self.can_override_crawl_config,
+            config_sources=self.config_sources,
+            **machine_inputs,
+        )
+        self.default_persona = selected_persona
+        self.default_config = default_config
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
         self.fields["permissions"].initial = default_config.PERMISSIONS
@@ -387,11 +398,11 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             selected_persona = (
                 persona_queryset.filter(name=str(self.data.get(self.add_prefix("persona")) or "")).first() or selected_persona
             )
-        if self.can_override_crawl_config:
+        if self.can_override_crawl_config and not defer_plugin_groups:
             # An unbound form still uses the default persona resolved above.
             selected_config = get_config(persona=selected_persona) if self.is_bound else default_config
             self.build_plugin_groups(selected_config)
-        else:
+        elif not self.can_override_crawl_config:
             grouped_plugins = get_plugin_catalog().groups()
             for category, field_name, _title in PLUGIN_GROUPS:
                 get_choice_field(self, field_name).choices = [(plugin.name, plugin.name) for plugin in grouped_plugins.get(category, [])]

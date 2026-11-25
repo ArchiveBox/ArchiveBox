@@ -1347,6 +1347,7 @@ def get_config(
     resolve_plugins: bool = True,
     redact_sensitive: bool = False,
     include_file: bool = True,
+    config_sources: tuple[ArchiveBoxBaseConfig, dict[str, Any]] | None = None,
 ) -> ArchiveBoxBaseConfig:
     """
     Get merged config from all sources.
@@ -1360,6 +1361,8 @@ def get_config(
     from current Machine/Persona state and hydrated process defaults each time.
     Set include_file=False and include_machine=False for the inherited process
     defaults after removing a machine override and its mirrored file entry.
+    Use the same source config model and raw file values for a group of configs
+    that should resolve against one read of the process and collection defaults.
     """
     if crawl is None and snapshot is not None:
         crawl = snapshot.crawl
@@ -1389,8 +1392,11 @@ def get_config(
     config_data: ConfigPayload = dict(defaults or {})
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
-    file_config: dict[str, Any] | None = None if include_file else {}
-    base_config_model = load_source_config(include_file=include_file) if base_config is None else None
+    if config_sources is not None and base_config is None and include_file:
+        base_config_model, file_config = config_sources
+    else:
+        file_config = None if include_file else {}
+        base_config_model = load_source_config(include_file=include_file) if base_config is None else None
 
     if crawl_config_base:
         assert base_config_model is not None

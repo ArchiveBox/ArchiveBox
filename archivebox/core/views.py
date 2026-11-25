@@ -66,7 +66,6 @@ from archivebox.core.permissions import (
     can_view_snapshot,
     direct_snapshots_queryset,
     discoverable_snapshots_queryset,
-    filter_personas_by_permissions,
     is_admin_user,
     public_snapshots_queryset,
 )
@@ -2035,6 +2034,7 @@ class AddView(UserPassesTestMixin, FormView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["request"] = self.request
+        kwargs["defer_plugin_groups"] = self.request.method in {"GET", "HEAD"}
         return kwargs
 
     def test_func(self):
@@ -2081,6 +2081,7 @@ class AddView(UserPassesTestMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        form = context["form"]
         request_config = get_request_config(self.request)
         required_search_plugin = f"search_backend_{request_config.SEARCH_BACKEND_ENGINE}".strip()
         can_override_crawl_config = self._can_override_crawl_config()
@@ -2091,31 +2092,42 @@ class AddView(UserPassesTestMixin, FormView):
             "PERMISSIONS",
             "TIMEOUT",
         }
-        persona_queryset = context["form"].fields["persona"].queryset
-        if not can_override_crawl_config:
-            persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
+        persona_field = form.fields["persona"]
+        # The form has already applied visibility rules. Reuse these rows for
+        # configuration, the select widget, and the recently created presets.
+        personas = list(persona_field.queryset)
+        persona_field.widget.choices = [(persona_field.prepare_value(p), persona_field.label_from_instance(p)) for p in personas]
         # Personas share this request's Machine row; resolving their overrides
         # must not re-fetch the same config once for every Persona in the menu.
         machine = self.request._archivebox_config_machine
         persona_configs = [
             (
                 persona,
-                get_config(
+                form.default_config
+                if persona == form.default_persona
+                else get_config(
                     persona=persona,
                     resolve_plugins=can_override_crawl_config,
                     machine=machine,
                     include_machine=machine is not None,
+                    config_sources=form.config_sources,
                 ),
             )
-            for persona in persona_queryset.order_by("name")
+            for persona in personas
         ]
         # Personas share the installed binaries; only their configured names and
         # paths differ. Resolve their union once, retaining per-persona choices.
         binary_url_lookup = (
-            build_required_binary_url_lookup(discover_plugin_configs(), (config for _, config in persona_configs))
+            build_required_binary_url_lookup(
+                discover_plugin_configs(),
+                [form.default_config, *(config for persona, config in persona_configs if persona != form.default_persona)],
+                machine=machine,
+            )
             if can_override_crawl_config
             else {}
         )
+        if can_override_crawl_config and self.request.method in {"GET", "HEAD"} and not form.is_bound:
+            form.build_plugin_groups(form.default_config, binary_url_lookup=binary_url_lookup)
         persona_config_map = {}
         excluded_keys = host_config_keys() | UI_MANAGED_CONFIG_KEYS
         for persona, effective_config in persona_configs:
@@ -2135,7 +2147,38 @@ class AddView(UserPassesTestMixin, FormView):
                 "effective_config": effective_config_json,
                 "binary_urls": binary_urls,
             }
-        recent_personas = list(persona_queryset.order_by("-created_at", "name")[:5])
+        recent_personas = sorted(personas, key=operator.attrgetter("created_at"), reverse=True)[:5]
+
+        # Send shared defaults once. Only use keys with equal values in every
+        # Persona so restoring a binary link never requires a deletion marker.
+        common_config = {}
+        for field in ("effective_config", "binary_urls"):
+            values = [data[field] for data in persona_config_map.values()]
+            common_config[field] = common = {}
+            if values:
+                for key, value in values[0].items():
+                    if not all(key in other and type(other[key]) is type(value) and other[key] == value for other in values[1:]):
+                        continue
+                    # JSON distinguishes values such as true and 1 inside
+                    # compound settings even though Python considers them equal.
+                    if isinstance(value, (dict, list)):
+                        encoded = json.dumps(value, sort_keys=True)
+                        if not all(json.dumps(other[key], sort_keys=True) == encoded for other in values[1:]):
+                            continue
+                    common[key] = value
+        persona_config_data = {
+            "common": common_config,
+            "personas": {
+                name: {
+                    **data,
+                    **{
+                        field: {key: value for key, value in data[field].items() if key not in common}
+                        for field, common in common_config.items()
+                    },
+                }
+                for name, data in persona_config_map.items()
+            },
+        }
         return {
             **context,
             "title": "Create Crawl",
@@ -2145,7 +2188,13 @@ class AddView(UserPassesTestMixin, FormView):
             "VERSION": VERSION,
             "FOOTER_INFO": request_config.FOOTER_INFO,
             "required_search_plugin": required_search_plugin,
-            "persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str),
+            "persona_config_map": persona_config_map,
+            "persona_config_data": persona_config_data,
+            **(
+                {"persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str)}
+                if settings.CUSTOM_TEMPLATES_ENABLED
+                else {}
+            ),
             "recent_personas": recent_personas,
             "can_override_crawl_config": can_override_crawl_config,
             "stdout": "",

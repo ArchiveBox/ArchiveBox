@@ -1,0 +1,9 @@
+.config-quantity { display: flex; align-items: center; gap: 0; flex-wrap: wrap; min-width: 0; }
+#plugin-settings .config-quantity input.config-quantity-value, #add-form .config-quantity input.config-quantity-value { flex: 1; min-width: 60px; width: 80px; height: 34px; padding: 6px 9px; border: 1px solid #d5d6dc; border-radius: 6px 0 0 6px; font: inherit; font-size: 12px; background: white; color: #36383d; box-shadow: none; }
+#plugin-settings .config-quantity select.config-quantity-unit, #add-form .config-quantity select.config-quantity-unit { flex: 0 0 72px; width: 72px; height: 34px; min-height: 34px; margin: 0; padding: 5px; border: 1px solid #d5d6dc; border-left: 0; border-radius: 0 6px 6px 0; background: #f6f7fa; font: inherit; font-size: 12px; color: #555963; }
+.config-quantity-error { flex: 1 0 100%; margin-top: 5px; color: #b42318; font-size: 11px; }
+.config-quantity-error:empty { display: none; }
+.config-quantity input[aria-invalid="true"] { border-color: #d92d20 !important; }
+#plugin-settings .plugin-config-field .plugin-config-control .config-range input.config-zero-value { flex: 0 0 90px; min-width: 90px; width: 90px; }
+.config-range .config-quantity { flex: 0 1 160px; }
+.config-quantity-slider { width: auto; min-width: 90px; flex: 1 1 130px; margin-right: 10px; accent-color: #007aff; }

@@ -623,6 +623,9 @@ class URLFiltersWidget(forms.Widget):
                         return;
                     }}
 
+                    // Typing a URL often leaves both rules unchanged. Re-emitting their
+                    // inputs would rebuild the preview and the advanced config editor.
+                    if (keyInput.value === key && valueInput.value === value) return;
                     keyInput.value = key;
                     valueInput.value = value;
                     keyInput.dispatchEvent(new Event('input', {{ bubbles: true }}));

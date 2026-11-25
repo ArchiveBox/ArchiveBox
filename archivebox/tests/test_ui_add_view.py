@@ -12,7 +12,9 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.db import connection
+from django.templatetags.static import static
 from django.urls import reverse
+from lxml.html import fromstring
 
 from archivebox.config.common import ArchiveBoxConfig, get_config
 from archivebox.core.models import Snapshot, Tag
@@ -99,7 +101,7 @@ def test_add_view_batches_binary_links_and_preserves_persona_path_selection(clie
     with CaptureQueriesContext(connection) as queries:
         response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert response.status_code == 200
-    configs = json.loads(response.context["persona_config_map_json"])
+    configs = response.context["persona_config_map"]
     for name, (_value, binary) in personas.items():
         url = configs[name]["binary_urls"]["WGET_BINARY"]
         if binary:
@@ -108,13 +110,12 @@ def test_add_view_batches_binary_links_and_preserves_persona_path_selection(clie
         else:
             assert url == "/admin/environment/binaries/missing-downloader/"
     binary_queries = [query for query in queries if 'FROM "machine_binary"' in query["sql"]]
-    # One shared persona batch plus the form's own binary-link batch.
-    assert len(binary_queries) == 2
+    assert len(binary_queries) == 1, "The selected form and all persona links share installed Binary rows"
     newest.abspath = ""
     newest.save(update_fields=["abspath"])
     updated = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert updated.status_code == 200
-    updated_configs = json.loads(updated.context["persona_config_map_json"])
+    updated_configs = updated.context["persona_config_map"]
     assert older.admin_change_url in updated_configs["Named"]["binary_urls"]["WGET_BINARY"]
     assert exact_path.admin_change_url in updated_configs["ExactPath"]["binary_urls"]["WGET_BINARY"]
 
@@ -244,9 +245,10 @@ def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):
 def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_user):
     client.force_login(admin_user)
     default_persona = Persona.get_or_create_default()
+    user_agent = 'ArchiveBox Default Persona UA </script><b id="persona-user-agent">'
     default_persona.config = {
         "COOKIES_FILE": "/tmp/archivebox-default-cookies.txt",
-        "USER_AGENT": "ArchiveBox Default Persona UA",
+        "USER_AGENT": user_agent,
         "OPENCODE_ENABLED": True,  # Obsolete saved setting must not hydrate the raw editor.
     }
     default_persona.save(update_fields=["config"])
@@ -258,11 +260,32 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
 
     response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert response.status_code == 200
-    persona_config_map = json.loads(response.context["persona_config_map_json"])
+    persona_config_map = response.context["persona_config_map"]
     assert "OPENCODE_ENABLED" not in persona_config_map["Default"]["config"]
-    assert persona_config_map["Default"]["config"]["USER_AGENT"] == "ArchiveBox Default Persona UA"
+    assert persona_config_map["Default"]["config"]["USER_AGENT"] == user_agent
     assert persona_config_map["Default"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-default-cookies.txt"
     assert persona_config_map["Private"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-private-cookies.txt"
+
+    document = fromstring(response.content)
+    config = document.get_element_by_id("add-persona-config")
+    assert config.tag == "script"
+    assert config.get("type") == "application/json"
+    assert not document.xpath('//*[@id="persona-user-agent"]')
+    payload = json.loads(config.text)
+    reconstructed = {
+        name: {
+            "config": entry["config"],
+            **{field: {**common, **entry[field]} for field, common in payload["common"].items()},
+        }
+        for name, entry in payload["personas"].items()
+    }
+    assert reconstructed == persona_config_map
+    assert document.xpath("//head/script[@defer]/@src").count(static("add.js")) == 1
+    assert [href for href in document.xpath("//head/link/@href") if "/add.css" in href] == [static("add.css")]
+    for asset in ("add.css", "add.js", "add-input-handoff.js"):
+        static_response = client.head(static(asset), HTTP_HOST=ADMIN_HOST)
+        assert static_response.status_code == 200
+        assert static_response["Cache-Control"] == "public, max-age=31536000, immutable"
 
 
 def test_add_view_public_only_lists_public_personas(client, admin_user, public_add_enabled):
@@ -275,7 +298,7 @@ def test_add_view_public_only_lists_public_personas(client, admin_user, public_a
 
     response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
     form = response.context["form"]
-    persona_config_map = json.loads(response.context["persona_config_map_json"])
+    persona_config_map = response.context["persona_config_map"]
 
     assert response.status_code == 200
     assert set(form.fields["persona"].queryset.values_list("name", flat=True)) == {"Default"}
@@ -299,7 +322,7 @@ def test_public_add_does_not_resolve_hidden_plugin_settings(client, admin_user, 
     response = profiler.runcall(client.get, reverse("add"), HTTP_HOST=WEB_HOST)
     assert response.status_code == 200
     assert response.context["form"].plugin_groups == []
-    configs = json.loads(response.context["persona_config_map_json"])
+    configs = response.context["persona_config_map"]
     assert configs[persona.name]["effective_config"] == {key: effective[key] for key in public_keys}
     assert response.context["required_search_plugin"] == f"search_backend_{effective.SEARCH_BACKEND_ENGINE}"
     assert response.context["FOOTER_INFO"] == effective.FOOTER_INFO
