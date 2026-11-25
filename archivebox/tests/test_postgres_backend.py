@@ -249,6 +249,93 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     assert snapshot_count == 0, "Snapshot row should be deleted from postgres"
 
 
+def test_tag_search_and_smart_folder_membership_on_postgres(pg_server, tmp_path):
+    dbname = unique_dbname()
+    env = pg_cli_env(pg_server, dbname, disable_extractors=True, SNAPSHOTS_PER_PAGE="2")
+    result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert result.returncode == 0, f"Init failed: {result.stderr}\n{result.stdout}"
+    assert pg_query(
+        pg_server,
+        dbname,
+        """SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND (table_name, column_name) IN
+        (('core_tag', 'id'), ('core_snapshot_tags', 'tag_id')) ORDER BY table_name""",
+    ) == [("integer",), ("integer",)]
+    (version,) = pg_query(pg_server, dbname, "SHOW server_version")[0]
+
+    script = """
+from django.contrib.auth import get_user_model
+from django.db import connection
+from django.db.models import Exists, OuterRef
+from django.test import Client
+
+from archivebox.core.models import Folder, Snapshot
+from archivebox.core.smart_folders import RuleQuery
+from archivebox.crawls.models import Crawl
+from archivebox.search.interpreter import SnapshotSearch
+
+assert connection.vendor == "postgresql"
+admin = get_user_model().objects.create_superuser("pgtags", "pgtags@example.com", "unused-test-password")
+base = "https://www.postgresql.org/docs/14/"
+crawl = Crawl.objects.create(urls=base, created_by=admin)
+
+def snapshot(page, tags=()):
+    row = Snapshot.objects.create(url=base + page + ".html", crawl=crawl)
+    if tags:
+        row.save_tags(tags)
+    return row
+
+overlap = snapshot("queries", ["reference,notes archive", "research detail"])
+exact = snapshot("sql-select", ["reference,notes", "reference,notes archive", "research"])
+case_variant = snapshot("functions-matching", ["Reference,Notes uppercase", "Research upper"])
+separate = snapshot("functions-string", ["reference", "notes", "research"])
+untagged = snapshot("planner-optimizer")
+other = snapshot("indexes", ["reference,notes", "research"])
+scope = Snapshot.objects.filter(pk__in=[row.pk for row in (overlap, exact, case_variant, separate, untagged)])
+query = 'tags:"reference,notes",research'
+expected = {exact.pk, overlap.pk, case_variant.pk}
+streamed = list(SnapshotSearch(scope, query, streaming=True).stream())
+assert streamed[0] == exact.pk, streamed
+assert len(streamed) == len(expected) and set(streamed) == expected, streamed
+assert set(SnapshotSearch(scope, query).queryset().values_list("pk", flat=True)) == expected
+assert list(SnapshotSearch(scope.order_by("created_at", "pk"), query, streaming=True).stream()) == [
+    overlap.pk, exact.pk, case_variant.pk,
+]
+assert list(SnapshotSearch(scope, 'tags:"Reference,Notes",Research').stream()) == [case_variant.pk]
+assert list(SnapshotSearch(scope, 'tags__name__exact:"reference,notes"').stream()) == [exact.pk]
+assert set(SnapshotSearch(scope, f'~({query})').stream()) == {separate.pk, untagged.pk}
+assert set(SnapshotSearch(scope, f'({query} AND ~tags:Research) OR url:planner-optimizer').stream()) == {
+    exact.pk, overlap.pk, untagged.pk,
+}
+
+rule = {"field": "tags__name", "lookup": "icontains", "value": "REFERENCE,NOTES"}
+folder = Folder.objects.create(name="Reference notes", rules=rule)
+compiler = RuleQuery()
+assert set(scope.filter(compiler.compile({**rule, "lookup": "not_contains"})).values_list("pk", flat=True)) == {
+    separate.pk, untagged.pk,
+}
+assert list(scope.filter(compiler.compile({**rule, "lookup": "isnull"})).values_list("pk", flat=True)) == [untagged.pk]
+expected_order = [other.pk, case_variant.pk, exact.pk, overlap.pk]
+reference = Snapshot.objects.filter(
+    Exists(Snapshot.objects.filter(pk=OuterRef("pk"), tags__name__icontains=rule["value"]))
+).order_by("-created_at", "-pk")
+assert list(reference.values_list("pk", flat=True)) == expected_order
+assert list(Snapshot.objects.in_folder(folder.pk).values_list("pk", flat=True)) == expected_order
+client = Client()
+client.force_login(admin)
+for page, offset in ((1, 0), (2, 2)):
+    response = client.get("/admin/core/snapshot/", {"folder": folder.pk, "p": page}, HTTP_HOST="admin.archivebox.localhost:8000")
+    assert response.status_code == 200, response.status_code
+    rows = [row.pk for row in response.context_data["cl"].result_list]
+    assert rows == expected_order[offset : offset + 2], rows
+print("TAG_FILTERS_VERIFIED")
+"""
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=tmp_path, env=env, timeout=120)
+    assert result.returncode == 0, f"Tag search failed on PostgreSQL {version}:\n{result.stderr}\n{result.stdout}"
+    assert "TAG_FILTERS_VERIFIED" in result.stdout
+    print(f"Verified tag membership and pagination on PostgreSQL {version}")
+
+
 def test_live_progress_counts_open_downloads_on_postgres(pg_server, tmp_path):
     """The live progress view's grouped open-result counts run on postgres and
     count a queued download only while its snapshot and crawl can still run."""
