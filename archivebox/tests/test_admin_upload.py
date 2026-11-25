@@ -216,7 +216,7 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
                 chooser.value.set_files([files["rss"], files["netscape"], workbook])
                 page.wait_for_url("**/add/")
                 expect(page.locator("#id_url")).to_have_value(
-                    "\n".join((files["rss"].read_text() + files["netscape"].read_text().rstrip("\n"), *workbook_urls))
+                    "\n".join((files["rss"].read_text() + files["netscape"].read_text().rstrip("\n"), *workbook_urls)),
                 )
                 page.reload()
                 expect(page.locator("#id_url")).to_have_value("")
