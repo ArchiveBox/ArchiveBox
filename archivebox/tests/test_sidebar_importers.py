@@ -1,11 +1,14 @@
 """The snapshot sidebar reuses the native importer catalog and access rules."""
 
+from urllib.parse import urldefrag
+
 import pytest
 from django.urls import resolve, reverse
 
 from archivebox.core.sidebar_importers import importer_add_actions, importer_entries_page, importer_sidebar_allowed
 from archivebox.importers.catalog import get_importer_providers, get_importers
 from archivebox.importers.models import ImporterSource
+from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 
 @pytest.fixture
@@ -38,12 +41,35 @@ def test_catalog_families_include_empty_groups_without_reading_sources(request_f
     assert [row["name"] for row in rows] == [first["name"]]
     assert [row["name"] for row in second_rows] == [second["name"]]
     assert rows[0]["has_children"] and rows[0]["scope"] == ""
-    assert any(action["url"] == reverse("importers:index") for action in rows[0]["actions"])
     representative = first["definition"]
     if representative.icon:
         assert rows[0]["icon_url"] == reverse("importers:icon", args=(representative.plugin, representative.feed))
     with django_assert_num_queries(1):
         assert importer_entries_page(req, term="", parent=rows[0]["id"], cursor=None, limit=1) == ([], None)
+
+
+@pytest.mark.django_db
+def test_family_add_links_open_the_correct_importer_options(request_for, providers, admin_client):
+    rows, _ = importer_entries_page(request_for(), term="", parent="", cursor=None, limit=len(providers))
+    assert len(rows) == len(providers)
+    index_url = reverse("importers:index")
+    index = admin_client.get(index_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert index.status_code == 200
+
+    for row, provider in zip(rows, providers, strict=True):
+        [action] = row["actions"]
+        assert action["label"] == "Add importer"
+        [feed, *others] = provider["feeds"]
+        if not others:
+            match = resolve(action["url"])
+            assert match.view_name == "importers:new"
+            assert match.kwargs == {"plugin": feed.plugin, "feed": feed.feed}
+        else:
+            path, fragment = urldefrag(action["url"])
+            assert path == index_url
+            card = index.content.split(f'id="{fragment}">'.encode())[1].split(b"</article>", 1)[0]
+            for option in provider["feeds"]:
+                assert reverse("importers:new", args=(option.plugin, option.feed)).encode() in card
 
 
 @pytest.mark.django_db

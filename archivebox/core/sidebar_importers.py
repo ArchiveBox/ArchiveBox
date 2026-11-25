@@ -56,9 +56,10 @@ def _matches_filter(providers, term):
 
 def _family_row(provider, *, expand=False):
     definition = provider["definition"]
-    actions = [{"label": "Manage importers", "url": reverse("importers:index")}]
     if len(provider["feeds"]) == 1:
-        actions.insert(0, {"label": "Add importer", "url": _feed_action(definition)["url"]})
+        add_url = _feed_action(definition)["url"]
+    else:
+        add_url = reverse("importers:index", fragment=provider["anchor"])
     return {
         "id": _provider_key(provider),
         "name": provider["name"],
@@ -68,7 +69,7 @@ def _family_row(provider, *, expand=False):
         "has_children": True,
         "expand": expand,
         "icon_url": _icon(definition),
-        "actions": actions,
+        "actions": [{"label": "Add importer", "url": add_url}],
     }
 
 

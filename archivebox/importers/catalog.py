@@ -87,5 +87,8 @@ def get_importer_providers(definitions):
     for definition in definitions.values():
         group = providers.setdefault(definition.provider, {"name": definition.provider, "definition": definition, "feeds": []})
         group["feeds"].append(definition)
+    for group in providers.values():
+        definition = group["definition"]
+        group["anchor"] = f"add-importer-{definition.plugin}-{definition.feed}"
     catalog = get_plugin_catalog()
     return sorted(providers.values(), key=lambda group: catalog[group["definition"].plugin].config.display_order)
