@@ -910,7 +910,6 @@ PY
         VIEWS+=(
             "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
-            "$(uv run --no-cache --project "$REPO_DIR" python -c 'import sys; from abx_plugins.plugins.opencode.archivebox.screenshots import gallery_entry; print(gallery_entry(sys.argv[1]))' "$ADMIN_BASE_URL")"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"
