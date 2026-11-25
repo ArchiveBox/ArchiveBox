@@ -74,7 +74,11 @@ def test_archive_size_only_counts_staff_owners_snapshots(client, admin_user, sna
 def test_progress_archive_size_browser(live_server, admin_user, snapshot, browser_runtime):
     from playwright.sync_api import expect, sync_playwright
     from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
 
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
     cache.clear()
     Snapshot.objects.filter(pk=snapshot.pk).update(output_size=54 * 1024**3 + 1)
     with sync_playwright() as playwright:
