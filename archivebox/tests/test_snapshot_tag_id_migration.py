@@ -133,7 +133,28 @@ def test_snapshot_tag_id_migration_rejects_invalid_memberships(tag_migration_col
         original_sequence = sequence(db)
         migrations = db.execute("SELECT app, name FROM django_migrations ORDER BY id").fetchall()
 
-    result = run("manage", "migrate", "core", "--noinput", expected_exit=1)
+    if orphaned_snapshot:
+        # Keep the SQLite connection open after migration failure so a leak
+        # cannot be masked by automatic rollback when the CLI process exits.
+        script = """
+from django.core.management import call_command
+from django.db import IntegrityError, connection
+
+try:
+    call_command("migrate", "core", interactive=False)
+except IntegrityError:
+    with connection.cursor() as cursor:
+        cursor.execute("PRAGMA table_info(core_snapshot_tags)")
+        assert next(row[2] for row in cursor.fetchall() if row[1] == "tag_id") == "char(32)"
+        cursor.execute("SELECT name FROM sqlite_temp_master WHERE name = 'saved_core_snapshot_tags'")
+        assert cursor.fetchone() is None
+    print("TAG_REBUILD_ROLLED_BACK")
+    raise
+"""
+        result = run("manage", "shell", "-c", script, expected_exit=1)
+        assert "TAG_REBUILD_ROLLED_BACK" in result.stdout
+    else:
+        result = run("manage", "migrate", "core", "--noinput", expected_exit=1)
     assert "Applying core.0068_repair_snapshot_tag_id" in result.stdout
     assert ("Foreign key violation" if orphaned_snapshot else "Invalid tag_id") in result.stderr
     with closing(sqlite3.connect(path)) as db:

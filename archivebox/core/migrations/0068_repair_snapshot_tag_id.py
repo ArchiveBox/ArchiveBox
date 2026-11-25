@@ -2,7 +2,7 @@
 
 import re
 
-from django.db import migrations
+from django.db import migrations, transaction
 
 
 def repair_snapshot_tag_id(apps, schema_editor):
@@ -49,26 +49,27 @@ def repair_snapshot_tag_id(apps, schema_editor):
         cursor.execute("SELECT seq FROM main.sqlite_sequence WHERE name = 'core_snapshot_tags'")
         sequence = cursor.fetchone()
 
-        # The migration transaction rolls back both copies and DDL if copying
-        # the rows, restoring an index, or checking the foreign keys fails.
-        cursor.execute("CREATE TEMP TABLE saved_core_snapshot_tags AS SELECT * FROM main.core_snapshot_tags")
-        cursor.execute("SELECT COUNT(*) FROM temp.saved_core_snapshot_tags")
-        (original_count,) = cursor.fetchone()
-        cursor.execute("DROP TABLE main.core_snapshot_tags")
-        cursor.execute(ddl)
-        cursor.execute("INSERT INTO main.core_snapshot_tags SELECT * FROM temp.saved_core_snapshot_tags")
-        if cursor.rowcount != original_count:
-            raise ValueError(f"Copied {cursor.rowcount} of {original_count} core_snapshot_tags rows")
-        for sql in objects:
-            cursor.execute(sql)
-        if sequence is not None:
-            # The high-water mark can be ahead of MAX(id), even on an empty table.
-            cursor.execute("DELETE FROM main.sqlite_sequence WHERE name = 'core_snapshot_tags'")
-            cursor.execute("INSERT INTO main.sqlite_sequence (name, seq) VALUES ('core_snapshot_tags', %s)", sequence)
-        cursor.execute("PRAGMA foreign_key_check(core_snapshot_tags)")
-        if violation := cursor.fetchone():
-            raise ValueError(f"Foreign key violation in core_snapshot_tags: {violation}")
-        cursor.execute("DROP TABLE temp.saved_core_snapshot_tags")
+        # Roll back the rebuild before Django checks all foreign keys when
+        # leaving the schema editor, which can itself raise on a dirty DB.
+        with transaction.atomic(using=connection.alias):
+            cursor.execute("CREATE TEMP TABLE saved_core_snapshot_tags AS SELECT * FROM main.core_snapshot_tags")
+            cursor.execute("SELECT COUNT(*) FROM temp.saved_core_snapshot_tags")
+            (original_count,) = cursor.fetchone()
+            cursor.execute("DROP TABLE main.core_snapshot_tags")
+            cursor.execute(ddl)
+            cursor.execute("INSERT INTO main.core_snapshot_tags SELECT * FROM temp.saved_core_snapshot_tags")
+            if cursor.rowcount != original_count:
+                raise ValueError(f"Copied {cursor.rowcount} of {original_count} core_snapshot_tags rows")
+            for sql in objects:
+                cursor.execute(sql)
+            if sequence is not None:
+                # The high-water mark can be ahead of MAX(id), even on an empty table.
+                cursor.execute("DELETE FROM main.sqlite_sequence WHERE name = 'core_snapshot_tags'")
+                cursor.execute("INSERT INTO main.sqlite_sequence (name, seq) VALUES ('core_snapshot_tags', %s)", sequence)
+            cursor.execute("PRAGMA foreign_key_check(core_snapshot_tags)")
+            if violation := cursor.fetchone():
+                raise ValueError(f"Foreign key violation in core_snapshot_tags: {violation}")
+            cursor.execute("DROP TABLE temp.saved_core_snapshot_tags")
 
 
 class Migration(migrations.Migration):
