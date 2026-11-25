@@ -328,11 +328,11 @@ def test_snapshot_changelist_thumbnail_uses_prefetched_screenshot(admin_client, 
     response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
 
     assert response.status_code == 200
-    assert b'class="snapshot-preview' in response.content
     html = response.content.decode()
     preview_cell = re.search(r'<td class="field-preview_icon">(.*?)</td>', html, re.S)
     title_cell = re.search(r'<td class="field-title_str">(.*?)</td>', html, re.S)
     assert preview_cell and title_cell
+    assert "<template data-admin-preview>" in preview_cell.group(1)
     assert "screenshot.png?" in preview_cell.group(1)
     assert "<iframe" not in preview_cell.group(1)
     preview_link = re.search(r'<a href="([^"]+)"', preview_cell.group(1))

@@ -13,7 +13,10 @@
       Using AI
     </span>
     <span class="library-import-links">
-      <a role="menuitem" href="/admin/agent/">Agent</a>
+      {% if request.user.is_superuser and request.archivebox_config.OPENCODE_ENABLED %}
+      {% url 'opencode-agent' as agent_url %}
+      {% if agent_url %}<a role="menuitem" href="{{ agent_url }}">Agent</a>{% endif %}
+      {% endif %}
       <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp">MCP</a>
       <a role="menuitem" href="https://www.skills.sh/archivebox/archivebox/archivebox">Skill</a>
     </span>
