@@ -1,7 +1,22 @@
 .snapshot-library{--archivebox-accent:#a51c50;--library-control-size:32px;--library-row-height:32px;--folder-indent:20px;--library-toolbar-height:44px;display:grid;grid-template-columns:244px minmax(0,1fr);gap:0;clear:both;padding:0;box-sizing:border-box;align-items:stretch}
-/* The browser can paint between chunks of HTML. Fit the whole results page
-   before painting the library, while leaving the admin header visible. */
-body.model-snapshot.change-list .snapshot-library:not(:has(> .snapshot-library-ready)){visibility:hidden}
+/* The sidebar restores its saved state immediately before #content-main. */
+body.model-snapshot.change-list .snapshot-library:not(:has(> #content-main)) > #folder-sidebar { visibility: hidden; }
+/* Keep titles and tags in their final columns from their first paint. While
+   they are being fitted, draw the outlines of the actual rows as they arrive.
+   An empty folder has no rows and therefore gets no placeholder. */
+body.model-snapshot.change-list .snapshot-library:not(:has(> .snapshot-library-ready)) #result_list {
+  visibility: hidden;
+  tr:is([data-snapshot-id], :has(> th[scope="col"])) { position: relative; }
+  tr:is([data-snapshot-id], :has(> th[scope="col"]))::after {
+    content: "";
+    visibility: visible;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: inherit;
+    box-shadow: inset 0 -1px var(--hairline-color, #e4e7ec);
+  }
+}
 .snapshot-library>#content-main{min-width:0;float:none;margin:0!important}
 .library-symbols{position:absolute;width:0;height:0;overflow:hidden}
 .folder-sidebar{position:relative;display:flex;flex-direction:column;min-width:0;padding:0;background:var(--body-bg,#fff);border-right:1px solid var(--hairline-color,#e4e7ec)}

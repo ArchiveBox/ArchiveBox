@@ -232,6 +232,17 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
             };
             const sample = () => {
                 const row = document.querySelector('#result_list tbody tr');
+                if (row && !visible(row) && !window.snapshotOutlineFrame) {
+                    // A wide table can take several network packets to reach its
+                    // final column widths. During that interval users should
+                    // already see the toolbar and the outlines of actual rows.
+                    const toolbar = document.querySelector('#toolbar .abx-query-control');
+                    const outline = getComputedStyle(row, '::after');
+                    if (visible(toolbar) && outline.visibility === 'visible' && outline.content !== 'none' &&
+                        parseFloat(outline.width) > 0 && parseFloat(outline.height) > 0) {
+                        window.snapshotOutlineFrame = performance.now();
+                    }
+                }
                 if (visible(row) && performance.getEntriesByName('first-contentful-paint').length) {
                     const state = JSON.stringify({
                         search: geometry(document.querySelector('#toolbar .abx-query-control')),
@@ -291,6 +302,8 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
         page.wait_for_function("window.snapshotLayoutFrames.length > 0")
         assert all(any(path in url for url in held_assets.values()) for path in asset_paths)
         first_frame = page.evaluate("JSON.parse(window.snapshotLayoutFrames[0])")
+        if row_count == 50:
+            assert page.evaluate("window.snapshotOutlineFrame > 0 && window.snapshotOutlineFrame < window.snapshotFirstFrame")
 
         # Release the actual assets only after the fallback-font list has painted.
         # On phones the filter picker must not shift the stacked filter panel.

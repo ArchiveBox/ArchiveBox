@@ -226,20 +226,18 @@
     } finally {
       probes.forEach(probe => probe.remove());
     }
-    const reveal = last.getBoundingClientRect().bottom >= innerHeight;
-    if (reveal) {
-      // Row links and individual checkboxes work immediately. The page-wide
-      // controls need all rows and Django’s DOM-ready selection handlers.
-      const bulk = form.querySelectorAll('.actions, #action-toggle');
-      bulk.forEach(control => { control.inert = true; });
-      document.addEventListener('DOMContentLoaded', () => {
-        bulk.forEach(control => { control.inert = false; });
-      }, {once: true});
-      const ready = document.createElement('span');
-      ready.className = 'snapshot-library-ready';
-      ready.hidden = true;
-      form.closest('.snapshot-library').append(ready);
-    }
+    // The column widths already account for the remaining rows. Even on a
+    // tall screen these rows can paint while the rest of the page arrives.
+    // Page-wide selection needs all rows and Django's DOM-ready handlers.
+    const bulk = form.querySelectorAll('.actions, #action-toggle');
+    bulk.forEach(control => { control.inert = true; });
+    document.addEventListener('DOMContentLoaded', () => {
+      bulk.forEach(control => { control.inert = false; });
+    }, {once: true});
+    const ready = document.createElement('span');
+    ready.className = 'snapshot-library-ready';
+    ready.hidden = true;
+    form.closest('.snapshot-library').append(ready);
     finishInitialRows = () => {
       const added = [];
       for (let row = last.nextElementSibling; row; row = row.nextElementSibling) {
