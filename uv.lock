@@ -141,7 +141,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.78rc633"
+version = "0.9.78rc634"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl" },
