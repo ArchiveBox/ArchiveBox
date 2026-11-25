@@ -49,7 +49,7 @@ def test_completed_search_browsing(live_server, admin_user, crawl, browser_runti
         permissions.locator(".snapshot-permissions-button").click()
         expect(permissions.get_by_role("menuitemradio", name=current.title())).to_have_attribute("aria-checked", "true")
         with page.expect_response(
-            lambda response: urlsplit(response.url).path == action_url and response.request.method == "POST"
+            lambda response: urlsplit(response.url).path == action_url and response.request.method == "POST",
         ) as saved:
             permissions.get_by_role("menuitemradio", name=selected.title()).click()
         assert saved.value.ok

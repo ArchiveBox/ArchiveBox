@@ -13,7 +13,7 @@
     text-align: left;
     font: 14px/1.45 var(--font-family-primary);
     box-shadow: 0 4px 24px #18203208;
-    container-type: inline-size;
+    container: plugin-settings / inline-size;
 }
 #plugin-settings *, #plugin-settings *::before, #plugin-settings *::after { box-sizing: border-box; }
 #plugin-settings [hidden] { display: none !important; }
@@ -55,7 +55,7 @@
 #plugin-settings .plugin-choice-description { margin: 0 0 10px; font: inherit; font-size: 13px; color: var(--settings-muted); max-width: 620px; }
 .plugin-settings-links { display: flex; gap: 18px; font-size: 11px; }
 
-.plugin-config-grid { background: var(--body-bg, #fff); border: 1px solid var(--hairline-color, #e4e7ec); border-radius: 10px; overflow: hidden; }
+.plugin-config-grid { container: plugin-fields / inline-size; background: var(--body-bg, #fff); border: 1px solid var(--hairline-color, #e4e7ec); border-radius: 10px; overflow: hidden; }
 .plugin-config-field { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(160px, 1.1fr); column-gap: 26px; padding: 18px; position: relative; }
 .plugin-config-field + .plugin-config-field { border-top: 1px solid var(--hairline-color, #e4e7ec); }
 #plugin-settings .plugin-config-field > label { grid-column: 1; grid-row: 1; display: block; float: none; width: auto; margin: 0; padding: 0; color: var(--settings-text); font-size: 13px; font-weight: 550; }
@@ -100,10 +100,10 @@
 .plugin-settings-empty > span { display: block; font-size: 48px; color: #b3b6c0; }
 .plugin-settings-empty strong { display: block; font-size: 18px; color: #444; }
 .plugin-settings-empty p { font: inherit; }
-@container (800px < width <= 1050px) {
+@container plugin-fields (width <= 731px) {
     .plugin-config-field:has(.config-presets) > .plugin-config-control { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
 }
-@container (max-width: 800px) {
+@container plugin-settings (max-width: 800px) {
     .plugin-settings-content { padding: 22px 20px; }
     .plugin-config-field { grid-template-columns: 1fr; gap: 0; }
     .plugin-config-control { grid-column: 1; grid-row: 4; margin-top: 12px; }

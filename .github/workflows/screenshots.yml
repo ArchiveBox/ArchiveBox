@@ -51,6 +51,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev' && inputs.plugin_revision == ''
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Use SwiftShader for WebGL while retaining software 2D export.
+      CHROME_ARGS_EXTRA: '["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]'
     strategy:
       fail-fast: false
       matrix:
@@ -80,6 +86,18 @@ jobs:
           - lane: iwork
             plugins: iwork
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev' &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
+        with:
+          proxy: ${{ vars.SQUID_TAILNET_URL }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID_DEV }}
+          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE_DEV }}
+          browser: 'true'
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
@@ -142,9 +160,6 @@ jobs:
           )"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
-          # Match plugin CI: keep software 2D rendering; emulating the whole GPU
-          # can stall document exports on CPU-limited runners.
-          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
 
       - name: Install screenshot display dependencies
         run: sudo apt-get install -y xvfb xauth poppler-utils

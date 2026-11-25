@@ -727,12 +727,13 @@ def prepare_library(evidence_dir, *, model=""):
             if any(record.get("type") != "Tag" or not isinstance(record.get("name"), str) for record in tag_records):
                 raise RuntimeError(f"Gallery capture has invalid tag records: {snapshot.url}")
             tags = [record["name"] for record in tag_records]
-            if not tags or not {normalize_tag_name(tag).casefold() for tag in tags}.issubset(
-                {name.casefold() for name in snapshot.tags.values_list("name", flat=True)},
+            # Tag.save() decodes sanitized text (e.g. "&amp;" becomes "&") before storing it.
+            stored_tags = list(snapshot.tags.values_list("name", flat=True))
+            if not tags or not {unescape(normalize_tag_name(tag)).strip().casefold() for tag in tags}.issubset(
+                {name.casefold() for name in stored_tags},
             ):
                 raise RuntimeError(
-                    f"Gallery tag projection mismatch for {snapshot.url}: "
-                    f"emitted={tags!r}, stored={list(snapshot.tags.values_list('name', flat=True))!r}",
+                    f"Gallery tag projection mismatch for {snapshot.url}: emitted={tags!r}, stored={stored_tags!r}",
                 )
     if model:
         from archivebox.core.routes_util import build_snapshot_detail_path
