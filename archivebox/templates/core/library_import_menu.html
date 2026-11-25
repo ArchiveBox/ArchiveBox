@@ -22,24 +22,30 @@
     <small>(or drag here)</small>
   </button>
   {% endif %}
-  <a role="menuitem" href="{% url 'add' %}">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H6a2 2 0 0 0-2 2v13h16V7a2 2 0 0 0-2-2h-3M8 12h8m-8 4h6"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-    <span class="folder-menu-label">Paste URLs</span>
-  </a>
-  <a role="menuitem" href="{% url 'importers:index' %}">
+  {% if request.user.is_superuser %}
+  {% importer_providers as providers %}
+  {% for provider in providers %}
+  {% if provider.definition.plugin == 'importer_rss' %}
+  <a role="menuitem" href="{% url 'importers:new' provider.definition.plugin provider.definition.feed %}">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg>
-    <span class="folder-menu-label">From RSS or Social Media</span>
-    {% if request.user.is_superuser %}
-    {% importer_providers as providers %}
+    <span class="folder-menu-label">RSS Feed</span>
+  </a>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+  <a role="menuitem" href="{% url 'importers:index' %}">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg>
+    <span class="folder-menu-label">From Social Media</span>
     {% if providers %}
     <span class="library-import-icons" aria-hidden="true">
       {% for provider in providers %}
       {% with definition=provider.definition %}
+      {% if definition.plugin != 'importer_rss' %}
       <span title="{{ provider.name }}"><img src="{% url 'importers:icon' definition.plugin definition.feed %}" alt="" loading="lazy"></span>
+      {% endif %}
       {% endwith %}
       {% endfor %}
     </span>
-    {% endif %}
     {% endif %}
   </a>
   <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Archiving-URLs-from-Google-Sheets">
@@ -58,14 +64,16 @@
       <span title="Edge"><svg><use href="{{ import_icons }}#edge"/></svg></span>
     </span>
   </a>
-  <a role="menuitem" href="https://app.archivebox.io/">
-    <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
-    <span class="folder-menu-label">ArchiveBox for macOS &amp; iOS</span>
-  </a>
-  <a role="menuitem" href="https://android.archivebox.io/">
-    <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
-    <span class="folder-menu-label">ArchiveBox for Android</span>
-  </a>
+  <div class="library-import-row" role="group" aria-label="Mobile app">
+    <a role="menuitem" href="https://app.archivebox.io/">
+      <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
+      <span class="folder-menu-label">From Mobile App</span>
+    </a>
+    <span class="library-import-icons">
+      <a role="menuitem" href="https://app.archivebox.io/" aria-label="ArchiveBox for iOS" title="iOS"><svg aria-hidden="true"><use href="{{ import_icons }}#apple"/></svg></a>
+      <a role="menuitem" href="https://android.archivebox.io/" aria-label="ArchiveBox for Android" title="Android"><svg aria-hidden="true"><use href="{{ import_icons }}#android"/></svg></a>
+    </span>
+  </div>
   <a role="menuitem" href="https://github.com/ArchiveBox/archivebox-chat-bot">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 1-8 8H4l1.8-3.6A8 8 0 1 1 20 11ZM8 11h.01m4 0h.01m4 0h.01"/></svg>
     <span class="folder-menu-label">Via chat bot</span>
@@ -80,6 +88,17 @@
       <span title="Slack"><svg><use href="{{ import_icons }}#slack"/></svg></span>
     </span>
   </a>
+  <div class="library-import-row" role="group" aria-labelledby="{{ menu_id }}-ai">
+    <span class="folder-menu-label" id="{{ menu_id }}-ai">
+      <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c0 6-4 10-10 10 6 0 10 4 10 10 0-6 4-10 10-10-6 0-10-4-10-10Z"/></svg>
+      Using AI
+    </span>
+    <span class="library-import-links">
+      <a role="menuitem" href="/admin/agent/">Agent</a>
+      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp">MCP</a>
+      <a role="menuitem" href="https://www.skills.sh/archivebox/archivebox/archivebox">Skill</a>
+    </span>
+  </div>
   <a role="menuitem" href="https://github.com/ArchiveBox/archivebox-proxy">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 3-3m-2 8 6-6m-2 13 5-5m2 0 2 2-5 5-2-2M3 10l4-4 4 4-4 4Zm8 5 4-4 4 4-4 4Z"/></svg>
     <span class="folder-menu-label">Via MITM proxy</span>
@@ -119,10 +138,6 @@
   <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection">
     <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
     <span class="folder-menu-label">Watch a site for changes</span>
-  </a>
-  <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">
-    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
-    <span class="folder-menu-label">Other options...</span>
   </a>
 </div>
 {% endwith %}

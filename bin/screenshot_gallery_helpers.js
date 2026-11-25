@@ -881,22 +881,31 @@ async function openImportMenu(page) {
   await page.waitForFunction(id => document.getElementById(id).contains(document.activeElement), {}, id);
   const menu = await page.$eval(`#${id}`, node => {
     const box = node.getBoundingClientRect();
-    const items = [...node.querySelectorAll('[role=menuitem]')].map(item => ({
-      text: item.querySelector('.folder-menu-label').textContent,
-      href: item.getAttribute('href'),
-      hasIcon: !!item.querySelector('.folder-menu-icon'),
-    }));
-    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items};
+    const items = [...node.querySelectorAll('.folder-menu-label')].map(label => {
+      const item = label.closest('[role=menuitem],[role=group]');
+      return {text:label.textContent.trim(),href:item.getAttribute('href'),hasIcon:!!item.querySelector('.folder-menu-icon')};
+    });
+    const mobileLinks = [...node.querySelectorAll('.library-import-icons a')].map(link => link.getAttribute('href'));
+    const aiLinks = [...node.querySelectorAll('.library-import-links a')].map(link => link.getAttribute('href'));
+    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items,mobileLinks,aiLinks};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
   const expected = [
-    'Upload file', 'Paste URLs', 'From RSS or Social Media', 'Google Sheets',
-    'Browser extension', 'ArchiveBox for macOS & iOS', 'ArchiveBox for Android', 'Via chat bot', 'Via MITM proxy',
+    'Upload file', 'RSS Feed', 'From Social Media', 'Google Sheets',
+    'Browser extension', 'From Mobile App', 'Via chat bot', 'Using AI', 'Via MITM proxy',
     'Pinboard', 'Instapaper', 'Reddit Saved Posts', 'Shaarli', 'Unmark.it', 'Wallabag',
-    'Clone an entire site', 'Watch a site for changes', 'Other options...',
+    'Clone an entire site', 'Watch a site for changes',
   ];
   if (JSON.stringify(menu.items.map(item => item.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
   if (menu.items.some(item => !item.hasIcon)) throw new Error('Import menu is missing an icon.');
+  if (menu.items.find(item => item.text === 'RSS Feed').href !== '/admin/importers/new/importer_rss/feed/') throw new Error('RSS import does not open the feed form.');
+  if (JSON.stringify(menu.mobileLinks) !== JSON.stringify(['https://app.archivebox.io/', 'https://android.archivebox.io/'])) throw new Error('Mobile app links are missing.');
+  const expectedAiLinks = [
+    '/admin/agent/',
+    'https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/mcp',
+    'https://www.skills.sh/archivebox/archivebox/archivebox',
+  ];
+  if (JSON.stringify(menu.aiLinks) !== JSON.stringify(expectedAiLinks)) throw new Error('AI links are missing.');
   if (menu.items.find(item => item.text === 'Clone an entire site').href !== '/admin/domains/') throw new Error('Site import does not open Domains.');
 }
 
