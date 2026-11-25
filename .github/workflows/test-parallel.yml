@@ -118,6 +118,17 @@ jobs:
         test: ${{ fromJson(needs.discover-tests.outputs.tests) }}
 
     steps:
+      - name: Spread hosted proxy setup
+        if: >-
+          runner.environment == 'github-hosted' &&
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          CI_JOB_INDEX: ${{ strategy.job-index }}
+        run: |
+          # Spread simultaneous hosted connections to the shared proxy without throttling NAS jobs.
+          sleep "$(( (CI_JOB_INDEX % 12) * 2 ))"
+
       - name: Set up Squid
         if: >-
           github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
