@@ -538,8 +538,12 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
         submit = page.get_by_role("button", name="Create Crawl and Start Archiving", exact=False)
         expect(submit).to_be_enabled()
         url_field.fill("This text needs a URL.")
-        concurrency.fill("4")
-        with page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/add/")) as invalid:
+        page.locator("#id_crawl_max_concurrent_snapshots").fill("4")
+
+        def is_add_submission(response):
+            return response.request.is_navigation_request() and response.request.method == "POST" and response.url.endswith("/add/")
+
+        with page.expect_response(is_add_submission) as invalid:
             submit.click()
         assert invalid.value.status == 200
         expect(page.get_by_text("Enter at least one valid URL.", exact=True)).to_be_visible()
@@ -548,7 +552,7 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
         expect(url_field).to_have_value("This text needs a URL.")
 
         url_field.fill(url)
-        with page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/add/")) as submitted:
+        with page.expect_response(is_add_submission) as submitted:
             submit.click()
         assert submitted.value.status == 302
         browser.close()
