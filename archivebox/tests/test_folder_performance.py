@@ -82,6 +82,38 @@ def test_snapshot_page_does_not_count_all_matches(admin_client, admin_user, sett
     assert response.context["cl"].display_result_count == len(snapshots)
 
 
+def test_tag_name_smart_folder_preserves_date_pages_and_empty_tag_semantics(admin_client, admin_user, settings):
+    from archivebox.core.smart_folders import RuleQuery
+
+    settings.CONFIG = settings.CONFIG.model_copy(update={"SNAPSHOTS_PER_PAGE": 2})
+    crawl = Crawl.objects.create(urls="https://lobste.rs/", created_by=admin_user)
+    rows = [Snapshot.objects.create(url=f"https://lobste.rs/s/{number}", crawl=crawl) for number in range(6)]
+    rows[0].save_tags(["Research"])
+    rows[1].save_tags(["research notes", "research bibliography"])
+    rows[2].save_tags(["news"])
+    rows[3].save_tags(["research notes"])
+    rows[4].save_tags(["research notes", "other"])
+    rule = {"field": "tags__name", "lookup": "icontains", "value": "research"}
+    folder = Folder.objects.create(name="Research tags", rules=rule)
+    compiler = RuleQuery()
+    source = Snapshot.objects.all()
+    expected = [rows[index].pk for index in (4, 3, 1, 0)]
+    assert list(source.filter(compiler.folder(folder.pk)).order_by("-created_at", "-pk").values_list("pk", flat=True)) == expected
+    assert set(source.filter(compiler.compile({**rule, "lookup": "not_contains"})).values_list("pk", flat=True)) == {rows[2].pk, rows[5].pk}
+    assert set(source.filter(compiler.compile({**rule, "lookup": "isnull"})).values_list("pk", flat=True)) == {rows[5].pk}
+    assert set(source.filter(compiler.compile({**rule, "lookup": "exact", "value": "Research"})).values_list("pk", flat=True)) == {
+        rows[0].pk,
+    }
+
+    for page, selected in ((1, expected[:2]), (2, expected[2:])):
+        with CaptureQueriesContext(connection) as queries:
+            response = admin_client.get("/admin/core/snapshot/", {"folder": folder.pk, "p": page}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert [snapshot.pk for snapshot in response.context["cl"].result_list] == selected
+        assert any('"core_snapshot_tags"' in query["sql"] and '."tag_id" IN (SELECT' in query["sql"] for query in queries)
+        assert not any('INNER JOIN "core_tag"' in query["sql"] and "EXISTS(" in query["sql"] for query in queries)
+
+
 @pytest.mark.django_db(transaction=True)
 def test_display_count_refresh_aggregates_in_database_and_is_debounced(admin_user):
     from threading import enumerate as threads

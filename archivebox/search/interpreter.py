@@ -33,6 +33,7 @@ from archivebox.search.language import (
     sql_bounds,
     sql_leaf,
     substring,
+    tags_predicate,
     text_metadata,
     url_substring_hint,
 )
@@ -124,6 +125,11 @@ class SnapshotSearch:
         self.url_hints = {}
         self.indexed_evidence = {}
         for term in self.terms:
+            if term.field == "tags":
+                # An exact spelling is sufficient evidence for its substring.
+                # Keep the complete predicate for other spellings and overlaps.
+                self.indexed_evidence[term] = tags_predicate(term, exact=True)
+                continue
             if term.field not in {"meta", "url", "word", "literal", "linkedfrom", "linksto"}:
                 continue
             hint = url_substring_hint(term.value, scope.db)
@@ -255,7 +261,7 @@ class SnapshotSearch:
 
     @cached_property
     def indexed_bounds(self):
-        direct = {term: q for term, q in self.sql.items() if indexed_predicate(self.scope.model, q)}
+        direct = {term: q for term, q in self.sql.items() if term.field != "tags" and indexed_predicate(self.scope.model, q)}
         quick, narrow = sql_bounds(self.tree, direct, self.indexed_evidence)
         if quick is False and self.indexed_evidence:
             # An unindexed sibling (url:... AND title:..., for example) can
@@ -620,7 +626,10 @@ class SnapshotSearch:
                             early.add(pk)
                             yield pk
                 matches = matches.exclude(pk__in=early).order_by("pk")
-            elif not qs.query.order_by and self.sql_queryset(ranked=True) is None:
+            elif not qs.query.order_by and (
+                self.sql_queryset(ranked=True) is None
+                or (any(term.field == "tags" for term in self.indexed_evidence) and isinstance(self.indexed_bounds[0], Q))
+            ):
                 # Keep subsequent queries disjoint, but publish the first index
                 # hit immediately even if the rest of the bounded probe is slow.
                 head = set()

@@ -6,8 +6,8 @@ from typing import Any
 from urllib.parse import unquote
 
 from django.contrib.auth.models import User
-from django.db import IntegrityError, connection, transaction
-from django.db.models import CharField, Count, Exists, F, IntegerField, OuterRef, Prefetch, QuerySet, Subquery, Value
+from django.db import IntegrityError, transaction
+from django.db.models import CharField, Count, Exists, F, Func, IntegerField, OuterRef, Prefetch, QuerySet, Subquery, Value
 from django.db.models.functions import Cast, Coalesce, Lower
 from django.http import HttpRequest
 from django.urls import reverse
@@ -58,12 +58,25 @@ def normalize_created_year_filter(year: str = "") -> str:
     return year if len(year) == 4 and year.isdigit() else ""
 
 
+class _TagAssignmentID(Func):
+    output_field = IntegerField()
+
+    def as_sql(self, compiler, connection, **extra_context):
+        return compiler.compile(self.get_source_expressions()[0])
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        # Older collections retain text tag IDs in the through table.
+        # A text RHS lets SQLite use its index with either column affinity.
+        return compiler.compile(Cast(self.get_source_expressions()[0], output_field=CharField()))
+
+
+def tag_assignments_matching(predicate):
+    tag_ids = Tag.objects.filter(predicate).order_by().values_list(_TagAssignmentID("pk"), flat=True)
+    return SnapshotTag.objects.filter(tag_id__in=tag_ids).order_by()
+
+
 def _tag_snapshot_memberships():
-    # Older SQLite collections retain a text tag_id in the through table.
-    # Comparing it with the integer tag PK bypasses its index; a text RHS
-    # permits indexed probes with both the legacy and current column affinity.
-    tag_id = Cast(OuterRef("pk"), output_field=CharField()) if connection.vendor == "sqlite" else OuterRef("pk")
-    return SnapshotTag.objects.filter(tag_id=tag_id)
+    return SnapshotTag.objects.filter(tag_id=_TagAssignmentID(OuterRef("pk")))
 
 
 def annotate_tag_snapshot_counts(queryset):

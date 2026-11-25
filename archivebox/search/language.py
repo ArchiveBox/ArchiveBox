@@ -15,7 +15,8 @@ from django.db.models.lookups import Exact, GreaterThan, IRegex
 from django.db.models.sql import Query
 from django.db.models.sql.where import WhereNode
 
-from archivebox.core.models import ArchiveResult, SnapshotQuerySet, SnapshotTag, Tag
+from archivebox.core.models import ArchiveResult, SnapshotQuerySet
+from archivebox.core.tag_util import tag_assignments_matching
 
 
 @dataclass(frozen=True)
@@ -416,9 +417,16 @@ def recorded_path_contains(value):
 
 
 def matching_tag_assignments(value, *, match_case=None):
-    # Test the substring against distinct tag names, then follow indexed IDs.
-    tags = Tag.objects.filter(substring("name", value, match_case=match_case)).order_by().values("pk")
-    return SnapshotTag.objects.filter(tag_id__in=tags)
+    return tag_assignments_matching(substring("name", value, match_case=match_case))
+
+
+def tags_predicate(term, *, exact=False):
+    parts = term.items or term.value.split(",")
+    if not all(parts):
+        raise ValueError("Empty list item")
+    match_case = has_uppercase(term.value)
+    predicates = (Q(name=part) if exact else substring("name", part, match_case=match_case) for part in parts)
+    return reduce(and_, (Q(pk__in=tag_assignments_matching(predicate).values("snapshot_id")) for predicate in predicates))
 
 
 def text_metadata(term, *, public):
@@ -482,17 +490,14 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
         else:
             stop = start + timedelta(days=1)
         return Q(bookmarked_at__gte=start, bookmarked_at__lt=stop)
-    if f in {"tags", "plugins", "filetype"}:
+    if f == "tags":
+        return tags_predicate(term)
+    if f in {"plugins", "filetype"}:
         parts = term.items or v.split(",")
         match_case = has_uppercase(v)
         if not all(parts):
             raise ValueError("Empty list item")
         results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk"))
-        if f == "tags":
-            return reduce(
-                and_,
-                (Q(pk__in=matching_tag_assignments(s, match_case=match_case).values("snapshot_id")) for s in parts),
-            )
         if f == "plugins":
             return reduce(
                 and_,

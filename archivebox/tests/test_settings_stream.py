@@ -107,7 +107,7 @@ def test_snapshot_stream_preserves_native_rows_selection_and_tag_editors(client,
     from archivebox.core.models import Snapshot, Tag
 
     tag = Tag.objects.create(name="ArchiveBox release notes", created_by=admin_user)
-    for i in range(25):
+    for i in range(50):
         snapshot = Snapshot.objects.create(
             crawl=crawl,
             url=f"https://github.com/ArchiveBox/ArchiveBox/issues/{i + 1}",
@@ -143,9 +143,13 @@ def test_snapshot_stream_preserves_native_rows_selection_and_tag_editors(client,
     document = html.fromstring(b"".join(chunks))
     expected = html.fromstring(buffered.content)
     selector = '//table[@id="result_list"]/tbody/tr[@data-snapshot-id]'
-    assert len(html.fromstring(chunks[0]).xpath(selector)) == 12
+    expected_rows = expected.xpath(selector)
+    expected_ids = [r.attrib["data-snapshot-id"] for r in expected_rows]
+    first_ids = [r.attrib["data-snapshot-id"] for r in html.fromstring(chunks[0]).xpath(selector)]
+    assert len(expected_ids) == len(set(expected_ids)) == 50
+    assert first_ids == expected_ids[:18]
     assert html.fromstring(chunks[0]).xpath('//template//span[@class="tag-pill"]')
     rows = document.xpath(selector)
-    assert len(rows) == 25
-    assert [html.tostring(r, with_tail=False) for r in rows] == [html.tostring(r, with_tail=False) for r in expected.xpath(selector)]
+    assert [r.attrib["data-snapshot-id"] for r in rows] == expected_ids
+    assert [html.tostring(r, with_tail=False) for r in rows] == [html.tostring(r, with_tail=False) for r in expected_rows]
     assert len({r.xpath('.//input[@name="_selected_action"]/@value')[0] for r in rows}) == len(rows)

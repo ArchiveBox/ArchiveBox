@@ -55,6 +55,31 @@ def test_operator_membership(crawl):
     assert not SnapshotSearch(scope, "meta:LabNote", public=True).queryset().exists()
 
 
+def test_tag_stream_prefers_exact_csv_matches_and_retains_substring_matches(crawl):
+    exact = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/exact")
+    overlap = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/overlap")
+    excluded = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/excluded")
+    untagged = Snapshot.objects.create(crawl=crawl, url="https://lobste.rs/s/untagged")
+    exact.save_tags(["web,notes", "research", "web,notes archive"])
+    overlap.save_tags(["web,notes archive", "research notes", "Research Edition"])
+    excluded.save_tags(["web", "notes", "Research Edition"])
+    query = 'tags:"web,notes",research'
+    scope = Snapshot.objects.filter(pk__in=[exact.pk, overlap.pk, excluded.pk, untagged.pk])
+    search = SnapshotSearch(scope, query, streaming=True)
+    assert list(search.witnesses(search.indexed_bounds[0])) == [exact.pk]
+    assert list(search.stream()) == [exact.pk, overlap.pk]
+    assert search.sql_queryset(ranked=True) is not None
+    assert set(SnapshotSearch(scope, query).queryset().values_list("pk", flat=True)) == {exact.pk, overlap.pk}
+
+    ordered = scope.order_by("-created_at", "-pk")
+    assert list(SnapshotSearch(ordered, query, streaming=True).stream()) == [overlap.pk, exact.pk]
+    assert set(SnapshotSearch(scope, f"({query} AND ~tags:Research) OR url:untagged").stream()) == {exact.pk, untagged.pk}
+    assert set(SnapshotSearch(scope, f"~({query})").stream()) == {excluded.pk, untagged.pk}
+    assert not SnapshotSearch(scope, "tags:missing").queryset().exists()
+    assert set(SnapshotSearch(scope, 'tags__name__icontains:"WEB,NOTES"').stream()) == {exact.pk, overlap.pk}
+    assert list(SnapshotSearch(scope, 'tags__name__exact:"web,notes" AND ~tags:Research').stream()) == [exact.pk]
+
+
 def test_nested_sql_predicates_keep_membership_across_operand_orders(crawl):
     match = Snapshot.objects.create(
         crawl=crawl,

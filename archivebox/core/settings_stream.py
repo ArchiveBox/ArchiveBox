@@ -14,7 +14,8 @@ from archivebox.config import CONSTANTS
 from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, get_plugin_catalog
 
 _TEMPLATES = CONSTANTS.PACKAGE_DIR / "templates"
-FIRST_SNAPSHOT_ROWS = 12
+# Short single-line results need more rows to cover a desktop viewport.
+FIRST_SNAPSHOT_ROWS = 18
 _SNAPSHOT_LIST = "admin/core/snapshot/change_list.html"
 _STREAM_TEMPLATES = {
     _SNAPSHOT_LIST: _SNAPSHOT_LIST,

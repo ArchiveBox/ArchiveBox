@@ -410,6 +410,13 @@ class RuleQuery:
                     value = cleaned if lookup == "in" else cleaned[0]
                 if name == "domain":
                     result = Snapshot.objects.domain_rule_q(lookup, value)
+                elif name == "tags__name" and lookup != "isnull":
+                    from archivebox.core.tag_util import tag_assignments_matching
+
+                    # Match tag names once, then find snapshots by their link
+                    # IDs. Empty-tag checks still need the original outer join.
+                    assignments = tag_assignments_matching(Q(**{f"name__{lookup}": value}))
+                    result = Q(pk__in=assignments.values("snapshot_id"))
                 elif multi:
                     result = Q(Exists(Snapshot.objects.filter(pk=OuterRef("pk")).filter(**{f"{name}__{lookup}": value})))
                 else:
