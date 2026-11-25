@@ -15,7 +15,7 @@ from archivebox.core.routes_util import build_snapshot_export_urls
 class CustomUserAdmin(UserAdmin):
     sort_fields = ["id", "email", "username", "is_superuser", "last_login", "date_joined"]
     list_display = ["username", "snapshot_count_column", "id", "email", "is_superuser", "last_login", "date_joined"]
-    readonly_fields = ("snapshot_set", "archiveresult_set", "tag_set", "apitoken_set", "outboundwebhook_set")
+    readonly_fields = ("snapshot_set", "archiveresult_set", "tag_set", "apitoken_set", "rule_set")
     change_form_template = "admin/auth/user/change_form.html"
 
     # Preserve Django's default user creation form and fieldsets
@@ -137,18 +137,18 @@ class CustomUserAdmin(UserAdmin):
         )
 
     @admin.display(description="Rules")
-    def outboundwebhook_set(self, obj):
-        total_count = obj.outboundwebhook_set.count()
+    def rule_set(self, obj):
+        total_count = obj.rule_set.count()
         return mark_safe(
             "<br/>".join(
                 format_html(
                     '<code><a href="{}"><b>[{}]</b></a></code> {} -> {}',
-                    reverse("webhooks:index", query={"webhook": str(outboundwebhook.pk)}),
-                    str(outboundwebhook.id)[:8],
-                    outboundwebhook.referenced_model,
-                    outboundwebhook.endpoint,
+                    reverse("webhooks:index", query={"webhook": str(rule.pk)}),
+                    str(rule.id)[:8],
+                    rule.referenced_model,
+                    rule.endpoint,
                 )
-                for outboundwebhook in obj.outboundwebhook_set.order_by("-modified_at")[:10]
+                for rule in obj.rule_set.order_by("-modified_at")[:10]
             )
             + format_html('<br/>{} · <a href="{}">Rules</a>', total_count, reverse("webhooks:index")),
         )

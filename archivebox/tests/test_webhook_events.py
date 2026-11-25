@@ -3,7 +3,7 @@ import json
 import pytest
 from django.db import transaction
 
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.api.webhook_events import emit_event, event_catalog
 from archivebox.core.models import Snapshot, Tag
 from archivebox.crawls.models import Crawl
@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def subscription(name, signal, actions, **kwargs):
-    hook = OutboundWebhook(name=name, ref="archivebox.core.models.Snapshot", signal=signal, actions=actions, **kwargs)
+    hook = Rule(name=name, ref="archivebox.core.models.Snapshot", signal=signal, actions=actions, **kwargs)
     hook.full_clean()
     hook.save()
     return hook
@@ -75,7 +75,7 @@ def test_result_failure_projection_emits_completion_once():
     crawl = Crawl.objects.create(urls="https://news.ycombinator.com/")
     snapshot = Snapshot.objects.create(crawl=crawl, url="https://news.ycombinator.com/", status="started")
     result = ArchiveResult.objects.create(snapshot=snapshot, plugin="wget", hook_name="on_Snapshot__wget", status="started")
-    hook = OutboundWebhook(
+    hook = Rule(
         name="result completion",
         ref="archivebox.core.models.ArchiveResult",
         signal="CAPTURE_COMPLETED",
@@ -182,7 +182,7 @@ def test_late_native_model_registration_exposes_and_delivers_events(admin_client
                 ),
             )
             assert response.status_code == 200, response.content
-            hooks[event] = OutboundWebhook.objects.get(name=f"Group {event}")
+            hooks[event] = Rule.objects.get(name=f"Group {event}")
             hooks[event].full_clean()
 
         group = Group.objects.create(name="Reviewed captures")
@@ -201,7 +201,7 @@ def test_late_native_model_registration_exposes_and_delivers_events(admin_client
         assert reviewed["object_type"] == "auth.Group" and reviewed["event"] == "REVIEWED"
         assert reviewed["reason"] == "manual"
 
-        invalid = OutboundWebhook(
+        invalid = Rule(
             name="Unsupported review",
             ref=reference_for_model(Tag),
             signal="REVIEWED",
@@ -219,7 +219,7 @@ def test_late_native_model_registration_exposes_and_delivers_events(admin_client
         webhook_event.send(sender=Group, instance=group, event="REVIEWED")
         assert records(hooks["REVIEWED"]).count() == 1
     finally:
-        OutboundWebhook.objects.filter(ref=ref).delete()
+        Rule.objects.filter(ref=ref).delete()
         webhook_settings.HOOKS.pop(ref)
         del Group.webhook_events
 
@@ -239,7 +239,7 @@ def test_registered_process_status_events_follow_real_subprocess(tmp_path):
     assert Process.webhook_status_events is transitions
     hooks = {}
     for event in ("STARTED", "EXITED"):
-        hook = OutboundWebhook(
+        hook = Rule(
             name=f"Process {event}",
             ref="archivebox.machine.models.Process",
             signal=event,
@@ -272,7 +272,7 @@ def test_process_heartbeat_does_not_read_or_emit_unsaved_status(tmp_path):
     from archivebox.machine.models import Machine, NetworkInterface
 
     Process.current()
-    hook = OutboundWebhook(
+    hook = Rule(
         name="Process actually started",
         ref="archivebox.machine.models.Process",
         signal="STARTED",

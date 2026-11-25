@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.core.models import ArchiveResult, Folder, Snapshot, Tag
 from archivebox.crawls.models import Crawl
 
@@ -19,7 +19,7 @@ def subscribe(folder, admin_user, tmp_path):
     destination = tmp_path / "memberships.jsonl"
     code = f"import sys, pathlib\nwith pathlib.Path({str(destination)!r}).open('a') as out: out.write(sys.stdin.read() + '\\n')"
     for signal in ("FOLDER_ENTERED", "FOLDER_LEFT"):
-        OutboundWebhook.objects.create(
+        Rule.objects.create(
             name=f"{folder.name} {signal}",
             ref="archivebox.core.models.Snapshot",
             signal=signal,
@@ -208,7 +208,7 @@ def test_crawl_queryset_lifecycle_fires_once_on_real_transitions(admin_user, tmp
     destination = tmp_path / "crawl-events.jsonl"
     code = f"import sys, pathlib\nwith pathlib.Path({str(destination)!r}).open('a') as out: out.write(sys.stdin.read() + '\\n')"
     for signal in ("STARTED", "COMPLETED"):
-        OutboundWebhook.objects.create(
+        Rule.objects.create(
             name=f"Crawl {signal}",
             ref="archivebox.crawls.models.Crawl",
             signal=signal,
@@ -232,7 +232,7 @@ def test_native_tag_helpers_emit_existing_m2m_hooks_once(admin_user, tmp_path):
     destination = tmp_path / "tag-events.jsonl"
     code = f"import sys, pathlib\nwith pathlib.Path({str(destination)!r}).open('a') as out: out.write(sys.stdin.read() + '\\n')"
     for signal in ("M2M_ADD", "M2M_REMOVE"):
-        OutboundWebhook.objects.create(
+        Rule.objects.create(
             name=f"Snapshot {signal}",
             ref="archivebox.core.models.Snapshot",
             signal=signal,
@@ -257,7 +257,7 @@ def test_native_tag_helpers_emit_existing_m2m_hooks_once(admin_user, tmp_path):
 def test_creation_action_tags_survive_crawl_defaults_and_enter_folder(admin_user, tmp_path):
     folder = Folder.objects.create(name="Tagged by webhook", rules=leaf("tags__name", "exact", "news"))
     path = subscribe(folder, admin_user, tmp_path)
-    OutboundWebhook.objects.create(
+    Rule.objects.create(
         name="Tag new snapshot",
         ref="archivebox.core.models.Snapshot",
         signal="CREATE",
@@ -277,7 +277,7 @@ def test_wildcard_folder_delivers_actual_folder_ids_to_existing_scopes(admin_use
     all_dir = tmp_path / "any"
     all_dir.mkdir()
     all_path = subscribe(second, admin_user, all_dir)
-    OutboundWebhook.objects.filter(folder=second).update(folder=None, any_folder=True)
+    Rule.objects.filter(folder=second).update(folder=None, any_folder=True)
     crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
     snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
     Folder.move_snapshots(Snapshot.objects.filter(pk=snapshot.pk), first.pk)
@@ -302,7 +302,7 @@ def test_relationship_scope_matches_native_fields_and_through_table_helpers(admi
     user_scopes = {}
     for relationship in ("", "groups", "user_permissions"):
         for event in ("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"):
-            hook = OutboundWebhook.objects.create(
+            hook = Rule.objects.create(
                 name=f"User {event} {relationship}",
                 ref="django.contrib.auth.models.User",
                 signal=event,
@@ -312,7 +312,7 @@ def test_relationship_scope_matches_native_fields_and_through_table_helpers(admi
             )
             user_scopes[event, relationship] = hook
     for event in ("M2M_ADD", "M2M_REMOVE", "M2M_CLEAR"):
-        OutboundWebhook.objects.create(
+        Rule.objects.create(
             name=f"Snapshot {event} tags",
             ref="archivebox.core.models.Snapshot",
             signal=event,

@@ -17,12 +17,12 @@ class MembershipChange:
         if executing_webhook.get():
             self.folder_ids = []
             return
-        from archivebox.api.models import OutboundWebhook
+        from archivebox.api.models import Rule
         from archivebox.core.models import Snapshot
         from archivebox.core.smart_folders import RuleQuery
 
         scopes = list(
-            OutboundWebhook.objects.filter(
+            Rule.objects.filter(
                 Q(folder_id__isnull=False) | Q(any_folder=True),
                 enabled=True,
                 ref="archivebox.core.models.Snapshot",

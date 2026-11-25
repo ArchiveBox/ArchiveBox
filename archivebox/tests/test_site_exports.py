@@ -311,8 +311,8 @@ for index, record in enumerate(json.loads((fixture / "captures.json").read_text(
     output.write_bytes(body)
     ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", hook_name="on_Snapshot__53_dom.js", status="succeeded", output_str="dom/output.html", output_files={"dom/output.html": {"size": len(body), "mimetype": "text/html"}}, output_size=len(body))
     saved.append((snapshot, output, body))
-from archivebox.api.models import OutboundWebhook
-hook = OutboundWebhook(name="Export exited", ref="archivebox.machine.models.Process", signal="EXITED", actions=[{"type":"python", "code":"import sys; print(sys.stdin.read())"}])
+from archivebox.api.models import Rule
+hook = Rule(name="Export exited", ref="archivebox.machine.models.Process", signal="EXITED", actions=[{"type":"python", "code":"import sys; print(sys.stdin.read())"}])
 hook.full_clean()
 hook.save()
 client = Client(HTTP_HOST="api.archivebox.localhost:5797")

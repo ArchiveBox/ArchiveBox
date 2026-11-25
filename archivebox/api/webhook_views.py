@@ -1,4 +1,4 @@
-"""The webhook editor uses OutboundWebhook and existing folder selections."""
+"""The webhook editor uses Rule and existing folder selections."""
 
 import json
 from functools import wraps
@@ -19,7 +19,7 @@ from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.widgets import TagEditorWidget
 from archivebox.plugins.discovery import get_plugin_catalog
 
-from .models import OutboundWebhook
+from .models import Rule
 from .webhook_actions import configurable_fields
 from .webhook_events import RELATIONSHIP_EVENTS, TAG_EVENTS, event_catalog, event_payload
 
@@ -78,7 +78,7 @@ def webhook_data(hook, tag_names=None):
 
 
 def editor_data():
-    rules = list(OutboundWebhook.objects.order_by("created_at", "pk"))
+    rules = list(Rule.objects.order_by("created_at", "pk"))
     tag_ids = {scope for hook in rules if type(scope := tag_scope(hook)) is int}
     tag_names = dict(Tag.objects.filter(pk__in=tag_ids).values_list("pk", "name"))
     hooks = [webhook_data(hook, tag_names) for hook in rules]
@@ -89,7 +89,7 @@ def editor_data():
     return {
         "hooks": hooks,
         "models": event_catalog(),
-        "signal_labels": dict(OutboundWebhook._meta.get_field("signal").choices),
+        "signal_labels": dict(Rule._meta.get_field("signal").choices),
         "folders": Folder.picker_choices(Folder.objects.filter(pk__in=folder_ids).only("name", "parent")),
         "plugins": sorted(get_plugin_catalog()),
         "config_fields": sorted(configurable_fields()),
@@ -158,7 +158,7 @@ def submitted_webhook(request):
             raise ValidationError(f"{field} must be a boolean.")
     if "auth_token" in payload and not isinstance(payload["auth_token"], str):
         raise ValidationError("auth_token must be a string.")
-    hook = get_object_or_404(OutboundWebhook, pk=payload["id"]) if payload.get("id") else OutboundWebhook(created_by=request.user)
+    hook = get_object_or_404(Rule, pk=payload["id"]) if payload.get("id") else Rule(created_by=request.user)
     previous_signal = hook.signal
     for field in allowed - {"id", "auth_token", "clear_auth_token", "tag_id", "relationship"}:
         if field in payload:
@@ -212,7 +212,7 @@ def save(request):
 @webhook_admin
 @require_POST
 def delete(request, webhook_id):
-    get_object_or_404(OutboundWebhook, pk=webhook_id).delete()
+    get_object_or_404(Rule, pk=webhook_id).delete()
     return JsonResponse({"deleted": True})
 
 

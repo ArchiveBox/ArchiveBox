@@ -41,7 +41,7 @@ class APIToken(models.Model):
         return not self.expires or self.expires >= (for_date or timezone.now())
 
 
-class OutboundWebhook(WebhookBase, ModelWithHealthStats):
+class Rule(WebhookBase, ModelWithHealthStats):
     emoji: str = "🪝"
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -65,6 +65,7 @@ class OutboundWebhook(WebhookBase, ModelWithHealthStats):
 
     class Meta(WebhookBase.Meta):
         app_label = "api"
+        db_table = "api_outboundwebhook"
         verbose_name = "Rule"
         verbose_name_plural = "Rules"
         ordering = ("position", "created_at", "pk")

@@ -10,9 +10,9 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def make_hook(admin_user, actions, **kwargs):
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
 
-    hook = OutboundWebhook(
+    hook = Rule(
         name=f"Action sequence {admin_user.pk}",
         created_by=admin_user,
         ref="archivebox.core.models.Snapshot",
@@ -244,7 +244,7 @@ def test_failed_action_in_initialized_collection_appears_in_admin_log_views(init
 from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.test import Client
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.api.webhook_events import emit_event
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
@@ -253,7 +253,7 @@ from archivebox.machine.models import Process
 user = get_user_model().objects.create_superuser(username="webhook-log-test", password="testpassword")
 crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=user)
 snapshot = Snapshot.objects.create(url="https://news.ycombinator.com/", crawl=crawl)
-hook = OutboundWebhook(name="Log integration", created_by=user, ref="archivebox.core.models.Snapshot", signal="UPDATE", actions=[{"type":"python", "code":"raise RuntimeError('webhook log integration failure')"}])
+hook = Rule(name="Log integration", created_by=user, ref="archivebox.core.models.Snapshot", signal="UPDATE", actions=[{"type":"python", "code":"raise RuntimeError('webhook log integration failure')"}])
 hook.full_clean()
 hook.save()
 emit_event(snapshot, "UPDATE")
@@ -350,7 +350,7 @@ def test_child_python_django_save_does_not_recurse(initialized_archive):
 
     script = """
 from django.contrib.auth import get_user_model
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.api.webhook_events import emit_event
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
@@ -359,7 +359,7 @@ user = get_user_model().objects.create_superuser(username="webhook-child-test", 
 crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=user)
 snapshot = Snapshot.objects.create(url="https://news.ycombinator.com/", crawl=crawl)
 code = "import sys; from archivebox.config.django import setup_django; setup_django(); from archivebox.core.models import Snapshot; obj=Snapshot.objects.get(pk=sys.argv[1]); obj.title='child saved'; obj.save(update_fields=['title']); print(obj.title)"
-hook = OutboundWebhook(name="Child update", created_by=user, ref="archivebox.core.models.Snapshot", signal="UPDATE", actions=[{"type":"python", "code":code}])
+hook = Rule(name="Child update", created_by=user, ref="archivebox.core.models.Snapshot", signal="UPDATE", actions=[{"type":"python", "code":code}])
 hook.full_clean()
 hook.save()
 emit_event(snapshot, "UPDATE")

@@ -139,12 +139,12 @@ def test_native_cli_round_trip_and_csv(initialized_archive):
 
 
 def test_importer_actions_dispatch_real_webhooks(client, api_headers):
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
     from archivebox.machine.models import Process
 
     hooks = {}
     for model, event in [("ImporterSource", "UPDATE"), ("ImporterRun", "CREATE"), ("ImporterRun", "COMPLETED")]:
-        hook = OutboundWebhook(
+        hook = Rule(
             name=f"{model} {event}",
             ref=f"archivebox.importers.models.{model}",
             signal=event,
@@ -203,7 +203,7 @@ def test_import_to_folder_completion_payload(client, api_headers, tmp_path):
     from functools import partial
     from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
     from threading import Thread
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
     from archivebox.importers.models import ImporterRun
     from archivebox.importers.service import run_next_importer
     from archivebox.machine.models import Process
@@ -228,7 +228,7 @@ def test_import_to_folder_completion_payload(client, api_headers, tmp_path):
             **api_headers,
         ).json()
         assert source["folder_name"] == "Imports", source
-        hook = OutboundWebhook(
+        hook = Rule(
             name="Import completed",
             ref="archivebox.importers.models.ImporterRun",
             signal="COMPLETED",

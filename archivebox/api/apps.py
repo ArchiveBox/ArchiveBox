@@ -17,7 +17,7 @@ class APIConfig(AppConfig):
         # User is supplied by Django; keep its icon on the class like our models.
         get_user_model().emoji = "👤"
         register_webhooks(get_user_model())
-        for model in ("APIToken", "OutboundWebhook"):
+        for model in ("APIToken", "Rule"):
             register_webhooks(self.get_model(model))
         register_delete_webhook_field_loader()
         register_lifecycle_signals()

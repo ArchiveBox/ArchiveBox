@@ -6,7 +6,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.core.models import Tag
 from archivebox.core.widgets import TagEditorWidget
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -46,7 +46,7 @@ def test_repeated_rule_tag_actions_preserve_csv_order_and_validation(admin_clien
     }
     response = admin_client.post(reverse("webhooks:save"), json.dumps(payload), content_type="application/json", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200, response.content
-    hook = OutboundWebhook.objects.get(pk=response.json()["hook"]["id"])
+    hook = Rule.objects.get(pk=response.json()["hook"]["id"])
     assert hook.actions == actions
     assert not Tag.objects.exists()  # Configuring a rule does not execute its tag actions.
     payload["id"] = str(hook.pk)

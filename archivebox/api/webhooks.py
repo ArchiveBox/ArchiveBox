@@ -103,7 +103,7 @@ def deliver_webhooks(instance, data, method, *, metadata=None, subscriptions=Non
 
     metadata = metadata or {}
     # The package's lookup table knows CRUD/M2M aliases. Additional lifecycle
-    # events use their exact signal name, on the same OutboundWebhook model.
+    # events use their exact signal name, on the same Rule model.
     if subscriptions is None:
         hooks = get_webhook_model().objects.filter(
             ref=reference_for_model(type(instance)),

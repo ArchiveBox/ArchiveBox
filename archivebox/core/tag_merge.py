@@ -52,7 +52,7 @@ def _folder_tag_condition_matches(node, affected):
 
 
 def _check_merge_dependencies(retired, target, final_name, memberships):
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.importers.models import ImporterSource
 
@@ -65,7 +65,7 @@ def _check_merge_dependencies(retired, target, final_name, memberships):
     for folder_id, rules in Folder.objects.exclude(rules__isnull=True).values_list("pk", "rules").iterator():
         if _folder_tag_condition_matches(rules, affected):
             raise ValueError(f"Update Smart Folder {folder_id}: its tag filter would change. No tags were merged.")
-    rules = OutboundWebhook.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions")
+    rules = Rule.objects.filter(enabled=True).values_list("pk", "ref", "signal", "relationship", "actions")
     missed_events = {}
     for rule_id, ref, signal, relationship, actions in rules.iterator():
         if signal in {"TAGGED", "UNTAGGED"} and relationship in retired_ids:

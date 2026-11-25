@@ -563,7 +563,7 @@ def validate_ai_result(snapshot, plugin):
 @contextmanager
 def homepage_capture_budget(homepage_url):
     """Allow the real homepage's 60-second server cooldown, only in this fixture."""
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
     from archivebox.core.models import Folder
 
     folder = Folder.objects.create(
@@ -572,7 +572,7 @@ def homepage_capture_budget(homepage_url):
     )
     rule = None
     try:
-        candidate = OutboundWebhook(
+        candidate = Rule(
             name="Gallery homepage cooldown",
             ref="archivebox.core.models.Snapshot",
             signal="FOLDER_ENTERED",

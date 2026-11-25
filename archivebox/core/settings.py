@@ -541,7 +541,7 @@ LOGGING = SETTINGS_LOGGING
 ################################################################################
 
 # Add default webhook configuration to the User model
-SIGNAL_WEBHOOKS_CUSTOM_MODEL = "archivebox.api.models.OutboundWebhook"
+SIGNAL_WEBHOOKS_CUSTOM_MODEL = "archivebox.api.models.Rule"
 SIGNAL_WEBHOOKS: dict[str, object] = {
     # Reuse the collection's persistent secret with a separate key derivation
     # context so webhook tokens can be encrypted across server restarts.

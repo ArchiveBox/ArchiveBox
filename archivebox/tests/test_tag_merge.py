@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import Permission
 from django.urls import reverse
 
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
 from archivebox.importers.models import ImporterSource
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -87,7 +87,7 @@ def test_merge_blocks_active_tag_consumers_without_changing_any_rows(admin_clien
         ),
         (
             "Rule",
-            OutboundWebhook.objects.create(
+            Rule.objects.create(
                 ref="core.snapshot",
                 signal="CREATE",
                 actions=[{"type": "add_tags", "add_tags": first.name}],
@@ -352,7 +352,7 @@ def test_merge_rolls_back_after_real_sqlite_delete_failure(admin_user, merge_rec
 @pytest.mark.parametrize(("signal", "relationship"), [("M2M_ADD", ""), ("M2M_REMOVE", "tags")])
 def test_merge_blocks_reachable_snapshot_tag_relationship_rules(admin_client, admin_user, merge_records, signal, relationship):
     first, second, target, _other, snapshots = merge_records
-    OutboundWebhook.objects.create(
+    Rule.objects.create(
         ref="core.snapshot",
         signal=signal,
         relationship=relationship,

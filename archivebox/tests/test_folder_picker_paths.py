@@ -9,7 +9,7 @@ pytestmark = pytest.mark.django_db
 
 def test_native_folder_picker_paths_and_destination_filters(admin_user, admin_client):
     from django.core.exceptions import ValidationError
-    from archivebox.api.models import OutboundWebhook
+    from archivebox.api.models import Rule
     from archivebox.core.models import Folder
     from archivebox.core.forms import AddLinkForm
     from archivebox.crawls.admin import CrawlAdminForm
@@ -47,7 +47,7 @@ def test_native_folder_picker_paths_and_destination_filters(admin_user, admin_cl
     with pytest.raises(ValidationError, match="regular folder"):
         importer.clean_folder()
     assert editor_data()["folders"] == []
-    OutboundWebhook.objects.create(
+    Rule.objects.create(
         name="Selected folder paths",
         ref="archivebox.core.models.Snapshot",
         signal="UPDATE",

@@ -42,7 +42,7 @@
                 {% elif model.object_name == "APIToken" %}
                     <path d="M15 7a4 4 0 1 1-3 6.65L6 20H3v-3l6.35-6A4 4 0 0 1 15 7z" />
                     <path d="M18 7h.01" />
-                {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                {% elif model.object_name == "Rule" or model.object_name == "Webhook" %}
                     <path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 17h8" />
                     <path d="M8 10h8" />
                 {% else %}
@@ -60,7 +60,7 @@
                         {% translate "Admin Users" %}
                     {% elif model.name == "Configuration" %}
                         {% translate "Admin Configuration" %}
-                    {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                    {% elif model.object_name == "Rule" or model.object_name == "Webhook" %}
                         {% translate "Rules Engine" %}
                     {% else %}
                         {{ model.name }}
@@ -95,7 +95,7 @@
                     Hook, binary, and crawl process history.
                 {% elif model.object_name == "APIToken" %}
                     API credentials for automation.
-                {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                {% elif model.object_name == "Rule" or model.object_name == "Webhook" %}
                     Trigger actions when archive events happen.
                 {% elif model.name == "Configuration" %}
                     Live settings and plugin configuration.

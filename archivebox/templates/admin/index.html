@@ -637,7 +637,7 @@
                                 {% for model in app.models %}
                                     {% if model.object_name == "APIToken" %}
                                         {% include "admin/index_model_card.html" with model=model tone="advanced" %}
-                                    {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                                    {% elif model.object_name == "Rule" or model.object_name == "Webhook" %}
                                         {% if request.user.is_superuser %}
                                             {% url 'webhooks:index' as rules_url %}
                                             {% include "admin/index_model_card.html" with model=model tone="advanced" card_url=rules_url %}

@@ -7,7 +7,7 @@ import pytest
 from django.db import transaction
 from django.urls import reverse
 
-from archivebox.api.models import OutboundWebhook
+from archivebox.api.models import Rule
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST, api_client_request
@@ -168,11 +168,11 @@ def test_deleting_tag_delivers_any_tag_rule_and_retires_specific_rule(client, ap
     snapshot.tags.add(tag)
     untagged = membership_rules("UNTAGGED", tag_id="*")
     membership_rules("UNTAGGED", tag_id=tag.pk)
-    specific_rule = OutboundWebhook.objects.get(signal="UNTAGGED", relationship=str(tag.pk))
+    specific_rule = Rule.objects.get(signal="UNTAGGED", relationship=str(tag.pk))
     response = api_client_request(client, "delete", f"/api/v1/core/tag/{tag.pk}", headers=api_headers)
     assert response.status_code == 200, response.content
     assert not snapshot.tags.exists()
-    assert not OutboundWebhook.objects.filter(pk=specific_rule.pk).exists()
+    assert not Rule.objects.filter(pk=specific_rule.pk).exists()
     assert deliveries(untagged, "tag_id") == [("UNTAGGED", str(snapshot.pk), tag.pk)]
     assert json.loads(untagged.read_text())["tag_name"] == "Retired tag"
 
@@ -198,7 +198,7 @@ def test_tag_rules_run_native_actions_without_recursive_delivery(admin_client, c
     assert response.status_code == 200, response.content
     assert set(snapshot.tags.values_list("name", flat=True)) == {"Research", "Reviewed"}
     assert deliveries(wildcard, "tag_id") == [("TAGGED", str(snapshot.pk), tag.pk)]
-    assert OutboundWebhook.objects.get(pk=rule.json()["hook"]["id"]).num_uses_succeeded == 1
+    assert Rule.objects.get(pk=rule.json()["hook"]["id"]).num_uses_succeeded == 1
 
 
 def test_discovered_snapshot_tags_trigger_tag_and_folder_rules(admin_user, membership_rules):
@@ -274,7 +274,7 @@ def test_editor_persists_and_validates_tag_scope(admin_client, signal):
         assert response.status_code == 200, response.content
         saved = response.json()["hook"]
         assert saved["tag_id"] == scope
-        rule = OutboundWebhook.objects.get(pk=saved["id"])
+        rule = Rule.objects.get(pk=saved["id"])
         assert rule.relationship == str(scope)
     for scope in (None, tag.pk + 10_000, "Find me", True):
         assert post(admin_client, "save/", webhook_input(signal=signal, tag_id=scope)).status_code == 400
@@ -350,10 +350,10 @@ def test_membership_rule_pickers_in_browser(live_server, browser_runtime, admin_
             page.get_by_role("button", name="New rule", exact=True).click()
         browser.close()
 
-    tagged = OutboundWebhook.objects.get(name="Tagged rule")
+    tagged = Rule.objects.get(name="Tagged rule")
     assert tagged.signal == "TAGGED"
     assert tagged.relationship == str(tag.pk) and tagged.folder_id is None
-    filed = OutboundWebhook.objects.get(name="Added to folder rule")
+    filed = Rule.objects.get(name="Added to folder rule")
     assert filed.signal == "FOLDER_ENTERED"
     assert filed.folder_id == folder.pk and filed.relationship == ""
     assert filed.actions[-1] == {"type": "folder", "folder_id": str(destination.pk)}

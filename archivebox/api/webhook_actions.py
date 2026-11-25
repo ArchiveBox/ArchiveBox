@@ -1,4 +1,4 @@
-"""Ordered OutboundWebhook actions using native model APIs and Process logs."""
+"""Ordered Rule actions using native model APIs and Process logs."""
 
 from __future__ import annotations
 

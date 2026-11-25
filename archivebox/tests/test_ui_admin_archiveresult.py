@@ -378,7 +378,7 @@ class TestArchiveResultAdminListView:
         assert snapshot.output_size == 0
 
     def test_admin_delete_schedules_archive_result_webhook_with_deferred_fields(self, client, admin_user, snapshot):
-        from archivebox.api.models import OutboundWebhook
+        from archivebox.api.models import Rule
         from archivebox.core.models import ArchiveResult
 
         result = ArchiveResult.objects.create(
@@ -388,7 +388,7 @@ class TestArchiveResultAdminListView:
             status=ArchiveResult.StatusChoices.SUCCEEDED,
             output_json={"captured": "before-delete"},
         )
-        OutboundWebhook.objects.create(
+        Rule.objects.create(
             name="archive-result-delete-test",
             signal="DELETE",
             ref="archivebox.core.models.ArchiveResult",
