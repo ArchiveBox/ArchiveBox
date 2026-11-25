@@ -172,7 +172,9 @@ class SQLiteCursorWrapper(DjangoSQLiteCursorWrapper):
 # exclusively (Django already opens SQLite with check_same_thread=False).
 _IDLE_CONNECTIONS: dict[tuple, list[tuple[tuple[int, int], sqlite3.Connection]]] = {}
 _IDLE_CONNECTIONS_LOCK = threading.Lock()
-_MAX_IDLE_CONNECTIONS = 16
+# Retain at most 128 MiB of SQLite page caches per database and worker after
+# a burst of requests. Active requests can still open independent connections.
+_MAX_IDLE_CONNECTIONS = 4
 
 
 def _database_file_identity(path: str) -> tuple[int, int] | None:

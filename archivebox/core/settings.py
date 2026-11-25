@@ -299,7 +299,9 @@ SQLITE_CONNECTION_OPTIONS = {
             "PRAGMA temp_store = MEMORY;"
             f"PRAGMA mmap_size = {SQLITE_MMAP_SIZE};"
             "PRAGMA journal_size_limit = 67108864;"
-            "PRAGMA cache_size = 2000;"
+            # A 50-row folder and its capture results evict each other's pages at
+            # 8 MiB. SQLite grows this per-connection cache on demand, in KiB.
+            "PRAGMA cache_size = -32768;"
         ),
     },
 }
