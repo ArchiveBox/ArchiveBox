@@ -8,7 +8,7 @@ register = template.Library()
 
 
 @register.inclusion_tag("search/field.html", takes_context=True)
-def search_field(context, value="", name="q", field_id="searchbar"):
+def search_field(context, value="", name="q", field_id="searchbar", placeholder=""):
     operators = [
         {
             "key": key,
@@ -24,6 +24,7 @@ def search_field(context, value="", name="q", field_id="searchbar"):
     if request and is_admin_user(request) and not any(key not in {"q", "p", "page", "search_mode", "o", "sidebar"} for key in request.GET):
         next(op for op in operators if op["key"] == "plugins")["choices"] = snapshot_plugin_choices()
     return {
+        "placeholder": placeholder or "Search snapshots…",
         "value": value or "",
         "name": name,
         "field_id": field_id,

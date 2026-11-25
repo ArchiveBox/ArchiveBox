@@ -51,6 +51,7 @@
     .abx-search-field .suggestion-name { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
     .abx-search-field .suggestion-detail { color: var(--abx-muted); font-size: 12px; margin-left: auto; text-align: right; }
     .abx-search-field .menu-foot { display: flex; flex-wrap: wrap; gap: 3px 14px; border-top: 1px solid var(--abx-line); background: var(--abx-soft); padding: 6px 11px; color: var(--abx-muted); font-size: 11px; }
+    .abx-search-field .menu-foot :is(code, kbd) { padding: 0 3px; border-radius: 3px; background: var(--abx-logic-bg); color: var(--abx-logic); }
     .abx-search-field .feedback { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; color: var(--abx-muted); font-size: 12px; overflow-wrap: anywhere; }
     .abx-search-field .feedback:not(:empty) { margin: 6px 1px 0; }
     .abx-search-field .match-count { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--abx-fg); }

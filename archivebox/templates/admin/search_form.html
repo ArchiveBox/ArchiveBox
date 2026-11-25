@@ -33,7 +33,7 @@
 {% endif %}
 <div><!-- DIV needed for valid HTML -->
 {% if cl.opts.model_name == 'snapshot' and not cl.embedded_changelist %}
-{% with search_field_assets_in_head=True %}{% search_field cl.query %}{% endwith %}
+{% with search_field_assets_in_head=True %}{% search_field cl.query placeholder=cl.search_placeholder %}{% endwith %}
 {% if cl.params.search_mode %}<input type="hidden" name="search_mode" value="{{ cl.search_mode }}">{% endif %}
 {% else %}
 <span class="search-input-wrap">

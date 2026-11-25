@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 from urllib.parse import urlencode
 
 from django.core import signing
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connections
 from django.db.models import Exists, OuterRef, Q
 from django.http import JsonResponse
@@ -35,6 +35,44 @@ def _sidebar_view_filters(request):
     for key in ("cursor", "sidebar_q", "parent"):
         filters.pop(key, None)
     return filters
+
+
+def sidebar_search_placeholder(request, *, entries=(), folder_tree=None, public=False):
+    fallback = "Search snapshots..."
+    scopes = [(scope, request.GET[scope]) for scope in SIDEBAR_SCOPES.values() if request.GET.get(scope)]
+    if len(scopes) != 1:
+        return fallback
+    scope, value = scopes[0]
+
+    try:
+        if scope == "folder":
+            if value == "unfiled":
+                return fallback
+            # Full pages already have the folder tree. Toolbar-only search
+            # responses do not render that tree and need just the selected row.
+            if folder_tree is None:
+                name = Folder.objects.filter(pk=value).values_list("name", flat=True).first()
+            else:
+                name = next((folder.name for folder in folder_tree if str(folder.pk) == value), None)
+            icon = "📂"
+        else:
+            name = next((entry["name"] for entry in entries if entry["selected"] and entry["filter_value"] == value), None)
+            if scope == "tag":
+                icon = "🏷️"
+                if name is None and value.isdecimal():
+                    tags = Tag.objects.filter(pk=value)
+                    if public:
+                        membership = _tag_snapshot_memberships().filter(snapshot__permissions="public")
+                        tags = tags.filter(Exists(membership))
+                    name = tags.values_list("name", flat=True).first()
+            else:
+                icon = "🌐"
+                if name is None and "," not in value:
+                    Snapshot.domain_q(value)
+                    name = value.strip().removeprefix("*.")
+    except (ValueError, ValidationError):
+        return fallback
+    return f"Search in {icon} {name}..." if name else fallback
 
 
 def sidebar_context(request, *, public=False, folder_tree=None):

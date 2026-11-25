@@ -81,6 +81,50 @@ def test_sidebar_modes_and_public_scope(admin_client, sidebar_data):
     assert b'id="folder-sidebar"' in response.content
 
 
+@pytest.mark.django_db
+def test_snapshot_search_placeholder_uses_sidebar_selection(admin_client, sidebar_data):
+    from lxml import html
+
+    _pages, tag, folder = sidebar_data
+    secret = Tag.objects.get(name="Secret tag")
+    for browser, host, path, public in (
+        (admin_client, ADMIN_TEST_HOST, "/admin/core/snapshot/", False),
+        (Client(), WEB_TEST_HOST, "/public/", True),
+    ):
+        for params, expected in (
+            ({}, "Search snapshots..."),
+            ({"sidebar": "tags"}, "Search snapshots..."),
+            ({"folder": folder.pk}, "Search in 📂 Research..."),
+            ({"domain": "*.example.co.uk", "sidebar": "domains"}, "Search in 🌐 example.co.uk..."),
+            ({"tag": tag.pk, "sidebar": "tags"}, "Search in 🏷️ Research & notes..."),
+            ({"tag": tag.pk, "folder": folder.pk}, "Search snapshots..."),
+            ({"q": "title:research"}, "Search snapshots..."),
+            ({"tag": secret.pk}, "Search snapshots..." if public else "Search in 🏷️ Secret tag..."),
+        ):
+            response = browser.get(path, params, HTTP_HOST=host)
+            assert response.status_code == 200
+            doc = html.fromstring(response.content.decode(response.charset))
+            assert doc.xpath('//*[@id="searchbar"]/@placeholder') == [expected]
+            assert doc.xpath('//*[@id="changelist-search"]//*[@role="combobox"]/@data-placeholder') == [expected]
+            if not params:
+                (footer,) = doc.xpath('//*[@id="changelist-search"]//*[@class="menu-foot"]')
+                assert footer.xpath(".//code/text()") == ["()", "AND", "OR", "~", '""']
+                keys, escape = footer.xpath('./span[@class="key-tip"]')
+                assert keys.xpath("kbd/text()") == ["↑", "↓", "Tab"]
+                assert keys.text_content().strip() == "↑ ↓ Tab Select"
+                assert escape.text_content() == "Esc close"
+        if not public:
+            response = browser.get(
+                path,
+                {"q": "title:research", "folder": folder.pk},
+                HTTP_HOST=host,
+                HTTP_X_ARCHIVEBOX_SEARCH_ROWS="start",
+            )
+            assert response.status_code == 200
+            doc = html.fromstring(response.content.decode(response.charset))
+            assert doc.xpath('//*[@id="searchbar"]/@placeholder') == ["Search in 📂 Research..."]
+
+
 @pytest.mark.django_db(transaction=True)
 def test_sidebar_modes_in_browser(live_server, admin_user, browser_runtime, tmp_path):
     from urllib.parse import parse_qs, urlsplit

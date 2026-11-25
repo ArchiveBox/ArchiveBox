@@ -796,6 +796,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     ),
                 )
                 cl = (getattr(response, "context_data", None) or {}).get("cl")
+                if cl and not embedded_changelist and not getattr(cl, "retained_rows", 0):
+                    from archivebox.core.sidebar import sidebar_search_placeholder
+
+                    cl.search_placeholder = sidebar_search_placeholder(
+                        request,
+                        entries=extra_context.get("sidebar_entries", ()),
+                        folder_tree=extra_context.get("folder_tree"),
+                    )
                 if cl and getattr(cl, "preview_has_more", False):
                     response["X-ArchiveBox-Search-More-Rows"] = "1"
                 if cl and hasattr(cl, "row_cursor"):

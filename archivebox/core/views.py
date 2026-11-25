@@ -1819,7 +1819,7 @@ class PublicIndexView(ListView):
                 request=self.request,
             ),
         }
-        from archivebox.core.sidebar import sidebar_context
+        from archivebox.core.sidebar import sidebar_context, sidebar_search_placeholder
 
         context["show_search_index_hint"] = bool(
             query
@@ -1854,6 +1854,13 @@ class PublicIndexView(ListView):
             snapshots = snapshots[self.retained_rows :]
         if not context.get("search_retained"):
             context.update(sidebar_context(self.request, public=True, folder_tree=self.folder_tree))
+        if not self.search_fragment:
+            context["search_placeholder"] = sidebar_search_placeholder(
+                self.request,
+                entries=context.get("sidebar_entries", ()),
+                folder_tree=self.folder_tree,
+                public=True,
+            )
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         if snapshots:
             for snapshot_id, tag_name in (

@@ -1,11 +1,11 @@
 {% load static %}
 {% if not assets_in_head %}<link rel="stylesheet" href="{% static 'search/field.css' %}">{% endif %}
 <div class="abx-search-field" data-operators="{{ operators }}" data-suggestions="{% url 'search-suggestions' %}" data-icons="{% static 'search/icons.svg' %}">
-<input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" enterkeyhint="search" aria-label="Search snapshots" placeholder="Search snapshots…">
+<input type="search" id="{{ field_id }}" name="{{ name }}" value="{{ value }}" maxlength="4096" enterkeyhint="search" aria-label="Search snapshots" placeholder="{{ placeholder }}">
 
       <div class="abx-query-control enhanced">
         <span class="abx-query-icon"><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}#search"></use></svg></span>
-        <div class="query" contenteditable="true" role="combobox" aria-label="Search snapshots" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ field_id }}-options" aria-multiline="false" enterkeyhint="search" autocapitalize="none" autocorrect="off" spellcheck="false" data-placeholder="Search snapshots…"></div>
+        <div class="query" contenteditable="true" role="combobox" aria-label="Search snapshots" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ field_id }}-options" aria-multiline="false" enterkeyhint="search" autocapitalize="none" autocorrect="off" spellcheck="false" data-placeholder="{{ placeholder }}"></div>
 
         <button class="abx-query-clear cursor-interaction" type="button" aria-label="Clear search" hidden><svg aria-hidden="true"><use href="{% static 'search/icons.svg' %}#x"></use></svg></button>
       </div>
@@ -13,7 +13,11 @@
       <div class="suggestions" hidden>
         <div class="menu-label"></div>
         <div id="{{ field_id }}-options" role="listbox" aria-label="Search suggestions"></div>
-        <div class="menu-foot"><span class="key-tip">↑ ↓ choose</span><span class="key-tip">Tab / Enter select</span><span class="key-tip">Esc close</span><span class="touch-tip">Tap to select</span><span>Group with ( )</span></div>
+        <div class="menu-foot">
+          <span class="key-tip"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd> Select</span><span class="key-tip">Esc close</span><span class="touch-tip">Tap to select</span>
+          <span>Group with <code>()</code> <code>AND</code> <code>OR</code> <code>~</code></span>
+          <span>Exact with <code>""</code></span>
+        </div>
       </div>
       <div class="feedback" role="status" aria-live="polite"></div>
 

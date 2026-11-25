@@ -681,7 +681,7 @@
             {% include "core/folder_context.html" %}
             <form role="search" aria-label="Search snapshots" id="changelist-search" action="{{ request.path }}" method="get">
                 {% for key, values in request.GET.lists %}{% if key != "q" and key != "search_mode" and key != "page" and key != "p" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}{% endfor %}
-                {% search_field request.GET.q %}
+                {% search_field request.GET.q placeholder=search_placeholder %}
                 {% if request.GET.search_mode %}<input type="hidden" name="search_mode" value="{{ search_mode }}">{% endif %}
                 <input type="submit" value="Search">
             </form>
