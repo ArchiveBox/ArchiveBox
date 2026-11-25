@@ -230,10 +230,6 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         "machine_info",
         "ip_public",
         "dns_server",
-        "isp",
-        "country",
-        "region",
-        "city",
         "iface",
         "ip_local",
         "mac_address",
@@ -245,10 +241,6 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         "machine_info",
         "ip_public",
         "dns_server",
-        "isp",
-        "country",
-        "region",
-        "city",
         "iface",
         "ip_local",
         "mac_address",
@@ -262,10 +254,6 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         "mac_address",
         "dns_server",
         "hostname",
-        "isp",
-        "city",
-        "region",
-        "country",
     )
 
     readonly_fields = ("machine", "created_at", "modified_at", "mac_address", "ip_public", "ip_local", "dns_server")
@@ -281,14 +269,7 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         (
             "Network",
             {
-                "fields": ("iface", "ip_public", "ip_local", "mac_address", "dns_server"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Location",
-            {
-                "fields": ("hostname", "isp", "city", "region", "country"),
+                "fields": ("hostname", "iface", "ip_public", "ip_local", "mac_address", "dns_server"),
                 "classes": ("card",),
             },
         ),
@@ -308,7 +289,6 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         ),
     )
 
-    list_filter = ("isp", "country", "region")
     ordering = ("-created_at",)
     list_per_page = 100
     actions = ("delete_selected",)

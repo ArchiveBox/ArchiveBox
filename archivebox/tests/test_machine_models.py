@@ -35,7 +35,6 @@ from archivebox.machine.models import (
     PROCESS_PID_NAMESPACE_KEY,
     get_current_pid_namespace,
 )
-from archivebox.machine.detect import unknown_if_blank
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -487,6 +486,7 @@ class TestNetworkInterfaceModel:
         assert interface.id is not None
         assert interface.machine is not None
         assert interface.ip_local is not None
+        assert (interface.isp, interface.city, interface.region, interface.country) == ("", "", "", "")
 
     def test_networkinterface_current_returns_cached(self):
         """NetworkInterface.current() should return cached interface within recheck interval."""
@@ -515,12 +515,6 @@ class TestNetworkInterfaceModel:
         assert interface.city == ""
         assert interface.region == ""
         assert interface.country == ""
-
-    def test_unknown_if_blank_normalizes_null_api_fields(self):
-        assert unknown_if_blank(None) == "Unknown"
-        assert unknown_if_blank("") == "Unknown"
-        assert unknown_if_blank("  ") == "Unknown"
-        assert unknown_if_blank("California") == "California"
 
     def test_networkinterface_identity_ignores_randomized_mac_address(self, machine):
         NetworkInterface.objects.create(

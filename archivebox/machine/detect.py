@@ -262,52 +262,16 @@ ip_addrs = lambda addrs: (a for a in addrs if a.family == socket.AF_INET)
 mac_addrs = lambda addrs: (a for a in addrs if a.family == psutil.AF_LINK)
 
 
-def unknown_if_blank(value):
-    normalized = str(value or "").strip()
-    return normalized or "Unknown"
-
-
-def get_isp_info(ip=None):
-    # Get public IP
-    try:
-        ip = ip or urllib.request.urlopen("https://api.ipify.org").read().decode("utf8")
-    except Exception:
-        pass
-
-    # Get ISP name, city, and country
-    data = {}
-    try:
-        url = f"https://ipapi.co/{ip}/json/"
-        response = urllib.request.urlopen(url)
-        data = json.loads(response.read().decode())
-    except Exception:
-        pass
-
-    isp = unknown_if_blank(data.get("org"))
-    city = unknown_if_blank(data.get("city"))
-    region = unknown_if_blank(data.get("region"))
-    country = unknown_if_blank(data.get("country_name"))
-
-    # Get system DNS resolver servers
-    dns_server = None
+def get_dns_server() -> str:
     try:
         result = _run_abxpkg_host_binary("dig", "example.com", "A").stdout
-        dns_server = result.split(";; SERVER: ", 1)[-1].split("\n")[0].split("#")[0].strip()
+        return result.split(";; SERVER: ", 1)[-1].split("\n")[0].split("#")[0].strip()
     except Exception:
         try:
-            dns_server = Path("/etc/resolv.conf").read_text().split("nameserver ", 1)[-1].split("\n")[0].strip()
+            return Path("/etc/resolv.conf").read_text().split("nameserver ", 1)[-1].split("\n")[0].strip()
         except Exception:
-            dns_server = "127.0.0.1"
-            print(f"[red]:warning: WARNING: Could not determine DNS server, using {dns_server}[/red]")
-
-    return {
-        "isp": isp,
-        "city": city,
-        "region": region,
-        "country": country,
-        "dns_server": dns_server,
-        # 'net_dns_isp': dns_isp,
-    }
+            print("[red]:warning: WARNING: Could not determine DNS server, using 127.0.0.1[/red]")
+            return "127.0.0.1"
 
 
 def get_host_network() -> dict[str, Any]:
@@ -326,7 +290,7 @@ def get_host_network() -> dict[str, Any]:
                     "ip_local": local_ip.address,
                     "ip_public": public_ip,
                     # "is_behind_nat": local_ip.address != public_ip,
-                    **get_isp_info(public_ip),
+                    "dns_server": get_dns_server(),
                 }
 
     raise Exception("Could not determine host network info")
@@ -426,10 +390,6 @@ if __name__ == "__main__":
 #         'mac_address': 'ab:cd:ef:12:34:56',
 #         'ip_local': '192.168.2.18',
 #         'ip_public': '123.123.123.123',
-#         'isp': 'AS-SONICTELECOM',
-#         'city': 'Berkeley',
-#         'region': 'California',
-#         'country': 'United States',
 #         'dns_server': '192.168.1.1'
 #     },
 #     'stats': {

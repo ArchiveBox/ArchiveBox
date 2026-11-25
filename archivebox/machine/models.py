@@ -428,6 +428,7 @@ class NetworkInterface(ModelWithHealthStats):
     dns_server = models.GenericIPAddressField(default=None, null=False, editable=False)
     hostname = models.CharField(max_length=63, default="", null=False)
     iface = models.CharField(max_length=15, default="", null=False)
+    # Keep historical values in existing collections after removing geolocation.
     isp = models.CharField(max_length=63, default="", null=False)
     city = models.CharField(max_length=63, default="", null=False)
     region = models.CharField(max_length=63, default="", null=False)
@@ -452,7 +453,7 @@ class NetworkInterface(ModelWithHealthStats):
         if _CURRENT_INTERFACE and _CURRENT_INTERFACE.machine_id == machine.id:
             if not refresh:
                 # Callers that pass refresh=False are asking for attribution to
-                # the currently known interface, not for public-IP/ISP probing.
+                # the currently known interface, not for public-IP probing.
                 # Maintenance paths create many short-lived services per run;
                 # expiring this in-memory object by age forced every crawl to
                 # hit external network APIs even though Process rows only need
