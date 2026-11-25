@@ -271,7 +271,7 @@ class TestMachineModel:
         assert updated.returncode == 0, updated.stderr
         assert Machine.objects.get(pk=machine.pk).config["FOOTER_INFO"] == footer
         with CaptureQueriesContext(connection) as request_queries:
-            second = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+            second = client.get(reverse("add"), {"persona": "Research"}, HTTP_HOST="admin.archivebox.localhost:5797")
         machine_reads = [
             row["sql"] for row in request_queries if row["sql"].startswith("SELECT") and 'FROM "machine_machine"' in row["sql"]
         ]

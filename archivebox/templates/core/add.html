@@ -53,7 +53,7 @@
                 </center>
             </div>
             <input id="url-file-input" type="file" multiple hidden>
-            <form id="add-form" method="POST" class="p-form" data-required-search-plugin="{{ required_search_plugin|default:'' }}">{% csrf_token %}
+            <form id="add-form" method="POST" class="p-form" data-required-search-plugin="{{ required_search_plugin|default:'' }}"{% if form.is_bound %} data-bound{% endif %}{% if persona_config_lazy %} data-persona-config-lazy{% endif %}>{% csrf_token %}
                 <center>
                     <h1>Create a new Crawl</h1>
                     <p class="crawl-subtitle">
@@ -152,6 +152,7 @@
                                 {% if can_override_crawl_config %}
                                 <a href="/admin/personas/persona/add/" target="_blank">Create new profile / import from Chrome -&gt;</a>
                                 {% endif %}
+                                <span id="add-persona-status" role="status"></span>
                             </div>
                         </div>
 
@@ -294,7 +295,7 @@
                         <a href="/admin/personas/persona/add/" class="preset-btn persona-create-btn" target="_blank" rel="noopener" title="Create new profile / import from Chrome" aria-label="Create new profile / import from Chrome">➕</a>
                         {% for persona in recent_personas %}
                         <span class="persona-preset-wrap">
-                            <button type="button" class="preset-btn persona-preset-btn" data-persona="{{ persona.name }}" title="Use {{ persona.name }} persona">👤 {{ persona.name }}</button>
+                            <button type="button" class="preset-btn persona-preset-btn{% if persona.name == form.persona.value %} persona-preset-btn-active{% endif %}" data-persona="{{ persona.name }}" aria-pressed="{% if persona.name == form.persona.value %}true{% else %}false{% endif %}" title="Use {{ persona.name }} persona">👤 {{ persona.name }}</button>
                             <a href="/admin/personas/persona/{{ persona.pk }}/change/#plugin-config" class="preset-btn persona-edit-btn" target="_blank" rel="noopener" title="Edit {{ persona.name }} persona plugin config">✎</a>
                         </span>
                         {% endfor %}
@@ -352,7 +353,7 @@
                 {% endif %}
 
                 <center>
-                    <button type="submit" id="submit" data-settings-submit disabled>&nbsp; Create Crawl and Start Archiving ➕</button>
+                    <button type="submit" id="submit"{% if can_override_crawl_config %} data-settings-submit disabled{% endif %}>&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
             {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}

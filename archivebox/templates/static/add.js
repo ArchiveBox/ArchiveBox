@@ -73,6 +73,96 @@
     }
     const personaConfigData = JSON.parse(document.getElementById('add-persona-config').textContent);
     const personaSelect = document.querySelector('select[name="persona"]');
+    const personaStatus = document.getElementById('add-persona-status');
+    const submitButton = form.querySelector('#submit');
+    const personaFieldKeys = {
+        crawl_max_concurrent_snapshots: 'CRAWL_MAX_CONCURRENT_SNAPSHOTS',
+        delete_after: 'DELETE_AFTER',
+        timeout: 'TIMEOUT',
+        permissions: 'PERMISSIONS',
+        url_filters_only_new: 'ONLY_NEW',
+    };
+    const initialPersona = personaSelect?.value || '';
+    let appliedPersona = initialPersona;
+    let personaRequest = null;
+    let lockedPersonaControls = [];
+
+    function setPersonaPending(pending) {
+        if (pending === Boolean(lockedPersonaControls.length)) return;
+        if (pending) {
+            // Keep URLs and unrelated fields editable while protecting settings
+            // that the incoming persona will replace. Other personas stay selectable.
+            const fields = Object.keys(personaFieldKeys).map(name => {
+                const control = form.elements.namedItem(name);
+                // A quantity or concurrency field also has a slider or a
+                // visible input that can replace the underlying named value.
+                return control?.closest('.crawl-limit-field, .permissions-field, .url-filters-toggle') || control;
+            }).filter(Boolean);
+            const sections = [...form.querySelectorAll('#plugin-settings, #id_config_container')];
+            const presets = [...form.querySelectorAll('.preset-btn[data-preset], .select-all-btn')];
+            lockedPersonaControls = [...fields, ...sections, ...presets].filter(el => !el.inert);
+        }
+        for (const control of lockedPersonaControls) control.inert = pending;
+        if (pending) {
+            personaSelect.setAttribute('aria-busy', 'true');
+            submitButton.setAttribute('aria-disabled', 'true');
+        } else {
+            lockedPersonaControls = [];
+            personaSelect.removeAttribute('aria-busy');
+            submitButton.removeAttribute('aria-disabled');
+        }
+    }
+
+    function embeddedPersona(name) {
+        if (!Object.hasOwn(personaConfigData.personas, name)) return null;
+        const persona = personaConfigData.personas[name];
+        return {
+            config: persona.config,
+            effective_config: {...personaConfigData.common.effective_config, ...persona.effective_config},
+            binary_urls: {...personaConfigData.common.binary_urls, ...persona.binary_urls},
+        };
+    }
+
+    async function selectPersona(name, onApplied = saveFormState, reapply = false) {
+        personaRequest?.abort();
+        personaRequest = null;
+        personaStatus.textContent = '';
+        if (!name || (name === appliedPersona && !reapply)) {
+            setPersonaPending(false);
+            onApplied();
+            return;
+        }
+        personaSelect.value = name;
+        const configuredPersona = embeddedPersona(name);
+        if (configuredPersona) {
+            applyPersonaConfig(name, configuredPersona);
+            setPersonaPending(false);
+            onApplied();
+            return;
+        }
+
+        const request = new AbortController();
+        personaRequest = request;
+        setPersonaPending(true);
+        personaStatus.textContent = 'Loading persona settings…';
+        const url = new URL(location.pathname, location.origin);
+        url.searchParams.set('persona_config', name);
+        try {
+            const response = await fetch(url, {signal: request.signal});
+            if (!response.ok) throw new Error('Could not load persona.');
+            const persona = await response.json();
+            if (personaRequest !== request) return;
+            applyPersonaConfig(name, persona);
+            personaStatus.textContent = '';
+        } catch (_) {
+            if (personaRequest !== request) return;
+            personaSelect.value = appliedPersona;
+            personaStatus.textContent = 'Could not load persona settings. Select the persona again to retry.';
+        }
+        personaRequest = null;
+        setPersonaPending(false);
+        onApplied();
+    }
 
     function dispatchChange(el) {
         el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -81,7 +171,8 @@
 
     function getSavedFormState() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            return state && typeof state === 'object' ? state : {};
         } catch (e) {
             return {};
         }
@@ -190,11 +281,9 @@
         });
     }
 
-    function applyPersonaConfig(personaName) {
+    function applyPersonaConfig(personaName, {config, effective_config: effectiveConfig, binary_urls: binaryUrls}) {
+        appliedPersona = personaName;
         updatePersonaButtonHighlights(personaName);
-        const personaData = personaConfigData.personas[personaName];
-        if (!personaData) return;
-        const effectiveConfig = {...personaConfigData.common.effective_config, ...personaData.effective_config};
         const concurrencyInput = document.querySelector('input[name="crawl_max_concurrent_snapshots"]');
         const concurrencyValue = effectiveConfig.CRAWL_MAX_CONCURRENT_SNAPSHOTS;
         if (concurrencyInput && concurrencyValue !== undefined && concurrencyValue !== null) {
@@ -205,11 +294,13 @@
         const deleteAfterValue = effectiveConfig.DELETE_AFTER;
         if (deleteAfterInput && deleteAfterValue !== undefined && deleteAfterValue !== null) {
             deleteAfterInput.value = deleteAfterValue || '0';
+            deleteAfterInput.dispatchEvent(new Event('input', {bubbles: true}));
         }
         const timeoutInput = document.querySelector('input[name="timeout"]');
         const timeoutValue = effectiveConfig.TIMEOUT;
         if (timeoutInput && timeoutValue !== undefined && timeoutValue !== null) {
             timeoutInput.value = timeoutValue || '0';
+            timeoutInput.dispatchEvent(new Event('input', {bubbles: true}));
         }
         const permissionsSelect = document.querySelector('select[name="permissions"]');
         const permissionsValue = effectiveConfig.PERMISSIONS;
@@ -222,11 +313,10 @@
             onlyNewInput.checked = Boolean(onlyNewValue);
         }
         if (typeof window.archiveboxSetPluginConfigValues === 'function') {
-            const binaryUrls = {...personaConfigData.common.binary_urls, ...personaData.binary_urls};
             window.archiveboxSetPluginConfigValues(effectiveConfig, binaryUrls);
         }
         syncSectionTogglesFromEffectiveConfig(effectiveConfig);
-        replaceConfigRows(personaData.config || {});
+        replaceConfigRows(config || {});
         updateChromeToggleButton();
         queueURLPreview();
     }
@@ -981,9 +1071,12 @@
     document.querySelectorAll('.persona-preset-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             if (!personaSelect) return;
-            personaSelect.value = this.dataset.persona || '';
-            dispatchChange(personaSelect);
-            saveFormState();
+            const name = this.dataset.persona || '';
+            if (name === appliedPersona && !personaRequest) selectPersona(name, saveFormState, true);
+            else {
+                personaSelect.value = name;
+                dispatchChange(personaSelect);
+            }
         });
     });
 
@@ -1025,15 +1118,15 @@
         checkbox.addEventListener('change', function() {
             if (applyingPluginPreset) return;
             updateChromeToggleButton();
-            saveFormState();
         });
     });
 
     // LocalStorage: Save/Load form state excluding URLs
     const STORAGE_KEY = 'archivebox_add_form_state';
+    let restoringFormState = false;
 
     function saveFormState() {
-        if (applyingPluginPreset) return;
+        if (applyingPluginPreset || restoringFormState || personaRequest) return;
         const state = {};
         document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
             if (el.name === 'csrfmiddlewaretoken' || el.name === 'url') return;
@@ -1044,71 +1137,102 @@
                 state[el.name] = el.value;
             }
         });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (_) {
+            // Storage can be denied without preventing use of the form.
+        }
     }
 
     function loadFormState() {
-        const params = new URLSearchParams(window.location.search);
-        const prefilled = Array.from(document.querySelectorAll('#add-form input, #add-form textarea, #add-form select'))
-            .filter(el => params.has(el.name))
-            .map(el => ({el, value: el.value, checked: el.checked}));
-        try {
-            const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-            for (const [key, value] of Object.entries(state)) {
-                if (key.includes(':')) {
-                    const [name, val] = key.split(':');
-                    if (name === 'config' || name.startsWith('plugin_config__')) continue;
-                    const el = document.querySelector(`[name="${name}"][value="${val}"]`);
-                    if (el) el.checked = Boolean(value);
-                } else {
-                    if (key === 'url' || key === 'config' || key.startsWith('plugin_config__')) continue;
-                    if ((key === 'folder' || key === 'persona') && params.has(key)) continue;
-                    const el = document.querySelector(`[name="${key}"]`);
-                    if (el && el.type !== 'checkbox' && el.type !== 'radio') {
-                        if (el.tagName === 'SELECT') {
-                            const stringValue = String(value || '').trim();
-                            if (!stringValue || !Array.from(el.options).some(option => option.value === stringValue)) {
-                                continue;
-                            }
-                        }
-                        el.value = value;
-                        if (el.type === 'hidden') {
-                            el.dispatchEvent(new Event('archivebox:sync-tags', { bubbles: true }));
-                            el.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
+        // A validation response already holds the submitted values, including
+        // fields the user may have changed after choosing a persona.
+        if (form.hasAttribute('data-bound')) return;
+        const params = new URLSearchParams(location.search);
+        const state = getSavedFormState();
+        const selectedPersona = !params.has('persona') && personaSelect
+            && [...personaSelect.options].some(option => option.value === state.persona)
+            ? state.persona : initialPersona;
+        const initial = embeddedPersona(initialPersona);
+        const initializedByServer = form.hasAttribute('data-persona-config-lazy');
+        const prefilled = location.search ? [...form.elements]
+            .filter(el => params.has(el.name) && el !== personaSelect)
+            .map(el => ({el, value: el.value, checked: el.checked})) : [];
+        restoringFormState = true;
+        for (const [key, value] of Object.entries(state)) {
+            const [name, val] = key.split(':');
+            if (name === 'url' || name === 'config' || name === 'persona' || name.startsWith('plugin_config__')) continue;
+            if (name === 'folder' && params.has(name)) continue;
+            const field = `[name="${CSS.escape(name)}"]`;
+            const el = form.querySelector(val === undefined ? field : `${field}[value="${CSS.escape(val)}"]`);
+            if (!el) continue;
+            // The server already resolved these settings from the initial
+            // persona. Previously JS overwrote the saved values on each load.
+            const configKey = personaFieldKeys[name] || el.closest('[data-plugin-enabled-key]')?.dataset.pluginEnabledKey;
+            if (initializedByServer && configKey && Object.hasOwn(initial?.effective_config || {}, configKey)) continue;
+            if (val !== undefined) {
+                el.checked = Boolean(value);
+            } else if (el.type !== 'checkbox' && el.type !== 'radio') {
+                if (el.tagName === 'SELECT' && ![...el.options].some(option => option.value === value)) continue;
+                el.value = value;
+                if (el.type === 'hidden') {
+                    el.dispatchEvent(new Event('archivebox:sync-tags', {bubbles: true}));
+                    el.dispatchEvent(new Event('change', {bubbles: true}));
                 }
             }
-            queueURLPreview();
-            if (personaSelect) {
-                applyPersonaConfig(personaSelect.value);
-            }
-            // Explicit navigation values take precedence over saved UI
-            // state and persona defaults on initial load only.
-            for (const {el, value, checked} of prefilled) {
-                el.value = value;
-                if (el.type === 'checkbox' || el.type === 'radio') el.checked = checked;
-                if (el.type === 'hidden') el.dispatchEvent(new Event('archivebox:sync-tags', {bubbles: true}));
-            }
-            if (prefilled.some(({el}) => el.name.startsWith('url_filters_'))) {
-                document.querySelector('[name="url_filters_allowlist"]')?.dispatchEvent(new Event('change', {bubbles: true}));
-            }
-            queueURLPreview();
-            applyRequiredSearchPlugin();
-            updateChromeToggleButton();
-            saveFormState();
-        } catch (e) {}
+        }
+        if (!initializedByServer && initial && selectedPersona === initialPersona) applyPersonaConfig(initialPersona, initial);
+        // Linked values win on startup. If a saved alternate needs a GET,
+        // restore only the fields its response can modify after it settles.
+        for (const field of prefilled) restorePrefilledField(field);
+        if (prefilled.some(({el}) => el.name.startsWith('url_filters_'))) {
+            form.querySelector('[name="url_filters_allowlist"]')?.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        restoringFormState = false;
+        if (selectedPersona !== initialPersona) {
+            selectPersona(selectedPersona, () => {
+                for (const field of prefilled) {
+                    if (Object.hasOwn(personaFieldKeys, field.el.name)) restorePrefilledField(field);
+                }
+                finishRestoringFormState();
+            });
+        } else {
+            finishRestoringFormState();
+        }
     }
 
-    // Auto-save on changes
-    document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
-        el.addEventListener('change', saveFormState);
+    function restorePrefilledField({el, value, checked}) {
+        el.value = value;
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = checked;
+        if (el.type === 'hidden') el.dispatchEvent(new Event('archivebox:sync-tags', {bubbles: true}));
+        if (el.name === 'crawl_max_concurrent_snapshots') el.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+
+    function finishRestoringFormState() {
+        queueURLPreview();
+        applyRequiredSearchPlugin();
+        updateChromeToggleButton();
+        saveFormState();
+    }
+
+    form.addEventListener('change', event => {
+        if (event.target !== personaSelect && event.target.matches('input, textarea, select')) saveFormState();
     });
 
     if (personaSelect) {
         personaSelect.addEventListener('change', function() {
-            applyPersonaConfig(personaSelect.value);
-            saveFormState();
+            selectPersona(personaSelect.value);
+        });
+        form.addEventListener('reset', () => {
+            // Delayed responses must not overwrite the browser's reset values.
+            personaRequest?.abort();
+            personaRequest = null;
+            setPersonaPending(false);
+            personaStatus.textContent = '';
+            queueMicrotask(() => {
+                appliedPersona = personaSelect.value;
+                updatePersonaButtonHighlights(appliedPersona);
+            });
         });
     }
 
@@ -1127,7 +1251,11 @@
     });
 
     // Form submission handler
-    document.getElementById('add-form').addEventListener('submit', function(event) {
+    form.addEventListener('submit', function(event) {
+        if (personaRequest) {
+            event.preventDefault();
+            return;
+        }
         if (pendingFileReads) {
             event.preventDefault();
             setUploadStatus('Please wait for the files to finish reading.', true);

@@ -101,23 +101,29 @@ def test_add_view_batches_binary_links_and_preserves_persona_path_selection(clie
     with CaptureQueriesContext(connection) as queries:
         response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert response.status_code == 200
-    configs = response.context["persona_config_map"]
+    assert {"private", "no-store"} <= set(response["Cache-Control"].split(", "))
+    assert set(response.context["persona_config_map"]) == {"Default"}
+    binary_queries = [query for query in queries if 'FROM "machine_binary"' in query["sql"]]
+    assert len(binary_queries) == 1, "The selected form and its persona links share installed Binary rows"
     for name, (_value, binary) in personas.items():
-        url = configs[name]["binary_urls"]["WGET_BINARY"]
+        with CaptureQueriesContext(connection) as queries:
+            selected = client.get(reverse("add"), {"persona_config": name}, HTTP_HOST=ADMIN_HOST)
+        assert selected.status_code == 200
+        assert {"private", "no-store"} <= set(selected["Cache-Control"].split(", "))
+        assert all(query["sql"].lstrip().upper().startswith("SELECT") for query in queries)
+        assert len([query for query in queries if 'FROM "machine_binary"' in query["sql"]]) == 1
+        url = selected.json()["binary_urls"]["WGET_BINARY"]
         if binary:
             assert binary.admin_change_url in url
             assert empty.admin_change_url not in url
         else:
             assert url == "/admin/environment/binaries/missing-downloader/"
-    binary_queries = [query for query in queries if 'FROM "machine_binary"' in query["sql"]]
-    assert len(binary_queries) == 1, "The selected form and all persona links share installed Binary rows"
     newest.abspath = ""
     newest.save(update_fields=["abspath"])
-    updated = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
-    assert updated.status_code == 200
-    updated_configs = updated.context["persona_config_map"]
-    assert older.admin_change_url in updated_configs["Named"]["binary_urls"]["WGET_BINARY"]
-    assert exact_path.admin_change_url in updated_configs["ExactPath"]["binary_urls"]["WGET_BINARY"]
+    for name, binary in (("Named", older), ("ExactPath", exact_path)):
+        updated = client.get(reverse("add"), {"persona_config": name}, HTTP_HOST=ADMIN_HOST)
+        assert updated.status_code == 200
+        assert binary.admin_change_url in updated.json()["binary_urls"]["WGET_BINARY"]
 
 
 def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, public_add_enabled):
@@ -242,7 +248,7 @@ def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):
     assert crawl.config.get("YTDLP_ARGS_EXTRA") != ["--exec", "touch /tmp/owned"]
 
 
-def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_user):
+def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_user, settings):
     client.force_login(admin_user)
     default_persona = Persona.get_or_create_default()
     user_agent = 'ArchiveBox Default Persona UA </script><b id="persona-user-agent">'
@@ -252,10 +258,16 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
         "OPENCODE_ENABLED": True,  # Obsolete saved setting must not hydrate the raw editor.
     }
     default_persona.save(update_fields=["config"])
+    secret = "NOT_EXPOSED_IN_ALTERNATE_PERSONA_SETTINGS"
     Persona.objects.create(
         name="Private",
         created_by=admin_user,
-        config={"WGET_TIMEOUT": 88, "CHROME_HEADLESS": False, "COOKIES_FILE": "/tmp/archivebox-private-cookies.txt"},
+        config={
+            "WGET_TIMEOUT": 88,
+            "CHROME_HEADLESS": False,
+            "COOKIES_FILE": "/tmp/archivebox-private-cookies.txt",
+            "TWOCAPTCHA_API_KEY": secret,
+        },
     )
 
     response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
@@ -264,7 +276,11 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
     assert "OPENCODE_ENABLED" not in persona_config_map["Default"]["config"]
     assert persona_config_map["Default"]["config"]["USER_AGENT"] == user_agent
     assert persona_config_map["Default"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-default-cookies.txt"
-    assert persona_config_map["Private"]["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-private-cookies.txt"
+    assert set(persona_config_map) == {"Default"}
+    alternate = client.get(reverse("add"), {"persona_config": "Private"}, HTTP_HOST=ADMIN_HOST)
+    assert alternate.status_code == 200
+    assert secret.encode() not in alternate.content
+    assert alternate.json()["effective_config"]["YTDLP_COOKIES_FILE"] == "/tmp/archivebox-private-cookies.txt"
 
     document = fromstring(response.content)
     config = document.get_element_by_id("add-persona-config")
@@ -287,6 +303,16 @@ def test_add_view_embeds_selected_persona_config_for_ui_hydration(client, admin_
         assert static_response.status_code == 200
         assert static_response["Cache-Control"] == "public, max-age=31536000, immutable"
 
+    unknown = client.get(reverse("add"), {"persona": "Missing"}, HTTP_HOST=ADMIN_HOST)
+    assert unknown.status_code == 200
+    assert unknown.context["form"]["persona"].value() == "Default"
+    assert set(unknown.context["persona_config_map"]) == {"Default"}
+
+    settings.CUSTOM_TEMPLATES_ENABLED = True
+    eager = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
+    assert eager.status_code == 200
+    assert json.loads(eager.context["persona_config_map_json"]) == {**persona_config_map, "Private": alternate.json()}
+
 
 def test_add_view_public_only_lists_public_personas(client, admin_user, public_add_enabled):
     secret_value = "SHOULD_NOT_LEAK_PUBLIC_PERSONA_SECRET"
@@ -305,6 +331,15 @@ def test_add_view_public_only_lists_public_personas(client, admin_user, public_a
     assert secret_value.encode() not in response.content
     assert set(persona_config_map.keys()) == {"Default"}
     assert {"NODE_BINARY", "TWOCAPTCHA_API_KEY"}.isdisjoint(persona_config_map["Default"]["effective_config"])
+    for name in ("Unlisted", "Private", "Missing"):
+        hidden = client.get(reverse("add"), {"persona_config": name}, HTTP_HOST=WEB_HOST)
+        assert hidden.status_code == 404
+        assert hidden.json() == {}
+        assert {"private", "no-store"} <= set(hidden["Cache-Control"].split(", "))
+    selected = client.get(reverse("add"), {"persona_config": "Default"}, HTTP_HOST=WEB_HOST)
+    assert selected.status_code == 200
+    assert selected.json() == persona_config_map["Default"]
+    assert secret_value.encode() not in selected.content
 
 
 def test_public_add_does_not_resolve_hidden_plugin_settings(client, admin_user, public_add_enabled):
@@ -322,8 +357,9 @@ def test_public_add_does_not_resolve_hidden_plugin_settings(client, admin_user, 
     response = profiler.runcall(client.get, reverse("add"), HTTP_HOST=WEB_HOST)
     assert response.status_code == 200
     assert response.context["form"].plugin_groups == []
-    configs = response.context["persona_config_map"]
-    assert configs[persona.name]["effective_config"] == {key: effective[key] for key in public_keys}
+    alternate = profiler.runcall(client.get, reverse("add"), {"persona_config": persona.name}, HTTP_HOST=WEB_HOST)
+    assert alternate.status_code == 200
+    assert alternate.json()["effective_config"] == {key: effective[key] for key in public_keys}
     assert response.context["required_search_plugin"] == f"search_backend_{effective.SEARCH_BACKEND_ENGINE}"
     assert response.context["FOOTER_INFO"] == effective.FOOTER_INFO
     calls = sum(stats[1] for (_filename, _line, name), stats in pstats.Stats(profiler).stats.items() if name == "resolve_plugin_configs")
@@ -421,6 +457,7 @@ def test_add_view_preserves_automatic_concurrency(client, public_add_enabled, co
 
 @pytest.mark.django_db(transaction=True)
 def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabled, live_server, browser_runtime):
+    from concurrent.futures import ThreadPoolExecutor
     from urllib.parse import urlsplit
 
     from playwright.sync_api import expect, sync_playwright
@@ -430,6 +467,7 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
     public_add_enabled.save(update_fields=["config"])
     Persona.objects.filter(name="Default").update(config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 0})
     Persona.objects.create(name="Limited", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3})
+    unavailable = Persona.objects.create(name="Unavailable", config={"PERMISSIONS": "public"})
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -437,16 +475,84 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
             args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
         )
         page = browser.new_page()
+        persona_requests = []
+        page.on("request", lambda request: persona_requests.append(request.url) if "persona_config=" in request.url else None)
         page.goto(f"http://web.archivebox.localhost:{port}/add/")
+        persona = page.locator('select[name="persona"]')
         concurrency = page.locator('input[name="crawl_max_concurrent_snapshots"]')
         expect(concurrency).to_have_value("0")
-        page.locator('select[name="persona"]').select_option("Limited")
+        assert not persona_requests
+        with page.expect_response(lambda response: response.url.endswith("?persona_config=Limited")) as alternate:
+            persona.select_option("Limited")
+        assert alternate.value.status == 200
         expect(concurrency).to_have_value("3")
-        page.locator('select[name="persona"]').select_option("Default")
+        with page.expect_response(lambda response: response.url.endswith("?persona_config=Limited")):
+            page.reload()
+        expect(persona).to_have_value("Limited")
+        expect(concurrency).to_have_value("3")
+        persona.select_option("Default")
         expect(concurrency).to_have_value("0")
         expect(concurrency).to_have_attribute("min", "0")
         assert concurrency.evaluate("input => input.checkValidity()")
+        assert len(persona_requests) == 2
+
+        # Existing options can become unavailable after the form was opened.
+        unavailable.config = {"PERMISSIONS": "private"}
+        with ThreadPoolExecutor(max_workers=1) as db_thread:
+            db_thread.submit(unavailable.save, update_fields=["config"]).result()
+        url_field = page.get_by_role("textbox", name="URLs:", exact=True)
+        url = "https://news.ycombinator.com/"
+        url_field.fill(url)
+        with page.expect_response(lambda response: response.url.endswith("?persona_config=Unavailable")) as hidden:
+            persona.select_option("Unavailable")
+        assert hidden.value.status == 404
+        expect(page.locator("#add-persona-status")).to_contain_text("Could not load persona settings.")
+        expect(persona).to_have_value("Default")
+        expect(concurrency).to_have_value("0")
+        expect(url_field).to_have_value(url)
+
+        # Revert immediately while a real request is outstanding. No request
+        # from the previous choice may submit the form or reapply its defaults.
+        pending = persona.evaluate(
+            """select => {
+                const form = select.form;
+                const change = value => {
+                    select.value = value;
+                    select.dispatchEvent(new Event('change', {bubbles: true}));
+                };
+                change('Limited');
+                form.requestSubmit();
+                const result = {
+                    personaBusy: select.getAttribute('aria-busy'),
+                    settingLocked: form.elements.crawl_max_concurrent_snapshots.closest('[inert]') !== null,
+                    urlLocked: form.elements.url.inert,
+                    submitted: form.style.display === 'none',
+                };
+                change('Default');
+                return result;
+            }""",
+        )
+        assert pending == {"personaBusy": "true", "settingLocked": True, "urlLocked": False, "submitted": False}
+        expect(persona).to_have_value("Default")
+        expect(concurrency).to_have_value("0")
+        submit = page.get_by_role("button", name="Create Crawl and Start Archiving", exact=False)
+        expect(submit).to_be_enabled()
+        url_field.fill("This text needs a URL.")
+        concurrency.fill("4")
+        with page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/add/")) as invalid:
+            submit.click()
+        assert invalid.value.status == 200
+        expect(page.get_by_text("Enter at least one valid URL.", exact=True)).to_be_visible()
+        expect(persona).to_have_value("Default")
+        expect(concurrency).to_have_value("4")
+        expect(url_field).to_have_value("This text needs a URL.")
+
+        url_field.fill(url)
+        with page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/add/")) as submitted:
+            submit.click()
+        assert submitted.value.status == 302
         browser.close()
+    assert Crawl.objects.get(urls=url).persona.name == "Default"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -492,6 +598,11 @@ def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabl
         expect(wget).not_to_be_checked()
         assert "PLUGINS" not in json.loads(config.input_value())
         expect(page.locator('input.kv-key[value="PLUGINS"]')).to_have_count(0)
+        page.locator("#id_timeout").fill("17")
+        page.get_by_role("button", name="👤 Linked", exact=True).click()
+        expect(page.locator('input[name="timeout"]')).to_have_value("61")
+        expect(page.locator("#id_timeout")).to_have_value("61")
+        expect(wget).to_be_checked()
         browser.close()
 
 

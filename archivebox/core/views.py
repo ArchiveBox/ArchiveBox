@@ -26,7 +26,7 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.models import Case, F, Q, When
 from django.db.models.fields.json import HasKey, KeyTransform
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
@@ -36,6 +36,7 @@ from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.views import View
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
 from django.views.generic.list import ListView
@@ -112,6 +113,7 @@ from archivebox.plugins.discovery import (
     get_plugin_replay_roots,
 )
 from archivebox.plugins.forms import build_required_binary_url_lookup, get_plugin_config_binary_urls
+from archivebox.personas.models import Persona
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.progressmonitor.collection import collection_summary
@@ -2040,6 +2042,25 @@ class AddView(UserPassesTestMixin, FormView):
     def test_func(self):
         return get_request_config(self.request).PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
+    @method_decorator(never_cache)
+    def get(self, request, *args, **kwargs):
+        if "persona_config" not in request.GET:
+            return super().get(request, *args, **kwargs)
+
+        can_override = self._can_override_crawl_config()
+        personas = Persona.objects.filter(name=request.GET["persona_config"])
+        if not can_override:
+            personas = personas.filter(permissions=PERMISSIONS_PUBLIC)
+        persona = personas.first()
+        if persona is None:
+            response = JsonResponse({}, status=404)
+        else:
+            machine = request._archivebox_config_machine
+            config = get_config(persona=persona, resolve_plugins=can_override, machine=machine, include_machine=machine is not None)
+            binary_urls = build_required_binary_url_lookup(discover_plugin_configs(), [config], machine=machine) if can_override else {}
+            response = JsonResponse(self._persona_config_data(persona, config, binary_urls, can_override=can_override))
+        return response
+
     def post(self, request: HttpRequest, *args: object, **kwargs: object):
         handler = self.preview_input if request.POST.get("preview") == "1" else super().post
         if request.user.is_authenticated:
@@ -2048,7 +2069,6 @@ class AddView(UserPassesTestMixin, FormView):
 
     def preview_input(self, request, *args, **kwargs):
         from itertools import islice
-        from django.http import JsonResponse
         from abx_plugins.plugins.parse_jsonl_urls.bookmarks import bookmark_input_format, iter_json_records, json_object_to_entry
 
         text = request.POST.get("url", "")
@@ -2079,19 +2099,28 @@ class AddView(UserPassesTestMixin, FormView):
             if not str(key).endswith("_BINARY") and str(key).upper() not in UI_MANAGED_CONFIG_KEYS
         }
 
+    @staticmethod
+    def _persona_config_data(persona, config, binary_urls, *, can_override):
+        # Both the initial page and later selections expose the same fields.
+        public_keys = {"CRAWL_MAX_CONCURRENT_SNAPSHOTS", "DELETE_AFTER", "ONLY_NEW", "PERMISSIONS", "TIMEOUT"}
+        effective_config = redact_sensitive_config(config.model_dump(mode="json", include=None if can_override else public_keys))
+        raw_config = {}
+        config_binary_urls = {}
+        if can_override:
+            excluded_keys = host_config_keys() | UI_MANAGED_CONFIG_KEYS
+            raw_config = redact_sensitive_config(
+                {key: value for key, value in (persona.config or {}).items() if key.upper() not in excluded_keys},
+            )
+            config_binary_urls = get_plugin_config_binary_urls(config, binary_urls)
+        return {"config": raw_config, "effective_config": effective_config, "binary_urls": config_binary_urls}
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = context["form"]
         request_config = get_request_config(self.request)
         required_search_plugin = f"search_backend_{request_config.SEARCH_BACKEND_ENGINE}".strip()
         can_override_crawl_config = self._can_override_crawl_config()
-        public_persona_config_keys = {
-            "CRAWL_MAX_CONCURRENT_SNAPSHOTS",
-            "DELETE_AFTER",
-            "ONLY_NEW",
-            "PERMISSIONS",
-            "TIMEOUT",
-        }
+        resolve_on_selection = not form.is_bound and not settings.CUSTOM_TEMPLATES_ENABLED
         persona_field = form.fields["persona"]
         # The form has already applied visibility rules. Reuse these rows for
         # configuration, the select widget, and the recently created presets.
@@ -2100,6 +2129,11 @@ class AddView(UserPassesTestMixin, FormView):
         # Personas share this request's Machine row; resolving their overrides
         # must not re-fetch the same config once for every Persona in the menu.
         machine = self.request._archivebox_config_machine
+        # The stock form needs only the selected Persona before it can render.
+        # Custom templates and validation errors still receive the full context.
+        configured_personas = personas
+        if resolve_on_selection:
+            configured_personas = [persona for persona in personas if persona == form.default_persona]
         persona_configs = [
             (
                 persona,
@@ -2110,10 +2144,9 @@ class AddView(UserPassesTestMixin, FormView):
                     resolve_plugins=can_override_crawl_config,
                     machine=machine,
                     include_machine=machine is not None,
-                    config_sources=form.config_sources,
                 ),
             )
-            for persona in personas
+            for persona in configured_personas
         ]
         # Personas share the installed binaries; only their configured names and
         # paths differ. Resolve their union once, retaining per-persona choices.
@@ -2128,57 +2161,25 @@ class AddView(UserPassesTestMixin, FormView):
         )
         if can_override_crawl_config and self.request.method in {"GET", "HEAD"} and not form.is_bound:
             form.build_plugin_groups(form.default_config, binary_url_lookup=binary_url_lookup)
-        persona_config_map = {}
-        excluded_keys = host_config_keys() | UI_MANAGED_CONFIG_KEYS
-        for persona, effective_config in persona_configs:
-            effective_config_json = redact_sensitive_config(
-                effective_config.model_dump(mode="json", include=None if can_override_crawl_config else public_persona_config_keys),
-            )
-            if can_override_crawl_config:
-                raw_config = redact_sensitive_config(
-                    {key: value for key, value in (persona.config or {}).items() if key.upper() not in excluded_keys},
-                )
-                binary_urls = get_plugin_config_binary_urls(effective_config, binary_url_lookup)
-            else:
-                raw_config = {}
-                binary_urls = {}
-            persona_config_map[persona.name] = {
-                "config": raw_config,
-                "effective_config": effective_config_json,
-                "binary_urls": binary_urls,
-            }
-        recent_personas = sorted(personas, key=operator.attrgetter("created_at"), reverse=True)[:5]
-
-        # Send shared defaults once. Only use keys with equal values in every
-        # Persona so restoring a binary link never requires a deletion marker.
-        common_config = {}
-        for field in ("effective_config", "binary_urls"):
-            values = [data[field] for data in persona_config_map.values()]
-            common_config[field] = common = {}
-            if values:
-                for key, value in values[0].items():
-                    if not all(key in other and type(other[key]) is type(value) and other[key] == value for other in values[1:]):
-                        continue
-                    # JSON distinguishes values such as true and 1 inside
-                    # compound settings even though Python considers them equal.
-                    if isinstance(value, (dict, list)):
-                        encoded = json.dumps(value, sort_keys=True)
-                        if not all(json.dumps(other[key], sort_keys=True) == encoded for other in values[1:]):
-                            continue
-                    common[key] = value
-        persona_config_data = {
-            "common": common_config,
-            "personas": {
-                name: {
-                    **data,
-                    **{
-                        field: {key: value for key, value in data[field].items() if key not in common}
-                        for field, common in common_config.items()
-                    },
-                }
-                for name, data in persona_config_map.items()
-            },
+        persona_config_map = {
+            persona.name: self._persona_config_data(persona, config, binary_url_lookup, can_override=can_override_crawl_config)
+            for persona, config in persona_configs
         }
+        if resolve_on_selection and configured_personas:
+            selected = configured_personas[0].name
+            form.initial["persona"] = selected
+            if can_override_crawl_config:
+                # Initialize the selected settings in HTML so the browser only
+                # has to replace them when the selected Persona changes.
+                form.initial["config"] = {
+                    key: value for key, value in persona_config_map[selected]["config"].items() if value not in (None, "")
+                }
+                for group in form.plugin_groups:
+                    for card in group["plugins"]:
+                        key = card["enabled_config_key"]
+                        if key in form.default_config:
+                            card["checked"] = bool(form.default_config[key])
+        recent_personas = sorted(personas, key=operator.attrgetter("created_at"), reverse=True)[:5]
         return {
             **context,
             "title": "Create Crawl",
@@ -2189,7 +2190,8 @@ class AddView(UserPassesTestMixin, FormView):
             "FOOTER_INFO": request_config.FOOTER_INFO,
             "required_search_plugin": required_search_plugin,
             "persona_config_map": persona_config_map,
-            "persona_config_data": persona_config_data,
+            "persona_config_data": {"common": {"effective_config": {}, "binary_urls": {}}, "personas": persona_config_map},
+            "persona_config_lazy": resolve_on_selection,
             **(
                 {"persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str)}
                 if settings.CUSTOM_TEMPLATES_ENABLED

@@ -6,9 +6,7 @@ from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from django import forms
 
 from archivebox.base_models.admin import KeyValueWidget
-from archivebox.config import CONSTANTS
-from archivebox.config.common import get_config, get_request_config, host_config_keys, load_source_config, parse_delete_after
-from archivebox.config.configset import BaseConfigSet
+from archivebox.config.common import get_config, get_request_config, host_config_keys, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.models import Folder
 from archivebox.core.widgets import FolderPicker, ScheduleWidget, TagEditorWidget, URLFiltersWidget
@@ -363,14 +361,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             get_request_config(self.request)
             machine = self.request._archivebox_config_machine
             machine_inputs = {"machine": machine, "include_machine": machine is not None}
-        # All presets displayed together inherit the same collection defaults.
-        self.config_sources = (load_source_config(), BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)) if defer_plugin_groups else None
-        default_config = get_config(
-            persona=selected_persona,
-            resolve_plugins=self.can_override_crawl_config,
-            config_sources=self.config_sources,
-            **machine_inputs,
-        )
+        default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config, **machine_inputs)
         self.default_persona = selected_persona
         self.default_config = default_config
         if selected_persona:
