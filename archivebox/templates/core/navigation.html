@@ -1,7 +1,7 @@
 {% load i18n static core_tags %}
 <nav id="user-tools" aria-label="Main navigation">
     <a href="{% url 'add' %}" class="navbar-item navbar-add-link" aria-label="Add"><span aria-hidden="true">＋</span><span class="navbar-add-label">Add</span></a>
-    <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Snapshots</a>
+    <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Library</a>
     {% if user.is_authenticated %}
         <span class="navbar-separator" aria-hidden="true">|</span>
         {% include "core/library_navigation.html" %}
