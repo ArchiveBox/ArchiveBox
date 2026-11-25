@@ -315,6 +315,7 @@
 
     function activeScreencastTarget(data) {
         const hookText = (item) => `${item.plugin || ''} ${item.hook_name || ''} ${item.label || ''}`.toLowerCase();
+        const isChromeTab = (item) => item.plugin === 'chrome' && hookText(item).includes('chrome tab');
         let fallback = null;
         for (const crawl of data.active_crawls || []) {
             for (const snapshot of crawl.active_snapshots || []) {
@@ -348,7 +349,7 @@
                     item.status === 'succeeded' && hookText(item).includes('chrome wait')
                 ));
                 return !tabReady && plugins.some((item) => (
-                    item.status === 'started' && hookText(item).includes('chrome tab')
+                    item.status === 'started' && isChromeTab(item)
                 ));
             });
             if (openingSnapshot) {
@@ -360,6 +361,21 @@
                     icon: '▣',
                     title: 'Opening browser tab',
                     subtitle: 'The snapshot tab is being attached for capture.',
+                };
+                continue;
+            }
+            const finishedSnapshot = (crawl.active_snapshots || []).find((snapshot) => (
+                !Array.isArray(snapshot) && snapshot.status === 'started' &&
+                (snapshot.all_plugins || []).some((item) => item.status === 'succeeded' && isChromeTab(item))
+            ));
+            if (finishedSnapshot) {
+                fallback = {
+                    type: 'placeholder',
+                    crawl,
+                    snapshot: finishedSnapshot,
+                    state: 'finished',
+                    icon: '✓',
+                    title: 'Browser finished',
                 };
                 continue;
             }
@@ -423,10 +439,17 @@
             ) {
                 screencastPanel.classList.add('visible');
                 currentFrame.style.opacity = '1';
+                if (target.state === 'finished' && screencastPanel.dataset.currentFrameKey === `${target.crawl?.id || ''}|${target.snapshot.id}`) {
+                    screencastPanel.querySelector('.screencast-dot')?.classList.add('finished');
+                }
                 return;
             }
             const crawlUrl = target.crawl?.id ? `/admin/crawls/crawl/${target.crawl.id}/change/` : '/admin/';
-            const placeholderKey = [target.state, target.title, target.subtitle, crawlUrl].join('|');
+            const finished = target.state === 'finished';
+            const targetUrl = finished && target.snapshot.view_url ? target.snapshot.view_url : crawlUrl;
+            const targetLabel = finished ? (target.snapshot.full_url || target.snapshot.url || '') : 'Crawl setup';
+            const linkTitle = finished ? 'Open snapshot' : 'Open crawl admin';
+            const placeholderKey = [target.state, target.title, target.subtitle, targetUrl, targetLabel].join('|');
             if (screencastPanel.dataset.mode === 'placeholder' && screencastPanel.dataset.key === placeholderKey) {
                 return;
             }
@@ -434,18 +457,18 @@
             screencastPanel.dataset.key = placeholderKey;
             screencastPanel.classList.add('visible');
             screencastPanel.innerHTML = `
-                <a class="screencast-frame" href="${escapeAttr(crawlUrl)}" title="Open crawl admin">
+                <a class="screencast-frame" href="${escapeAttr(targetUrl)}" title="${linkTitle}">
                     <span class="screencast-placeholder ${escapeAttr(target.state)}">
                         <span class="screencast-placeholder-icon">${escapeHtml(target.icon)}</span>
                         <span class="screencast-placeholder-title">${escapeHtml(target.title)}</span>
-                        <span class="screencast-placeholder-subtitle">${escapeHtml(target.subtitle)}</span>
+                        ${target.subtitle ? `<span class="screencast-placeholder-subtitle">${escapeHtml(target.subtitle)}</span>` : ''}
                     </span>
                 </a>
-                <a class="screencast-caption" href="${escapeAttr(crawlUrl)}" title="Open crawl admin">
+                <a class="screencast-caption" href="${escapeAttr(targetUrl)}" title="${linkTitle}">
                     <span class="screencast-dot ${escapeAttr(target.state)}"></span>
                     <span class="screencast-text">
                         <span class="screencast-title">${escapeHtml(target.title)}</span>
-                        <span class="screencast-url">Crawl setup</span>
+                        <span class="screencast-url">${escapeHtml(targetLabel)}</span>
                     </span>
                 </a>
             `;
@@ -455,6 +478,7 @@
         // otherwise a panel below the visible tree could keep fetching frames.
         screencastPanel.classList.add('visible');
         if (!frameOnScreen) return;
+        screencastPanel.querySelector('.screencast-dot')?.classList.remove('finished');
         const snapshot = target.snapshot;
         const adminUrl = snapshot.admin_url || `/admin/core/snapshot/${snapshot.id || 'unknown'}/change/`;
         const linkUrl = snapshot.screencast_link || snapshot.view_url || adminUrl;

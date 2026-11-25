@@ -312,7 +312,8 @@
     background: #3fb950;
     box-shadow: 0 0 8px rgba(63, 185, 80, 0.9);
 }
-#progress-monitor .screencast-dot.not-launched {
+#progress-monitor .screencast-dot.not-launched,
+#progress-monitor .screencast-dot.finished {
     background: #6e7681;
     box-shadow: none;
 }

@@ -99,6 +99,70 @@ def test_live_progress_keeps_surviving_snapshot_cards_after_adjacent_rows_finish
         browser.close()
 
 
+def test_live_progress_reports_finished_browser_while_snapshot_processing_continues(
+    live_server,
+    browser_runtime,
+    admin_user,
+    crawl,
+    snapshot,
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from datetime import timedelta
+    from urllib.parse import urlsplit
+
+    from django.db import connections
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    origin = f"http://admin.archivebox.localhost:{port}"
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+
+    now = timezone.now()
+    Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED, modified_at=now)
+    Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED, retry_at=now + timedelta(minutes=5))
+
+    def finish_browser():
+        try:
+            return ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="chrome",
+                hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
+                status=ArchiveResult.StatusChoices.SUCCEEDED,
+                start_ts=now,
+                end_ts=timezone.now(),
+            )
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=1) as writer, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(f"{origin}/admin/login/?next=/admin/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        toggle = page.locator("#progress-collapse")
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+        pane = page.locator("#screencast-panel")
+        expect(pane.locator(".screencast-placeholder-title")).to_have_text("Browser not launched yet")
+
+        writer.submit(finish_browser).result(timeout=10)
+        expect(pane.locator(".screencast-placeholder-title")).to_have_text("Browser finished")
+        expect(pane.locator(".screencast-url")).to_have_text(snapshot.url)
+        expect(pane.locator(".screencast-frame")).not_to_have_attribute("href", f"/admin/crawls/crawl/{crawl.pk}/change/")
+        browser.close()
+
+
 @pytest.fixture
 def painted_http_server():
     """Serve a complete static page so CDP stops emitting changed frames."""
