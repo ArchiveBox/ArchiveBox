@@ -174,7 +174,7 @@ _IDLE_CONNECTIONS: dict[tuple, list[tuple[tuple[int, int], sqlite3.Connection]]]
 _IDLE_CONNECTIONS_LOCK = threading.Lock()
 # Retain at most 128 MiB of SQLite page caches per database and worker after
 # a burst of requests. Active requests can still open independent connections.
-_MAX_IDLE_CONNECTIONS = 4
+_MAX_IDLE_CONNECTIONS = 1
 
 
 def _database_file_identity(path: str) -> tuple[int, int] | None:
