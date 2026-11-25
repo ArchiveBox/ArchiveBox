@@ -136,7 +136,8 @@ print(json.dumps({'timeout': baseline.WGET_TIMEOUT, 'machine_id': str(machine.pk
                         page.evaluate("window.scrollTo(0, 0)")
                         page.screenshot(path=str(output / f"system-{tab.lower()}.png"), full_page=True)
                 page.get_by_role("tab", name="Crawl Defaults", exact=True).click()
-                expect(page.locator('[role="tab"][data-plugin="base"]')).to_have_count(1)
+                defaults = page.get_by_role("tabpanel", name="Crawl Defaults", exact=True)
+                expect(defaults.get_by_role("spinbutton", name="Crawl URL limit", exact=True)).to_be_visible()
                 for plugin in SYSTEM_PLUGIN_NAMES:
                     expect(page.locator(f'[role="tab"][data-plugin="{plugin}"]')).to_have_count(1 if surface == "system" else 0)
                 assert f"{surface}-secret" not in page.content()
