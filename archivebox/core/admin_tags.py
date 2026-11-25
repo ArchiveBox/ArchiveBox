@@ -64,6 +64,7 @@ TAGGED_SNAPSHOT_DELETE = "delete_tagged_snapshots"
 TAG_SNAPSHOT_ACTIONS = frozenset(
     {
         "move_to_folder",
+        "crawl_outlinks",
         "resnapshot_snapshot",
         "update_snapshots",
         "overwrite_snapshots",

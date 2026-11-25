@@ -1,10 +1,11 @@
           {% for value, label in action_choices %}
-            {% if value == 'resnapshot_snapshot' or value == 'update_snapshots' or value == 'overwrite_snapshots' %}
+            {% if value == 'crawl_outlinks' or value == 'resnapshot_snapshot' or value == 'update_snapshots' or value == 'overwrite_snapshots' %}
               {% ifchanged 'rearchive' %}
                 <span class="action-rearchive-wrapper">
                   <select class="action-rearchive-select" aria-label="Re-Archive">
                     <option value="" hidden></option>
                     {% for action_value, action_label in action_choices %}
+                      {% if action_value == 'crawl_outlinks' %}<option value="{{ action_value }}">{{ action_label }}</option>{% endif %}
                       {% if action_value == 'resnapshot_snapshot' %}<option value="{{ action_value }}">➕ Create fresh snapshot(s)</option>{% endif %}
                       {% if action_value == 'update_snapshots' %}<option value="{{ action_value }}">▶️ Retry only failed subtasks</option>{% endif %}
                       {% if action_value == 'overwrite_snapshots' %}<option value="{{ action_value }}">♻️ Reset &amp; retry from scratch</option>{% endif %}

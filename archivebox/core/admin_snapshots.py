@@ -627,6 +627,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         "move_to_folder",
         "add_tags",
         "remove_tags",
+        "crawl_outlinks",
         "resnapshot_snapshot",
         "update_snapshots",
         "overwrite_snapshots",
@@ -1790,6 +1791,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             )
         else:
             messages.info(request, "No failed extractors were found in the selected snapshots.")
+
+    def has_crawl_outlinks_permission(self, request):
+        # The native Add view accepts depth and crawl-limit prefills for superusers.
+        return request.user.is_active and request.user.is_superuser
+
+    @admin.action(description="🕸️ Crawl outlinks", permissions=["crawl_outlinks"])
+    def crawl_outlinks(self, request, queryset):
+        urls = list(queryset.order_by().values_list("url", flat=True)[:2])
+        if len(urls) != 1:
+            self.message_user(request, "Select exactly one snapshot to crawl its outlinks.", level=messages.WARNING)
+            return None
+        # The seed is already archived. Only recurring crawls can refresh a
+        # known seed while leaving ONLY_NEW enabled for the children.
+        return redirect(reverse("add", query={"url": urls[0], "depth": "1", "max_urls": "100", "url_filters_only_new": "0"}))
 
     @admin.action(
         description="🆕 Archive Now",

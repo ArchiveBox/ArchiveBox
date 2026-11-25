@@ -232,3 +232,69 @@ def test_streamed_search_rows_drag_checked_snapshots(live_server, browser_runtim
     assert set(Snapshot.objects.filter(folder=folder).values_list("pk", flat=True)) == {snapshot.pk for snapshot in snapshots[:moved]}
     if moved < 3:
         assert Snapshot.objects.get(pk=snapshots[2].pk).folder_id is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawl_outlinks_opens_native_add_for_one_snapshot(live_server, browser_runtime, admin_user, crawl):
+    from urllib.parse import parse_qs, urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot, Tag
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
+    machine.save(update_fields=["config"])
+    url = "https://example.org/wiki/Article?query=a%2Bb&tag=x#section"
+    seed = Snapshot.objects.create(crawl=crawl, url=url, title="Wiki article", status="sealed")
+    other = Snapshot.objects.create(crawl=crawl, url="https://example.org/other", status="sealed")
+    tag = Tag.objects.create(name="wiki-article")
+    seed.tags.add(tag)
+    counts = (Crawl.objects.count(), Snapshot.objects.count())
+    snapshots_url = reverse("admin:core_snapshot_changelist")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page()
+        page.goto(live_server.url + reverse("admin:login"))
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.get_by_role("button", name="Log in").click()
+
+        for route, selected_id, scope in (
+            (snapshots_url, seed.pk, "#changelist-form"),
+            (reverse("admin:grid"), seed.pk, "#changelist-form"),
+            (reverse("admin:crawls_crawl_change", args=[crawl.pk]), seed.pk, ".snapshot-changelist-widget"),
+            (reverse("admin:core_tag_changelist"), tag.pk, "#changelist-form"),
+        ):
+            page.goto(live_server.url + route)
+            panel = page.locator(scope)
+            # Preserve the explicit prefill even when the browser remembers a
+            # previous max-URLs setting on the native Add form.
+            page.evaluate("localStorage.setItem('archivebox_add_form_state', JSON.stringify({max_urls: '1', 'depth:0': true}))")
+            panel.locator(f'input.action-select[value="{selected_id}"]').check()
+            action = panel.get_by_role("combobox", name="Re-Archive", exact=True)
+            assert action.locator("option:not([hidden])").first.text_content().strip() == "🕸️ Crawl outlinks"
+            action.select_option("crawl_outlinks")
+            expect(page.locator("#add-form")).to_be_visible()
+            assert parse_qs(urlsplit(page.url).query) == {
+                "url": [url],
+                "depth": ["1"],
+                "max_urls": ["100"],
+                "url_filters_only_new": ["0"],
+            }
+            assert urlsplit(page.url).path == reverse("add")
+            expect(page.locator('#add-form [name="url"]')).to_have_value(url)
+            expect(page.locator('#add-form [name="depth"][value="1"]')).to_be_checked()
+            expect(page.locator('#add-form [name="max_urls"]')).to_have_value("100")
+            expect(page.locator('#add-form [name="url_filters_only_new"]')).not_to_be_checked()
+
+        page.goto(live_server.url + snapshots_url)
+        for selected_id in (seed.pk, other.pk):
+            page.locator(f'input.action-select[value="{selected_id}"]').check()
+        page.get_by_role("combobox", name="Re-Archive", exact=True).select_option("crawl_outlinks")
+        expect(page.get_by_text("Select exactly one snapshot to crawl its outlinks.")).to_be_visible()
+        assert urlsplit(page.url).path == snapshots_url
+        browser.close()
+    assert (Crawl.objects.count(), Snapshot.objects.count()) == counts
