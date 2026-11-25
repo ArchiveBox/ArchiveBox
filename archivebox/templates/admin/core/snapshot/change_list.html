@@ -30,14 +30,14 @@
 <script src="{% static 'library/folders.js' %}" defer></script>
 {% endblock %}
 {% block content %}
-{% if not embedded_changelist %}<div class="snapshot-library">
+{% if not embedded_changelist and not search_fragment %}<div class="snapshot-library">
 {% include "core/folder_sidebar.html" %}
 <script>
   window.archiveboxLibraryLayout?.initializeSidebar(document.getElementById('folder-sidebar'));
 </script>
 {% endif %}
 {{ block.super }}
-{% if not embedded_changelist %}
+{% if not embedded_changelist and not search_fragment %}
 <span class="snapshot-library-ready" hidden></span>
 </div>
 {% include "core/folder_dialog.html" with search_field_assets_in_head=True %}{% endif %}

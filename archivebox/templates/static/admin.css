@@ -1539,6 +1539,11 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     display: block;
 }
 
+#content .files-icons .files-icon-pile-cover > img.abx-output-icon {
+    box-sizing: content-box;
+    flex: none;
+}
+
 .files-icons .abx-output-icon--singlefile { color: #4f46e5; background: #eef2ff; border-color: #c7d2fe; }
 .files-icons .abx-output-icon--archivewebpage { color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
 .files-icons .abx-output-icon--ytdlp { color: #dc2626; background: #fef2f2; border-color: #fecaca; }

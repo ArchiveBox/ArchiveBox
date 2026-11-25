@@ -94,7 +94,11 @@
       controller.progress = searchProgress({{ cl.list_per_page }});
       activeSearch = controller;
       setSearchLoading(controller);
-      var searchMessage = setChangelistSearchingState(controller);
+      var requestedStart = isSubmission ? 0 : Math.max(0, (Number(new URL(location.href).searchParams.get("p")) - 1) * {{ cl.list_per_page }});
+      // A later page can already be populated by the previous stream. Keep
+      // it usable while this navigation resumes the search from its beginning.
+      var searchMessage = !requestedStart || !document.querySelector("#result_list tbody tr[data-snapshot-id], .cards > .card")
+        ? setChangelistSearchingState(controller) : null;
       var resultVersion = 0;
       var pendingRender = null;
       var renderInFlight = false;
@@ -201,7 +205,7 @@
               // refresh is in flight. New matches inherit an all-results selection.
               var selectedIds = new Set(Array.from(currentMain.querySelectorAll('input.action-select:checked'), function(input) { return input.value; }));
               var selectAcross = currentMain.querySelector('input.select-across')?.value === '1';
-              window.archiveboxRefreshLibraryExportLinks?.(doc);
+              window.archiveboxRefreshLibraryExportLinks?.(doc, url.searchParams);
               currentMain.replaceWith(nextMain);
               renderedRows = nextRows;
               previousSize = nextRows?.children.length || 0;
@@ -281,7 +285,11 @@
                 resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
               });
               if (lines.length) controller.progress.count(resultVersion);
-              if (lines.length && resultVersion > 0 && !result.done) renderSoon();
+              if (lines.length && resultVersion > requestedStart && !result.done) {
+                // Throttle partial updates, but install a confirmed full page
+                // as soon as it is available, including during slower scans.
+                renderSoon(previousSize < {{ cl.list_per_page }} && resultVersion >= requestedStart + {{ cl.list_per_page }});
+              }
               if (!result.done) return read();
               // A resumed later page needs settled pagination, even if the last
               // count matches a provisional first-page render.

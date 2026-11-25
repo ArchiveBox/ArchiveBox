@@ -117,12 +117,23 @@ class SnapshotSearch:
         self.url_hints = {}
         self.indexed_evidence = {}
         for term in self.terms:
-            if term.field not in {"url", "word", "literal", "linkedfrom", "linksto"}:
+            if term.field not in {"meta", "url", "word", "literal", "linkedfrom", "linksto"}:
                 continue
             hint = url_substring_hint(term.value, scope.db)
+            if term.field == "meta" and term.value.isascii() and term.value.isalnum():
+                # Walk the narrow hostname index, then look up snapshots for
+                # the matching hosts. A label can occur anywhere in a domain.
+                domains = (
+                    scope.model.objects.using(scope.db)
+                    .filter(reversed_domain__icontains=term.value)
+                    .order_by()
+                    .values("reversed_domain")
+                    .distinct()
+                )
+                hint = Q(reversed_domain__in=domains)
             if hint is not None:
                 self.url_hints[term] = hint
-            if term.field in {"url", "word", "literal"}:
+            if term.field in {"meta", "url", "word", "literal"}:
                 if hint is not None:
                     self.indexed_evidence[term] = hint & substring("url", term.value)
                 continue
@@ -248,9 +259,12 @@ class SnapshotSearch:
         return quick, narrow
 
     def sql_queryset(self, *, ranked=False):
-        # An unordered URL search has two useful waves (host/prefix, then
-        # substring anywhere). A column sort must page the entire predicate.
-        if ranked and any(t.field == "url" for t in self.indexed_evidence) and isinstance(self.indexed_bounds[0], Q):
+        # An unordered metadata search can publish URL and title matches
+        # before inspecting every config value. A column sort must page the
+        # entire predicate, including negation and Boolean combinations.
+        if ranked and isinstance(self.tree, Term) and self.tree.field == "meta":
+            return None
+        if ranked and any(t.field in {"meta", "url"} for t in self.indexed_evidence) and isinstance(self.indexed_bounds[0], Q):
             return None
         if len(self.sql) == len(self.terms):
             return self.scope.filter(sql_bounds(self.tree, self.sql)[1])
@@ -569,6 +583,27 @@ class SnapshotSearch:
         with self.phase("planning"):
             matches = self.sql_queryset()
         if matches is not None:
+            if not qs.query.order_by and isinstance(self.tree, Term) and self.tree.field == "meta":
+                value = self.tree.value
+                url_match = substring("url", value)
+                early = set()
+                tiers = []
+                if hint := self.indexed_evidence.get(self.tree):
+                    tiers.append((hint, "reversed_domain"))
+                tiers.extend([(url_match, "url"), (substring("title", value), "title")])
+                for predicate, order in tiers:
+                    # Bound the IDs retained for exclusion. Each tier proves
+                    # membership by itself; later pages keep every other match.
+                    rows = self.index_probe_scope.filter(predicate).order_by(order, "pk").values_list("pk", flat=True)[:PAGE_SIZE]
+                    for pk in rows.iterator(chunk_size=1):
+                        if not self.active():
+                            return
+                        if pk not in early:
+                            early.add(pk)
+                            yield pk
+                matches = matches.exclude(pk__in=early).order_by("pk")
+                yield from matches.values_list("pk", flat=True).iterator(chunk_size=PAGE_SIZE)
+                return
             if not qs.query.order_by and self.sql_queryset(ranked=True) is None:
                 # Bound the exclusion list; a large archive never needs to
                 # collect all its URL matches before showing a page.

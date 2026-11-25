@@ -149,6 +149,54 @@ def test_native_substrings_preserve_literal_unicode_and_punctuation(crawl):
         )
 
 
+def test_meta_search_matches_json_values_and_shared_crawls(crawl):
+    from django.db import connections
+
+    crawl.config = {"title_only_key": False, "nested": [{"label": "ſtudy notes", "number": 58197302}]}
+    crawl.save(update_fields=["config"])
+    first, second = (
+        Snapshot.objects.create(crawl=crawl, url=f"https://queries.example/{index}", config={"flag": index == 1}) for index in range(2)
+    )
+    scope = Snapshot.objects.filter(pk__in=[first.pk, second.pk])
+
+    def matches(query, *, public=False):
+        search = SnapshotSearch(scope, "meta:" + query, public=public)
+        return set(search.queryset().values_list("pk", flat=True))
+
+    assert matches("notes") == {first.pk, second.pk}
+    assert not matches("title_only_key")
+    assert matches("true") == {second.pk}
+    assert matches("58197302") == {first.pk, second.pk}
+    assert not matches("notes", public=True)
+    if connections[scope.db].vendor == "sqlite":
+        # Django serializes the long s as a Unicode escape in SQLite JSON.
+        # Its decoded scalar uses the same Unicode-insensitive lookup as text.
+        assert matches("study") == {first.pk, second.pk}
+        assert not matches("Study")
+
+
+def test_metadata_waves_preserve_boolean_membership_and_explicit_sort(crawl):
+    from archivebox.search.interpreter import sql_snapshot_search
+
+    host = Snapshot.objects.create(crawl=crawl, url="https://en.wikipedia.org/wiki/Algorithms", title="Fast matches")
+    title = Snapshot.objects.create(crawl=crawl, url="https://news.ycombinator.com/item?id=1", title="About Wikipedia")
+    config = Snapshot.objects.create(crawl=crawl, url="https://archive.org/details/catalog", config={"nested": ["wikipedia"]})
+    scope = Snapshot.objects.filter(pk__in=[host.pk, title.pk, config.pk]).order_by()
+    for expression in (
+        "meta:wikipedia",
+        "meta:wikipedia AND ~title:Fast",
+        "(meta:wikipedia AND title:About) OR domain:en.wikipedia.org",
+        "~(meta:wikipedia AND domain:archive.org)",
+        "(meta:wikipedia OR title:unmatched) AND (meta:catalog OR meta:algorithms)",
+    ):
+        expected = sql_snapshot_search(scope, expression).order_by("url")
+        ids = list(expected.values_list("pk", flat=True))
+        ranked = list(SnapshotSearch(scope, expression, streaming=True).stream())
+        assert len(ranked) == len(set(ranked)) and set(ranked) == set(ids)
+        assert list(SnapshotSearch(scope.order_by("url"), expression, streaming=True).stream()) == ids
+    assert list(SnapshotSearch(scope, "meta:wikipedia", streaming=True).stream()) == [host.pk, title.pk, config.pk]
+
+
 def test_recorded_crawl_edges_are_positive_link_evidence_without_files(crawl):
     parent = Snapshot.objects.create(crawl=crawl, url="https://news.example.org/story")
     child = Snapshot.objects.create(crawl=crawl, url="https://article.example/paper", parent_snapshot=parent)

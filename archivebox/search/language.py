@@ -296,6 +296,7 @@ class ConfigContains(Func):
     arity = 2
 
     def __init__(self, field, needle):
+        self.needle = needle
         self.match_case = has_uppercase(needle)
         super().__init__(field, Value(re.escape(needle)))
 
@@ -314,6 +315,28 @@ class ConfigContains(Func):
             sql = f"""SELECT 1 FROM json_tree({column}) j WHERE j.type NOT IN ('null','array','object')
                       AND (CASE j.type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false'
                                 ELSE CAST(j.atom AS TEXT) END) REGEXP ('{prefix}' || {value})"""
+            # Four consecutive ASCII letters can only come from a string or
+            # boolean (SQLite renders non-finite numbers as at most "Inf").
+            # If that text is absent from ASCII JSON, only a Unicode escape
+            # could decode to it. Always check the scalar itself for positives:
+            # matching an object key or text spanning values is insufficient.
+            anchor = re.search(r"[A-Za-z]{4,}", self.needle)
+            if anchor:
+                guard = (
+                    f"(typeof({column}) != 'text' OR instr(lower({column}), %s) OR instr({column}, %s) "
+                    f"OR length({column}) != length(CAST({column} AS BLOB)))"
+                )
+                return f"({guard} AND EXISTS ({sql}))", (
+                    *lhs_params,
+                    *lhs_params,
+                    anchor.group().lower(),
+                    *lhs_params,
+                    r"\u",
+                    *lhs_params,
+                    *lhs_params,
+                    *lhs_params,
+                    *rhs_params,
+                )
         return f"EXISTS ({sql})", (*lhs_params, *rhs_params)
 
 
@@ -468,15 +491,21 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
             "crawl_id",
             "parent_snapshot_id",
             "folder_id",
-            "crawl__notes",
-            "crawl__label",
-            "crawl__created_by__username",
         )
         if public:
             fields = ("url", "title", "timestamp", "status", "permissions", "bookmarked_at", "created_at", "output_size")
         base = reduce(
             or_,
             (substring(Cast(field, TextField()), v) for field in (*fields, "pk")),
-        ) | Q(pk__in=SnapshotTag.objects.filter(substring("tag__name", v)).values("snapshot_id"))
-        return base if public else base | Q(ConfigContains("config", v)) | Q(ConfigContains("crawl__config", v))
+        ) | Q(pk__in=matching_tag_assignments(v).values("snapshot_id"))
+        if public:
+            return base
+        from archivebox.crawls.models import Crawl
+
+        # A single crawl can own thousands of snapshots with the same metadata.
+        # Match its scalar config values and owner once, then test membership by
+        # crawl ID while walking snapshots in the requested display order.
+        crawl_fields = ("notes", "label", "created_by__username")
+        crawl_matches = reduce(or_, (substring(Cast(field, TextField()), v) for field in crawl_fields)) | Q(ConfigContains("config", v))
+        return base | Q(ConfigContains("config", v)) | Q(crawl_id__in=Crawl.objects.filter(crawl_matches).order_by().values("pk"))
     return None

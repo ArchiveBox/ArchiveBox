@@ -25,6 +25,7 @@ class WorkerApplication:
         # Django startup reads the collection database. Do that outside the
         # event loop, independently in each worker rather than in the manager.
         from archivebox.core.asgi import application
+        from archivebox.core.domain_grouping import domains_with_nested_suffixes
         from archivebox.plugins.discovery import get_plugin_icon_sprite
         from archivebox.config import CONSTANTS
         from archivebox.machine.models import Process
@@ -48,6 +49,9 @@ class WorkerApplication:
         # Each plugin's parsed SVG is cached by discovery for the worker's
         # lifetime. Parse the catalog off the first table's render path.
         get_plugin_icon_sprite()
+        # Domain grouping uses the packaged public suffix list, including
+        # private suffixes. Load it once before the first Domains navigation.
+        domains_with_nested_suffixes()
 
         return application
 

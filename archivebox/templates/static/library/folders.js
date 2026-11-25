@@ -1,4 +1,13 @@
-window.archiveboxRefreshLibraryExportLinks = doc => {
+window.archiveboxRefreshLibraryExportLinks = (doc, searchParams) => {
+  // A search submission changes only q and search_mode. Preserve each live
+  // sidebar link's own folder, sort, visibility and repeated filter values.
+  function updateSearch(query, next) {
+    for (const key of ['q', 'search_mode']) {
+      if (next.has(key)) query.set(key, next.get(key));
+      else query.delete(key);
+    }
+    return query;
+  }
   document.querySelectorAll('a[data-export-format]').forEach(link => {
     const menu = link.closest('.folder-menu');
     const format = 'a[data-export-format="' + link.dataset.exportFormat + '"]';
@@ -8,23 +17,23 @@ window.archiveboxRefreshLibraryExportLinks = doc => {
     if (nextLink) {
       link.dataset.exportRoute = nextLink.dataset.exportRoute;
       link.dataset.exportQuery = nextLink.dataset.exportQuery;
-    } else if (menu?.closest('.folder-row')) {
+    } else if (searchParams || menu?.closest('.folder-row')) {
       // Independently paginated branches retain their scope during streamed search.
       const currentView = doc.getElementById('snapshot-export-menu-sidebar')?.querySelector(format);
-      if (!currentView) return;
-      const query = new URLSearchParams(link.dataset.exportQuery);
-      const next = new URLSearchParams(currentView.dataset.exportQuery);
-      for (const key of ['q', 'search_mode']) {
-        if (next.has(key)) query.set(key, next.get(key));
-        else query.delete(key);
-      }
-      link.dataset.exportQuery = query.toString();
+      const next = searchParams || (currentView && new URLSearchParams(currentView.dataset.exportQuery));
+      if (!next) return;
+      link.dataset.exportQuery = updateSearch(new URLSearchParams(link.dataset.exportQuery), next).toString();
     }
     if (link.hasAttribute('href')) link.href = window.archiveboxExportURL(link);
   });
   document.querySelectorAll('[data-sidebar-mode-link]').forEach(link => {
     const next = doc.querySelector('[data-sidebar-mode-link="' + link.dataset.sidebarModeLink + '"]');
     if (next) link.setAttribute('href', next.getAttribute('href'));
+    else if (searchParams) {
+      const url = new URL(link.href);
+      updateSearch(url.searchParams, searchParams);
+      link.setAttribute('href', url.pathname + url.search);
+    }
   });
 };
 

@@ -284,6 +284,22 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
                 assert urlsplit(page.url).fragment == result.plugin
                 page.goto(page.url.split("#")[0] + "#" + result.embed_path())
                 expect(frame).to_have_attribute("src", card_src)
+
+            plain = browser.new_page(java_script_enabled=False, viewport={"width": 1920, "height": 1080})
+            plain.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
+            plain.locator('[name="username"]').fill(admin_user.username)
+            plain.locator('[name="password"]').fill("testpassword")
+            plain.get_by_role("button", name="Log in", exact=True).click()
+            cover = plain.locator(".files-icon-pile-cover.files-icon-plugin--git")
+            icon = cover.locator(":scope > img.abx-output-icon--git")
+            expect(icon).to_have_attribute("src", re.compile(r"/static/plugin-icons/git/[a-f0-9]{20}\.svg$"))
+            assert icon.evaluate("image => image.complete && image.naturalWidth > 0")
+            assert "CC BY 3.0" in plain.locator("#abx-file-icon-git").inner_html()
+            plain.set_viewport_size({"width": 390, "height": 844})
+            expect(cover).to_be_hidden()
+            plain.set_viewport_size({"width": 1920, "height": 1080})
+            cover.click()
+            expect(plain).to_have_url(re.compile(re.escape(snapshot.get_absolute_url()) + "$"))
         finally:
             browser.close()
 

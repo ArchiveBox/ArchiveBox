@@ -166,14 +166,15 @@ def test_filtered_page_totals_keep_their_scope_and_new_pages(admin_client, crawl
     assert parse_qs(urlsplit(changelist.next_page_url).query) == {"p": ["4"], "status__exact": ["sealed"]}
 
 
-@pytest.mark.parametrize("scope", ["folder", "unfiled", "tag"])
+@pytest.mark.parametrize("scope", ["folder", "unfiled", "tag", "tags__id__exact"])
 def test_plain_scope_counts_use_existing_membership_indexes(admin_client, crawl, paginated_snapshots, scope):
     from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
 
+    is_tag = scope in {"tag", "tags__id__exact"}
     if scope == "folder":
         selected = Folder.objects.create(name="Selected folder")
         Snapshot.objects.update(folder=selected)
-    elif scope == "tag":
+    elif is_tag:
         selected = Tag.objects.create(name="Selected tag")
         SnapshotTag.objects.bulk_create([SnapshotTag(snapshot_id=pk, tag=selected) for pk in Snapshot.objects.values_list("pk", flat=True)])
     else:
@@ -186,7 +187,7 @@ def test_plain_scope_counts_use_existing_membership_indexes(admin_client, crawl,
         folder=selected if scope == "unfiled" else None,
     )
     params = {"folder": "unfiled"} if scope == "unfiled" else {scope: str(selected.pk)}
-    params["sidebar"] = "tags" if scope == "tag" else "folders"
+    params["sidebar"] = "tags" if is_tag else "folders"
     with CaptureQueriesContext(connection) as queries:
         response = admin_client.get(reverse("admin:core_snapshot_changelist"), params, HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
@@ -209,11 +210,33 @@ def test_plain_scope_counts_use_existing_membership_indexes(admin_client, crawl,
             plan = " ".join(str(row[-1]) for row in cursor.fetchall())
         assert "SEARCH" in plan and "COVERING INDEX" in plan, plan
         assert "SCAN core_snapshot" not in plan, plan
-    if scope == "tag":
+    if is_tag:
         assert '"core_snapshot"' not in counts[0], "Count indexed membership rows without fetching each snapshot"
+        assert not any(query["sql"].startswith('SELECT DISTINCT "core_snapshot"."id" AS "pk"') for query in queries), (
+            "A single tag cannot duplicate snapshots during ID selection"
+        )
 
 
-@pytest.mark.parametrize("scope", [None, "folder", "tag"])
+def test_related_tag_lookup_keeps_distinct_matches_for_multiple_values(admin_client, paginated_snapshots):
+    from archivebox.core.models import Snapshot, SnapshotTag, Tag
+
+    first, second, third = Snapshot.objects.order_by("pk").values_list("pk", flat=True)[:3]
+    tags = Tag.objects.bulk_create([Tag(name="First tag"), Tag(name="Second tag")])
+    SnapshotTag.objects.bulk_create(
+        [SnapshotTag(tag=tag, snapshot_id=pk) for tag, rows in zip(tags, [(first, second), (second, third)]) for pk in rows],
+    )
+
+    response = admin_client.get(
+        reverse("admin:core_snapshot_changelist"),
+        {"tags__id__exact": [tag.pk for tag in tags]},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 200
+    assert sorted(obj.pk for obj in response.context_data["cl"].result_list) == [first, second, third]
+
+
+@pytest.mark.parametrize("scope", [None, "folder", "tag", "tags__id__exact"])
 def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, admin_user, crawl, paginated_snapshots, scope):
     from playwright.sync_api import expect, sync_playwright
     from archivebox.core.models import Folder, Snapshot, SnapshotTag, Tag
@@ -225,10 +248,10 @@ def test_snapshot_page_links_navigate_real_rows(live_server, browser_runtime, ad
         selected = Folder.objects.create(name="Browser folder")
         Snapshot.objects.update(folder=selected)
         params = {"folder": str(selected.pk)}
-    elif scope == "tag":
+    elif scope in {"tag", "tags__id__exact"}:
         selected = Tag.objects.create(name="Browser tag")
         SnapshotTag.objects.bulk_create([SnapshotTag(snapshot_id=pk, tag=selected) for pk in Snapshot.objects.values_list("pk", flat=True)])
-        params = {"tag": str(selected.pk)}
+        params = {scope: str(selected.pk)}
     if scope:
         Snapshot.objects.create(url="https://example.org/not-selected", timestamp="1900900000", crawl=crawl, status="sealed")
     port = urlsplit(live_server.url).port

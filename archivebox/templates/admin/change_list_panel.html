@@ -121,4 +121,4 @@
     window.archiveboxInitChangelistFilters();
   </script>
 {% endif %}
-{% include "admin/snapshot_search_stream.html" %}
+{% if not search_fragment %}{% include "admin/snapshot_search_stream.html" %}{% endif %}

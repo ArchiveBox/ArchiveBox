@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 import json
+import re
 from copy import copy
 from html import escape
 from urllib.parse import urlsplit
@@ -43,7 +44,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_asset
+from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, get_plugin_catalog, get_plugin_icon, get_plugin_icon_asset
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -298,7 +299,8 @@ class SnapshotChangeList(SearchResultsChangeList):
 
         # An expired/in-flight search cannot validate a later page yet. Keep
         # its URL intact while showing provisional rows until the stream settles.
-        if self.query and request.GET.get("_embedded") != "crawl" and not getattr(request, "_archivebox_search_complete", False):
+        pending = self.query and request.GET.get("_embedded") != "crawl" and not getattr(request, "_archivebox_search_complete", False)
+        if pending and not getattr(request, "_archivebox_search_ranks", None):
             self.page_num = 1
         start = (self.page_num - 1) * self.list_per_page
         size = self.list_max_show_all if self.show_all else self.list_per_page
@@ -315,15 +317,20 @@ class SnapshotChangeList(SearchResultsChangeList):
             indexed_count = self.queryset.order_by().values("pk").count()
         elif streamed_ids is None and not self.root_queryset.query.where and not self.queryset.query.is_empty():
             scope = {key for key, value in request.GET.items() if value and key not in {"p", "sidebar"}}
-            if scope == {"tag"}:
+            single_related_tag = scope == {"tags__id__exact"} and len(request.GET.getlist("tags__id__exact")) == 1
+            if scope == {"tag"} or single_related_tag:
                 from archivebox.core.tag_util import annotate_tag_snapshot_counts
 
+                tag_id = request.GET.get("tag") or request.GET["tags__id__exact"]
                 # The unique membership rows give the exact total through the
                 # existing tag index, without visiting every Snapshot row.
                 indexed_count = (
-                    annotate_tag_snapshot_counts(Tag.objects.filter(pk=request.GET["tag"])).values_list("num_snapshots", flat=True).first()
-                    or 0
+                    annotate_tag_snapshot_counts(Tag.objects.filter(pk=tag_id)).values_list("num_snapshots", flat=True).first() or 0
                 )
+                if single_related_tag:
+                    # Django adds DISTINCT to generic related-field lookups.
+                    # The single tag's unique links already produce one ID per snapshot.
+                    queryset_ids = root_ids.filter(tags__id=tag_id).order_by(*queryset_ids.query.order_by)
             elif scope == {"folder"}:
                 folder_id = request.GET["folder"]
                 folder = Folder.objects.filter(pk=folder_id).only("rules").first() if folder_id != "unfiled" else None
@@ -342,6 +349,12 @@ class SnapshotChangeList(SearchResultsChangeList):
 
         preview = bool(self.query and not self.show_all and not start and request.headers.get("X-ArchiveBox-Search-Fragment") == "preview")
         page_ids = read_page(0 if self.show_all else start, 2 if preview else size + 1)
+        if pending and start and not page_ids:
+            # A bookmark can request a page beyond the confirmed matches. Keep
+            # displaying the first page until this stream reaches that offset.
+            self.page_num = 1
+            start = 0
+            page_ids = read_page(0, size + 1)
         self.preview_has_more = preview and len(page_ids) > 1
         if self.show_all and len(page_ids) > size:
             self.show_all = False
@@ -743,19 +756,33 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context = extra_context or {}
         extra_context["embedded_changelist"] = embedded_changelist
         extra_context["CONFIG"] = request.archivebox_config
-        from archivebox.core.sidebar import sidebar_context
+        search_fragment = bool(
+            request.method == "GET"
+            and not embedded_changelist
+            and request.GET.get("q")
+            and request.headers.get("X-ArchiveBox-Search-Rows"),
+        )
+        # Streamed results replace only #content-main. The live sidebar retains
+        # its expanded folders, pagination and export menus across submissions.
+        if not search_fragment:
+            from archivebox.core.sidebar import sidebar_context
 
-        extra_context["folder_tree"] = Folder.tree()
-        if not embedded_changelist:
-            extra_context.update(sidebar_context(request, folder_tree=extra_context["folder_tree"]))
-        extra_context["selected_folder"] = request.GET.get("folder", "")
-        selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
-        folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
-        breadcrumbs = []
-        while selected:
-            breadcrumbs.append(selected)
-            selected = folders_by_id.get(selected.parent_id)
-        extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
+            extra_context["folder_tree"] = Folder.tree()
+            if not embedded_changelist:
+                extra_context.update(sidebar_context(request, folder_tree=extra_context["folder_tree"]))
+            extra_context["selected_folder"] = request.GET.get("folder", "")
+            selected = next((folder for folder in extra_context["folder_tree"] if str(folder.pk) == extra_context["selected_folder"]), None)
+            folders_by_id = {folder.pk: folder for folder in extra_context["folder_tree"]}
+            breadcrumbs = []
+            while selected:
+                breadcrumbs.append(selected)
+                selected = folders_by_id.get(selected.parent_id)
+            extra_context["folder_breadcrumbs"] = list(reversed(breadcrumbs))
+        extra_context["search_fragment"] = search_fragment
+        if search_fragment:
+            # Render the inherited changelist content (including custom
+            # object-tools blocks) without the enclosing admin document.
+            extra_context["changelist_base_template"] = "admin/core/snapshot/search_fragment.html"
         extra_context["list_export_urls"] = build_snapshot_export_urls(request.GET, request=request)
         try:
             try:
@@ -1407,18 +1434,30 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             if plugin not in icon_metadata:
                 icon = str(get_plugin_icon(plugin))
                 if not plugin_icon_is_hidden(plugin) and icon.strip():
+                    cover = icon
                     if asset := get_plugin_icon_asset(plugin):
                         url = reverse("plugin-icon", kwargs={"plugin": plugin, "fingerprint": asset[0]})
-                        # Keep the original badge styling around the cached SVG.
-                        icon = f'{icon[: icon.index("<svg")]}<img src="{escape(url)}" width="16" height="16" alt="">{icon[icon.rindex("</svg>") + 6 :]}'
+                        image = f'src="{escape(url)}" width="16" height="16" alt=""'
+                        svg_start = icon.index("<svg")
+                        wrapper = icon[icon.index("<span ") : svg_start]
+                        icon = f"{icon[:svg_start]}<img {image}>{icon[icon.rindex('</svg>') + 6 :]}"
+                        cover = icon
+                        # Only the packaged badge has the same look on an img.
+                        # The popup template keeps the full wrapper and artwork credits.
+                        badge = f"abx-output-icon abx-output-icon--{plugin}"
+                        if get_plugin_catalog()[plugin].path.parent == BUILTIN_PLUGINS_DIR and re.fullmatch(
+                            rf'<span class="{badge}" title="[^"]*"(?: role="img" aria-label="[^"]*")?>',
+                            wrapper,
+                        ):
+                            cover = f'<img class="{badge}" {image}>'
                     fragment = build_snapshot_detail_path("", output_path=get_plugin_name(plugin), prefix="")
-                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon, fragment)
+                    icon_metadata[plugin] = (output_group_for_plugin(plugin), escape(display_plugin_name(plugin)), icon, cover, fragment)
                 else:
                     icon_metadata[plugin] = None
             metadata = icon_metadata[plugin]
             if metadata is None:
                 continue
-            group, label, icon, fragment = metadata
+            group, label, icon, _, fragment = metadata
             if isinstance(result, ArchiveResult):
                 output_path = result.embed_path()
                 anchor_path = get_snapshot_output_anchor(plugin, output_path) if output_path else None
@@ -1451,7 +1490,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             label = escape(label)
             pile_style = f' style="--files-icon-popup-left:{column * -22}px"' if column else ""
             top_plugin = icons[0] if isinstance(icons[0], str) else icons[0][0]
-            cover = icon_metadata[top_plugin][2]
+            cover = icon_metadata[top_plugin][3]
             # JSON strings use double quotes. A single-quoted attribute avoids
             # escaping those quotes while still protecting plugin names.
             members = escape(json.dumps(icons, ensure_ascii=False, separators=(",", ":")), quote=False).replace("'", "&#x27;")

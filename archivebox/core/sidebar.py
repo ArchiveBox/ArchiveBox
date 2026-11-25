@@ -76,6 +76,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
         cursor = cursor[3:]
     entries, folders, next_key = [], [], None
     snapshots = public_snapshots_queryset(Snapshot.objects.all()) if public else Snapshot.objects.all()
+    snapshot_admin_url = reverse("admin:core_snapshot_changelist") if mode != "folders" and not public else ""
     if mode == "tags":
         membership = _tag_snapshot_memberships()
         if public:
@@ -97,8 +98,8 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "filter_value": str(tag.pk),
                     "rename_url": reverse("admin:core_tag_change", args=[tag.pk]) if not public else "",
                     "delete_tag_url": reverse("admin:core_tag_delete", args=[tag.pk]) if not public else "",
-                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots"
-                    if not public and tag.has_snapshots
+                    "delete_snapshots_url": snapshot_admin_url + url + "#delete-snapshots"
+                    if snapshot_admin_url and tag.has_snapshots
                     else "",
                     "style": tag_color_style(tag.name),
                     "url": url,
@@ -132,7 +133,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None):
                     "name": name,
                     "filter_value": scope,
                     "url": url,
-                    "delete_snapshots_url": reverse("admin:core_snapshot_changelist") + url + "#delete-snapshots" if not public else "",
+                    "delete_snapshots_url": snapshot_admin_url + url + "#delete-snapshots" if snapshot_admin_url else "",
                     "selected": request.GET.get("domain") == scope,
                     "favicon": favicon["url"] if favicon else "",
                     "favicon_fallbacks": favicon["fallbacks"] if favicon else "",

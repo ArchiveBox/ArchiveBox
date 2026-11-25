@@ -34,6 +34,38 @@ def complete_search(client, params):
     return path
 
 
+def test_next_page_uses_confirmed_rows_while_search_is_running(admin_client, crawl):
+    Snapshot.objects.bulk_create(
+        Snapshot(crawl=crawl, url=f"https://en.wikipedia.org/wiki/Topic_{i}", timestamp=str(1900000000 + i)) for i in range(650)
+    )
+    path = "/admin/core/snapshot/"
+    params = {"q": "meta:wikipedia", "search_mode": "query"}
+    search_url = path + "?" + urlencode(params)
+    response = admin_client.get(path + "search-stream/", {**params, "search_url": search_url}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    key = get_admin_search_cache_key(response.wsgi_request, search_url)
+
+    async def visit_next_page():
+        stream = response._iterator
+        try:
+            while int(await anext(stream)) < 101:
+                # A reader may consume updates more slowly than the 50ms
+                # progress cadence. The bounded producer keeps working.
+                await asyncio.sleep(0.06)
+            state = await asyncio.to_thread(search_state, response.wsgi_request, key)
+            assert not state["done"]
+            second = await asyncio.to_thread(admin_client.get, path, {**params, "p": "2"}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert second.status_code == 200
+            cl = second.context["cl"]
+            assert cl.page_num == 2 and not cl.search_stream_complete
+            assert [row.pk.hex for row in cl.result_list] == state["ids"][50:100]
+            assert [int(update) async for update in stream][-1] == 650
+        finally:
+            await stream.aclose()
+
+    async_to_sync(visit_next_page)()
+
+
 @pytest.mark.parametrize("aborted", [True, False], ids=["stale-final", "stale-progress"])
 def test_superseded_meta_search_cannot_overwrite_replacement(admin_client, crawl, aborted):
     query = "example.org"
