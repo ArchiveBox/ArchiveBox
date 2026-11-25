@@ -20,6 +20,11 @@
             <div class="navbar-menu">
                 {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4m-4 4v2"/></svg>Reset password</a>{% endif %}
                 <a href="{% url 'admin:auth_user_change' user.pk %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2"/></svg>Profile</a>
+                {% if user.is_active and user.is_staff %}
+                    {% if perms.auth.view_user or perms.auth.change_user %}
+                    <a href="{% url 'admin:auth_user_changelist' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3"/><path d="M4 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M17 5a3 3 0 0 1 0 6m1 3a4 4 0 0 1 3 4v2"/></svg>{% trans "Organization" %}</a>
+                    {% endif %}
+                {% endif %}
                 <hr>
                 <div class="navbar-account-links">
                     <a href="{% url 'admin:api_apitoken_changelist' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 1 1-3 3-2-2"/></svg>API Keys</a>
