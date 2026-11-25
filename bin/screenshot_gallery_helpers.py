@@ -1048,7 +1048,7 @@ def plugin_screenshot_plan() -> dict:
                     "path": page["path"],
                     "source": f"https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/{plugin}/{page['source']}",
                     "mode": mode,
-                }
+                },
             )
         if recipe.get("view"):
             required.append(recipe["view"])
@@ -1169,11 +1169,11 @@ def capture_settings(plan, plugin_names):
     return config, overrides
 
 
-def capture_add(plan, plugin_names, source_url, *, scoped):
+def capture_add(plan, plugin_names, source_url, *, scoped, tag="screenshot-gallery"):
     config, overrides = capture_settings(plan, plugin_names)
     os.environ.update({key: json.dumps(value) if isinstance(value, (dict, list)) else str(value) for key, value in config.items()})
 
-    sys.argv = ["archivebox", "add", "--depth=0", "--overwrite", "--tag=screenshot-gallery", source_url]
+    sys.argv = ["archivebox", "add", "--depth=0", "--overwrite", f"--tag={tag}", source_url]
     if not scoped or not overrides:
         os.execvp(sys.argv[0], sys.argv)
 
@@ -2068,6 +2068,7 @@ def main():
     capture.add_argument("scoped", choices=("0", "1"))
     capture.add_argument("plugins")
     capture.add_argument("url")
+    capture.add_argument("--tag", default="screenshot-gallery")
     commands.add_parser("refresh").add_argument("html", type=Path)
     validate = commands.add_parser("validate")
     validate.add_argument("metadata", type=Path)
@@ -2103,7 +2104,13 @@ def main():
     if args.command == "plugin-plan":
         print(json.dumps(plugin_screenshot_plan()))
     elif args.command == "capture-add":
-        capture_add(json.loads(args.plan.read_text()), list(filter(None, args.plugins.split(","))), args.url, scoped=args.scoped == "1")
+        capture_add(
+            json.loads(args.plan.read_text()),
+            list(filter(None, args.plugins.split(","))),
+            args.url,
+            scoped=args.scoped == "1",
+            tag=args.tag,
+        )
     elif args.command == "refresh":
         refresh_gallery(args.html)
     elif args.command == "validate":

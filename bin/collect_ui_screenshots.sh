@@ -231,6 +231,14 @@ if [[ -z "$PLUGIN_VIEWS" || "$(uv run --no-cache --project "$REPO_DIR" python -c
     )
 fi
 
+run_gallery_add() {
+    local plugin_names="$1" source_url="$2"
+    shift 2
+    cd "$DATA_DIR"
+    exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" \
+        capture-add "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" "$plugin_names" "$source_url" "$@"
+}
+
 if [[ -z "$PLUGIN_VIEWS" ]]; then
 SEED_STATE="$( (
     cd "$DATA_DIR"
@@ -244,13 +252,16 @@ HAS_API_TOKEN="$(printf '%s\n' "$SEED_STATE" | sed -n '4p')"
 
 if [[ "$HAS_USEFUL_SNAPSHOT" == "0" ]]; then
     echo "[*] Archiving real reference sites so snapshot views have meaningful outputs"
+    # The sealed reference supplies the plugin cards, not the live UI fixture.
+    # Apply native-view opt-ins to that donor without enabling them on NASA.
+    (run_gallery_add "" "$EXAMPLE_URL" --tag=documentation,reference)
     (
         cd "$DATA_DIR"
         uv run --no-cache --project "$REPO_DIR" archivebox add \
             --depth=0 \
             --overwrite \
             --tag=documentation,reference \
-            "$EXAMPLE_URL" https://science.nasa.gov/missions/hubble/hubble-sees-possible-runaway-black-hole-creating-a-trail-of-stars/
+            https://science.nasa.gov/missions/hubble/hubble-sees-possible-runaway-black-hole-creating-a-trail-of-stars/
     )
 fi
 
@@ -386,13 +397,6 @@ VIEWS=(
     "Login|$ADMIN_BASE_URL/admin/login/|/admin/login/|archivebox/templates/admin/login.html"
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
 )
-
-run_gallery_add() {
-    local plugin_names="$1" source_url="$2"
-    cd "$DATA_DIR"
-    exec uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/screenshot_gallery_helpers.py" \
-        capture-add "$PLUGIN_SCREENSHOT_PLAN" "$SCOPED_GALLERY_OPT_INS" "$plugin_names" "$source_url"
-}
 
 add_supplementary_template_capture() {
     local plugin_names="$1"
