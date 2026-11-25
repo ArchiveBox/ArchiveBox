@@ -206,13 +206,18 @@ class Persona(ModelWithConfig):
         Get config dict with derived paths filled in.
 
         Returns dict with:
-        - All values from self.config JSONField
+        - Persona-owned values from self.config JSONField
         - PERSONAS_DIR (derived from DATA_DIR/personas)
         - COOKIES_FILE (derived from persona path, if file exists)
         - AUTH_STORAGE_FILE (derived from persona path, if file exists)
         - ACTIVE_PERSONA (set to this persona's name)
         """
-        return derive_persona_config(name=self.path.name, config=self.config, persona_dir=self.path)
+        from archivebox.config.common import host_config_keys, normalize_runtime_config
+
+        # Importers and browser commands also merge this payload directly.
+        # Stored legacy keys must not override the Machine in those paths either.
+        config = normalize_runtime_config(self.config, exclude_keys=host_config_keys(), json_safe=False)
+        return derive_persona_config(name=self.path.name, config=config, persona_dir=self.path)
 
     def ensure_dirs(self) -> None:
         """Create persona directories if they don't exist."""

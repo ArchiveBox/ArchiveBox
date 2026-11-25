@@ -155,6 +155,11 @@ _SCOPE_CRAWL_FROZEN = "crawl_frozen"
 _SCOPE_CRAWL_EXECUTION = "crawl_execution"
 _SCOPE_SERVER = "server"
 _MACHINE_ONLY_CORE_KEYS = frozenset({"BASE_URL", "DEBUG", "USE_COLOR", "SHOW_PROGRESS", "SEARCH_BACKEND_ENGINE"})
+# These Base plugin fields describe the worker's shared toolchain and paths,
+# even though hooks need the current values in their execution environment.
+_MACHINE_ONLY_PLUGIN_RUNTIME_KEYS = frozenset(
+    {"TMP_DIR", "ABXPKG_LIB_DIR", "PATH", "NODE_MODULES_DIR", "NODE_MODULE_DIR", "NODE_PATH", "NODE_V8_COVERAGE"},
+)
 
 
 @cache
@@ -162,8 +167,10 @@ def machine_only_config_keys() -> frozenset[str]:
     """Machine owns service settings, not shared capture dependencies."""
     owned = _plugin_config_properties({name: schema for name, schema in PLUGIN_CONFIG_SCHEMAS.items() if name in SYSTEM_PLUGIN_NAMES})
     shared = _plugin_config_properties({name: schema for name, schema in PLUGIN_CONFIG_SCHEMAS.items() if name not in SYSTEM_PLUGIN_NAMES})
-    return _MACHINE_ONLY_CORE_KEYS | frozenset(
-        input_name for key in owned.keys() - shared.keys() for input_name in (key, *(owned[key].get("x-aliases") or ()))
+    return (
+        _MACHINE_ONLY_CORE_KEYS
+        | _MACHINE_ONLY_PLUGIN_RUNTIME_KEYS
+        | frozenset(input_name for key in owned.keys() - shared.keys() for input_name in (key, *(owned[key].get("x-aliases") or ())))
     )
 
 
@@ -1056,15 +1063,25 @@ def _build_archivebox_config_model(plugin_schemas: PluginSchemaDocuments) -> typ
     )
 
 
+def _system_plugin_names(plugin_schemas: PluginSchemaDocuments) -> frozenset[str]:
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    catalog = get_plugin_catalog()
+    # App-only plugins configure the running server. Chrome and other mixed
+    # plugins still expose their extraction settings to each persona.
+    return frozenset({"opencode"}) | frozenset(
+        name
+        for name, schema in plugin_schemas.items()
+        if (schema.get("app_module") and not schema.get("importers") and not catalog[name].hooks)
+        # Search configuration belongs to the collection. A crawl selector
+        # must not silently disable its index and authorize a filesystem scan.
+        or {"search", "flush"}.issubset(schema.get("commands", {}))
+        or (schema.get("properties", {}).get(f"{name.upper()}_ENABLED") or {}).get("x-scope") == _SCOPE_SERVER
+    )
+
+
 PLUGIN_CONFIG_SCHEMAS = _discover_plugin_config_schemas()
-# Search configuration belongs to the collection. A crawl's extractor selection
-# must not silently disable an index and thereby authorize filesystem scanning.
-SYSTEM_PLUGIN_NAMES = frozenset({"opencode"}) | frozenset(
-    name
-    for name, schema in PLUGIN_CONFIG_SCHEMAS.items()
-    if {"search", "flush"}.issubset(schema.get("commands", {}))
-    or (schema.get("properties", {}).get(f"{name.upper()}_ENABLED") or {}).get("x-scope") == _SCOPE_SERVER
-)
+SYSTEM_PLUGIN_NAMES = _system_plugin_names(PLUGIN_CONFIG_SCHEMAS)
 ArchiveBoxConfig = _build_archivebox_config_model(PLUGIN_CONFIG_SCHEMAS)
 
 

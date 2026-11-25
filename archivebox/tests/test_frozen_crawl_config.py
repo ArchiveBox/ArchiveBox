@@ -556,7 +556,7 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
     }
     assert ArchiveBoxConfig.scope_for_key("NODE_BINARY") == "crawl_execution"
     assert ArchiveBoxConfig.scope_for_key("GIT_BINARY") == "crawl_execution"
-    assert "NODE_V8_COVERAGE" not in host_config_keys()
+    assert "NODE_V8_COVERAGE" in host_config_keys()
 
     def fields(form):
         return {card["name"]: card["config_fields"] for group in form.plugin_groups for card in group["plugins"] if card["config_fields"]}
@@ -566,6 +566,102 @@ def test_open_code_and_search_are_system_settings_without_removing_base_capture_
     names = {"opencode", "search_backend_sqlite", "search_backend_sonic"}
     assert not names & persona_cards.keys()
     assert names <= machine_cards.keys()
-    assert {field["key"] for field in persona_cards["base"]} >= {"TIMEOUT", "MEMORY_LIMIT", "MEMORY_MIN_FREE", "USER_AGENT"}
-    for groups in (persona_cards, machine_cards):
-        assert next(field for field in groups["base"] if field["key"] == "NODE_V8_COVERAGE")["advanced"]
+    assert "base" not in persona_cards
+    assert {field["key"] for field in persona_cards["crawl_defaults"]} >= {"TIMEOUT", "MEMORY_LIMIT", "MEMORY_MIN_FREE", "USER_AGENT"}
+    assert next(field for field in machine_cards["base"] if field["key"] == "NODE_V8_COVERAGE")["advanced"]
+
+
+def test_app_and_host_toolchain_settings_only_render_and_resolve_on_machine(archivebox_db):
+    import json
+
+    from django.test import Client
+
+    from archivebox.config.common import get_config
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    admin = _user("app-settings-admin")
+    machine = Machine.current()
+    overrides = {
+        "BANDWIDTH_ENABLED": True,
+        "BANDWIDTH_POLL_MS": 2530,
+        "BANDWIDTH_MAX_PROCESSES": 111,
+        "NETWORKGRAPH_ENABLED": False,
+        "NETWORKGRAPH_BATCH_SIZE": 7,
+        "NODE_PATH": "/tmp/machine-node-path",
+        "NODE_V8_COVERAGE": "/tmp/machine-coverage",
+    }
+    machine.config = {**machine.config, **overrides, "BASE_URL": "https://machine.example"}
+    machine.save(update_fields=["config"])
+    persona = _persona(admin, name="App settings Persona")
+    forged = {
+        "BANDWIDTH_ENABLED": False,
+        "BANDWIDTH_POLL_MS": 4130,
+        "BANDWIDTH_MAX_PROCESSES": 112,
+        "NETWORKGRAPH_ENABLED": True,
+        "NETWORKGRAPH_BATCH_SIZE": 9,
+        "NODE_PATH": "/tmp/persona-node-path",
+        "NODE_V8_COVERAGE": "/tmp/persona-coverage",
+        "DATA_DIR": "/tmp/forged-data",
+        "ABX_RUNTIME": "forged-runtime",
+        "CACHE_CANDIDATES": '[{"url":"https://example.net/forged-cache"}]',
+    }
+    persona.config.update(forged)
+    persona.save(update_fields=["config"])
+
+    client = Client(HTTP_HOST="machine.example")
+    client.force_login(admin)
+    persona_url = f"/admin/personas/persona/{persona.pk}/change/"
+    response = client.get(persona_url)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert all(f'data-plugin-name="{name}"' not in html for name in ("bandwidth", "networkgraph", "base"))
+    assert all(f'data-config-key="{key}"' not in html for key in forged)
+    for key in ("TIMEOUT", "USER_AGENT", "MEMORY_LIMIT", "MEMORY_MIN_FREE"):
+        assert f'name="plugin_config__archivebox__{key}"' in html
+
+    machine_response = client.get(f"/admin/machine/machine/{machine.pk}/change/")
+    assert machine_response.status_code == 200
+    machine_html = machine_response.content.decode()
+    assert all(f'data-plugin-name="{name}"' in machine_html for name in ("bandwidth", "networkgraph", "base"))
+    assert all(f'data-config-key="{key}"' in machine_html for key in overrides)
+    assert all(f'data-config-key="{key}"' not in machine_html for key in set(forged) - set(overrides))
+
+    # Posted host-only values are ignored, without destructively rewriting a
+    # user's older configuration. Persona capture defaults still save normally.
+    saved = client.post(
+        persona_url,
+        {
+            "name": persona.name,
+            "created_by": str(admin.pk),
+            "permissions": "private",
+            "config": json.dumps({"BANDWIDTH_POLL_MS": 4999}),
+            "plugin_config__bandwidth__BANDWIDTH_POLL_MS": "4998",
+            "plugin_config__archivebox__TIMEOUT": "83",
+            "settings_editor": "1",
+            "settings_changed": ["BANDWIDTH_POLL_MS", "TIMEOUT"],
+            "import_mode": "none",
+            "_save": "Save",
+        },
+    )
+    assert saved.status_code == 302
+    persona.refresh_from_db()
+    assert persona.config["TIMEOUT"] == 83
+    assert persona.config["BANDWIDTH_POLL_MS"] == forged["BANDWIDTH_POLL_MS"]
+    assert not forged.keys() & persona.get_derived_config().keys()
+    persona_config = get_config(persona=persona, machine=machine)
+    assert {key: persona_config[key] for key in overrides} == overrides
+
+    crawl = Crawl.objects.create(
+        urls="https://example.net/app-settings",
+        persona=persona,
+        created_by=admin,
+        config={**forged, "PLUGINS": "title"},
+    )
+    assert not forged.keys() & crawl.config.keys()
+    effective = get_config(crawl=crawl, machine=machine)
+    assert effective.TIMEOUT == 83
+    assert {key: effective[key] for key in overrides} == overrides
+    wire = effective.for_crawl_runtime(crawl=crawl, persona=persona, runtime_overrides=forged)
+    assert {key: wire[key] for key in overrides} == overrides
+    assert all(wire[key] != value for key, value in forged.items())

@@ -12,7 +12,7 @@ from typing import Any, ClassVar, cast
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-RUNTIME_REPORTING_CONFIG_KEYS = frozenset({"IS_TTY", "IN_DOCKER", "IN_QEMU", "ANSI"})
+RUNTIME_REPORTING_CONFIG_KEYS = frozenset({"IS_TTY", "IN_DOCKER", "IN_QEMU", "ANSI", "ABX_RUNTIME", "CACHE_CANDIDATES", "DATA_DIR"})
 
 COMPUTED_CONFIG_KEYS = (
     "TERM_WIDTH",

@@ -251,6 +251,10 @@ class PluginConfigFormMixin:
                     and (getattr(self, "system_settings", False) or meta["scope"] in {"crawl_frozen", "crawl_execution"})
                 },
             }
+            if not getattr(self, "system_settings", False):
+                # Base is shared implementation, not a Persona plugin. Its
+                # remaining capture defaults belong with the other defaults.
+                schemas["archivebox"]["properties"].update(schemas.pop("base", {}).get("properties", {}))
         return schemas
 
     def merge_settings(self, config, inherited):
@@ -429,7 +433,10 @@ class PluginConfigFormMixin:
             for group in self.plugin_groups:
                 for card in group["plugins"]:
                     if not card.get("is_core"):
-                        card["system_default"] = True
+                        card["system_default"] = bool(card["config_fields"]) and all(
+                            ArchiveBoxConfig.scope_for_key(field["key"]) in {"crawl_frozen", "crawl_execution"}
+                            for field in card["config_fields"]
+                        )
         # Match the first tab the browser can select, including when a group has no cards.
         first_card = next((group["plugins"][0] for group in self.plugin_groups if group["plugins"]), None)
         if first_card:
