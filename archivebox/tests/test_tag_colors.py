@@ -24,6 +24,10 @@ def test_related_tag_colors_and_unknown_fallback():
         assert min((_hue(a) - _hue(b)) % 360, (_hue(b) - _hue(a)) % 360) <= 16
     assert _hue("  VIOLIN ") == _hue("violin")
     assert min((_hue("guitarist violin") - _hue("violin")) % 360, (_hue("violin") - _hue("guitarist violin")) % 360) <= 16
+    for name in ("physics", "gamma-rays", "quantum physics"):
+        assert 212 <= _hue(name) <= 228
+    for family, child in (("archivebox", "archivebox-wiki"), ("foobarbaz", "FOOBARBAZ_WIKIWIKI"), ("spurklet", "spurklet:flibbles")):
+        assert min((_hue(family) - _hue(child)) % 360, (_hue(child) - _hue(family)) % 360) <= 8
     for name in ("⭐", "2026", "xyz:7bca-🧪"):
         assert _hue(name) == _current_hash(name)
 
@@ -34,7 +38,7 @@ def test_browser_keeps_the_rendered_tag_colors(live_server, admin_user, browser_
     machine.config.update(BASE_URL=live_server.url, SERVER_SECURITY_MODE="safe-onedomain-nojsreplay")
     machine.save(update_fields=["config"])
     snapshot = Snapshot.objects.create(url="https://www.example.com/features", title="Saved tag colors", crawl=crawl, status="sealed")
-    names = ("guitarist", "violin", "pastry", "dessert", "⭐")
+    names = ("archivebox", "archivebox-wiki", "physics", "gamma-rays", "⭐")
     snapshot.tags.set([Tag.objects.create(name=name) for name in names])
 
     with sync_playwright() as playwright:
