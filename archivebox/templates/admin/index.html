@@ -637,14 +637,24 @@
                                 {% for model in app.models %}
                                     {% if model.object_name == "APIToken" %}
                                         {% include "admin/index_model_card.html" with model=model tone="advanced" %}
-                                    {% elif model.object_name == "Rule" %}
-                                        {% if request.user.is_superuser %}
-                                            {% url 'rules:index' as rules_url %}
-                                            {% include "admin/index_model_card.html" with model=model tone="advanced" card_url=rules_url %}
-                                        {% endif %}
                                     {% endif %}
                                 {% endfor %}
                             {% endfor %}
+                            {% if request.user.is_superuser %}
+                                {% url 'rules:index' as rules_url %}
+                                <article class="abx-admin-card abx-admin-card--webhooks abx-admin-card--advanced">
+                                    <a class="abx-admin-card__main abx-admin-card__main--link" href="{{ rules_url }}">
+                                        <span class="abx-admin-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 10h8M8 17h8" /></svg></span>
+                                        <span class="abx-admin-card__copy"><span class="abx-admin-card__title-row"><strong class="abx-admin-card__title">{% translate "Webhooks" %}</strong></span><span class="abx-admin-card__text">{% translate "Send HTTP requests when archive events happen." %}</span></span>
+                                    </a>
+                                </article>
+                                <article class="abx-admin-card abx-admin-card--rule abx-admin-card--advanced">
+                                    <a class="abx-admin-card__main abx-admin-card__main--link" href="{{ rules_url }}">
+                                        <span class="abx-admin-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="m13 2-8 12h6l-1 8 9-12h-6z" /></svg></span>
+                                        <span class="abx-admin-card__copy"><span class="abx-admin-card__title-row"><strong class="abx-admin-card__title">{% translate "Rules Engine" %}</strong></span><span class="abx-admin-card__text">{% translate "Trigger actions when archive events happen." %}</span></span>
+                                    </a>
+                                </article>
+                            {% endif %}
                         </div>
                     </section>
                 </main>

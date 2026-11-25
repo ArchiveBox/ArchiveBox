@@ -1033,9 +1033,16 @@ def test_admin_dashboard_groups_capture_and_management_cards(admin_client):
         " ".join(anchor.find_class("abx-admin-card__title")[0].text_content().split()): anchor.get("href")
         for anchor in dashboard.find_class("abx-admin-card__main--link")
     }
-    assert titles["Rules Engine"] == "/admin/rules/"
-    assert "Webhooks" not in titles
-    for title in ("Importers", "Domains", "Rules Engine"):
+    rest_api = dashboard.xpath("//section[@aria-labelledby='abx-admin-advanced-title']")[0]
+    assert [
+        (" ".join(anchor.find_class("abx-admin-card__title")[0].text_content().split()), anchor.get("href"))
+        for anchor in rest_api.find_class("abx-admin-card__main--link")
+    ] == [
+        ("API Keys", "/admin/api/apitoken/"),
+        ("Webhooks", "/admin/rules/"),
+        ("Rules Engine", "/admin/rules/"),
+    ]
+    for title in ("Importers", "Domains", "Webhooks", "Rules Engine"):
         assert admin_client.get(titles[title], HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
 
 
