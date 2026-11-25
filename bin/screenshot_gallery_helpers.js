@@ -849,15 +849,23 @@ async function prepareExports(page, adminBaseUrl, libraryUrl, homepage) {
 }
 
 async function openFolderMenu(page) {
-  if (await page.$('.folder-sidebar.is-collapsed')) await page.click('.folder-mobile-toggle');
   if (await page.$('.snapshot-library.sidebar-hidden')) await page.click('.folder-sidebar-reopen');
-  const row = '.folder-row:has(.folder-link[aria-current="page"])';
-  await page.waitForSelector(row);
+  if (await page.$('.folder-mobile-toggle[aria-expanded="false"]')) await page.click('.folder-mobile-toggle');
+  const row = '.folder-row:has(> .folder-link[aria-current="page"])';
+  const button = `${row} > .folder-row-actions > .folder-menu-toggle`;
+  await page.waitForSelector(row, {visible: true});
+  const menuSelector = await page.$eval(button, node => `#${CSS.escape(node.getAttribute('popovertarget'))}`);
+  // Each viewport must open its own menu. A previously open popover can
+  // survive a resize while the sidebar toggle has moved focus out of it.
+  if (await page.$(`${menuSelector}:popover-open`)) {
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(`${menuSelector}:popover-open`, {hidden: true});
+  }
   await page.hover(row);
-  if (await page.$eval(`${row} .folder-menu-toggle`, node => node.getAttribute('aria-expanded')) !== 'true') await page.click(`${row} .folder-menu-toggle`);
-  await page.waitForSelector(`${row} .folder-menu:popover-open`);
-  await page.waitForFunction(row => document.querySelector(`${row} .folder-menu`).contains(document.activeElement), {}, row);
-  const menu = await page.$eval(`${row} .folder-menu`, node => {
+  await page.click(button);
+  await page.waitForSelector(`${menuSelector}:popover-open`, {visible: true});
+  await page.waitForFunction(selector => document.querySelector(selector).contains(document.activeElement), {}, menuSelector);
+  const menu = await page.$eval(menuSelector, node => {
     const box = node.getBoundingClientRect();
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,formats:[...node.querySelectorAll('[data-export-format]')].map(link=>link.dataset.exportFormat)};
   });
