@@ -364,6 +364,10 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         default_config = get_config(persona=selected_persona, resolve_plugins=self.can_override_crawl_config, **machine_inputs)
         self.default_persona = selected_persona
         self.default_config = default_config
+        if "persona" in self.initial:
+            # Both stock and custom templates show the resolved choice when
+            # a requested name is unavailable. Bound data still takes priority.
+            self.initial = {**self.initial, "persona": selected_persona.name if selected_persona else None}
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
         self.fields["permissions"].initial = default_config.PERMISSIONS

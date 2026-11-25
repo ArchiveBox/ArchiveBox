@@ -136,6 +136,7 @@
         const configuredPersona = embeddedPersona(name);
         if (configuredPersona) {
             applyPersonaConfig(name, configuredPersona);
+            rememberPersona(name);
             setPersonaPending(false);
             onApplied();
             return;
@@ -153,6 +154,7 @@
             const persona = await response.json();
             if (personaRequest !== request) return;
             applyPersonaConfig(name, persona);
+            rememberPersona(name);
             personaStatus.textContent = '';
         } catch (_) {
             if (personaRequest !== request) return;
@@ -1123,13 +1125,40 @@
 
     // LocalStorage: Save/Load form state excluding URLs
     const STORAGE_KEY = 'archivebox_add_form_state';
+    const PERSONA_COOKIE = 'archivebox_add_persona';
     let restoringFormState = false;
+    let preferredPersona;
+    let personaCookie;
+
+    function getPersonaCookie() {
+        try {
+            const prefix = `${PERSONA_COOKIE}=`;
+            const cookie = document.cookie.split(';').map(part => part.trimStart()).find(part => part.startsWith(prefix));
+            return cookie && decodeURIComponent(cookie.slice(prefix.length));
+        } catch (_) {
+            return undefined;
+        }
+    }
+
+    function rememberPersona(name) {
+        preferredPersona = name;
+        if (!name || name === personaCookie) return;
+        try {
+            const action = new URL(form.action);
+            if (action.origin !== location.origin || action.pathname.includes(';')) return;
+            const secure = location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `${PERSONA_COOKIE}=${encodeURIComponent(name)}; Path=${action.pathname}; Max-Age=31536000; SameSite=Lax${secure}`;
+            personaCookie = name;
+        } catch (_) {
+            // LocalStorage still restores the persona if cookies are blocked.
+        }
+    }
 
     function saveFormState() {
         if (applyingPluginPreset || restoringFormState || personaRequest) return;
-        const state = {};
+        const state = {persona: preferredPersona};
         document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
-            if (el.name === 'csrfmiddlewaretoken' || el.name === 'url') return;
+            if (el.name === 'csrfmiddlewaretoken' || el.name === 'url' || el === personaSelect) return;
             if (el.name === 'config' || el.name.startsWith('plugin_config__') || el.closest('#id_config_container')) return;
             if (el.type === 'checkbox' || el.type === 'radio') {
                 state[el.name + ':' + el.value] = el.checked;
@@ -1145,14 +1174,16 @@
     }
 
     function loadFormState() {
+        const state = getSavedFormState();
+        personaCookie = getPersonaCookie();
+        const options = personaSelect ? [...personaSelect.options] : [];
+        preferredPersona = [personaCookie, state.persona].find(name => options.some(option => option.value === name));
         // A validation response already holds the submitted values, including
         // fields the user may have changed after choosing a persona.
         if (form.hasAttribute('data-bound')) return;
         const params = new URLSearchParams(location.search);
-        const state = getSavedFormState();
-        const selectedPersona = !params.has('persona') && personaSelect
-            && [...personaSelect.options].some(option => option.value === state.persona)
-            ? state.persona : initialPersona;
+        const linkedPersona = params.getAll('persona').at(-1);
+        const selectedPersona = linkedPersona === undefined && preferredPersona ? preferredPersona : initialPersona;
         const initial = embeddedPersona(initialPersona);
         const initializedByServer = form.hasAttribute('data-persona-config-lazy');
         const prefilled = location.search ? [...form.elements]
@@ -1197,6 +1228,11 @@
                 finishRestoringFormState();
             });
         } else {
+            // A linked choice or a legacy preference may already be rendered
+            // by the server. Persist that applied choice without fetching it.
+            if (linkedPersona === initialPersona || (linkedPersona === undefined && preferredPersona === initialPersona)) {
+                rememberPersona(initialPersona);
+            }
             finishRestoringFormState();
         }
     }

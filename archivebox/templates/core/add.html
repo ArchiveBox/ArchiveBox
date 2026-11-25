@@ -23,6 +23,9 @@
     <link rel="stylesheet" href="{% static 'tag-badges.css' %}" />
     <script src="{% static 'tag-colors.js' %}"></script>
     {% if can_override_crawl_config %}
+    {# Discover the folder dialog's assets with the form, before parsing the settings panels. #}
+    <link rel="stylesheet" href="{% static 'search/field.css' %}" />
+    <script src="{% static 'search/field.js' %}" defer></script>
     <link rel="stylesheet" href="{% static 'library/folders.css' %}" />
     <script src="{% static 'library/folders.js' %}" defer></script>
     {% endif %}
@@ -356,7 +359,7 @@
                     <button type="submit" id="submit"{% if can_override_crawl_config %} data-settings-submit disabled{% endif %}>&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
-            {% if can_override_crawl_config %}{% include "core/folder_dialog.html" %}{% endif %}
+            {% if can_override_crawl_config %}{% include "core/folder_dialog.html" with search_field_assets_in_head=True %}{% endif %}
             <br/><br/><br/>
             {% if absolute_add_path %}
             <!-- <center id="bookmarklet">

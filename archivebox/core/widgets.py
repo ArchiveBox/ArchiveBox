@@ -46,7 +46,7 @@ class ScheduleWidget(forms.TextInput):
 
     class Media:
         css = {"all": ["schedule-presets.css"]}
-        js = ["schedule-presets.js"]
+        js = [forms.Script("schedule-presets.js", defer=True)]
 
     def render(self, name, value, attrs=None, renderer=None):
         input_html = super().render(name, value, attrs, renderer)

@@ -6,8 +6,11 @@ import time
 import pytest
 from asgiref.sync import async_to_sync
 from django.test import AsyncClient
+from django.urls import reverse
 from lxml.html import fromstring, tostring
 
+from archivebox.machine.models import Machine
+from archivebox.personas.models import Persona
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -43,6 +46,20 @@ def test_admin_timing_sync(admin_client, snapshot):
     assert measured.render() is measured
     assert measured["Server-Timing"] == header
     assert "Server-Timing" not in admin_client.get(PATH, HTTP_HOST=ADMIN_TEST_HOST)
+
+
+def test_settings_form_prepare_and_render_timing(admin_client):
+    for path in (
+        reverse("add"),
+        reverse("admin:personas_persona_change", args=[Persona.get_or_create_default().pk]),
+        reverse("admin:machine_machine_change", args=[Machine.current().pk]),
+    ):
+        plain = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
+        measured = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST, HTTP_X_ARCHIVEBOX_ADMIN_TIMING="1")
+        assert "Server-Timing" not in plain
+        assert_metrics(measured)
+        assert measured.status_code == 200
+        assert b'id="plugin-settings"' in measured.content
 
 
 def test_english_admin_render_avoids_global_translation_state(admin_client, snapshot):

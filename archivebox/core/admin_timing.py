@@ -1,4 +1,4 @@
-"""Opt-in, request-local timing for authenticated snapshot changelists."""
+"""Opt-in, request-local timing for authenticated admin pages."""
 
 from functools import wraps
 from pathlib import Path
@@ -28,7 +28,7 @@ def _runnable_metric(phase: str, before: tuple[int, int] | None, after: tuple[in
     return f"admin_{phase}_runnable;dur={(after[1] - before[1]) / 1_000_000:.1f}"
 
 
-def timed_snapshot_changelist(view):
+def timed_admin_view(view):
     @wraps(view)
     def measured(self, request, *args, **kwargs):
         eligible = request.method == "GET" and request.user.is_active and request.user.is_staff and request.GET.get("_embedded") != "crawl"
@@ -49,7 +49,7 @@ def timed_snapshot_changelist(view):
         prepare_runnable = _runnable_metric("prepare", prepare_before, _read_schedstat())
         prepare = (perf_counter() - started) * 1000
         prepare_cpu = (thread_time() - cpu_started) * 1000
-        # Redirects/errors are not measurements of a rendered changelist.
+        # Redirects/errors are not measurements of a rendered page.
         if response.status_code != 200 or not hasattr(response, "render") or response.is_rendered:
             return response
         if query_enabled:

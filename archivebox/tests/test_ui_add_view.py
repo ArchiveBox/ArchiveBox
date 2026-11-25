@@ -342,6 +342,50 @@ def test_add_view_public_only_lists_public_personas(client, admin_user, public_a
     assert secret_value.encode() not in selected.content
 
 
+def test_add_view_persona_cookie_visibility_and_explicit_selection(client, admin_user, public_add_enabled, settings):
+    from urllib.parse import quote
+
+    name = "café & News %"
+    max_length_name = "定" * 64
+    Persona.objects.create(name=name, config={"PERMISSIONS": "private", "TIMEOUT": 71})
+    Persona.objects.create(name="Public Reader", config={"PERMISSIONS": "public", "TIMEOUT": 81})
+    Persona.objects.create(name=max_length_name, config={"PERMISSIONS": "public", "TIMEOUT": 91})
+    client.cookies["archivebox_add_persona"] = quote(name)
+    add_url = reverse("add")
+    assert client.get(add_url, HTTP_HOST=WEB_HOST).context["form"]["persona"].value() == "Default"
+    assert client.get(add_url, {"persona": "Public Reader"}, HTTP_HOST=WEB_HOST).context["form"]["persona"].value() == "Public Reader"
+    client.force_login(admin_user)
+    saved = client.get(add_url, HTTP_HOST=ADMIN_HOST)
+    assert saved.context["form"]["persona"].value() == name
+    assert saved.context["form"]["timeout"].value() == 71
+    explicit = client.get(add_url, {"persona": "Public Reader"}, HTTP_HOST=ADMIN_HOST)
+    assert explicit.context["form"]["persona"].value() == "Public Reader"
+    missing = client.get(add_url, {"persona": "Missing"}, HTTP_HOST=ADMIN_HOST)
+    assert missing.context["form"]["persona"].value() == "Default"
+
+    invalid = client.post(add_url, {**ADD_FORM_DEFAULTS, "url": "Missing URL", "persona": "Public Reader"}, HTTP_HOST=ADMIN_HOST)
+    assert "url" in invalid.context["form"].errors
+    assert invalid.context["form"]["persona"].value() == "Public Reader"
+
+    client.cookies["archivebox_add_persona"] = quote(max_length_name)
+    max_length = client.get(add_url, HTTP_HOST=ADMIN_HOST)
+    assert max_length.context["form"]["persona"].value() == max_length_name
+    assert max_length.context["form"]["timeout"].value() == 91
+    client.cookies["archivebox_add_persona"] = quote(name)
+    settings.CUSTOM_TEMPLATES_ENABLED = True
+    custom = client.get(add_url, HTTP_HOST=ADMIN_HOST)
+    assert custom.context["form"]["persona"].value() == name
+    assert name in json.loads(custom.context["persona_config_map_json"])
+
+    for value in ("%FF", "x" * 65, "%41" * 257):
+        client.cookies["archivebox_add_persona"] = value
+        with CaptureQueriesContext(connection) as queries:
+            rejected = client.get(add_url, HTTP_HOST=ADMIN_HOST)
+        assert rejected.context["form"]["persona"].value() == "Default"
+        assert "x" * 65 not in "".join(query["sql"] for query in queries)
+        assert "A" * 257 not in "".join(query["sql"] for query in queries)
+
+
 def test_public_add_does_not_resolve_hidden_plugin_settings(client, admin_user, public_add_enabled):
     import cProfile
     import pstats
@@ -458,7 +502,7 @@ def test_add_view_preserves_automatic_concurrency(client, public_add_enabled, co
 @pytest.mark.django_db(transaction=True)
 def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabled, live_server, browser_runtime):
     from concurrent.futures import ThreadPoolExecutor
-    from urllib.parse import urlsplit
+    from urllib.parse import quote, quote_plus, urlsplit
 
     from playwright.sync_api import expect, sync_playwright
 
@@ -466,7 +510,8 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
     public_add_enabled.config["BASE_URL"] = f"http://archivebox.localhost:{port}"
     public_add_enabled.save(update_fields=["config"])
     Persona.objects.filter(name="Default").update(config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 0})
-    Persona.objects.create(name="Limited", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3})
+    limited = "Research & café %"
+    Persona.objects.create(name=limited, config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3})
     unavailable = Persona.objects.create(name="Unavailable", config={"PERMISSIONS": "public"})
 
     with sync_playwright() as playwright:
@@ -477,19 +522,40 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
         page = browser.new_page()
         persona_requests = []
         page.on("request", lambda request: persona_requests.append(request.url) if "persona_config=" in request.url else None)
-        page.goto(f"http://web.archivebox.localhost:{port}/add/")
+        add_url = f"http://web.archivebox.localhost:{port}/add/"
+        page.goto(add_url)
         persona = page.locator('select[name="persona"]')
         concurrency = page.locator('input[name="crawl_max_concurrent_snapshots"]')
         expect(concurrency).to_have_value("0")
         assert not persona_requests
-        with page.expect_response(lambda response: response.url.endswith("?persona_config=Limited")) as alternate:
-            persona.select_option("Limited")
+        alternate_query = f"?persona_config={quote_plus(limited)}"
+        with page.expect_response(lambda response: response.url.endswith(alternate_query)) as alternate:
+            persona.select_option(limited)
         assert alternate.value.status == 200
         expect(concurrency).to_have_value("3")
-        with page.expect_response(lambda response: response.url.endswith("?persona_config=Limited")):
-            page.reload()
-        expect(persona).to_have_value("Limited")
+        [preference] = [cookie for cookie in page.context.cookies(add_url) if cookie["name"] == "archivebox_add_persona"]
+        assert preference["value"] == quote(limited, safe="")
+        assert preference["path"] == "/add/"
+        assert preference["domain"] == "web.archivebox.localhost"
+        assert preference["sameSite"] == "Lax"
+        assert not any(
+            cookie["name"] == "archivebox_add_persona" for cookie in page.context.cookies(add_url.removesuffix("/add/") + "/admin/")
+        )
+        navigation = page.reload()
+        document = fromstring(navigation.body())
+        assert document.xpath('//select[@name="persona"]/option[@selected]/@value') == [limited]
+        assert document.xpath('//input[@name="crawl_max_concurrent_snapshots"]/@value') == ["3"]
+        expect(persona).to_have_value(limited)
         expect(concurrency).to_have_value("3")
+        assert len(persona_requests) == 1
+
+        # Old localStorage-only visits, or browsers discarding the cookie,
+        # still resolve the saved selection and write the preference on success.
+        page.context.clear_cookies(name="archivebox_add_persona")
+        with page.expect_response(lambda response: response.url.endswith(alternate_query)):
+            page.reload()
+        expect(concurrency).to_have_value("3")
+        assert any(cookie["name"] == "archivebox_add_persona" for cookie in page.context.cookies(add_url))
         persona.select_option("Default")
         expect(concurrency).to_have_value("0")
         expect(concurrency).to_have_attribute("min", "0")
@@ -514,13 +580,13 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
         # Revert immediately while a real request is outstanding. No request
         # from the previous choice may submit the form or reapply its defaults.
         pending = persona.evaluate(
-            """select => {
+            """(select, alternate) => {
                 const form = select.form;
                 const change = value => {
                     select.value = value;
                     select.dispatchEvent(new Event('change', {bubbles: true}));
                 };
-                change('Limited');
+                change(alternate);
                 form.requestSubmit();
                 const result = {
                     personaBusy: select.getAttribute('aria-busy'),
@@ -531,6 +597,7 @@ def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabl
                 change('Default');
                 return result;
             }""",
+            limited,
         )
         assert pending == {"personaBusy": "true", "settingLocked": True, "urlLocked": False, "submitted": False}
         expect(persona).to_have_value("Default")
@@ -568,7 +635,7 @@ def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabl
     port = urlsplit(live_server.url).port
     public_add_enabled.config["BASE_URL"] = f"http://archivebox.localhost:{port}"
     public_add_enabled.save(update_fields=["config"])
-    Persona.objects.create(name="Saved", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3, "TIMEOUT": 23})
+    Persona.objects.create(name="Saved", config={"PERMISSIONS": "private", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3, "TIMEOUT": 23})
     Persona.objects.create(
         name="Linked",
         config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 5, "TIMEOUT": 61, "PLUGINS": "wget"},
@@ -586,13 +653,21 @@ def test_add_view_linked_persona_config_wins_over_saved_persona(public_add_enabl
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         page.goto(base)
+        persona_requests = []
+        page.on("request", lambda request: persona_requests.append(request.url) if "persona_config=" in request.url else None)
         page.locator('select[name="persona"]').select_option("Saved")
         expect(page.locator('input[name="timeout"]')).to_have_value("23")
         assert page.evaluate("JSON.parse(localStorage.getItem('archivebox_add_form_state')).persona") == "Saved"
+        saved = page.reload()
+        assert fromstring(saved.body()).xpath('//select[@name="persona"]/option[@selected]/@value') == ["Saved"]
+        page.get_by_role("textbox", name="URLs:", exact=True).fill("https://lobste.rs/")
+        expect(page.locator("#url-counter")).to_have_text("1 URL detected")
+        assert len(persona_requests) == 1
         page.goto(base + "?persona=Linked&crawl_max_concurrent_snapshots=7")
         expect(page.locator('select[name="persona"]')).to_have_value("Linked")
         expect(page.locator('input[name="timeout"]')).to_have_value("61")
         expect(page.locator('input[name="crawl_max_concurrent_snapshots"]')).to_have_value("7")
+        assert any(cookie["name"] == "archivebox_add_persona" and cookie["value"] == "Linked" for cookie in page.context.cookies(base))
         config = page.locator('input[name="config"]')
         assert json.loads(config.input_value())["TIMEOUT"] == 61
         assert "PLUGINS" not in json.loads(config.input_value())

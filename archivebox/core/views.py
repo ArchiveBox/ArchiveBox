@@ -9,7 +9,7 @@ from contextlib import closing
 from functools import cached_property, reduce
 from pathlib import Path
 from typing import ClassVar, cast
-from urllib.parse import quote, urlparse, urlsplit
+from urllib.parse import quote, unquote, urlparse, urlsplit
 from uuid import UUID
 
 from admin_data_views.typing import ItemContext, SectionData, TableContext
@@ -58,6 +58,7 @@ from archivebox.config.common import (
     redact_sensitive_config,
 )
 from archivebox.config.configset import RUNTIME_REPORTING_CONFIG_KEYS, BaseConfigSet
+from archivebox.core.admin_timing import timed_admin_view
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Folder, Snapshot, SnapshotTag
 from archivebox.memento.views import add_memento_headers, timegate_response, timemap_response
@@ -2006,7 +2007,21 @@ class AddView(UserPassesTestMixin, FormView):
     def get_initial(self):
         """Prefill native capture fields when opening More options from another view."""
         initial = super().get_initial()
-        if self.request.method == "GET":
+        if self.request.method in {"GET", "HEAD"}:
+            if "persona" in self.request.GET:
+                initial["persona"] = self.request.GET["persona"]
+            else:
+                saved_persona = self.request.COOKIES.get("archivebox_add_persona", "")
+                name_limit = Persona._meta.get_field("name").max_length
+                # UTF-8 percent encoding can use twelve bytes per character.
+                # AddLinkForm still resolves this hint through its visible queryset.
+                if name_limit and 0 < len(saved_persona) <= name_limit * 12:
+                    try:
+                        saved_persona = unquote(saved_persona, errors="strict")
+                    except UnicodeDecodeError:
+                        saved_persona = ""
+                    if 0 < len(saved_persona) <= name_limit:
+                        initial["persona"] = saved_persona
             url = self.request.GET.get("url", None)
             if url:
                 initial["url"] = url if "://" in url else f"https://{url}"
@@ -2014,7 +2029,6 @@ class AddView(UserPassesTestMixin, FormView):
                 for field in (
                     "folder",
                     "tag",
-                    "persona",
                     "permissions",
                     "depth",
                     "max_urls",
@@ -2042,6 +2056,7 @@ class AddView(UserPassesTestMixin, FormView):
     def test_func(self):
         return get_request_config(self.request).PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
+    @timed_admin_view
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):
         if "persona_config" not in request.GET:
@@ -2167,7 +2182,6 @@ class AddView(UserPassesTestMixin, FormView):
         }
         if resolve_on_selection and configured_personas:
             selected = configured_personas[0].name
-            form.initial["persona"] = selected
             if can_override_crawl_config:
                 # Initialize the selected settings in HTML so the browser only
                 # has to replace them when the selected Persona changes.

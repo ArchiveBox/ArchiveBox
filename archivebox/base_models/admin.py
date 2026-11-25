@@ -17,6 +17,8 @@ from django.utils.html import json_script
 from django.utils.safestring import SafeString, mark_safe
 from django_object_actions import DjangoObjectActions
 
+from archivebox.core.admin_timing import timed_admin_view
+
 
 class HexUUIDConverter:
     """URL path converter that canonicalizes UUIDs to their 32-char hex form.
@@ -232,6 +234,10 @@ class ConfigEditorMixin(admin.ModelAdmin):
 
     config_includes_machine_settings = False
     reserve_sqlite_config_writer = False
+
+    @timed_admin_view
+    def changeform_view(self, request, *args, **kwargs):
+        return super().changeform_view(request, *args, **kwargs)
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         if request.method != "POST" or not self.reserve_sqlite_config_writer:
