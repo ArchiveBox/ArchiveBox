@@ -308,7 +308,9 @@ jobs:
             {
               echo 'image=archivebox-downloader'
               echo "reference=oci:$CANDIDATE_DIGEST"
-              echo "context=archivebox-downloader=oci-layout://$RUNNER_TEMP/downloader-layout@$CANDIDATE_DIGEST"
+              # The OCI reference parser requires a tag before @digest. The
+              # digest still selects the exact verified image, not the tag.
+              echo "context=archivebox-downloader=oci-layout://$RUNNER_TEMP/downloader-layout:latest@$CANDIDATE_DIGEST"
             } >> "$GITHUB_OUTPUT"
           else
             test -n "$PUBLISHED_IMAGE"

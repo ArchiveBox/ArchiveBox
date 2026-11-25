@@ -139,10 +139,12 @@ FROM archivebox-runtime-base AS archivebox-builder
 
 WORKDIR "$CODE_DIR"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/opt/archivebox/lib/cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     --mount=type=bind,from=archivebox-dependencies,source=/tmp/pylock.toml,target=/tmp/pylock.toml \
     <<'EOF'
 echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
-export UV_NO_CACHE=true
+# Keep downloads outside image layers while reusing wheels for the exact
+# artifact hashes in pylock.toml when another dependency changes.
 rm -f /etc/apt/apt.conf.d/docker-clean
 apt-get update -qq
 apt-get install -qq -y --no-install-recommends x11-utils
@@ -157,7 +159,6 @@ apt-get install -qq -y --no-install-recommends x11-utils
 # inherited from abx-dl (the previous sync used --inexact for the same reason).
 /usr/bin/uv pip install \
     --python /venv/bin/python \
-    --no-cache \
     --no-deps \
     --require-hashes \
     --requirements /tmp/pylock.toml
