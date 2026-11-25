@@ -730,64 +730,42 @@ class InlineTagEditorWidget(TagEditorWidget):
         # Use snapshot_id from __init__ or from render call
         snapshot_id = snapshot_id or self.snapshot_id
 
-        # Parse value to get list of tag dicts with id and name
-        tag_data = []
-        if value:
-            if isinstance(value, (BaseManager, QuerySet)):
-                for tag in value.all():
-                    tag_data.append({"id": tag.pk, "name": tag.name})
-                tag_data.sort(key=lambda x: x["name"].lower())
-            elif isinstance(value, (list, tuple)):
-                from archivebox.core.models import Tag
+        from archivebox.core.models import Tag
 
-                if value and isinstance(value[0], Tag):
-                    for tag in value:
-                        tag_data.append({"id": tag.pk, "name": tag.name})
-                    tag_data.sort(key=lambda x: x["name"].lower())
+        if isinstance(value, (BaseManager, QuerySet)):
+            tags = value.all()
+        elif isinstance(value, (list, tuple)) and value and isinstance(value[0], Tag):
+            tags = value
+        else:
+            tags = ()
 
         widget_id_raw = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get("id", name) if attrs else name)
         widget_id = self._normalize_id(widget_id_raw)
 
-        # Build pills HTML with filter links
-        pills_html = ""
-        for td in tag_data:
-            remove_button = ""
-            if self.editable:
-                remove_button = (
-                    f'<button type="button" class="tag-remove-btn" '
-                    f'data-tag-id="{td["id"]}" data-tag-name="{self._escape(td["name"])}">&times;</button>'
-                )
-            pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(td["name"])}" data-tag-id="{td["id"]}" style="{tag_color_style(td["name"])}">
-                    <a href="/admin/core/snapshot/?tags__id__exact={td["id"]}" class="tag-link" title="{self._escape(td["name"])}">{self._escape(td["name"])}</a>
-                    {remove_button}
-                </span>
-            '''
+        # Each pill already carries the tag identity. The editor reads those
+        # pills on interaction, so the list needs no duplicate JSON for editing.
+        pills = []
+        for tag in sorted(tags, key=lambda tag: tag.name.lower()):
+            tag_name = self._escape(tag.name)
+            remove_button = '<button type="button" class="tag-remove-btn">&times;</button>' if self.editable else ""
+            pills.append(
+                f'<span class="tag-pill" data-tag="{tag_name}" data-tag-id="{tag.pk}" style="{tag_color_style(tag.name)}">'
+                f'<a href="/admin/core/snapshot/?tags__id__exact={tag.pk}" class="tag-link" title="{tag_name}">{tag_name}</a>'
+                f"{remove_button}</span>",
+            )
 
-        tags_json = escape(json.dumps(tag_data))
         input_html = ""
-        readonly_class = " readonly" if not self.editable else ""
         if self.editable:
-            input_html = f'''
-            <input type="text"
-                   id="{widget_id}_input"
-                   class="tag-inline-input-sm"
-                   list="{widget_id}_datalist"
-                   placeholder="+"
-                   autocomplete="off"
-                   data-inline-tag-input="1"
-                   data-tag-suggestions="/api/v1/core/tags/autocomplete/"
-            >
-            <datalist id="{widget_id}_datalist"></datalist>
-            '''
+            input_html = (
+                f'<input type="text" id="{widget_id}_input" class="tag-inline-input-sm" list="{widget_id}_datalist" '
+                'placeholder="+" autocomplete="off" data-inline-tag-input="1" data-tag-suggestions="/api/v1/core/tags/autocomplete/">'
+                f'<datalist id="{widget_id}_datalist"></datalist>'
+            )
 
-        html = f'''
-        <span id="{widget_id}_container" class="tag-editor-inline{readonly_class}" data-snapshot-id="{snapshot_id}" data-tags="{tags_json}" data-readonly="{int(not self.editable)}">
-            <span id="{widget_id}_pills" class="tag-pills-inline">
-                {pills_html}
-            </span>
-            {input_html}
-        </span>
-        '''
-
+        readonly_class = "" if self.editable else " readonly"
+        html = (
+            f'<span id="{widget_id}_container" class="tag-editor-inline{readonly_class}" '
+            f'data-snapshot-id="{escape(str(snapshot_id))}" data-readonly="{int(not self.editable)}">'
+            f'<span id="{widget_id}_pills" class="tag-pills-inline">{"".join(pills)}</span>{input_html}</span>'
+        )
         return mark_safe(html)

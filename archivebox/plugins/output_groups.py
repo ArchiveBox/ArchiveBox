@@ -90,7 +90,8 @@ def plugin_output_sizes(results) -> dict[str, int]:
 
 def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
     """Use the detail-card ordering for icon piles, without synthetic cards."""
-    return [output["name"] for output in order_snapshot_outputs([{"name": plugin, "size": sizes.get(plugin, 0)} for plugin in plugins])]
+    outputs = [{"name": plugin, "size": sizes.get(plugin, 0)} for plugin in plugins]
+    return [output["name"] for output in order_snapshot_outputs(outputs, include_extra_cards=False)]
 
 
 def snapshot_thumbnail_result(results):
@@ -154,12 +155,14 @@ def snapshot_thumbnail_image_paths(results, *, screenshots_only=False):
                 yield result.plugin, path
 
 
-def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def order_snapshot_outputs(outputs: list[dict[str, Any]], *, include_extra_cards=True) -> list[dict[str, Any]]:
     """Annotate and order available cards; unknown plugins stay visible in Other files."""
     group_order = {group_id: index for index, (group_id, _) in enumerate(OUTPUT_GROUPS)}
     catalog = get_plugin_catalog()
 
-    if cards := get_extra_snapshot_output_cards(outputs):
+    # Icon piles have actual results only. Their name/size records cannot
+    # supply the files that plugin hooks use to construct detail cards.
+    if include_extra_cards and (cards := get_extra_snapshot_output_cards(outputs)):
         outputs = [*outputs, *cards]
 
     def sort_key(output):

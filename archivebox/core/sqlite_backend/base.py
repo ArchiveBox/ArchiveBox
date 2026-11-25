@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 from collections.abc import Mapping
+from json.decoder import scanstring
 import re
 
 from django.db.backends.sqlite3.base import DatabaseWrapper as DjangoSQLiteDatabaseWrapper
@@ -31,17 +32,21 @@ def _has_saved_output(manifest):
         value = json.loads(manifest)
         return isinstance(value, list) and any(isinstance(item, dict) for item in value)
     index += 1
-    decode = json.JSONDecoder().raw_decode
+    decode = None
     while True:
         while manifest[index] in " \t\r\n,":
             index += 1
         if manifest[index] == "}":
             return False
-        key, index = decode(manifest, index)
+        # A key is always a string, so read it directly. Only excluded entries
+        # need a general JSON decoder to skip their values.
+        key, index = scanstring(manifest, index + 1)
         while manifest[index] in " \t\r\n:":
             index += 1
         if manifest[index] == "{" and not key.lower().endswith((".pid", ".log", ".sh")):
             return True
+        if decode is None:
+            decode = json.JSONDecoder().raw_decode
         _value, index = decode(manifest, index)
 
 

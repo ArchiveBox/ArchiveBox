@@ -60,6 +60,74 @@ def test_cold_snapshot_list_uses_existing_statistics_for_total_and_page_links(ad
     assert not any("COUNT(*)" in query["sql"] and 'FROM "core_snapshot"' in query["sql"] for query in queries)
 
 
+def test_unfiltered_snapshot_list_reuses_collection_total_without_starting_a_second_count(admin_client, admin_user, paginated_snapshots):
+    from threading import current_thread
+
+    from django.db.backends.signals import connection_created
+
+    from archivebox.progressmonitor.collection import collection_summary
+
+    collection_summary(admin_user)
+    for thread in threads():
+        if thread.name == "collection-summary":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    assert collection_summary(admin_user, refresh=False)["snapshots"] == 123
+
+    count_connections = []
+
+    def record_count_connection(sender, **kwargs):
+        if current_thread().name == "snapshot-list-count":
+            count_connections.append(kwargs["connection"])
+
+    connection_created.connect(record_count_connection)
+    try:
+        response = admin_client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+        for thread in threads():
+            if thread.name == "snapshot-list-count":
+                thread.join(timeout=10)
+                assert not thread.is_alive()
+    finally:
+        connection_created.disconnect(record_count_connection)
+
+    assert response.status_code == 200
+    changelist = response.context_data["cl"]
+    assert changelist.display_result_count == 123
+    assert changelist.display_num_pages == 3
+    assert count_connections == []
+
+
+def test_unfiltered_snapshot_list_prefers_a_hydrated_list_total_to_planner_statistics(admin_client, crawl, paginated_snapshots):
+    from archivebox.core.models import Snapshot
+    from archivebox.misc.db import approximate_row_counts
+    from archivebox.progressmonitor.collection import snapshot_list_count
+
+    url = reverse("admin:core_snapshot_changelist")
+    first = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    queryset = first.context_data["cl"].queryset
+    snapshot_list_count(queryset)
+    for thread in threads():
+        if thread.name == "snapshot-list-count":
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+    assert snapshot_list_count(queryset, refresh=False)["count"] == 123
+
+    try:
+        with transaction.atomic():
+            Snapshot.objects.create(url="https://www.python.org/", crawl=crawl, status="sealed")
+            with connection.cursor() as cursor:
+                cursor.execute("ANALYZE core_snapshot")
+            assert approximate_row_counts(connection)["core_snapshot"] == 124
+            response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+            transaction.set_rollback(True)
+    finally:
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("ANALYZE sqlite_schema")
+    assert response.status_code == 200
+    assert response.context_data["cl"].display_result_count == 123
+
+
 def test_filtered_page_totals_keep_their_scope_and_new_pages(admin_client, crawl, paginated_snapshots):
     from archivebox.core.models import Snapshot
     from archivebox.progressmonitor.collection import snapshot_list_count

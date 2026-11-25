@@ -379,22 +379,25 @@ class SnapshotChangeList(SearchResultsChangeList):
         if search_ranks is not None:
             for obj in self.result_list:
                 obj.search_rank = search_ranks[obj.pk.hex]
-        summary = None if self.result_count_exact else snapshot_list_count(self.queryset)
-        if summary is None and not self.result_count_exact and not self.queryset.query.where:
+        summary = None
+        estimate = None
+        if not self.result_count_exact and not self.queryset.query.where:
             from archivebox.misc.db import approximate_row_counts
             from archivebox.progressmonitor.collection import collection_summary
             from django.db import connections
 
-            # The background list count may still be cold. Reuse the existing
-            # collection sample or planner statistics for an unfiltered list;
-            # neither requires scanning snapshots on the request thread.
+            # A cold exact count reads the whole index even when a display
+            # total is already available. Avoid competing with page reads.
             collection = collection_summary(request.user, refresh=False) if request.user.is_superuser else None
-            estimate = (
-                collection["snapshots"]
-                if collection
-                else approximate_row_counts(connections[self.queryset.db]).get(Snapshot._meta.db_table)
-            )
-            if estimate is not None:
+            if collection:
+                summary = {"count": collection["snapshots"]}
+            else:
+                estimate = approximate_row_counts(connections[self.queryset.db]).get(Snapshot._meta.db_table)
+        if summary is None and not self.result_count_exact:
+            # Reuse an earlier exact sample ahead of a planner estimate.
+            # Filtered and unanalyzed lists still refresh in the background.
+            summary = snapshot_list_count(self.queryset, refresh=estimate is None)
+            if summary is None and estimate is not None:
                 summary = {"count": estimate}
         self.display_result_count = max(observed, summary["count"]) if summary else count
         self.result_count_cached = summary is not None
@@ -639,15 +642,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Date", ordering="created_at")
     def created_at_display(self, obj):
         created_at = timezone.localtime(obj.created_at)
-        minutes_ago = max(0, int((timezone.now() - obj.created_at).total_seconds() // 60))
+        now = timezone.now()
+        minutes_ago = max(0, int((now - obj.created_at).total_seconds() // 60))
         relative_time = "just now" if minutes_ago == 0 else f"{minutes_ago}m ago" if minutes_ago < 60 else f"{minutes_ago // 60}hr ago"
+        date = date_format(created_at, "Y-m-d")
+        time = date_format(created_at, "g:i A")
         return format_html(
             '<span class="snapshot-created-at{}"><span class="snapshot-created-at__date">{}</span><span class="snapshot-created-at__time">{}</span>'
             '<span class="snapshot-created-at__relative" title="{}">{}</span></span>',
-            " snapshot-created-at--today" if created_at.date() == timezone.localdate() else "",
-            date_format(created_at, "Y-m-d"),
-            date_format(created_at, "g:i A"),
-            date_format(created_at, "Y-m-d g:i A T"),
+            " snapshot-created-at--today" if created_at.date() == timezone.localdate(now) else "",
+            date,
+            time,
+            f"{date} {time} {date_format(created_at, 'T')}",
             relative_time,
         )
 

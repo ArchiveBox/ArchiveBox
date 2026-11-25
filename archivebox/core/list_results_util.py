@@ -184,7 +184,7 @@ class ListResult:
         from archivebox.plugins.discovery import get_plugin_name, plugin_output_is_text
 
         # Match the resolver's rejection of legacy absolute output paths.
-        if self.output_str and not plugin_output_is_text(self.plugin) and self.output_str.strip().startswith("/"):
+        if self.output_str and self.output_str.lstrip().startswith("/") and not plugin_output_is_text(self.plugin):
             return None
         if self.has_saved_output or (self.has_saved_output is None and ArchiveResult.resolve_embed_path(self.plugin, self.output_str, {})):
             return get_plugin_name(self.plugin)

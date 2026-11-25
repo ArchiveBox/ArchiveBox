@@ -13,7 +13,13 @@
   // Observe only the current results toolbar; streaming can replace it.
   const toolbarSize = new ResizeObserver(entries => {
     for (const {target, borderBoxSize} of entries) {
-      target.closest('.snapshot-library')?.style.setProperty('--search-toolbar-height', borderBoxSize[0].blockSize + 'px');
+      // Only the sidebar heading consumes this property. Updating it on the
+      // library would invalidate inherited styles throughout the results.
+      const heading = target.closest('.snapshot-library')?.querySelector(':scope > .folder-sidebar > .folder-section-heading');
+      const height = borderBoxSize[0].blockSize + 'px';
+      if (heading && heading.style.getPropertyValue('--search-toolbar-height') !== height) {
+        heading.style.setProperty('--search-toolbar-height', height);
+      }
     }
   });
   function init(root) {
@@ -207,7 +213,9 @@
       }
     }
     let paintTimer;
-    function paint(pos = selection()) {
+    // Reading the current selection can force a style update. An unfocused
+    // editor paints its decorations without using the caret.
+    function paint(pos = focused ? selection() : {anchor: query.length, focus: query.length}) {
       clearTimeout(paintTimer);
       paintTimer = null;
       paintedSelection = pos;

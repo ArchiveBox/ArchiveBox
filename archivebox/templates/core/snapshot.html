@@ -1138,6 +1138,11 @@
             }
         </style>
         {% include "core/snapshot_stacks.css.html" %}
+        {% if not STATIC_EXPORT %}
+        {% if snapshot_state == 'queued' or snapshot_state == 'started' or snapshot_state == 'paused' %}
+        <link rel="stylesheet" href="{% static 'progress-monitor.css' %}">
+        {% endif %}
+        {% endif %}
     </head>
     <body>
         <a class="skip-to-content-link" href="#main-frame-wrapper">Skip to archived content</a>

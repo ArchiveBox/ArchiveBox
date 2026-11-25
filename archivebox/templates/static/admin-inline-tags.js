@@ -33,60 +33,39 @@
         return headers;
     }
 
-    function parseTags(el) {
-        if (el._tagData) return el._tagData;
-        var raw = el.dataset.tags || '[]';
-        try {
-            el._tagData = JSON.parse(raw);
-        } catch (e) {
-            el._tagData = [];
-        }
-        return el._tagData;
-    }
+    function insertTag(el, id, name) {
+        const container = el.querySelector('.tag-pills-inline');
+        if (!container || container.querySelector(`[data-tag-id="${CSS.escape(String(id))}"]`)) return;
+        const pill = document.createElement('span');
+        pill.className = 'tag-pill';
+        pill.dataset.tag = name;
+        pill.dataset.tagId = id;
+        window.applyArchiveBoxTagColor(pill, name);
 
-    function setTags(el, tags) {
-        el._tagData = tags;
-        el.dataset.tags = JSON.stringify(tags);
-    }
+        const link = document.createElement('a');
+        link.href = '/admin/core/snapshot/?tags__id__exact=' + id;
+        link.className = 'tag-link';
+        link.textContent = link.title = name;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'tag-remove-btn';
+        remove.textContent = '×';
+        pill.append(link, remove);
 
-    function rebuildPills(el) {
-        var tags = parseTags(el);
-        var container = el.querySelector('.tag-pills-inline');
-        if (!container) return;
-        container.innerHTML = '';
-        tags.forEach(function(td) {
-            var pill = document.createElement('span');
-            pill.className = 'tag-pill';
-            pill.setAttribute('data-tag', td.name);
-            pill.setAttribute('data-tag-id', td.id);
-            window.applyArchiveBoxTagColor(pill, td.name);
-
-            var link = document.createElement('a');
-            link.href = '/admin/core/snapshot/?tags__id__exact=' + td.id;
-            link.className = 'tag-link';
-            link.textContent = td.name;
-            link.title = td.name;
-            pill.appendChild(link);
-
-            var removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'tag-remove-btn';
-            removeBtn.setAttribute('data-tag-id', td.id);
-            removeBtn.setAttribute('data-tag-name', td.name);
-            removeBtn.innerHTML = '&times;';
-            pill.appendChild(removeBtn);
-
-            container.appendChild(pill);
-        });
+        // Read the live list when the save completes so overlapping edits
+        // preserve each other's pills and keep untouched links focused.
+        const next = Array.from(container.children).find(existing =>
+            name.toLowerCase().localeCompare(existing.dataset.tag.toLowerCase()) < 0
+        );
+        container.insertBefore(pill, next || null);
     }
 
     function addTag(el, tagName) {
         tagName = String(tagName || '').trim();
         if (!tagName) return;
 
-        var tags = parseTags(el);
-        var exists = tags.some(function(t) {
-            return t.name.toLowerCase() === tagName.toLowerCase();
+        var exists = Array.from(el.querySelectorAll('.tag-pill')).some(function(pill) {
+            return pill.dataset.tag.toLowerCase() === tagName.toLowerCase();
         });
         if (exists) return;
 
@@ -102,10 +81,7 @@
         .then(function(response) { return response.json(); })
         .then(function(data) {
             if (data.success) {
-                tags.push({ id: data.tag_id, name: data.tag_name });
-                tags.sort(function(a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
-                setTags(el, tags);
-                rebuildPills(el);
+                insertTag(el, data.tag_id, data.tag_name);
             }
         })
         .catch(function(err) {
@@ -126,9 +102,7 @@
         .then(function(response) { return response.json(); })
         .then(function(data) {
             if (data.success) {
-                var tags = parseTags(el).filter(function(t) { return t.id !== tagId; });
-                setTags(el, tags);
-                rebuildPills(el);
+                el.querySelector(`.tag-pill[data-tag-id="${CSS.escape(String(tagId))}"]`)?.remove();
             }
         })
         .catch(function(err) {
@@ -144,7 +118,7 @@
         if (target.classList.contains('tag-remove-btn')) {
             event.stopPropagation();
             event.preventDefault();
-            var tagId = parseInt(target.getAttribute('data-tag-id'), 10);
+            var tagId = Number(target.closest('.tag-pill').dataset.tagId);
             if (tagId) removeTag(container, tagId);
             return;
         }
@@ -191,8 +165,6 @@
         document.addEventListener('archivebox:tag-deleted', function(event) {
             const id = String(event.detail);
             document.querySelectorAll(`.tag-editor-inline .tag-pill[data-tag-id="${CSS.escape(id)}"]`).forEach(pill => {
-                const editor = pill.closest('.tag-editor-inline');
-                setTags(editor, parseTags(editor).filter(tag => String(tag.id) !== id));
                 pill.remove();
             });
         });

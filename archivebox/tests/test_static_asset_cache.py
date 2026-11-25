@@ -107,6 +107,10 @@ def test_snapshot_navigation_reuses_static_assets(browser_runtime, live_server, 
         assert all(path.startswith("/static/v/") and transferred == 0 for path, transferred in assets), assets
         assert len({path.split("/")[3] for path, _ in assets}) == 1
         for name in (
+            "/admin-base.css",
+            "/admin-changelist.js",
+            "/progress-monitor.css",
+            "/progress-monitor.js",
             "/admin.css",
             "/admin/jsi18n.js",
             "/search/field.js",

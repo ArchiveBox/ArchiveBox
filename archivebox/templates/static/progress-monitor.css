@@ -1,0 +1,1055 @@
+/* Progress Monitor Container */
+#progress-monitor {
+    --progress-surface: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+    background: var(--progress-surface);
+    color: #c9d1d9;
+    font-family: var(--font-family-primary);
+    font-size: 12px;
+    border-bottom: 1px solid #30363d;
+    position: relative;
+    z-index: 100;
+}
+#progress-monitor.hidden {
+    display: none;
+}
+#progress-monitor .tree-container {
+    max-height: 350px;
+    overflow-y: auto;
+}
+#progress-monitor .progress-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+}
+
+/* Header Bar */
+#progress-monitor .header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    /* Keep the sticky controls readable over bright live previews. */
+    background: var(--progress-surface);
+    border-bottom: 1px solid #30363d;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    cursor: pointer;
+}
+#progress-monitor .metric-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    min-width: 0;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+#progress-monitor.collapsed .metric-strip {
+    flex-wrap: nowrap;
+    overflow: clip;
+}
+#progress-monitor.collapsed .metric-badge {
+    flex: none;
+    max-width: none;
+}
+#progress-monitor.collapsed .metric-badge.overflows-strip {
+    visibility: hidden;
+}
+#progress-monitor .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+#progress-monitor .telemetry {
+    display: contents;
+}
+#progress-monitor .telemetry[hidden], #progress-monitor .metric-badge[hidden], #progress-monitor.is-guest .telemetry { display: none; }
+#progress-monitor .metric-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 2px 5px;
+    line-height: 18px;
+    color: var(--metric-ink, #c9d1d9);
+    background: rgba(139, 148, 158, 0.04);
+    white-space: nowrap;
+    cursor: help;
+    position: relative;
+    z-index: 1;
+}
+#progress-monitor .metric-badge svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
+}
+#progress-monitor #metric-throughput { --metric-ink: #a5c8ea; }
+#progress-monitor #metric-resources { --metric-ink: #bbc7d5; }
+#progress-monitor #metric-io { --metric-ink: #bcaee0; }
+#progress-monitor #metric-storage { --metric-ink: #93c9b6; }
+#progress-monitor #metric-storage small { color: #3fb950; font-size: 0.8em; }
+#progress-monitor #metric-web { --metric-ink: #9fc7d5; }
+#progress-monitor #metric-indexing { --metric-ink: #adbf9f; }
+#progress-monitor .metric-badge.stale { color: #d29922; }
+#progress-monitor .metric-badge:focus-visible { outline: 2px solid #58a6ff; }
+
+/* Orchestrator Status */
+#progress-monitor .orchestrator-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#progress-monitor .status-icon.running {
+    color: #3fb950;
+    animation: download-pulse 2s infinite;
+}
+#progress-monitor .status-icon.idle { color: #7ee787; }
+#progress-monitor .status-icon.stopped { color: #d29922; }
+#progress-monitor .status-icon.error { color: #f85149; }
+@keyframes download-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px #238636; }
+    50% { opacity: 0.6; box-shadow: 0 0 4px #238636; }
+}
+@keyframes idle-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 4px #7ee787; }
+    50% { opacity: 0.65; box-shadow: 0 0 2px #7ee787; }
+}
+@keyframes flash {
+    0% { transform: scale(1.5); }
+    100% { transform: scale(1); }
+}
+
+/* Toggle Button */
+#progress-monitor .toggle-btn {
+    background: transparent;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+/* Let a touch anywhere on the header background hit the real button.
+   Badges sit above it so their metric tooltips remain accessible. */
+#progress-monitor .toggle-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+#progress-monitor .toggle-btn:hover {
+    background: #21262d;
+    color: #c9d1d9;
+    border-color: #8b949e;
+}
+#progress-monitor .crawl-action-btn,
+#progress-monitor .cancel-item-btn {
+    background: transparent;
+    border: 1px solid #30363d;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+#progress-monitor .pause-item-btn {
+    color: #d29922;
+}
+#progress-monitor .pause-item-btn:hover {
+    background: rgba(210, 153, 34, 0.12);
+    border-color: #d29922;
+    color: #f0b72f;
+}
+#progress-monitor .cancel-item-btn {
+    color: #f85149;
+}
+#progress-monitor .cancel-item-btn:hover {
+    background: rgba(248, 81, 73, 0.12);
+    border-color: #f85149;
+    color: #ff7b72;
+}
+#progress-monitor .crawl-action-btn.is-busy,
+#progress-monitor .cancel-item-btn.is-busy {
+    opacity: 0.6;
+    cursor: wait;
+    border-color: #6e7681;
+    color: #6e7681;
+}
+#progress-monitor .progress-overflow-note a {
+    color: #58a6ff;
+}
+#progress-monitor .progress-overflow-note {
+    padding: 8px 12px;
+    color: #8b949e;
+    font-size: 11px;
+    text-align: center;
+    background: rgba(33, 38, 45, 0.55);
+    border-top: 1px solid #30363d;
+}
+
+/* Tree Container */
+#progress-monitor .tree-container {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+}
+#progress-monitor.collapsed .progress-content {
+    display: none;
+}
+/* Hide admin-only controls when viewer is not staff, or when the monitor is
+   embedded on a non-admin host (snap-* subdomain) where cross-origin POSTs
+   to /api would violate the subdomain isolation model. */
+#progress-monitor.is-guest .crawl-action-btn,
+#progress-monitor.is-guest .cancel-item-btn,
+#progress-monitor.is-guest .pause-item-btn,
+#progress-monitor[data-progress-scope="snapshot"] .crawl-action-btn,
+#progress-monitor[data-progress-scope="snapshot"] .cancel-item-btn,
+#progress-monitor[data-progress-scope="snapshot"] .pause-item-btn {
+    display: none !important;
+}
+
+/* Chrome Screencast */
+#progress-monitor .screencast-panel {
+    display: none;
+    flex: 0 0 336px;
+    width: 336px;
+    position: sticky;
+    top: 49px;
+    border: 1px solid rgba(88, 166, 255, 0.5);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0d1117;
+    box-shadow: 0 12px 34px rgba(1, 4, 9, 0.4), 0 0 0 1px rgba(88, 166, 255, 0.12);
+}
+#progress-monitor .screencast-panel.visible {
+    min-height: 1px;
+    display: block;
+}
+#progress-monitor .screencast-frame {
+    display: block;
+    width: 100%;
+    height: 310px;
+    background: #010409;
+    color: #6e7681;
+    text-decoration: none;
+    overflow: hidden;
+}
+#progress-monitor .screencast-frame img {
+    display: block;
+    width: 120%;
+    height: 100%;
+    margin-left: -10%;
+    object-fit: cover;
+    object-position: top center;
+    background: #ffffff;
+    opacity: 1 !important;
+}
+#progress-monitor .screencast-placeholder {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+    color: #8b949e;
+    background: #010409;
+}
+#progress-monitor .screencast-placeholder-icon {
+    color: #c9d1d9;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+#progress-monitor .screencast-placeholder.launching .screencast-placeholder-icon {
+    color: #d29922;
+}
+#progress-monitor .screencast-placeholder-title {
+    color: #f0f6fc;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+#progress-monitor .screencast-placeholder-subtitle {
+    max-width: 260px;
+    color: #8b949e;
+    font-size: 11px;
+    line-height: 1.35;
+}
+#progress-monitor .screencast-caption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid #21262d;
+    background: rgba(13, 17, 23, 0.96);
+    color: inherit;
+    text-decoration: none;
+}
+#progress-monitor .screencast-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 7px;
+    background: #3fb950;
+    box-shadow: 0 0 8px rgba(63, 185, 80, 0.9);
+}
+#progress-monitor .screencast-dot.not-launched {
+    background: #6e7681;
+    box-shadow: none;
+}
+#progress-monitor .screencast-dot.launching {
+    background: #d29922;
+    box-shadow: 0 0 8px rgba(210, 153, 34, 0.8);
+}
+#progress-monitor .screencast-text {
+    min-width: 0;
+}
+#progress-monitor .screencast-title {
+    display: block;
+    color: #f0f6fc;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .screencast-url {
+    display: block;
+    color: #8b949e;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 10px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Idle Message */
+#progress-monitor .idle-message {
+    color: #8b949e;
+    font-style: normal;
+    padding: 8px 0;
+    text-align: center;
+}
+
+/* Crawl Item */
+#progress-monitor .crawl-item {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    margin-bottom: 9px;
+    overflow: hidden;
+}
+#progress-monitor .crawl-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.2);
+}
+#progress-monitor .crawl-header:hover {
+    background: rgba(88, 166, 255, 0.1);
+}
+#progress-monitor .crawl-header-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+#progress-monitor .crawl-header-link,
+#progress-monitor .crawl-header-link * {
+    text-decoration: none !important;
+}
+#progress-monitor a.crawl-header-link:visited {
+    color: inherit;
+}
+#progress-monitor a.crawl-header-link:link,
+#progress-monitor a.crawl-header-link:visited,
+#progress-monitor a.crawl-header-link:hover,
+#progress-monitor a.crawl-header-link:active {
+    text-decoration: none !important;
+}
+#progress-monitor .crawl-info {
+    flex: 1;
+    min-width: 0;
+}
+#progress-monitor .crawl-label {
+    font-weight: 600;
+    color: #f0f6fc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .crawl-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+#progress-monitor .crawl-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 240px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #c9d1d9;
+    background: rgba(110, 118, 129, 0.16);
+    border: 1px solid rgba(110, 118, 129, 0.22);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor a.crawl-badge {
+    cursor: pointer;
+    text-decoration: none !important;
+}
+#progress-monitor a.crawl-badge:hover {
+    border-color: currentColor;
+    filter: brightness(1.14);
+}
+#progress-monitor .crawl-badge strong {
+    color: #8b949e;
+    font-weight: 600;
+}
+#progress-monitor .crawl-title-link {
+    display: inline-block;
+    max-width: 100%;
+    color: inherit;
+    text-decoration: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .crawl-title-link:hover {
+    color: #79c0ff;
+}
+#progress-monitor .crawl-badge.persona {
+    color: #d2a8ff;
+    background: rgba(163, 113, 247, 0.16);
+    border-color: rgba(163, 113, 247, 0.28);
+}
+#progress-monitor .crawl-badge.limit {
+    color: #79c0ff;
+    background: rgba(88, 166, 255, 0.13);
+    border-color: rgba(88, 166, 255, 0.24);
+}
+#progress-monitor .crawl-badge.size {
+    color: #ffa657;
+    background: rgba(240, 136, 62, 0.13);
+    border-color: rgba(240, 136, 62, 0.24);
+}
+#progress-monitor .crawl-badge.count {
+    color: #7ee787;
+    background: rgba(63, 185, 80, 0.13);
+    border-color: rgba(63, 185, 80, 0.24);
+}
+#progress-monitor .crawl-badge.tag {
+    color: #a5d6ff;
+    background: rgba(31, 111, 235, 0.16);
+    border-color: rgba(31, 111, 235, 0.28);
+}
+#progress-monitor .crawl-stats {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    font-size: 11px;
+}
+
+/* Progress Bar */
+#progress-monitor .progress-bar-container {
+    height: 4px;
+    background: #21262d;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+#progress-monitor .progress-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease-out;
+    position: relative;
+}
+#progress-monitor .progress-bar.crawl {
+    background: linear-gradient(90deg, #238636 0%, #3fb950 100%);
+}
+#progress-monitor .progress-bar.snapshot {
+    background: linear-gradient(90deg, #1f6feb 0%, #58a6ff 100%);
+}
+#progress-monitor .progress-bar.extractor {
+    background: linear-gradient(90deg, #8957e5 0%, #a371f7 100%);
+}
+#progress-monitor .progress-bar.indeterminate {
+    background: linear-gradient(90deg, transparent 0%, #58a6ff 50%, transparent 100%);
+    animation: indeterminate 1.5s infinite linear;
+    width: 30% !important;
+}
+@keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+/* Crawl Body */
+#progress-monitor .crawl-body {
+    padding: 0 14px 14px;
+}
+#progress-monitor .crawl-progress {
+    padding: 10px 14px;
+    border-bottom: 1px solid #21262d;
+}
+
+/* Snapshot List */
+#progress-monitor .snapshot-list {
+    margin-top: 8px;
+}
+#progress-monitor .snapshot-item {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+#progress-monitor .snapshot-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+}
+#progress-monitor .snapshot-header:hover {
+    background: rgba(88, 166, 255, 0.05);
+}
+#progress-monitor .snapshot-header-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+#progress-monitor a.snapshot-header-link:visited {
+    color: inherit;
+}
+#progress-monitor .snapshot-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+    color: #58a6ff;
+}
+#progress-monitor .snapshot-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 84px;
+    height: 52px;
+    flex: 0 0 84px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    background: #161b22;
+    color: #6e7681;
+    overflow: hidden;
+    text-decoration: none;
+}
+#progress-monitor .snapshot-preview:hover {
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.2);
+}
+#progress-monitor .snapshot-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+#progress-monitor .snapshot-preview img:not([data-loaded]),
+#progress-monitor .snapshot-favicon:not([data-loaded]) {
+    visibility: hidden;
+}
+#progress-monitor .snapshot-preview-loading {
+    position: absolute;
+    font-size: 20px;
+}
+#progress-monitor .snapshot-preview img[data-loaded] + .snapshot-preview-loading {
+    display: none;
+}
+#progress-monitor .snapshot-preview.placeholder {
+    font-size: 20px;
+}
+#progress-monitor .snapshot-info {
+    flex: 1;
+    min-width: 0;
+}
+#progress-monitor .snapshot-title-line {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 23px;
+    min-width: 0;
+}
+#progress-monitor .snapshot-favicon {
+    width: 16px;
+    height: 16px;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    border-radius: 3px;
+    object-fit: contain;
+    background: #fff;
+    flex: 0 0 16px;
+}
+#progress-monitor .snapshot-title {
+    color: #f0f6fc;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .snapshot-url {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    color: #c9d1d9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .snapshot-meta {
+    font-size: 10px;
+    color: #8b949e;
+    margin-top: 2px;
+}
+#progress-monitor .snapshot-progress {
+    padding: 0 12px 8px;
+}
+#progress-monitor .snapshot-item.queued-compact {
+    margin-bottom: 4px;
+}
+#progress-monitor .snapshot-item.queued-compact .snapshot-header {
+    align-items: center;
+    gap: 8px;
+    padding: 3px 12px;
+}
+#progress-monitor .snapshot-item.queued-compact .snapshot-header-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#progress-monitor .snapshot-queued-icon {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    background: #161b22;
+}
+#progress-monitor .snapshot-queued-label {
+    flex: 1;
+    min-width: 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    line-height: 18px;
+    color: #6e7681;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hook badges sit in a fixed grid. Every cell has the same width, so a
+   running hook's growing duration or a new hook never reflows the rest;
+   new hooks are appended in the order they first appear. */
+#progress-monitor .extractor-list {
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid #21262d;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px;
+}
+#progress-monitor .extractor-badge {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 10px;
+    background-color: #161b22;
+    color: #8b949e;
+    overflow: hidden;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color 0.4s ease, color 0.4s ease;
+    animation: hook-badge-enter 0.35s ease-out;
+}
+@keyframes hook-badge-enter {
+    from { opacity: 0; transform: translateY(3px); }
+}
+#progress-monitor .extractor-badge[href]:hover {
+    background-color: #30363d;
+    color: #f0f6fc;
+}
+/* Django's base.css underlines links via a (1,1,2)-specificity :not() rule. */
+#progress-monitor .extractor-list a.extractor-badge {
+    text-decoration: none;
+}
+#progress-monitor .extractor-list a.extractor-badge[href]:hover .badge-label {
+    text-decoration: underline;
+}
+#progress-monitor .extractor-badge .badge-icon {
+    flex: 0 0 12px;
+    text-align: center;
+}
+#progress-monitor .badge-icon svg, #progress-monitor .badge-icon img {
+    width: 12px;
+    height: 12px;
+    vertical-align: middle;
+}
+#progress-monitor .extractor-badge.started .badge-icon::before {
+    content: '';
+    display: block;
+    width: 7px;
+    height: 7px;
+    margin: 0 auto;
+    border: 1.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: hook-badge-spin 0.9s linear infinite;
+}
+@keyframes hook-badge-spin {
+    to { transform: rotate(360deg); }
+}
+#progress-monitor .extractor-badge .badge-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#progress-monitor .extractor-badge .badge-time {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+}
+/* Duration on a log scale (--hook-scale 0..1) as a hairline along the
+   bottom, so slow hooks still stand out at a glance. It only ever grows. */
+#progress-monitor .extractor-badge .badge-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.6;
+    transform-origin: left center;
+    transform: scaleX(var(--hook-scale, 0));
+    transition: transform 1s linear;
+}
+/* Running foreground hooks are what the capture is waiting on: the
+   brightest cells in the grid. Background (.bg) hooks run for the whole
+   capture, so while running they recede to a faint amber. */
+#progress-monitor .extractor-badge.started {
+    background-color: rgba(240, 183, 47, 0.22);
+    color: #f5c451;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(240, 183, 47, 0.8), 0 0 10px rgba(240, 183, 47, 0.25);
+}
+#progress-monitor .extractor-badge.started.bg {
+    background-color: rgba(210, 153, 34, 0.05);
+    color: rgba(210, 153, 34, 0.5);
+    font-weight: normal;
+    box-shadow: none;
+}
+#progress-monitor .extractor-badge.succeeded {
+    background-color: rgba(63, 185, 80, 0.1);
+    color: #3fb950;
+}
+#progress-monitor .extractor-badge.failed {
+    background-color: rgba(248, 81, 73, 0.12);
+    color: #f85149;
+}
+#progress-monitor .extractor-badge.backoff {
+    background-color: rgba(210, 153, 34, 0.08);
+    color: #b8860b;
+}
+#progress-monitor .extractor-badge.skipped,
+#progress-monitor .extractor-badge.noresults {
+    background-color: rgba(110, 118, 129, 0.08);
+    color: #6e7681;
+}
+/* Status Badge */
+#progress-monitor .status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+#progress-monitor .status-badge.queued {
+    background: #21262d;
+    color: #8b949e;
+}
+#progress-monitor .status-badge.started {
+    background: rgba(210, 153, 34, 0.2);
+    color: #d29922;
+}
+#progress-monitor .status-badge.paused {
+    background: rgba(88, 166, 255, 0.18);
+    color: #58a6ff;
+}
+#progress-monitor .status-badge.sealed,
+#progress-monitor .status-badge.succeeded {
+    background: rgba(63, 185, 80, 0.2);
+    color: #3fb950;
+}
+#progress-monitor .status-badge.failed {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+#progress-monitor .status-badge.interrupted,
+#progress-monitor .status-badge.backoff {
+    background: rgba(210, 153, 34, 0.15);
+    color: #b8860b;
+}
+#progress-monitor .status-badge.unknown {
+    background: #21262d;
+    color: #6e7681;
+}
+#progress-monitor .duration-badge {
+    flex-shrink: 0;
+    min-width: 28px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(88, 166, 255, 0.12);
+    color: #a5d6ff;
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#progress-monitor .pid-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b949e;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+#progress-monitor .pid-label.compact {
+    padding: 1px 5px;
+    font-size: 9px;
+}
+
+@media (max-width: 900px) {
+    #progress-monitor .header-bar {
+        align-items: flex-start;
+        gap: 8px;
+    }
+    #progress-monitor .metric-strip {
+        flex: 1;
+        min-width: 0;
+    }
+    #progress-monitor .tree-container {
+        max-height: 310px;
+        width: 100%;
+    }
+    #progress-monitor .progress-content {
+        flex-direction: column;
+        padding: 10px 8px;
+    }
+    #progress-monitor .screencast-panel {
+        position: static;
+        order: -1;
+        width: min(100%, 336px);
+        flex-basis: auto;
+        align-self: center;
+    }
+    #progress-monitor .crawl-header {
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px;
+    }
+    #progress-monitor .crawl-header-link {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        align-items: start;
+        gap: 8px;
+        width: 100%;
+    }
+    #progress-monitor .crawl-info {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+    #progress-monitor .crawl-label {
+        max-width: 100%;
+    }
+    #progress-monitor .crawl-badges,
+    #progress-monitor .crawl-stats {
+        justify-content: flex-start;
+        min-width: 0;
+    }
+    #progress-monitor .crawl-badge {
+        max-width: min(100%, 260px);
+    }
+    #progress-monitor .crawl-stats {
+        grid-column: 1 / 2;
+    }
+    #progress-monitor .crawl-body {
+        padding: 0 8px 10px;
+    }
+    #progress-monitor .crawl-progress {
+        padding: 8px;
+    }
+    #progress-monitor .snapshot-header {
+        align-items: flex-start;
+        padding: 8px;
+    }
+    #progress-monitor .snapshot-header-link {
+        min-width: 0;
+    }
+    /* The preview is a sibling of this link. Give the capture text its
+       own full-width row, with process/status badges beneath it. */
+    #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-header-link {
+        flex-wrap: wrap;
+        gap: 4px 8px;
+    }
+    #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-info {
+        flex: 1 0 100%;
+    }
+}
+
+@media (max-width: 520px) {
+    #progress-monitor {
+        font-size: 11px;
+    }
+    #progress-monitor .header-bar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        padding: 7px 8px;
+    }
+    #progress-monitor.collapsed .header-bar {
+        align-items: center;
+        padding-block: 4px;
+    }
+    #progress-monitor .metric-strip {
+        gap: 6px 10px;
+    }
+    #progress-monitor .header-right {
+        justify-self: end;
+    }
+    #progress-monitor .toggle-btn {
+        white-space: nowrap;
+    }
+    #progress-monitor .orchestrator-status {
+        max-width: 100%;
+    }
+    #progress-monitor .tree-container {
+        max-height: 300px;
+    }
+    #progress-monitor .progress-content {
+        padding: 8px;
+    }
+    #progress-monitor .screencast-panel {
+        width: 100%;
+        align-self: stretch;
+    }
+    #progress-monitor .screencast-frame {
+        height: 300px;
+    }
+    #progress-monitor .crawl-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 8px;
+    }
+    #progress-monitor .crawl-header-link {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    #progress-monitor .crawl-stats {
+        grid-column: auto;
+    }
+    #progress-monitor .crawl-title-link {
+        white-space: normal;
+        line-height: 1.35;
+    }
+    #progress-monitor .crawl-badges {
+        gap: 4px;
+    }
+    #progress-monitor .crawl-badge {
+        max-width: 100%;
+        min-width: 0;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+    #progress-monitor .crawl-stats {
+        gap: 4px;
+    }
+    #progress-monitor .status-badge,
+    #progress-monitor .duration-badge,
+    #progress-monitor .pid-label {
+        justify-self: start;
+    }
+    #progress-monitor .snapshot-preview {
+        width: 56px;
+        height: 42px;
+        flex-basis: 56px;
+    }
+    #progress-monitor .snapshot-title-line {
+        align-items: flex-start;
+    }
+    #progress-monitor .snapshot-title {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #progress-monitor .extractor-list {
+        padding: 7px 8px;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}

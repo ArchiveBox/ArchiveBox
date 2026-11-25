@@ -44,6 +44,7 @@
     const header = table?.tHead;
     const title = header?.querySelector('.column-title_str');
     const tags = header?.querySelector('.column-tags_inline');
+    const narrowViewport = matchMedia('(max-width: 1024px)');
     const label = tags?.querySelector('.text span, .text a');
     const labelRange = document.createRange();
     if (label) labelRange.selectNodeContents(label);
@@ -58,12 +59,16 @@
     }
     function fitTableTags() {
       frame = 0;
-      const dirty = rows.filter(row => !row.measure);
+      // Compact rows use a fixed two-pill limit. Check the actual CSS layout
+      // on narrow screens before exposing every tag for an unused measurement.
+      // On desktop, checking computed style here would force an extra layout.
+      const compact = narrowViewport.matches && header && getComputedStyle(header).display === 'none';
+      const dirty = compact ? [] : rows.filter(row => !row.measure);
       // Install all temporary measurement styles and probes before the first
       // geometry read, so the header and natural pills share one layout.
       const probes = dirty.length && title && tags ? prepareTagMeasurement(dirty) : [];
       measuredContainerWidth = table.parentElement.clientWidth;
-      if (!header?.getBoundingClientRect().height || !title || !tags) {
+      if (compact || !header?.getBoundingClientRect().height || !title || !tags) {
         clearTagMeasurement(probes);
         table?.classList.remove('library-tag-fit');
         table?.style.removeProperty('--library-tags-width');

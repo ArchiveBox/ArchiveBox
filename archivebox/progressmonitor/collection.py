@@ -140,7 +140,7 @@ def collection_summary(user, *, public=False, refresh=True):
     return summary
 
 
-def snapshot_list_count(queryset, *, first_match=False):
+def snapshot_list_count(queryset, *, first_match=False, refresh=True):
     """Debounced display count or public-sidebar witness; never an action scope."""
     from hashlib import sha256
     from django.core.exceptions import EmptyResultSet
@@ -155,7 +155,7 @@ def snapshot_list_count(queryset, *, first_match=False):
     summary = cache.get(key)
     # Uncommitted test/admin transactions must not launch another connection
     # that waits on their writes or counts a different version of those rows.
-    if connections[queryset.db].in_atomic_block:
+    if not refresh or connections[queryset.db].in_atomic_block:
         return summary
     if (summary is None or time() - summary["sampled_at"] >= 60) and _refresh_lock.acquire(blocking=False):
         if not cache.add(f"{key}:refresh", True, timeout=60):
