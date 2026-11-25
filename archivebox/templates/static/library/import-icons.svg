@@ -93,6 +93,88 @@
     <path d="M404.1 188.8c0-29.7 24-53.8 53.8-53.8s53.8 24 53.8 53.8-24 53.8-53.8 53.8h-53.8zm-26.9 0c0 29.7-24 53.8-53.8 53.8-29.7 0-53.8-24-53.8-53.8V54c0-29.7 24-53.8 53.8-53.8s53.8 24 53.8 53.8z" style="fill:#2eb67d"/>
     <path d="M323.4 404.3c29.7 0 53.8 24 53.8 53.8 0 29.7-24 53.8-53.8 53.8-29.7 0-53.8-24-53.8-53.8v-53.8zm0-26.9c-29.7 0-53.8-24-53.8-53.8s24-53.8 53.8-53.8h134.8c29.7 0 53.8 24 53.8 53.8 0 29.7-24 53.8-53.8 53.8z" style="fill:#ecb22e"/>
   </symbol>
+  <!-- Product logos from workspace.google.com. -->
+  <symbol id="google-sheets" viewBox="0 0 192 192" fill="none">
+    <path fill="#009954" d="M183.96 117.4c0 8.94 0 13.41-1.4 16.96a20 20 0 0 1-11.23 11.24c-3.55 1.4-8.02 1.4-16.97 1.4h-60.8c-8.94 0-13.41 0-16.96-1.4a20 20 0 0 1-11.23-11.24c-1.4-3.55-1.4-8.02-1.4-16.96V74.6c0-8.94 0-13.42 1.4-16.96A20 20 0 0 1 76.6 46.4C80.15 45 84.62 45 93.56 45h60.8c8.95 0 13.42 0 16.97 1.4a20 20 0 0 1 11.23 11.24c1.4 3.54 1.4 8.02 1.4 16.96z"/>
+    <mask id="google-sheets-a" width="161" height="128" x="7" y="32" maskUnits="userSpaceOnUse" style="mask-type:alpha">
+    <path fill="#0ebc5f" d="M167.96 130.4c0 8.94 0 13.41-1.4 16.96a20 20 0 0 1-11.23 11.24c-3.55 1.4-8.02 1.4-16.97 1.4H37.56c-8.94 0-13.41 0-16.96-1.4a20 20 0 0 1-11.23-11.24c-1.4-3.55-1.4-8.02-1.4-16.96V61.6c0-8.94 0-13.42 1.4-16.96A20 20 0 0 1 20.6 33.4C24.15 32 28.62 32 37.56 32h100.8c8.95 0 13.42 0 16.97 1.4a20 20 0 0 1 11.23 11.24c1.4 3.54 1.4 8.02 1.4 16.96z"/>
+    </mask>
+    <g mask="url(#google-sheets-a)">
+    <path fill="#0ebc5f" d="M167.96 160h-160V32h160z"/>
+    <g filter="url(#google-sheets-b)">
+    <path fill="url(#google-sheets-c)" d="M183.96 65a20 20 0 0 0-20-20h-104a20 20 0 0 0-20 20v62a20 20 0 0 0 20 20h104a20 20 0 0 0 20-20z"/>
+    </g>
+    </g>
+    <path fill="#fff" d="M47.96 122a6 6 0 0 1-6-6V77h-14a6 6 0 0 1 0-12h14V52a6 6 0 0 1 12 0v13h58a6 6 0 1 1 0 12h-58v39a6 6 0 0 1-6 6"/>
+    <defs>
+    <linearGradient id="google-sheets-c" x1="61.73" x2="163.21" y1="88.31" y2="88.31" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#0ebc5f"/>
+    <stop offset=".95" stop-color="#78c9ff"/>
+    </linearGradient>
+    <filter id="google-sheets-b" width="168" height="126" x="27.96" y="33" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+    <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+    <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+    <feGaussianBlur result="effect1_foregroundBlur_2015_872" stdDeviation="6"/>
+    </filter>
+    </defs>
+  </symbol>
+  <symbol id="google-docs" viewBox="0 0 192 192" fill="none">
+    <mask id="google-docs-mask0_37242_8762" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="32" y="8" width="128" height="176">
+    <path d="M130.334 184L61.6 184C52.6565 184 48.1848 184 44.6375 182.596C39.5029 180.563 35.4374 176.497 33.4045 171.362C32 167.815 32 163.343 32 154.4L32 37.6C32 28.6565 32 24.1848 33.4045 20.6375C35.4374 15.5029 39.5029 11.4374 44.6375 9.40447C48.1848 8 52.6565 8 61.6 8L100 8L154.793 62.7933L154.793 62.7934C156.454 64.4543 157.285 65.2848 157.923 66.2239C158.845 67.5811 159.479 69.1131 159.785 70.725C159.997 71.8404 159.997 73.0264 159.995 75.3985C159.96 124.317 159.938 124.799 159.937 154.366C159.937 163.332 159.937 167.816 158.532 171.363C156.499 176.498 152.434 180.562 147.299 182.596C143.752 184 139.279 184 130.334 184Z" fill="#3186FF"/>
+    </mask>
+    <g mask="url(#google-docs-mask0_37242_8762)">
+    <path d="M159.94 184L31.9999 184L31.9999 8.00001L99.9999 8L159.999 68L159.94 184Z" fill="#3186FF"/>
+    <g filter="url(#google-docs-filter0_f_37242_8762)">
+    <path d="M43 192H149V70.2271V20H43V192Z" fill="url(#google-docs-paint0_linear_37242_8762)"/>
+    </g>
+    </g>
+    <path d="M154.995 62.9951C152.489 61.1143 149.375 60 146 60H112.8C105.731 60 100 54.2692 100 47.2002V8L154.995 62.9951Z" fill="#76BBFF"/>
+    <rect x="64.001" y="114" width="64" height="12" rx="6" fill="white"/>
+    <rect x="64.001" y="143" width="48" height="12" rx="6" fill="white"/>
+    <defs>
+    <filter id="google-docs-filter0_f_37242_8762" x="31" y="8" width="130" height="196" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+    <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+    <feGaussianBlur stdDeviation="6" result="effect1_foregroundBlur_37242_8762"/>
+    </filter>
+    <linearGradient id="google-docs-paint0_linear_37242_8762" x1="96" y1="59.2839" x2="54.6124" y2="171.338" gradientUnits="userSpaceOnUse">
+    <stop offset="0.33" stop-color="#3186FF"/>
+    <stop offset="1" stop-color="#A9A8FF"/>
+    </linearGradient>
+    </defs>
+  </symbol>
+  <symbol id="google-slides" viewBox="0 0 192 192" fill="none">
+    <path fill="url(#google-slides-a)" d="M12.591 63.318c-2.493-15.262 7.858-29.655 23.12-32.148l96.724-15.8c15.262-2.492 29.655 7.859 32.148 23.12l14.732 90.189c2.493 15.262-7.858 29.655-23.12 32.148l-96.724 15.8c-15.262 2.493-29.655-7.858-32.148-23.12z"/>
+    <path fill="url(#google-slides-b)" d="M12 61.6c0-8.943 0-13.415 1.405-16.962a20 20 0 0 1 11.233-11.233C28.185 32 32.656 32 41.6 32h108.8c8.943 0 13.415 0 16.962 1.404a20 20 0 0 1 11.234 11.234C180 48.185 180 52.657 180 61.6v68.8c0 8.943 0 13.415-1.404 16.962a20 20 0 0 1-11.234 11.234C163.815 160 159.343 160 150.4 160H41.6c-8.943 0-13.415 0-16.963-1.404a20 20 0 0 1-11.232-11.234C12 143.815 12 139.343 12 130.4z"/>
+    <mask id="google-slides-e" width="168" height="128" x="12" y="32" maskUnits="userSpaceOnUse" style="mask-type:alpha">
+    <path fill="#fec700" d="M12 61.6c0-8.943 0-13.415 1.405-16.962a20 20 0 0 1 11.233-11.233C28.185 32 32.656 32 41.6 32h108.8c8.943 0 13.415 0 16.962 1.404a20 20 0 0 1 11.234 11.234C180 48.185 180 52.657 180 61.6v68.8c0 8.943 0 13.415-1.404 16.962a20 20 0 0 1-11.234 11.234C163.815 160 159.343 160 150.4 160H41.6c-8.943 0-13.415 0-16.963-1.404a20 20 0 0 1-11.232-11.234C12 143.815 12 139.343 12 130.4z"/>
+    </mask>
+    <g filter="url(#google-slides-c)" mask="url(#google-slides-e)">
+    <path fill="#ffbe00" d="m33.74 191.516 144.396-21.58L153.304 3.781 8.907 25.361z"/>
+    <path fill="url(#google-slides-f)" d="m33.74 191.516 144.396-21.58L153.304 3.781 8.907 25.361z"/>
+    </g>
+    <path fill="#fff" fill-rule="evenodd" d="M148 58a6 6 0 0 1 6 6v64a6 6 0 0 1-6 6H44l-.309-.008A6 6 0 0 1 38 128V64a6 6 0 0 1 5.691-5.992L44 58zm-98 64h92V70H50z" clip-rule="evenodd"/>
+    <defs>
+    <linearGradient id="google-slides-a" x1="84.07" x2="157.2" y1="23.27" y2="160.82" gradientUnits="userSpaceOnUse">
+    <stop offset=".2" stop-color="#ffdb0f"/>
+    <stop offset=".67" stop-color="#ffbe00"/>
+    <stop offset=".91" stop-color="#ffa8e3"/>
+    </linearGradient>
+    <linearGradient id="google-slides-b" x1="96" x2="96" y1="32" y2="160" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#ffbe00"/>
+    <stop offset="1" stop-color="#fec700"/>
+    </linearGradient>
+    <linearGradient id="google-slides-f" x1="108.52" x2="83.96" y1="168.16" y2="25.27" gradientUnits="userSpaceOnUse">
+    <stop offset=".07" stop-color="#fff549"/>
+    <stop offset=".78" stop-color="#ffbe00" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="google-slides-c" width="193.23" height="211.73" x="-3.09" y="-8.22" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+    <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+    <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+    <feGaussianBlur result="effect1_foregroundBlur_37552_9023" stdDeviation="6"/>
+    </filter>
+    </defs>
+  </symbol>
   <symbol id="xlsx" viewBox="0 0 16 16">
     <path fill="#217346" d="M2 1h8l4 4v10H2z"/>
     <path fill="#fff" fill-opacity=".6" d="M10 1v4h4z"/>

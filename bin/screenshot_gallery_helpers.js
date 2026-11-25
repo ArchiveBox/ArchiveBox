@@ -885,15 +885,15 @@ async function openImportMenu(page) {
       const item = label.closest('[role=menuitem],[role=group]');
       return {text:label.textContent.trim(),href:item.getAttribute('href'),hasIcon:!!item.querySelector('.folder-menu-icon')};
     });
-    const mobileLinks = [...node.querySelectorAll('.library-import-icons a')].map(link => link.getAttribute('href'));
+    const mobileLinks = [...node.querySelectorAll('.library-import-platforms a')].map(link => link.getAttribute('href'));
     const aiLinks = [...node.querySelectorAll('.library-import-links a')].map(link => link.getAttribute('href'));
     return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items,mobileLinks,aiLinks};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
   const expected = [
-    'Upload file', 'RSS Feed', 'From Social Media', 'Google Sheets',
-    'Browser extension', 'From Mobile App', 'Via chat bot', 'Using AI', 'Via MITM proxy',
-    'Pinboard', 'Instapaper', 'Reddit Saved Posts', 'Shaarli', 'Unmark.it', 'Wallabag',
+    'Upload file', 'RSS Feed', 'Google Sheets, Docs, Slides',
+    'Browser extension', 'Mobile app', 'Via chat bot', 'Using AI', 'Via MITM proxy',
+    'Via Social Media', 'Via Pinboard', 'Via Instapaper', 'Via Reddit Saved Posts', 'Via Shaarli', 'Via Unmark.it', 'Via Wallabag',
     'Clone an entire site', 'Watch a site for changes',
   ];
   if (JSON.stringify(menu.items.map(item => item.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');

@@ -209,7 +209,7 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
                 page.goto(base + "/admin/core/snapshot/")
                 page.locator(".library-import-toggle:visible").first.press("ArrowDown")
                 with page.expect_file_chooser() as chooser:
-                    page.get_by_role("menuitem", name="Upload file (or drag here)", exact=True).press("Enter")
+                    page.get_by_role("menuitem", name="Upload file (or drag)", exact=True).press("Enter")
                 workbook = tmp_path / "links.xlsx"
                 workbook_urls = ("https://example.com/workbook-visible", "https://example.com/workbook-labeled")
                 workbook.write_bytes(workbook_with_links(*workbook_urls))
