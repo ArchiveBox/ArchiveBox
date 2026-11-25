@@ -709,10 +709,12 @@ def prepare_library(evidence_dir, *, model=""):
     ai_snapshots = {}
     for snapshot in snapshots:
         if model:
+            # Native hooks can stop at the snapshot size limit after replay is ready.
+            # Validate actual AI attempts without requiring every replay to have one.
             available = {
                 plugin: validate_ai_result(snapshot, plugin)
                 for plugin, _, _ in AI_GALLERY_OUTPUTS
-                if source["title"] == "Hacker News" or snapshot.archiveresult_set.filter(plugin=plugin).exists()
+                if snapshot.archiveresult_set.filter(plugin=plugin).exists()
             }
             for plugin, succeeded in available.items():
                 if succeeded:
