@@ -243,6 +243,7 @@ class SnapshotChangeList(SearchResultsChangeList):
     def get_filters_params(self, params=None):
         lookup_params = super().get_filters_params(params)
         lookup_params.pop("sidebar", None)
+        lookup_params.pop("sidebar_sort", None)
         lookup_params.pop("site_scope", None)
         lookup_params.pop("domain_search", None)
         for scope in SNAPSHOT_PROVENANCE_SCOPES:
@@ -317,7 +318,7 @@ class SnapshotChangeList(SearchResultsChangeList):
             # Reuse the exact indexed count to choose the smaller paging scope.
             indexed_count = self.queryset.order_by().values("pk").count()
         elif streamed_ids is None and not self.root_queryset.query.where and not self.queryset.query.is_empty():
-            scope = {key for key, value in request.GET.items() if value and key not in {"p", "sidebar"}}
+            scope = {key for key, value in request.GET.items() if value and key not in {"p", "sidebar", "sidebar_sort"}}
             single_related_tag = scope == {"tags__id__exact"} and len(request.GET.getlist("tags__id__exact")) == 1
             if scope == {"tag"} or single_related_tag:
                 from archivebox.core.tag_util import annotate_tag_snapshot_counts

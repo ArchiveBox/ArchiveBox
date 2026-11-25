@@ -5,8 +5,8 @@ from urllib.parse import urlencode
 
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import connections
 from django.db.models import Exists, OuterRef, Q
+from django.db.models.functions import Lower
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -19,6 +19,7 @@ from archivebox.core.list_results_util import favicon_results, snapshot_favicon_
 from archivebox.core.models import Folder, Snapshot, Tag
 from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.core.routes_util import build_snapshot_export_urls
+from archivebox.core.sidebar_ranked import ranked_domains_page, ranked_tags_page
 from archivebox.core.tag_colors import tag_color_style
 from archivebox.core.tag_util import _tag_snapshot_memberships
 
@@ -27,6 +28,9 @@ from archivebox.uuid_compat import compact_uuid
 SIDEBAR_PAGE_SIZE = 100
 DOMAIN_SIDEBAR_PAGE_SIZE = 50
 INITIAL_FOLDER_PAGE_SIZE = 50
+SIDEBAR_SORTS = {"count", "name", "newest"}
+SORTABLE_SIDEBARS = {"tags", "domains"}
+
 SIDEBAR_SCOPES = {"folders": "folder", "tags": "tag", "domains": "domain"}
 
 OBJECT_SIDEBAR_MODES = {
@@ -60,6 +64,11 @@ def _sidebar_template(mode):
     if mode in OBJECT_SIDEBAR_MODES:
         return "core/sidebar_object_entries.html"
     return "core/sidebar_entries.html"
+
+
+def _sidebar_sort(request):
+    sort = request.GET.get("sidebar_sort")
+    return sort if sort in SIDEBAR_SORTS else "count"
 
 
 def _sidebar_view_filters(request):
@@ -131,6 +140,8 @@ def sidebar_context(request, *, public=False, folder_tree=None):
         query = mode_filters.copy()
         if option != "folders":
             query["sidebar"] = option
+        if option in SORTABLE_SIDEBARS and _sidebar_sort(request) != "count":
+            query["sidebar_sort"] = _sidebar_sort(request)
         mode_queries[option] = query.urlencode()
         mode_items.append({"mode": option, "label": item_label, "icon": item_icon, "query": mode_queries[option]})
 
@@ -140,11 +151,14 @@ def sidebar_context(request, *, public=False, folder_tree=None):
         root_filters.pop(scope, None)
     if mode != "folders":
         root_filters["sidebar"] = mode
+    if mode in SORTABLE_SIDEBARS and _sidebar_sort(request) != "count":
+        root_filters["sidebar_sort"] = _sidebar_sort(request)
 
     return {
         "sidebar_mode_queries": mode_queries,
         "sidebar_mode_items": mode_items,
         "sidebar_mode": mode,
+        "sidebar_sort": _sidebar_sort(request),
         "sidebar_label": label,
         "sidebar_search_label": search_label,
         "sidebar_object_icon": icon,
@@ -162,12 +176,16 @@ def sidebar_context(request, *, public=False, folder_tree=None):
 def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None):
     term = request.GET.get("sidebar_q", "").strip()[:253]
     parent = request.GET.get("parent", "")
+    sort = _sidebar_sort(request) if mode in SORTABLE_SIDEBARS else None
+    cursor_scope = [mode, term, parent]
+    if sort:
+        cursor_scope += [sort, public]
     cursor = None
     if token := request.GET.get("cursor"):
         cursor = signing.loads(token, salt="library-sidebar")
-        if cursor[:3] != [mode, term, parent]:
+        if cursor[: len(cursor_scope)] != cursor_scope:
             raise ValueError("Cursor does not match this sidebar query")
-        cursor = cursor[3:]
+        cursor = cursor[len(cursor_scope) :]
     entries, folders, next_key = [], [], None
     snapshots = public_snapshots_queryset(Snapshot.objects.all()) if public else Snapshot.objects.all()
     snapshot_admin_url = reverse("admin:core_snapshot_changelist") if mode in ("tags", "domains") and not public else ""
@@ -191,19 +209,29 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None
                 entry["selected"] = request.GET.get(scope) == entry["filter_value"]
                 entry["export_urls"] = build_snapshot_export_urls(scope_filters, request=request)
     elif mode == "tags":
-        membership = _tag_snapshot_memberships()
-        if public:
-            membership = membership.filter(snapshot__permissions="public")
-        tags = Tag.objects.annotate(has_snapshots=Exists(membership)).order_by("name", "pk")
-        if public:
-            tags = tags.filter(has_snapshots=True)
+        tags = Tag.objects.all()
         if term:
             tags = tags.filter(name__icontains=term)
-        if cursor:
-            tags = tags.filter(Q(name__gt=cursor[0]) | Q(name=cursor[0], pk__gt=cursor[1]))
-        rows = list(tags.only("id", "name")[: SIDEBAR_PAGE_SIZE + 1])
+        if sort == "name":
+            membership = _tag_snapshot_memberships()
+            if public:
+                membership = membership.filter(snapshot__permissions="public")
+            tags = tags.annotate(has_snapshots=Exists(membership), sort_name=Lower("name")).order_by("sort_name", "pk")
+            if public:
+                tags = tags.filter(has_snapshots=True)
+            if cursor:
+                tags = tags.filter(Q(sort_name__gt=cursor[0]) | Q(sort_name=cursor[0], pk__gt=cursor[1]))
+            rows = list(tags.only("id", "name")[: SIDEBAR_PAGE_SIZE + 1])
+            if len(rows) > SIDEBAR_PAGE_SIZE:
+                last = rows[SIDEBAR_PAGE_SIZE - 1]
+                next_key = [last.sort_name, last.pk]
+        else:
+            rows, next_key = ranked_tags_page(tags, public=public, sort=sort, cursor=cursor, limit=SIDEBAR_PAGE_SIZE)
         for tag in rows[:SIDEBAR_PAGE_SIZE]:
-            url = "?" + urlencode({"sidebar": mode, "tag": tag.pk})
+            params = {"sidebar": mode, "tag": tag.pk}
+            if sort != "count":
+                params["sidebar_sort"] = sort
+            url = "?" + urlencode(params)
             entries.append(
                 {
                     "id": tag.pk,
@@ -219,16 +247,8 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None
                     "selected": request.GET.get("tag") == str(tag.pk),
                 },
             )
-        if len(rows) > SIDEBAR_PAGE_SIZE:
-            last = rows[SIDEBAR_PAGE_SIZE - 1]
-            next_key = [last.name, last.pk]
     elif mode == "domains":
-        if public and connections[snapshots.db].vendor == "sqlite":
-            # Let SQLite seek by hostname and check visibility by snapshot ID.
-            # A direct permissions constraint can scan every public snapshot
-            # and sort its domains before yielding even the first page.
-            snapshots = Snapshot.objects.using(snapshots.db).filter(Exists(snapshots.filter(pk=OuterRef("pk"))))
-        choices, next_key = snapshots.domain_choices_page(term, DOMAIN_SIDEBAR_PAGE_SIZE, cursor)
+        choices, next_key = ranked_domains_page(snapshots, term, public=public, sort=sort, cursor=cursor, limit=DOMAIN_SIDEBAR_PAGE_SIZE)
         ids = snapshots.domain_representative_ids(key for scope, key in choices.values())
         roots = dict(snapshots.filter(pk__in=ids.values()).values_list("pk", "reversed_domain"))
         results = defaultdict(list)
@@ -238,7 +258,10 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None
             root_id = ids.get(key)
             if root_id is None or roots.get(root_id) != key:
                 continue
-            url = "?" + urlencode({"sidebar": mode, "domain": scope})
+            params = {"sidebar": mode, "domain": scope}
+            if sort != "count":
+                params["sidebar_sort"] = sort
+            url = "?" + urlencode(params)
             favicon = snapshot_favicon_data(root_id, results[root_id], request=request)
             entries.append(
                 {
@@ -373,7 +396,7 @@ def sidebar_page(request, *, mode, public=False, folder_tree=None, adapters=None
         "sidebar_query": term,
         "sidebar_entries": entries,
         "sidebar_folder_tree": folders,
-        "sidebar_next": signing.dumps([mode, term, parent, *next_key], salt="library-sidebar", compress=True) if next_key else "",
+        "sidebar_next": signing.dumps([*cursor_scope, *next_key], salt="library-sidebar", compress=True) if next_key else "",
     }
 
 

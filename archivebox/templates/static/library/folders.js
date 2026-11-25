@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function initializeMenus(root) {
     const groups = new Map();
-    root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle,.library-mode-toggle').forEach(button => {
+    root.querySelectorAll('.folder-menu-toggle,.library-import-toggle,.library-export-toggle,.library-create-toggle,.library-mode-toggle,.library-sort-toggle').forEach(button => {
       const id = button.getAttribute('popovertarget');
       if (!groups.has(id)) groups.set(id, []);
       groups.get(id).push(button);
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
       } else buttons.forEach(trigger => trigger.addEventListener('click', () => activate(trigger)));
-      const items = [...menu.querySelectorAll('[role=menuitem]')];
+      const items = [...menu.querySelectorAll('[role=menuitem], [role=menuitemradio]')];
       const removal = menu.querySelector('.folder-delete-snapshots');
       let removalGeneration = 0;
       async function refreshRemoval() {
@@ -946,6 +946,28 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPage(more, true);
     }, 25);
   }
+  const sortMenu = sidebar.querySelector('#library-sort-menu');
+  sortMenu?.addEventListener('click', event => {
+    const choice = event.target.closest('[data-sidebar-sort]');
+    if (!choice) return;
+    sortMenu.hidePopover();
+    sidebar.querySelector('.library-sort-toggle').focus({preventScroll: true});
+    if (choice.getAttribute('aria-checked') === 'true') return;
+    const sort = choice.dataset.sidebarSort;
+    const setSort = url => {
+      if (sort === 'count') url.searchParams.delete('sidebar_sort');
+      else url.searchParams.set('sidebar_sort', sort);
+      return url;
+    };
+    history.replaceState(history.state, '', setSort(new URL(location.href)));
+    sidebar.querySelectorAll('.library-root-link, [data-sidebar-mode-link="tags"], [data-sidebar-mode-link="domains"]').forEach(link => {
+      link.href = setSort(new URL(link.href));
+    });
+    sortMenu.querySelectorAll('[data-sidebar-sort]').forEach(item => {
+      item.setAttribute('aria-checked', String(item === choice));
+    });
+    searchSidebar();
+  });
   const deleteTagForm = sidebar.querySelector('#library-tag-delete-form');
   deleteTagForm?.addEventListener('submit', async event => {
     const menu = deleteTagForm.closest('.folder-menu');

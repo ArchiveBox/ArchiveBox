@@ -76,6 +76,7 @@ OMITTED_PARAMETERS = CREDENTIAL_PARAMETERS | {
     "_to_field",
     "_embedded",
     "sidebar",
+    "sidebar_sort",
     "job",
     "format",
     "directory",
