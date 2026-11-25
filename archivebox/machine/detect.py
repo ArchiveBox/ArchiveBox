@@ -226,7 +226,13 @@ def get_public_ip() -> str:
     try:
         # OpenDNS returns the public source address of the direct DNS query.
         result = _run_abxpkg_host_binary(
-            "dig", "-4", "+short", "+time=2", "+tries=1", "myip.opendns.com", "@resolver1.opendns.com",
+            "dig",
+            "-4",
+            "+short",
+            "+time=2",
+            "+tries=1",
+            "myip.opendns.com",
+            "@resolver1.opendns.com",
         )
         address = IPv4Address(result.stdout.strip())
         if address.is_global:
