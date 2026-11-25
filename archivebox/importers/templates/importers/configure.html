@@ -1,4 +1,6 @@
 {% extends "importers/base.html" %}
+{% load static %}
+{% block extrahead %}{{ block.super }}{% if definition.settings_fields %}<script src="{% static 'importer-settings.js' %}" defer></script>{% endif %}{% endblock %}
 {% block importer_content %}
 <div class="toolbar"><div><p class="eyebrow">{{ definition.provider }}</p><h1>{{ definition.title }}</h1><p class="muted">{{ definition.description }}</p></div></div>
 <div class="setup-layout"><form method="post" class="card form-card">{% csrf_token %}{{ form.non_field_errors }}

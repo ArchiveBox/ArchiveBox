@@ -1,1 +1,1 @@
-{% for link in settings_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+{% for link in settings_links %}<a href="{{ link.url }}"{% if link.persona_fragment %} data-persona-fragment="{{ link.persona_fragment }}" data-machine-url="{{ link.machine_url }}"{% endif %}>{{ link.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}

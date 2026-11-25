@@ -4,6 +4,7 @@ from typing import ClassVar
 
 from django import forms
 from django.core.validators import RegexValidator
+from django.urls import reverse
 from django.utils import timezone
 
 from archivebox.core.models import Folder
@@ -12,6 +13,14 @@ from archivebox.crawls.schedule_util import next_run_for_schedule, validate_sche
 from archivebox.personas.models import Persona
 
 from .models import ImporterSource
+
+
+class ImporterPersonaSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            option["attrs"]["data-settings-url"] = reverse("admin:personas_persona_change", args=[str(value)])
+        return option
 
 
 class ImporterSourceForm(forms.ModelForm):
@@ -39,9 +48,8 @@ class ImporterSourceForm(forms.ModelForm):
         self.fields["persona"].required = definition.auth == "persona"
         self.fields["persona"].help_text = "Authentication and capture settings from this server persona."
         if definition.settings_fields:
-            self.fields[
-                "persona"
-            ].help_text = "Save a Persona to use its plugin settings. With no Persona selected, this importer uses server defaults."
+            self.fields["persona"].widget = ImporterPersonaSelect(choices=self.fields["persona"].choices)
+            self.fields["persona"].help_text = "With no Persona selected, this importer uses server defaults."
         self.fields["limit"] = forms.IntegerField(
             min_value=1,
             max_value=500,

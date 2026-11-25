@@ -177,7 +177,16 @@ document.addEventListener('DOMContentLoaded', () => {
             select(linkedTab);
             if (focus) panelFor(linkedTab).focus();
         }
-        selectSettingsPanel(window.location.hash.slice(1));
+        const anchor = window.location.hash.slice(1);
+        const linkedInput = document.getElementById(anchor);
+        const linkedPanel = linkedInput?.closest('.plugin-card');
+        selectSettingsPanel(linkedPanel?.id || anchor);
+        if (linkedPanel && settings.contains(linkedPanel)) {
+            const advanced = linkedInput.closest('details');
+            if (advanced) advanced.open = true;
+            linkedInput.scrollIntoView({block: 'center'});
+            linkedInput.focus({preventScroll: true});
+        }
         settings.querySelectorAll('[data-provider-keys-link]').forEach(link => {
             link.addEventListener('click', event => {
                 if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
