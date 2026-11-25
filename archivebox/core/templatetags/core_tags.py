@@ -64,6 +64,14 @@ def url_without_query(url):
     return urlunsplit(urlsplit(url)._replace(query="", fragment=""))
 
 
+@register.simple_tag
+def importer_providers():
+    from archivebox.importers.catalog import get_importer_providers, get_importers
+
+    # Keep the stack within the menu even when custom plugins add more providers.
+    return [provider for provider in get_importer_providers(get_importers()) if provider["definition"].icon][:8]
+
+
 @register.simple_tag(takes_context=True)
 def plugin_page_head(context):
     """Let registered plugin apps contribute enabled UI integrations."""

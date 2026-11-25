@@ -881,12 +881,23 @@ async function openImportMenu(page) {
   await page.waitForFunction(id => document.getElementById(id).contains(document.activeElement), {}, id);
   const menu = await page.$eval(`#${id}`, node => {
     const box = node.getBoundingClientRect();
-    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,links:[...node.querySelectorAll('a')].map(link=>({text:link.textContent,href:link.getAttribute('href')}))};
+    const items = [...node.querySelectorAll('[role=menuitem]')].map(item => ({
+      text: item.querySelector('.folder-menu-label').textContent,
+      href: item.getAttribute('href'),
+      hasIcon: !!item.querySelector('.folder-menu-icon'),
+    }));
+    return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight,items};
   });
   if (menu.left < 0 || menu.top < 0 || menu.right > menu.width || menu.bottom > menu.height) throw new Error('Import menu extends beyond the viewport.');
-  const expected = ['From Browser History / Bookmarks', 'From RSS or Social Media', 'Clone an entire site', 'Watch a site for changes', 'Other options...'];
-  if (JSON.stringify(menu.links.map(link => link.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
-  if (menu.links.find(link => link.text === 'Clone an entire site').href !== '/admin/domains/') throw new Error('Site import does not open Domains.');
+  const expected = [
+    'Upload file', 'Paste URLs', 'From RSS or Social Media', 'Google Sheets',
+    'Browser extension', 'ArchiveBox for macOS & iOS', 'ArchiveBox for Android', 'Via chat bot', 'Via MITM proxy',
+    'Pinboard', 'Instapaper', 'Reddit Saved Posts', 'Shaarli', 'Unmark.it', 'Wallabag',
+    'Clone an entire site', 'Watch a site for changes', 'Other options...',
+  ];
+  if (JSON.stringify(menu.items.map(item => item.text)) !== JSON.stringify(expected)) throw new Error('Import menu is missing a source.');
+  if (menu.items.some(item => !item.hasIcon)) throw new Error('Import menu is missing an icon.');
+  if (menu.items.find(item => item.text === 'Clone an entire site').href !== '/admin/domains/') throw new Error('Site import does not open Domains.');
 }
 
 async function openFolderSearch(page) {

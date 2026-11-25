@@ -948,7 +948,22 @@
         fileReadQueue = fileReadQueue.then(async function() {
             for (const file of files) {
                 try {
-                    const text = await file.text();
+                    let text;
+                    if (/\.xlsx$/i.test(file.name)) {
+                        // A workbook stores labeled hyperlinks separately from its cell text.
+                        const body = new FormData();
+                        body.set('preview', '1');
+                        body.set('workbook', file);
+                        body.set('csrfmiddlewaretoken', form.elements.csrfmiddlewaretoken.value);
+                        const response = await fetch(location.pathname, {method: 'POST', body});
+                        if (!response.ok) {
+                            errors.push(`${file.name}: could not read the workbook.`);
+                            continue;
+                        }
+                        text = (await response.json()).urls.join('\n');
+                    } else {
+                        text = await file.text();
+                    }
                     if (/[\u0000-\u0008\u000e-\u001f]/.test(text)) {
                         errors.push(`${file.name}: could not read as text. Use a text or bookmarks export.`);
                         continue;

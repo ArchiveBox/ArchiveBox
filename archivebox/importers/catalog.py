@@ -80,3 +80,12 @@ def get_importer(plugin: str, feed: str) -> ImporterDefinition:
         return get_importers()[plugin, feed]
     except KeyError:
         raise ValueError("This import plugin is unavailable. Install or repair the plugin to continue.") from None
+
+
+def get_importer_providers(definitions):
+    providers = {}
+    for definition in definitions.values():
+        group = providers.setdefault(definition.provider, {"name": definition.provider, "definition": definition, "feeds": []})
+        group["feeds"].append(definition)
+    catalog = get_plugin_catalog()
+    return sorted(providers.values(), key=lambda group: catalog[group["definition"].plugin].config.display_order)

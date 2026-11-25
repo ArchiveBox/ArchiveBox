@@ -1,9 +1,128 @@
+{% load static core_tags %}
 {% url "domains:index" as domains_url %}
-<button type="button" class="library-import-toggle" aria-haspopup="menu" aria-expanded="false" popovertarget="library-import-menu-{% if export_class %}list{% else %}sidebar{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/></svg>Import<span aria-hidden="true">▾</span></button>
-    <div id="library-import-menu-{% if export_class %}list{% else %}sidebar{% endif %}" class="folder-menu library-import-menu" popover role="menu" aria-label="Import">
-      <a role="menuitem" href="https://extension.archivebox.io">From Browser History / Bookmarks</a>
-      <a role="menuitem" href="{% url 'importers:index' %}">From RSS or Social Media</a>
-      {% if domains_url %}<a role="menuitem" href="{{ domains_url }}">Clone an entire site</a>{% endif %}
-      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection">Watch a site for changes</a>
-      <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">Other options...</a>
-    </div>
+{% static 'library/import-icons.svg' as import_icons %}
+{% with menu_id=export_class|yesno:"library-import-menu-list,library-import-menu-sidebar" %}
+<button type="button" class="library-import-toggle" aria-haspopup="menu" aria-expanded="false" popovertarget="{{ menu_id }}">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/></svg>
+  Import<span aria-hidden="true">▾</span>
+</button>
+<div id="{{ menu_id }}" class="folder-menu library-import-menu" popover role="menu" aria-label="Import">
+  {% if request.user.is_active and request.user.is_staff and perms.crawls.add_crawl %}
+  <button type="button" role="menuitem" data-crawl-upload>
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/></svg>
+    <span class="folder-menu-label">Upload file</span>
+    <span class="library-import-icons" aria-hidden="true" title="XLSX, Markdown, TXT, CSV, JSON, HTML">
+      <span><svg><use href="{{ import_icons }}#xlsx"/></svg></span>
+      <span><svg><use href="{{ import_icons }}#markdown"/></svg></span>
+      <span><svg><use href="{{ import_icons }}#txt"/></svg></span>
+      <span><svg><use href="{{ import_icons }}#csv"/></svg></span>
+      <span><svg><use href="{{ import_icons }}#json"/></svg></span>
+      <span><svg><use href="{{ import_icons }}#html"/></svg></span>
+    </span>
+    <small>(or drag here)</small>
+  </button>
+  {% endif %}
+  <a role="menuitem" href="{% url 'add' %}">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H6a2 2 0 0 0-2 2v13h16V7a2 2 0 0 0-2-2h-3M8 12h8m-8 4h6"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+    <span class="folder-menu-label">Paste URLs</span>
+  </a>
+  <a role="menuitem" href="{% url 'importers:index' %}">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11a8 8 0 0 1 8 8M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1"/></svg>
+    <span class="folder-menu-label">From RSS or Social Media</span>
+    {% if request.user.is_superuser %}
+    {% importer_providers as providers %}
+    {% if providers %}
+    <span class="library-import-icons" aria-hidden="true">
+      {% for provider in providers %}
+      {% with definition=provider.definition %}
+      <span title="{{ provider.name }}"><img src="{% url 'importers:icon' definition.plugin definition.feed %}" alt="" loading="lazy"></span>
+      {% endwith %}
+      {% endfor %}
+    </span>
+    {% endif %}
+    {% endif %}
+  </a>
+  <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Archiving-URLs-from-Google-Sheets">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6Zm8 0v5h4M9 12h6v5H9Zm3 0v5m-3-2.5h6"/></svg>
+    <span class="folder-menu-label">Google Sheets</span>
+  </a>
+  <hr>
+  <a role="menuitem" href="https://extension.archivebox.io/">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01m3 0h.01"/></svg>
+    <span class="folder-menu-label">Browser extension</span>
+    <span class="library-import-icons" aria-hidden="true">
+      <span title="Chrome"><svg><use href="{{ import_icons }}#chrome"/></svg></span>
+      <span title="Safari"><svg><use href="{{ import_icons }}#safari"/></svg></span>
+      <span title="Firefox"><svg><use href="{{ import_icons }}#firefox"/></svg></span>
+      <span title="Brave"><svg><use href="{{ import_icons }}#brave"/></svg></span>
+      <span title="Edge"><svg><use href="{{ import_icons }}#edge"/></svg></span>
+    </span>
+  </a>
+  <a role="menuitem" href="https://app.archivebox.io/">
+    <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
+    <span class="folder-menu-label">ArchiveBox for macOS &amp; iOS</span>
+  </a>
+  <a role="menuitem" href="https://android.archivebox.io/">
+    <img class="folder-menu-icon" src="{% static 'favicon.ico' %}" alt="">
+    <span class="folder-menu-label">ArchiveBox for Android</span>
+  </a>
+  <a role="menuitem" href="https://github.com/ArchiveBox/archivebox-chat-bot">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 1-8 8H4l1.8-3.6A8 8 0 1 1 20 11ZM8 11h.01m4 0h.01m4 0h.01"/></svg>
+    <span class="folder-menu-label">Via chat bot</span>
+    <span class="library-import-icons" aria-hidden="true">
+      <span title="Discord"><svg><use href="{{ import_icons }}#discord"/></svg></span>
+      <span title="WhatsApp"><svg><use href="{{ import_icons }}#whatsapp"/></svg></span>
+      <span title="Signal"><svg><use href="{{ import_icons }}#signal"/></svg></span>
+      <span title="Telegram"><svg><use href="{{ import_icons }}#telegram"/></svg></span>
+      <span title="Zulip"><svg><use href="{{ import_icons }}#zulip"/></svg></span>
+      <span title="iMessage"><svg><use href="{{ import_icons }}#imessage"/></svg></span>
+      <span title="Email"><svg><use href="{{ import_icons }}#email"/></svg></span>
+      <span title="Slack"><svg><use href="{{ import_icons }}#slack"/></svg></span>
+    </span>
+  </a>
+  <a role="menuitem" href="https://github.com/ArchiveBox/archivebox-proxy">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 3-3m-2 8 6-6m-2 13 5-5m2 0 2 2-5 5-2-2M3 10l4-4 4 4-4 4Zm8 5 4-4 4 4-4 4Z"/></svg>
+    <span class="folder-menu-label">Via MITM proxy</span>
+  </a>
+  <hr>
+  <a role="menuitem" href="https://pinboard.in/export/">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 3 6 6-3 1-4 4v4l-8-8h4l4-4ZM10 14l-6 6"/></svg>
+    <span class="folder-menu-label">Pinboard</span>
+  </a>
+  <a role="menuitem" href="https://www.instapaper.com/user">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 8h6m-3 0v8m-3 0h6"/></svg>
+    <span class="folder-menu-label">Instapaper</span>
+  </a>
+  <a role="menuitem" href="https://github.com/csu/export-saved-reddit">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg>
+    <span class="folder-menu-label">Reddit Saved Posts</span>
+  </a>
+  <a role="menuitem" href="https://www.mypersonnaldata.eu/shaarli/doc/Backup,-restore,-import-and-export.html#export-links-as">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 8l2-2a4 4 0 0 1 6 6l-2 2m-2 2-2 2a4 4 0 0 1-6-6l2-2m1 5 6-6"/></svg>
+    <span class="folder-menu-label">Shaarli</span>
+  </a>
+  <a role="menuitem" href="https://unmark.it/">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Zm3 6h6"/></svg>
+    <span class="folder-menu-label">Unmark.it</span>
+  </a>
+  <a role="menuitem" href="https://doc.wallabag.org/user/articles/download/">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V5h12a2 2 0 0 1 2 2v13H6a2 2 0 0 1 0-4h12M8 9h6m-6 3h4"/></svg>
+    <span class="folder-menu-label">Wallabag</span>
+  </a>
+  <hr>
+  {% if domains_url %}
+  <a role="menuitem" href="{{ domains_url }}">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
+    <span class="folder-menu-label">Clone an entire site</span>
+  </a>
+  {% endif %}
+  <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Change-Detection">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+    <span class="folder-menu-label">Watch a site for changes</span>
+  </a>
+  <a role="menuitem" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">
+    <svg class="folder-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+    <span class="folder-menu-label">Other options...</span>
+  </a>
+</div>
+{% endwith %}

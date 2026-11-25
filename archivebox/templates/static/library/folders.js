@@ -618,6 +618,8 @@ document.addEventListener('DOMContentLoaded', () => {
           refreshRemoval();
           positionMenu();
           menu.setAttribute('data-positioned', '');
+          // Keep the first focused item visible when a tall menu is reopened.
+          menu.scrollTop = 0;
           items.find(item => !item.hidden)?.focus({preventScroll:true});
           window.addEventListener('resize', positionMenu);
           window.addEventListener('scroll', positionMenu, true);

@@ -13,12 +13,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-@pytest.mark.parametrize("depth", [0, 1])
-def test_workbook_links_are_archived_at_requested_depth(initialized_archive, httpserver, depth):
-    root_url = httpserver.url_for("/links.xlsx")
-    visible_url = httpserver.url_for("/visible")
-    labeled_url = httpserver.url_for("/labeled")
-    deeper_url = httpserver.url_for("/too-deep")
+def workbook_with_links(visible_url, labeled_url):
     workbook = io.BytesIO()
     with zipfile.ZipFile(workbook, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(
@@ -60,8 +55,18 @@ def test_workbook_links_are_archived_at_requested_depth(initialized_archive, htt
             f'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="{labeled_url}" TargetMode="External"/>'
             "</Relationships>",
         )
+    return workbook.getvalue()
+
+
+@pytest.mark.parametrize("depth", [0, 1])
+def test_workbook_links_are_archived_at_requested_depth(initialized_archive, httpserver, depth):
+    root_url = httpserver.url_for("/links.xlsx")
+    visible_url = httpserver.url_for("/visible")
+    labeled_url = httpserver.url_for("/labeled")
+    deeper_url = httpserver.url_for("/too-deep")
+    workbook = workbook_with_links(visible_url, labeled_url)
     httpserver.expect_request("/links.xlsx").respond_with_data(
-        workbook.getvalue(),
+        workbook,
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     for path in ("/visible", "/labeled"):
@@ -95,7 +100,7 @@ def test_workbook_links_are_archived_at_requested_depth(initialized_archive, htt
         assert any(
             "Archived workbook target" in file.read_text(errors="replace") for file in (directories[child["url"]] / "wget").rglob("*.html")
         )
-    assert any(file.read_bytes() == workbook.getvalue() for file in (directories[root_url] / "wget").rglob("*.xlsx"))
+    assert any(file.read_bytes() == workbook for file in (directories[root_url] / "wget").rglob("*.xlsx"))
 
 
 def test_live_google_sheet_depth_one(initialized_archive, browser_runtime):

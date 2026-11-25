@@ -2086,6 +2086,9 @@ class AddView(UserPassesTestMixin, FormView):
         from itertools import islice
         from abx_plugins.plugins.parse_jsonl_urls.bookmarks import bookmark_input_format, iter_json_records, json_object_to_entry
 
+        if workbook := request.FILES.get("workbook"):
+            return self.preview_workbook(request, workbook)
+
         text = request.POST.get("url", "")
         input_format = bookmark_input_format(text)
         entries = (
@@ -2094,6 +2097,37 @@ class AddView(UserPassesTestMixin, FormView):
             else ()
         )
         return JsonResponse({"format": input_format, "urls": [entry["url"] for entry in islice(entries, 101)]})
+
+    def preview_workbook(self, request, workbook):
+        from tempfile import NamedTemporaryFile
+        from xml.etree.ElementTree import ParseError
+        from zipfile import BadZipFile
+
+        from abx_plugins.plugins.parse_txt_urls.document_sources import iter_document_content
+        from archivebox.misc.util import find_all_urls
+
+        if not is_admin_user(request) or not request.user.has_perm("crawls.add_crawl"):
+            return HttpResponseForbidden()
+        if Path(workbook.name).suffix.lower() != ".xlsx" or workbook.size > settings.DATA_UPLOAD_MAX_MEMORY_SIZE:
+            return JsonResponse({}, status=400)
+
+        urls = {}
+        try:
+            # Use the same bounded parser as crawled workbooks so hyperlinks
+            # attached to cell labels survive alongside URLs written as text.
+            with NamedTemporaryFile(suffix=".xlsx") as source:
+                for chunk in workbook.chunks():
+                    source.write(chunk)
+                source.flush()
+                for kind, value in iter_document_content(Path(source.name)):
+                    for url in (value,) if kind == "url" else find_all_urls(value):
+                        try:
+                            urls[validate_url(url)] = None
+                        except ValueError:
+                            continue
+        except (BadZipFile, NotImplementedError, OSError, ParseError, RuntimeError, ValueError):
+            return JsonResponse({}, status=400)
+        return JsonResponse({"urls": list(urls)})
 
     def _can_override_crawl_config(self) -> bool:
         user = self.request.user

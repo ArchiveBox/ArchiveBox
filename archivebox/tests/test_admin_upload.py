@@ -170,6 +170,7 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
         stop_server,
     )
     from archivebox.tests.test_cli_add_1 import IMPORT_FORMAT_ENV, IMPORT_FORMAT_EXPECTATIONS, assert_expected_import_snapshots
+    from archivebox.tests.test_document_url_crawl import workbook_with_links
     from archivebox.tests.test_orm_helpers import use_archivebox_db
     from archivebox.tests.test_ui_add_view_runtime import _stop_worker
 
@@ -204,11 +205,19 @@ def test_upload_browser_and_native_parser(initialized_archive, browser_runtime, 
                     page.locator("#submit").click()
                     page.wait_for_url("**/admin/crawls/crawl/*/change/")
                     expect(page.locator("#id_urls")).to_have_value(source.read_text())
-                # Multiple files follow the same existing /add/ import queue.
+                # The menu picker and file drops both hand files to the Add form.
                 page.goto(base + "/admin/core/snapshot/")
-                page.locator("#content").drop({"files": [files["rss"], files["netscape"]]})
+                page.locator(".library-import-toggle:visible").first.press("ArrowDown")
+                with page.expect_file_chooser() as chooser:
+                    page.get_by_role("menuitem", name="Upload file (or drag here)", exact=True).press("Enter")
+                workbook = tmp_path / "links.xlsx"
+                workbook_urls = ("https://example.com/workbook-visible", "https://example.com/workbook-labeled")
+                workbook.write_bytes(workbook_with_links(*workbook_urls))
+                chooser.value.set_files([files["rss"], files["netscape"], workbook])
                 page.wait_for_url("**/add/")
-                expect(page.locator("#id_url")).to_have_value(files["rss"].read_text() + files["netscape"].read_text())
+                expect(page.locator("#id_url")).to_have_value(
+                    "\n".join((files["rss"].read_text() + files["netscape"].read_text().rstrip("\n"), *workbook_urls))
+                )
                 page.reload()
                 expect(page.locator("#id_url")).to_have_value("")
                 page.go_back()

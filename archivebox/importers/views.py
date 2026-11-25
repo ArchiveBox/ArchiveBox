@@ -20,7 +20,7 @@ from archivebox.misc.serve_static import RangedFileReader, _is_asgi_request, _st
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .admin import ImporterRunAdmin
-from .catalog import get_importer, get_importers
+from .catalog import get_importer, get_importer_providers, get_importers
 from .diagnostics import LOG_NAME, SCREENSHOT_NAME, artifact_path, diagnostics
 from .forms import ImporterSourceForm
 from .models import ImporterRun, ImporterSource
@@ -49,10 +49,6 @@ def page(request, template, context):
 @require_GET
 def index(request):
     definitions = get_importers()
-    providers = {}
-    for definition in definitions.values():
-        group = providers.setdefault(definition.provider, {"name": definition.provider, "definition": definition, "feeds": []})
-        group["feeds"].append(definition)
     sources = Paginator(
         ImporterSource.objects.select_related("persona")
         .defer("settings", "checkpoint", "account")
@@ -69,9 +65,9 @@ def index(request):
     for source in sources:
         source.definition = definitions.get((source.plugin, source.feed))
         source.latest_run = next(iter(source.latest_runs), None)
-    catalog = get_plugin_catalog()
-    ordered_providers = sorted(providers.values(), key=lambda group: catalog[group["definition"].plugin].config.display_order)
-    return page(request, "importers/index.html", {"sources": sources, "providers": ordered_providers, "title": "Importers"})
+    return page(
+        request, "importers/index.html", {"sources": sources, "providers": get_importer_providers(definitions), "title": "Importers"}
+    )
 
 
 @importer_admin

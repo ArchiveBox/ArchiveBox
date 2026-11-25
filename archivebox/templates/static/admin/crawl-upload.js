@@ -5,6 +5,7 @@
     const message = document.getElementById('crawl-drop-message');
     const detail = document.getElementById('crawl-drop-detail');
     const close = document.getElementById('crawl-drop-close');
+    const picker = document.getElementById('crawl-upload-files');
     let depth = 0;
     let busy = false;
     let previousFocus;
@@ -49,6 +50,18 @@
             show('error', 'Import failed', error.message);
         }
     }
+    document.addEventListener('click', event => {
+        const button = event.target.closest('[data-crawl-upload]');
+        if (!button || busy) return;
+        // The popover is in the top layer, above the upload overlay.
+        button.closest(':popover-open')?.hidePopover();
+        picker.click();
+    });
+    picker.addEventListener('change', () => {
+        const files = Array.from(picker.files);
+        picker.value = '';
+        if (files.length) openAdd(files);
+    });
     document.addEventListener('dragenter', event => {
         if (!accepts(event)) return;
         event.preventDefault();

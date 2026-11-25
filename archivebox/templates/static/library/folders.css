@@ -133,12 +133,25 @@ body.model-snapshot.change-list .snapshot-library #changelist #changelist-form>.
   .folder-menu[data-positioned]:popover-open{animation:library-menu-appear 50ms ease-out}
   @keyframes library-menu-appear{from{opacity:0}to{opacity:1}}
 }
-.folder-menu.library-import-menu{width:290px}.folder-menu .snapshot-export-menu{display:block}
+.folder-menu.library-import-menu{width:342px}.folder-menu .snapshot-export-menu{display:block}
 .folder-menu [role=menuitem]{box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:32px;margin:0;padding:6px 8px;border:0;border-radius:3px;background:none;color:var(--body-fg,#1d2939);font:inherit;font-size:12px;line-height:20px;text-align:left;text-decoration:none!important;cursor:pointer}
 .folder-menu [role=menuitem]:hover,.folder-menu [role=menuitem]:focus-visible{outline:0;background:color-mix(in srgb,var(--archivebox-accent,#a51c50) 8%,var(--body-bg,#fff));color:var(--archivebox-accent,#a51c50)}
 .folder-menu small{color:var(--body-quiet-color,#667085);font-size:10px;white-space:nowrap}.snapshot-export-links a{gap:5px}.snapshot-export-links small{font-size:9px;white-space:nowrap}
 .folder-menu .folder-menu-icon{flex:0 0 16px;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;color:var(--body-quiet-color,#667085)}
 .folder-menu-label{flex:1;white-space:nowrap}.folder-menu [role=menuitem]>small{margin-left:auto}.folder-menu .snapshot-export-menu a{gap:8px}
+.library-import-menu .folder-menu-label{min-width:0;white-space:normal}
+.library-import-icons{display:flex;align-items:center;flex:none}
+.library-import-icons>span{display:grid;place-items:center;box-sizing:border-box;width:20px;height:20px;border:1px solid var(--border-color,#d0d5dd);border-radius:5px;background:#fff;color:#4d424b}
+.library-import-icons>span+span{margin-left:-2px}
+.library-import-icons>span[title=Safari]{color:#1879c4}
+.library-import-icons>span[title=Firefox]{color:#e46b24}
+.library-import-icons>span[title=Brave]{color:#e8552b}
+.library-import-icons>span[title=Edge]{color:#168b95}
+.library-import-icons :is(svg,img){display:block;width:14px;height:14px;object-fit:contain;fill:currentColor;stroke:none}
+@media(max-width:360px){
+  .library-import-icons>span{width:17px;height:18px}
+  .library-import-icons :is(svg,img){width:12px;height:12px}
+}
 .folder-menu [role=menuitem].folder-delete-snapshots,.folder-menu .folder-delete-snapshots .folder-menu-icon{color:var(--error-fg,#ba2121)}
 .folder-menu-section{display:block;padding:5px 8px 3px;color:var(--body-quiet-color,#667085);font-size:10px;line-height:16px;font-weight:400}
 .folder-menu hr{height:0;margin:4px 0;border:0;border-top:1px solid var(--hairline-color,#e4e7ec)}
