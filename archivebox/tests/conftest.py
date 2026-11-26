@@ -462,7 +462,7 @@ def wayback_server():
 
 
 @pytest.fixture(autouse=True)
-def isolate_test_runtime(tmp_path, wayback_server):
+def isolate_test_runtime(tmp_path, wayback_server, settings):
     """
     Run each pytest test from an isolated temp cwd and restore env mutations.
 
@@ -485,6 +485,12 @@ def isolate_test_runtime(tmp_path, wayback_server):
     # The config field's default was captured at import, before test isolation.
     # Keep sampler files and other temporary output inside this test collection.
     os.environ["TMP_DIR"] = str(tmp_path / "tmp")
+    # Django built the disk cache before pytest switched to this collection.
+    # Parallel databases reuse user IDs and queries, but must not share results.
+    settings.CACHES = {
+        **settings.CACHES,
+        "search_results": {**settings.CACHES["search_results"], "LOCATION": tmp_path / "tmp" / "search-results"},
+    }
     wayback_server.clear()
     wayback_server.expect_request(re.compile(r"^/save/")).respond_with_handler(
         lambda request: Response(
