@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """CLI-specific tests for archivebox schedule."""
 
+from datetime import UTC, datetime, timedelta
+
 from archivebox.tests.conftest import run_archivebox_cmd
 
 import pytest
@@ -80,6 +82,26 @@ def test_schedule_creates_enabled_db_schedule(initialized_archive):
     assert crawl.urls == "https://example.com/feed.xml"
     assert crawl.status == "sealed"
     assert crawl.max_depth == 1
+
+
+def test_schedule_every_48_hours_across_month_boundary(initialized_archive):
+    url = "https://news.ycombinator.com/"
+    run_archivebox_cmd(["schedule", "--every=48h", "--depth=0", url], check=True)
+
+    with use_archivebox_db(initialized_archive):
+        schedule = CrawlSchedule.objects.select_related("template").get(schedule="48h")
+        assert schedule.is_enabled
+        assert schedule.template.urls == url
+        assert schedule.next_run_at - schedule.last_run_at == timedelta(hours=48)
+
+        # Calendar-based "*/2" schedules can fire one day apart at month end.
+        last_run = datetime(2026, 1, 31, 8, 15, tzinfo=UTC)
+        run = schedule.enqueue(queued_at=last_run)
+        Crawl.objects.filter(pk__in=[schedule.template_id, run.pk]).update(created_at=last_run)
+        schedule.refresh_from_db()
+        assert schedule.next_run_at == datetime(2026, 2, 2, 8, 15, tzinfo=UTC)
+        assert not schedule.is_due(last_run + timedelta(hours=47))
+        assert schedule.is_due(last_run + timedelta(hours=48))
 
 
 def test_schedule_show_lists_enabled_schedules(initialized_archive):
