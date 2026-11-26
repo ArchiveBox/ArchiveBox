@@ -61,6 +61,13 @@ def test_server_owns_native_header_and_progress(platform, admin_user, snapshot, 
             url = page.locator(".header-url-text").bounding_box()
             logo = back.bounding_box()
             assert url is not None and logo is not None and logo["x"] < url["x"]
+            assert back.locator("img").evaluate(
+                """image => {
+                    const logo = image.getBoundingClientRect();
+                    return document.elementFromPoint(logo.x + logo.width / 2, logo.y + logo.height / 2)
+                        ?.closest('a') === image.parentElement;
+                }""",
+            )
         else:
             expect(page.locator(".header-archivebox")).not_to_have_attribute("href", "archivebox://back")
         if platform in ("ios", "android"):
