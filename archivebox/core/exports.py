@@ -486,6 +486,9 @@ def _principal(request, *, session_authorized=False):
     selected.user = user
     if not archivebox_admin.has_permission(selected) or not archivebox_admin._registry[Snapshot].has_view_permission(selected):
         return None, HttpResponse(status=403)
+    # Export URLs and request telemetry must use the same identity that passed
+    # authorization, including tokens on these explicitly public API routes.
+    request.user = user
     return user, None
 
 
@@ -521,7 +524,7 @@ def snapshot_export_view(request, format, *, api=False):
         return HttpResponseNotAllowed(allowed_methods)
     user, error = _principal(
         request,
-        session_authorized=(not api and request.user.is_authenticated) or (request.method == "POST" and request.POST.get("session") == "1"),
+        session_authorized=request.user.is_authenticated,
     )
     if error is not None:
         return error
@@ -606,6 +609,12 @@ def snapshot_export_job_view(request, process_id, *, action="status", api=False)
     if not public_only and (not user.is_authenticated or str(user.pk) != value("--user")):
         return HttpResponse(status=403)
     principal = user if not public_only else None
+    if public_only and value("--user"):
+        from django.contrib.auth import get_user_model
+
+        # A signed-in user can request a public-only export. Its logs retain
+        # that owner even when an anonymous viewer follows the public job URL.
+        principal = get_user_model().objects.filter(pk=value("--user")).first()
     if not process.pwd.startswith(export_log_prefix(query=query, user=principal, public_only=public_only)):
         return HttpResponse(status=404)
     jobs = export_jobs(query=query, user=principal, public_only=public_only, process_id=process.pk)

@@ -12,6 +12,35 @@ from archivebox.misc.serve_static import RangedFileReader, serve_static_with_byt
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("asgi", [False, True])
+@pytest.mark.parametrize("size", [0, 1, RangedFileReader.block_size + 1])
+def test_file_response_does_not_send_appended_bytes(tmp_path, asgi, size):
+    payload = tmp_path / "payload.bin"
+    data = os.urandom(size)
+    payload.write_bytes(data)
+    request = (AsyncRequestFactory() if asgi else RequestFactory()).get("/payload.bin")
+    response = serve_static_with_byterange_support(request, "payload.bin", document_root=tmp_path)
+    assert response.status_code == 200
+    assert int(response["Content-Length"]) == size
+    # Captures append manifests while clients are reading them. The response
+    # must honor its already-declared length even if the file grows before EOF.
+    with payload.open("ab") as writer:
+        writer.write(b"new capture output\n")
+    try:
+        if asgi:
+
+            async def consume():
+                return b"".join([chunk async for chunk in response.streaming_content])
+
+            body = asyncio.run(consume())
+        else:
+            body = b"".join(response.streaming_content)
+        assert body == data
+    finally:
+        response.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("asgi", [False, True])
 @pytest.mark.parametrize("consumed_chunks", [0, 1, 3])
 def test_file_response_close_releases_payload(tmp_path, asgi, consumed_chunks):
     payload = tmp_path / "payload.bin"

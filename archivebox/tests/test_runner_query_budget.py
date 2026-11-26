@@ -102,3 +102,49 @@ def test_schedule_poll_reuses_latest_run_timestamp_for_one_pass():
     later = Crawl.objects.create(urls=template.urls, schedule=schedule, created_at=now + timedelta(minutes=1))
     assert schedule.last_run_at == later.created_at
     assert CrawlSchedule.objects.annotate(_last_run_created_at=Subquery(latest)).get(pk=schedule.pk).last_run_at == later.created_at
+
+
+def test_hook_abort_checks_reuse_crawl_watcher(cached_abxpkg_lib_dir):
+    from asgiref.sync import async_to_sync, sync_to_async
+    from abx_dl.events import ProcessStartedEvent
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.workers.runner import CrawlRunner
+
+    crawl = Crawl.objects.create(
+        urls="https://www.sqlite.org/",
+        config={"PLUGINS": "hashes"},
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    runner = CrawlRunner(crawl, show_progress=False)
+    checked = []
+
+    async def check_started_hook(event: ProcessStartedEvent):
+        if event.plugin_name != "hashes":
+            return
+        # Stress the same callback that every active hook polls. The watcher
+        # already owns the database read; adding hooks must not multiply it.
+        before = await sync_to_async(lambda: len(connection.queries), thread_sensitive=True)()
+        for _ in range(100):
+            assert not await runner.hook_abort_requested()
+        after = await sync_to_async(lambda: len(connection.queries), thread_sensitive=True)()
+        assert after == before
+        checked.append(event.pid)
+
+    # Installation has no watcher yet, so it must read each committed change.
+    assert not async_to_sync(runner.hook_abort_requested)()
+    Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.SEALED)
+    assert async_to_sync(runner.hook_abort_requested)()
+    Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.QUEUED)
+    assert not async_to_sync(runner.hook_abort_requested)()
+    runner.bus.on(ProcessStartedEvent, check_started_hook)
+    with CaptureQueriesContext(connection):
+        async_to_sync(runner.run)()
+    assert checked
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.SEALED
+    snapshot = crawl.snapshot_set.get()
+    assert snapshot.status == "sealed"
+    result = snapshot.archiveresult_set.get(plugin="hashes")
+    assert result.status == "succeeded"
+    assert (snapshot.output_dir / "hashes/hashes.json").is_file()

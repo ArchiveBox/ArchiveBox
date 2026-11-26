@@ -368,3 +368,47 @@ def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_adm
     assert list(snapshot.tags.values_list("name", flat=True)) == ["browser"]
     assert fetched.json()["title"] == "Updated title"
     assert storage_calls == []
+
+
+@pytest.mark.parametrize("with_archiveresults", [False, True])
+def test_snapshot_list_batches_tags_and_result_metadata(client, api_admin_user, api_headers, with_archiveresults):
+    from archivebox.core.models import ArchiveResult, Tag
+
+    crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
+    tag = Tag.objects.create(name="API query budget", created_by=api_admin_user)
+    snapshots = [Snapshot.objects.create(url=f"https://news.ycombinator.com/item?id={index}", crawl=crawl) for index in range(10)]
+    for index, snapshot in enumerate(snapshots):
+        snapshot.tags.add(tag)
+        for result_index in range(index % 3):
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="title",
+                hook_name=f"on_Snapshot__title_{result_index}",
+                status=ArchiveResult.StatusChoices.SUCCEEDED,
+                output_str=f"Saved title {index}",
+            )
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(
+            "/api/v1/core/snapshots",
+            {"crawl_id": str(crawl.pk), "limit": 10, "with_archiveresults": str(with_archiveresults).lower()},
+            **api_headers,
+        )
+    assert response.status_code == 200, response.content
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert len(items) == 10
+    for index, snapshot in enumerate(snapshots):
+        item = items[str(snapshot.pk)]
+        assert item["tags"] == [tag.name]
+        assert item["num_archiveresults"] == index % 3
+        assert len(item["archiveresults"]) == (index % 3 if with_archiveresults else 0)
+        assert all(result["created_by_username"] == api_admin_user.username for result in item["archiveresults"])
+
+    # One page must fetch each related collection once, even for snapshots
+    # with zero results; counting must not hydrate all result JSON just for totals.
+    tag_reads = [query["sql"] for query in queries if 'FROM "core_tag"' in query["sql"]]
+    result_reads = [
+        query["sql"] for query in queries if query["sql"].lstrip().startswith("SELECT") and 'FROM "core_archiveresult"' in query["sql"]
+    ]
+    assert len(tag_reads) == 1, tag_reads
+    assert len(result_reads) == 1, result_reads

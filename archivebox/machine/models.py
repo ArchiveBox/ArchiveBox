@@ -2205,11 +2205,16 @@ class Process(ModelWithDeleteAfter, models.Model):
         if not self.is_running:
             # Reap child process if it's a zombie (best-effort)
             proc = self.proc
+            reaped_exit_code = None
             if proc is not None:
                 try:
-                    proc.wait(timeout=0.001)
+                    reaped_exit_code = proc.wait(timeout=0.001)
                 except Exception:
                     pass
+            # A CLI child can persist its failure before exiting. This caller's
+            # instance predates that update, so reread the durable result only
+            # after exit instead of overwriting it with the default success code.
+            self.refresh_from_db(fields=["status", "exit_code", "ended_at"])
             # The complete logs remain on disk. Site exports can append one
             # progress line per snapshot, so polling their state must not load
             # or persist the entire log on an interactive request.
@@ -2226,10 +2231,13 @@ class Process(ModelWithDeleteAfter, models.Model):
                 if self.stderr_file and self.stderr_file.exists():
                     self.stderr = self.stderr_file.read_text(errors="replace")
 
-            self.exit_code = self.exit_code if self.exit_code is not None else _default_exit_code_for_unowned_process(self.process_type)
+            if self.exit_code is None:
+                self.exit_code = (
+                    reaped_exit_code if reaped_exit_code is not None else _default_exit_code_for_unowned_process(self.process_type)
+                )
             if self.exit_code == -1:
                 self.exit_code = 137
-            self.ended_at = timezone.now()
+            self.ended_at = self.ended_at or timezone.now()
             self.status = self.StatusChoices.EXITED
             # Another lifecycle writer may have cleared related rows since
             # this instance was loaded. Persist only the exit transition.

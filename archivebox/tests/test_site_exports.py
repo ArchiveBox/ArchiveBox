@@ -34,8 +34,15 @@ def test_main_domain_export_options_validate_server_directory(admin_client, save
 
 
 def test_static_site_command_preserves_sources_and_exports_links(saved_site, tmp_path):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
     destination = tmp_path / "export"
-    call_command("site_export", scope="news.ycombinator.com", format="html", destination=str(destination))
+    with CaptureQueriesContext(connection) as queries:
+        call_command("site_export", scope="news.ycombinator.com", format="html", destination=str(destination))
+    # Every snapshot needs its crawl owner to derive the stored path; the batch
+    # query must provide it rather than repeat one full Crawl lookup per page.
+    assert not [query["sql"] for query in queries if 'FROM "crawls_crawl"' in query["sql"]]
     manifest = json.loads((destination / "pages.json").read_text())
     assert len(manifest) == len(saved_site)
     paths = {entry["url"]: entry["path"] for entry in manifest}
@@ -133,6 +140,76 @@ def test_static_export_preserves_non_utf8_capture_bytes(saved_site, tmp_path):
     assert b"Encoded: \xe9 \x97" in output.read_bytes()
     assert b"archivebox-links.js" in output.read_bytes()
     assert source.read_bytes() == body
+
+
+@pytest.mark.parametrize("format", ["html_zip", "wacz"])
+def test_archive_limit_stops_discovery_before_next_snapshot_batch(saved_site, tmp_path, format):
+    from pathlib import Path
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    first = saved_site[0][0]
+    if format == "wacz":
+        recording = Path(__file__).parent / "fixtures/memento/iframetest.wacz"
+        source = first.output_dir / "archivewebpage/archive.wacz"
+        source.parent.mkdir(parents=True)
+        source.write_bytes(recording.read_bytes())
+        ArchiveResult.objects.create(snapshot=first, plugin="archivewebpage", status="succeeded", output_str="archivewebpage/archive.wacz")
+    # Real repeated captures exceed one discovery batch; the first saved artifact
+    # already exceeds this limit, so none of the next batch should be queried.
+    for _ in range(100):
+        crawl = Crawl.objects.create(urls=first.url, created_by=first.crawl.created_by)
+        Snapshot.objects.create(url=first.url, crawl=crawl)
+    destination = tmp_path / "bounded-export"
+    with CaptureQueriesContext(connection) as queries, pytest.raises(CommandError, match="exceeds"):
+        call_command(
+            "site_export",
+            query="domain=news.ycombinator.com&sort=created_at",
+            format=format,
+            destination=str(destination),
+            max_bytes=100,
+        )
+    assert not [query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and "OFFSET 100" in query["sql"]]
+    assert not destination.exists()
+
+
+def test_wacz_limit_counts_selected_recordings_not_other_saved_files(saved_site, tmp_path):
+    from pathlib import Path
+    import zipfile
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    snapshot = saved_site[0][0]
+    fixtures = Path(__file__).parent / "fixtures"
+    selected = fixtures / "memento/iframetest.wacz"
+    source = snapshot.output_dir / "archivewebpage/archive.wacz"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(selected.read_bytes())
+    ArchiveResult.objects.create(snapshot=snapshot, plugin="archivewebpage", status="succeeded", output_str="archivewebpage/archive.wacz")
+    # Saved output outside the selected successful recorder is not bundled.
+    other = snapshot.output_dir / "other-recording/archive.wacz"
+    other.parent.mkdir()
+    other.write_bytes((fixtures / "responsive-images/google-drive.wacz").read_bytes())
+    total_size = sum(path.stat().st_size for path in snapshot.output_dir.rglob("*") if path.is_file())
+    Snapshot.objects.filter(pk=snapshot.pk).update(output_size=total_size)
+    limit = selected.stat().st_size + 2048
+    assert total_size > limit
+    destination = tmp_path / "selected-recording"
+    call_command(
+        "site_export",
+        query=f"id={snapshot.pk}",
+        format="wacz",
+        destination=str(destination),
+        max_bytes=limit,
+    )
+    assert (destination / "site.wacz").stat().st_size <= limit
+    with zipfile.ZipFile(destination / "site.wacz") as archive:
+        package = json.loads(archive.read("datapackage.json"))
+        assert len(package["resources"]) == 1
+        assert archive.read(package["resources"][0]["path"]) == selected.read_bytes()
 
 
 @pytest.mark.parametrize("format", ["html_zip", "wacz"])

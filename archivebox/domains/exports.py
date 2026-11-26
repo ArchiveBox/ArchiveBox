@@ -113,14 +113,42 @@ def _write_page(destination, snapshot_id, page_url, root, path, links, report_by
                 pending.append(candidate.relative_to(root).as_posix())
 
 
+def _snapshot_files(root):
+    # Discovery and copying must select the same files: collection-wide size
+    # metadata includes other export formats and cannot enforce this limit.
+    for current, directories, filenames in os.walk(root):
+        directories.sort()
+        for filename in sorted(filenames):
+            source = Path(current) / filename
+            if source.parent == root and filename in {"index.html", "index.json", "index.jsonl"}:
+                continue
+            if source.resolve().is_relative_to(root) and source.is_file():
+                yield source
+
+
 def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     sources = []
 
     def remember_sources():
         # Replay selection needs prefetched results only for the current batch.
         # Retain paths, not ORM rows and their output manifests, for later passes.
+        discovered_bytes = 0
+        reported_at = 0.0
         for snapshot in snapshots:
-            sources.append((snapshot.pk, snapshot.output_dir.resolve(), Path(snapshot.static_archive_path)))
+            root = snapshot.output_dir.resolve()
+            if max_bytes:
+                # Reject while discovering actual selected artifacts, before
+                # loading more snapshot batches or copying gigabytes of files.
+                # The later write checks still cover growth and rewritten HTML.
+                for source in _snapshot_files(root):
+                    discovered_bytes += source.stat().st_size
+                    if discovered_bytes > max_bytes:
+                        raise ValueError(f"Static HTML export exceeds the {printable_filesize(max_bytes)} ({max_bytes} bytes) limit.")
+                    now = time.monotonic()
+                    if now - reported_at >= 1:
+                        progress({"total_bytes": discovered_bytes})
+                        reported_at = now
+            sources.append((snapshot.pk, root, Path(snapshot.static_archive_path)))
             yield snapshot
 
     pages = captured_pages(remember_sources())
@@ -160,31 +188,24 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
         matched = {}
         # Include complete saved plugin output trees, including Git dotfiles.
         # Never follow directory links or file links outside the snapshot.
-        for current, directories, filenames in os.walk(root):
-            directories.sort()
-            for filename in sorted(filenames):
-                source = Path(current) / filename
-                if source.parent == root and filename in {"index.html", "index.json", "index.jsonl"}:
-                    continue
-                if not source.resolve().is_relative_to(root) or not source.is_file():
-                    continue
-                relative = source.relative_to(root)
-                target = target_root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with source.open("rb") as original, target.open("xb") as copied:
-                    while chunk := original.read(1024 * 1024):
-                        report_bytes(len(chunk))
-                        copied.write(chunk)
-                path = relative.as_posix()
-                if provider := file_players.get(source.suffix.lower()):
+        for source in _snapshot_files(root):
+            relative = source.relative_to(root)
+            target = target_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with source.open("rb") as original, target.open("xb") as copied:
+                while chunk := original.read(1024 * 1024):
+                    report_bytes(len(chunk))
+                    copied.write(chunk)
+            path = relative.as_posix()
+            if provider := file_players.get(source.suffix.lower()):
+                player_files[snapshot_id][path] = provider
+                continue
+            for provider, matches, paths in providers:
+                if matches(path):
                     player_files[snapshot_id][path] = provider
-                    continue
-                for provider, matches, paths in providers:
-                    if matches(path):
-                        player_files[snapshot_id][path] = provider
-                        if paths:
-                            matched[provider] = paths
-                        break
+                    if paths:
+                        matched[provider] = paths
+                    break
         for provider, paths in matched.items():
             if provider not in asset_cache:
                 asset_cache[provider] = read_replay_assets(get_config(), provider, paths)
@@ -204,7 +225,9 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
 
     # The collection index and details are the same renderers used by the CLI
     # and live snapshot UI; only their destination and relative URLs differ.
-    queryset = Snapshot.objects.filter(pk__in=archive_paths).prefetch_related("tags", "archiveresult_set")
+    queryset = (
+        Snapshot.objects.filter(pk__in=archive_paths).select_related("crawl__created_by").prefetch_related("tags", "archiveresult_set")
+    )
     (destination / "index.html").write_text(
         queryset.to_html(out_dir=destination, preview_paths=previews, player_files=player_files, snapshot_order=archive_paths),
     )
@@ -215,8 +238,11 @@ def write_static_site(destination, snapshots, *, title, progress, max_bytes=0):
     return len(sources)
 
 
-def write_wacz_site(destination, snapshots, *, title, progress):
+def write_wacz_site(destination, snapshots, *, title, progress, max_bytes=0):
     recordings = []
+    seen = set()
+    total_bytes = 0
+    reported_at = 0.0
     main_url = ""
     for snapshot in snapshots:
         results = list(snapshot.archiveresult_set.all())
@@ -231,11 +257,22 @@ def write_wacz_site(destination, snapshots, *, title, progress):
                 continue
             path = (root / relative).resolve()
             if path.is_relative_to(root) and path.suffix.lower() == ".wacz" and path.is_file():
-                recordings.append(path)
+                if path not in seen:
+                    total_bytes += path.stat().st_size
+                    # Check every artifact, but do not emit one progress log for
+                    # every recording in a large selection.
+                    if max_bytes and total_bytes > max_bytes:
+                        raise ValueError(f"Export exceeds the {printable_filesize(max_bytes)} ({max_bytes} bytes) limit.")
+                    now = time.monotonic()
+                    if now - reported_at >= 1:
+                        progress({"total_bytes": total_bytes})
+                        reported_at = now
+                    recordings.append(path)
+                    seen.add(path)
                 if not main_url or (urlsplit(snapshot.url).path in {"", "/"} and urlsplit(main_url).path not in {"", "/"}):
                     main_url = snapshot.url
     with (destination / "site.wacz").open("xb") as output:
-        count = write_site_wacz(output, recordings, title=title, main_url=main_url, progress=progress)
+        count = write_site_wacz(output, recordings, title=title, main_url=main_url, progress=progress, max_bytes=max_bytes)
     return count
 
 
@@ -265,7 +302,12 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
         # Each batch is materialized before touching saved files; no open DB cursor
         # spans filesystem work. Slicing retains native CLI ordering and limits.
         offset = 0
-        while batch := list(queryset.prefetch_related("archiveresult_set")[offset : offset + 100]):
+        # Stored paths depend on the crawl owner. Load those relations once with
+        # each batch instead of querying Crawl and User separately for every page.
+        while batch := list(queryset.select_related("crawl__created_by").prefetch_related("archiveresult_set")[offset : offset + 100]):
+            # Prefer directly saved pages without a collection-wide SQL sort or
+            # parent lookups. Stable sorting retains the query order in each group.
+            batch.sort(key=lambda snapshot: snapshot.parent_snapshot_id is not None)
             consumed_ids.extend(snapshot.pk for snapshot in batch)
             yield from batch
             offset += len(batch)
@@ -277,7 +319,7 @@ def export_snapshots_to_directory(queryset, *, destination, format, max_bytes=No
         if format in {"html", "html_zip"}:
             write_static_site(destination, snapshots(), title=title, progress=report, max_bytes=max_bytes)
         else:
-            write_wacz_site(destination, snapshots(), title=title, progress=report)
+            write_wacz_site(destination, snapshots(), title=title, progress=report, max_bytes=max_bytes)
         if format == "html_zip":
             with zipfile.ZipFile(archive_file, "x", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as bundle:
                 for item in destination.rglob("*"):

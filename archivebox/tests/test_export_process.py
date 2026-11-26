@@ -10,6 +10,49 @@ from archivebox.tests.test_machine_models import _spawn_blocked_process
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_failed_export_wait_preserves_child_exit_status(initialized_archive):
+    from pathlib import Path
+
+    from archivebox.tests.conftest import run_python_cwd
+
+    fixture = Path(__file__).parent / "fixtures/original-domain-replay/front.html.gz"
+    script = """
+import os, sys, gzip
+from pathlib import Path
+os.environ["DATA_DIR"] = str(Path.cwd())
+import django
+django.setup()
+from archivebox.core.models import Snapshot, ArchiveResult
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Machine, Process
+
+crawl = Crawl.objects.create(urls="https://news.ycombinator.com/")
+snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, config={"PERMISSIONS": "public"})
+body = gzip.decompress(Path(FIXTURE).read_bytes())
+output = snapshot.output_dir / "dom/output.html"
+output.parent.mkdir(parents=True, exist_ok=True)
+output.write_bytes(body)
+ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", status="succeeded", output_str="dom/output.html", output_size=len(body), output_files={"dom/output.html": {"size": len(body)}})
+for name, query in (("over-budget", ""), ("invalid-filter", "invalid_filter=1")):
+    destination = Path.cwd() / "exports" / name
+    process = Process.objects.create(machine=Machine.current(), process_type="cli", worker_type="site-export", pwd=str(Path.cwd() / "logs" / name))
+    process.cmd = [sys.executable, "-m", "archivebox", "manage", "site_export", "--query", query, "--format", "html_zip", "--destination", str(destination), "--max-bytes", "1", "--process-id", str(process.pk)]
+    process.save()
+    process.launch(background=True, cwd=str(Path.cwd()))
+    code = process.wait(timeout=30)
+    assert code == 1, (name, code, process.stderr_file.read_text())
+    process.refresh_from_db()
+    assert process.status == "exited" and process.exit_code == code
+    assert "CommandError" in process.stderr_file.read_text()
+    assert not destination.exists()
+    assert output.read_bytes() == body
+print("failed-export-exit-status-ok")
+""".replace("FIXTURE", repr(str(fixture)))
+    stdout, stderr, returncode = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert returncode == 0, stderr + stdout
+    assert "failed-export-exit-status-ok" in stdout
+
+
 def test_unlimited_export_process_survives_cleanup_until_it_exits():
     child, started_at = _spawn_blocked_process(sys.executable)
     try:

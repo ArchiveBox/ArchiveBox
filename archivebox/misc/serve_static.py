@@ -1481,6 +1481,11 @@ def serve_static_with_byterange_support(
     # handle byte-range requests by serving chunk of file
     if stat.S_ISREG(statobj.st_mode):
         size = statobj.st_size
+        if ranged_file is not None:
+            # Capture manifests can grow after these headers are calculated.
+            # Bound full responses too: reading to EOF can exceed Content-Length
+            # and make the HTTP server abort an otherwise valid download.
+            ranged_file.stop = size
         response["Content-Length"] = size
         response["Accept-Ranges"] = "bytes"
         response["X-Django-Ranges-Supported"] = "1"

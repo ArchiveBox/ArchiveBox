@@ -15,7 +15,7 @@ from typing import Union, Any, Annotated
 from datetime import datetime
 
 from django.db import IntegrityError, transaction
-from django.db.models import Model, Q
+from django.db.models import Model, Prefetch, Q
 from django.http import HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, ValidationError
@@ -758,6 +758,16 @@ class SnapshotSchema(Schema):
             record = value.serialize_record(value, [tag.name for tag in value.tags.all()])
             request = (info.context or {}).get("request")
             include_results = request is not None and request.__dict__.get("with_archiveresults", False)
+            result_count = getattr(value, "num_archiveresults", None)
+            if result_count is None:
+                result_count = value.archiveresult_set.count()
+            results = []
+            if include_results:
+                results = value.archiveresult_set.all()
+                # Keep the list endpoint's page prefetch; applying select_related
+                # again clones its cached QuerySet and repeats one read per item.
+                if "archiveresult_set" not in getattr(value, "_prefetched_objects_cache", {}):
+                    results = _with_archiveresult_processes(results)
             value = {
                 **record,
                 # Keep REST's existing persona spelling and string owner IDs.
@@ -767,8 +777,8 @@ class SnapshotSchema(Schema):
                 "archive_path": value.archive_path_from_db,
                 # This reverse FK contains each result once; DISTINCT would
                 # materialize wide JSON columns just to count indexed rows.
-                "num_archiveresults": value.archiveresult_set.count(),
-                "archiveresults": _with_archiveresult_processes(value.archiveresult_set.all()) if include_results else [],
+                "num_archiveresults": result_count,
+                "archiveresults": results,
             }
         return handler(value)
 
@@ -948,6 +958,17 @@ def get_snapshots(request: HttpRequest, response: HttpResponse, filters: Query[S
         )
     except ValueError as err:
         raise HttpError(400, str(err)) from err
+    # Prefetch only the paginated snapshots. Without this, serialization reads
+    # tags and result counts once per item on every client metadata poll.
+    queryset = queryset.prefetch_related("tags")
+    if with_archiveresults:
+        queryset = queryset.prefetch_related(
+            Prefetch("archiveresult_set", queryset=_with_archiveresult_processes(ArchiveResult.objects.all())),
+        )
+    else:
+        # Use the existing indexed scalar count, rather than loading result
+        # manifests or grouping the entire filtered snapshot collection.
+        queryset = queryset.annotate(num_archiveresults=ArchiveResult.snapshot_count_expr())
     queryset = filters.filter(queryset).distinct()
     query = (filters.search or "").strip()
     if not query:

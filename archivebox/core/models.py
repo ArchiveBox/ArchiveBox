@@ -341,7 +341,7 @@ class Folder(models.Model):
             pending.extend((child, level + 1) for child in reversed(children.get(folder.pk, [])))
         # Descendants contain their parent's entire breadcrumb. For a literal
         # path search, an unrelated branch cannot establish a public match.
-        smart = [folder for folder in ordered if folder.is_smart and not folder.is_container]
+        smart = [folder for folder in ordered if folder.is_smart and (not folder.is_container or folder.rules.get("limit") is not None)]
         if public and smart:
             from archivebox.progressmonitor.collection import snapshot_list_count
 
@@ -378,10 +378,20 @@ class Folder(models.Model):
                 if folder.has_public_snapshots:
                     parent_id = folder.parent_id
                     while parent_id and not by_id[parent_id].has_public_snapshots:
+                        # A limited container may select only private/unlisted
+                        # captures even when a child has other public captures.
+                        # Its own compiled selection, not the child, decides.
+                        if by_id[parent_id].is_container and by_id[parent_id].rules.get("limit") is not None:
+                            break
                         by_id[parent_id].has_public_snapshots = True
                         parent_id = by_id[parent_id].parent_id
         result = []
         for folder in ordered:
+            if public and path_pattern is None and folder.parent_id and not by_id[folder.parent_id].has_public_snapshots:
+                # Preserve the tree: do not reveal an empty parent as a breadcrumb
+                # or silently promote its descendants into a different folder.
+                # Path search independently returns matching eligible descendants.
+                folder.has_public_snapshots = False
             if public and not folder.has_public_snapshots:
                 continue
             folder.has_children = any(not public or child.has_public_snapshots for child in children.get(folder.pk, []))

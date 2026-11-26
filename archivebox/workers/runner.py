@@ -23,7 +23,7 @@ from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
 from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
-from rich.console import Console
+from abx_dl.cli import ProgressConsole
 
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 from abx_dl.events import (
@@ -277,6 +277,7 @@ class CrawlRunner:
         # for timely delivery of a final "stop now" event.
         self._signal_abort_requested = False
         self._last_lease_heartbeat_at = 0.0
+        self._cancel_watcher: asyncio.Task[None] | None = None
 
     def execution_interrupted(self) -> bool:
         """Owner loss preserves work; handled stops retain the owner's terminal facts."""
@@ -413,6 +414,16 @@ class CrawlRunner:
             # deliberately scoped work that remains valid after crawl sealing.
             return False
         return await Crawl.objects.filter(id=self.crawl.id, status=Crawl.StatusChoices.SEALED).aexists()
+
+    async def hook_abort_requested(self) -> bool:
+        # One watcher already reads durable cancellation once per second for the
+        # entire crawl. Each hook polling SQLite again multiplies identical reads
+        # by active hooks without improving that existing cancellation boundary.
+        # Installation and standalone snapshot execution can precede the watcher;
+        # keep their direct DB check until the shared lifecycle watcher is active.
+        if self._cancel_watcher is None or self._cancel_watcher.done():
+            return await self.crawl_is_cancelled()
+        return self._signal_abort_requested
 
     async def crawl_is_paused(self) -> bool:
         from archivebox.crawls.models import Crawl
@@ -1054,7 +1065,7 @@ class CrawlRunner:
             terminal_size = shutil.get_terminal_size(fallback=(160, 40))
             terminal_width = terminal_size.columns
             terminal_height = terminal_size.lines
-        ui_console = Console(
+        ui_console = ProgressConsole(
             file=stream,
             force_terminal=interactive_tty,
             width=terminal_width,
@@ -1229,7 +1240,7 @@ class CrawlRunner:
                 install_plugins=install_plugins,
                 output_dir=output_dir,
                 snapshot=abx_snapshot,
-                abort_requested=self.crawl_is_cancelled,
+                abort_requested=self.hook_abort_requested,
                 # A broken optional extractor must not restart the entire crawl.
                 continue_on_binary_error=True,
             )
@@ -1251,7 +1262,7 @@ class CrawlRunner:
             snapshot=abx_snapshot,
             output_dir=output_dir,
             catalog=plugins,
-            abort_requested=self.crawl_is_cancelled,
+            abort_requested=self.hook_abort_requested,
         )
 
         async def run_snapshots(event: CrawlStartEvent) -> None:
@@ -1332,7 +1343,7 @@ class CrawlRunner:
             crawl_setup_phase_timeout=crawl_setup_phase_timeout,
             snapshot_phase_timeout=all_snapshots_phase_timeout,
             crawl_cleanup_phase_timeout=crawl_cleanup_phase_timeout,
-            abort_requested=self.crawl_is_cancelled,
+            abort_requested=self.hook_abort_requested,
             run_snapshots=run_snapshots,
         )
 
@@ -1345,12 +1356,13 @@ class CrawlRunner:
             event_handler_slow_timeout=slow_warning_timeout(crawl_lifecycle_timeout),
         )
         self.root_crawl_event_id = crawl_event.event_id
-        cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(crawl_event))
+        cancel_watcher = self._cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(crawl_event))
         try:
             await _run_event_now(self.bus.emit(crawl_event), None)
         finally:
             cancel_watcher.cancel()
             await asyncio.gather(cancel_watcher, return_exceptions=True)
+            self._cancel_watcher = None
         if await self.crawl_is_cancelled():
             self._skip_wait_until_idle = True
             return
@@ -1460,7 +1472,7 @@ class CrawlRunner:
                 config=RuntimeConfig(user=GlobalConfig(**config), derived=derived_config),
                 snapshot_phase_timeout=snapshot_phase_timeout,
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
-                abort_requested=self.crawl_is_cancelled,
+                abort_requested=self.hook_abort_requested,
             )
 
             async def project_cleanup(event: SnapshotCleanupEvent) -> None:
@@ -2157,7 +2169,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 terminal_size = shutil.get_terminal_size(fallback=(160, 40))
                 terminal_width = terminal_size.columns
                 terminal_height = terminal_size.lines
-            ui_console = Console(
+            ui_console = ProgressConsole(
                 file=stream,
                 force_terminal=True,
                 width=terminal_width,

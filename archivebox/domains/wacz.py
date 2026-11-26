@@ -25,6 +25,7 @@ def write_site_wacz(
     title: str,
     main_url: str,
     progress: Callable[[dict], None] | None = None,
+    max_bytes: int = 0,
 ) -> int:
     """Write one portable WACZ and return its recording count.
 
@@ -33,10 +34,22 @@ def write_site_wacz(
     from HTML. Sources are streamed into stored ZIP members so replay can use
     byte ranges, with memory bounded independently of archive size.
     """
-    paths = list(dict.fromkeys(Path(path).resolve() for path in recordings))
+    paths = []
+    seen = set()
+    total_bytes = 0
+    for path in recordings:
+        path = Path(path).resolve()
+        if path in seen:
+            continue
+        total_bytes += path.stat().st_size
+        # Check each source before consuming the rest of a potentially
+        # collection-wide iterable, without emitting a progress log per file.
+        if max_bytes and total_bytes > max_bytes:
+            raise ValueError(f"Export exceeds the {max_bytes} bytes limit.")
+        paths.append(path)
+        seen.add(path)
     if not paths:
         raise ValueError("No WACZ recordings are available. Capture pages with a WACZ recorder enabled first.")
-    total_bytes = sum(path.stat().st_size for path in paths)
     copied_bytes = 0
     reported_at = 0.0
     resources = []
@@ -76,6 +89,10 @@ def write_site_wacz(
                 info.extra = struct.pack("<HHBI", 0x5455, 5, 1, max(0, min(int(source_stat.st_mtime), 0xFFFFFFFF)))
                 with bundle.open(info, "w") as member:
                     while chunk := source.read(1024 * 1024):
+                        # A recorder may grow after discovery; keep enforcing
+                        # the source-byte budget while copying its actual bytes.
+                        if max_bytes and copied_bytes + len(chunk) > max_bytes:
+                            raise ValueError(f"Export exceeds the {max_bytes} bytes limit.")
                         member.write(chunk)
                         digest.update(chunk)
                         size += len(chunk)

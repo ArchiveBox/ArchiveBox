@@ -52,6 +52,23 @@ def test_site_wacz_requires_existing_recordings(tmp_path):
     assert output.stat().st_size == 0
 
 
+def test_site_wacz_checks_limit_before_discovering_later_files(tmp_path):
+    source = Path(__file__).parent / "fixtures/memento/iframetest.wacz"
+    output = tmp_path / "site.wacz"
+
+    # A later recording is absent on disk. The first actual file already
+    # exceeds the budget, so its limit error must win before visiting that path.
+    with output.open("wb") as stream, pytest.raises(ValueError, match="exceeds.*100 bytes"):
+        write_site_wacz(
+            stream,
+            [source, tmp_path / "missing.wacz"],
+            title="Saved pages",
+            main_url="https://example.com/",
+            max_bytes=100,
+        )
+    assert output.stat().st_size == 0
+
+
 @pytest.mark.django_db(transaction=True)
 def test_exported_replay_assets_use_installed_plugin(cached_abxpkg_lib_dir):
     from archivebox.config.common import get_config
