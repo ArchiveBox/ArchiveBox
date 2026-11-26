@@ -387,6 +387,11 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 "ARCHIVEDOTORG_SAVE_URL": f"http://127.0.0.1:{wayback.port}/save/",
             },
         )
+        # Share integrity-checked npm content, not the isolated home, library,
+        # or installed binaries. npm still fetches missing entries via the proxy.
+        npm_content_cache = env.pop("DOCS_NPM_CONTENT_CACHE", "")
+        if npm_content_cache:
+            env.update(npm_config_cache=npm_content_cache, npm_config_prefer_offline="true")
         # A runnable Python alias can still select an interpreter without the
         # project's packages. Keep its first hop visible when a real hook fails;
         # resolving every symlink here would hide the venv path we need to check.
@@ -489,6 +494,9 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             snippet_env = env.copy()
             launch_bash = Path(snippet_env.get("BASH_BINARY", env["BASH_BINARY"]))
             if record["scenario"] in {"system", "system-data"}:
+                if npm_content_cache:
+                    snippet_env.pop("npm_config_cache")
+                    snippet_env.pop("npm_config_prefer_offline")
                 system_home = temp_dir / f"system-home-{snippet_id}"
                 system_data_dir = system_home / "archivebox" / "data"
                 system_home.mkdir()

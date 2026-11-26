@@ -201,8 +201,23 @@ jobs:
         run: |
           ABX_DL_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(dep.removeprefix("abx-dl==") for dep in tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"] if dep.startswith("abx-dl==")))')"
           "$DOCKER_BINARY" build --build-arg "ABX_DL_IMAGE=archivebox/abx-dl:${ABX_DL_VERSION}" --tag archivebox/archivebox:dev .
+      - id: npm-cache-key
+        name: Identify locked documentation package tooling
+        if: matrix.environment == 'ubuntu'
+        run: |
+          uv run --no-cache --no-sync python -c 'from importlib.metadata import version; print("packages=" + version("abx-plugins") + "-" + version("abxpkg"))' >> "$GITHUB_OUTPUT"
+
+      - name: Cache public npm package content
+        if: steps.npm-cache-key.outcome == 'success'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/archivebox-docs-npm/_cacache
+          key: docs-npm-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.npm-cache-key.outputs.packages }}
+
       - name: Run the Ubuntu, Docker, or macOS documentation lane
         if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
+        env:
+          DOCS_NPM_CONTENT_CACHE: ${{ matrix.environment == 'ubuntu' && format('{0}/archivebox-docs-npm', runner.temp) || '' }}
         run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'
       - name: Run the root documentation lane
         if: ${{ matrix.environment == 'root' }}
