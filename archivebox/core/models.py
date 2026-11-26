@@ -4999,7 +4999,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
             "warc_path": warc_path,
             "archiveresults": ordered_outputs,
-            "derived_snapshot_cards": get_snapshot_detail_cards(request, self.pk)
+            "derived_snapshot_cards": get_snapshot_detail_cards(request, self)
             if request is not None and static_export_dir is None and not discover_files and runtime_config.CONTROL_PLANE_ENABLED
             else (),
             "output_dir": str(static_export_dir or self.output_dir),

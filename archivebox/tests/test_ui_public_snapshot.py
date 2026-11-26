@@ -298,7 +298,12 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
 
     with CaptureQueriesContext(connection) as captured_queries:
         response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
-    assert len(captured_queries) <= 7, [query["sql"] for query in captured_queries]
+    queries = [query["sql"] for query in captured_queries]
+    # The graph card may make one bounded child lookup; it must not
+    # reload the selected capture or add work to the replay's base budget.
+    child_queries = [sql for sql in queries if '"core_snapshot"."parent_snapshot_id" =' in sql]
+    assert len(child_queries) <= 1 and all("LIMIT 2" in sql for sql in child_queries), queries
+    assert len(queries) - len(child_queries) <= 7, queries
 
     assert response.redirect_chain[0][0].rstrip("/").endswith(second.get_absolute_url().rstrip("/"))
     assert response.status_code == 200

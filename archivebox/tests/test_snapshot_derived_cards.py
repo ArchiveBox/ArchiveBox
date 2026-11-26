@@ -12,7 +12,7 @@ from lxml.html import fromstring
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.plugins.discovery import get_plugin_apps
-from archivebox.plugins.host import host
+from archivebox.plugins.host import ArchiveBoxHost, host
 from archivebox.tests.conftest import WEB_TEST_HOST
 
 
@@ -78,6 +78,12 @@ def test_snapshot_relationships_are_bounded_and_do_not_trust_presentation_cookie
     assert visible["parent"] is None
     assert [row["id"] for row in visible["children"]] == [str(child.pk)]
     assert "LIMIT 1" in captured.captured_queries[-1]["sql"]
+
+    detail_host = ArchiveBoxHost(detail_request=request, detail_snapshot=snapshot)
+    with django_assert_num_queries(2):
+        assert detail_host.snapshot_relationships(request, snapshot_id=snapshot.pk, limit=1) == visible
+    with django_assert_num_queries(1):
+        assert detail_host.snapshot_relationships(request, snapshot_id=parent.pk)["root"] is None
     with pytest.raises(PermissionDenied):
         host.snapshot_neighborhood_records(request, ids=[str(snapshot.pk)])
     request.user = admin_user

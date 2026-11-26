@@ -30,6 +30,10 @@ PROCESS_RECORD_FIELDS = (
 
 
 class ArchiveBoxHost:
+    def __init__(self, *, detail_request=None, detail_snapshot=None):
+        self._detail_request = detail_request
+        self._detail_snapshot = detail_snapshot
+
     def plugin_catalog(self):
         from archivebox.plugins.discovery import get_plugin_catalog
 
@@ -453,11 +457,16 @@ class ArchiveBoxHost:
 
         empty = {"root": None, "parent": None, "children": []}
         try:
-            snapshot = (
-                Snapshot.objects.only("id", "url", "title", "permissions", "parent_snapshot_id").filter(pk=UUID(str(snapshot_id))).first()
-            )
+            snapshot_id = UUID(str(snapshot_id))
         except ValueError:
             return empty
+
+        # The detail view has already loaded this snapshot. Do not reuse it for
+        # any other request or ID, and still apply the same permission checks.
+        snapshot = self._detail_snapshot if request is self._detail_request else None
+        fields = ("id", "url", "title", "permissions", "parent_snapshot_id")
+        if snapshot is None or snapshot.pk != snapshot_id or snapshot.get_deferred_fields().intersection(fields):
+            snapshot = Snapshot.objects.only(*fields).filter(pk=snapshot_id).first()
         if snapshot is None or not can_view_snapshot(request, snapshot):
             return empty
 

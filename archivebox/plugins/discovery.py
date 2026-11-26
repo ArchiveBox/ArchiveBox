@@ -387,19 +387,20 @@ def get_plugin_apps() -> dict[str, ModuleType]:
     return {name: app for name in get_plugin_catalog() if (app := get_plugin_app(name)) is not None}
 
 
-def get_snapshot_detail_cards(request, snapshot_id):
+def get_snapshot_detail_cards(request, snapshot):
     """Collect non-file snapshot cards from installed application plugins."""
     from urllib.parse import urlsplit
 
     from archivebox.core.routes_util import build_admin_url
-    from archivebox.plugins.host import host
+    from archivebox.plugins.host import ArchiveBoxHost
     from archivebox.plugins.output_groups import OUTPUT_GROUPS
 
+    host = ArchiveBoxHost(detail_request=request, detail_snapshot=snapshot)
     groups = {group for group, _ in OUTPUT_GROUPS}
     cards = []
     for name, app in get_plugin_apps().items():
         render_card = getattr(app, "snapshot_detail_card", None)
-        if not callable(render_card) or not (card := render_card(host, request, snapshot_id=str(snapshot_id))):
+        if not callable(render_card) or not (card := render_card(host, request, snapshot_id=str(snapshot.pk))):
             continue
         path = card["path"]
         parts = urlsplit(path)
