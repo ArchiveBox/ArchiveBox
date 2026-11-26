@@ -8,7 +8,7 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
@@ -142,10 +142,8 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                 raw_preview = card.get_attribute("data-preview-url")
                 assert raw_preview
                 preview_url = urlsplit(raw_preview)
-                expected_preview = urlunsplit(
-                    preview_url._replace(query=urlencode([*parse_qsl(preview_url.query), ("_abx_rev", revision)])),
-                )
-                assert selected_frames == [{"connected": True, "src": expected_preview, "sandbox": None}]
+                assert dict(parse_qsl(preview_url.query))["_abx_rev"].startswith(f"{revision}-")
+                assert selected_frames == [{"connected": True, "src": raw_preview, "sandbox": None}]
             card.locator('a[target="preview"]').first.click()
             preview = page.frame_locator("#main-frame")
             if plugin in DOCUMENT_PROVIDERS:

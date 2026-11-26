@@ -8,13 +8,14 @@ import re
 import sys
 import zipfile
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
 from playwright.sync_api import sync_playwright
 
 from archivebox.core.models import ArchiveResult
+from archivebox.core.context_processors import get_static_cache_key
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.machine.models import Machine
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
@@ -24,6 +25,8 @@ from archivebox.tests.conftest import resolve_abxpkg_binary_env
 @pytest.mark.parametrize("permissions", ["public", "unlisted"])
 @pytest.mark.parametrize("hash_state", ["missing", "failed", "malformed", "complete"])
 def test_replay_cache_policy_uses_hash_result_without_manifest_reads(snapshot, client, permissions, hash_state):
+    from html import unescape
+    from django.template import Context, Template
     from archivebox.misc.serve_static import _load_file_inventory
 
     snapshot.config = {**snapshot.config, "PERMISSIONS": permissions}
@@ -49,6 +52,10 @@ def test_replay_cache_policy_uses_hash_result_without_manifest_reads(snapshot, c
             output_files={"hashes.json": "invalid" if hash_state == "malformed" else {"size": 100}},
         )
     route = urlsplit(build_snapshot_url(str(snapshot.id), "archivewebpage/capture.wacz"))
+    link = Template('{% load core_tags %}{% snapshot_preview_url snapshot_id "archivewebpage/capture.wacz" %}').render(
+        Context({"snapshot_id": str(snapshot.id)}),
+    )
+    assert parse_qs(urlsplit(unescape(link)).query) == {"preview": ["1"], "_abx_rev": [get_static_cache_key()]}
     manifest_reads = []
 
     def trace(frame, event, arg):
@@ -151,6 +158,8 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
     elif hash_state == "missing":
         manifest.unlink()
     url = build_snapshot_url(str(snapshot.id), "archivewebpage/archivewebpage.wacz") + "?preview=1"
+    path = "archivewebpage/archivewebpage.wacz"
+    detail_url = build_snapshot_url(str(snapshot.id), "index.html") + f"#{path}"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),
@@ -182,5 +191,20 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
                     # This complete archive fits within one bounded range read;
                     # dependent iframe resources should reuse those same bytes.
                     assert len(ranges) == 1, ranges
+
+            # Shared hashes select the generated viewer's deployment URL, but
+            # keep the output selection itself stable across releases.
+            page.goto(detail_url, wait_until="load")
+            page.frame_locator("#main-frame").locator("#replay-root").wait_for()
+            viewer = next(frame for frame in page.frames if ".wacz?" in frame.url and "preview=1" in frame.url)
+            viewer.wait_for_function("window.archiveboxReplayReady && !window.archiveboxReplayError")
+            replay = next(frame for frame in page.frames if "/replay/w/" in frame.url)
+            assert "Outside iframe" in replay.locator("body").inner_text()
+            revision = parse_qs(urlsplit(viewer.url).query)["_abx_rev"]
+            assert revision[0].endswith(f"-{get_static_cache_key()}")
+            link = page.locator('.thumb-card[data-plugin-name="archivewebpage"] a[target="preview"]').first
+            assert parse_qs(urlsplit(link.get_attribute("href")).query)["_abx_rev"] == revision
+            link.click()
+            assert page.evaluate("location.hash") == f"#{path}"
         finally:
             browser.close()

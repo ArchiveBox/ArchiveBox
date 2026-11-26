@@ -1220,6 +1220,7 @@
                 // Refreshed outputs reuse their paths. Keep warm browser caching,
                 // but select new bytes after the already-loaded DB row changes.
                 // Match the card's asset URL so both views share cached bytes.
+                // The deployment key also replaces old immutable viewer HTML.
                 const revision = outputRevision || "{% if not STATIC_EXPORT %}{{ snapshot.modified_at|date:'U.u' }}{% endif %}"
                 if (!raw || !revision) return raw
                 const url = new URL(raw, window.location.href)
@@ -1228,7 +1229,7 @@
                     {% if not STATIC_EXPORT %}
                     if (/\.html?$/i.test(url.pathname) && !url.searchParams.has('preview')) url.searchParams.set('preview', '1')
                     {% endif %}
-                    url.searchParams.set('_abx_rev', revision)
+                    url.searchParams.set('_abx_rev', `${revision}-{{ STATIC_CACHE_KEY|escapejs }}`)
                 }
                 return url.href
             }
@@ -1503,6 +1504,9 @@
                     }
                     const searchParams = new URLSearchParams(url.search || '')
                     if (stripPreview) searchParams.delete('preview')
+                    // Shared snapshot hashes identify an output, not the
+                    // deployment that happened to render its current link.
+                    searchParams.delete('_abx_rev')
                     const search = searchParams.toString()
                     const suffix = `${search ? `?${search}` : ''}${url.hash || ''}`
                     const value = `${path}${suffix}`.replace(/^\/+/, '')

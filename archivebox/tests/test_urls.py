@@ -2158,7 +2158,7 @@ class TestUrlRouting:
                         self.frames.append(dict(attrs))
             frames = PreviewFrames()
             frames.feed(live_html)
-            revision = f"{int(console_result.modified_at.timestamp())}.{console_result.modified_at.microsecond:06d}"
+            revision = f"{int(console_result.modified_at.timestamp())}.{console_result.modified_at.microsecond:06d}-{get_static_cache_key()}"
             snapshot_host = get_snapshot_host(str(snapshot.id))
             console_frames = [
                 frame for frame in frames.frames

@@ -1010,7 +1010,7 @@ def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
     if context.get("STATIC_EXPORT") and (preview := context.get("STATIC_PREVIEW_PATHS", {}).get(path)):
         return _snapshot_url_for_context(context, snapshot, preview)
     plugin = getattr(result, "plugin", "") if result else ""
-    return _build_snapshot_preview_url(
+    url = _build_snapshot_preview_url(
         str(snapshot_id),
         path,
         request=context.get("request"),
@@ -1018,6 +1018,9 @@ def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
         plugin=plugin,
         base_url=_snapshot_base_url_for_context(context, snapshot) if context.get("STATIC_EXPORT") else None,
     )
+    # Direct links must select the same viewer as the JavaScript main frame;
+    # an older generated document may still have immutable browser caching.
+    return _version_card_url(context, result or snapshot, url) if url != "about:blank" else url
 
 
 @register.simple_tag
@@ -1043,8 +1046,17 @@ def _version_card_url(context, result, url: str) -> str:
     """Keep warm cards reusable, but invalidate their assets after a recapture."""
     if context.get("STATIC_EXPORT"):
         return url
-    modified = context.get("card_modified_at") or result.modified_at
-    revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}"
+    from archivebox.core.context_processors import get_static_cache_key
+
+    # Viewer code changes independently of the saved output. Reuse the existing
+    # deployment key so old immutable HTML cannot hide an upgraded viewer.
+    cache_key = context.get("STATIC_CACHE_KEY")
+    if not cache_key:
+        cache_key = context["STATIC_CACHE_KEY"] = get_static_cache_key()
+    # The preview tag also accepts a bare snapshot ID. It still needs the
+    # deployment key when no row is available to add a recapture timestamp.
+    modified = context.get("card_modified_at") or getattr(result, "modified_at", None)
+    revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}-{cache_key}" if modified else cache_key
     parts = urlsplit(url)
     query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "_abx_rev"]
     return urlunsplit(parts._replace(query=urlencode([*query, ("_abx_rev", revision)])))

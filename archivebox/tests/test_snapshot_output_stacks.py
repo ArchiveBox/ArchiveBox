@@ -13,6 +13,7 @@ from django.template import Context
 from django.test import RequestFactory
 
 from archivebox.core.models import ArchiveResult
+from archivebox.core.context_processors import get_static_cache_key
 from archivebox.core.views import SnapshotView
 from archivebox.config.common import ServerConfig
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -1122,7 +1123,7 @@ def test_extension_mhtml_uses_html_stack_and_mhtml_viewer(snapshot, live_server,
         page = browser.new_page()
         page.goto(f"http://{host}:{port}/_card/{result.id}")
         viewer = page.locator(".chrome-mhtml-thumbnail > iframe")
-        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}"
+        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}-{get_static_cache_key()}"
         assert viewer.get_attribute("src") == f"http://{host}:{port}/chrome_extension_mhtml/snapshot.mhtml?_abx_rev={revision}&preview=1"
         rendered = viewer.content_frame.locator("iframe").content_frame.locator("h1")
         assert rendered.inner_text() == saved_text
@@ -1188,7 +1189,7 @@ def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server, b
         embedded = page.locator("iframe")
         embedded.wait_for()
         assert page.locator("html").evaluate("e => getComputedStyle(e).overflowY") == "clip"
-        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}"
+        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}-{get_static_cache_key()}"
         expected_card = viewer_url.replace("?preview=1", f"?_abx_rev={revision}&preview=1&titlebar=0")
         assert embedded.get_attribute("src") == expected_card
         embedded.content_frame.locator(".thread-title").wait_for()
@@ -1701,6 +1702,10 @@ def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot,
             assert frame.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
             first_src = page.locator("#main-frame").get_attribute("src")
             assert first_src
+            revision = parse_qs(urlsplit(first_src).query)["_abx_rev"]
+            assert revision[0].endswith(f"-{get_static_cache_key()}")
+            direct = page.locator('.thumb-card[data-plugin-name="singlefile"] a[target="preview"]').first.get_attribute("href")
+            assert parse_qs(urlsplit(direct).query)["_abx_rev"] == revision
             # The thumbnail and main viewer render the same saved bytes. Their
             # cache version must agree even when the snapshot row changed later.
             card = page.locator('.stack-cover iframe[title="singlefile card"]')
