@@ -92,7 +92,8 @@ def prepare_webhooks(base_url, username, password):
         {
             "name": "Log snapshot changes",
             "ref": "archivebox.core.models.Snapshot",
-            "signal": "UPDATE",
+            "signal": "M2M_ADD",
+            "relationship": "tags",
             "folder_id": None,
             "enabled": True,
             "actions": [
@@ -131,6 +132,14 @@ def verify_actions(base_url, username, password, webhook_ids):
     response.raise_for_status()
     snapshots = response.json()["items"]
     snapshot = next(item for item in snapshots if item["url"].rstrip("/") == "https://news.ycombinator.com")
+    # A reused capture may already have the marker; an unchanged tag set does not emit M2M_ADD.
+    if "webhook-reviewed" in snapshot["tags"]:
+        response = session.patch(
+            f"{base_url}/api/v1/core/snapshot/{snapshot['id']}",
+            json={"tags": [tag for tag in snapshot["tags"] if tag != "webhook-reviewed"]},
+            timeout=30,
+        )
+        response.raise_for_status()
     response = session.patch(
         f"{base_url}/api/v1/core/snapshot/{snapshot['id']}",
         json={"tags": list(dict.fromkeys([*snapshot["tags"], "webhook-reviewed"]))},
