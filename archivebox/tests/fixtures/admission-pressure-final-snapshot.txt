@@ -1,6 +1,0 @@
-[2026-11-20 13:46:14] WARNING archivebox.services.runner Capture admission deferred for crawl 00000000000000000000000000000001: io stalls
-[2026-11-20 13:46:16] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=1 active=0 slots=1 observed_cost=227919872 available=16548872192 active_memory=None pressure=none
-[2026-11-20 13:46:33] WARNING archivebox.services.runner Capture admission deferred for crawl 00000000000000000000000000000001: io stalls
-[2026-11-20 13:46:35] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=2 active=0 slots=2 observed_cost=205127884 available=17048039424 active_memory=None pressure=none
-[2026-11-20 13:46:36] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=2 active=0 slots=2 observed_cost=184615095 available=16997724160 active_memory=None pressure=none
-[2026-11-20 13:46:36] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=2 active=0 slots=2 observed_cost=184615095 available=16997724160 active_memory=None pressure=none

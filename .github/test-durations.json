@@ -208,7 +208,6 @@
     "archivebox/tests/test_provider_plugin_config_ui.py": 72,
     "archivebox/tests/test_provider_plugin_replay.py": 300,
     "archivebox/tests/test_public_folders.py": 14,
-    "archivebox/tests/test_recursive_crawl_1.py": 361,
     "archivebox/tests/test_recursive_crawl_2.py": 55,
     "archivebox/tests/test_recursive_crawl_3.py": 67,
     "archivebox/tests/test_redirected_resource_replay.py": 53,
