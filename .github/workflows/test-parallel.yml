@@ -296,16 +296,32 @@ jobs:
             --lib="$ABXPKG_LIB_DIR" \
             "${dependency_sources[@]}"
 
+      # Restore locked wheels across nearby releases so the hosted matrix does
+      # not request the same packages from the CI proxy in every shard.
+      - name: Cache Python wheels
+        id: uv-cache
+        if: >-
+          runner.environment == 'github-hosted' &&
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/uv-cache
+          key: uv-sync-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-sync-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-
+
       - name: Install test dependencies
         env:
           TEST_EXTRA: ${{ matrix.test.extra }}
+          UV_CACHE_DIR: ${{ runner.temp }}/uv-cache
+          UV_NO_CACHE: ${{ steps.uv-cache.outcome == 'success' && '0' || '1' }}
         run: |
           set -Eeuo pipefail
           extra_args=()
           if [[ -n "$TEST_EXTRA" ]]; then
             extra_args=(--extra "$TEST_EXTRA")
           fi
-          uv sync --no-cache --locked --dev "${extra_args[@]}"
+          uv sync --locked --dev "${extra_args[@]}"
       # These hosted Chrome lanes repeatedly timed out acquiring this 7.5 MB
       # Noble universe package. Populate only APT's download cache: the native
       # Puppeteer dependency installer still resolves and installs the fonts.
