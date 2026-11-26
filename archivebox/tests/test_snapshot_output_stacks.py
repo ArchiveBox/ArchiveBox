@@ -1909,7 +1909,9 @@ def test_metadata_priority_matches_rendered_snapshot_and_file_piles(snapshot, ad
     response = visitor.get(snapshot.get_absolute_url(), HTTP_HOST=WEB_TEST_HOST)
     assert response.status_code == 200
     detail = fromstring(response.content)
-    assert detail.xpath('//*[@data-output-group="metadata"]/@data-plugin-name') == [plugin for plugin in preferred if plugin != "favicon"]
+    # Graph is a derived detail card, not a saved output in either file pile.
+    detail_order = [plugin for plugin in preferred if plugin != "favicon"] + ["networkgraph"]
+    assert detail.xpath('//*[@data-output-group="metadata"]/@data-plugin-name') == detail_order
     assert detail.xpath('//*[@data-output-group="html"]/@data-plugin-name') == ["singlefile"]
     assert detail.xpath('//*[@data-output-group="images"]/@data-plugin-name') == ["screenshot"]
 
