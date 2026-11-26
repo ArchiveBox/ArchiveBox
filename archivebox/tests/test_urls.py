@@ -2132,6 +2132,8 @@ class TestUrlRouting:
         assert capture.returncode == 0, capture.stderr or capture.stdout
         self._run(
             """
+            from archivebox.core.context_processors import get_static_cache_key
+
             snapshot = get_snapshot()
             web_host = get_web_host()
             consolelog_dir = Path(snapshot.output_dir) / "consolelog"
