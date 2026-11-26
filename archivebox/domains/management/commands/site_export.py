@@ -30,7 +30,10 @@ class Command(BaseCommand):
         parser.add_argument("--max-bytes", type=int, default=0)
 
     def handle(self, *args, **options):
+        from django.conf import settings
+        from archivebox.config.common import normalize_runtime_config
         from archivebox.core.exports import get_export_queryset, normalize_export_query
+        from archivebox.plugins.discovery import plugin_operation
 
         try:
             if options["query"] is not None:
@@ -66,15 +69,27 @@ class Command(BaseCommand):
 
         code = 1
         try:
-            queryset = get_export_queryset(query, user=user, public_only=options["public_only"], selection_before=before)
-            export_snapshots_to_directory(
-                queryset,
-                destination=destination,
-                format=options["format"],
-                max_bytes=options["max_bytes"],
-                title=title,
-                progress=progress,
-            )
+            identity = process or Process.current()
+            attributes = {
+                "process.id": str(identity.pk),
+                "process.parent_id": str(identity.parent_id or ""),
+                "process.type": identity.process_type,
+                "worker.type": identity.worker_type,
+            }
+            if user is not None:
+                attributes.update({"user.id": str(user.pk), "user.name": user.get_username()})
+                if getattr(user, "email", None):
+                    attributes["user.email"] = user.email
+            with plugin_operation("site_export", normalize_runtime_config(settings.CONFIG), attributes=attributes):
+                queryset = get_export_queryset(query, user=user, public_only=options["public_only"], selection_before=before)
+                export_snapshots_to_directory(
+                    queryset,
+                    destination=destination,
+                    format=options["format"],
+                    max_bytes=options["max_bytes"],
+                    title=title,
+                    progress=progress,
+                )
             code = 0
         except Exception as error:
             raise CommandError(str(error)) from error

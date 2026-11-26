@@ -25,7 +25,10 @@ def export_log_prefix(scope=None, *, query=None, user=None, public_only=False):
 
 
 def launch_export(crawl=None, *, scope=None, query=None, user=None, public_only=False, directory, format, max_bytes=None):
+    from django.conf import settings
+    from archivebox.config.common import normalize_runtime_config
     from archivebox.core.exports import MAX_ARCHIVE_BYTES, normalize_export_query
+    from archivebox.plugins.discovery import get_subprocess_env, plugin_operation
 
     if query is not None and (scope or crawl is not None):
         raise ValueError("Select a snapshot query or a domain scope, not both.")
@@ -39,7 +42,13 @@ def launch_export(crawl=None, *, scope=None, query=None, user=None, public_only=
     if not parent.is_absolute():
         raise ValueError("Enter an absolute server directory path.")
     parent = parent.resolve()
-    process = Process(machine=Machine.current(), process_type=Process.TypeChoices.CLI, worker_type="site-export", timeout=0)
+    process = Process(
+        machine=Machine.current(),
+        parent=Process.current(),
+        process_type=Process.TypeChoices.CLI,
+        worker_type="site-export",
+        timeout=0,
+    )
     destination = parent / f"site-{process.pk}"
     logs = Path(export_log_prefix(query=query, user=user, public_only=public_only)) / str(process.pk)
     process.pwd = str(logs)
@@ -66,8 +75,23 @@ def launch_export(crawl=None, *, scope=None, query=None, user=None, public_only=
         process.cmd.append("--public-only")
     if max_bytes is not None:
         process.cmd.extend(["--max-bytes", str(int(max_bytes))])
-    process.save()
-    return process.launch(background=True, cwd=str(CONSTANTS.DATA_DIR))
+    config = normalize_runtime_config(settings.CONFIG)
+    attributes = {
+        "process.id": str(process.pk),
+        "process.parent_id": str(process.parent_id),
+        "process.type": process.process_type,
+        "worker.type": process.worker_type,
+    }
+    if user is not None and user.is_authenticated:
+        attributes.update({"user.id": str(user.pk), "user.name": user.get_username()})
+        if getattr(user, "email", None):
+            attributes["user.email"] = user.email
+    # The child outlives this request. Capture the active operation before Popen
+    # so SQL, progress logs and failures continue the requesting trace.
+    with plugin_operation("site_export.launch", config, attributes=attributes):
+        process.env.update(get_subprocess_env(config))
+        process.save()
+        return process.launch(background=True, cwd=str(CONSTANTS.DATA_DIR))
 
 
 def export_jobs(crawl=None, *, scope=None, query=None, user=None, public_only=False, process_id=None):

@@ -457,6 +457,16 @@ def plugin_operation(name, config, *, attributes=None):
         yield
 
 
+def get_subprocess_env(config):
+    """Let enabled application plugins pass context to a child process."""
+    env = {}
+    for app in get_plugin_apps().values():
+        prepare = getattr(app, "get_subprocess_env", None)
+        if prepare is not None:
+            env.update(prepare(config))
+    return env
+
+
 def wrap_plugin_asgi(application, config):
     """Compose optional application plugins around the complete ASGI lifetime."""
     for app in reversed(tuple(get_plugin_apps().values())):
