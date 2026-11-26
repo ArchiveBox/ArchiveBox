@@ -1,0 +1,73 @@
+<script>
+(() => {
+    // The WebView identifies itself; ArchiveBox owns the embedded presentation.
+    // A regular mobile Safari/Chrome request keeps the normal web layout.
+    if (window !== window.top) return;
+    const ua = navigator.userAgent;
+    const ios = /\bArchiveBoxNative\/iOS\b/.test(ua);
+    const android = /\bArchiveBoxNative\/Android\b/.test(ua);
+    if (!ios && !android) return;
+    const root = document.documentElement;
+    root.classList.add('archivebox-native-mobile');
+    if (!ios) return;
+    root.classList.add('archivebox-native-app', 'archivebox-ios-app');
+    if (/iPhone|iPod/.test(ua)) root.classList.add('archivebox-ios-phone');
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const header = document.querySelector('#header');
+        const adminBrand = header?.querySelector('#branding a:has(img)');
+        const replayBrand = document.querySelector('.header-top .header-archivebox:has(img)');
+        const brand = adminBrand || replayBrand;
+        if (!brand) return;
+        if (adminBrand) {
+            let crumbs = document.querySelector('.breadcrumbs');
+            if (!crumbs) {
+                crumbs = document.createElement('nav');
+                crumbs.className = 'breadcrumbs';
+                crumbs.setAttribute('aria-label', 'Breadcrumbs');
+                crumbs.textContent = document.querySelector('#content h1')?.textContent.trim()
+                    || document.title.split('|')[0].trim() || 'ArchiveBox';
+            }
+            header.append(crumbs);
+            header.classList.add('archivebox-app-header');
+        }
+        brand.href = 'archivebox://back';
+        brand.title = 'Back';
+        brand.setAttribute('aria-label', 'Back');
+        brand.classList.add('archivebox-native-back');
+        window.webkit?.messageHandlers?.archiveBoxNativeHeader?.postMessage('ready');
+    }, {once: true});
+})();
+</script>
+<style>
+    html.archivebox-native-mobile #progress-monitor,
+    html.archivebox-native-mobile #snapshot-progress-wrapper { display: none !important; }
+
+    html.archivebox-native-mobile.archivebox-ios-app #header.archivebox-app-header {
+        min-height: 44px;
+        padding: 0 8px !important;
+    }
+    html.archivebox-native-mobile .archivebox-native-back {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        box-sizing: border-box;
+        width: 44px;
+        min-height: 44px;
+        position: relative;
+        font-size: 0 !important;
+    }
+    html.archivebox-native-mobile .archivebox-native-back::after {
+        content: '';
+        position: absolute;
+        left: 7px;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 0 2px 2px;
+        transform: translateY(-50%) rotate(45deg);
+        filter: drop-shadow(0 1px 2px #0008);
+        pointer-events: none;
+    }
+</style>

@@ -5,6 +5,7 @@
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
     <head>
+        {% include "core/native_embed.html" %}
         {% block search_stream_head %}{% endblock %}
         {% plugin_page_head %}
         <script src="{% static 'zip-download.js' %}" defer></script>

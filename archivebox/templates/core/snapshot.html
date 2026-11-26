@@ -3,6 +3,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+    {% if not STATIC_EXPORT %}{% include "core/native_embed.html" %}{% endif %}
     {% include "core/typography.html" %}
     {% if not STATIC_EXPORT %}<script src="{% static 'zip-download.js' %}" defer></script>{% endif %}
         <meta charset="utf-8">
@@ -417,6 +418,11 @@
                 grid-column: 2; grid-row: 3; justify-self: end; max-width: none; flex-wrap: nowrap;
             }
             html.archivebox-ios-phone .header-top .header-year-badges { flex-wrap: nowrap; }
+            /* The current native app puts Back on the existing web logo. */
+            html.archivebox-native-mobile.archivebox-ios-app .header-top .header-left {
+                grid-column: 1; grid-row: 1; width: 44px; padding-left: 0 !important;
+                min-height: 0; display: flex !important; z-index: 1;
+            }
             .header-title-line .header-title-text { min-width: 0; flex: 1 1 0; }
             .header-title-line .favicon { flex-shrink: 0; }
             .header-archivebox { white-space: nowrap; }
