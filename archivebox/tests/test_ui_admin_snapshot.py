@@ -1203,7 +1203,12 @@ class TestSnapshotProgressStats:
         static_html = (output_dir / "index.html").read_text(encoding="utf-8")
         static_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
 
-        assert re.findall(r'data-plugin-name="([^"]+)"', static_html) == re.findall(r'data-plugin-name="([^"]+)"', live_html)
+        # A static export has the same saved cards, but cannot link to the
+        # server-side Graph view because it is not an exported artifact.
+        static_cards = re.findall(r'data-plugin-name="([^"]+)"', static_html)
+        live_cards = re.findall(r'data-plugin-name="([^"]+)"', live_html)
+        assert static_cards == [wget_result.plugin]
+        assert live_cards == [*static_cards, "networkgraph"]
         assert f'data-plugin-name="{wget_result.plugin}"' in static_html
         assert f'href="./{output_path}"' in static_html
         assert f'data-output-path="{output_path}"' in static_html

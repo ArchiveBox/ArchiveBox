@@ -1,6 +1,7 @@
 """Rendered metadata and accessibility through real detail/list/form routes."""
 
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -64,6 +65,7 @@ def test_snapshot_social_metadata(client, snapshot):
 
 
 def test_social_metadata_reads_only_needed_artifacts(client, snapshot):
+    from abx_plugins.plugins.base import filesystem
     from abx_plugins.plugins.seo import presentation
 
     snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
@@ -79,23 +81,25 @@ def test_social_metadata_reads_only_needed_artifacts(client, snapshot):
     image = (Path(__file__).parents[1] / "templates/static/archive.png").read_bytes()
     save_output(snapshot, "screenshot", "screenshot.png", image, "image/png")
     root = Path(snapshot.output_dir)
-    reads, root_resolutions, image_stats = [], [], []
+    reads, root_resolutions, checked_files = [], [], []
+    containment_modules = {presentation.__name__, filesystem.__name__}
 
     def observe(frame, event, arg):
+        module = frame.f_globals.get("__name__")
+        if event == "c_call" and arg is os.fstat and module == filesystem.__name__:
+            checked_files.append(frame.f_locals["relative"])
         if event != "call":
             return
-        if frame.f_globals.get("__name__") == presentation.__name__ and frame.f_code.co_name == "read":
+        if module == presentation.__name__ and frame.f_code.co_name == "read":
             reads.append(frame.f_locals["path"])
         caller = frame.f_back
-        if caller is not None and caller.f_code.co_name == "is_file":
-            caller = caller.f_back
-        if caller is None or caller.f_globals.get("__name__") != presentation.__name__:
+        if caller is None:
             return
-        path = frame.f_locals.get("self")
-        if frame.f_code.co_name == "resolve" and path == root:
-            root_resolutions.append(path)
-        if frame.f_code.co_name == "stat" and path == root / "screenshot/screenshot.png":
-            image_stats.append(path)
+        caller_module = caller.f_globals.get("__name__")
+        if frame.f_code.co_name == "resolve" and caller_module in containment_modules and frame.f_locals.get("self") == root:
+            root_resolutions.append(root)
+        if frame.f_code.co_name == "stat" and caller_module == filesystem.__name__:
+            checked_files.append(caller.f_locals["relative"])
 
     previous = sys.getprofile()
     sys.setprofile(observe)
@@ -107,8 +111,11 @@ def test_social_metadata_reads_only_needed_artifacts(client, snapshot):
     assert soup.xpath('//meta[@property="og:description"]/@content') == ["SEO description"]
     assert soup.xpath('//meta[@property="og:image"]/@content')
     assert reads == ["seo/seo.json"]
-    assert len(root_resolutions) == 1
-    assert len(image_stats) == 1
+    # Linux validates each pinned descriptor without resolving the root by
+    # path; the portable path resolves that root once for both artifacts.
+    uses_pinned_descriptors = hasattr(os, "O_PATH") and Path("/proc/self/fd").is_dir()
+    assert root_resolutions == ([] if uses_pinned_descriptors else [root])
+    assert checked_files == [Path("seo/seo.json"), Path("screenshot/screenshot.png")]
 
 
 @pytest.mark.parametrize("target", ["inside", "outside", "empty", "directory", "missing"])
