@@ -7,6 +7,70 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("component", ["file", "directory"])
+def test_replay_rechecks_replaced_filesystem_components(snapshot, live_server, tmp_path, component):
+    import shutil
+    from urllib.parse import urlsplit
+
+    import requests
+
+    from archivebox.core.routes_util import build_snapshot_url
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    output = snapshot.output_dir / "archivewebpage/archivewebpage.wacz"
+    output.parent.mkdir(parents=True)
+    shutil.copyfile(Path(__file__).parent / "fixtures/memento/iframetest.wacz", output)
+    expected = output.read_bytes()[:32]
+    secret = tmp_path / "outside/archivewebpage.wacz"
+    secret.parent.mkdir()
+    secret.write_bytes(b"Private data outside this snapshot must remain unreadable.")
+    url = urlsplit(build_snapshot_url(str(snapshot.id), "archivewebpage/archivewebpage.wacz"))
+    changed = output if component == "file" else output.parent
+    target = secret if component == "file" else secret.parent
+    moved = changed.with_name(changed.name + ".old")
+
+    with requests.Session() as client:
+        client.trust_env = False
+
+        def read():
+            return client.get(live_server.url + url.path, headers={"Host": url.netloc, "Range": "bytes=0-31"}, timeout=10)
+
+        response = read()
+        assert response.status_code == 206
+        assert response.content == expected
+        # A capture can replace either component between requests. An earlier
+        # successful resolution must never authorize a newly escaping link.
+        changed.rename(moved)
+        try:
+            changed.symlink_to(target, target_is_directory=component == "directory")
+            response = read()
+            assert response.status_code == 404
+            assert secret.read_bytes() not in response.content
+            changed.unlink()
+            changed.symlink_to(moved, target_is_directory=component == "directory")
+            response = read()
+            assert response.status_code == 206
+            assert response.content == expected
+        finally:
+            if changed.is_symlink():
+                changed.unlink()
+            moved.rename(changed)
+        response = read()
+        assert response.status_code == 206
+        assert response.content == expected
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
 @pytest.mark.parametrize("byte_range", [None, "bytes=0-5"])
 @pytest.mark.parametrize("target_kind", ["captured", "outside", "persona"])
@@ -817,7 +881,9 @@ def test_directory_zip_resolves_ancestors_per_directory_not_per_file(tmp_path):
         sys.monitoring.free_tool_id(tool_id)
     with zipfile.ZipFile(io.BytesIO(body)) as archive:
         assert {name: archive.read(name) for name in archive.namelist()} == expected
-    assert len(root_lookups) == 2, root_lookups
+    # The canonical root is resolved once; ordinary nested directories need
+    # only their own metadata, not another walk through the root's ancestors.
+    assert len(root_lookups) == 1, root_lookups
 
 
 def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):

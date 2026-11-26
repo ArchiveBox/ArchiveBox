@@ -103,7 +103,30 @@ def _resolve_contained_path(root: Path, path: Path) -> Path:
     # resolving its ancestors again for every directory entry. Allow links
     # within that root: plugins legitimately share captured response files.
     try:
-        resolved = path.resolve()
+        resolved = path
+        try:
+            parts = path.relative_to(root).parts
+        except ValueError:
+            parts = ("..",)
+        if ".." in parts:
+            resolved = path.resolve()
+        else:
+            # The caller already resolved the root. Walk only the remaining
+            # components: resolving the whole path again repeats every ancestor
+            # lstat and GIL handoff for each replay range. Never cache this check:
+            # a capture can replace an ordinary file or directory with a link.
+            current = root
+            for part in parts:
+                current /= part
+                try:
+                    is_link = stat.S_ISLNK(current.lstat().st_mode)
+                except (FileNotFoundError, NotADirectoryError):
+                    # Preserve non-strict resolution for missing/case-folded
+                    # paths; the normal fallback selects and validates them.
+                    is_link = True
+                if is_link:
+                    resolved = path.resolve()
+                    break
         if not resolved.is_relative_to(root):
             from archivebox.core.collection_dedupe import permitted_shared_file
 
