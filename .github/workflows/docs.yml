@@ -112,6 +112,10 @@ jobs:
           submodules: true
           fetch-depth: 1
 
+      - name: Use CI proxy trust for Homebrew
+        if: runner.os == 'macOS'
+        run: bash .github/scripts/configure-homebrew-ca.sh
+
       - name: Use the standard Ubuntu archive on hosted Linux
         if: runner.os == 'Linux' && runner.environment == 'github-hosted'
         run: |
