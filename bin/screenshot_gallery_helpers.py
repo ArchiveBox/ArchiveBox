@@ -1710,18 +1710,36 @@ def pack(lane, manifest, screenshot_root, bundle, unavailable=()):
 
 def merge(artifact_root, output, manifest, unavailable_out=None):
     current = identity()
-    attempt = current["GITHUB_RUN_ATTEMPT"]
+    attempt = int(current["GITHUB_RUN_ATTEMPT"])
     lanes = ("base", *PUBLIC_LANES)
-    bundles = {lane: artifact_root / f"gallery-capture-{attempt}-{lane}" for lane in lanes}
-    expected_names = {bundle.name for bundle in bundles.values()}
-    if {path.name for path in artifact_root.iterdir()} != expected_names:
-        raise ValueError("Unexpected or missing capture artifacts")
+    bundles = {}
+    # A failed-job rerun uploads only its replacement lanes. Reuse successful
+    # lanes from the same run, source and package versions; never fall back
+    # from an invalid newer artifact to an older one.
+    for bundle in artifact_root.iterdir():
+        match = re.fullmatch(r"gallery-capture-([1-9][0-9]*)-(.+)", bundle.name)
+        if not match or not bundle.is_dir() or bundle.is_symlink():
+            raise ValueError("Unexpected capture artifact")
+        capture_attempt, lane = match.groups()
+        number = int(capture_attempt)
+        if lane not in lanes or number > attempt:
+            raise ValueError("Unexpected capture artifact")
+        if lane not in bundles or number > bundles[lane][0]:
+            bundles[lane] = number, bundle
+    if bundles.keys() != set(lanes):
+        raise ValueError("Missing capture artifacts")
     all_files = {}
     all_rows = []
     unavailable = []
-    for lane, bundle in bundles.items():
+    for lane in lanes:
+        capture_attempt, bundle = bundles[lane]
         receipt = json.loads((bundle / "receipt.json").read_text())
-        if set(receipt) != {"identity", "lane", "files", "unavailable"} or receipt["identity"] != current or receipt["lane"] != lane:
+        expected_identity = {**current, "GITHUB_RUN_ATTEMPT": str(capture_attempt)}
+        if (
+            set(receipt) != {"identity", "lane", "files", "unavailable"}
+            or receipt["identity"] != expected_identity
+            or receipt["lane"] != lane
+        ):
             raise ValueError(f"Mixed capture provenance: {lane}")
         files = receipt["files"]
         rows = read_rows(bundle / "capture.jsonl")
