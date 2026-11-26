@@ -18,7 +18,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture
 def large_export(crawl):
-    # Larger than one response chunk; real persisted rows and a small local artifact.
+    # Keep every export larger than a response chunk when the reader batch size
+    # changes, so disconnect tests still stop before consuming the whole body.
     title = "Export, café\n" * 45
     Snapshot.objects.bulk_create(
         [
@@ -29,7 +30,7 @@ def large_export(crawl):
                 title=title,
                 permissions="public",
             )
-            for index in range(30)
+            for index in range(RangedFileReader.block_size // len(title.encode()) + 1)
         ],
     )
     return {"crawl_id": str(crawl.pk)}
