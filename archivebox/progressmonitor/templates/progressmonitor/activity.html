@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive">
     <title>Activity | ArchiveBox</title>
+    {% include "core/native_embed.html" with native_activity=True %}
     {% api_token as api_token %}
     <script>window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";</script>
     <link rel="stylesheet" href="{% static 'progress-monitor.css' %}">
@@ -19,11 +20,27 @@
         #progress-monitor .tree-container { max-height: none; overflow-y: visible; }
         #progress-monitor .header-bar { cursor: auto; }
         #progress-monitor #progress-collapse { display: none; }
+        .native-activity-nav:not([hidden]) {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-inline: 8px;
+            color: white;
+            background: #a51c50;
+            font: 600 14px system-ui, sans-serif;
+        }
+        .native-activity-nav img { width: 26px; height: 26px; }
+        .native-activity-nav:not([hidden]) + #progress-monitor { min-height: calc(100dvh - 44px); }
     </style>
 </head>
 <body>
     {% csrf_token %}
     <main aria-label="Activity">
+        <header class="native-activity-nav" hidden>
+            <a data-native-activity-back aria-label="Back"><img src="{% static 'archive.png' %}" alt=""></a>
+            <span>Activity</span>
+        </header>
         {% url 'live_progress' as progress_endpoint %}
         {% include "progressmonitor/progress_monitor.html" with progress_endpoint=progress_endpoint progress_auto_expand=True progress_standalone=True %}
     </main>

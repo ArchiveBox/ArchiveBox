@@ -66,4 +66,14 @@ def test_server_owns_native_header_and_progress(platform, admin_user, snapshot, 
         if platform in ("ios", "android"):
             expect(page.locator("#progress-monitor")).to_be_hidden()
         page.locator(".header-top").screenshot(path=str(tmp_path / f"replay-{platform}.png"))
+        if platform in ("ios", "android"):
+            page.goto(f"{admin}/admin/activity/")
+            expect(page.locator("#progress-monitor")).to_be_visible()
+            back = page.get_by_role("link", name="Back", exact=True)
+            if platform == "ios":
+                expect(back).to_have_attribute("href", "archivebox://back")
+                assert page.evaluate("window.testNativeHeaderReady") == "ready"
+            else:
+                expect(back).to_have_count(0)
+            page.locator("main").screenshot(path=str(tmp_path / f"activity-{platform}.png"))
         browser.close()
