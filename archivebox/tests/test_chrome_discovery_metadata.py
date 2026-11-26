@@ -1,5 +1,6 @@
 """Native browser keeps discovered Chrome output in its Metadata stack."""
 
+import re
 from urllib.parse import urlsplit
 import pytest
 
@@ -38,14 +39,20 @@ def test_chrome_discovery_metadata(snapshot, live_server, browser_runtime, decla
             page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
         assert discovery.value.status == 200
         expect(page.locator(".thumb-card[data-discover-files] .discovery-status")).to_have_text("")
-        metadata = page.get_by_role("button", name="Metadata, 1 outputs", exact=True)
+        # Installed plugins can add derived Metadata cards alongside discovered files.
+        metadata = page.get_by_role("button", name=re.compile(r"^Metadata, [1-9]\d* outputs$"))
         expect(metadata).to_be_visible()
+        tray = page.locator(".stack-tray")
+        chrome_selector = '.thumb-card[data-plugin-name="chrome" i]'
         page.get_by_role("button", name="Other files, 1 outputs", exact=True).click()
-        expect(page.locator(".stack-tray")).to_be_visible()
-        assert page.locator('.stack-tray .thumb-card[data-plugin-name="Chrome"]').count() == 0
+        expect(tray).to_be_visible()
+        expect(tray.locator(chrome_selector)).to_have_count(0)
+
         metadata.click()
-        cards = page.locator('.stack-tray .thumb-card[data-output-group="metadata"]')
-        expect(cards).to_have_count(1)
-        assert cards.first.get_attribute("data-plugin-name").lower() == "chrome"
+        chrome = tray.locator(f'{chrome_selector}[data-output-group="metadata"]')
+        expect(chrome).to_have_count(1)
+        expect(chrome).to_be_visible()
+        cards = tray.locator('.thumb-card[data-output-group="metadata"]')
+        expect(metadata).to_have_accessible_name(f"Metadata, {cards.count()} outputs")
 
         browser.close()
