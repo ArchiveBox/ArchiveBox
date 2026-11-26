@@ -65,7 +65,8 @@
         .snapshot-files-cell .files-icon-pile:hover > .files-icon-pile-backplate, .snapshot-files-cell .files-icon-pile:focus-within > .files-icon-pile-backplate { display: block; }
         .snapshot-files-cell .files-icon-pile > .files-icon-pile-hover-bridge { position: absolute; top: 17px; left: calc(var(--files-icon-pile-column,0) * -22px); z-index: 1; display: none; width: var(--files-icon-card-width,116px); height: 5px; clip-path: polygon(var(--files-icon-bridge-start,0px) 0,calc(var(--files-icon-bridge-start,0px) + 16px) 0,100% 100%,0 100%); pointer-events: auto; }
         .snapshot-files-cell .files-icon-pile:hover > .files-icon-pile-hover-bridge, .snapshot-files-cell .files-icon-pile:focus-within > .files-icon-pile-hover-bridge { display: block; }
-        .snapshot-files-cell .files-icon-pile > a:not(.files-icon-pile-popup), .snapshot-files-cell .files-icon-pile > span:not(.files-icon-pile-popup) { position: absolute; top: 1px; left: min(calc(var(--files-icon-index,0) * 1px),2px); z-index: var(--files-icon-index,0); }
+        /* Position the icons independently so the card and its hover bridge keep their own offsets. */
+        .snapshot-files-cell .files-icon-pile > [class*="files-icon-plugin--"] { position: absolute; top: 1px; left: min(calc(var(--files-icon-index,0) * 1px),2px); z-index: var(--files-icon-index,0); }
         .snapshot-files-cell .files-icon-pile > .files-icon-pile-top { left: calc(var(--files-icon-front-index,0) * 2px); z-index: calc(100 + var(--files-icon-front-index,0)); }
         .snapshot-files-cell .files-icon-pile > a:hover, .snapshot-files-cell .files-icon-pile > a:focus-visible { z-index: 10000 !important; }
         .snapshot-files-cell .files-icon-pile:hover, .snapshot-files-cell .files-icon-pile:focus-within { z-index: 9999; overflow: visible; }

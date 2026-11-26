@@ -111,6 +111,48 @@ def test_icon_piles_match_detail_stack_priority(snapshot, client, settings, surf
     assert _file_pile_plugin_order(rendered) == [plugin for group in expected_groups for plugin in [group[0], *group]]
 
 
+@pytest.mark.django_db(transaction=True)
+def test_public_icon_pile_popover_is_created_on_hover(snapshot, live_server, browser_runtime, settings):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}", "PUBLIC_INDEX": True}
+    machine.save(update_fields=["config"])
+    settings.PUBLIC_INDEX = True
+    snapshot.permissions = "public"
+    snapshot.status = snapshot.StatusChoices.SEALED
+    snapshot.save()
+    for plugin in ("archivewebpage", "singlefile", "wget", "chrome_mhtml", "dom", "readability"):
+        save_output(snapshot, plugin)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(f"http://web.archivebox.localhost:{port}/public/")
+        pile = page.locator(".files-icon-pile--html").first
+        expect(pile.locator(":scope > a")).to_have_count(1)
+        expect(pile.locator(".files-icon-pile-popup")).to_have_count(0)
+        pile.locator(".files-icon-pile-cover").hover()
+        popup = pile.locator(".files-icon-pile-popup")
+        expect(popup).to_be_visible()
+        assert popup.locator("a").count() >= 5
+        card = popup.bounding_box()
+        for icon in popup.locator("a").all():
+            box = icon.bounding_box()
+            assert card["x"] <= box["x"] and box["x"] + box["width"] <= card["x"] + card["width"]
+            assert card["y"] <= box["y"] and box["y"] + box["height"] <= card["y"] + card["height"]
+        popup.locator(".files-icon-plugin--singlefile").hover()
+        expect(popup).to_be_visible()
+        assert "#singlefile" in popup.locator(".files-icon-plugin--singlefile").get_attribute("href")
+        browser.close()
+
+
 @pytest.mark.parametrize(
     ("security_mode", "expected_host"),
     [

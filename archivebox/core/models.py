@@ -3374,7 +3374,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 percent = int((completed / total * 100) if total > 0 else 0)
                 successful_icons = format_html(
                     '<div class="snapshot-successful-plugin-icons files-icons">{}</div>',
-                    mark_safe(
+                    self._public_icon_renderer(self)
+                    if "_public_icon_renderer" in self.__dict__
+                    else mark_safe(
                         self._compact_icon_piles(
                             ordered_plugins,
                             archive_results,
@@ -3408,6 +3410,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     successful_icons,
                 )
 
+            if compact_icons and "_public_icon_renderer" in self.__dict__:
+                return self._public_icon_renderer(self)
             if compact_icons:
                 return format_html(
                     '<span class="files-icons" style="font-size: 1em;">{}</span>',

@@ -1876,8 +1876,15 @@ class PublicIndexView(ListView):
         list_results = load_snapshot_list_results(snapshots)
         list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         icon_metadata = {}
+        from archivebox.core.admin_site import archivebox_admin
+        from archivebox.core.admin_snapshots import SnapshotAdmin
+
+        icon_admin = SnapshotAdmin(Snapshot, archivebox_admin)
+        icon_admin.request = self.request
         for snapshot in snapshots:
             summary = list_results[snapshot.id]
+            snapshot._admin_output_results = summary.results
+            snapshot._public_icon_renderer = icon_admin.files
             status_counts = summary.status_counts
             snapshot._icons_compact = True
             snapshot._icons_plugin_metadata = icon_metadata
