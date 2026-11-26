@@ -2012,7 +2012,10 @@ def test_mobile_snapshot_long_title_uses_space_before_tags(snapshot, live_server
     tags = ["marvelous-tabs-2026-10-20"]
     snapshot.save_tags(tags)
     busy_snapshot = Snapshot.objects.create(
-        crawl=snapshot.crawl, url="https://example.com/many-tags", title=snapshot.title, permissions="public"
+        crawl=snapshot.crawl,
+        url="https://example.com/many-tags",
+        title=snapshot.title,
+        permissions="public",
     )
     busy_snapshot.save_tags([*tags, "physics", "solar", "research", "photovoltaic", "energy"])
 
@@ -2034,7 +2037,7 @@ def test_mobile_snapshot_long_title_uses_space_before_tags(snapshot, live_server
             page.goto(f"http://web.archivebox.localhost:{port}{record.get_absolute_url()}/index.html", wait_until="domcontentloaded")
             expect(title).to_be_visible()
             page.evaluate(
-                "() => document.fonts.ready.then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))"
+                "() => document.fonts.ready.then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))",
             )
             page.locator(".header-top").screenshot(path=str(tmp_path / f"{label}-{native_app}.png"))
             return (

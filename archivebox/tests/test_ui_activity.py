@@ -44,7 +44,7 @@ def test_activity_expands_without_changing_desktop_preference(admin_user, live_s
         page.evaluate("localStorage.setItem('progress-monitor-collapsed', 'true')")
 
         with page.expect_response(
-            lambda response: urlsplit(response.url).path == "/progress.json" and "tree=0" not in response.url
+            lambda response: urlsplit(response.url).path == "/progress.json" and "tree=0" not in response.url,
         ) as progress:
             page.goto(f"{origin}/admin/activity/")
         assert progress.value.ok
@@ -53,7 +53,7 @@ def test_activity_expands_without_changing_desktop_preference(admin_user, live_s
         expect(page.locator("#progress-collapse")).to_be_hidden()
         assert page.locator("#header").count() == 0
         with page.expect_response(
-            lambda response: response.request.method == "PATCH" and f"/api/v1/crawls/crawl/{crawl.pk}" in response.url
+            lambda response: response.request.method == "PATCH" and f"/api/v1/crawls/crawl/{crawl.pk}" in response.url,
         ) as paused:
             page.get_by_title("Pause crawl").click()
         assert paused.value.ok

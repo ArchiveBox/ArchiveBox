@@ -28,7 +28,7 @@ def test_server_owns_native_header_and_progress(platform, admin_user, snapshot, 
         browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
         page = browser.new_page(viewport={"width": 1280 if platform == "desktop" else 440, "height": 844}, user_agent=user_agent)
         page.add_init_script(
-            "window.webkit = {messageHandlers: {archiveBoxNativeHeader: {postMessage(value) { window.testNativeHeaderReady = value; }}}};"
+            "window.webkit = {messageHandlers: {archiveBoxNativeHeader: {postMessage(value) { window.testNativeHeaderReady = value; }}}};",
         )
         page.goto(f"{admin}/admin/login/?next=/admin/domains/")
         page.locator("#id_username").fill(admin_user.username)
