@@ -110,6 +110,7 @@ def test_extract_archiveresult_record_queues_parent_snapshot_plugin(initialized_
     assert snapshot.config["RETRY_PLUGINS"] == ["archivewebpage"]
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_no_wait_keeps_sealed_snapshot_sealed(initialized_archive):
     env = cli_env(PLUGINS="title")
     create_extract_snapshot(initialized_archive, env)
@@ -167,6 +168,7 @@ def test_extract_no_wait_keeps_sealed_snapshot_sealed(initialized_archive):
         assert result.output_str == "ArchiveBox Test Page"
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_runs_on_snapshot_id(initialized_archive):
     """Test that extract command accepts a snapshot ID."""
     env = cli_env(PLUGINS="wget,title")
@@ -215,6 +217,7 @@ def test_extract_runs_on_snapshot_id(initialized_archive):
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_with_enabled_extractor_creates_archiveresult(initialized_archive):
     """Test that extract creates ArchiveResult when extractor is enabled."""
     env = cli_env(PLUGINS="wget,title")
@@ -264,6 +267,7 @@ def test_extract_with_enabled_extractor_creates_archiveresult(initialized_archiv
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_plugin_option_accepted(initialized_archive):
     """Test that --plugin option is accepted."""
     env = cli_env(PLUGINS="wget,title")
@@ -311,6 +315,7 @@ def test_extract_plugin_option_accepted(initialized_archive):
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_stdin_snapshot_id(initialized_archive):
     """Test that extract reads snapshot IDs from stdin."""
     env = cli_env(PLUGINS="wget,title")
@@ -359,6 +364,7 @@ def test_extract_stdin_snapshot_id(initialized_archive):
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_stdin_jsonl_input(initialized_archive):
     """Test that extract reads JSONL records from stdin."""
     env = cli_env(PLUGINS="wget,title")
@@ -413,6 +419,7 @@ def test_extract_stdin_jsonl_input(initialized_archive):
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_pipeline_from_snapshot(initialized_archive):
     """Test piping snapshot output to extract."""
     env = cli_env(PLUGINS="wget,title")
@@ -420,7 +427,7 @@ def test_extract_pipeline_from_snapshot(initialized_archive):
     result = subprocess.run(
         [
             "bash",
-            "-lc",
+            "-c",
             "set -o pipefail; archivebox snapshot create https://archivebox.io/tests/ | archivebox extract --plugins=wget,title",
         ],
         cwd=initialized_archive,
@@ -466,6 +473,7 @@ def test_extract_pipeline_from_snapshot(initialized_archive):
     assert archiveresults["wget"].output_files["archivebox.io/tests/index.html"]["size"] == wget_path.stat().st_size
 
 
+@pytest.mark.usefixtures("browser_runtime")
 def test_extract_multiple_snapshots(initialized_archive):
     """Test extracting from multiple snapshots."""
     env = cli_env(PLUGINS="wget,title")
