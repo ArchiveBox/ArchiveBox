@@ -12,7 +12,8 @@ browser="$cache/linux-$version/chrome-linux64/chrome"
 
 case "${1:?}" in
   check)
-    actual="$("$browser" --version 2>/dev/null || true)"
+    # Chrome for Testing appends whitespace to its version output.
+    read -r actual <<< "$("$browser" --version 2>/dev/null || true)"
     if [[ "$actual" != "Google Chrome for Testing $version" ]]; then
       echo 'needed=true' >> "$GITHUB_OUTPUT"
     fi
