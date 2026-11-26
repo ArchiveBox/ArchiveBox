@@ -55,6 +55,11 @@
 }
 /* The sidebar restores its saved state immediately before #content-main. */
 body.model-snapshot.change-list .snapshot-library:not(:has(> #content-main)) > #folder-sidebar { visibility: hidden; }
+/* The counts column sizes to its contents. Stream the complete toolbar as a
+   single visual unit before exposing it; rows can still outline as they arrive. */
+body.model-snapshot.change-list .snapshot-library:not(:has(#changelist-form > .snapshot-library-toolbar-ready)) #changelist :is(#toolbar, .actions-top) {
+  visibility: hidden;
+}
 /* Keep titles and tags in their final columns from their first paint. While
    they are being fitted, draw the outlines of the actual rows as they arrive.
    An empty folder has no rows and therefore gets no placeholder. */
