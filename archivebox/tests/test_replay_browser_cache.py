@@ -3,7 +3,10 @@
 import shutil
 import hashlib
 import json
+import os
+import re
 import sys
+import zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -69,6 +72,35 @@ def test_replay_cache_policy_uses_hash_result_without_manifest_reads(snapshot, c
         cached = client.get(route.path, HTTP_HOST=route.netloc, HTTP_IF_NONE_MATCH=response["ETag"])
         assert cached.status_code == 304
         assert cached["Cache-Control"] == response["Cache-Control"]
+
+    preview = client.get(route.path, {"preview": "1"}, HTTP_HOST=route.netloc)
+    assert preview.status_code == 200
+    assert "no-cache" in preview["Cache-Control"]
+    for change in ("size", "mtime"):
+        old_source = re.search(rb'data-source="([^"]+)"', preview.content)
+        assert old_source is not None
+        before = output.stat()
+        if change == "size":
+            with zipfile.ZipFile(output, "a") as archive:
+                archive.comment = b"replacement"
+            os.utime(output, ns=(before.st_atime_ns, before.st_mtime_ns))
+            assert output.stat().st_mtime_ns == before.st_mtime_ns
+            assert output.stat().st_size != before.st_size
+        else:
+            os.utime(output, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+            assert output.stat().st_size == before.st_size
+        # A browser's conditional reload must get the new collection even when
+        # the completed hash row and second-resolution source validator remain.
+        preview = client.get(
+            route.path,
+            {"preview": "1"},
+            HTTP_HOST=route.netloc,
+            HTTP_IF_NONE_MATCH=response.get("ETag", '"old-source"'),
+            HTTP_IF_MODIFIED_SINCE=response["Last-Modified"],
+        )
+        assert preview.status_code == 200
+        assert old_source.group(0) not in preview.content
+        assert "no-cache" in preview["Cache-Control"]
 
 
 @pytest.mark.django_db(transaction=True)
