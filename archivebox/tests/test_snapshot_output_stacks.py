@@ -1990,3 +1990,68 @@ def test_replay_preview_fills_viewport_below_snapshot_header(snapshot, live_serv
                 assert bounds["bottom"] <= bounds["documentHeight"] + 1, bounds
                 assert bounds["bottom"] - bounds["top"] >= height * 0.8 - 1, bounds
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("native_app", [False, True])
+def test_mobile_snapshot_long_title_uses_space_before_tags(snapshot, live_server, browser_runtime, native_app, tmp_path):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.title = "Buy Wholesale LA Solar 720W Bifacial Modules for Large Residential Installations"
+    snapshot.save(update_fields=["permissions", "title"])
+    tags = ["marvelous-tabs-2026-10-20"]
+    snapshot.save_tags(tags)
+    busy_snapshot = Snapshot.objects.create(
+        crawl=snapshot.crawl, url="https://example.com/many-tags", title=snapshot.title, permissions="public"
+    )
+    busy_snapshot.save_tags([*tags, "physics", "solar", "research", "photovoltaic", "energy"])
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=browser_runtime["chrome_args"],
+        )
+        page = browser.new_page(viewport={"width": 440, "height": 844})
+        if native_app:
+            page.add_init_script(
+                "document.addEventListener('DOMContentLoaded', () => document.documentElement.classList.add("
+                "'archivebox-native-app', 'archivebox-ios-app', 'archivebox-ios-phone'), { once: true })",
+            )
+        title = page.get_by_role("heading", name=snapshot.title)
+        summary = page.locator(".header-tags > summary")
+
+        def measure(record, label):
+            page.goto(f"http://web.archivebox.localhost:{port}{record.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+            expect(title).to_be_visible()
+            page.evaluate(
+                "() => document.fonts.ready.then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))"
+            )
+            page.locator(".header-top").screenshot(path=str(tmp_path / f"{label}-{native_app}.png"))
+            return (
+                title.bounding_box(),
+                summary.bounding_box(),
+                summary.locator(".tag-pill:visible, .header-tags-more:visible").first.bounding_box(),
+            )
+
+        title_box, _, first_tag_box = measure(snapshot, "one-tag")
+        expect(summary.locator(".tag-pill:visible")).to_have_count(1)
+        sparse_gap = first_tag_box["x"] - (title_box["x"] + title_box["width"])
+
+        title_box, tags_box, first_tag_box = measure(busy_snapshot, "many-tags")
+        row = page.locator(".header-page-metadata")
+        gap = row.evaluate("el => parseFloat(getComputedStyle(el).columnGap)")
+        assert sparse_gap <= gap + 1
+        expect(summary.locator(".header-tags-more")).to_be_visible()
+        assert tags_box["width"] <= (row.bounding_box()["width"] - gap) * 0.4 + 1
+        assert first_tag_box["x"] - (title_box["x"] + title_box["width"]) <= gap + 1
+        browser.close()
