@@ -618,7 +618,7 @@ class TestPublicIndex:
         document = fromstring(response.content)
         pile = document.find_class("files-icon-pile--html")[0]
         assert "singlefile" in json.loads(pile.get("data-files-icons"))
-        assert pile.find_class("files-icon-pile-cover")[0].get("href").endswith(f"/{snapshot.archive_path_from_db}")
+        assert urlsplit(pile.find_class("files-icon-pile-cover")[0].get("href")).path == f"/{snapshot.archive_path_from_db}"
         template = document.get_element_by_id("abx-file-icon-singlefile")
         assert template.get("data-fragment") == "#singlefile"
         assert template.find_class("abx-output-icon--singlefile")
