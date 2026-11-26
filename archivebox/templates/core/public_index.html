@@ -216,7 +216,10 @@
     .snapshot-time small {
         color: #94a3b8;
         font-size: 11px;
+        text-align: center;
     }
+
+    #table-bookmarks th.snapshot-preview-cell { opacity: 0; }
 
     .snapshot-mobile-saved {
         display: none;
@@ -303,6 +306,7 @@
     }
 
     #content .snapshot-url .link-favicon-empty { display: none; }
+    #content .snapshot-url .snapshot-url-web-prefix { display: none; }
     .snapshot-url-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
     .snapshot-title:any-link {
@@ -333,6 +337,15 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         text-decoration: none;
+    }
+
+    #content .snapshot-url:any-link {
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        transition: text-decoration-color 70ms ease;
+    }
+    #content .snapshot-url:hover {
+        text-decoration-color: #84909f;
     }
 
     .snapshot-url .snapshot-url-domain {
@@ -509,7 +522,7 @@
         white-space: nowrap;
     }
 
-    .snapshot-size-cell a {
+    #content .snapshot-size-cell a:any-link {
         display: block;
         color: #334155;
         font-size: 12px;

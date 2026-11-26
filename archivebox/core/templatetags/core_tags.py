@@ -143,9 +143,11 @@ def snapshot_url_text(url):
     remainder = url[start + len(hostname) :]
     suffix = re.search(r"[?&#]", remainder)
     suffix_start = suffix.start() if suffix else len(remainder)
+    prefix_class = " snapshot-url-web-prefix" if re.fullmatch(r"https?://(?:www\.)?", url[:start], flags=re.IGNORECASE) else ""
     return format_html(
-        '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span>'
+        '<span class="snapshot-url-prefix{}">{}</span><span class="snapshot-url-domain">{}</span>'
         '<span class="snapshot-url-path">{}</span><span class="snapshot-url-suffix">{}</span>',
+        prefix_class,
         url[:start],
         hostname,
         remainder[:suffix_start],
@@ -995,7 +997,7 @@ def snapshot_index_row(context, link) -> str:
         <a href="{escape(files_url)}" title="View archived file manifest">
             {size_cell}
         </a>
-        <small>{num_outputs} output{output_plural}</small>
+        <small>{num_outputs} result{output_plural}</small>
     </td>
 </tr>
 """
