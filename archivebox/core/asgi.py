@@ -11,6 +11,7 @@ from django.core.handlers.asgi import ASGIHandler
 from django.conf import settings
 
 from archivebox.config.django import setup_django
+from archivebox.core.replay_admission import ReplayAdmission
 from archivebox.core.replay_timing import ReplayPhaseObserver
 from archivebox.workers.request_activity import RequestActivityObserver, bind_request_activity
 from archivebox.plugins.discovery import wrap_plugin_asgi
@@ -75,4 +76,4 @@ async def application(scope, receive, send):
     return await django_application(scope, receive, send)
 
 
-application = wrap_plugin_asgi(application, settings.CONFIG.model_dump(mode="json"))
+application = ReplayAdmission(wrap_plugin_asgi(application, settings.CONFIG.model_dump(mode="json")))

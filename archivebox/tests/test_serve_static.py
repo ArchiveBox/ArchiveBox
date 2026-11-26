@@ -893,7 +893,8 @@ def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
     (tmp_path / "Documents").mkdir()
     saved = tmp_path / "Documents" / "Note.txt"
     saved.write_text("inside root")
-    resolved, relative, root = _resolve_archive_path(tmp_path, "documents/note.TXT")
+    resolved, relative, root, readable = _resolve_archive_path(tmp_path, "documents/note.TXT")
+    assert readable
     assert resolved.read_text() == "inside root"
     assert resolved.is_relative_to(tmp_path)
     assert relative.casefold() == "documents/note.txt"
