@@ -22,6 +22,9 @@ env:
   USE_COLOR: False
   UV_NO_SOURCES: "1"
   CI_PYTHON_VERSION: "3.13"
+  CHROME_VENDOR_VERSION: "157.0.8103.38"
+  CHROME_VENDOR_GENERATION: "1793667047341974"
+  CHROME_VENDOR_SHA256: "8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66"
 
 jobs:
   discover-tests:
@@ -95,6 +98,50 @@ jobs:
           echo "tests=$("$JQ_BINARY" -c '[.[] | select(.environment == "")]' <<< "${output[1]}")" >> "$GITHUB_OUTPUT"
           # Cookie-dependent entries run in provider-replay.yml, outside release CI.
           "$JQ_BINARY" -e '[.[] | select(.environment == "")] | length > 0' <<< "${output[1]}"
+
+  chrome-vendor-cache:
+    name: Populate the verified Chrome vendor cache
+    if: >-
+      github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: chrome-vendor-cache-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check the existing vendor cache
+        id: chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          lookup-only: true
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
+
+      - name: Set up Squid for the vendor download
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@eeae1fd64ddeefc27f7d32a26d483b7a894d7915
+        with:
+          proxy: ${{ vars.SQUID_TAILNET_URL }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_CLIENT_ID_DEV' || 'SQUID_TAILSCALE_CLIENT_ID'] }}
+          tailscale-audience: ${{ vars[github.ref_name == 'dev' && 'SQUID_TAILSCALE_AUDIENCE_DEV' || 'SQUID_TAILSCALE_AUDIENCE'] }}
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+      - name: Download and verify the exact vendor archive
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        run: bash .github/ci_stage_chrome_vendor_archive.sh download
+
+      - name: Save verified Chrome vendor archive
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: ${{ steps.chrome-archive.outputs.cache-primary-key }}
 
   tests:
     permissions:
@@ -289,6 +336,58 @@ jobs:
         with:
           path: ${{ runner.temp }}/noble-font-archive
           key: ${{ steps.noble-font-archive.outputs.cache-primary-key }}
+
+      - name: Check whether this batch needs its pinned Chrome ZIP
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux' && runner.arch == 'X64'
+        id: chrome-vendor-needed
+        env:
+          TEST_PATHS: ${{ matrix.test.paths_arg }}
+        run: |
+          read -r -a test_paths <<< "$TEST_PATHS"
+          needed="$(uv run --no-sync --no-sources python .github/scripts/needs_chrome_vendor_archive.py "$CHROME_VENDOR_VERSION" "${test_paths[@]}")"
+          if [[ "$needed" == true ]]; then
+            bash .github/ci_stage_chrome_vendor_archive.sh check
+          fi
+
+      - name: Restore exact Chrome vendor archive
+        if: steps.chrome-vendor-needed.outputs.needed == 'true'
+        id: chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
+
+      - name: Wait briefly for the shared Chrome vendor cache
+        if: >-
+          steps.chrome-vendor-needed.outputs.needed == 'true' && steps.chrome-archive.outputs.cache-hit != 'true' &&
+          github.repository == 'ArchiveBox/ArchiveBox' && (github.ref_name == 'dev' || github.ref_name == 'main') &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        id: chrome-cache-wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          key="chrome-vendor-v1-linux-x64-$CHROME_VENDOR_VERSION-$CHROME_VENDOR_SHA256"
+          sleep "$(( RANDOM % 10 ))"
+          for _ in {1..6}; do
+            count="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/caches" -f key="$key" -f ref="$GITHUB_REF" --jq '.total_count')" || break
+            if [[ "$count" != 0 ]]; then
+              echo 'available=true' >> "$GITHUB_OUTPUT"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Restore newly populated Chrome vendor archive
+        if: steps.chrome-cache-wait.outputs.available == 'true'
+        id: cold-chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: ${{ steps.chrome-archive.outputs.cache-primary-key }}
+
+      - name: Verify and stage exact Chrome vendor archive
+        if: steps.chrome-archive.outputs.cache-hit == 'true' || steps.cold-chrome-archive.outputs.cache-hit == 'true'
+        run: bash .github/ci_stage_chrome_vendor_archive.sh stage
 
       - name: Run ${{ matrix.test.name }}
         env:
