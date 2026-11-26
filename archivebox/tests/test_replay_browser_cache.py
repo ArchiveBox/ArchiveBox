@@ -141,9 +141,14 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
                 page.wait_for_function("window.archiveboxReplayReady && !window.archiveboxReplayError")
                 replay = next(frame for frame in page.frames if "/replay/w/" in frame.url)
                 assert "Outside iframe" in replay.locator("body").inner_text()
-                if attempt and hash_state in {"complete", "broken_manifest"}:
+                # Valid ZIP metadata versions the replay even when the optional
+                # hashes result is absent, failed, or malformed.
+                if attempt:
                     assert not ranges, f"Repeat replay fetched WACZ bytes again: {ranges}"
                 else:
                     assert ranges, "An uncached replay must load real archived response bytes"
+                    # This complete archive fits within one bounded range read;
+                    # dependent iframe resources should reuse those same bytes.
+                    assert len(ranges) == 1, ranges
         finally:
             browser.close()
