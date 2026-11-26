@@ -1,5 +1,6 @@
 """Exercise browser importer connection ownership through real command runs."""
 
+import fcntl
 import json
 import time
 from pathlib import Path
@@ -13,10 +14,14 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("connection", ["cold", "persona", "cdp"])
-# Provision managed browser dependencies in setup, not inside the readiness
-# budgets. The cold variant still starts a new browser owned by the importer.
-@pytest.mark.usefixtures("browser_runtime")
-def test_browser_importer_preserves_connection_ownership_on_cancel(initialized_archive, installed_opencode, connection):
+def test_browser_importer_preserves_connection_ownership_on_cancel(initialized_archive, installed_opencode, browser_runtime, connection):
+    # Prime the importer's real declared tools before timing browser ownership.
+    # The cold case still launches a new browser owned by its importer process.
+    with (browser_runtime["lib_dir"] / ".importers_browser_install.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        install = run_archivebox_cmd(["install", "importers_browser"], cwd=initialized_archive, timeout=1200)
+    assert install.returncode == 0, install.stderr or install.stdout
+
     from django.contrib.auth import get_user_model
 
     from archivebox.importers.models import ImporterRun, ImporterSource
