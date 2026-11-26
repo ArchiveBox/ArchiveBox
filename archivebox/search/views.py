@@ -514,13 +514,13 @@ def snapshot_search_stream_response(
                 except Full:
                     continue
 
-        def next_batch():
+        def next_batch(limit):
             # A producer may find several rows then block on remote storage.
             # Flush on the consumer clock even when no next match arrives.
             batch = []
             try:
                 batch.append(queue.get(timeout=stream_max_delay))
-                while len(batch) < queue.maxsize:
+                while len(batch) < limit:
                     batch.append(queue.get_nowait())
             except Empty:
                 pass
@@ -598,7 +598,9 @@ def snapshot_search_stream_response(
             last_work, work_sent_at = None, 0
             while True:
                 done = False
-                for item in await asyncio.to_thread(next_batch):
+                # Publish the first row on its own before batching the rest,
+                # even when a fast producer already filled the queue.
+                for item in await asyncio.to_thread(next_batch, 1 if not last_sent else queue.maxsize):
                     if isinstance(item, BaseException):
                         raise item
                     if item is None:
