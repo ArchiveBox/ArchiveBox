@@ -1434,8 +1434,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         for result in results:
             if result.status != ArchiveResult.StatusChoices.SUCCEEDED:
                 continue
-            if not result.output_size:
-                continue
+            # Legacy results can have saved files without a stored byte count.
+            # The anchor checks below establish availability from the manifest
+            # or legacy output path without reading the archive filesystem.
             plugins_with_output.setdefault(result.plugin, result)
 
         if not plugins_with_output:

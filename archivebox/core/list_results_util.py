@@ -252,9 +252,6 @@ def load_snapshot_list_results(snapshots: Iterable[Any], *, images_only: bool = 
     )
     path_plugins = [name for name in set(card_plugins) | set(get_snapshot_role_names("list_icon")) if not plugin_output_is_text(name)]
     icon_results = Q(status=ArchiveResult.StatusChoices.SUCCEEDED)
-    if images_only:
-        # The admin only opens piles for outputs with stored bytes.
-        icon_results &= Q(output_size__gt=0)
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
         # A second hook is enough to require the full manifest. Skipping the

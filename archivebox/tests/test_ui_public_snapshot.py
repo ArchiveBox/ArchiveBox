@@ -615,12 +615,17 @@ class TestPublicIndex:
         assert response.status_code == 200
         screenshot_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="screenshot")
         assert f"_card/{screenshot_result.id}".encode() in response.content
-        expected_path = f"/{snapshot.archive_path_from_db}#singlefile".encode()
-        assert expected_path in response.content
+        document = fromstring(response.content)
+        pile = document.find_class("files-icon-pile--html")[0]
+        assert "singlefile" in json.loads(pile.get("data-files-icons"))
+        assert pile.find_class("files-icon-pile-cover")[0].get("href").endswith(f"/{snapshot.archive_path_from_db}")
+        template = document.get_element_by_id("abx-file-icon-singlefile")
+        assert template.get("data-fragment") == "#singlefile"
+        assert template.find_class("abx-output-icon--singlefile")
         assert f"/{snapshot.archive_path_from_db}/singlefile/".encode() not in response.content
         assert b"files-icon-pile--html" in response.content
         assert b"files-icon-pile--images" in response.content
-        assert b'data-tooltip="singlefile"' in response.content
+        assert b'data-tooltip="Web"' in response.content
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)

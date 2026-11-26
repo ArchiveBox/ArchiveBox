@@ -11,6 +11,7 @@ from xml.etree import ElementTree
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 from archivebox.core.models import ArchiveResult, Folder, Snapshot
 from archivebox.crawls.models import Crawl
@@ -34,7 +35,10 @@ def exported_body_ids(body, format):
 
 
 @pytest.mark.parametrize("format", ["rss", "csv", "jsonl"])
-def test_api_and_list_exports_share_selection_and_permissions(client, admin_client, api_admin_user, api_headers, format):
+def test_api_and_list_exports_share_selection_and_permissions(admin_client, api_admin_user, api_headers, format):
+    # admin_client authenticates the shared client fixture. Public exports need
+    # a separate cookie jar now that API exports also honor browser sessions.
+    client = Client()
     folder = Folder.objects.create(name="Research", created_by=api_admin_user)
     child = Folder.objects.create(name="Articles", parent=folder, created_by=api_admin_user)
     crawl = Crawl.objects.create(urls="https://news.ycombinator.com/", created_by=api_admin_user)
@@ -77,6 +81,7 @@ def test_api_and_list_exports_share_selection_and_permissions(client, admin_clie
     web_url = f"/admin/core/snapshot/export.{format}"
     for http_client, url, headers, expected in (
         (client, api_url, {"HTTP_HOST": API_TEST_HOST}, {str(visible.pk)}),
+        (admin_client, api_url, {"HTTP_HOST": API_TEST_HOST}, {str(visible.pk), str(private.pk), str(unlisted.pk)}),
         (admin_client, web_url, {"HTTP_HOST": ADMIN_TEST_HOST}, {str(visible.pk), str(private.pk), str(unlisted.pk)}),
     ):
         response = http_client.get(url, query, **headers)

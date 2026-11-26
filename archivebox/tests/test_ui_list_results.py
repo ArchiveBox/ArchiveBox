@@ -199,11 +199,14 @@ def test_plugin_icons_need_no_manifest(client, admin_user, list_collection, plug
 
 
 @override_settings(PUBLIC_INDEX=True)
-def test_public_icon_retains_legacy_output_without_stored_size(client, list_collection):
+@pytest.mark.parametrize("listing", ["/public/", "/admin/core/snapshot/"])
+def test_public_icon_retains_legacy_output_without_stored_size(client, admin_user, list_collection, listing):
     snapshot = list_collection[0]
     result = snapshot.archiveresult_set.get(plugin="singlefile")
     ArchiveResult.objects.filter(pk=result.pk).update(output_size=0)
-    response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+    if listing.startswith("/admin/"):
+        client.force_login(admin_user)
+    response = client.get(listing, HTTP_HOST=ADMIN_TEST_HOST if listing.startswith("/admin/") else WEB_TEST_HOST)
     assert response.status_code == 200
     row = _row(response.content.decode(), f"/{snapshot.archive_path_from_db}")
     assert _rendered_fragments(row)["singlefile"] == "#singlefile"
@@ -235,7 +238,8 @@ def test_icon_availability_excludes_hook_artifacts_and_invalid_paths(client, adm
 
 
 @pytest.mark.django_db(transaction=True)
-def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, browser_runtime, admin_user):
+@pytest.mark.parametrize("public", [False, True])
+def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, browser_runtime, admin_user, public, tmp_path):
     from urllib.parse import urlsplit
 
     from playwright.sync_api import expect, sync_playwright
@@ -245,13 +249,16 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
 
     port = urlsplit(live_server.url).port
     machine = Machine.current()
-    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}", "PUBLIC_INDEX": True}
     machine.save(update_fields=["config"])
     snapshot.permissions = "public"
     snapshot.status = "sealed"
     snapshot.save()
     results = [save_output(snapshot, plugin) for plugin in ("git", "headers", "singlefile", "wget")]
     results.append(save_output(snapshot, "readability", filename="replacement.html"))
+    # Migrated captures still need working preview links before a byte count
+    # has been populated. Keep the real file and manifest in this browser flow.
+    ArchiveResult.objects.filter(snapshot=snapshot, plugin="singlefile").update(output_size=0)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),
@@ -259,23 +266,30 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
         )
         try:
             page = browser.new_page(viewport={"width": 1920, "height": 1080})
-            listing = f"http://admin.archivebox.localhost:{port}/admin/core/snapshot/"
-            page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
-            page.locator('[name="username"]').fill(admin_user.username)
-            page.locator('[name="password"]').fill("testpassword")
-            page.get_by_role("button", name="Log in", exact=True).click()
-            checkbox = page.locator("#result_list input.action-select")
-            checkbox.check()
-            expect(checkbox).to_be_checked()
-            checkbox.uncheck()
-            page.locator("#action-toggle").check()
-            expect(checkbox).to_be_checked()
-            page.locator("#action-toggle").uncheck()
-            expect(checkbox).not_to_be_checked()
+            listing = (
+                f"http://web.archivebox.localhost:{port}/public/"
+                if public
+                else f"http://admin.archivebox.localhost:{port}/admin/core/snapshot/"
+            )
+            if not public:
+                page.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
+                page.locator('[name="username"]').fill(admin_user.username)
+                page.locator('[name="password"]').fill("testpassword")
+                page.get_by_role("button", name="Log in", exact=True).click()
+                checkbox = page.locator("#result_list input.action-select")
+                checkbox.check()
+                expect(checkbox).to_be_checked()
+                checkbox.uncheck()
+                page.locator("#action-toggle").check()
+                expect(checkbox).to_be_checked()
+                page.locator("#action-toggle").uncheck()
+                expect(checkbox).not_to_be_checked()
             for result in results:
                 page.goto(listing)
                 pile = page.locator(f"""[data-files-icons*='"{result.plugin}"']""")
                 pile.locator(".files-icon-pile-top").hover()
+                if result.plugin == "singlefile":
+                    page.screenshot(path=str(tmp_path / f"{'public' if public else 'admin'}-singlefile-icons.png"))
                 pile.locator(f".files-icon-pile-popup .files-icon-plugin--{result.plugin}").click()
                 expect(page.locator(f'.selected-card[data-plugin-name="{result.plugin}"]')).to_have_count(1)
                 frame = page.locator("#main-frame")
@@ -284,6 +298,9 @@ def test_plugin_icon_anchors_open_the_same_previews(snapshot, live_server, brows
                 assert urlsplit(page.url).fragment == result.plugin
                 page.goto(page.url.split("#")[0] + "#" + result.embed_path())
                 expect(frame).to_have_attribute("src", card_src)
+
+            if public:
+                return
 
             plain = browser.new_page(java_script_enabled=False, viewport={"width": 1920, "height": 1080})
             plain.goto(f"http://admin.archivebox.localhost:{port}/admin/login/?next=/admin/core/snapshot/")
@@ -494,10 +511,15 @@ def test_public_index_links_match_model_instances_and_skip_unrendered_manifests(
     _, started_card_id, _ = _expected_links(started)
     assert f"_card/{started_card_id}" in started_row
     assert "2/3 hooks" in started_row
-    assert 'data-tooltip="screenshot"' in started_row and 'data-tooltip="dom"' in started_row
+    assert _rendered_fragments(started_row) == {"screenshot": "#screenshot", "dom": "#dom"}
+    assert 'data-tooltip="Images"' in started_row and 'data-tooltip="Web"' in started_row
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries)
-    _assert_icons_drawn_from_one_sprite(html)
+    document = fromstring(html)
+    for plugin in (*fragments, "screenshot", "dom"):
+        template = document.get_element_by_id(f"abx-file-icon-{plugin}")
+        assert template.get("data-fragment") == f"#{get_plugin_name(plugin)}"
+        assert template.find_class(f"abx-output-icon--{plugin}")
 
 
 def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manifests(client, admin_user, list_collection):
