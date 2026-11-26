@@ -61,7 +61,6 @@ def test_real_replay_crawler_hints_preserve_raw_outputs_and_zip_downloads(snapsh
             robots = client.get(f"{live_server.url}/robots.txt", headers={"Host": host}, timeout=10)
             assert robots.status_code == 200
             assert robots.text.startswith("User-agent: *\nDisallow: /\n")
-            assert "Disallow:" not in robots.text
             assert robots.text.count("User-agent:") == 1
             assert "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n" in robots.text
 
