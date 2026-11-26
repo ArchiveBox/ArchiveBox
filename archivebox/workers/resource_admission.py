@@ -1,4 +1,4 @@
-"""Measured resource pressure and memory headroom for capture admission."""
+"""Measured resource pressure and memory headroom for capture and HTTP admission."""
 
 import math
 import logging
@@ -96,18 +96,42 @@ class ResourceAdmission:
         self._concurrency = 1
         self._last_growth = float("-inf")
 
-    def snapshot_limit(self, configured: int) -> int:
+    def cpu_capacity(self) -> float:
         cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
         for path in cgroup_paths():
             try:
                 quota, period = (path / "cpu.max").read_text().split()
                 if quota != "max":
-                    cpus = min(cpus, max(1, math.ceil(int(quota) / int(period))))
+                    cpus = min(cpus, int(quota) / int(period))
             except (OSError, ValueError, ZeroDivisionError):
                 continue
+        return float(cpus)
+
+    def snapshot_limit(self, configured: int) -> int:
+        cpus = max(1, math.ceil(self.cpu_capacity()))
         # CPU quota bounds parallel work; measured memory admission is done
         # only after the first complete snapshot establishes its actual cost.
         return max(1, min(configured or cpus, cpus))
+
+    def http_limit(self, workers: int, active: int) -> int:
+        from archivebox.config.django import CONFIG
+
+        workers = max(1, workers)
+        # Preserve fractional quotas before converting CPU capacity into
+        # requests: a quarter-core container must not receive a full-core budget.
+        cpu_limit = int(self.cpu_capacity() * 8 / workers)
+        if self.resource_pressure():
+            cpu_limit //= 2
+        # HTTP latency cannot rely on paging to disk. Preserve the same RAM
+        # reserve used by captures, but do not spend their optional swap budget.
+        headroom = self.memory_headroom(minimum_free=int(getattr(CONFIG, "MEMORY_MIN_FREE", 0)), include_swap=False, respect_high=True)
+        # 32 MiB is an admission allowance for each additional request, not a
+        # measured peak or a memory guarantee. Free headroom already excludes
+        # resident requests, so credit active work instead of charging it twice.
+        memory_limit = max(0, active) + headroom // workers // (32 * 1024 * 1024)
+        # A tiny container still needs one request to make progress; avoid a
+        # larger fixed floor that would defeat its actual resource limits.
+        return max(1, min(cpu_limit, memory_limit))
 
     def concurrency_limit(self, ceiling: int, *, pressure: bool, now: float) -> int:
         if pressure:
@@ -185,17 +209,17 @@ class ResourceAdmission:
             slots = min(slots, unpromised // observed_cost)
         return slots
 
-    def memory_headroom(self, *, minimum_free: int = 0) -> int:
+    def memory_headroom(self, *, minimum_free: int = 0, include_swap: bool = True, respect_high: bool = False) -> int:
         """Return effective available memory outside the hook guard's reserve."""
         try:
             meminfo = {
                 name: int(value.split()[0]) * 1024
                 for name, value in (line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
             }
-            host_swap_free = host_swap_free_bytes(meminfo.get("SwapFree", 0))
+            host_swap_free = host_swap_free_bytes(meminfo.get("SwapFree", 0)) if include_swap else 0
             host_ram_available = meminfo["MemAvailable"]
         except (OSError, ValueError, KeyError):
-            host_swap_free = 0 if sys.platform.startswith("linux") else psutil.swap_memory().free
+            host_swap_free = 0 if sys.platform.startswith("linux") or not include_swap else psutil.swap_memory().free
             host_ram_available = psutil.virtual_memory().available
 
         # The hook guard stops substantial process trees below MEMORY_MIN_FREE.
@@ -208,8 +232,17 @@ class ResourceAdmission:
         available = host_available
         for path in cgroup_paths():
             try:
-                memory_max = (path / "memory.max").read_text().strip()
-                if memory_max == "max":
+                configured_max = (path / "memory.max").read_text().strip()
+                memory_max = None if configured_max == "max" else int(configured_max)
+                if respect_high:
+                    try:
+                        # HTTP should shed work before crossing the cgroup's
+                        # reclaim threshold, even when its hard limit is higher.
+                        memory_high = int((path / "memory.high").read_text())
+                        memory_max = memory_high if memory_max is None else min(memory_max, memory_high)
+                    except (OSError, ValueError):
+                        pass
+                if memory_max is None:
                     continue
                 current = int((path / "memory.current").read_text())
                 # Match the hook guard: only clean file cache is reclaimable.
@@ -224,10 +257,12 @@ class ResourceAdmission:
                     - int(stat.get("file_writeback", 0)),
                 )
                 current = max(0, current - cache)
-                swap_max = (path / "memory.swap.max").read_text().strip()
-                swap_current = int((path / "memory.swap.current").read_text())
-                swap_room = host_swap_free if swap_max == "max" else min(host_swap_free, max(0, int(swap_max) - swap_current))
-                available = min(available, max(0, int(memory_max) - current) + swap_room)
+                swap_room = 0
+                if include_swap:
+                    swap_max = (path / "memory.swap.max").read_text().strip()
+                    swap_current = int((path / "memory.swap.current").read_text())
+                    swap_room = host_swap_free if swap_max == "max" else min(host_swap_free, max(0, int(swap_max) - swap_current))
+                available = min(available, max(0, memory_max - current) + swap_room)
             except (OSError, ValueError, KeyError):
                 continue
         return max(0, available - minimum_free)

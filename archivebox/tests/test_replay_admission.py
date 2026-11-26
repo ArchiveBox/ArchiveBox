@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @pytest.mark.parametrize("ending", ["disconnect", "cancel", "complete"])
-def test_replay_overload_leaves_health_reachable_and_releases_slots(snapshot, ending):
+def test_replay_overload_rejects_at_capacity_and_releases_slots(snapshot, ending):
     scope = replay_scope(snapshot)
 
     async def run():
@@ -29,12 +29,12 @@ def test_replay_overload_leaves_health_reachable_and_releases_slots(snapshot, en
             ("/web/20261126/example.org/0123456789ab/payload.txt", b"localhost"),
         ):
             overloaded = await exchange(app, {**scope, "path": path, "headers": [(b"host", host)]})
-            assert overloaded[0]["status"] == 503
+            assert overloaded[0]["status"] == 429
             assert (b"cache-control", b"no-store") in overloaded[0]["headers"]
-            assert overloaded[-1]["body"] == b""
+            assert overloaded[-1]["body"] == b"Server is under high load. Please try again shortly.\n"
         health_scope = {**scope, "path": "/health/", "raw_path": b"/health/", "query_string": b""}
         health = await exchange(app, health_scope)
-        assert health[0]["status"] == 200
+        assert health[0]["status"] == 429
 
         if ending == "cancel":
             occupied.future.cancel()
@@ -48,6 +48,7 @@ def test_replay_overload_leaves_health_reachable_and_releases_slots(snapshot, en
         assert restored[0]["status"] == 200
         assert b"".join(message.get("body", b"") for message in restored) == b"real replay bytes"
         assert app.active == 0
+        assert (await exchange(app, health_scope))[0]["status"] == 200
 
     asyncio.run(run())
 
@@ -69,7 +70,7 @@ def test_replay_slot_stays_taken_until_the_real_file_stream_closes(snapshot):
         await incoming.put({"type": "http.request", "body": b"", "more_body": False})
         try:
             await asyncio.wait_for(sending.wait(), 5)
-            assert (await exchange(app, scope))[0]["status"] == 503
+            assert (await exchange(app, scope))[0]["status"] == 429
         finally:
             finish.set()
             await asyncio.wait_for(task, 5)

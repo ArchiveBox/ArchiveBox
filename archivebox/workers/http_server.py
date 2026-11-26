@@ -19,6 +19,18 @@ class WorkerApplication:
 
     def __init__(self):
         self.application = None
+        self.workers = 1
+
+    async def update_request_limit(self):
+        from archivebox.workers.resource_admission import resource_admission
+
+        assert self.application is not None, "Worker startup has not completed"
+        # Read local resource/cgroup measurements off the event loop, once per
+        # sampling interval rather than adding filesystem work to each request.
+        limit = await asyncio.to_thread(resource_admission.http_limit, self.workers, self.application.active)
+        if limit != self.application.max_active:
+            self.application.max_active = limit
+            logging.getLogger("uvicorn.error").info("HTTP request limit: total=%d workers=%d", limit, self.workers)
 
     @staticmethod
     def load():
@@ -87,12 +99,26 @@ class WorkerApplication:
         message = await receive()
         assert message["type"] == "lifespan.startup"
         self.application = await asyncio.to_thread(self.load)
+        self.workers = max(1, int(os.environ.get("WEB_CONCURRENCY", "1")))
+        await self.update_request_limit()
         observer = MemoryObserver().start()
+        shutdown = asyncio.create_task(receive())
         try:
             await send({"type": "lifespan.startup.complete"})
-            message = await receive()
+            from archivebox.workers.resource_admission import RESOURCE_RECHECK_SECONDS
+
+            # Reuse the lifespan wait to refresh available capacity. Requests
+            # never wait for a sample, and lower budgets don't cancel work that
+            # was already admitted. No separate admission queue is created.
+            while not shutdown.done():
+                await asyncio.wait({shutdown}, timeout=RESOURCE_RECHECK_SECONDS)
+                if not shutdown.done():
+                    await self.update_request_limit()
+            message = shutdown.result()
             assert message["type"] == "lifespan.shutdown"
         finally:
+            shutdown.cancel()
+            await asyncio.gather(shutdown, return_exceptions=True)
             stopped = await asyncio.to_thread(observer.stop)
             logging.getLogger("uvicorn.error").log(
                 logging.INFO if stopped else logging.WARNING,
@@ -135,6 +161,9 @@ def main() -> None:
     )
     if config.workers < 1:
         parser.error("workers must be at least one")
+    # Spawned workers must divide the machine's budget by the actual CLI/env
+    # worker count rather than each admitting the entire host's capacity.
+    os.environ["WEB_CONCURRENCY"] = str(config.workers)
     addresses = [(host, socket.AF_INET6 if ":" in host else socket.AF_INET)]
     if host == "::":
         # asyncio otherwise silently makes [::] IPv6-only. Separate sockets

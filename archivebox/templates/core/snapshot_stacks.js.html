@@ -236,6 +236,11 @@ function initializeOutputStacks() {
     grid.hidden = true;
     document.body.classList.add('snapshot-stacks');
     syncSelection();
+    {% if snapshot_state != 'sealed' or not output_files %}
+    // Active and metadata-less captures still discover new files immediately.
+    // Sealed captures already have declared outputs: defer the remote-storage
+    // scan until Other files is opened or an unresolved shared hash needs it.
     const otherGroup = groups.find(group => group.id === 'other');
     if (otherGroup && buttons.has('other')) discoverOtherFiles(otherGroup);
+    {% endif %}
 }

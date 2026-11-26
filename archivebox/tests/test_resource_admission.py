@@ -30,6 +30,54 @@ def test_cpu_admission_respects_process_affinity():
     assert admission.snapshot_limit(1) == 1
 
 
+def test_http_admission_divides_real_cpu_capacity_without_rounding_first():
+    admission = ResourceAdmission()
+    capacity = admission.cpu_capacity()
+    for path in cgroup_paths():
+        try:
+            quota, period = (path / "cpu.max").read_text().split()
+            if quota != "max":
+                assert capacity <= int(quota) / int(period)
+        except (OSError, ValueError, ZeroDivisionError):
+            continue
+    # A large active count makes memory non-limiting without allocating it.
+    # Read actual affinity/quotas; sustained host pressure may halve the budget.
+    for workers in (1, 2, 1_000_000):
+        ceiling = int(capacity * 8 / workers)
+        assert admission.http_limit(workers, active=1_000_000) in {max(1, ceiling), max(1, ceiling // 2)}
+
+
+def test_http_admission_credits_active_work_but_preserves_real_memory_reserve():
+    import psutil
+
+    # Use the real configuration surface in a separate process. A reserve above
+    # all physical memory/swap proves admission without creating memory pressure.
+    reserve = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            """
+from archivebox.config.django import CONFIG
+from archivebox.workers.resource_admission import ResourceAdmission
+admission = ResourceAdmission()
+assert admission.memory_headroom(minimum_free=int(getattr(CONFIG, "MEMORY_MIN_FREE", 0)), include_swap=False, respect_high=True) == 0
+ceiling = admission.http_limit(1, active=1_000_000)
+assert admission.http_limit(1, active=0) == 1
+assert admission.http_limit(1, active=3) == min(3, ceiling)
+assert admission.http_limit(0, active=3) == min(3, ceiling)
+""",
+        ],
+        env={**os.environ, "MEMORY_MIN_FREE": str(reserve)},
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
 def test_cpu_quota_admission_uses_fresh_throttling_without_sticky_history():
     admission = ResourceAdmission()
     assert not admission.observe_cpu_throttling("capture", 50, 0, 100_000)

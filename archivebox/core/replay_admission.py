@@ -1,54 +1,61 @@
-"""Keep queued replay I/O from exhausting the shared web worker."""
+"""Keep replay bursts from exhausting the shared web worker."""
 
-import re
-
-from archivebox.core.routes_util import is_snapshot_subdomain
-
-_DATED_REPLAY = re.compile(r"^/[^/]+/\d{4}(?:\d{2})?(?:\d{2})?/")
-_REPLAY_PREFIXES = ("/archive/", "/original/", "/snapshot/", "/web/")
-
-
-def _is_replay(scope):
-    if scope["type"] != "http" or scope.get("method") not in {"GET", "HEAD"}:
-        return False
-    path = scope.get("path", "")
-    if path in {"/health", "/health/", "/robots.txt", "/favicon.ico", "/progress.json"} or path.startswith("/static/"):
-        return False
-    if path.startswith(_REPLAY_PREFIXES) or _DATED_REPLAY.match(path):
-        return True
-    host = next((value for name, value in scope.get("headers", ()) if name == b"host"), b"")
-    return is_snapshot_subdomain(host.split(b".", 1)[0].split(b":", 1)[0].decode("ascii", errors="replace").lower())
+import logging
+import os
+import random
 
 
 class ReplayAdmission:
-    """Reject excess replay work before Django creates a request thread.
+    """Reject excess HTTP work before Django creates a request thread.
 
     Keep the slot through body delivery and cleanup: reads can stay blocked on
     archive storage even after headers have gone out or the client disconnects.
     Each Uvicorn worker runs on one event loop, so check and reserve before any
-    await. Admin, API, and liveness requests need no replay slot.
+    await. Admin and health requests bypass early shedding, not the hard limit.
     """
 
-    def __init__(self, application, max_active=32):
+    def __init__(self, application, max_active=None):
         self.application = application
-        self.max_active = max_active
         self.active = 0
+        if max_active is None:
+            from archivebox.workers.resource_admission import resource_admission
+
+            workers = max(1, int(os.environ.get("WEB_CONCURRENCY", "1")))
+            max_active = resource_admission.http_limit(workers, self.active)
+            logging.getLogger("uvicorn.error").info("HTTP request limit: total=%d workers=%d", max_active, workers)
+        self.max_active = max_active
 
     async def __call__(self, scope, receive, send):
-        if not _is_replay(scope):
+        if scope["type"] != "http":
             return await self.application(scope, receive, send)
-        if self.active >= self.max_active:
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": 503,
-                    "headers": [(b"cache-control", b"no-store"), (b"retry-after", b"1")],
-                },
-            )
-            await send({"type": "http.response.body", "body": b""})
+        priority = scope["path"].startswith("/admin/") or (scope["path"] == "/health/" and scope["method"] in {"GET", "HEAD"})
+        soft_limit = self.max_active // 2
+        # Slow storage must not create hundreds of request threads. Shed public
+        # work gradually above half the resource budget; admin/login and health
+        # only face the hard ceiling. This gives priority without reserving a
+        # fixed share or adding session queries. Django still authenticates.
+        overloaded = self.active >= self.max_active or (
+            not priority and self.active > soft_limit and random.random() < (self.active - soft_limit) / (self.max_active - soft_limit)
+        )
+        if overloaded:
+            body = b"Server is under high load. Please try again shortly.\n"
+            headers = [
+                (b"content-type", b"text/plain; charset=utf-8"),
+                (b"content-length", str(len(body)).encode("ascii")),
+                (b"cache-control", b"no-store"),
+                (b"retry-after", str(random.randint(1, 3)).encode("ascii")),
+            ]
+            # Do not read rejected uploads or retain their keepalive socket.
+            # Closing HTTP/1 also prevents queued pipelined work from entering.
+            if scope.get("http_version", "1.1").startswith("1."):
+                headers.append((b"connection", b"close"))
+            await send({"type": "http.response.start", "status": 429, "headers": headers})
+            await send({"type": "http.response.body", "body": b"" if scope["method"] == "HEAD" else body})
             return
         self.active += 1
         try:
             return await self.application(scope, receive, send)
         finally:
+            # Disconnecting cannot free a slot while a file read still owns a
+            # thread: wait for the application's complete request cleanup.
             self.active -= 1
