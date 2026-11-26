@@ -117,6 +117,33 @@ jobs:
         with:
           path: ${{ runner.temp }}/noble-font-archive
           key: noble-font-v1-0.9.45-8-496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
+      - &gallery-chrome-identity
+        name: Read the test matrix's Chrome archive identity
+        run: |
+          uv run --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+
+          settings = yaml.safe_load(Path(".github/workflows/test-parallel.yml").read_text())["env"]
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              for key in ("CHROME_VENDOR_VERSION", "CHROME_VENDOR_SHA256"):
+                  print(f"{key}={settings[key]}", file=env)
+              print(f'ABXPKG_LIB_DIR={os.environ["RUNNER_TEMP"]}/archivebox-lib', file=env)
+          PY
+      - &gallery-chrome-restore
+        name: Restore verified Chrome vendor archive
+        id: chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
+
+      - &gallery-chrome-stage
+        name: Verify and stage exact Chrome vendor archive
+        if: steps.chrome-archive.outputs.cache-hit == 'true'
+        run: bash .github/ci_stage_chrome_vendor_archive.sh stage
+
       - name: Install the matching Chrome sandbox helper
         run: |
           # Match test-parallel's hosted-Linux mirror preference before Chrome's apt dependencies.
@@ -285,6 +312,10 @@ jobs:
               assert path.is_relative_to(expected), path
           assert "app_module" in abx_dl.models.PluginConfig.model_fields
           PY
+
+      - *gallery-chrome-identity
+      - *gallery-chrome-restore
+      - *gallery-chrome-stage
 
       - name: Install the matching Chrome sandbox helper
         run: |
