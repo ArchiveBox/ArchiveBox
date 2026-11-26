@@ -12,6 +12,8 @@ from archivebox.config.configset import read_ini_config
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
+# Resolve shared Chrome through abxpkg before the bounded Persona crawl.
+@pytest.mark.usefixtures("browser_runtime")
 @pytest.mark.parametrize("persona_name", ["Default", "default"])
 def test_add_reuses_persona_ignoring_case(initialized_archive, httpserver, persona_name):
     """Either spelling reuses the same authenticated persona without moving files."""
@@ -47,6 +49,7 @@ def test_add_reuses_persona_ignoring_case(initialized_archive, httpserver, perso
         assert all(json.loads(row[0])["ACTIVE_PERSONA"] == "Default" for row in hook_envs)
 
 
+@pytest.mark.usefixtures("browser_runtime")
 @pytest.mark.parametrize("contents,explicit", [("", True), ("not JSON", True), ("not JSON", False)])
 def test_add_rejects_invalid_persona_auth_with_safe_diagnostic(initialized_archive, httpserver, contents, explicit):
     persona_dir = initialized_archive / "personas" / "Default"
@@ -87,6 +90,7 @@ def test_add_rejects_invalid_persona_auth_with_safe_diagnostic(initialized_archi
     assert auth_file.read_text() == contents
 
 
+@pytest.mark.usefixtures("browser_runtime")
 @pytest.mark.parametrize("cookie_file_exists", [True, False])
 @pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
 def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpserver, cookie_file_exists, isolation):
@@ -144,6 +148,7 @@ def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpser
             assert exit_code == (10 if isolation == "snapshot" and hook_name == "on_CrawlSetup__91_chrome_wait.js" else 0)
 
 
+@pytest.mark.usefixtures("browser_runtime")
 @pytest.mark.parametrize("cookie_file_exists", [True, False])
 @pytest.mark.parametrize("absolute_path", [False, True], ids=["collection-relative", "absolute"])
 def test_add_with_collection_relative_cookies(initialized_archive, httpserver, cookie_file_exists, absolute_path):

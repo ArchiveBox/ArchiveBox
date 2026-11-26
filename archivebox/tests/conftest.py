@@ -309,12 +309,20 @@ def run_archivebox_cmd(
                 children = parent.children(recursive=True)
             except psutil.NoSuchProcess:
                 children = []
+            # A child running sudo can be visible but not signalable by the
+            # runner. Never let its cleanup error obscure the CLI timeout.
+            accessible_children = []
             for child in children:
                 try:
                     exc.add_note(f"Child at timeout: pid={child.pid} name={child.name()} status={child.status()}")
                     child.terminate()
                 except psutil.NoSuchProcess:
-                    pass
+                    continue
+                except psutil.AccessDenied:
+                    exc.add_note(f"Could not terminate child at timeout: pid={child.pid} (access denied)")
+                    continue
+                accessible_children.append(child)
+            children = accessible_children
             process.terminate()
             try:
                 result.communicate(timeout=5)
@@ -322,7 +330,7 @@ def run_archivebox_cmd(
                 for child in children:
                     try:
                         child.kill()
-                    except psutil.NoSuchProcess:
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
                 process.kill()
                 result.communicate(timeout=5)
@@ -331,7 +339,7 @@ def run_archivebox_cmd(
                 try:
                     if child.is_running():
                         child.kill()
-                except psutil.NoSuchProcess:
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
             psutil.wait_procs(children, timeout=5)
             exc.output, exc.stderr = result.stdout, result.stderr
