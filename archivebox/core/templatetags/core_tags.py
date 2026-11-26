@@ -1168,8 +1168,13 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
     if not source:
         return ""
     context = context or {}
-    record_urls = {}
-    if not context.get("STATIC_EXPORT"):
+
+    def record_urls():
+        # Django resolves context callables only when a template reads them.
+        # Most viewers need no admin links; querying every capture result and
+        # reversing its URLs otherwise amplifies concurrent preview requests.
+        if context.get("STATIC_EXPORT"):
+            return {}
         from django.urls import reverse
         from archivebox.core.routes_util import build_admin_url
 
@@ -1189,6 +1194,8 @@ def render_plugin_full_document(snapshot, rel_path, result, *, output_url, snaps
             ):
                 if record_id:
                     record_urls[model][str(record_id)] = build_admin_url(reverse(route, args=[record_id]), request=context.get("request"))
+        return record_urls
+
     catalog = get_plugin_catalog()
     document = (
         template.Engine(

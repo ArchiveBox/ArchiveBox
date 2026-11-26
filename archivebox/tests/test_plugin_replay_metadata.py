@@ -85,6 +85,29 @@ def test_every_installed_full_template_attributes_original(snapshot, plugin):
     assert_metadata(document, snapshot.url)
 
 
+@pytest.mark.django_db
+def test_pdf_preview_does_not_query_unrelated_capture_records(snapshot):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.core.models import ArchiveResult
+    from archivebox.core.templatetags.core_tags import render_plugin_full_document
+
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="pdf", status="succeeded", output_str="output.pdf")
+    ArchiveResult.objects.create(snapshot=snapshot, plugin="title", status="succeeded", output_str="Hacker News")
+    with CaptureQueriesContext(connection) as queries:
+        document = render_plugin_full_document(
+            snapshot,
+            "pdf/output.pdf",
+            result,
+            output_url="/pdf/output.pdf?raw=1",
+            snapshot_details_url="/index.html",
+        )
+    assert '<iframe src="/pdf/output.pdf?raw=1#toolbar=1&navpanes=1&view=FitH"' in document
+    assert_metadata(document, snapshot.url)
+    assert len(queries) == 0, [query["sql"] for query in queries]
+
+
 def test_custom_wacz_renderer_attributes_original_and_preserves_archive():
     from archivebox.plugins.discovery import render_plugin_full_response
 
