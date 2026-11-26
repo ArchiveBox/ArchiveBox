@@ -970,8 +970,29 @@ PY
             SCREENSHOT_WIDTH=1600 \
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/screenshot_gallery_helpers.js" "$SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
-        SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_PLAN="$PLUGIN_SCREENSHOT_PLAN" UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); overrides=json.load(open(os.environ["UI_SCREENSHOT_PLAN"]))["overrides"]; print("\n".join("{}\t{}\t{}".format(output["plugin"], output["outputPath"], "wait-replay:microbial ballistics" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"] if output["plugin"] not in overrides))')"
+        # Fail here when a required native output is absent, before spending
+        # the rest of the protected job capturing independent provider recipes.
+        SNAPSHOT_OUTPUT_PLUGINS="$(uv run --no-sync --project "$REPO_DIR" python - "$PLUGIN_SCREENSHOT_PLAN" "$SNAPSHOT_DISCOVERY_REPORT" "$MAX_VIEWS" "$PLUGIN_VIEWS" <<'PYOUTPUTS'
+import json
+import sys
+from pathlib import Path
+from urllib.parse import urlsplit
+
+plan = json.loads(Path(sys.argv[1]).read_text())
+report = json.loads(Path(sys.argv[2]).read_text())
+outputs = [output for output in report["checks"]["snapshotOutputs"] if output["plugin"] not in plan["overrides"]]
+available = {output["plugin"] for output in outputs}
+missing = sorted(
+    name for name, plugin in plan["owned_views"].items()
+    if name == f"Snapshot View ({plugin})" and plugin not in plan["overrides"] and plugin not in available
+)
+if missing and sys.argv[3] == "0" and not sys.argv[4]:
+    raise SystemExit(f"required UI screenshot coverage is missing: {', '.join(missing)}")
+for output in outputs:
+    mode = "wait-replay:microbial ballistics" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else ""
+    print(output["plugin"], output["outputPath"], mode, sep="\t")
+PYOUTPUTS
+        )"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Ars Technica snapshot detail page exposed no selectable outputs" >&2
             exit 1

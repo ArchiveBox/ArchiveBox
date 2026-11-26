@@ -80,7 +80,7 @@ jobs:
           - lane: parsers
             plugins: parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps
           - lane: web
-            plugins: forumdl,gallerydl
+            plugins: archiveimport,forumdl,gallerydl,microsoft365,nextcloud,wetransfer
           - lane: browser-automation
             plugins: playwright,puppeteer
           - lane: iwork
