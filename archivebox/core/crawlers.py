@@ -52,7 +52,7 @@ def CrawlerMiddleware(get_response):
     suffix = "(?:" + "|".join(re.escape(path) for path in outputs) + ")" if outputs else r"(?!)"
     direct_path = re.compile(rf"^/{suffix}$")
     snapshot_path = re.compile(rf"^/(?:{'|'.join(PREFIXES[1:])}){suffix}$")
-    robots = "User-agent: *\nAllow: /\n"
+    robots = "User-agent: *\nDisallow: /\n"
     robots += "Content-signal: search=no, ai-input=yes, ai-train=no, use=reference\n"
 
     def inspect(request):
