@@ -69,7 +69,18 @@ def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, 
         for root in roots:
             directory = root / "chrome"
             directory.mkdir(parents=True)
-            launch_env = {**env, "CRAWL_DIR": str(root), "SNAP_DIR": str(root), "CHROME_USER_DATA_DIR": str(root / "profile")}
+            # The browser derives its profile from the active Persona, not
+            # from a persisted CHROME_USER_DATA_DIR override.
+            personas_dir = root / "personas"
+            expected_profile = personas_dir / "Default" / "chrome_profile"
+            launch_env = {
+                **env,
+                "CRAWL_DIR": str(root),
+                "SNAP_DIR": str(root),
+                "PERSONAS_DIR": str(personas_dir),
+                "ACTIVE_PERSONA": "Default",
+            }
+            launch_env.pop("CHROME_USER_DATA_DIR", None)
             process = subprocess.Popen(
                 [str(plugin.path / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"), "--crawl-id=recovery-test"],
                 cwd=directory,
@@ -89,7 +100,9 @@ def test_recovery_preserves_live_and_out_of_scope_browsers(initialized_archive, 
             )
             assert ready.returncode == 0, ready.stdout + ready.stderr
             assert process.poll() is None
-            browsers.append(psutil.Process(int((directory / "chrome.pid").read_text())))
+            browser = psutil.Process(int((directory / "chrome.pid").read_text()))
+            assert f"--user-data-dir={expected_profile}" in browser.cmdline()
+            browsers.append(browser)
 
         def recover(expected):
             result = run_archivebox_cmd(
