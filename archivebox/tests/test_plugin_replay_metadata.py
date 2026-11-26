@@ -103,7 +103,7 @@ def test_pdf_preview_does_not_query_unrelated_capture_records(snapshot):
             output_url="/pdf/output.pdf?raw=1",
             snapshot_details_url="/index.html",
         )
-    assert '<iframe src="/pdf/output.pdf?raw=1#toolbar=1&navpanes=1&view=FitH"' in document
+    assert '<iframe src="/pdf/output.pdf?raw=1#toolbar=1&navpanes=1&view=FitH"' in document  # codespell:ignore fith
     assert_metadata(document, snapshot.url)
     assert len(queries) == 0, [query["sql"] for query in queries]
 
