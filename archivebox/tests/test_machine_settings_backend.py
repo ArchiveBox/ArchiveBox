@@ -242,7 +242,8 @@ for edits, expected_timeout, expected_wget_timeout, explicit in cases:
     data['settings_editor'] = '1'
     data.setlist('settings_changed', list(edits))
     for key, value in edits.items():
-        plugin = 'base' if key == 'TIMEOUT' else 'wget'
+        # Personas render shared capture defaults in the archivebox settings panel.
+        plugin = ('archivebox' if kind == 'persona' else 'base') if key == 'TIMEOUT' else 'wget'
         data[f'plugin_config__{plugin}__{key}'] = str(value)
     if kind == 'persona':
         data.update(name=subject.name, permissions='private', config=json.dumps(subject.config), import_mode='none', created_by=str(subject.created_by_id))
