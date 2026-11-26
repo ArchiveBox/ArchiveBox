@@ -32,7 +32,7 @@ from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.http import content_disposition_header
-from django.utils.cache import patch_cache_control, patch_vary_headers
+from django.utils.cache import get_conditional_response, patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.views import View
@@ -1279,6 +1279,16 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
                 response.content = add_replay_document_metadata(response.content.decode(response.charset), snapshot.url)
                 return add_memento_headers(request, snapshot, response, primary=False)
+            if request.method in {"GET", "HEAD"} and (etag := response.get("ETag")):
+                conditional = get_conditional_response(request, etag=etag, response=response)
+                if conditional.status_code == 304:
+                    # Django retains ordinary cache validators, but plugin
+                    # assets also need their worker scope and security headers.
+                    # Authorization above still runs before any revalidation.
+                    for name, value in response.items():
+                        if name.lower() not in {"content-type", "content-length"}:
+                            conditional[name] = value
+                return conditional
             return response
 
     if rel_path == "progress.json":

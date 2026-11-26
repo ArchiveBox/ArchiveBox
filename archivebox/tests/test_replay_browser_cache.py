@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from abx_plugins import get_plugins_dir
 from playwright.sync_api import sync_playwright
+from django.core.signals import request_started
 
 from archivebox.core.models import ArchiveResult
 from archivebox.core.context_processors import get_static_cache_key
@@ -160,6 +161,13 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
     url = build_snapshot_url(str(snapshot.id), "archivewebpage/archivewebpage.wacz") + "?preview=1"
     path = "archivewebpage/archivewebpage.wacz"
     detail_url = build_snapshot_url(str(snapshot.id), "index.html") + f"#{path}"
+    worker_requests = []
+
+    def record_worker_request(sender, environ, **kwargs):
+        if environ["PATH_INFO"].endswith("/replay/sw-index.js"):
+            worker_requests.append(environ["QUERY_STRING"])
+
+    request_started.connect(record_worker_request)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=str(browser_runtime["chrome_binary"]),
@@ -175,6 +183,7 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
             page = context.new_page()
             for attempt in range(2):
                 ranges.clear()
+                worker_requests.clear()
                 if attempt:
                     page.reload(wait_until="load")
                 else:
@@ -185,6 +194,10 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
                 # Valid ZIP metadata versions the replay even when the optional
                 # hashes result is absent, failed, or malformed.
                 if attempt:
+                    # Registration options must agree with the embedded UI.
+                    # Otherwise each side changes updateViaCache and downloads
+                    # the unchanged worker before the replay can start.
+                    assert worker_requests == ["serveIndex=1"], worker_requests
                     assert not ranges, f"Repeat replay fetched WACZ bytes again: {ranges}"
                 else:
                     assert ranges, "An uncached replay must load real archived response bytes"
@@ -207,4 +220,5 @@ def test_repeat_replay_reuses_archived_payloads(snapshot, live_server, browser_r
             link.click()
             assert page.evaluate("location.hash") == f"#{path}"
         finally:
+            request_started.disconnect(record_worker_request)
             browser.close()
