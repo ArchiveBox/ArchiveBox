@@ -651,6 +651,42 @@ class TestLiveProgressView:
         assert not any('AS "bytes"' in query["sql"] for query in queries)
         print(f"cached progress response: median={sorted(timings)[10]:.1f}ms max={max(timings):.1f}ms")
 
+    def test_collection_refresh_is_not_starved_by_crawl_totals(self, client, admin_user, snapshot, monkeypatch):
+        from django.core.cache import cache
+
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.progressmonitor import collection
+
+        Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.SEALED, output_size=12345)
+        cache.clear()
+        client.force_login(admin_user)
+
+        # Model a busy scheduler: a queued stats worker cannot finish before
+        # the current HTTP response. The same caller must not give that slot
+        # to crawl detail before servicing its explicitly requested total.
+        workers = []
+
+        class DeferredThread(Thread):
+            def start(self):
+                workers.append(self)
+
+        monkeypatch.setattr(collection, "Thread", DeferredThread)
+        try:
+            response = client.get(reverse("live_progress"), {"collection": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            assert response.json()["crawls_active"] == 1
+            assert response.json()["collection"] is None
+            assert [worker.name for worker in workers] == ["collection-summary"]
+        finally:
+            for worker in workers:
+                Thread.start(worker)
+                worker.join(timeout=5)
+                assert not worker.is_alive()
+
+        assert collection.collection_summary(admin_user, refresh=False)["bytes"] == 12345
+
     def test_collection_summary_is_scoped_to_staff_owner(self, client, admin_user, snapshot):
         import time
         from django.core.cache import cache

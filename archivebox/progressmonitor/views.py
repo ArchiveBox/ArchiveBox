@@ -802,6 +802,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
             elif crawl_id:
                 process_records_by_crawl.setdefault(crawl_id, []).append((payload, proc_run_at))
 
+        # Collection totals and per-crawl totals share one background worker
+        # slot. Give an explicitly requested collection total first chance so
+        # continuous crawl activity cannot keep the sidebar on a cold cache.
+        telemetry = {"is_admin": is_admin}
+        _add_telemetry(telemetry, request)
+
         active_crawls = []
         badge_icons = {}
         total_workers = len(running_worker_ids)
@@ -1187,7 +1193,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 payload["badge_icons"] = badge_icons
             payload["active_crawls"] = active_crawls
             payload["hidden_crawls"] = hidden_crawls
-        _add_telemetry(payload, request)
+        payload.update(telemetry)
         try:
             import ujson
 
