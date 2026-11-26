@@ -1,7 +1,7 @@
 import json
 from datetime import timedelta
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 
 import pytest
 from django.db import connection
@@ -659,3 +659,39 @@ def test_rest_snapshot_delete_removes_output_dir(tmp_path, recursive_test_site):
         assert missing.status_code == 404
     finally:
         stop_archivebox_process(server)
+
+
+def test_tag_patch_saves_while_capture_owns_crawl(client, api_admin_user, api_headers):
+    from archivebox.crawls.locks import crawl_lifecycle_lock
+
+    url = "https://example.com/tag-during-capture"
+    crawl = Crawl.objects.create(urls=url, created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url=url, crawl=crawl, status=Snapshot.StatusChoices.STARTED)
+    snapshot.save_tags(["previous"])
+    acquired, stop, released = Event(), Event(), Event()
+
+    def capture():
+        with crawl_lifecycle_lock(str(crawl.pk)):
+            acquired.set()
+            stop.wait(timeout=5)
+        released.set()
+
+    worker = Thread(target=capture, daemon=True)
+    worker.start()
+    try:
+        assert acquired.wait(timeout=3)
+        response = client.patch(
+            f"/api/v1/core/snapshot/{snapshot.pk}",
+            data=json.dumps({"tags": ["⭐", "physics", "arxiv"]}),
+            content_type="application/json",
+            **api_headers,
+        )
+        assert response.status_code == 200, response.content
+        assert not released.is_set(), "Editing tags must not wait for the capture to exit"
+        assert set(response.json()["tags"]) == {"⭐", "physics", "arxiv"}
+        assert set(snapshot.tags.values_list("name", flat=True)) == {"⭐", "physics", "arxiv"}
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.STARTED
+    finally:
+        stop.set()
+        worker.join(timeout=3)

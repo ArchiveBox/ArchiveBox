@@ -14,7 +14,7 @@ from uuid import UUID
 from typing import Union, Any, Annotated
 from datetime import datetime
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.http import HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
@@ -1105,6 +1105,19 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
             setattr(request, "with_archiveresults", False)
             return snapshot
         raise HttpError(400, f"Invalid action: {action}")
+
+    if tags is not None and not payload:
+        # A runner can hold the crawl lock for the entire capture. Tags are
+        # metadata only; reserve the database writer before reading memberships
+        # so concurrent replacements serialize without a SQLite read upgrade.
+        names = normalize_tag_list(tags)
+        with transaction.atomic():
+            if not snapshot.safe_update({}, refresh=False):
+                raise HttpError(404, "Snapshot not found")
+            snapshot = _get_snapshot_by_ref(str(snapshot.pk))
+            snapshot.save_tags(names, created_by=request.user if isinstance(request.user, User) else None)
+        setattr(request, "with_archiveresults", False)
+        return snapshot
 
     with crawl_lifecycle_lock(crawl_id):
         snapshot = _get_snapshot_by_ref(snapshot_id)
