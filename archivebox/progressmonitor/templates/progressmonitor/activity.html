@@ -1,0 +1,31 @@
+{% load static core_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Activity | ArchiveBox</title>
+    {% api_token as api_token %}
+    <script>window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";</script>
+    <link rel="stylesheet" href="{% static 'progress-monitor.css' %}">
+    <style>
+        body { margin: 0; background: #0d1117; }
+        #progress-monitor {
+            --font-family-primary: system-ui, sans-serif;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        #progress-monitor .tree-container { max-height: none; overflow-y: visible; }
+        #progress-monitor .header-bar { cursor: auto; }
+        #progress-monitor #progress-collapse { display: none; }
+    </style>
+</head>
+<body>
+    {% csrf_token %}
+    <main aria-label="Activity">
+        {% url 'live_progress' as progress_endpoint %}
+        {% include "progressmonitor/progress_monitor.html" with progress_endpoint=progress_endpoint progress_auto_expand=True progress_standalone=True %}
+    </main>
+</body>
+</html>

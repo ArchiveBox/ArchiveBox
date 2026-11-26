@@ -34,6 +34,7 @@
     </div>
 </div>
 
+{% if not progress_standalone %}
 <script>
     // Restore the chosen height before painting the table. Polling and tree
     // controls can load independently from the versioned script.
@@ -49,4 +50,5 @@
         button.setAttribute('aria-expanded', String(!collapsed));
     })();
 </script>
+{% endif %}
 <script defer src="{% static 'progress-monitor.js' %}"></script>

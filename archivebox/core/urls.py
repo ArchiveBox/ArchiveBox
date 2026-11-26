@@ -4,7 +4,7 @@ from importlib.util import find_spec
 
 from django.conf import settings
 from django.urls import path, re_path, include
-from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView, TemplateView
 from django.http import HttpRequest, HttpResponseRedirect
 
 from archivebox.misc.serve_static import serve_static
@@ -87,6 +87,11 @@ urlpatterns = [
     # Polling contract: read-only DB/cache, <100 ms, no archive/persona file I/O
     # or reconciliation. Keep this route on the shared live_progress_view.
     path("progress.json", live_progress_view, name="live_progress"),
+    path(
+        "admin/activity/",
+        archivebox_admin.admin_view(TemplateView.as_view(template_name="progressmonitor/activity.html")),
+        name="admin-activity",
+    ),
     path("admin/", archivebox_admin.urls),
     path("api/", include("archivebox.api.urls"), name="api"),
     path("health/", HealthCheckView.as_view(), name="healthcheck"),
