@@ -172,9 +172,10 @@ class SQLiteCursorWrapper(DjangoSQLiteCursorWrapper):
 # exclusively (Django already opens SQLite with check_same_thread=False).
 _IDLE_CONNECTIONS: dict[tuple, list[tuple[tuple[int, int], sqlite3.Connection]]] = {}
 _IDLE_CONNECTIONS_LOCK = threading.Lock()
-# Retain at most 128 MiB of SQLite page caches per database and worker after
-# a burst of requests. Active requests can still open independent connections.
-_MAX_IDLE_CONNECTIONS = 1
+# Keep one populated page cache (128 MiB with the default cache_size), while
+# retaining initialization on a bounded number of handles after a burst.
+# Active requests can still open independent connections.
+_MAX_IDLE_CONNECTIONS = 8
 
 
 def _database_file_identity(path: str) -> tuple[int, int] | None:
@@ -252,11 +253,39 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
             except sqlite3.Error:
                 reusable = False
             if reusable:
+                previous = None
                 with _IDLE_CONNECTIONS_LOCK:
                     pool = _IDLE_CONNECTIONS.setdefault(key, [])
                     if len(pool) < _MAX_IDLE_CONNECTIONS:
+                        # Checkout pops the last entry. Keep the most recently
+                        # used page cache there so sequential requests retain
+                        # their existing cache, even after a concurrent burst.
+                        previous = pool.pop() if pool else None
                         pool.append((identity, conn))
-                        return None
+                    else:
+                        reusable = False
+                if reusable:
+                    if previous is not None:
+                        # This handle is exclusively ours while outside the
+                        # pool. Release its idle pages without serializing
+                        # other requests on the pool lock or changing cache_size.
+                        # Its registered functions/settings remain initialized.
+                        previous_identity, previous_conn = previous
+                        try:
+                            previous_conn.execute("PRAGMA shrink_memory").close()
+                        except sqlite3.Error:
+                            previous_conn.close()
+                        else:
+                            with _IDLE_CONNECTIONS_LOCK:
+                                # An explicit drain/fork can clear the registry
+                                # while pages are being freed. Never recreate it
+                                # with a handle removed before that drain.
+                                if _IDLE_CONNECTIONS.get(key) is pool and len(pool) < _MAX_IDLE_CONNECTIONS:
+                                    pool.insert(0, (previous_identity, previous_conn))
+                                    previous_conn = None
+                            if previous_conn is not None:
+                                previous_conn.close()
+                    return None
         return super()._close()
 
     def create_cursor(self, name=None):

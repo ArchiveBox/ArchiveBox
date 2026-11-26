@@ -9,6 +9,7 @@ exactly like Django's thread-local connection handler does under ASGI.
 import os
 import sqlite3
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from django.db import connection
@@ -71,6 +72,89 @@ def test_closed_connection_is_reused_by_next_request_thread(db_path):
     assert pragma_rows == [(1,)]
     _fourth, pragma_rows = _request(db_path, "PRAGMA synchronous")
     assert pragma_rows == [(1,)]
+
+
+def test_concurrent_request_bursts_reuse_initialized_connections(db_path):
+    _request(db_path, "CREATE TABLE item (name TEXT)", "INSERT INTO item VALUES ('saved')")
+
+    def burst():
+        barrier = threading.Barrier(8)
+
+        def request(_):
+            options = {**connection.settings_dict["OPTIONS"]}
+            options["init_command"] += "PRAGMA cache_size=-8192;"
+            db = DatabaseWrapper({**connection.settings_dict, "NAME": str(db_path), "OPTIONS": options}, alias="sqlite-reuse-test")
+            try:
+                with db.cursor() as cursor:
+                    cursor.execute("SELECT name FROM item")
+                    rows = cursor.fetchall()
+                    cursor.execute("PRAGMA cache_size")
+                    assert cursor.fetchone() == (-8192,)
+                raw = db.connection
+                # Every request owns its own live connection before any can
+                # return it. A second real burst must reuse all eight handles.
+                barrier.wait(timeout=10)
+                return raw, rows
+            finally:
+                db.close()
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(request, range(8)))
+        assert all(rows == [("saved",)] for _raw, rows in results)
+        handles = {raw for raw, _rows in results}
+        assert len(handles) == 8
+        return handles
+
+    assert burst() == burst()
+
+
+def test_pool_drain_during_page_cache_release_closes_removed_connection(db_path):
+    first = DatabaseWrapper({**connection.settings_dict, "NAME": str(db_path)}, alias="sqlite-reuse-test")
+    with first.cursor() as cursor:
+        cursor.execute("SELECT 1")
+    first_raw = first.connection
+    ready = threading.Event()
+    close_second = threading.Event()
+    shrinking = threading.Event()
+    finish_shrinking = threading.Event()
+
+    def trace(statement):
+        if statement == "PRAGMA shrink_memory":
+            # Pause a real SQLite statement after the old idle handle has
+            # been removed, so an explicit drain crosses that ownership gap.
+            shrinking.set()
+            finish_shrinking.wait(timeout=10)
+
+    first_raw.set_trace_callback(trace)
+
+    def request():
+        second = DatabaseWrapper({**connection.settings_dict, "NAME": str(db_path)}, alias="sqlite-reuse-test")
+        try:
+            with second.cursor() as cursor:
+                cursor.execute("SELECT 2")
+                assert cursor.fetchone() == (2,)
+            second_raw = second.connection
+            ready.set()
+            assert close_second.wait(timeout=10)
+            return second_raw
+        finally:
+            second.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        result = executor.submit(request)
+        try:
+            assert ready.wait(timeout=10)
+            first.close()
+            close_second.set()
+            assert shrinking.wait(timeout=10)
+            close_idle_connections()
+        finally:
+            close_second.set()
+            finish_shrinking.set()
+        second_raw = result.result(timeout=10)
+    for raw in (first_raw, second_raw):
+        with pytest.raises(sqlite3.ProgrammingError):
+            raw.execute("SELECT 1")
 
 
 @pytest.mark.parametrize("mode", ["OFF", "MEMORY"])
