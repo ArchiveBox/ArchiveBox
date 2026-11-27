@@ -1,3 +1,6 @@
+# ci-workers: 1
+# Daemon takeover tests require real capture admission; concurrent browser
+# suites on the same runner can correctly defer it under I/O pressure.
 """
 Tests for archivebox run CLI command.
 

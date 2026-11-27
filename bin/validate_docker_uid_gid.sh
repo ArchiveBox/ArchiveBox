@@ -39,7 +39,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
-ABXPKG_SPEC="$(UV_LOCK_PATH="$REPO_DIR/uv.lock" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+# Unpublished abxpkg changes are Git-pinned and have no wheel in uv.lock.
+ABXPKG_SPEC="$(UV_LOCK_PATH="$REPO_DIR/uv.lock" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); source = package["source"]; print("abxpkg @ git+" + source["git"].split("?", 1)[0] + "@" + source["git"].rsplit("#", 1)[1] if "git" in source else "abxpkg @ {}#{}".format(package["wheels"][0]["url"], package["wheels"][0]["hash"].replace(":", "=")))')"
 mkdir -p "$ABXPKG_LIB_DIR/env/bin"
 uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
     --install \

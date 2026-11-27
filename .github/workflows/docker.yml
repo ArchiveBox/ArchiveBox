@@ -109,8 +109,13 @@ jobs:
           matches = [package for package in packages if package["name"] == "abxpkg"]
           if len(matches) != 1:
               raise SystemExit(f"Expected one locked abxpkg package, found {len(matches)}")
-          wheel = matches[0]["wheels"][0]
-          print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))
+          package = matches[0]
+          if "git" in package["source"]:
+              url, commit = package["source"]["git"].split("#")
+              print(f"abxpkg @ git+{url.split('?')[0]}@{commit}")
+          else:
+              wheel = package["wheels"][0]
+              print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))
           PY
           )"
           test -n "$ABXPKG_SPEC"
@@ -172,28 +177,23 @@ jobs:
           from pathlib import Path
 
           packages = {package["name"]: package for package in tomllib.loads(Path("uv.lock").read_text())["package"]}
-          source = packages["abx-plugins"]["source"]
-          if "git" not in source:
-              if source != {"registry": "https://pypi.org/simple"}:
-                  raise SystemExit(f"Unsupported plugin dependency source: {source}")
+          if not any("git" in packages[name]["source"] for name in ("abxbus", "abxpkg", "abx-plugins", "abx-dl")):
               raise SystemExit(0)
-          match = re.fullmatch(r"https://github\.com/ArchiveBox/abx-plugins\.git\?rev=([0-9a-f]{40})#\1", source["git"])
-          if not match:
-              raise SystemExit("Candidate plugins require an exact commit from ArchiveBox/abx-plugins")
           if os.environ["PUSH_DIGESTS"] == "true":
               raise SystemExit("Publish Git-pinned dependencies through the normal release cascade before publishing an image")
-          plugin_sha = match[1]
           with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
-              print(f"plugin_sha={plugin_sha}", file=output)
-              print(f"plugin_spec=abx-plugins @ git+https://github.com/ArchiveBox/abx-plugins.git@{plugin_sha}", file=output)
               for name in ("abxbus", "abxpkg", "abx-plugins", "abx-dl"):
                   package = packages[name]
                   version = package["version"]
                   if not re.fullmatch(r"\d+\.\d+\.\d+(?:rc\d+)?", version):
                       raise SystemExit(f"Unsupported {name} version: {version}")
                   url = f"https://github.com/ArchiveBox/{name}.git"
-                  sha = plugin_sha
-                  if name != "abx-plugins":
+                  if "git" in package["source"]:
+                      match = re.fullmatch(re.escape(url) + r"\?rev=([0-9a-f]{40})#\1", package["source"]["git"])
+                      if not match:
+                          raise SystemExit(f"Candidate {name} requires an exact commit from {url}")
+                      sha = match[1]
+                  else:
                       if package["source"] != {"registry": "https://pypi.org/simple"}:
                           raise SystemExit(f"Unsupported {name} dependency source")
                       tag = version if name == "abxbus" else f"v{version}"
@@ -203,6 +203,9 @@ jobs:
                       sha = refs.get(f"refs/tags/{tag}^{{}}", refs.get(f"refs/tags/{tag}", ""))
                       if not re.fullmatch(r"[0-9a-f]{40}", sha):
                           raise SystemExit(f"Cannot resolve exact released {name} source")
+                  if name == "abx-plugins":
+                      print(f"plugin_sha={sha}", file=output)
+                      print(f"plugin_spec=abx-plugins @ git+{url}@{sha}", file=output)
                   key = name.replace("-", "_")
                   print(f"{key}_context={url}#{sha}", file=output)
                   print(f"{key}_version={version}", file=output)
@@ -475,6 +478,12 @@ jobs:
               test ! -w "$XDG_CONFIG_HOME/chromium"
               uv run --no-project python -c "from abx_plugins.plugins.opencode.image import verify_archivebox_install; verify_archivebox_install()"
             '
+
+      - name: Verify opt-in installer bootstrap in the image
+        run: |
+          "$DOCKER_BINARY" run --rm --network none --user 911:911 --platform '${{ matrix.platform }}' \
+            --entrypoint /venv/bin/python3 '${{ matrix.local_tag }}' -c \
+            'import inspect; from abxpkg import BinProvider; assert inspect.signature(BinProvider.INSTALLER_BINARY).parameters["install"].default is False'
 
       - name: Validate exact built image version and commit
         if: inputs.full_tests
