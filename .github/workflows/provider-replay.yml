@@ -314,7 +314,9 @@ jobs:
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
           # Match plugin CI: keep software 2D rendering; emulating the whole GPU
           # can stall document exports on CPU-limited runners.
-          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+          # Preserve the proxy and local replay bypass set by Set up Squid.
+          chrome_args="$(jq -ce '. + ["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' <<<"${CHROME_ARGS_EXTRA:-[]}")"
+          printf 'CHROME_ARGS_EXTRA=%s\n' "$chrome_args" >> "$GITHUB_ENV"
       - name: Prepare isolated public replay paths
         run: |
           {
