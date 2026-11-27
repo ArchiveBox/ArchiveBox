@@ -70,7 +70,9 @@ function addLaunchArg(args, arg) {
 async function waitForVisibleCardPreviews(page, timeout = 45000) {
   // The page load event does not wait for nested lazy card images. Capture their
   // decoded pixels, without forcing hidden alternatives or offscreen cards to load.
-  const cardHandles = await page.$$('iframe[title$=" card"]');
+  // Use the page's own execution world: transferring lazy iframe nodes from
+  // Puppeteer's isolated world can race their document attachment.
+  const cardHandles = await page.$$('iframe[title$=" card"]', {isolate: false});
   const visibleFrames = [];
   for (const cardHandle of cardHandles) {
     const visible = await cardHandle.evaluate((iframe) => {
@@ -140,7 +142,7 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
       && new URL(location.href).searchParams.get('files') === '1'
       && Boolean(document.querySelector('.directory-list'));
   }, {timeout}, await previewHandle.evaluate((iframe) => iframe.src));
-  for (const pdfHandle of await preview.$$('iframe')) {
+  for (const pdfHandle of await preview.$$('iframe', {isolate: false})) {
     const visiblePdf = await pdfHandle.evaluate((iframe) => {
       const rect = iframe.getBoundingClientRect();
       return new URL(iframe.src, location.href).pathname.toLowerCase().endsWith('.pdf')
