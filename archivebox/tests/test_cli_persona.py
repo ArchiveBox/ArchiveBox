@@ -212,7 +212,7 @@ def test_persona_import_missing_source_is_actionable_and_does_not_create(initial
     assert not (initialized_archive / "personas" / "broken").exists()
 
 
-def test_persona_import_real_browser_session(initialized_archive, tmp_path, httpserver):
+def test_persona_import_real_browser_session(initialized_archive, cached_abxpkg_lib_dir, tmp_path, httpserver):
     """Import an actual Chromium-created session and archive its private page."""
     import hashlib
     import json
@@ -225,8 +225,8 @@ def test_persona_import_real_browser_session(initialized_archive, tmp_path, http
     from archivebox.tests.conftest import resolve_abxpkg_chrome_env
     from archivebox.plugins.discovery import get_plugin_catalog
 
-    browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
-    browser_env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
+    browser_env = resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+    browser_env["ABXPKG_LIB_DIR"] = str(cached_abxpkg_lib_dir)
     source = tmp_path / "browser"
     httpserver.expect_request("/login").respond_with_data(
         '<html><title>Signed in</title><script>localStorage.setItem("persona-preference", "forest-green")</script>Signed in</html>',
@@ -265,7 +265,7 @@ const puppeteer = require(process.argv[1]);
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """,
-            str(tmp_path / "lib/pnpm/packages/chrome/node_modules/puppeteer"),
+            str(cached_abxpkg_lib_dir / "pnpm/packages/chrome/node_modules/puppeteer"),
             browser_env["CHROME_BINARY"],
             str(source),
             httpserver.url_for("/login"),

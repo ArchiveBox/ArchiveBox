@@ -273,7 +273,9 @@ def test_snapshot_list_layout_is_stable_from_first_paint(browser_runtime, live_s
                     {
                         "urlPattern": f"{live_server.url}/admin/core/snapshot/",
                         "latency": 0,
-                        "downloadThroughput": 128 * 1024 if row_count == 50 else -1,
+                        # Leave time for Chromium to paint the streamed row
+                        # outlines even if parallel CI tests delay its frames.
+                        "downloadThroughput": 32 * 1024 if row_count == 50 else -1,
                         "uploadThroughput": -1,
                     },
                 ],
