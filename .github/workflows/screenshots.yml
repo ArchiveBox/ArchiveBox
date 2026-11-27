@@ -79,8 +79,11 @@ jobs:
             plugins: calendar,liteparse,opendataloader,podcast_archiver
           - lane: parsers
             plugins: parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,sourcemaps
+          # Archive import took over five minutes of the former serial web shard.
+          - lane: archiveimport
+            plugins: archiveimport
           - lane: web
-            plugins: archiveimport,forumdl,gallerydl,microsoft365,nextcloud,wetransfer
+            plugins: forumdl,gallerydl,microsoft365,nextcloud,wetransfer
           - lane: browser-automation
             plugins: playwright,puppeteer
           - lane: iwork
@@ -196,7 +199,7 @@ jobs:
           # Match the tested compound-view experiment without changing the
           # existing five singleton jobs' default extractor configuration.
           case "$PUBLIC_RECIPE" in
-            cad|boards|documents|parsers|web) export OPENDATALOADER_ENABLED=True ;;
+            cad|boards|documents|parsers|archiveimport|web) export OPENDATALOADER_ENABLED=True ;;
           esac
           xvfb-run -a bin/collect_ui_screenshots.sh
         env:

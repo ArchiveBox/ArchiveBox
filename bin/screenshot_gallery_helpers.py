@@ -1557,7 +1557,8 @@ PUBLIC_LANES = {
     "boards": ("drawio", "excalidraw", "tldraw"),
     "documents": ("calendar", "liteparse", "opendataloader", "podcast_archiver"),
     "parsers": ("parse_jsonl_urls", "parse_netscape_urls", "parse_rss_urls", "sourcemaps"),
-    "web": ("archiveimport", "forumdl", "gallerydl", "microsoft365", "nextcloud", "wetransfer"),
+    "archiveimport": ("archiveimport",),
+    "web": ("forumdl", "gallerydl", "microsoft365", "nextcloud", "wetransfer"),
     "browser-automation": ("playwright", "puppeteer"),
 }
 PUBLIC_OWNERS = {plugin: lane for lane, plugins in PUBLIC_LANES.items() for plugin in plugins}
