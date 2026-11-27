@@ -1,6 +1,6 @@
 {
   "name": "archivebox",
-  "version": "0.9.78rc705",
+  "version": "0.9.78rc706",
   "repository": "github:ArchiveBox/ArchiveBox",
   "license": "MIT",
   "dependencies": {
