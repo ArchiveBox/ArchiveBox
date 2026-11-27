@@ -86,6 +86,13 @@ def test_social_metadata_reads_only_needed_artifacts(client, snapshot):
 
     def observe(frame, event, arg):
         module = frame.f_globals.get("__name__")
+        # Title fallback also uses the contained reader. Count only calls made
+        # for SEO metadata so that unrelated output reads stay outside this budget.
+        caller = frame
+        while caller is not None and caller.f_globals.get("__name__") != presentation.__name__:
+            caller = caller.f_back
+        if caller is None:
+            return
         if event == "c_call" and arg is os.fstat and module == filesystem.__name__:
             checked_files.append(frame.f_locals["relative"])
         if event != "call":

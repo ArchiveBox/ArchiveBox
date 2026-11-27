@@ -225,17 +225,16 @@ def plugin_output_is_text(plugin_name: str) -> bool:
 
 def read_plugin_output_text(plugin_name: str, snapshot_dir: Path, output_str: str = "") -> str:
     """Read a declared text value or the plugin's default saved artifact."""
+    from abx_plugins.plugins.base.filesystem import resolve_contained_file
+
     relative = get_plugin_default_output_path(plugin_name)
     if plugin_output_is_text(plugin_name) and output_str and (not relative or output_str not in {relative, Path(relative).name}):
         return output_str
     if relative:
-        root = Path(snapshot_dir).resolve()
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root):
-            return ""
         try:
-            return path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
+            with resolve_contained_file(snapshot_dir, relative) as (path, _info):
+                return path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError, ValueError):
             pass
     return ""
 

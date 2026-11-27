@@ -41,8 +41,10 @@ def recover_orchestrator_state(*, include_plugins: bool = False, crawl_id: str |
         from archivebox.config.constants import CONSTANTS
         from archivebox.plugins.discovery import get_plugin_catalog
 
-        paths = [str(path) for path in CONSTANTS.USERS_DIR.glob("*/crawls") if path.is_dir()]
         config = get_config().model_dump(mode="json")
+        # Plugin recovery concerns live runtime processes. Archive trees can
+        # live on remote storage and contain historical PID-shaped artifacts.
+        paths = [str(config["TMP_DIR"])]
         env = PluginEnv(**config).to_env()
         catalog = get_plugin_catalog()
         for plugin in catalog:
