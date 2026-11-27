@@ -9,7 +9,8 @@ REPO_NAMES=(abxbus abxpkg abx-plugins abx-dl archivebox)
 GIT_BINARY=""
 
 locked_abxpkg_spec() {
-    UV_LOCK_PATH="$1" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))'
+    # Unpublished abxpkg changes are Git-pinned and have no wheel in uv.lock.
+    UV_LOCK_PATH="$1" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); source = package["source"]; print("abxpkg @ git+" + source["git"].split("?", 1)[0] + "@" + source["git"].rsplit("#", 1)[1] if "git" in source else "abxpkg @ {}#{}".format(package["wheels"][0]["url"], package["wheels"][0]["hash"].replace(":", "=")))'
 }
 
 resolve_git_binary() {
