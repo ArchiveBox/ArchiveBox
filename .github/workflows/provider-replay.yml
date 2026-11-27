@@ -272,8 +272,10 @@ jobs:
           enable-cache: false
       - name: Install browser display and PDF inspection tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb xauth poppler-utils
+          # These packages come from Ubuntu, not the runner's preconfigured third-party feeds.
+          apt_sources=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_sources[@]}" update
+          sudo apt-get "${apt_sources[@]}" install -y xvfb xauth poppler-utils
       - name: Install locked test dependencies
         run: uv sync --no-cache --locked --dev --no-sources
       - name: Install the matching Chrome sandbox helper
