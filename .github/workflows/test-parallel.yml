@@ -63,7 +63,7 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); source = package["source"]; print("abxpkg @ git+" + source["git"].split("?", 1)[0] + "@" + source["git"].rsplit("#", 1)[1] if "git" in source else "abxpkg @ {}#{}".format(package["wheels"][0]["url"], package["wheels"][0]["hash"].replace(":", "=")))')"
           test -n "$ABXPKG_SPEC"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PYTHON_BINARY="$pythonLocation/bin/python"
@@ -280,7 +280,7 @@ jobs:
           TEST_PATHS: ${{ matrix.test.paths_arg }}
         run: |
           set -Eeuo pipefail
-          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); source = package["source"]; print("abxpkg @ git+" + source["git"].split("?", 1)[0] + "@" + source["git"].rsplit("#", 1)[1] if "git" in source else "abxpkg @ {}#{}".format(package["wheels"][0]["url"], package["wheels"][0]["hash"].replace(":", "=")))')"
           test -n "$ABXPKG_SPEC"
           dependency_sources=()
           if [[ -n "$TEST_EXTRA" ]]; then
@@ -322,6 +322,23 @@ jobs:
             extra_args=(--extra "$TEST_EXTRA")
           fi
           uv sync --locked --dev "${extra_args[@]}"
+      - name: Verify locked abxpkg and opt-in installer bootstrap
+        run: |
+          uv run --no-sync --no-sources python - <<'PYTHON'
+          import inspect
+          import json
+          import tomllib
+          from importlib.metadata import distribution
+          from abxpkg import BinProvider
+
+          package = next(p for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "abxpkg")
+          if "git" in package["source"]:
+              installed = json.loads(distribution("abxpkg").read_text("direct_url.json"))
+              assert installed["vcs_info"]["commit_id"] == package["source"]["git"].rsplit("#", 1)[1]
+          assert inspect.signature(BinProvider.INSTALLER_BINARY).parameters["install"].default is False
+          print("Verified locked abxpkg with INSTALLER_BINARY(install=False)")
+          PYTHON
+
       # These hosted Chrome lanes repeatedly timed out acquiring this 7.5 MB
       # Noble universe package. Populate only APT's download cache: the native
       # Puppeteer dependency installer still resolves and installs the fonts.

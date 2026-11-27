@@ -175,6 +175,10 @@ jobs:
           }
           for package_name in ("abx-dl", "abx-plugins", "abxpkg", "abxbus"):
               package = locked[package_name]
+              if "git" in package["source"]:
+                  url, commit = package["source"]["git"].split("#")
+                  print(f"{package_name} @ git+{url.split('?')[0]}@{commit}")
+                  continue
               wheels = package.get("wheels") or []
               if len(wheels) != 1:
                   raise SystemExit(f"Expected exactly one locked wheel for {package_name}")
