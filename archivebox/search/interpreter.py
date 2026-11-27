@@ -24,9 +24,9 @@ from archivebox.config.constants import CONSTANTS
 from archivebox.plugins.discovery import get_plugin_app, get_plugin_catalog
 from archivebox.search.backends import get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.language import (
-    HostnameFragmentIn,
     OPERATORS,
     Term,
+    _CandidateRowPredicate,
     has_uppercase,
     leaves,
     literal_pattern,
@@ -61,8 +61,8 @@ OPERATOR_RESULT_LIMIT = 256
 def indexed_predicate(model, predicate):
     """Recognize direct B-tree probes in a compiled Django Q, regardless of operator name."""
     for part in predicate.children:
-        if isinstance(part, HostnameFragmentIn):
-            part = ("reversed_domain__in", part.rhs)
+        if isinstance(part, _CandidateRowPredicate):
+            part = part.source_expressions[0]
         if isinstance(part, Q):
             if not indexed_predicate(model, part):
                 return False
@@ -289,6 +289,10 @@ class SnapshotSearch:
                 quick = Q(pk__in=candidates) & certain
         return quick, narrow
 
+    @cached_property
+    def complete_sql_predicate(self):
+        return sql_bounds(self.tree, self.sql, db=self.scope.db)[1]
+
     def sql_queryset(self, *, ranked=False):
         # An unordered metadata search can publish URL and title matches
         # before inspecting every config value. A column sort must page the
@@ -298,7 +302,7 @@ class SnapshotSearch:
         if ranked and any(t.field in {"meta", "url"} for t in self.indexed_evidence) and isinstance(self.indexed_bounds[0], Q):
             return None
         if len(self.sql) == len(self.terms):
-            return self.scope.filter(sql_bounds(self.tree, self.sql)[1])
+            return self.scope.filter(self.complete_sql_predicate)
         return None
 
     def disk_budget_available(self):

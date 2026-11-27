@@ -285,7 +285,6 @@ class RuleQuery:
                 raise ValidationError("Use at most 100 rules and 8 nested groups.")
             if "query" in node:
                 from archivebox.search.interpreter import SnapshotSearch
-                from archivebox.search.language import sql_bounds
 
                 try:
                     if not isinstance(node["query"], str) or not node["query"].strip():
@@ -301,7 +300,7 @@ class RuleQuery:
                         "Saved folders require complete membership. Use database fields such as title:, tags: or meta: "
                         "instead of full-text or link searches.",
                     )
-                query = sql_bounds(plan.tree, plan.sql)[1]
+                query = plan.complete_sql_predicate
                 # Historical rule trees stay in their typed, lossless representation.
                 # Adding search intersects the entire tree, including a negated root.
                 if "field" in node or "op" in node:

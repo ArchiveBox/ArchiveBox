@@ -9,10 +9,10 @@ from functools import lru_cache, reduce
 from operator import and_, or_
 
 from django.db import connections
-from django.db.models import BinaryField, BooleanField, Case, Exists, F, Func, OuterRef, Q, QuerySet, TextField, Value, When
+from django.db.models import BinaryField, BooleanField, Case, Exists, Func, OuterRef, Q, QuerySet, TextField, Value, When
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast, Coalesce, Length, Lower, StrIndex
-from django.db.models.lookups import Exact, GreaterThan, IContains, In, IRegex, Regex
+from django.db.models.lookups import Exact, GreaterThan, IContains, IRegex, Regex
 from django.db.models.sql import Query
 from django.db.models.sql.where import WhereNode
 
@@ -248,6 +248,9 @@ def sql_predicate_cost(predicate):
     def count(expr):
         nonlocal json_iterations, subqueries, expressions
         expressions += 1
+        if isinstance(expr, _CandidateRowPredicate):
+            # Its two forms are alternatives; the full scan pays only for the first.
+            expr = expr.source_expressions[0]
         if isinstance(expr, (ConfigContains, OutputPathExists)):
             json_iterations += 1
         if isinstance(expr, QuerySet):
@@ -268,7 +271,7 @@ def sql_predicate_cost(predicate):
     return json_iterations, subqueries, expressions
 
 
-def sql_bounds(node, sql, text=None):
+def sql_bounds(node, sql, text=None, *, db=None):
     """Bound membership before file/index I/O. NOT reverses possible and certain."""
 
     def visit(node, negated=False):
@@ -282,7 +285,43 @@ def sql_bounds(node, sql, text=None):
         # associative groups: distributing AND over OR could grow exponentially.
         disjunction = (node.op == "or") != negated
         connector = Q.OR if disjunction else Q.AND
-        bounds = [visit(arg, negated) for arg in node.args]
+        args = node.args
+        grouped = []
+        if db and node.op == "or":
+            # Parentheses do not change an OR's membership. Collect its positive
+            # alternatives before emitting subqueries, without distributing any AND.
+            def alternatives(children):
+                for child in children:
+                    if isinstance(child, Expr) and child.op == "or":
+                        yield from alternatives(child.args)
+                    else:
+                        yield child
+
+            args = list(alternatives(args))
+            for field in ("domain", "tags"):
+                terms = [
+                    arg
+                    for arg in args
+                    if isinstance(arg, Term)
+                    and arg.field == field
+                    and arg in sql
+                    # Several comma-separated tags require ALL of their
+                    # assignments. They cannot join a single tag-name union.
+                    and (field != "tags" or len(arg.items or arg.value.split(",")) == 1)
+                ]
+                if len(terms) < 2:
+                    continue
+                if field == "domain":
+                    predicate = domain_substring(",".join(term.value for term in terms), db)
+                else:
+                    names = reduce(or_, (substring("name", (term.items or (term.value,))[0]) for term in terms))
+                    predicate = snapshots_with_matching_tags(names)
+                grouped.append(~predicate if negated else predicate)
+                consumed = set(terms)
+                args = [arg for arg in args if arg not in consumed]
+
+        bounds = [visit(arg, negated) for arg in args]
+        bounds.extend((predicate, predicate) for predicate in grouped)
 
         def combine(column):
             if any(part is disjunction for part in column):
@@ -354,50 +393,35 @@ def substring(field, value, *, match_case=None):
     return Q(InsensitiveLiteral(text, Value(value)))
 
 
-class HostnameFragmentIn(In):
-    """Keep the indexed scan for collections and check known page rows directly."""
-
-    def __init__(self, lhs, rhs, fragments):
-        self.fragments = tuple(fragments)
-        super().__init__(lhs, rhs)
-
-    def as_sql(self, compiler, connection):
-        if connection.vendor == "sqlite" and getattr(compiler.query, "_archivebox_candidate_row", False):
-            return compiler.compile(WhereNode([IContains(self.lhs, fragment) for fragment in self.fragments], connector=Q.OR))
-        return super().as_sql(compiler, connection)
-
-
 def domain_substring(value, db):
     from archivebox.core.domain_grouping import domain_authority_from_key
     from archivebox.misc.util import equivalent_urls
 
     hosts = Snapshot.objects.using(db)
     keys = hosts.none()
+    point = Q(pk__in=[])
     matching = Q(pk__in=[])
     idn_terms = []
-    fragments = []
-    fragment_only = True
     for part in value.split(","):
         term = part.strip().lower()
         if not term:
             continue
         if term.startswith("*."):
-            fragment_only = False
             matching |= SnapshotQuerySet.domain_q(term)
             continue
         if not term.isascii() or "xn--" in term:
-            fragment_only = False
             idn_terms.append(term)
         elif re.fullmatch(r"[\w-]+", term):
             # Reversing labels and moving the port preserves a single
             # fragment. Read the hostname index without fetching URLs.
             keys |= hosts.filter(reversed_domain__icontains=term)
-            fragments.append(term)
+            point |= Q(reversed_domain__icontains=term)
         else:
-            fragment_only = False
             # A dot or colon can span labels or the port boundary; prove
             # the match against the authority in its original order.
-            keys |= hosts._domain_key_candidates(term).filter(hosts.domain_rule_q("icontains", term))
+            authority = hosts.domain_rule_q("icontains", term)
+            keys |= hosts._domain_key_candidates(term).filter(authority)
+            point |= authority
     if idn_terms:
         # Encoding a partial Unicode label changes its punycode. Compare the
         # two spellings of each distinct IDN host, never every snapshot URL.
@@ -408,12 +432,10 @@ def domain_substring(value, db):
             if any(term in spelling[2:].lower() for term in idn_terms for spelling in spellings):
                 matched.append(key)
         matching |= Q(reversed_domain__in=matched)
-    indexed = keys.order_by().values("reversed_domain").distinct()
-    if fragment_only and fragments and connections[db].vendor == "sqlite":
-        # Test only the candidate's hostname instead of rebuilding every
-        # matching hostname in the archive for each small paginator probe.
-        return Q(HostnameFragmentIn(F("reversed_domain"), indexed.query, fragments))
-    return matching | Q(reversed_domain__in=indexed)
+    # An order-index probe already has the snapshot. Checking its hostname
+    # avoids scanning the entire hostname index for each bounded probe.
+    indexed = Q(reversed_domain__in=keys.order_by().values("reversed_domain").distinct())
+    return matching | Q(_CandidateRowPredicate(indexed, point))
 
 
 def url_substring_hint(value, db):
@@ -522,13 +544,36 @@ def matching_tag_assignments(value, *, match_case=None):
     return tag_assignments_matching(substring("name", value, match_case=match_case))
 
 
+class _CandidateRowPredicate(Func):
+    """Use an equivalent point lookup when the paginator has already chosen snapshot IDs."""
+
+    output_field = BooleanField()
+    arity = 2
+
+    def as_sql(self, compiler, connection, **extra_context):
+        indexed, point = self.source_expressions
+        return compiler.compile(point if getattr(compiler.query, "_archivebox_candidate_row", False) else indexed)
+
+
+def snapshots_with_matching_tags(names):
+    assignments = tag_assignments_matching(names)
+    # Find snapshots by tag for the full query. When checking known snapshots,
+    # seek their own assignments instead of materializing the entire matching set.
+    return Q(
+        _CandidateRowPredicate(
+            Q(pk__in=assignments.values("snapshot_id")),
+            Q(Exists(assignments.filter(snapshot_id=OuterRef("pk")))),
+        ),
+    )
+
+
 def tags_predicate(term, *, exact=False):
     parts = term.items or term.value.split(",")
     if not all(parts):
         raise ValueError("Empty list item")
     match_case = has_uppercase(term.value)
     predicates = (Q(name=part) if exact else substring("name", part, match_case=match_case) for part in parts)
-    return reduce(and_, (Q(pk__in=tag_assignments_matching(predicate).values("snapshot_id")) for predicate in predicates))
+    return reduce(and_, (snapshots_with_matching_tags(predicate) for predicate in predicates))
 
 
 def text_metadata(term, *, public):
@@ -573,7 +618,16 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
     if f in {"permissions", "status", "title", "url"}:
         return substring(f, v)
     if f == "owner":
-        return substring("crawl__created_by__username", v)
+        owner = substring("crawl__created_by__username", v)
+        if connections[db].vendor == "sqlite":
+            from django.contrib.auth import get_user_model
+
+            # SQLite can otherwise walk every snapshot and evaluate the other
+            # branches before joining its crawl to a matching owner. The
+            # independent EXISTS checks the small username index once.
+            users = get_user_model().objects.using(db).filter(substring("username", v))
+            owner = Q(Exists(users)) & owner
+        return owner
     if f in {"after", "before", "bookmarked"}:
         formats = {4: "%Y", 7: "%Y-%m", 10: "%Y-%m-%d"}
         if len(v) not in formats:
@@ -616,12 +670,21 @@ def sql_leaf(term, db, *, rules=None, stack=(), public=False):
             )
         # Recorded paths include directories and compound filenames. Anchor
         # the match to the last extension so e.g. report.pdf.html is HTML.
-        needles = [re.escape(part) for part in parts if "." not in part and "/" not in part]
-        if not needles:
+        extensions = [part for part in parts if "." not in part and "/" not in part]
+        if not extensions:
             return Q(pk__in=[])
-        pattern = rf"\.[^./]*(?:{'|'.join(needles)})[^./]*\Z"
+        pattern = rf"\.[^./]*(?:{'|'.join(map(re.escape, extensions))})[^./]*\Z"
         lookup = Regex if match_case else IRegex
-        keys = lookup(RawSQL("j.key", (), output_field=TextField()), Value(pattern))
+        path = RawSQL("j.key", (), output_field=TextField())
+        keys = Q(lookup(path, Value(pattern)))
+        if connections[db].vendor == "sqlite" and all(part.isascii() for part in extensions):
+            # SQLite runs LIKE natively but calls Python for REGEXP. Most paths
+            # lack the fragment altogether. Keep Unicode paths eligible for the
+            # final comparison because LIKE only folds ASCII case. Non-ASCII
+            # needles can also match ASCII paths, so they bypass this prefilter.
+            possible = reduce(or_, (Q(IContains(path, part)) for part in extensions))
+            unicode_path = Q(GreaterThan(Length(Cast(path, BinaryField())), Length(path)))
+            keys = (possible | unicode_path) & keys
         return Q(Exists(results.filter(OutputPathExists("output_files", keys))))
     if f == "meta":
         fields = (

@@ -71,12 +71,14 @@ def _preview_page(base, matches, ordering, size, after=None, shown=()):
     # Counting candidates (including non-matches) lets the next request resume
     # after this window without counting or sorting the entire matching scope.
     ordered = base.order_by(*ordering)
+    candidate = matches.filter(pk=OuterRef("pk"))
+    candidate.query._archivebox_candidate_row = True
     deadline = monotonic() + 0.15
     offset, window = after or (0, 1024)
     start_offset = offset
     while True:
         candidates = ordered.values("pk")[offset : offset + window]
-        probe = ordered.filter(pk__in=candidates).annotate(_matches=Exists(matches.filter(pk=OuterRef("pk"))))
+        probe = ordered.filter(pk__in=candidates).annotate(_matches=Exists(candidate))
         try:
             milliseconds = max(1, round((deadline - monotonic()) * 1000))
             with _preview_query_budget(using, milliseconds):

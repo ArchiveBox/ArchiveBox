@@ -120,13 +120,24 @@ def test_tag_stream_prefers_exact_csv_matches_and_retains_substring_matches(craw
 def test_filetype_matches_literal_substrings_of_the_final_extension(crawl):
     report = Snapshot.objects.create(crawl=crawl, url="https://arxiv.org/pdf/1706.03762")
     other = Snapshot.objects.create(crawl=crawl, url="https://arxiv.org/abs/1706.03762")
-    ArchiveResult.objects.create(snapshot=report, plugin="wget", output_files={"paper/report.PDF": {}, "main.c++": {}})
+    ArchiveResult.objects.create(
+        snapshot=report,
+        plugin="wget",
+        output_files={"paper/report.PDF": {}, "main.c++": {}, "guide.linK": {}, "settings.ini": {}},
+    )
     ArchiveResult.objects.create(snapshot=other, plugin="wget", output_files={"paper.pdf/index": {}, "report.pdf.html": {}})
     scope = Snapshot.objects.filter(pk__in=[report.pk, other.pk])
     for query in ("filetype:df", "filetype:zip,DF", 'filetype:"++"'):
         assert list(SnapshotSearch(scope, query).stream()) == [report.pk], query
     for query in ("filetype:Df", 'filetype:"%"', 'filetype:"."'):
         assert not SnapshotSearch(scope, query).queryset().exists(), query
+    from django.db import connection
+
+    if connection.vendor == "sqlite":
+        # Python's case folding can match either a Unicode path or a Unicode
+        # needle to ASCII. A native prefilter must preserve both directions.
+        for query in ("filetype:link", "filetype:ıni"):
+            assert list(SnapshotSearch(scope, query).stream()) == [report.pk], query
 
 
 def test_nested_sql_predicates_keep_membership_across_operand_orders(crawl):
@@ -153,6 +164,30 @@ def test_nested_sql_predicates_keep_membership_across_operand_orders(crawl):
         assert sql.index("bookmarked_at") < sql.index("core_archiveresult")
         complement = SnapshotSearch(scope, f"~(({conjunction}) OR domain:sqlite.org)")
         assert list(complement.stream()) == [other.pk]
+
+
+def test_grouped_domain_and_tag_alternatives_on_known_snapshots(crawl):
+    from django.db.models import Exists, OuterRef
+
+    host = Snapshot.objects.create(crawl=crawl, url="https://sqlite.org/queryplanner.html")
+    tagged = Snapshot.objects.create(crawl=crawl, url="https://www.postgresql.org/docs/current/")
+    tagged.save_tags(["Query,Plan", "relational"])
+    excluded = Snapshot.objects.create(crawl=crawl, url="https://www.python.org/")
+    excluded.save_tags(["relational"])
+    scope = Snapshot.objects.filter(pk__in=[host.pk, tagged.pk, excluded.pk])
+    expressions = {
+        'domain:lite OR (tags:"Query,Plan" OR domain:absent OR tags:missing)': {host.pk, tagged.pk},
+        '~(domain:lite OR (tags:"Query,Plan",relational OR domain:absent OR tags:missing))': {excluded.pk},
+    }
+    for expr, expected in expressions.items():
+        matches = SnapshotSearch(scope, expr).sql_queryset()
+        assert set(matches.values_list("pk", flat=True)) == expected
+        candidate = matches.filter(pk=OuterRef("pk"))
+        candidate.query._archivebox_candidate_row = True
+        probe = scope.filter(Exists(candidate))
+        assert set(probe.values_list("pk", flat=True)) == expected
+        assert str(matches.query).count("SELECT DISTINCT") == 1
+        assert "SELECT DISTINCT" not in str(probe.query)
 
 
 def test_public_search_scope_completion_and_invalid_query(client, crawl):
