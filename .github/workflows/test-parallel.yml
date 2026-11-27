@@ -219,6 +219,9 @@ jobs:
           # Prefer the public archive over the remaining cloud-local mirror.
           # The Azure mirror can trickle bytes indefinitely without triggering
           # APT's stall timeout: https://github.com/actions/runner-images/issues/14823
+          # The runner's unrelated Microsoft feed returns 403 and makes APT
+          # reject the entire index refresh before Chrome's Ubuntu dependencies.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           if [[ -f /etc/apt/apt-mirrors.txt ]]; then
             sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
             sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
