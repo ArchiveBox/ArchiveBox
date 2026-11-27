@@ -210,6 +210,14 @@ def dir_is_writable(dir_path: Path, uid: int | None = None, gid: int | None = No
     return False
 
 
+def dir_is_read_only_mount(dir_path: Path) -> bool:
+    """Check if a given directory exists on a filesystem mounted read-only (e.g. a Docker --read-only root)"""
+    try:
+        return os.path.isdir(dir_path) and bool(os.statvfs(dir_path).f_flag & os.ST_RDONLY)
+    except OSError:
+        return False
+
+
 def assert_dir_can_contain_unix_sockets(dir_path: Path) -> bool:
     """Check if a given directory can contain unix sockets (e.g. /tmp/supervisord.sock)"""
     from archivebox.misc.logging_util import pretty_path
@@ -477,7 +485,9 @@ def get_code_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs
             "ABXPKG_LIB_DIR": {
                 "path": lib_dir.resolve(),
                 "enabled": True,
-                "is_valid": os.path.isdir(lib_dir) and os.access(lib_dir, os.R_OK) and os.access(lib_dir, os.W_OK),  # read + write
+                "is_valid": os.path.isdir(lib_dir)
+                and os.access(lib_dir, os.R_OK)
+                and (os.access(lib_dir, os.W_OK) or dir_is_read_only_mount(lib_dir)),  # read + write, or a read-only image lib
             },
         },
     )

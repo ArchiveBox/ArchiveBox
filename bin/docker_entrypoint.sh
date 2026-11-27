@@ -78,14 +78,19 @@ if [[ "$(id -u)" == "0" ]]; then
     # Root is only used for startup permission repair. ArchiveBox/Chrome run as
     # the existing collection owner, or as the image default user for root-owned
     # /data, so application code never needs to know about Docker uid mapping.
-    groupmod -o -g "$TARGET_GID" "$ARCHIVEBOX_USER" > /dev/null 2>&1 || {
-        echo -e "\n[X] Error: Failed to set $ARCHIVEBOX_USER group to gid=$TARGET_GID." > /dev/stderr
-        exit 3
-    }
-    usermod -o -u "$TARGET_UID" -g "$TARGET_GID" "$ARCHIVEBOX_USER" > /dev/null 2>&1 || {
-        echo -e "\n[X] Error: Failed to set $ARCHIVEBOX_USER user to uid=$TARGET_UID gid=$TARGET_GID." > /dev/stderr
-        exit 3
-    }
+    # Skip unchanged ids: /etc may be read-only (docker run --read-only).
+    if [[ "$(getent group "$ARCHIVEBOX_USER" | cut -d: -f3)" != "$TARGET_GID" ]]; then
+        groupmod -o -g "$TARGET_GID" "$ARCHIVEBOX_USER" > /dev/null 2>&1 || {
+            echo -e "\n[X] Error: Failed to set $ARCHIVEBOX_USER group to gid=$TARGET_GID." > /dev/stderr
+            exit 3
+        }
+    fi
+    if [[ "$(id -u "$ARCHIVEBOX_USER"):$(id -g "$ARCHIVEBOX_USER")" != "$TARGET_UID:$TARGET_GID" ]]; then
+        usermod -o -u "$TARGET_UID" -g "$TARGET_GID" "$ARCHIVEBOX_USER" > /dev/null 2>&1 || {
+            echo -e "\n[X] Error: Failed to set $ARCHIVEBOX_USER user to uid=$TARGET_UID gid=$TARGET_GID." > /dev/stderr
+            exit 3
+        }
+    fi
 
     export TARGET_UID="$(id -u "$ARCHIVEBOX_USER")"
     export TARGET_GID="$(id -g "$ARCHIVEBOX_USER")"
@@ -201,11 +206,25 @@ permission_error() {
     exit 3
 }
 
+# The image ships CONFIG_DIR and ABXPKG_LIB_DIR with every dependency already
+# installed, so they may be mounted read-only (docker run --read-only, Kubernetes
+# readOnlyRootFilesystem). A read-only mount cannot be repaired and needs no
+# writes until a new dependency is installed, so leave it as it is.
+is_read_only_mount() {
+    local path="$1"
+    [[ -d "$path" ]] || return 1
+    [[ ",$(findmnt --noheadings --output OPTIONS --target "$path" 2>/dev/null)," == *,ro,* ]]
+}
+
 # Create and repair only the small set of required paths. Functional checks run
 # as the final non-root identity first, so writable NFS/CIFS/FUSE mounts never
 # receive repeated chown attempts. Never recursively walk /data/archive here.
 ensure_dir "$DATA_DIR"
-ensure_dir "$CONFIG_DIR"
+if ! is_read_only_mount "$CONFIG_DIR"; then
+    ensure_dir "$CONFIG_DIR"
+    ensure_file_owner "$CONFIG_DIR/config.env"
+    ensure_file_owner "$CONFIG_DIR/derived.env"
+fi
 ensure_dir "$DATA_DIR/logs"
 # Collection temp paths are separate from the configured runtime TMP_DIR.
 ensure_dir "$DATA_DIR/tmp"
@@ -219,8 +238,6 @@ ensure_dir "$PERSONAS_DIR/Default/chrome_profile"
 ensure_file_owner "$DATA_DIR/index.sqlite3"
 ensure_file_owner "$DATA_DIR/ArchiveBox.conf"
 ensure_file_owner "$DATA_DIR/logs/errors.log"
-ensure_file_owner "$CONFIG_DIR/config.env"
-ensure_file_owner "$CONFIG_DIR/derived.env"
 
 assert_writable_dir() {
     local path="$1"
@@ -262,33 +279,35 @@ ensure_dir "${XDG_CONFIG_HOME:-/home/$ARCHIVEBOX_USER/.config}"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR/semaphores"
 ensure_small_runtime_tree "$UV_CACHE_DIR"
-ensure_dir "$PLAYWRIGHT_BROWSERS_PATH"
+is_read_only_mount "$PLAYWRIGHT_BROWSERS_PATH" || ensure_dir "$PLAYWRIGHT_BROWSERS_PATH"
 ensure_runtime_tmp_tree
-ensure_dir "$ABXPKG_LIB_DIR"
-ensure_dir "$ABXPKG_LIB_DIR/env"
-ensure_dir "$ABXPKG_LIB_DIR/env/bin"
-# abxpkg writes small derived.env projections per provider and package. Repair
-# only those directories and files; package/cache contents can be large.
-for provider_dir in "$ABXPKG_LIB_DIR"/*; do
-    [[ -d "$provider_dir" ]] || continue
-    ensure_dir "$provider_dir"
-    ensure_file_owner "$provider_dir/derived.env"
-    # New package installs need to create siblings, not just update existing
-    # package directories. This parent retains the image UID after PUID remaps.
-    [[ ! -d "$provider_dir/packages" ]] || ensure_dir "$provider_dir/packages"
-    for package_dir in "$provider_dir"/packages/*; do
-        [[ -d "$package_dir" ]] || continue
-        ensure_dir "$package_dir"
-        ensure_file_owner "$package_dir/derived.env"
+if ! is_read_only_mount "$ABXPKG_LIB_DIR"; then
+    ensure_dir "$ABXPKG_LIB_DIR"
+    ensure_dir "$ABXPKG_LIB_DIR/env"
+    ensure_dir "$ABXPKG_LIB_DIR/env/bin"
+    # abxpkg writes small derived.env projections per provider and package. Repair
+    # only those directories and files; package/cache contents can be large.
+    for provider_dir in "$ABXPKG_LIB_DIR"/*; do
+        [[ -d "$provider_dir" ]] || continue
+        ensure_dir "$provider_dir"
+        ensure_file_owner "$provider_dir/derived.env"
+        # New package installs need to create siblings, not just update existing
+        # package directories. This parent retains the image UID after PUID remaps.
+        [[ ! -d "$provider_dir/packages" ]] || ensure_dir "$provider_dir/packages"
+        for package_dir in "$provider_dir"/packages/*; do
+            [[ -d "$package_dir" ]] || continue
+            ensure_dir "$package_dir"
+            ensure_file_owner "$package_dir/derived.env"
+        done
     done
-done
-# Chromium persists compiled declarativeNetRequest rules under each unpacked
-# extension's _metadata directory. Repair this bounded provider tree when the
-# container maps the archivebox account to a different bind-mount UID/GID.
-chromewebstore_extensions_dir="$ABXPKG_LIB_DIR/chromewebstore/extensions"
-if [[ -d "$chromewebstore_extensions_dir" \
-    && "$(stat -c '%u:%g' "$chromewebstore_extensions_dir" 2>/dev/null || true)" != "$TARGET_UID:$TARGET_GID" ]]; then
-    ensure_small_runtime_tree "$chromewebstore_extensions_dir"
+    # Chromium persists compiled declarativeNetRequest rules under each unpacked
+    # extension's _metadata directory. Repair this bounded provider tree when the
+    # container maps the archivebox account to a different bind-mount UID/GID.
+    chromewebstore_extensions_dir="$ABXPKG_LIB_DIR/chromewebstore/extensions"
+    if [[ -d "$chromewebstore_extensions_dir" \
+        && "$(stat -c '%u:%g' "$chromewebstore_extensions_dir" 2>/dev/null || true)" != "$TARGET_UID:$TARGET_GID" ]]; then
+        ensure_small_runtime_tree "$chromewebstore_extensions_dir"
+    fi
 fi
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"

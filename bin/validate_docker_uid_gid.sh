@@ -166,6 +166,27 @@ if grep -R "Permission denied\\|Operation not permitted" /tmp/archivebox-add.log
 fi
 find "$snapshot_dir" -maxdepth 2 -type f | sort | sed "s#^#ABX_OUTPUT #"
 echo ABX_OK'
+# shellcheck disable=SC2016
+read_only_root_cmd='set -Eeuo pipefail
+printf "ABX_UID=%s\nABX_GID=%s\n" "$(id -u)" "$(id -g)"
+if touch "$ABXPKG_LIB_DIR/probe" 2>/dev/null; then
+    echo "ABX_LIB_DIR_WRITABLE"
+    exit 1
+fi
+archivebox init
+archivebox version 2>&1 | tee /tmp/archivebox-version.log
+grep -Eq "ABXPKG_LIB_DIR +[0-9]+ files +valid" /tmp/archivebox-version.log
+archivebox add --depth=0 --plugins=wget,trafilatura,singlefile https://example.com/ 2>&1 | tee /tmp/archivebox-add.log
+snapshot_dir="$(find /data/archive/users/system/snapshots -mindepth 3 -maxdepth 3 -type d | head -n 1)"
+test -n "$snapshot_dir"
+grep -q "Example Domain" "$snapshot_dir/wget/example.com/index.html"
+grep -q "Example Domain" "$snapshot_dir/trafilatura/content.txt"
+grep -q "Example Domain" "$snapshot_dir/singlefile/singlefile.html"
+if grep -R "Read-only file system" /tmp/archivebox-add.log /data/logs 2>/dev/null; then
+    echo "ABX_READ_ONLY_WRITE_IN_FLOW"
+    exit 1
+fi
+echo ABX_OK'
 
 run_case() {
     local name="$1"
@@ -409,6 +430,63 @@ run_full_flow_case() {
     else
         failed=$((failed + 1))
         log "FAIL $name (status=$status expected=full-flow success log=$log_file)"
+        sed -n '1,220p' "$log_file"
+    fi
+}
+
+run_read_only_root_case() {
+    local name="$1"
+    local setup_script="$2"
+    local user_spec="$3"
+    local expected_uid="$4"
+    local expected_gid="$5"
+
+    total=$((total + 1))
+    local slug case_dir log_file status ok
+    slug="$(safe_name "$name")"
+    case_dir="$VALIDATION_ROOT/$slug"
+    log_file="$case_dir/output.log"
+    docker_setup "$case_dir" "$setup_script"
+
+    # Docker gives a tmpfs over an existing image dir that dir's mode, but root
+    # ownership, so a non-root start needs the home tmpfs owned by its user.
+    local run_args=(
+        "${docker_base[@]}"
+        --read-only
+        --tmpfs /tmp
+        --tmpfs "/home/archivebox:uid=$expected_uid,gid=$expected_gid"
+    )
+    if [[ "$user_spec" != "-" ]]; then
+        run_args+=(--user "$user_spec")
+    fi
+    run_args+=(
+        -e DATA_DIR=/data
+        -e XDG_CACHE_HOME=/home/archivebox/.cache
+        -v "$ENTRYPOINT_PATH:/app/bin/docker_entrypoint.sh:ro"
+        -v "$case_dir/data:/data"
+        --entrypoint /app/bin/docker_entrypoint.sh
+        "$IMAGE"
+        bash -c "$read_only_root_cmd"
+    )
+
+    set +e
+    "${run_args[@]}" >"$log_file" 2>&1
+    status=$?
+    set -e
+
+    ok=1
+    [[ "$status" == "0" ]] || ok=0
+    grep -q "^ABX_UID=$expected_uid$" "$log_file" || ok=0
+    grep -q "^ABX_GID=$expected_gid$" "$log_file" || ok=0
+    grep -q '^ABX_OK$' "$log_file" || ok=0
+    grep -q 'total urls snapshotted: 1' "$log_file" || ok=0
+
+    if [[ "$ok" == "1" ]]; then
+        passed=$((passed + 1))
+        log "PASS $name"
+    else
+        failed=$((failed + 1))
+        log "FAIL $name (status=$status expected=read-only root success log=$log_file)"
         sed -n '1,220p' "$log_file"
     fi
 }
@@ -678,6 +756,14 @@ run_case "1001-owned data auto-detected" \
 run_case "root-owned ArchiveBox.conf only is repaired" \
     "chown 911:911 /case/data && chmod 755 /case/data && touch /case/data/ArchiveBox.conf /case/data/index.sqlite3 && chown 0:0 /case/data/ArchiveBox.conf /case/data/index.sqlite3" \
     "-" "-" pass 911 911 "$default_cmd" config-files-repaired
+
+run_read_only_root_case "read-only root filesystem uses preinstalled dependencies" \
+    "chown 911:911 /case/data" \
+    "911:911" 911 911
+
+run_read_only_root_case "read-only root filesystem started as root keeps the default user" \
+    "chown 0:0 /case/data" \
+    "-" 911 911
 
 run_compose_personas_case
 run_compose_fresh_up_case

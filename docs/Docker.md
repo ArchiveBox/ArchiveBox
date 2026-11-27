@@ -153,6 +153,19 @@ Then open [`http://web.archivebox.localhost:5797`](http://web.archivebox.localho
 
 Use port **5797** for new deployments. The Docker container also listens on the old port **8000** so existing port mappings remain compatible.
 
+<a id="read-only-root-filesystem"></a>
+#### Read-only root filesystem
+
+The image ships every plugin dependency preinstalled in [`ABXPKG_LIB_DIR`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#abxpkg_lib_dir) (`/opt/archivebox/lib`), so it can run with a read-only root filesystem (`docker run --read-only`, Kubernetes `readOnlyRootFilesystem: true`). When `/opt/archivebox` is on a read-only mount, the entrypoint skips its permission repairs there and ArchiveBox uses the preinstalled dependencies as they are. Dependencies that are not already in the image cannot be installed in this mode. Chrome extensions keep working, since each browser loads its own copy of them from its profile, where Chromium writes their compiled rules.
+
+`/data`, `/tmp` and the `archivebox` user's home (`/home/archivebox`) must still be writable, and `XDG_CACHE_HOME` (which defaults to `/opt/archivebox/lib/cache`) must point somewhere writable, e.g. inside the home volume:
+
+```bash
+docker run --read-only --tmpfs /tmp -v archivebox-home:/home/archivebox -e XDG_CACHE_HOME=/home/archivebox/.cache -v "$PWD":/data -p 5797:5797 archivebox/archivebox:dev
+```
+
+On Kubernetes, mount `emptyDir` volumes at `/tmp` and `/home/archivebox` and set the same `XDG_CACHE_HOME`. Prefer running as the image's default `911:911`: other UIDs work, but cannot read the image's dependency resolution caches and resolve every dependency again on each run. A container started as root cannot apply [`PUID`/`PGID`](#docker-puid--pgid) or remap to the owner of `/data` here, because that requires writing `/etc/passwd`; start it as the desired UID/GID instead (`--user`, `runAsUser`/`runAsGroup`).
+
 <br/>
 
 ### Configuration
