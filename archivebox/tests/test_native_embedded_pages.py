@@ -83,4 +83,9 @@ def test_server_owns_native_header_and_progress(platform, admin_user, snapshot, 
             else:
                 expect(back).to_have_count(0)
             page.locator("main").screenshot(path=str(tmp_path / f"activity-{platform}.png"))
+            page.goto(f"{admin}/admin/core/snapshot/", wait_until="domcontentloaded")
+            editor = page.get_by_role("combobox", name="Search snapshots")
+            expect(editor).not_to_be_focused()
+            assert page.evaluate("window.archiveBoxFocusSearch()") is True
+            expect(editor).to_be_focused()
         browser.close()

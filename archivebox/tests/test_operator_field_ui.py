@@ -157,12 +157,22 @@ def test_standalone_mobile_search_submits_from_keyboard(live_server, crawl, brow
         desktop = browser.new_page()
         desktop.goto(url)
         expect(desktop.get_by_role("button", name="Search", exact=True)).to_be_visible()
+        assert desktop.evaluate("typeof window.archiveBoxFocusSearch") == "undefined"
         for width in (320, 430, 844):
-            phone = browser.new_page(viewport={"width": width, "height": 400}, is_mobile=True, has_touch=True, color_scheme="dark")
+            phone = browser.new_page(
+                viewport={"width": width, "height": 400},
+                is_mobile=True,
+                has_touch=True,
+                color_scheme="dark",
+                user_agent="ArchiveBoxNative/Android",
+            )
             phone.goto(url)
             expect(phone.locator('button[type="submit"]')).to_be_hidden()
             editor = phone.get_by_role("combobox", name="Search snapshots")
             expect(editor).to_have_attribute("enterkeyhint", "search")
+            expect(editor).not_to_be_focused()
+            assert phone.evaluate("window.archiveBoxFocusSearch()") is True
+            expect(editor).to_be_focused()
             expect(phone.locator(".abx-query-control")).to_have_css("background-color", "rgb(255, 255, 255)")
             editor.fill('title:"Mobile keyboard"')
             editor.press("Enter")

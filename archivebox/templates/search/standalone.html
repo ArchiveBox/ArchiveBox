@@ -1,5 +1,5 @@
 {% load search_field %}<!doctype html>
-<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Search ArchiveBox</title></head>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Search ArchiveBox</title>{% include "core/native_embed.html" %}</head>
 <body class="abx-search-standalone"><form role="search" action="{% if admin_target %}{% url 'admin:core_snapshot_changelist' %}{% else %}{% url 'public-index' %}{% endif %}" method="get">
 {% search_field request.GET.q %}<button type="submit">Search</button>
 </form></body></html>

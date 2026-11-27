@@ -10,11 +10,33 @@
     const root = document.documentElement;
     root.classList.add('archivebox-native-mobile');
     {% if native_activity %}root.classList.add('archivebox-native-activity');{% endif %}
+
+    function searchEditor() {
+        const form = document.querySelector('#changelist-search, .abx-search-standalone > form[role="search"]');
+        if (!form) return;
+        const enhanced = form.querySelector('.abx-search-field');
+        const field = enhanced?.dataset.ready
+            ? enhanced.querySelector('[role="combobox"]')
+            : (!enhanced || document.readyState === 'complete') && form.querySelector('input[name="q"], #searchbar');
+        if (field && !field.disabled && field.getClientRects().length && getComputedStyle(field).visibility === 'visible') return field;
+    }
+    // The app invokes this synchronously for an explicit Search tap so the
+    // WebView can open its keyboard. Normal visits must not steal focus.
+    window.archiveBoxFocusSearch = () => {
+        const field = searchEditor();
+        if (!field) return document.readyState === 'complete' ? false : null;
+        // WKWebView can keep DOM focus after the keyboard is dismissed.
+        if (ios && document.activeElement === field) field.blur();
+        field.focus();
+        return document.activeElement === field;
+    };
+
     if (!ios) return;
     root.classList.add('archivebox-native-app', 'archivebox-ios-app');
     if (/iPhone|iPod/.test(ua)) root.classList.add('archivebox-ios-phone');
 
     document.addEventListener('DOMContentLoaded', () => {
+        if (searchEditor()) window.webkit?.messageHandlers?.archiveBoxNativeSearch?.postMessage('ready');
         const header = document.querySelector('#header');
         const adminBrand = header?.querySelector('#branding a:has(img)');
         const replayBrand = document.querySelector('.header-top .header-archivebox:has(img)');
