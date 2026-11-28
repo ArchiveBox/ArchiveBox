@@ -368,6 +368,7 @@ See <a href="#cli-usage">below</a> for usage examples using the CLI, Web UI, or 
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
 <li><a href="https://pethost.dev/templates/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-Pethost.dev-%230e0e0e.svg?style=flat" height="22px"/></a> (from EUR €9.99/mo)</li>
+<li><a href="https://www.simafri.com/en/guides/self-host-archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-Simafri.com-%232d5eb4.svg?style=flat" height="22px"/></a> (from USD $19.99/mo)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%232f7cf7.svg?style=flat" height="22px"/>
 </a> (USD $5-50+/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
